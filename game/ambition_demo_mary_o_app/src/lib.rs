@@ -232,7 +232,6 @@ fn load_mary_o_game_assets(
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
-    mut character_demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
     // Startup asset binding precedes gameplay activation, so derive the theme from
     // Mary-O's immutable authored room rather than a not-yet-published session root.
@@ -248,16 +247,12 @@ fn load_mary_o_game_assets(
         quality.as_deref().map(|q| &q.budget),
     );
 
-    // DEMAND Mary-O's forms; the engine materializer decodes them.
-    //
-    // This used to check whether the sheets were bound right here and `warn!` when
-    // they were not — and it warned on every boot, because nothing in this
-    // application ever ran the step that decodes them. That was the bug: the
-    // materializer lived in `ambition_app`, so Mary-O drew a rectangle in her own
-    // game and correctly in the multi-game host. Asking is all a provider does
-    // now, and `CharacterLoadStates` records the answer for every form, including
-    // the ones a runtime growth swaps into later.
-    character_demand.request_all([ambition_demo_mary_o::MARY_O_CHARACTER_ID, "mary_o_tall"]);
+    // No character demand here. Mary-O's two forms each `register_character` in
+    // the PROVIDER (`install_mary_o_content`), which publishes the prepared
+    // definition and demands its art in one call -- so the app names no sheets and
+    // cannot forget a form. This block used to check whether the sheets had bound
+    // and `warn!` when they had not, which warned on every boot because nothing in
+    // this application ran the step that decodes them.
 
     // The milk-carton pickup art is now contributed as data by
     // `MaryOExperiencePlugin` (`register_world_item_art`) and resolved into a real

@@ -25,7 +25,7 @@ use ambition::actors::rooms::RoomLoaded;
 use ambition::engine_core as ae;
 use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
 
-use crate::{brick_index_for, brick_min, brick_name, BRICK_COUNT, LEVEL_1_1_ROOM_ID, T};
+use crate::{BRICK_COUNT, LEVEL_1_1_ROOM_ID, T, brick_index_for, brick_min, brick_name};
 
 // One bit per brick in [`BrokenBricks`]; the level authors far fewer than 32.
 const _: () = assert!(

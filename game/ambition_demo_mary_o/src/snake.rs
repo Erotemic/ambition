@@ -52,7 +52,7 @@ use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 use ambition::sprite_sheet::character::CharacterAnim;
 
-use crate::stomp::{player_touch, PlayerTouch};
+use crate::stomp::{PlayerTouch, player_touch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` a snake renders from, and the name every snake
@@ -402,12 +402,7 @@ pub fn register_solid_snake_sheet(
     else {
         return;
     };
-    if config.no_assets
-        || game_assets
-            .characters
-            .sheet(SNAKE_DISPLAY_NAME)
-            .is_some()
-    {
+    if config.no_assets || game_assets.characters.sheet(SNAKE_DISPLAY_NAME).is_some() {
         return;
     }
     if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
@@ -422,7 +417,9 @@ pub fn register_solid_snake_sheet(
         game_assets
             .characters
             .publish_under(SNAKE_SHEET_TARGET, asset.clone());
-        game_assets.characters.publish_under(SNAKE_DISPLAY_NAME, asset);
+        game_assets
+            .characters
+            .publish_under(SNAKE_DISPLAY_NAME, asset);
     }
 }
 

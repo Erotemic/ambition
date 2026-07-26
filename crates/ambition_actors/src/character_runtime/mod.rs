@@ -35,11 +35,17 @@
 //! bosses all arrive through the same door.
 
 pub mod audit;
+pub mod definition;
 pub mod staging;
 
 pub use audit::{
     CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
     unsettled_staged_characters,
+};
+pub use definition::{
+    prepare_character, BodySource, CharacterBindings, CharacterDefinition,
+    CharacterDefinitionAppExt, CharacterRegistrationError, Lineage, PreparedCharacter,
+    PreparedCharacterDefinition, PreparedCharacterRegistry, Vitals,
 };
 pub use staging::{
     DirectStartupSpec, MatchParticipant, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,
@@ -334,5 +340,7 @@ impl Plugin for CharacterRuntimePlugin {
     }
 }
 
+#[cfg(test)]
+mod definition_tests;
 #[cfg(test)]
 mod tests;

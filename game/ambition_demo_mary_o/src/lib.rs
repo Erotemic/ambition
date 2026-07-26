@@ -32,8 +32,8 @@ pub mod snake;
 pub mod stomp;
 
 pub use provider::{
-    mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
-    MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
+    MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
+    MaryOExperiencePlugin, MaryOSessionWorld, mary_o_session_world,
 };
 
 use ambition::engine_core as ae;
@@ -1040,6 +1040,34 @@ pub fn install_mary_o_content(app: &mut App) {
         )
         .expect("Mary-O character catalog should be valid"),
     );
+    // §7.6: the ONE character seam. Mary-O and her grown form each register as a
+    // single definition, which publishes the prepared authority AND demands their
+    // art -- so this provider no longer names sheets, checks whether they bound, or
+    // knows that art and gameplay numbers are consumed by different subsystems.
+    //
+    // Deliberately BOTH forms: a runtime growth into `mary_o_tall` is a different
+    // character definition, not a mode of this one (§4.3), and it needs its own art
+    // demanded or the grown Mary-O draws a placeholder.
+    {
+        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        for (id, display, sheet) in [
+            (
+                provider::MARY_O_CHARACTER_ID,
+                "Mary-O",
+                "super_mary_o_spritesheet",
+            ),
+            (
+                "mary_o_tall",
+                "Mary-O (Tall)",
+                "super_mary_o_tall_spritesheet",
+            ),
+        ] {
+            app.register_character(
+                CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
+                    .with_sheet(sheet),
+            );
+        }
+    }
     // Mary-O's two enemies — Solid Snake (the shell) and AI Slop (the plain
     // stomp-and-die walker) — are authored content, so install their archetypes and
     // room stagers before direct or shell preparation fingerprints the App. Both

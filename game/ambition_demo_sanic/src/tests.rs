@@ -1035,9 +1035,8 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
     app.add_plugins(SanicRulesPlugin::global());
 
     assert!(
-        app.world().contains_resource::<
-            bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>,
-        >(),
+        app.world()
+            .contains_resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>(),
         "SanicRulesPlugin owns a mandatory SfxWriter dependency and must register it when a thin host has not"
     );
 }
@@ -1730,7 +1729,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
 /// exists to disprove.
 #[test]
 fn the_act_score_pays_for_speed_and_for_rings_kept() {
-    use crate::{act_score, act_time_text, ACT_PAR_SECONDS};
+    use crate::{ACT_PAR_SECONDS, act_score, act_time_text};
 
     // Faster is worth more, all else equal.
     let quick = act_score(20.0, 0);

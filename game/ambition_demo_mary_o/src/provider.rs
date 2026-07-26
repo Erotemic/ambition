@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use ambition::engine_core as ae;
 use ambition::presentation::profiles;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition::runtime::PreparedPlatformerSource;
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PreparedPlatformerSource;
 
-use crate::{level_1_1, MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
+use crate::{LEVEL_1_1_ROOM_ID, MaryORulesPlugin, level_1_1};
 
 pub const MARY_O_EXPERIENCE: &str = "mary_o";
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";

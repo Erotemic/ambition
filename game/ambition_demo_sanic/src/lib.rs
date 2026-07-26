@@ -513,8 +513,8 @@ pub mod monitors;
 pub mod provider;
 
 pub use provider::{
-    sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
-    SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
+    SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE, SanicExperiencePlugin,
+    SanicSessionWorld, sanic_session_world,
 };
 
 /// Content plugin for the Sanic movement demo: registers Sanic's App-local
@@ -546,6 +546,24 @@ pub fn install_sanic_content(app: &mut App) {
         )
         .expect("Sanic character catalog should be valid"),
     );
+    // §7.6: both forms through the ONE character seam. Each registration publishes
+    // the prepared definition and demands its art, so the standalone app stopped
+    // naming sheets and stopped hand-rolling the decode.
+    {
+        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        for (id, display, sheet) in [
+            (SANIC_CHARACTER_ID, "Sanic", "sanic_spritesheet"),
+            (
+                SUPER_SANIC_CHARACTER_ID,
+                "Super Sanic",
+                "super_sanic_spritesheet",
+            ),
+        ] {
+            app.register_character(
+                CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE).with_sheet(sheet),
+            );
+        }
+    }
     badnik::register_badnik_roster(app);
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(

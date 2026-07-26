@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use ambition::engine_core as ae;
 use ambition::presentation::profiles;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition::runtime::PreparedPlatformerSource;
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PreparedPlatformerSource;
 
-use crate::{sanic_speedway, SanicRulesPlugin, SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID};
+use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_speedway};
 
 pub const SANIC_EXPERIENCE: &str = "sanic";
 pub const SANIC_GAMEPLAY_ROUTE: &str = "sanic_gameplay";

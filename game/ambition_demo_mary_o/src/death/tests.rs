@@ -176,12 +176,13 @@ fn a_quiet_level_never_restarts_itself() {
         app.update();
         assert_eq!(replays(&mut app), 0);
     }
-    assert!(!app
-        .world_mut()
-        .query::<&MaryODeathSequence>()
-        .single(app.world())
-        .unwrap()
-        .active());
+    assert!(
+        !app.world_mut()
+            .query::<&MaryODeathSequence>()
+            .single(app.world())
+            .unwrap()
+            .active()
+    );
 }
 
 /// **The death track is DECLARED, not just requested.**

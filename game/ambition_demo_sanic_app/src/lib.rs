@@ -243,7 +243,6 @@ fn load_sanic_game_assets(
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
-    mut character_demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
     // Startup asset binding precedes gameplay activation in the shared host, so
     // derive the presentation theme from Sanic's immutable authored world rather
@@ -265,16 +264,9 @@ fn load_sanic_game_assets(
     // (`register_sanic_ring_prop_sheet`, added in `install_sanic_content`) so it
     // loads identically here and in the multi-game host — not app-side.
 
-    // DEMAND both Sanic forms; the ENGINE decodes them (§7.1).
-    //
-    // This app used to hand-roll the decode AND check the result here, warning on
-    // every boot because startup no longer decodes anything. Both halves are gone:
-    // a provider asks, the engine materializes, and `CharacterLoadStates` records
-    // a terminal answer for each form.
-    character_demand.request_all([
-        ambition_demo_sanic::SANIC_CHARACTER_ID,
-        ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
-    ]);
+    // No character demand here: both Sanic forms `register_character` in the
+    // PROVIDER (`install_sanic_content`), which publishes each prepared definition
+    // and demands its art in one call.
     info!(
         "sanic_demo: loaded {} parallax layer handle(s) for the active room",
         game_assets.parallax_layers.len()

@@ -32,7 +32,7 @@ use ambition::characters::actor::BodyHealth;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 
-use crate::stomp::{player_touch, PlayerTouch};
+use crate::stomp::{PlayerTouch, player_touch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
@@ -114,12 +114,7 @@ pub fn register_ai_slop_sheet(
     else {
         return;
     };
-    if config.no_assets
-        || game_assets
-            .characters
-            .sheet(AI_SLOP_DISPLAY_NAME)
-            .is_some()
-    {
+    if config.no_assets || game_assets.characters.sheet(AI_SLOP_DISPLAY_NAME).is_some() {
         return;
     }
     if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
@@ -134,7 +129,9 @@ pub fn register_ai_slop_sheet(
         game_assets
             .characters
             .publish_under(AI_SLOP_SHEET_TARGET, asset.clone());
-        game_assets.characters.publish_under(AI_SLOP_DISPLAY_NAME, asset);
+        game_assets
+            .characters
+            .publish_under(AI_SLOP_DISPLAY_NAME, asset);
     }
 }
 

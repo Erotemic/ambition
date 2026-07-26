@@ -20,7 +20,7 @@ use ambition::characters::equipment::{
 
 use ambition::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::items::{spawn_world_item, WorldItem};
+use ambition::actors::items::{WorldItem, spawn_world_item};
 use ambition::actors::rooms::RoomLoaded;
 use ambition::characters::actor::WornCharacter;
 use ambition::engine_core as ae;
@@ -421,7 +421,7 @@ pub fn refill_power_blocks_on_room_loaded(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
+    use ambition::characters::equipment::{WornEquipment, apply_equipment_grants, resolved_ranged};
 
     /// The grow-cap absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn spark_blossom_grants_a_scaled_bouncing_spark() {
         use ambition::characters::brain::action_set::ActionSet;
-        use ambition::combat::moveset::{build_actor_moveset, RANGED_VERB};
+        use ambition::combat::moveset::{RANGED_VERB, build_actor_moveset};
 
         let worn = WornEquipment::new(vec![spark_blossom()]);
 

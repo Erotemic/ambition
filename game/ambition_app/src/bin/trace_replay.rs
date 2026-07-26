@@ -59,6 +59,8 @@ struct RecordedControls {
     blink_held: bool,
     blink_released: bool,
     attack_pressed: bool,
+    attack_held: bool,
+    attack_released: bool,
     pogo_pressed: bool,
     fly_toggle_pressed: bool,
     interact_pressed: bool,
@@ -94,6 +96,8 @@ impl From<RecordedControls> for AgentAction {
             jump_released: c.jump_released,
             dash: c.dash_pressed,
             attack: c.attack_pressed,
+            attack_held: c.attack_held,
+            attack_released: c.attack_released,
             // Recorded traces predate the dedicated Special slot; a replay carries
             // no special edge.
             special: false,
@@ -158,6 +162,8 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 blink_held: bool_field(controls, "blink_held"),
                 blink_released: bool_field(controls, "blink_released"),
                 attack_pressed: bool_field(controls, "attack_pressed"),
+                attack_held: bool_field(controls, "attack_held"),
+                attack_released: bool_field(controls, "attack_released"),
                 pogo_pressed: bool_field(controls, "pogo_pressed"),
                 fly_toggle_pressed: bool_field(controls, "fly_toggle_pressed"),
                 interact_pressed: bool_field(controls, "interact_pressed"),

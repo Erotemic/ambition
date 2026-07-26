@@ -115,6 +115,8 @@ pub struct UnroutableTechnique {
 /// the Attack slot is a technique, and a slot-less body cannot melee).
 fn clear_attack(control: &mut ActorControlFrame) {
     control.melee_pressed = false;
+    control.melee_held = false;
+    control.melee_released = false;
     control.pogo_pressed = false;
     control.attack_axis = ambition_engine_core::Vec2::ZERO;
 }
@@ -169,7 +171,8 @@ pub fn resolve_control_slots(
                         id,
                         Edge {
                             pressed: control.melee_pressed,
-                            ..Edge::NONE
+                            held: control.melee_held,
+                            released: control.melee_released,
                         },
                     );
                     clear_attack(control);
@@ -319,6 +322,14 @@ fn combat_actions(
     action_set: Option<&ActionSet>,
 ) -> Vec<ActionSpec> {
     let has_verb = |verb: &str| moveset.is_some_and(|m| m.verbs.contains_key(verb));
+    let has_directional_verb = |base: &str| {
+        let prefix = format!("{base}_");
+        moveset.is_some_and(|m| {
+            m.verbs
+                .keys()
+                .any(|verb| verb == base || verb.starts_with(&prefix))
+        })
+    };
     let move_label = |verb: &str| {
         moveset
             .and_then(|m| m.move_for_verb(verb))
@@ -338,7 +349,8 @@ fn combat_actions(
         }
     };
     push(
-        has_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some()),
+        has_directional_verb(ids::ATTACK)
+            || action_set.is_some_and(|a| a.melee.is_some()),
         ControlSlot::Attack,
         ids::ATTACK,
     );
@@ -348,7 +360,8 @@ fn combat_actions(
         ids::RANGED,
     );
     push(
-        has_verb(ids::SPECIAL) || action_set.is_some_and(|a| a.special.is_some()),
+        has_directional_verb(ids::SPECIAL)
+            || action_set.is_some_and(|a| a.special.is_some()),
         ControlSlot::Special,
         ids::SPECIAL,
     );
@@ -468,6 +481,15 @@ mod tests {
                 ControlSlot::Interact,
             ]
         );
+    }
+
+    #[test]
+    fn directional_only_moves_still_claim_their_control_slots() {
+        let ab = AbilitySet::default();
+        let ms = moveset(&["attack_forward", "special_air_up"]);
+        let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
+        assert!(scheme.has_slot(ControlSlot::Attack));
+        assert!(scheme.has_slot(ControlSlot::Special));
     }
 
     #[test]
@@ -640,6 +662,34 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn attack_technique_receives_press_hold_and_release() {
+        let scheme = one_slot_scheme(
+            ControlSlot::Attack,
+            Some(ActionGate::Technique("charge".into())),
+        );
+        let mut control = ActorControlFrame::default();
+        control.melee_pressed = true;
+        control.melee_held = true;
+        control.melee_released = true;
+        let mut edges = ResolvedTechniqueEdges::default();
+
+        let unroutable = resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+        assert!(unroutable.is_empty());
+        assert_eq!(
+            edges.edge("charge"),
+            Edge {
+                pressed: true,
+                held: true,
+                released: true,
+            }
+        );
+        assert!(!control.melee_pressed);
+        assert!(!control.melee_held);
+        assert!(!control.melee_released);
     }
 
     /// A held item repurposes the Attack and Projectile verbs (throw / use), so an

@@ -691,8 +691,10 @@ pub struct PresentationContract {
 /// gravity/input frames live). Drives directional move selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttackDir {
-    /// No directional aim — the plain forward/neutral attack.
+    /// No directional aim — the plain neutral attack / jab.
     Neutral,
+    /// Aimed in the body's facing direction (Smash forward tilt / forward air).
+    Forward,
     Up,
     Down,
     /// Aimed away from facing (Smash "back air"). +x is facing, so the runtime
@@ -706,12 +708,15 @@ pub enum AttackDir {
 /// fork (fable review AJ1: smash-style tilt/smash variants are MORE VERBS).
 ///
 /// Examples (`base = "attack"`):
+/// - aerial, `Forward`: `attack_air_forward` → `attack_forward` → `attack_air` → `attack`
+/// - grounded, `Forward`: `attack_forward` → `attack`
 /// - aerial, `Down`:   `attack_air_down` → `attack_down` → `attack_air` → `attack`
 /// - grounded, `Down`: `attack_down` → `attack`
 /// - grounded, `Neutral`: `attack`
 pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec<String> {
     let dir_suffix = match dir {
         AttackDir::Neutral => None,
+        AttackDir::Forward => Some("forward"),
         AttackDir::Up => Some("up"),
         AttackDir::Down => Some("down"),
         AttackDir::Back => Some("back"),

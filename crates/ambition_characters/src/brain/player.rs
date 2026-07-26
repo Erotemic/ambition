@@ -110,6 +110,8 @@ pub fn tick_player_brain_from_control(
 
     // Combat verbs.
     out.melee_pressed = c.attack_pressed;
+    out.melee_held = c.attack_held;
+    out.melee_released = c.attack_released;
     // Per-tilt direction for the attack, in the controlled body's local frame.
     // Zero still means "use facing".
     out.attack_axis = local_axis;

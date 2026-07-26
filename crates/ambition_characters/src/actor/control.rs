@@ -184,6 +184,10 @@ pub struct ActorControlFrame {
     /// simulation half handles cooldown gating; the brain just
     /// signals intent.
     pub melee_pressed: bool,
+    /// Sustain: the melee/attack button is currently held.
+    pub melee_held: bool,
+    /// Falling edge: the melee/attack button was released this tick.
+    pub melee_released: bool,
     /// Brain wants to fire a projectile this tick. `Some` carries the
     /// launch direction + speed; `None` is "no shot".
     pub fire: Option<ActorFireRequest>,
@@ -369,6 +373,8 @@ impl ActorControlFrame {
     /// counters, and trace recording predicates.
     pub fn wants_any_action(&self) -> bool {
         self.melee_pressed
+            || self.melee_held
+            || self.melee_released
             // The dedicated pogo button is a melee-swing trigger (the air-down
             // variant), so a pogo-only frame genuinely wants an action — omitting it
             // made any `resolve()`/processing gated on this drop the pogo swing.
@@ -393,6 +399,7 @@ impl ActorControlFrame {
         self.interact_pressed = false;
         self.special_pressed = false;
         self.melee_pressed = false;
+        self.melee_released = false;
         self.fire = None;
     }
 }
@@ -433,6 +440,8 @@ mod tests {
         assert!(!frame.drop_through);
         assert_eq!(frame.facing, 0.0);
         assert!(!frame.melee_pressed);
+        assert!(!frame.melee_held);
+        assert!(!frame.melee_released);
         assert!(frame.fire.is_none());
         assert_eq!(frame.attack_axis, Vec2::ZERO);
         assert!(!frame.jump_pressed);
@@ -509,6 +518,8 @@ mod tests {
         assert!(!frame.interact_pressed);
         assert!(!frame.special_pressed);
         assert!(!frame.melee_pressed);
+        assert!(!frame.melee_held);
+        assert!(!frame.melee_released);
         assert!(frame.fire.is_none());
         // Sustains preserved.
         assert!(frame.jump_held);
@@ -554,6 +565,18 @@ mod tests {
         let mut frame = ActorControlFrame::neutral();
         frame.special_pressed = true;
         assert!(frame.wants_any_action());
+    }
+
+    #[test]
+    fn clear_edges_consumes_attack_edges_but_keeps_the_level() {
+        let mut frame = ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.melee_held = true;
+        frame.melee_released = true;
+        frame.clear_edges();
+        assert!(!frame.melee_pressed);
+        assert!(frame.melee_held);
+        assert!(!frame.melee_released);
     }
 
     #[test]

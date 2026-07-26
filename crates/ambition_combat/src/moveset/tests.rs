@@ -13,10 +13,10 @@ use bevy::prelude::*;
 
 /// **The attack direction is facing-relative, not screen-relative.** The aim
 /// axis arrives screen-local (`+x` = screen-right), but a forward press must read
-/// `Neutral` (the jab) no matter which way you face — and a press toward your BACK
-/// must read `Back`. Regression pin for the "move left + attack fired right" bug:
-/// facing was not folded into `attack_dir_from_axis`, so a left-facing forward
-/// press misclassified as `Back` and fired the aerial back-attack the wrong way.
+/// `Forward` no matter which way you face — and a press toward your BACK must read
+/// `Back`. Regression pin for the "move left + attack fired right" bug: facing was
+/// not folded into `attack_dir_from_axis`, so a left-facing forward press
+/// misclassified as `Back` and fired the aerial back-attack the wrong way.
 #[test]
 fn attack_dir_is_relative_to_facing() {
     use ambition_engine_core::Vec2;
@@ -24,7 +24,7 @@ fn attack_dir_is_relative_to_facing() {
     // Facing RIGHT (+1): screen-right is forward, screen-left is back.
     assert_eq!(
         attack_dir_from_axis(Vec2::new(1.0, 0.0), 1.0),
-        AttackDir::Neutral
+        AttackDir::Forward
     );
     assert_eq!(
         attack_dir_from_axis(Vec2::new(-1.0, 0.0), 1.0),
@@ -32,10 +32,10 @@ fn attack_dir_is_relative_to_facing() {
     );
 
     // Facing LEFT (-1): the mirror. Pressing screen-LEFT is now FORWARD (the bug
-    // case — must be Neutral, not Back), pressing screen-right is Back.
+    // case — must be Forward, not Back), pressing screen-right is Back.
     assert_eq!(
         attack_dir_from_axis(Vec2::new(-1.0, 0.0), -1.0),
-        AttackDir::Neutral
+        AttackDir::Forward
     );
     assert_eq!(
         attack_dir_from_axis(Vec2::new(1.0, 0.0), -1.0),
@@ -1181,6 +1181,64 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
         "the special verb edge triggered the move and it landed its hit"
     );
     assert_eq!(cap.events.len(), 1, "the move's timed Sfx event fired once");
+}
+
+/// Directional special selection uses the same facing-relative resolver as
+/// attacks, while preserving the base `special` fallback for existing content.
+#[test]
+fn a_forward_special_selects_the_directional_move() {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(Update, trigger_moveset_moves);
+
+    let make_move = |id: &str| MoveSpec {
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.3,
+        windows: vec![],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    };
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([
+            (SPECIAL_VERB.to_string(), "neutral_special".to_string()),
+            (
+                "special_forward".to_string(),
+                "forward_special".to_string(),
+            ),
+        ]),
+        moves: vec![make_move("neutral_special"), make_move("forward_special")],
+    };
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    frame.attack_axis = ae::Vec2::X;
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(moveset),
+            ActorControl(frame),
+        ))
+        .id();
+
+    app.update();
+    assert_eq!(
+        app.world().get::<MovePlayback>(body).unwrap().spec.id,
+        "forward_special"
+    );
 }
 
 /// A move authoring `start_impulse` lunges the body toward its facing at

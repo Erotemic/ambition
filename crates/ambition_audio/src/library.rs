@@ -208,6 +208,29 @@ impl RadioStationState {
 }
 
 impl AudioLibrary {
+    /// Build the resident audio cache and the playback-state read model from the
+    /// same registry in one operation. Hosts may still preload the returned
+    /// state's active track before inserting both resources.
+    pub fn new_with_playback_state(
+        audio_sources: &mut Assets<KiraAudioSource>,
+        sfx_registry: &SfxRegistry,
+        music_registry: &MusicRegistry,
+        asset_server: Option<&AssetServer>,
+        sfx_provider: Option<&dyn SfxProvider>,
+        resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
+    ) -> (Self, MusicPlaybackState) {
+        let library = Self::new(
+            audio_sources,
+            sfx_registry,
+            music_registry,
+            asset_server,
+            sfx_provider,
+            resolve_track_path,
+        );
+        let playback = MusicPlaybackState::from_music_registry(music_registry, &library);
+        (library, playback)
+    }
+
     /// Build the audio library + music track table.
     ///
     /// `resolve_track_path` (when `Some`) resolves each music track id

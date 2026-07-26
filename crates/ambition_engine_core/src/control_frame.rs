@@ -61,7 +61,13 @@ pub struct ControlFrame {
     /// blink: the player brain sources `special_pressed` from THIS, retiring the
     /// historical `special_pressed = blink_pressed` alias.
     pub special_pressed: bool,
+    /// Attack button rising edge.
     pub attack_pressed: bool,
+    /// Attack button level. Preserved independently from the edge so a future
+    /// move interpreter can distinguish tap, charge, and sustained attacks.
+    pub attack_held: bool,
+    /// Attack button falling edge.
+    pub attack_released: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -135,6 +141,7 @@ impl ControlFrame {
             projectile_held: sample.projectile_held,
             shield_held: sample.shield_held,
             modifier_held: sample.modifier_held,
+            attack_held: sample.attack_held,
             // Edges — sticky until a tick consumes them.
             jump_pressed: self.jump_pressed | sample.jump_pressed,
             jump_released: self.jump_released | sample.jump_released,
@@ -148,6 +155,7 @@ impl ControlFrame {
             blink_released: self.blink_released | sample.blink_released,
             special_pressed: self.special_pressed | sample.special_pressed,
             attack_pressed: self.attack_pressed | sample.attack_pressed,
+            attack_released: self.attack_released | sample.attack_released,
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
@@ -177,6 +185,7 @@ impl ControlFrame {
             projectile_held: self.projectile_held,
             shield_held: self.shield_held,
             modifier_held: self.modifier_held,
+            attack_held: self.attack_held,
             ..ControlFrame::default()
         }
     }
@@ -267,6 +276,30 @@ mod latch_tests {
         );
     }
 
+    #[test]
+    fn a_sub_tick_attack_tap_preserves_both_edges_and_latest_level() {
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(ControlFrame {
+            attack_pressed: true,
+            attack_held: true,
+            ..ControlFrame::default()
+        });
+        latch.accumulate(ControlFrame {
+            attack_released: true,
+            ..ControlFrame::default()
+        });
+
+        let tick = latch.take();
+        assert!(tick.attack_pressed);
+        assert!(tick.attack_released);
+        assert!(!tick.attack_held);
+
+        let next = latch.take();
+        assert!(!next.attack_pressed);
+        assert!(!next.attack_released);
+        assert!(!next.attack_held);
+    }
+
     /// Levels are the latest sample, never an OR.
     #[test]
     fn levels_take_the_latest_sample() {
@@ -294,16 +327,19 @@ mod latch_tests {
         latch.accumulate(ControlFrame {
             axis_x: 1.0,
             attack_pressed: true,
+            attack_held: true,
             jump_held: true,
             ..ControlFrame::default()
         });
 
         let first = latch.take();
         assert!(first.attack_pressed);
+        assert!(first.attack_held);
 
         // No new device sample arrives before the catch-up tick.
         let second = latch.take();
         assert!(!second.attack_pressed, "one press must not fire twice");
+        assert!(second.attack_held, "the attack level remains held");
         assert_eq!(second.axis_x, 1.0, "a held stick stays held");
         assert!(second.jump_held);
     }

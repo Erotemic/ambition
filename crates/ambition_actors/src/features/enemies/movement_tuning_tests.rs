@@ -4,7 +4,7 @@
 //! private access via `use super::*;` (a direct sibling, so `super` depth is
 //! unchanged).
 
-use super::resolve_movement_for;
+use super::{resolve_movement_for, CharacterRosterAssemblyError};
 use crate::combat::{BodyMovementPatch, BodyMovementTuning};
 use ambition_entity_catalog::placements::CharacterBrain;
 use std::collections::BTreeMap;
@@ -50,7 +50,17 @@ fn inheritance_chain_composes() {
             Some("parent".to_string()),
         ),
     );
-    let child = resolve_movement_for(&raw, "child", &mut vec!["child".to_string()]);
+    let owners = BTreeMap::from([
+        ("parent".to_string(), "p".to_string()),
+        ("child".to_string(), "p".to_string()),
+    ]);
+    let child = resolve_movement_for(
+        &raw,
+        &owners,
+        "child",
+        &mut vec!["child".to_string()],
+    )
+    .unwrap();
     assert_eq!(child.gravity, 700.0, "inherited from the parent's override");
     assert_eq!(child.jump_speed, 900.0, "the child's own override");
     assert_eq!(
@@ -60,17 +70,33 @@ fn inheritance_chain_composes() {
     );
 }
 
-/// A cyclic / self-referential `inherits` resolves to the baseline instead of
-/// recursing forever (a data smell, not a crash).
+/// A cyclic / self-referential `inherits` refuses publication and reports the
+/// complete loop instead of silently degrading to the baseline.
 #[test]
-fn inheritance_cycle_falls_back_to_baseline() {
-    let mut raw: BTreeMap<String, (BodyMovementPatch, Option<String>)> = BTreeMap::new();
-    raw.insert(
-        "a".to_string(),
-        (BodyMovementPatch::default(), Some("a".to_string())),
+fn inheritance_cycle_is_an_error() {
+    let raw = BTreeMap::from([
+        (
+            "a".to_string(),
+            (BodyMovementPatch::default(), Some("b".to_string())),
+        ),
+        (
+            "b".to_string(),
+            (BodyMovementPatch::default(), Some("a".to_string())),
+        ),
+    ]);
+    let owners = BTreeMap::from([
+        ("a".to_string(), "p".to_string()),
+        ("b".to_string(), "p".to_string()),
+    ]);
+    let error = resolve_movement_for(&raw, &owners, "a", &mut vec!["a".to_string()])
+        .expect_err("cycle must reject the candidate roster");
+    assert_eq!(
+        error,
+        CharacterRosterAssemblyError::MovementInheritanceCycle {
+            provider_id: "p".to_string(),
+            chain: vec!["a".to_string(), "b".to_string(), "a".to_string()],
+        }
     );
-    let a = resolve_movement_for(&raw, "a", &mut vec!["a".to_string()]);
-    assert_eq!(a, BodyMovementTuning::BASELINE);
 }
 
 /// End-to-end through the real roster loader: an archetype with no movement

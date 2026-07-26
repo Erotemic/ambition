@@ -1427,6 +1427,8 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
         put_bool(out, f.drop_through);
         put_f32(out, f.facing);
         put_bool(out, f.melee_pressed);
+        put_bool(out, f.melee_held);
+        put_bool(out, f.melee_released);
         match &f.fire {
             None => put_bool(out, false),
             Some(fire) => {
@@ -1476,6 +1478,8 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
         let drop_through = r.bool()?;
         let facing = r.f32()?;
         let melee_pressed = r.bool()?;
+        let melee_held = r.bool()?;
+        let melee_released = r.bool()?;
         let fire = if r.bool()? {
             Some(ActorFireRequest {
                 dir: r.vec2()?,
@@ -1497,6 +1501,8 @@ impl SnapshotState for ambition_characters::brain::ActorControl {
                 drop_through,
                 facing,
                 melee_pressed,
+                melee_held,
+                melee_released,
                 fire,
                 attack_axis,
                 jump_pressed: flags[0],

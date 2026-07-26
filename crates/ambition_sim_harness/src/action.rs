@@ -39,6 +39,8 @@ pub struct AgentAction {
     pub jump_released: bool,
     pub dash: bool,
     pub attack: bool,
+    pub attack_held: bool,
+    pub attack_released: bool,
     /// Signature special (`SandboxAction::Special`). A dedicated slot since the
     /// `special_pressed = blink_pressed` alias was retired: pressing `blink` no
     /// longer fires a body's special, so an agent/scripted driver sets THIS to
@@ -138,6 +140,8 @@ impl From<AgentAction> for ControlFrame {
             // is retired): agents fire the special through `a.special`, not blink.
             special_pressed: a.special,
             attack_pressed: a.attack,
+            attack_held: a.attack_held,
+            attack_released: a.attack_released,
             pogo_pressed: a.pogo,
             fly_toggle_pressed: a.fly_toggle,
             interact_pressed: a.interact,

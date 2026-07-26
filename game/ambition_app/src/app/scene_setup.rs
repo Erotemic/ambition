@@ -20,7 +20,7 @@ use ambition::actors::world::platforms;
 #[cfg(feature = "audio")]
 use ambition::asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
-use ambition::audio::library::{AudioLibrary, MusicPlaybackState};
+use ambition::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
 use ambition::audio::SfxBankResource;
 use ambition::engine_core::RoomGeometry;
@@ -98,7 +98,7 @@ pub fn install_audio_library(
             id,
         ))
     };
-    let mut audio_library = AudioLibrary::new(
+    let (mut audio_library, music_state) = AudioLibrary::new_with_playback_state(
         audio_sources,
         sfx_registry,
         music_registry,
@@ -108,7 +108,6 @@ pub fn install_audio_library(
             .map(|provider| provider as &dyn ambition::sfx::SfxProvider),
         Some(&resolve_track_path),
     );
-    let music_state = MusicPlaybackState::from_music_registry(music_registry, &audio_library);
     // Direct startup and shell activation can now include the initial track in
     // their real readiness evidence. Only the selected first track is warmed;
     // the rest of the catalog remains lazy.

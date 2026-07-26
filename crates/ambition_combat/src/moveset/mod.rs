@@ -92,8 +92,9 @@ const _: () = assert!(
 pub const RANGED_VERB: &str = "ranged";
 
 /// The canonical verb id a body's signature special binds to in its moveset.
-/// `special_pressed` triggers `move_for_verb("special")`; a body only has a real
-/// special when its moveset actually authors this verb — the canonical player
+/// `special_pressed` resolves the facing-relative directional `special` chain;
+/// a body only has a real special when its moveset authors a matching directional
+/// verb or the base verb — the canonical player
 /// gets it by folding `ActionSet.special` in [`prefabs::build_actor_moveset`].
 pub const SPECIAL_VERB: &str = "special";
 
@@ -629,6 +630,8 @@ pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
         } else {
             AttackDir::Down
         }
+    } else if forward > DEADZONE {
+        AttackDir::Forward
     } else if forward < -DEADZONE {
         AttackDir::Back
     } else {
@@ -637,10 +640,10 @@ pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
 }
 
 /// TRIGGER a body's data-driven move from its control-frame verb edges: a
-/// `special_pressed` → the `"special"` verb, a `melee_pressed` → the DIRECTIONAL
-/// `"attack"` verb (resolved by aim + grounded state through the authored verb
-/// chain — `attack_air_down` → `attack_down` → `attack`), a ranged intent → the
-/// `"ranged"` verb. A body already playing a move refuses a new one — the move's
+/// `special_pressed` → the DIRECTIONAL `"special"` verb, a `melee_pressed` →
+/// the DIRECTIONAL `"attack"` verb (resolved by aim + grounded state through the
+/// authored verb chain — `attack_air_down` → `attack_down` → `attack`), a ranged
+/// intent → the `"ranged"` verb. A body already playing a move refuses a new one — the move's
 /// own duration IS the fire-rate gate — UNLESS the playing move authors a
 /// `Cancelable` window covering this instant whose condition holds and whose
 /// `into` names the request (CM4): then the live boxes tear down exactly as
@@ -686,7 +689,13 @@ pub fn trigger_moveset_moves(
         // Resolve the requested verb + the names the candidate answers to
         // (verb, class, resolved move id — the ONE cancel namespace).
         let (spec, verb_names): (_, &[&str]) = if frame.special_pressed {
-            (moveset.0.move_for_verb("special"), &["special"])
+            let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
+            (
+                moveset
+                    .0
+                    .move_for_directional_verb(SPECIAL_VERB, dir, grounded),
+                &[SPECIAL_VERB],
+            )
         } else if frame.melee_pressed || frame.pogo_pressed {
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only

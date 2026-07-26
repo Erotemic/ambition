@@ -572,7 +572,12 @@ impl CharacterRoster {
         // inheritance chain. Done HERE — the single chokepoint every roster passes
         // through — because inheritance needs sibling specs the per-row `tuning()`
         // builder can't see.
-        resolve_movement_inheritance(&mut by_brain);
+        let owners = by_brain
+            .keys()
+            .map(|brain_id| (brain_id.clone(), "<local>".to_owned()))
+            .collect();
+        resolve_movement_inheritance(&mut by_brain, &owners)
+            .expect("internal character roster movement inheritance must be valid");
         let fallback = by_brain
             .get("combatant")
             .cloned()
@@ -594,12 +599,16 @@ impl CharacterRoster {
 
 /// Fold every archetype's authored movement patch along its inheritance chain and
 /// store the resolved [`crate::combat::BodyMovementTuning`] back on each spec.
-/// `BASELINE ← parent (resolved) ← this row's patch`; a missing parent or a cycle
-/// falls back to the baseline rather than panicking (a malformed `inherits` is a
-/// data smell, not a crash).
+///
+/// Inheritance is deliberately provider-local. An unqualified parent id must be
+/// owned by the same provider as the child; unknown parents, cross-provider
+/// parents, and cycles are publication errors rather than silent baseline
+/// fallbacks. The candidate registry is assembled transactionally, so callers
+/// keep the previous prepared roster when this returns an error.
 fn resolve_movement_inheritance(
     specs: &mut std::collections::BTreeMap<String, CharacterArchetypeSpec>,
-) {
+    owners: &std::collections::BTreeMap<String, String>,
+) -> Result<(), CharacterRosterAssemblyError> {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
     // while we write resolved values back into the same map.
     let raw: std::collections::BTreeMap<
@@ -612,43 +621,78 @@ fn resolve_movement_inheritance(
     let resolved: std::collections::BTreeMap<String, crate::combat::BodyMovementTuning> = raw
         .keys()
         .map(|k| {
-            (
-                k.clone(),
-                resolve_movement_for(&raw, k, &mut vec![k.clone()]),
-            )
+            resolve_movement_for(&raw, owners, k, &mut vec![k.clone()])
+                .map(|tuning| (k.clone(), tuning))
         })
-        .collect();
-    // AMBITION_REVIEW(determinism): hash-order iteration is safe here. Each step
-    // writes only its OWN key's `movement_resolved` from an already-resolved
-    // lookup, so the pass is commutative — the map's contents after it are
-    // identical for every visit order, and nothing observes the order itself.
+        .collect::<Result<_, _>>()?;
     for (k, spec) in specs.iter_mut() {
         if let Some(tuning) = resolved.get(k) {
             spec.movement_resolved = *tuning;
         }
     }
+    Ok(())
 }
 
-/// Recursively resolve one archetype's movement tuning. `seen` carries the chain
-/// so a cycle (or self-reference) stops at the baseline instead of recursing
-/// forever.
+/// Recursively resolve one archetype's movement tuning. `chain` contains the
+/// active DFS path so a cycle can report the complete loop.
 fn resolve_movement_for(
     raw: &std::collections::BTreeMap<String, (crate::combat::BodyMovementPatch, Option<String>)>,
+    owners: &std::collections::BTreeMap<String, String>,
     id: &str,
-    seen: &mut Vec<String>,
-) -> crate::combat::BodyMovementTuning {
-    let Some((patch, parent)) = raw.get(id) else {
-        return crate::combat::BodyMovementTuning::BASELINE;
-    };
+    chain: &mut Vec<String>,
+) -> Result<crate::combat::BodyMovementTuning, CharacterRosterAssemblyError> {
+    let (patch, parent) = raw
+        .get(id)
+        .expect("movement resolver only visits ids from the roster snapshot");
+    let provider_id = owners
+        .get(id)
+        .expect("every assembled brain id has a provider owner");
     let base = match parent {
-        Some(parent_id) if !seen.iter().any(|s| s == parent_id) => {
-            seen.push(parent_id.clone());
-            resolve_movement_for(raw, parent_id, seen)
+        None => crate::combat::BodyMovementTuning::BASELINE,
+        Some(parent_id) => {
+            let Some(parent_provider) = owners.get(parent_id) else {
+                // The did-you-mean list is what the author could legally have
+                // written instead, so it excludes the child itself: offering
+                // `child` as a candidate parent for `child` suggests a cycle as
+                // the fix for an unresolved reference.
+                let available = owners
+                    .iter()
+                    .filter_map(|(candidate, owner)| {
+                        (owner == provider_id && candidate != id).then_some(candidate.clone())
+                    })
+                    .collect();
+                return Err(CharacterRosterAssemblyError::UnknownMovementParent {
+                    provider_id: provider_id.clone(),
+                    brain_id: id.to_owned(),
+                    parent_id: parent_id.clone(),
+                    available,
+                });
+            };
+            if parent_provider != provider_id {
+                return Err(
+                    CharacterRosterAssemblyError::CrossProviderMovementInheritance {
+                        provider_id: provider_id.clone(),
+                        brain_id: id.to_owned(),
+                        parent_id: parent_id.clone(),
+                        parent_provider: parent_provider.clone(),
+                    },
+                );
+            }
+            if let Some(cycle_start) = chain.iter().position(|seen| seen == parent_id) {
+                let mut cycle = chain[cycle_start..].to_vec();
+                cycle.push(parent_id.clone());
+                return Err(CharacterRosterAssemblyError::MovementInheritanceCycle {
+                    provider_id: provider_id.clone(),
+                    chain: cycle,
+                });
+            }
+            chain.push(parent_id.clone());
+            let resolved = resolve_movement_for(raw, owners, parent_id, chain)?;
+            chain.pop();
+            resolved
         }
-        // No parent, or a cycle/unknown parent → start from the generic baseline.
-        _ => crate::combat::BodyMovementTuning::BASELINE,
     };
-    patch.apply_onto(base)
+    Ok(patch.apply_onto(base))
 }
 
 /// Engine-generic fallback used by Apps that intentionally register no hostile
@@ -801,7 +845,7 @@ impl CharacterRosterRegistry {
                 provider_fallback_ids.insert(provider_id.clone(), brain_id.clone());
             }
         }
-        resolve_movement_inheritance(&mut by_brain);
+        resolve_movement_inheritance(&mut by_brain, &owners)?;
         let mut provider_fallbacks = std::collections::BTreeMap::new();
         for (provider_id, fallback_brain) in provider_fallback_ids {
             let spec = by_brain.get(&fallback_brain).cloned().ok_or_else(|| {
@@ -861,6 +905,22 @@ pub enum CharacterRosterAssemblyError {
     MissingAssembledFallback {
         brain_id: String,
     },
+    UnknownMovementParent {
+        provider_id: String,
+        brain_id: String,
+        parent_id: String,
+        available: Vec<String>,
+    },
+    CrossProviderMovementInheritance {
+        provider_id: String,
+        brain_id: String,
+        parent_id: String,
+        parent_provider: String,
+    },
+    MovementInheritanceCycle {
+        provider_id: String,
+        chain: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for CharacterRosterAssemblyError {
@@ -906,6 +966,30 @@ impl std::fmt::Display for CharacterRosterAssemblyError {
             Self::MissingAssembledFallback { brain_id } => write!(
                 f,
                 "assembled character roster is missing fallback brain '{brain_id}'"
+            ),
+            Self::UnknownMovementParent {
+                provider_id,
+                brain_id,
+                parent_id,
+                available,
+            } => write!(
+                f,
+                "character roster fragment '{provider_id}' brain '{brain_id}' inherits unknown movement parent '{parent_id}' (available provider-local brains: {})",
+                available.join(", ")
+            ),
+            Self::CrossProviderMovementInheritance {
+                provider_id,
+                brain_id,
+                parent_id,
+                parent_provider,
+            } => write!(
+                f,
+                "character roster fragment '{provider_id}' brain '{brain_id}' cannot inherit movement from '{parent_id}' owned by provider '{parent_provider}'; unqualified inheritance is provider-local"
+            ),
+            Self::MovementInheritanceCycle { provider_id, chain } => write!(
+                f,
+                "movement inheritance cycle in provider '{provider_id}': {}",
+                chain.join(" -> ")
             ),
         }
     }
@@ -1064,6 +1148,79 @@ mod app_local_roster_tests {
                 .providers()
                 .collect::<Vec<_>>(),
             vec!["a"]
+        );
+    }
+
+    #[test]
+    fn cross_provider_movement_inheritance_is_rejected_transactionally() {
+        const CHILD: &str = r#"{
+            "child": (
+                inherits: Some("combatant"),
+                max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+                aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                damage_amount: 0, brain_template: StandStill, move_style: Walk,
+            ),
+        }"#;
+        let mut app = bevy::prelude::App::new();
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap(),
+        );
+        let error = app
+            .try_register_character_roster_fragment(
+                CharacterRosterFragment::from_ron("b", None::<String>, CHILD).unwrap(),
+            )
+            .err()
+            .expect("unqualified inheritance must stay provider-local");
+        assert_eq!(
+            error,
+            CharacterRosterAssemblyError::CrossProviderMovementInheritance {
+                provider_id: "b".to_string(),
+                brain_id: "child".to_string(),
+                parent_id: "combatant".to_string(),
+                parent_provider: "a".to_string(),
+            }
+        );
+        assert_eq!(
+            app.world()
+                .resource::<CharacterRosterRegistry>()
+                .providers()
+                .collect::<Vec<_>>(),
+            vec!["a"],
+            "the last known-good registry remains active"
+        );
+    }
+
+    #[test]
+    fn unknown_movement_parent_is_rejected_with_local_candidates() {
+        const BROKEN: &str = r#"{
+            "combatant": (
+                max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                damage_amount: 0, brain_template: StandStill, move_style: Walk,
+            ),
+            "child": (
+                inherits: Some("missing"),
+                max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+                aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                damage_amount: 0, brain_template: StandStill, move_style: Walk,
+            ),
+        }"#;
+        let fragment = CharacterRosterFragment::from_ron("p", Some("combatant"), BROKEN).unwrap();
+        let mut registry = CharacterRosterRegistry::default();
+        registry.register(fragment).unwrap();
+        let error = registry
+            .assemble()
+            .err()
+            .expect("unknown parent must reject the candidate roster");
+        assert_eq!(
+            error,
+            CharacterRosterAssemblyError::UnknownMovementParent {
+                provider_id: "p".to_string(),
+                brain_id: "child".to_string(),
+                parent_id: "missing".to_string(),
+                // Not "child": a did-you-mean must not propose self-inheritance.
+                available: vec!["combatant".to_string()],
+            }
         );
     }
 

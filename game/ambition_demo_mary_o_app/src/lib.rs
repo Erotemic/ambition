@@ -167,7 +167,6 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // a run+jump SFX voice and the "Support Theme" music cue; this wires the same
     // shared audio face the hosted app uses so both are audible standalone.
     install_mary_o_audio(&mut app, sfx_bank_path);
-    app.add_systems(Update, ambition::audio::music::drive_selected_session_music);
     app
 }
 
@@ -276,16 +275,13 @@ fn load_mary_o_game_assets(
     // standalone app and the host, so no app-local `WorldItemArt` binding is needed.
 }
 
-/// Minimal audio face for the demo: the packed SFX bank, one SFX channel, and the
-/// standard `SfxMessage` consumer, plus the library the music driver plays from.
-/// Mirrors the Sanic demo shell so both standalone demos are audible.
+/// Install the engine-owned audio runtime plus Mary-O's resident catalog cache.
+/// The same selection, intent, director, SFX, and frontend-reset path is used by
+/// the multi-game host; only provider-authored resources differ here.
 #[cfg(feature = "visible")]
 fn install_mary_o_audio(app: &mut App, sfx_bank_path: Option<String>) {
-    use ambition::audio::AmbitionAudioAppExt as _;
     use bevy::prelude::IntoScheduleConfigs as _;
 
-    app.init_resource::<ambition::audio::AudioOutputMode>()
-        .add_plugins(ambition::audio::AmbitionAudioBackendPlugin);
     if let Some(path) = sfx_bank_path {
         info!("mary_o_demo: SFX bank path = {path}");
         app.insert_resource(ambition::audio::SfxBankAssetPath::new(
@@ -295,14 +291,15 @@ fn install_mary_o_audio(app: &mut App, sfx_bank_path: Option<String>) {
     } else {
         warn!("mary_o_demo: no SFX bank path resolved; jump cues will be silent stubs");
     }
-    app.add_plugins(ambition::audio::SfxBankAssetPlugin)
-        .init_resource::<ambition::audio::render::ProviderSfxHandleCache>()
-        .add_ambition_audio_channel::<ambition::audio::library::SfxChannel>()
-        .add_systems(Startup, setup_mary_o_audio_library)
+
+    // Use the same engine-owned audio runtime as the multi-game host. The
+    // standalone app contributes only its provider catalogs and resident asset
+    // library; selection, intent priority, playback state, channels, and the
+    // director are installed once by `SandboxAudioPlugin`.
+    app.add_plugins(ambition::actors::audio::SandboxAudioPlugin)
         .add_systems(
-            Update,
-            ambition::audio::audio_play_sfx_messages
-                .after(ambition::platformer::schedule::SandboxSet::CoreSimulation),
+            Startup,
+            setup_mary_o_audio_library.in_set(ambition::actors::schedule::PresentationSetupSet),
         );
 }
 
@@ -318,15 +315,17 @@ fn setup_mary_o_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local SFX catalog");
-    let library = ambition::audio::library::AudioLibrary::new(
-        &mut audio_sources,
-        sfx,
-        music,
-        None,
-        None,
-        None,
-    );
+    let (library, music_state) =
+        ambition::audio::library::AudioLibrary::new_with_playback_state(
+            &mut audio_sources,
+            sfx,
+            music,
+            None,
+            None,
+            None,
+        );
     commands.insert_resource(library);
+    commands.insert_resource(music_state);
 }
 
 /// Whether [`build_windowed_demo_app`] opens a window and creates a GPU device.

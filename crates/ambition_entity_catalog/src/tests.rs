@@ -386,6 +386,19 @@ fn directional_verb_chain_orders_most_specific_first() {
         vec!["attack_down", "attack"],
     );
     assert_eq!(
+        directional_verb_chain("attack", AttackDir::Forward, false),
+        vec![
+            "attack_air_forward",
+            "attack_forward",
+            "attack_air",
+            "attack",
+        ],
+    );
+    assert_eq!(
+        directional_verb_chain("attack", AttackDir::Forward, true),
+        vec!["attack_forward", "attack"],
+    );
+    assert_eq!(
         directional_verb_chain("attack", AttackDir::Neutral, true),
         vec!["attack"],
     );

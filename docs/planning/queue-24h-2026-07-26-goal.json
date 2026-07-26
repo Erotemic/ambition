@@ -142,6 +142,11 @@
       "name": "A10 the silhouette-vs-box premise is CHECKED, not stated in a comment",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib character_runtime::fight_tests::a_strike_that_clears_the_authored_torso_lands_on_nobody 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
+    },
+    {
+      "name": "A20 the MOUNT population is swept (and the pair is in the population)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim,falling_sand --test app_it rollback_coverage::every_component_on_a_mounted_pair_is_registered_derived_or_waived 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

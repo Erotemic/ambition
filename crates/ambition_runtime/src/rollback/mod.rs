@@ -975,6 +975,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "marker.player_entity",
     )
+    // The renderer's runtime-visual DISCOVERY marker. An actor staged outside the
+    // authored `RoomSpec` lists (a duel fighter, a runtime-spawned mount) is only
+    // given the sprite pipeline because it carries this, so losing it across a
+    // restore leaves the actor rendering invisibly for the rest of the session.
+    // Same class as `PlayerVisual`, which this instrument caught the same way:
+    // presentation, but presentation whose ABSENCE is permanent. Surfaced by the
+    // A20 mounted-pair sweep — no swept ROOM stages an actor imperatively.
+    .rollback_component_clone::<ambition_combat::components::RuntimeStagedActor>(
+        ENGINE,
+        "marker.runtime_staged_actor",
+    )
     .rollback_component_clone::<ambition_platformer_primitives::markers::PrimaryPlayer>(
         ENGINE,
         "marker.primary_player",

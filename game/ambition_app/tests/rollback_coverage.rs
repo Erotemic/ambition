@@ -526,6 +526,146 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
     );
 }
 
+/// **The MOUNT population, which authors no LDtk room.** (A20)
+///
+/// ADR 0020's mount model is two linked actors with two HP pools, welded by
+/// `RidingOn` / `Mounted` / `MountSlot`. No swept room authors a mounted pair, so
+/// every component that only exists while a body is ridden — the brain cache the
+/// weld parks, the mount's borrowed size, the rider's saddle link — had never been
+/// in this sweep's population. Population, not accounting: exactly the hole that
+/// hid `PogoTarget` and `BossAnimFrame`.
+///
+/// Built in Rust rather than as a room, because a room id is not available and
+/// waiting for one is how a population stays unswept.
+#[test]
+fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
+    use ambition::actors::features::{MountSlot, Mounted, RidingOn};
+    use ambition::characters::brain::Brain;
+
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let home = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, ambition::actors::actor::PrimaryPlayerOnly>();
+        q.single(world).expect("one primary player")
+    };
+    let anchor = sim
+        .world_mut()
+        .get::<ambition::actors::actor::BodyKinematics>(home)
+        .expect("the player has a body")
+        .pos;
+
+    sim.spawn_enemy_at(
+        "sweep_mount",
+        "Burning Flying Shark",
+        (anchor.x + 120.0, anchor.y),
+        (63.0, 26.0),
+        ambition::entity_catalog::placements::CharacterBrain::Custom(
+            "burning_flying_shark".to_string(),
+        ),
+    );
+    sim.spawn_enemy_at(
+        "sweep_rider",
+        "Pirate Raider",
+        (anchor.x + 120.0, anchor.y - 66.0),
+        (22.0, 39.0),
+        ambition::entity_catalog::placements::CharacterBrain::Custom("pirate_raider".to_string()),
+    );
+    let by_id = |sim: &mut SandboxSim, id: &str| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &ambition::actors::features::FeatureId)>();
+        q.iter(world)
+            .find(|(_, feature)| feature.as_str() == id)
+            .map(|(entity, _)| entity)
+            .unwrap_or_else(|| panic!("`{id}` spawned"))
+    };
+    let mount = by_id(&mut sim, "sweep_mount");
+    let rider = by_id(&mut sim, "sweep_rider");
+    // Neutral brains: this sweeps a WELD, not an approach.
+    sim.world_mut()
+        .entity_mut(mount)
+        .insert(Brain::stand_still());
+    sim.world_mut()
+        .entity_mut(rider)
+        .insert(Brain::stand_still());
+    sim.world_mut()
+        .entity_mut(rider)
+        .insert((RidingOn { mount }, Mounted));
+    sim.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
+
+    // Sweep on every tick of the weld's life. The mount-only components are
+    // inserted by systems that run after the weld, and some are transient.
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+        // Vacuity guard: the pair must be IN the population, every tick. A mount
+        // sweep that inspects everything except the mount is the shape this whole
+        // instrument keeps failing in.
+        let population: BTreeSet<Entity> = simulated_population(&mut sim).into_iter().collect();
+        for (label, entity) in [("mount", mount), ("rider", rider)] {
+            assert!(
+                population.contains(&entity),
+                "the {label} is not in the swept population, so this test inspects \
+                 everything except the thing it is named for"
+            );
+        }
+        assert_components_accounted(&mut sim, "a welded mount pair");
+    }
+    assert!(
+        sim.world_mut().get::<Mounted>(rider).is_some(),
+        "the weld must survive the sweep, or the mount-only components were never \
+         present while it ran"
+    );
+}
+
+/// **The falling-sand room, which nothing swept.** (A20)
+///
+/// The sand grid itself is deliberately outside rollback (see the
+/// `::falling_sand_sim::` waiver, which carries its own in-code guard), but the
+/// ROOM authors a spout, a sand switch, and hazard geometry that no other swept
+/// room has. The switch is activated so the room is swept in its ACTIVE state
+/// rather than at rest — a spout that never opened is a population of one idle
+/// entity.
+#[test]
+#[cfg(feature = "falling_sand")]
+fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
+    use ambition_content::falling_sand_sim::{FallingSandWorld, ROOM_ID, SAND_SWITCH};
+
+    let mut sim = crate::common::fixed_60hz_room_sim(ROOM_ID);
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    {
+        let world = sim.world_mut();
+        let mut switches = world.query::<&ambition::actors::features::SwitchFeature>();
+        let activation = switches
+            .iter(world)
+            .map(|feature| feature.activation.clone())
+            .find(|activation| activation.id == SAND_SWITCH)
+            .unwrap_or_else(|| panic!("authored switch `{SAND_SWITCH}` exists in {ROOM_ID}"));
+        world.write_message(ambition::actors::features::SwitchActivated {
+            activation,
+            pos: ambition::engine_core::Vec2::ZERO,
+        });
+    }
+    for _ in 0..60 {
+        sim.step(crate::common::base());
+        assert_components_accounted(&mut sim, ROOM_ID);
+    }
+    // Vacuity guard: the spout has to have poured, or this swept an idle room.
+    let emitted = sim
+        .world_mut()
+        .get_resource::<FallingSandWorld>()
+        .and_then(|sand| sand.grid.as_ref().map(|grid| grid.emitted()))
+        .unwrap_or(0);
+    assert!(
+        emitted > 0,
+        "no matter was emitted, so the room was swept in its idle state and this \
+         test says nothing about the sand slice's live population"
+    );
+}
+
 /// Resource type-name substrings that are NOT authoritative simulation state.
 ///
 /// Same contract as [`WAIVED`]: each entry claims rewinding the named resource

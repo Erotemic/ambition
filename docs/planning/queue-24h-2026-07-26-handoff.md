@@ -111,7 +111,7 @@ make that question mechanical rather than remembered.
 
 ## 5. State of play
 
-**Closed and committed:** A1–A13, A16, A17, A18, A19, plus A5's
+**Closed and committed:** A1–A13, A16–A20, plus A5's
 provenance half, plus **F1–F5** (a second GPT-5.6 review of the same run —
 section F of the ledger). The rollback oracle is green and un-quarantined.
 
@@ -142,9 +142,11 @@ it exists to guard.
 
 **Open, in the order I would take them:**
 
-1. **A20/A21** — mounts, falling sand and the shop have no LDtk room, so sweeping
-   them needs a Rust fixture; and the default-features demo jobs are outside the
-   plan.
+1. **A21** — `./run_tests.sh -p ambition_demo_mary_o_app` runs a DEFAULT-features
+   job the 18-job plan does not, and it is red at HEAD (pre-existing; verify by
+   stashing). Either add the default-features demo jobs to the plan or state why
+   they are excluded. A20 is closed: mounts are swept by a Rust fixture, falling
+   sand DOES have a room, and the shop is not a population at all.
 2. **A14** — `MessageReader` cursors are `Local` state GGRS never rewinds. Measured
    NOT to be A6's cause (hoisting both changed the checksums not at all, so it was
    reverted rather than landed as churn) but a real latent hazard the roadmap's

@@ -1,0 +1,106 @@
+{
+  "_comment": [
+    "ARMED 2026-07-26T15:10Z for a 24h run (deadline 2026-07-27T15:00Z).",
+    "  python3 scripts/goal_guard.py --arm .goal/planning-sweep.json",
+    "",
+    "Jon's goal, verbatim: 'address everything in docs/planning and every follow",
+    "up that is found while implementing docs planning. The hook should basically",
+    "say: there's no way you finished everything in docs/planning, get back to it.'",
+    "",
+    "So this goal is DELIBERATELY not closeable by finishing a fixed list. The",
+    "ledger check below reads docs/planning/queue-24h-2026-07-26.md, and the rule",
+    "written at the top of that file is: if every row is closed, go find the next",
+    "thing in docs/planning and add it. An empty queue is a signal to refill it.",
+    "",
+    "Check design notes:",
+    "  * The ledger marker check is the OPEN-ENDED half, and the guard's own",
+    "    docstring is right that a doc marker is a file I can edit. That is why",
+    "    every named finding ALSO has a hard check beside it: a named test that",
+    "    must pass, or a code path that must be gone. Editing the ledger alone",
+    "    cannot release this run.",
+    "  * Every check was verified RED at arming. A guard that is green at minute",
+    "    zero guards nothing (learned 2026-07-26: check 7.1c passed on day zero",
+    "    because it named symbols that did not exist).",
+    "  * $HOME/.cargo/bin/cargo everywhere: the hook PATH has no cargo, and a",
+    "    'command not found' compile check can NEVER pass, wedging the run.",
+    "  * Test checks assert a POSITIVE pass count. A cargo test filter that",
+    "    matches zero tests EXITS 0, so naming an unwritten test would otherwise",
+    "    pass before the work is done.",
+    "  * SIGPIPE footgun (hit 2026-07-26): `cmd | grep -q pat` is NONDETERMINISTIC",
+    "    here. grep -q exits on first match, the writer gets SIGPIPE, and the",
+    "    guard sets pipefail -- so the check reports 141/101 whenever grep wins",
+    "    the race. Never end a pipeline with grep -q; use plain grep >/dev/null.",
+    "  * Full ./run_tests.sh is pre-commit discipline, NOT a guard check: it does",
+    "    not fit the hook timeout, and a check that cannot finish cannot close.",
+    "Check-authoring lesson, 2026-07-26: the first A7/A8 checks grepped for the ABSENCE of text (`With<FeatureSimEntity>`, `Update,`) and both went red on PROSE -- the phrase appeared in a docstring explaining the fix, and `Update,` is still correct for the asset-load systems in the same file. An absence-of-a-string check fails the moment anyone documents the thing. Name a TEST that asserts the property instead.",
+    "A11 recurrence, THIRD time: an absence-of-string check went red on prose again -- this time `CharacterLoadDemand` inside the docstring that explains why registration no longer calls it. The rule is now absolute: NEVER grep for the absence of an identifier. Name a test. Documenting a removal must not break the guard that verified it."
+  ],
+  "goal": "address everything in docs/planning, and every follow-up found while implementing it. There is no way this is finished -- if the queue in docs/planning/queue-24h-2026-07-26.md looks empty, that means the next item has not been WRITTEN DOWN yet, not that the work is done. Go read docs/planning, find it, add it, and get back to it.",
+  "deadline_utc": "2026-07-27T15:00:00Z",
+  "max_stalled_blocks": 30,
+  "checks": [
+    {
+      "name": "the open-items ledger has no open rows (refill it rather than stopping)",
+      "cmd": "! grep -q '▢' docs/planning/queue-24h-2026-07-26.md"
+    },
+    {
+      "name": "A1 registration is DECLARATIVE: it no longer demands art itself",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib registration_declares_without_demanding_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A1 the prepared registry is a REAL source of sheets, not a write-only store",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_character_registered_only_through_register_character_gets_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A2 the fight test drives the REAL damage path (no hand-rolled overlap arithmetic)",
+      "cmd": "! git grep -n 'mary_hp -=' -- 'crates/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A3+A7 ONE victim geometry: a player-shaped body is hit on its AUTHORED hurtbox",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_player_shaped_body_is_hit_on_its_authored_hurtbox 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A7 the damage path READS published volumes; every family shares one rule",
+      "cmd": "git grep -n 'strike_reaches_victim' -- crates/ambition_combat/src/hitbox/mod.rs crates/ambition_actors/src/features/ecs/damage/mod.rs >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib authored_hurtboxes_do_not_care_which_family_the_body_belongs_to 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A8 hurtboxes resolve on the SIM clock, pinned between playback and damage",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_widening_move_silhouette_is_hittable_on_the_tick_it_widens 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A4 a PRODUCTION path authorizes each seated participant's presentation source",
+      "cmd": "git grep -n 'authorize_sfx_source' -- 'crates/**.rs' 'game/*/src/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib seating_a_cast_authorizes_every_participants_presentation_source 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A5 preparation provenance survives registration (verified != not checked)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib preparation_provenance_survives_registration 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
+    },
+    {
+      "name": "A6 the equipment rollback oracle is no longer quarantined",
+      "cmd": "! git grep -n 'known GGRS divergence' -- game/ambition_app/tests/rollback_exit_oracle.rs >/dev/null",
+      "timeout": 300
+    },
+    {
+      "name": "the workspace compiles, tests included",
+      "cmd": "$HOME/.cargo/bin/cargo check --workspace --all-targets --quiet",
+      "timeout": 2400
+    },
+    {
+      "name": "the backbone suite is green",
+      "cmd": "out=$(./run_tests.sh --fast 2>&1); echo \"$out\" | grep -E 'test result: ok' >/dev/null && ! echo \"$out\" | grep 'test result: FAILED' >/dev/null",
+      "timeout": 2400
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!game/ambition_content/assets/data/character_drafts' ':!docs/planning/gpt-diff.patch')\""
+    }
+  ]
+}

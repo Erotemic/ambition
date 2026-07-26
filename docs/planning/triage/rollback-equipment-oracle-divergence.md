@@ -134,6 +134,18 @@ All ten arms probe now, and the localizer was re-run over all 250 types across
 2395 compared loads: still clean. The conclusions below therefore hold, but they
 hold on the re-run, not on the run that first stated them.
 
+⚠ **Second correction, same day.** "Probed" is still weaker than it reads. A probe
+that counts CARRIERS satisfies the coverage test — which compares type names — while
+seeing nothing of the value, and 120 of the (now) 256 probes are exactly that.
+`ProjectileOwner`'s was one of them: a restore that put back the right number of
+owners and pointed a bolt at the wrong body changed no census. So the honest form of
+the ruling-out below is: *no probe reported a difference, and 113 of those probes can
+see a value, 23 measure a zero-sized marker completely, and 120 can only see whether
+the carrier came back.* `ProjectileOwner` now projects through the owner's stable
+`SimId` as a `(carrier, target)` pair, which is the strongest form available; the
+remaining weak ones are enumerated with reasons by
+`rollback_exit_oracle::every_presence_only_probe_is_named_with_its_reason`.
+
 - **The restore — ruled out.** 148 loads were compared against their own saved
   census; every registered component and resource came back identical. The
   snapshot is faithful. The divergence is produced by the REPLAY.

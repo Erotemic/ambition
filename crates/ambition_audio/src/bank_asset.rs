@@ -526,6 +526,7 @@ mod tests {
     use ambition_sfx::{AudioContextOwner, OwnedSfxMessage, SfxId, SfxMessage};
     use bevy::math::Vec2;
 
+    use super::{describe_sfx_id, SfxBankResource};
     use crate::catalog::SfxBankRegistry;
     use crate::selection::ActiveAudioSelection;
     use crate::spec::{SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec};

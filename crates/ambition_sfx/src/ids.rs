@@ -33,8 +33,8 @@ use crate::SfxId;
 /// module is trying to fix elsewhere.
 #[macro_export]
 macro_rules! sfx_ids {
-    ($($name:ident => $spelling:literal),* $(,)?) => {
-        $(pub const $name: $crate::SfxId = $crate::SfxId::from_static($spelling);)*
+    ($($(#[$note:meta])* $name:ident => $spelling:literal),* $(,)?) => {
+        $($(#[$note])* pub const $name: $crate::SfxId = $crate::SfxId::from_static($spelling);)*
 
         /// Every engine cue as `(id, authored spelling)`, in declaration order.
         pub const NAMED: &[($crate::SfxId, &str)] = &[$(($name, $spelling)),*];
@@ -59,6 +59,17 @@ sfx_ids! {
 
     // Player combat / vitals
     PLAYER_SLASH => "player.slash",
+    /// Canonical robot protagonist blade: the dry swing through open air.
+    PLAYER_ROBOT_SLASH_AIR => "player.robot.slash.air",
+    /// Internal selector cue carried by the robot protagonist's hit volume. The
+    /// victim-side resolver replaces it with the matching material variant.
+    PLAYER_ROBOT_SLASH_IMPACT => "player.robot.slash.impact",
+    PLAYER_ROBOT_SLASH_IMPACT_FLESH_LIGHT => "player.robot.slash.impact.flesh.light",
+    PLAYER_ROBOT_SLASH_IMPACT_FLESH_DEEP => "player.robot.slash.impact.flesh.deep",
+    PLAYER_ROBOT_SLASH_IMPACT_ROBOT => "player.robot.slash.impact.robot",
+    PLAYER_ROBOT_SLASH_IMPACT_METAL_CHINK => "player.robot.slash.impact.metal.chink",
+    PLAYER_ROBOT_SLASH_IMPACT_METAL_GONG => "player.robot.slash.impact.metal.gong",
+    PLAYER_ROBOT_SLASH_IMPACT_POGO => "player.robot.slash.impact.pogo",
     PLAYER_HIT => "player.hit",
     PLAYER_DAMAGE => "player.damage",
     PLAYER_HEAL => "player.heal",

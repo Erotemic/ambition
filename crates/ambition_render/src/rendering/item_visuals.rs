@@ -3,7 +3,9 @@
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
-use ambition_platformer_primitives::binding::{BindingLedger, Namespace, Resolver, UnresolvedRef};
+use ambition_platformer_primitives::binding::{
+    log_unresolved, Namespace, ReportedOnce, Resolver, UnresolvedRef,
+};
 use ambition_platformer_primitives::held_item_art::HeldItemSprite;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -82,12 +84,16 @@ pub fn lasersword_projectile_sprite(
 /// This replaces the `HashMap<String, _>` both art resources used to be. The map
 /// was not wrong about storage — it was wrong about FAILURE. Its `get` returned
 /// `None` for "you misspelled the id" and for "no provider ever registered art",
-/// and every caller collapsed both into the same placeholder quad, which is how a
-/// spark blossom that no manifest mentioned drew nothing and said nothing.
+/// and every caller collapsed both into the same placeholder quad.
 ///
-/// Resolution now yields a report the caller must do something with. The
-/// placeholder still draws — that part was right, and a blind run must never go
-/// black — but the run also names what it could not find.
+/// A miss now yields a diagnosis the caller can print. The placeholder still
+/// draws — that part was right, and a blind run must never go black — but the
+/// run also names what it could not find.
+///
+/// It does NOT check that the images arrive. `AssetServer::load` returns a
+/// handle for a path that does not exist, so an id can bind perfectly to art
+/// that will never draw; that is the spark-blossom failure, and it belongs to
+/// [`report_unloadable_item_art`].
 pub struct ArtBindings<N: Namespace> {
     ids: Resolver<N>,
     /// Parallel to the resolver's declaration slots.
@@ -116,19 +122,106 @@ impl<N: Namespace> ArtBindings<N> {
         Self { ids, art }
     }
 
-    /// The art for `id`, or the reason it has none. `declared_by` names the thing
-    /// that asked, so the report points at content rather than at the renderer.
+    /// The art for `id`, or nothing.
     ///
-    /// It is a closure because these syncs run EVERY frame: describing the
-    /// declarer eagerly would allocate per item per frame to label a failure that
-    /// almost never happens.
-    pub fn get(
-        &self,
-        id: &str,
-        declared_by: impl FnOnce() -> String,
-    ) -> Result<(Handle<Image>, Vec2), UnresolvedRef> {
-        let bound = self.ids.resolve_str(id, declared_by)?;
-        Ok(self.art[bound.slot()].clone())
+    /// Says nothing about WHY on purpose: these syncs run every frame, and the
+    /// why — cloning every registered id, running a did-you-mean across all of
+    /// them — costs orders of magnitude more than the lookup. A caller that has
+    /// not yet reported this failure asks [`Self::explain`] for it; a caller
+    /// that already has just draws the placeholder again, for free.
+    pub fn get(&self, id: &str) -> Option<(Handle<Image>, Vec2)> {
+        let bound = self.ids.bind(id)?;
+        Some(self.art[bound.slot()].clone())
+    }
+
+    /// Why `id` has no art, in full. Call once per distinct failure.
+    pub fn explain(&self, id: &str, declared_by: impl Into<String>) -> UnresolvedRef {
+        self.ids.explain(id, declared_by)
+    }
+
+    /// Every registered id beside the image handle it loaded, for the pass that
+    /// checks the FILES arrived — see [`report_unloadable_item_art`].
+    ///
+    /// Through `declarations`, not `ids`: the resolver is sorted for lookup and
+    /// the handles are in declaration order, so zipping the two directly would
+    /// name the wrong id for a failed image.
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &Handle<Image>)> {
+        self.ids
+            .declarations()
+            .map(|(id, slot)| (id, &self.art[slot].0))
+    }
+}
+
+/// Resolve `id` through `art`, reporting a miss at most once per distinct
+/// failure and paying for the diagnostic only then.
+///
+/// The shape every per-frame consumer of an [`ArtBindings`] wants: draw the
+/// placeholder either way, say what is wrong the first time, and stop spending
+/// anything on a defect already on the record.
+fn resolve_art<N: Namespace>(
+    art: Option<&ArtBindings<N>>,
+    id: &str,
+    declared_by: impl FnOnce() -> String,
+    reported: &mut ReportedOnce,
+    context: &str,
+) -> Option<(Handle<Image>, Vec2)> {
+    let art = art?;
+    if let Some(found) = art.get(id) {
+        return Some(found);
+    }
+    let declared_by = declared_by();
+    if reported.first_sight(N::NAME, &declared_by, id) {
+        log_unresolved(context, &art.explain(id, declared_by));
+    }
+    None
+}
+
+/// Say so when a bound art id's IMAGE never arrives.
+///
+/// This is the other half of the spark blossom, and the half a resolver cannot
+/// see. That pickup drew nothing for weeks with its id correctly registered:
+/// the manifest named `sprites/props/super_mary_o_spark_blossom.png`, no
+/// generator produced the file, `AssetServer::load` handed back a handle
+/// regardless — a handle is a promise, not a picture — and the binding resolved
+/// perfectly into art that would never exist. An id namespace can only ever
+/// prove that content agrees with content. Whether the FILE showed up is a
+/// separate question, and this is where it gets asked.
+///
+/// Runs every frame and costs a load-state probe per registered entry until each
+/// one settles. A failure is named once, with its path, because that is what a
+/// reader needs: the id points at the manifest line, the path at the generator.
+pub fn report_unloadable_item_art(
+    assets: Res<AssetServer>,
+    world_art: Option<Res<WorldItemArt>>,
+    held_art: Option<Res<HeldItemArt>>,
+    mut reported: Local<std::collections::BTreeSet<String>>,
+) {
+    let world = world_art.as_deref().map(|art| &art.0);
+    let held = held_art.as_deref().map(|art| &art.0);
+    let entries = world
+        .into_iter()
+        .flat_map(ArtBindings::entries)
+        .map(|entry| ("world item art", entry))
+        .chain(
+            held.into_iter()
+                .flat_map(ArtBindings::entries)
+                .map(|entry| ("held item art", entry)),
+        );
+    for (context, (id, image)) in entries {
+        if !matches!(assets.load_state(image), bevy::asset::LoadState::Failed(_)) {
+            continue;
+        }
+        if !reported.insert(format!("{context}/{id}")) {
+            continue;
+        }
+        let path = assets
+            .get_path(image.id())
+            .map(|path| path.to_string())
+            .unwrap_or_else(|| "<no path>".to_owned());
+        error!(
+            "{context}: `{id}` is registered and bound, but its image `{path}` failed to load — \
+             the id is fine and the FILE is missing or unreadable (check the generator target)",
+        );
     }
 }
 
@@ -186,7 +279,7 @@ pub fn sync_ground_item_visuals(
     grounds: Res<GroundItemsView>,
     // This system rebuilds every frame, so a missing id would otherwise be
     // sixty identical log lines a second.
-    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
+    mut reported: Local<ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -196,21 +289,20 @@ pub fn sync_ground_item_visuals(
     else {
         return;
     };
-    let mut ledger = BindingLedger::new();
+    // A replaced manifest is different content, and "we already said that" about
+    // content that no longer exists would silence a live defect.
+    if art.as_ref().is_some_and(|art| art.is_changed()) {
+        reported.clear();
+    }
     for ground in &grounds.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
-        let bound = art.as_ref().and_then(|art| {
-            match art
-                .0
-                .get(ground.item_id.as_str(), || "ground item".to_owned())
-            {
-                Ok(art) => Some(art),
-                Err(unresolved) => {
-                    ledger.record(unresolved);
-                    None
-                }
-            }
-        });
+        let bound = resolve_art(
+            art.as_deref().map(|art| &art.0),
+            ground.item_id.as_str(),
+            || "ground item".to_owned(),
+            &mut reported,
+            "ground item visual",
+        );
         // The placeholder still draws; the ledger is what stops it being silent.
         let sprite = bound
             .map(|(image, size)| Sprite {
@@ -231,7 +323,6 @@ pub fn sync_ground_item_visuals(
             ),
         );
     }
-    reported.log_new(&ledger.finish(), "ground item visual");
 }
 
 /// Marks a sprite entity visualizing a [`WorldItem`](ambition_actors::items::world_item::WorldItem).
@@ -289,7 +380,7 @@ pub fn sync_world_item_visuals(
     art: Option<Res<WorldItemArt>>,
     visuals: Query<Entity, With<WorldItemVisual>>,
     items: Res<ambition_sim_view::WorldItemsView>,
-    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
+    mut reported: Local<ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -299,21 +390,22 @@ pub fn sync_world_item_visuals(
     else {
         return;
     };
-    let mut ledger = BindingLedger::new();
+    if art.as_ref().is_some_and(|art| art.is_changed()) {
+        reported.clear();
+    }
     for item in &items.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, item.pos, 8.0);
         // A real bound sprite wins; otherwise the row-tinted quad. An item that
         // declares NO sprite id is authored that way and reports nothing; an item
-        // that declares one nobody registered is the spark-blossom bug, and does.
+        // that declares one nobody registered is reported, once.
         let bound = item.sprite.as_deref().and_then(|id| {
-            let art = art.as_ref()?;
-            match art.0.get(id, || format!("world item `{}`", item.row_id)) {
-                Ok(art) => Some(art),
-                Err(unresolved) => {
-                    ledger.record(unresolved);
-                    None
-                }
-            }
+            resolve_art(
+                art.as_deref().map(|art| &art.0),
+                id,
+                || format!("world item `{}`", item.row_id),
+                &mut reported,
+                "world item visual",
+            )
         });
         let sprite = match bound {
             Some((image, size)) => Sprite {
@@ -340,7 +432,6 @@ pub fn sync_world_item_visuals(
             ),
         );
     }
-    reported.log_new(&ledger.finish(), "world item visual");
 }
 
 /// Marks the sprite shown in the player's hand for the currently held item.
@@ -365,7 +456,7 @@ pub fn sync_held_item_visual(
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
     visuals: Query<Entity, With<HeldItemVisual>>,
-    mut reported: Local<ambition_platformer_primitives::binding::ReportedOnce>,
+    mut reported: Local<ReportedOnce>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -402,17 +493,16 @@ pub fn sync_held_item_visual(
         (Quat::IDENTITY, facing < 0.0, false)
     };
 
-    let mut ledger = BindingLedger::new();
-    let bound = art.as_ref().and_then(|art| {
-        match art.0.get(held.item_id.as_str(), || "held item".to_owned()) {
-            Ok(art) => Some(art),
-            Err(unresolved) => {
-                ledger.record(unresolved);
-                None
-            }
-        }
-    });
-    reported.log_new(&ledger.finish(), "held item visual");
+    if art.as_ref().is_some_and(|art| art.is_changed()) {
+        reported.clear();
+    }
+    let bound = resolve_art(
+        art.as_deref().map(|art| &art.0),
+        held.item_id.as_str(),
+        || "held item".to_owned(),
+        &mut reported,
+        "held item visual",
+    );
 
     let sprite = bound
         .map(|(image, size)| Sprite {

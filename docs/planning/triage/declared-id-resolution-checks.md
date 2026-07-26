@@ -17,7 +17,7 @@ Five instances surfaced in two days, all in the same demo:
 
 | What was declared | What resolved it | Symptom |
 | --- | --- | --- |
-| `WorldItemArt` → `sprites/props/super_mary_o_spark_blossom.png` | render item visuals | a fire-flower you collect and never see |
+| `WorldItemArt` → `sprites/props/super_mary_o_spark_blossom.png` | the ASSET SERVER, not the id map — the id was registered; no generator target produced the PNG | a fire-flower you collect and never see |
 | a runtime `spawn_pickup` (Sanic's scattered rings) | the dynamic-visual families | rings that magnetize and credit, invisibly |
 | the Solid Snake's collision box | nothing — hand-authored beside the art | a box with no relation to the sprite |
 | the `dead` sheet row | `CharacterAnim::from_name("death")` | a death animation that could never play |

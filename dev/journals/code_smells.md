@@ -1122,9 +1122,15 @@ by a human noticing something looked wrong rather than by anything failing.
    blossom bound `sprites/props/super_mary_o_spark_blossom.png`, which no
    generator target produced. The item spawned, collided, and equipped
    correctly — it was simply never drawn, from the day the spark form landed.
-   Nothing logs a missing prop texture. Candidate fix: a startup pass that
-   validates every registered `WorldItemArtEntry` path resolves, so an
-   unpublished prop is a boot error instead of an invisible pickup.
+   Nothing logs a missing prop texture.
+
+   **Fixed 2026-07-26** by `render::item_visuals::report_unloadable_item_art`,
+   which watches the load state of every bound art handle and names the id, the
+   path, and the fact that the ID is fine and the FILE is not. Note what it is
+   NOT: the binding boundary landed a day earlier does not catch this, though
+   two documents claimed it did. The id resolved perfectly; `AssetServer::load`
+   returned a handle, because a handle is a promise rather than a picture. A
+   resolver can only ever prove that content agrees with content.
 
 2. **A Bevy query requiring a component silently skips the entities without it.**
    Folding an authoritative `MaryOSparkCooldown` into the gait policy's query
@@ -1183,10 +1189,11 @@ reverted and the real fix lives where a cue is actually requested and found
 missing — `audio_play_sfx_messages` now records `missing_source_ids` and warns
 once per distinct id, instead of only bumping the `missing_source` COUNTER.
 
-Open: either wire `refresh_sfx_from_bank` into promotion (if late-bank cue
-refresh is still wanted for `AudioLibrary`-based playback) or delete it. Not
-decided here — it is another author's API and the live path may have superseded
-it entirely.
+**Closed 2026-07-26: deleted.** The live path superseded it entirely; nothing
+called it, and it carried two paragraphs of its own documentation contradicting
+each other about whether it was live. A second GPT review made the same point
+about the contradiction, which is a fair sign that leaving a "decide later" note
+on dead code just relocates the confusion.
 
 Transferable: "improved behavior on an unused helper" reads exactly like a
 landed feature in a diff. Before claiming a path is production, grep for a

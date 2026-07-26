@@ -287,12 +287,20 @@ fn an_authored_ground_item_naming_an_unknown_held_item_fails_the_plan() {
 
     let error = prepare(&room, &Default::default(), &recipes)
         .expect_err("an unresolvable held item must not plan");
-    assert_eq!(
-        error,
-        RoomFeatureConstructionError::ActorConstruction(ActorConstructionError::UnknownHeldItem {
-            authored_id: "pickup_a".into(),
-            item: "no_such_item".into(),
-        })
+    let RoomFeatureConstructionError::ActorConstruction(ActorConstructionError::UnknownHeldItem(
+        unresolved,
+    )) = &error
+    else {
+        panic!("expected the held-item refusal, got {error:?}");
+    };
+    assert_eq!(unresolved.namespace, "held item");
+    assert_eq!(unresolved.id, "no_such_item");
+    assert_eq!(unresolved.declared_by, "ground item `pickup_a`");
+    // The refusal is the only authority on this defect now, so it is also the
+    // one that has to say what the author could have written instead.
+    assert!(
+        unresolved.available.contains(&"gun_sword".to_owned()),
+        "the refusal names what the registry does provide: {unresolved}"
     );
 }
 

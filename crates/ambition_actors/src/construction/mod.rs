@@ -426,10 +426,15 @@ type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, ActorConstruction>;
 /// are the failures that used to be silent skips at spawn time.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorConstructionError {
-    UnknownHeldItem {
-        authored_id: String,
-        item: String,
-    },
+    /// A ground item names a held-item spec no registry provides.
+    ///
+    /// Carries the binding failure verbatim rather than restating it, so the one
+    /// authority that REFUSES the room is also the one with the good
+    /// diagnostic — who declared it, what was available, and the likely typo.
+    /// The room sweep used to report this too; two authorities for one defect
+    /// meant the softer one described the behaviour wrongly (it said "skipped at
+    /// spawn" about something that fails the whole room).
+    UnknownHeldItem(Box<ambition_platformer_primitives::binding::UnresolvedRef>),
     /// One limb declares two hosts. A limb is a part OF a body; two hosts is not
     /// a configuration with a degraded meaning, it is a contradiction.
     LimbHasTwoHosts {
@@ -489,11 +494,7 @@ pub enum ActorConstructionError {
 impl std::fmt::Display for ActorConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnknownHeldItem { authored_id, item } => write!(
-                f,
-                "authored ground item `{authored_id}` names held item `{item}`, which no held-item \
-                 registry entry provides"
-            ),
+            Self::UnknownHeldItem(unresolved) => write!(f, "{unresolved}"),
             Self::LimbHasTwoHosts { limb, hosts } => write!(
                 f,
                 "limb `{limb}` declares {} hosts ({}); a limb belongs to exactly one body",
@@ -1461,15 +1462,24 @@ pub fn preflight_actor_relations(
 pub fn authored_ground_item_requests(
     room: &crate::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {
+    // Built once for the room, and only when it has ground items at all: this is
+    // the registry the refusal below is measured against, and the list it names
+    // when the reference misses.
+    let registry = (!room.ground_items.is_empty()).then(|| {
+        ambition_platformer_primitives::binding::Resolver::<crate::rooms::binding::HeldItemId>::new(
+            ambition_characters::brain::held_item_ids(),
+        )
+    });
     room.ground_items
         .iter()
         .map(|spec| {
             let held =
                 ambition_characters::brain::held_item_by_id(&spec.held_item).ok_or_else(|| {
-                    ActorConstructionError::UnknownHeldItem {
-                        authored_id: spec.id.clone(),
-                        item: spec.held_item.clone(),
-                    }
+                    let unresolved = registry
+                        .as_ref()
+                        .expect("a room with ground items built the registry")
+                        .explain(&spec.held_item, format!("ground item `{}`", spec.id));
+                    ActorConstructionError::UnknownHeldItem(Box::new(unresolved))
                 })?;
             Ok(ActorConstructionRequest {
                 sim_id: SimId::placement(&spec.id),

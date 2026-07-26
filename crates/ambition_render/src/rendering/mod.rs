@@ -184,6 +184,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             // Resolve every provider's contributed walk-into pickup art (the
             // `WorldItemArtManifest` data) into loaded `WorldItemArt` handles.
             .add_systems(Startup, item_visuals::build_world_item_art)
+            // Deliberately NOT session-gated: an art file that failed to load is
+            // a fact about the build, and waiting for a session to be presentable
+            // to say so is how the spark blossom stayed quiet.
+            .add_systems(Update, item_visuals::report_unloadable_item_art)
             .add_systems(
                 Update,
                 (

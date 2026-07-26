@@ -60,11 +60,12 @@ pub(crate) fn row_playback(
     declared_by: &str,
     ledger: &mut BindingLedger,
 ) -> Option<RowPlayback> {
-    let bound = ledger.resolve(
-        &record.anim_rows(),
-        &AnimRowRef::new(animation),
-        declared_by,
-    )?;
+    let rows = record.anim_rows();
+    // A regenerated sheet with two rows called `idle` resolves to the first and
+    // draws fine, so nothing ever complained — while the second row, and every
+    // frame in it, was unreachable.
+    ledger.note_duplicates(&rows, format!("sheet `{}`", record.target));
+    let bound = ledger.resolve(&rows, &AnimRowRef::new(animation), declared_by)?;
     let row = record.row(&bound);
     Some(RowPlayback {
         start: record.flat_index_in_page(bound.slot(), 0),

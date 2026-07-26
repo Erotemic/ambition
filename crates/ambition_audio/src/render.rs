@@ -136,7 +136,10 @@ impl std::fmt::Display for SfxSourceMiss {
         f.write_str(match self {
             Self::NoProviderBank => "no bank is registered for this provider (yet)",
             Self::NotInBank => "the provider's bank has no entry for it",
-            Self::DecodeFailed => "the provider's bank entry failed to decode",
+            Self::DecodeFailed => {
+                "the provider's bank entry failed to decode (the decoder's own \
+                 message is at debug level)"
+            }
         })
     }
 }
@@ -193,7 +196,12 @@ impl ProviderSfxHandleCache {
                     },
                 }),
                 Err(error) => {
-                    warn!("provider '{provider_id}' SFX id {id} failed to decode ({error})");
+                    // `debug`, not `warn`: this runs on every request for a
+                    // corrupt clip, and the caller says the same thing ONCE with
+                    // the cue's name attached. Two warnings for one defect —
+                    // which is what shipped first, one of them calling it a
+                    // missing clip — is worse than one.
+                    debug!("provider '{provider_id}' SFX id {id} failed to decode ({error})");
                     miss = SfxSourceMiss::DecodeFailed;
                     None
                 }
@@ -427,11 +435,13 @@ mod tests {
         let mut cache = ProviderSfxHandleCache::default();
         let mut assets = Assets::<KiraAudioSource>::default();
         let id = SfxId::from_static("late.bank.cue");
-        assert!(
+        assert_eq!(
             cache
                 .handle_for("late", id, None, None, None, &mut assets)
-                .is_none(),
-            "the source is unavailable before its provider bank arrives"
+                .err(),
+            Some(SfxSourceMiss::NoProviderBank),
+            "the source is unavailable before its provider bank arrives, and says \
+             that rather than claiming nobody authored the cue"
         );
         assert!(
             cache.handles.get(&("late".to_owned(), id)).is_none(),

@@ -1,5 +1,5 @@
-//! The binding resolution boundary: authored references resolve ONCE, and what
-//! fails to resolve is named out loud.
+//! The binding resolution boundary: authored references resolve through the
+//! authority that knows, and what fails to resolve is named out loud.
 //!
 //! Ambition is full of cross-layer references authored as strings — an anim row
 //! (`"death"`), a world-item sprite id (`"spark_blossom"`), an sfx cue, a recipe,
@@ -13,23 +13,60 @@
 //! That shape has one failure mode and it is always the same one: the reference
 //! misses, the consumer degrades to silence, and the defect ships. It cost this
 //! project an unreachable death animation (the sheet spelled it `death`, the
-//! policy said `dead`), invisible rings, a spark blossom that was never drawn,
-//! and a character that shipped as a fully transparent sprite sheet.
+//! policy said `dead`), invisible rings, and a character that shipped as a fully
+//! transparent sprite sheet.
+//!
+//! The spark blossom is NOT on that list, though it was cited here for a while.
+//! Its id was registered correctly; the PNG behind it did not exist. That is a
+//! different bug, and this module does not catch it — see "What this is NOT".
 //!
 //! # The boundary
 //!
-//! 1. Content declares a [`Ref<N>`] — an id in a named [`Namespace`] — never a
-//!    bare `String` that a consumer will later guess at.
-//! 2. A [`Resolver<N>`], built once from the ids that actually exist, turns each
-//!    `Ref` into a [`Bound<N>`]. `Bound` has no public constructor, so a consumer
-//!    CANNOT hold one it did not resolve.
-//! 3. Whatever fails lands in a [`BindingLedger`], which closes into one
+//! 1. A [`Resolver<N>`], built from the ids that actually exist, is the only
+//!    thing that can mint a [`Bound<N>`]. `Bound` has no public constructor, so
+//!    a consumer CANNOT hold one it did not resolve.
+//! 2. Whatever fails lands in a [`BindingLedger`], which closes into a
 //!    [`BindingReport`] naming the namespace, the id, WHO declared it, and what
 //!    ids were actually available — with a did-you-mean when one is close.
+//! 3. An id declared twice is reported too ([`AmbiguousRef`]), because "resolves
+//!    to the first of two" is a silence of its own.
 //!
 //! The point is not that resolution can never fail. Content has typos; that is
 //! normal. The point is that a failure is a *value someone holds*, not an early
 //! `return` nobody sees.
+//!
+//! # What this is NOT
+//!
+//! Read this before treating a resolved reference as a guarantee.
+//!
+//! - **Most content still stores `String`.** [`Ref<N>`] is the authoring-seam
+//!   vocabulary, and the sweeps construct one at the boundary rather than the
+//!   authored types carrying it. Content that holds a `Ref` cannot be
+//!   *addressed* without a resolver; content that holds a `String` merely tends
+//!   to be resolved through one, by convention.
+//! - **`Bound<N>` proves that SOME resolver had the id, not WHICH.** The
+//!   namespace marker names a family (`anim row`), and two sprite sheets are two
+//!   authorities in the same family. `sheet_b.row(&sheet_a_bound)` type-checks;
+//!   it is caught by a runtime assertion in the consumer, not by construction.
+//! - **Resolution is not always once.** Room construction resolves once, into a
+//!   report carried on the plan. Presentation resolves per frame, because what
+//!   it draws changes per frame — see [`ReportedOnce`], which makes that cheap
+//!   AND quiet after the first complaint rather than pretending it is a
+//!   construction-time question.
+//! - **There is no single global report.** A report is per-pass: one for a
+//!   room's construction, one per presentation consumer, and audio keeps its own
+//!   vocabulary entirely. `absorb` unifies the passes that CAN be unified.
+//! - **A non-empty report does not block publication.** A room with an
+//!   unresolvable patrol path still constructs, on purpose: the alternative is a
+//!   blind run that shows nothing at all. The report is what makes the
+//!   degradation loud, not what prevents it. Where a defect genuinely should
+//!   refuse — a ground item naming an unregistered held item — that refusal
+//!   lives in construction and raises an [`UnresolvedRef`] of its own.
+//! - **An id that binds says nothing about whether an ASSET exists.** A resolver
+//!   proves content agrees with content. The Mary-O spark blossom was registered
+//!   correctly and pointed at a PNG no generator produced — a failure this
+//!   module cannot see. Whoever loads the file has to check the load, which is
+//!   what `render::item_visuals::report_unloadable_item_art` is for.
 //!
 //! # Draw blind, but say so
 //!
@@ -45,6 +82,7 @@
 //! byte-identical report regardless of iteration order upstream (ADR 0023).
 
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 /// A family of ids that resolve against one another — anim rows, item sprites,
 /// sfx cues. Implemented by a zero-sized marker type per family.
@@ -58,9 +96,13 @@ pub trait Namespace: 'static {
 
 /// An authored, NOT-yet-resolved reference into namespace `N`.
 ///
-/// This is what content holds. It is deliberately inert: it has no lookup method,
-/// because a reference that can look itself up is a reference that can silently
-/// fail to. Ask a [`Resolver`].
+/// Deliberately inert: it has no lookup method, because a reference that can
+/// look itself up is a reference that can silently fail to. Ask a [`Resolver`].
+///
+/// Where the authored type is still a `String` — which is most of them — the
+/// sweep constructs one of these at the boundary. That is weaker than content
+/// holding it directly, and the difference is real: a `String` field can be read
+/// by a consumer that never asks anyone whether the id exists.
 // The std derives would demand `N: Debug + Clone + ...` on the marker type, which
 // `PhantomData<fn() -> N>` does not actually need. Hand-written impls keep
 // namespace markers bare unit structs.
@@ -119,7 +161,10 @@ impl<N: Namespace> Ref<N> {
 /// proof that resolution happened, which is the whole invariant this module
 /// exists to create.
 pub struct Bound<N: Namespace> {
-    id: String,
+    /// Shared with the [`Resolver`] that minted it: presentation resolves every
+    /// visible item every frame, and a `String` here meant a heap allocation per
+    /// item per frame to carry a name the caller usually only reads.
+    id: Arc<str>,
     slot: usize,
     _namespace: PhantomData<fn() -> N>,
 }
@@ -213,11 +258,15 @@ impl std::fmt::Display for UnresolvedRef {
 pub struct Resolver<N: Namespace> {
     /// Sorted and deduplicated, so lookup is a binary search and `available` in
     /// a report reads alphabetically.
-    ids: Vec<String>,
+    ids: Vec<Arc<str>>,
     /// `slots[i]` is the position `ids[i]` was DECLARED at upstream — the sheet
     /// row, the manifest entry. Parallel to `ids`, so sorting for lookup does not
     /// cost the consumer its index into the authored data.
     slots: Vec<usize>,
+    /// Ids declared more than once, in sorted order. Resolution picks the first
+    /// declaration; keeping the collision means a consumer can SAY that the
+    /// content is ambiguous instead of quietly picking for the author.
+    duplicates: Vec<Arc<str>>,
     _namespace: PhantomData<fn() -> N>,
 }
 
@@ -232,6 +281,7 @@ impl<N: Namespace> Clone for Resolver<N> {
         Self {
             ids: self.ids.clone(),
             slots: self.slots.clone(),
+            duplicates: self.duplicates.clone(),
             _namespace: PhantomData,
         }
     }
@@ -242,6 +292,7 @@ impl<N: Namespace> Default for Resolver<N> {
         Self {
             ids: Vec::new(),
             slots: Vec::new(),
+            duplicates: Vec::new(),
             _namespace: PhantomData,
         }
     }
@@ -249,16 +300,32 @@ impl<N: Namespace> Default for Resolver<N> {
 
 impl<N: Namespace> FromIterator<String> for Resolver<N> {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
-        // Declaration order is the payload, so pair each id with its position
-        // BEFORE sorting for lookup. A duplicate id keeps its first slot: content
-        // that declares `idle` twice means the first one.
-        let mut pairs: Vec<(String, usize)> = iter.into_iter().zip(0usize..).collect();
+        Self::from_declarations(iter.into_iter().map(Arc::<str>::from).zip(0usize..))
+    }
+}
+
+impl<N: Namespace> Resolver<N> {
+    /// The one place declarations become a lookup table.
+    ///
+    /// Declaration order is the payload, so each id is paired with its position
+    /// BEFORE sorting. A duplicate id keeps its FIRST slot — content that
+    /// declares `idle` twice means the first one — and is remembered in
+    /// [`Self::duplicates`] so the choice can be reported rather than assumed.
+    fn from_declarations(entries: impl IntoIterator<Item = (Arc<str>, usize)>) -> Self {
+        let mut pairs: Vec<(Arc<str>, usize)> = entries.into_iter().collect();
         pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        let mut duplicates: Vec<Arc<str>> = pairs
+            .windows(2)
+            .filter(|pair| pair[0].0 == pair[1].0)
+            .map(|pair| pair[0].0.clone())
+            .collect();
+        duplicates.dedup();
         pairs.dedup_by(|a, b| a.0 == b.0);
         let (ids, slots) = pairs.into_iter().unzip();
         Self {
             ids,
             slots,
+            duplicates,
             _namespace: PhantomData,
         }
     }
@@ -286,23 +353,36 @@ impl<N: Namespace> Resolver<N> {
         I: IntoIterator<Item = (S, usize)>,
         S: Into<String>,
     {
-        let mut pairs: Vec<(String, usize)> = entries
-            .into_iter()
-            .map(|(alias, slot)| (alias.into(), slot))
-            .collect();
-        pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
-        pairs.dedup_by(|a, b| a.0 == b.0);
-        let (ids, slots) = pairs.into_iter().unzip();
-        Self {
-            ids,
-            slots,
-            _namespace: PhantomData,
-        }
+        Self::from_declarations(
+            entries
+                .into_iter()
+                .map(|(alias, slot)| (Arc::from(alias.into()), slot)),
+        )
     }
 
     /// Every id that exists here, sorted.
-    pub fn ids(&self) -> &[String] {
-        &self.ids
+    pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.ids.iter().map(Arc::as_ref)
+    }
+
+    /// Every id beside the slot it was DECLARED at.
+    ///
+    /// [`Self::ids`] is sorted for lookup, so zipping it against the authored
+    /// collection pairs the wrong id with the wrong entry. Anything walking both
+    /// sides wants this.
+    pub fn declarations(&self) -> impl ExactSizeIterator<Item = (&str, usize)> {
+        self.ids
+            .iter()
+            .map(Arc::as_ref)
+            .zip(self.slots.iter().copied())
+    }
+
+    /// Ids declared more than once, sorted. Non-empty means the content is
+    /// ambiguous: two sheet rows called `idle`, two paths answering to the same
+    /// alias. Resolution still succeeds — it takes the first declaration — so
+    /// this is the only way anyone learns the second one is unreachable.
+    pub fn duplicates(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.duplicates.iter().map(Arc::as_ref)
     }
 
     /// True when nothing was ever registered. Worth distinguishing in a report:
@@ -327,26 +407,49 @@ impl<N: Namespace> Resolver<N> {
     /// The lazy declarer is not a micro-optimization for its own sake: the item
     /// visuals resolve every id every frame, and an eager
     /// `format!("world item `{}`", row)` would allocate per item per frame to
-    /// describe a failure that almost never happens. The happy path here
-    /// allocates nothing but the returned `Bound`'s id.
+    /// describe a failure that almost never happens.
     pub fn resolve_str(
         &self,
         id: &str,
         declared_by: impl FnOnce() -> String,
     ) -> Result<Bound<N>, UnresolvedRef> {
-        match self.ids.binary_search_by(|known| known.as_str().cmp(id)) {
-            Ok(index) => Ok(Bound {
-                id: self.ids[index].clone(),
-                slot: self.slots[index],
-                _namespace: PhantomData,
-            }),
-            Err(_) => Err(UnresolvedRef {
-                namespace: N::NAME,
-                id: id.to_owned(),
-                declared_by: declared_by(),
-                available: self.ids.clone(),
-                did_you_mean: closest(id, &self.ids),
-            }),
+        self.bind(id).ok_or_else(|| self.explain(id, declared_by()))
+    }
+
+    /// Bind `id` if it exists, saying nothing if it does not.
+    ///
+    /// A binary search and a refcount bump — no allocation at all. This is the
+    /// half a per-frame consumer wants, because [`Self::explain`] is where the
+    /// cost lives and a consumer that has already reported a permanently missing
+    /// id must not keep paying for the explanation nobody will read. Anything
+    /// resolving ONCE should call [`Self::resolve`] instead and let the report
+    /// carry the failure.
+    pub fn bind(&self, id: &str) -> Option<Bound<N>> {
+        let index = self
+            .ids
+            .binary_search_by(|known| known.as_ref().cmp(id))
+            .ok()?;
+        Some(Bound {
+            id: self.ids[index].clone(),
+            slot: self.slots[index],
+            _namespace: PhantomData,
+        })
+    }
+
+    /// Everything a reader needs to fix `id` — including a clone of every
+    /// available id and a did-you-mean search over all of them.
+    ///
+    /// Deliberately separate from [`Self::bind`]: this is O(namespace) work with
+    /// several allocations, worth every cent the first time and nothing at all
+    /// the sixtieth time in a second. Call it once per distinct failure.
+    pub fn explain(&self, id: &str, declared_by: impl Into<String>) -> UnresolvedRef {
+        let available: Vec<String> = self.ids.iter().map(|id| id.as_ref().to_owned()).collect();
+        UnresolvedRef {
+            namespace: N::NAME,
+            id: id.to_owned(),
+            declared_by: declared_by.into(),
+            did_you_mean: closest(id, &available),
+            available,
         }
     }
 }
@@ -410,15 +513,48 @@ fn edit_distance(a: &str, b: &str) -> usize {
     previous[b_chars.len()]
 }
 
-/// Accumulates unresolved references across every namespace into ONE report.
+/// An id declared more than once in one namespace.
 ///
-/// The cross-namespace part is the point. A room's construction touches anim
-/// rows, item sprites, cues, and recipes; a reader chasing "why is this room
-/// wrong" should get one list, not four scattered warnings from four crates with
-/// four different error types.
+/// Distinct from [`UnresolvedRef`] because the reference DOES resolve: the
+/// first declaration wins, quietly, and the author never learns that the second
+/// one they wrote is dead. That is the same silence this module exists to break,
+/// so it is reported — but it does not fail a binding, and does not stop a room
+/// from being published.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AmbiguousRef {
+    /// [`Namespace::NAME`] of the family the collision is in.
+    pub namespace: &'static str,
+    /// The id declared more than once.
+    pub id: String,
+    /// Who owns the declarations — the sheet, the room, the manifest.
+    pub declared_by: String,
+}
+
+impl std::fmt::Display for AmbiguousRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ambiguous {} `{}` in `{}` — declared more than once; the first \
+             declaration wins and the rest are unreachable",
+            self.namespace, self.id, self.declared_by
+        )
+    }
+}
+
+/// Accumulates the failures of ONE pass, across whatever namespaces that pass
+/// touched, into one report.
+///
+/// The cross-namespace part is the point: a room's construction touches paths
+/// and archetypes, and a reader chasing "why is this room wrong" should get one
+/// list rather than scattered warnings from several crates with several error
+/// types.
+///
+/// It is one report per PASS, not one per run. Presentation and audio have
+/// their own; [`BindingReport::absorb`] joins the passes that belong together.
 #[derive(Debug, Default, Clone)]
 pub struct BindingLedger {
     unresolved: Vec<UnresolvedRef>,
+    ambiguous: Vec<AmbiguousRef>,
 }
 
 impl BindingLedger {
@@ -430,6 +566,27 @@ impl BindingLedger {
     /// Record a failure.
     pub fn record(&mut self, unresolved: UnresolvedRef) {
         self.unresolved.push(unresolved);
+    }
+
+    /// Record every id `resolver` was given twice, attributed to whoever owns
+    /// the declarations. Costs one pass over a list that is empty in healthy
+    /// content, so it is worth calling wherever a resolver is built from
+    /// authored data.
+    pub fn note_duplicates<N: Namespace>(
+        &mut self,
+        resolver: &Resolver<N>,
+        declared_by: impl Into<String>,
+    ) {
+        if resolver.duplicates.is_empty() {
+            return;
+        }
+        let declared_by = declared_by.into();
+        self.ambiguous
+            .extend(resolver.duplicates().map(|id| AmbiguousRef {
+                namespace: N::NAME,
+                id: id.to_owned(),
+                declared_by: declared_by.clone(),
+            }));
     }
 
     /// Resolve through `resolver`, recording the failure and yielding `None`
@@ -460,18 +617,36 @@ impl BindingLedger {
                 .then_with(|| a.id.cmp(&b.id))
         });
         unresolved.dedup();
-        BindingReport { unresolved }
+        let mut ambiguous = self.ambiguous;
+        ambiguous.sort_by(|a, b| {
+            a.namespace
+                .cmp(b.namespace)
+                .then_with(|| a.declared_by.cmp(&b.declared_by))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        ambiguous.dedup();
+        BindingReport {
+            unresolved,
+            ambiguous,
+        }
     }
 }
 
 /// What did not bind, after a construction (or a whole-content sweep) finished.
 ///
 /// Empty means every authored reference in scope found its target. That is the
-/// assertion a headless test makes, and the condition a room construction
-/// requires before it publishes.
+/// assertion a headless test makes.
+///
+/// It is NOT a precondition for publishing a room. A room whose patrol path does
+/// not resolve still constructs — the enemy goes passive, which is what it did
+/// before this module existed, and a blind run showing a passive enemy beats a
+/// blind run showing nothing. The report changes whether the degradation is
+/// SAID, not whether it happens. Refusal is a separate decision, made by
+/// whichever construction rule considers the defect fatal.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BindingReport {
     unresolved: Vec<UnresolvedRef>,
+    ambiguous: Vec<AmbiguousRef>,
 }
 
 impl BindingReport {
@@ -480,7 +655,18 @@ impl BindingReport {
         &self.unresolved
     }
 
+    /// Every id declared twice, sorted the same way. Reported, not fatal: these
+    /// resolved, just not necessarily to the declaration the author meant.
+    pub fn ambiguous(&self) -> &[AmbiguousRef] {
+        &self.ambiguous
+    }
+
     /// Nothing failed to bind.
+    ///
+    /// Ambiguity is deliberately not counted here. An id declared twice still
+    /// resolves, so a room whose sheet has two `idle` rows is drawable and
+    /// should be published — with a complaint in the log, which is what
+    /// [`Self::log`] is for.
     pub fn is_empty(&self) -> bool {
         self.unresolved.is_empty()
     }
@@ -504,33 +690,70 @@ impl BindingReport {
                 .then_with(|| a.id.cmp(&b.id))
         });
         self.unresolved.dedup();
+        self.ambiguous.extend(other.ambiguous);
+        self.ambiguous.sort_by(|a, b| {
+            a.namespace
+                .cmp(b.namespace)
+                .then_with(|| a.declared_by.cmp(&b.declared_by))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        self.ambiguous.dedup();
     }
 
     /// Say what did not bind, at `error` level, tagged with `context` (the room,
     /// the visual, the provider).
     ///
-    /// This is the ONE sink for "content named something that does not exist", so
-    /// the message reads the same everywhere and a consumer never has to invent
-    /// its own `warn!`. A visible run gets it in the console; a headless run gets
-    /// it in the captured log; a test asserts on the report itself.
+    /// Built on [`log_unresolved`], which is the one place the wording lives, so
+    /// a consumer never invents its own `warn!` — including the per-frame ones
+    /// that report a single failure at a time and never hold a whole report. A
+    /// visible run gets it in the console; a headless run gets it in the captured
+    /// log; a test asserts on the report itself.
+    ///
+    /// It is not the only place the ENGINE reports a missing reference. Audio
+    /// speaks its own vocabulary (a cue is not a slot in a namespace), and
+    /// construction refusals carry an [`UnresolvedRef`] inside a hard error
+    /// rather than a report.
     ///
     /// Empty reports say nothing — silence here means every reference bound,
     /// which is the one time silence is the honest answer.
     pub fn log(&self, context: &str) {
         for unresolved in &self.unresolved {
-            tracing::error!("{context}: {unresolved}");
+            log_unresolved(context, unresolved);
+        }
+        // A warning, not an error: the content still works, it just does not
+        // say what its author thinks it says.
+        for ambiguous in &self.ambiguous {
+            tracing::warn!("{context}: {ambiguous}");
         }
     }
 }
 
+/// Say that one reference did not bind, at `error` level, tagged with `context`.
+///
+/// The single sink [`BindingReport::log`] is built from. A per-frame consumer
+/// that gates on [`ReportedOnce`] reports one failure at a time and must not
+/// invent its own wording, so it calls this rather than collecting a whole
+/// report it would immediately take apart again.
+pub fn log_unresolved(context: &str, unresolved: &UnresolvedRef) {
+    tracing::error!("{context}: {unresolved}");
+}
+
 impl std::fmt::Display for BindingReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.unresolved.is_empty() {
+        if self.unresolved.is_empty() && self.ambiguous.is_empty() {
             return write!(f, "every authored reference resolved");
         }
-        writeln!(f, "{} unresolved binding(s):", self.unresolved.len())?;
-        for unresolved in &self.unresolved {
-            writeln!(f, "  ▢ {unresolved}")?;
+        if !self.unresolved.is_empty() {
+            writeln!(f, "{} unresolved binding(s):", self.unresolved.len())?;
+            for unresolved in &self.unresolved {
+                writeln!(f, "  ▢ {unresolved}")?;
+            }
+        }
+        if !self.ambiguous.is_empty() {
+            writeln!(f, "{} ambiguous declaration(s):", self.ambiguous.len())?;
+            for ambiguous in &self.ambiguous {
+                writeln!(f, "  ▢ {ambiguous}")?;
+            }
         }
         Ok(())
     }
@@ -546,24 +769,48 @@ impl std::fmt::Display for BindingReport {
 ///
 /// It deliberately does NOT suppress across contexts — the same missing sprite
 /// reported by two different visuals is two different facts about the content.
+///
+/// # Ask it BEFORE doing the work
+///
+/// [`Self::first_sight`] is a set probe. Explaining a failure — cloning every
+/// available id, running a did-you-mean over all of them — is the expensive
+/// part, and a permanently missing id would otherwise pay it every frame
+/// forever just to have the log line thrown away. Gate first, explain second.
+///
+/// # It goes stale, so clear it
+///
+/// The memory is a `Local`, and it outlives the content it describes: a
+/// manifest replaced by a room reload, a provider swapped by a shell
+/// transition. A failure suppressed because "we already said that" about
+/// content that no longer exists is a lie. Consumers call [`Self::clear`] when
+/// the resource they resolve against changes.
 #[derive(Debug, Default, Clone)]
 pub struct ReportedOnce {
-    seen: std::collections::BTreeSet<(&'static str, String, String)>,
+    /// A `Vec` rather than a set on purpose. What lands here is one entry per
+    /// DISTINCT content defect, which is nought to a handful; a linear scan of
+    /// borrowed `&str`s beats a set whose keys can only be probed by building
+    /// them, and the repeat path — the one that runs every frame — then costs
+    /// no allocation at all.
+    seen: Vec<(&'static str, String, String)>,
 }
 
 impl ReportedOnce {
-    /// Log whatever in `report` has not been logged before, at `context`.
-    pub fn log_new(&mut self, report: &BindingReport, context: &str) {
-        for unresolved in &report.unresolved {
-            let key = (
-                unresolved.namespace,
-                unresolved.declared_by.clone(),
-                unresolved.id.clone(),
-            );
-            if self.seen.insert(key) {
-                tracing::error!("{context}: {unresolved}");
-            }
+    /// True the FIRST time this exact failure is seen, and false after — so the
+    /// caller can skip building a diagnostic nobody will read.
+    pub fn first_sight(&mut self, namespace: &'static str, declared_by: &str, id: &str) -> bool {
+        if self.seen.iter().any(|(seen_ns, seen_by, seen_id)| {
+            *seen_ns == namespace && seen_by == declared_by && seen_id == id
+        }) {
+            return false;
         }
+        self.seen
+            .push((namespace, declared_by.to_owned(), id.to_owned()));
+        true
+    }
+
+    /// Forget everything, because the content this described was replaced.
+    pub fn clear(&mut self) {
+        self.seen.clear();
     }
 }
 
@@ -640,7 +887,18 @@ mod tests {
     fn a_binding_carries_its_declaration_slot() {
         // Deliberately not alphabetical: sorting for lookup must not disturb it.
         let rows: Resolver<AnimRow> = Resolver::new(["idle", "walk", "death"]);
-        assert_eq!(rows.ids(), ["death", "idle", "walk"], "sorted for lookup");
+        assert!(
+            rows.ids().eq(["death", "idle", "walk"]),
+            "sorted for lookup"
+        );
+        // The pairing anything walking both sides needs: sorted id, authored
+        // slot. Zipping `ids()` against the authored collection would pair
+        // `death` with row 0.
+        assert!(
+            rows.declarations()
+                .eq([("death", 2), ("idle", 0), ("walk", 1)]),
+            "each id keeps the slot it was declared at"
+        );
 
         for (declared_at, id) in ["idle", "walk", "death"].iter().enumerate() {
             let bound = rows.resolve(&Ref::new(*id), "sheet").expect("resolves");

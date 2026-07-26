@@ -1,13 +1,15 @@
 //! What a room REFERENCES, resolved at construction time.
 //!
 //! A `RoomSpec` is full of ids that point at something else: a patrol brain
-//! names a kinematic path, a ground item names a held-item spec, an enemy spawn
-//! names a character archetype. Each of those was resolved by its own consumer,
-//! at its own moment, with its own way of shrugging — the patrol brain falls
-//! back to passive, the ground item is "skipped at spawn rather than erroring"
-//! (its own doc comment says so), the archetype falls back to a default. A room
-//! could therefore be authored entirely of typos and still construct, quietly,
-//! into something that merely looked under-populated.
+//! names a kinematic path, an enemy spawn names a character archetype. Each of
+//! those was resolved by its own consumer, at its own moment, with its own way
+//! of shrugging — the patrol brain falls back to passive, the archetype falls
+//! back to a default. A room could therefore be authored entirely of typos and
+//! still construct, quietly, into something that merely looked under-populated.
+//!
+//! Only references that shrug belong here. A ground item's held-item id already
+//! REFUSES the room, so it is construction's business, not this sweep's — see
+//! [`HeldItemId`].
 //!
 //! This module resolves all of them in one pass, before construction mutates
 //! anything, and returns ONE
@@ -48,6 +50,11 @@ impl Namespace for CharacterId {
 }
 
 /// The held-item specs the item registry knows.
+///
+/// Not swept here. A ground item naming an unregistered held item does not
+/// degrade — `authored_ground_item_requests` refuses the room outright — so the
+/// namespace exists for that refusal to name what WAS available, and reporting
+/// it a second time here would only disagree with it.
 pub struct HeldItemId;
 
 impl Namespace for HeldItemId {
@@ -65,7 +72,6 @@ impl Namespace for HeldItemId {
 #[derive(Default)]
 pub struct RoomBindings {
     characters: Option<Resolver<CharacterId>>,
-    held_items: Option<Resolver<HeldItemId>>,
 }
 
 impl RoomBindings {
@@ -79,25 +85,12 @@ impl RoomBindings {
         self
     }
 
-    /// Check held-item references against `ids`.
-    pub fn with_held_items<I, S>(mut self, ids: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.held_items = Some(Resolver::new(ids));
-        self
-    }
-
     /// Which namespaces this sweep can actually decide, in report order. A caller
     /// that wants full coverage asserts on this rather than on an empty report.
     pub fn checked(&self) -> Vec<&'static str> {
         let mut names = vec![KinematicPathId::NAME];
         if self.characters.is_some() {
             names.push(CharacterId::NAME);
-        }
-        if self.held_items.is_some() {
-            names.push(HeldItemId::NAME);
         }
         names.sort_unstable();
         names
@@ -111,6 +104,10 @@ impl RoomBindings {
     pub fn sweep(&self, room: &RoomSpec) -> BindingReport {
         let mut ledger = BindingLedger::new();
         let paths = room_paths(room);
+        // Two paths answering to one spelling is not a resolution failure — the
+        // first one wins — but the second is unreachable and its author does not
+        // know that.
+        ledger.note_duplicates(&paths, format!("room `{}` paths", room.id));
 
         for enemy in &room.enemy_spawns {
             match &enemy.payload {
@@ -133,16 +130,6 @@ impl RoomBindings {
                     }
                 }
                 _ => {}
-            }
-        }
-
-        if let Some(held_items) = &self.held_items {
-            for item in &room.ground_items {
-                ledger.resolve(
-                    held_items,
-                    &Ref::new(&item.held_item),
-                    format!("ground item `{}`", item.id),
-                );
             }
         }
 

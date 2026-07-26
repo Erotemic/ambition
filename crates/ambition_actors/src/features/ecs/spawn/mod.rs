@@ -190,14 +190,17 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(|(_, request)| request.clone())
             .collect();
-        // Every id this room POINTS AT, resolved before construction mutates
-        // anything. None of these can fail at their own use site — an unknown
-        // patrol path goes passive, an unknown brain key becomes the `combatant`
-        // fallback, an unknown held item is skipped at spawn — so this pass is the
-        // only place a typo is ever going to be visible.
-        let bindings = crate::rooms::RoomBindings::default()
-            .with_characters(roster.brain_keys())
-            .with_held_items(ambition_characters::brain::held_item_ids());
+        // Every id this room POINTS AT that has NO failure mode of its own,
+        // resolved before construction mutates anything: an unknown patrol path
+        // goes passive, an unknown brain key becomes the `combatant` fallback.
+        // Both used to construct without complaint and simply come out wrong, so
+        // this pass is the only place those typos are ever going to be visible.
+        //
+        // Held items are deliberately absent. `authored_ground_item_requests`
+        // REFUSES a room that names an unregistered one, which is stronger than
+        // reporting it, and it now raises the same `UnresolvedRef` this sweep
+        // would have produced. One defect, one authority, one diagnostic.
+        let bindings = crate::rooms::RoomBindings::default().with_characters(roster.brain_keys());
         let mut binding_report = bindings.sweep(room);
         binding_report.absorb(bindings.sweep_characters(content_requests.iter().filter_map(
             |request| match &request.kind {

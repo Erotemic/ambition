@@ -75,23 +75,21 @@ fn room_with_two_typos() -> RoomSpec {
     room
 }
 
-/// One pass, one report, every namespace: the bad patrol path, the bad
-/// archetype, and the bad pickup id all come back together, each naming what it
-/// was declared by. The good references — including the one that addresses a
-/// path by display name rather than id — do not appear.
+/// One pass, one report, every namespace this sweep OWNS: the bad patrol path
+/// and the bad archetype come back together, each naming what declared it. The
+/// good references — including the one that addresses a path by display name
+/// rather than id — do not appear.
 ///
-/// Before this, each of these three was a separate silent fallback: the patrol
-/// brain went passive, the archetype defaulted, and the ground item was (in its
-/// own doc's words) "skipped at spawn rather than erroring".
+/// Before this, each was a separate silent fallback: the patrol brain went
+/// passive, the archetype defaulted. The bad pickup id is deliberately not here;
+/// it fails construction outright, and one defect gets one authority.
 #[test]
 fn construction_reports_every_unresolved_ref() {
     let room = room_with_two_typos();
-    let bindings = RoomBindings::default()
-        .with_characters(["goomba", "snake_koopa"])
-        .with_held_items(["gun_sword", "axe"]);
+    let bindings = RoomBindings::default().with_characters(["goomba", "snake_koopa"]);
 
     let report = bindings.sweep(&room);
-    assert_eq!(report.len(), 3, "one pass finds all three:\n{report}");
+    assert_eq!(report.len(), 2, "one pass finds both:\n{report}");
 
     let by_namespace: Vec<_> = report
         .unresolved()
@@ -102,7 +100,6 @@ fn construction_reports_every_unresolved_ref() {
         by_namespace,
         vec![
             ("character", "snake_kooopa", "enemy spawn `koopa_a`"),
-            ("held item", "battleaxe", "ground item `pickup_b`"),
             (
                 "kinematic path",
                 "ledge_patrl",
@@ -113,12 +110,35 @@ fn construction_reports_every_unresolved_ref() {
 
     // The path report offers both spellings the real path answers to, because
     // "the id you used is not one of these" is what a fixer needs to see.
-    let path = &report.unresolved()[2];
+    let path = &report.unresolved()[1];
     assert_eq!(path.did_you_mean.as_deref(), Some("ledge_patrol"));
     assert_eq!(
         path.available,
         vec!["Ledge Patrol".to_owned(), "ledge_patrol".to_owned()],
     );
+}
+
+/// Two paths answering to one spelling is not a resolution failure — the first
+/// one wins and everything draws — so it used to pass in total silence, with the
+/// author's second declaration simply unreachable. It is reported now, as a
+/// warning rather than a binding failure, because the room is still publishable.
+#[test]
+fn a_room_that_declares_one_path_twice_says_so() {
+    let mut room = room_with_two_typos();
+    room.kinematic_paths.push(KinematicPathSpec::new(
+        "ledge_patrol",
+        "Ledge Patrol (copy)",
+        aabb(0.0, 0.0),
+        ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
+    ));
+
+    let report = RoomBindings::default().sweep(&room);
+    let ambiguous: Vec<_> = report
+        .ambiguous()
+        .iter()
+        .map(|a| (a.namespace, a.id.as_str()))
+        .collect();
+    assert_eq!(ambiguous, vec![("kinematic path", "ledge_patrol")]);
 }
 
 /// A sweep with no catalogs still checks the room against ITSELF, and says so.

@@ -60,12 +60,16 @@ fn mary_o_world_item_art() -> WorldItemArtManifest {
 /// Every reference Mary-O declares resolves against what Mary-O registers: the
 /// brain keys her enemies stage under, and the art ids her pickups carry.
 ///
-/// Neither could be checked any other way, and both have shipped broken.
 /// `CharacterRoster::spec_for_brain` has no failure mode — an unknown key
 /// silently becomes the generic `combatant` fallback — so misspelling
 /// `mary_o_snake` would have shipped correctly-named enemies with the wrong
-/// body, speed, and health. And the spark blossom really did go undrawn behind
-/// an art id nothing bound.
+/// body, speed, and health.
+///
+/// This does NOT cover the spark blossom's actual bug, and an earlier version of
+/// this comment claimed it did. That id was registered correctly all along; the
+/// PNG it named did not exist. Nothing here opens a file, so nothing here could
+/// have caught it — `render::item_visuals::report_unloadable_item_art` is what
+/// does, at runtime, by checking the load rather than the reference.
 ///
 /// The rooms are NOT swept here: Mary-O authors no kinematic paths, ground
 /// items, or enemy spawns, so a room sweep would be an assertion that cannot

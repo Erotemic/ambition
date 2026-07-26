@@ -13,7 +13,7 @@ use super::*;
 /// not knowing any character's id, so its fixture should not either. The first
 /// baked target is whatever the sheet table happens to hold.
 fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
-    use ambition_sprite_sheet::character::sheets::{SheetTuning, try_load_spec_for_target};
+    use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     // Not every baked target is a CHARACTER sheet — effect sheets
     // (`robot_slash`) are in the same table and load no character spec. Take the
@@ -130,7 +130,8 @@ fn an_unknown_demand_reaches_a_named_terminal_failure_not_silence() {
     for token in std::mem::take(&mut demand.pending) {
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
-                token,
+                token.clone(),
+                &token,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
             );
         }
@@ -222,8 +223,8 @@ fn a_later_identity_swap_demands_the_new_sheet() {
 // ── §7.2: composition parity as a readiness invariant ──────────────────────────
 
 use super::audit::{
-    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
-    report_character_capability_gaps, unsettled_staged_characters,
+    audit_character_capabilities, character_reveal_ready, report_character_capability_gaps,
+    unsettled_staged_characters, CharacterCapabilityGap,
 };
 use super::staging::{
     DirectStartupSpec, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,
@@ -316,6 +317,7 @@ fn a_staged_character_is_unsettled_until_it_reaches_a_terminal_state() {
     // no sheets — so the invariant forbids silence, not failure.
     states.record(
         "mary_o".to_string(),
+        "mary_o",
         CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved),
     );
     assert!(character_reveal_ready(&demand, &states));
@@ -424,9 +426,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
     // A catalog with NO characters in it: the only declaration is the registration.
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
     app.register_character(
         crate::character_runtime::definition::CharacterDefinition::new(

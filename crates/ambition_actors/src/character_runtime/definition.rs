@@ -529,6 +529,23 @@ impl PreparedCharacterRegistry {
         self.by_id.keys().map(String::as_str)
     }
 
+    /// The stable id of the character presented under `display_name`.
+    ///
+    /// The registration seam is the ONLY place a registered-only character's
+    /// display name is written down, and rooms, LDtk entities and roster entries
+    /// all legitimately name characters that way. Without this the alias is
+    /// resolvable exclusively through the sprite table — which forgets it once the
+    /// sheet decodes, and does not exist at all in an art-free build.
+    ///
+    /// A linear scan: the registry is a per-composition cast list (single digits
+    /// to low tens), and a second index would be a second thing to keep true.
+    pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
+        self.by_id
+            .values()
+            .find(|prepared| prepared.display_name == display_name)
+            .map(|prepared| prepared.id.as_str())
+    }
+
     pub fn len(&self) -> usize {
         self.by_id.len()
     }

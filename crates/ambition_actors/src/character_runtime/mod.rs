@@ -41,17 +41,17 @@ pub mod presentation;
 pub mod staging;
 
 pub use audit::{
-    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
-    unsettled_staged_characters,
+    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
+    CharacterCapabilityGap,
 };
 pub use definition::{
-    BodySource, CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt,
-    CharacterRegistrationError, Lineage, PreparedCharacter, PreparedCharacterDefinition,
-    PreparedCharacterRegistry, Vitals, prepare_character,
+    prepare_character, BodySource, CharacterBindings, CharacterDefinition,
+    CharacterDefinitionAppExt, CharacterRegistrationError, Lineage, PreparedCharacter,
+    PreparedCharacterDefinition, PreparedCharacterRegistry, Vitals,
 };
 pub use hurtbox::{
-    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-    ResolvedHurtboxes, resolve_hurtboxes,
+    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
+    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, provider_of_character,
@@ -67,8 +67,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::prelude::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_persistence::settings::VisualQualityBudget;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
 use crate::assets::sandbox_assets::SandboxAssetCatalog;
@@ -164,12 +164,98 @@ pub enum CharacterLoadOutcome {
     Failed(CharacterLoadFailure),
 }
 
+/// **THIS session's cast, by canonical character id.**
+///
+/// Split out of the load ledger because the two answer different questions and
+/// only one of them is a roster. [`CharacterLoadStates`] is append-only history
+/// keyed by whatever TOKEN was demanded: it has to be, so a failure can name the
+/// spelling that failed. Using it as the cast produced two bugs at once —
+///
+/// * after three rooms it holds every character the process ever loaded, so a
+///   later session authorized the cues of characters who left the building; and
+/// * a room that stages `"Mary-O"` (rooms legitimately author display names)
+///   recorded `"Mary-O"`, which matches nothing in either provider map, so the
+///   character loaded fine and her provider was never authorized.
+///
+/// This resource holds ids, resolved through the declaration authorities, and it
+/// belongs to one [`SessionScopeId`].
+#[derive(Default, Debug, Clone)]
+pub struct StagedCast {
+    scope: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
+    ids: BTreeSet<String>,
+}
+
+impl StagedCast {
+    /// Every character id on stage for the current session, in deterministic
+    /// order — including the ones whose art failed, because a fighter with no
+    /// sheet is still in the fight and still needs its cues authorized.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.ids.iter().map(String::as_str)
+    }
+
+    pub fn contains(&self, character_id: &str) -> bool {
+        self.ids.contains(character_id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// The session this cast belongs to, once one has claimed it.
+    pub fn scope(&self) -> Option<ambition_platformer_primitives::lifecycle::SessionScopeId> {
+        self.scope
+    }
+
+    /// Bind the cast to the session that is now current, dropping the previous
+    /// session's cast.
+    ///
+    /// Three cases, and the middle one is the load-bearing one:
+    ///
+    /// * `None` — no session owns anything yet, so there is nothing to reset
+    ///   AGAINST. Leave the cast alone.
+    /// * the cast has no scope — ADOPT this one and keep the ids. Startup stages
+    ///   the player's characters before the first session scope is minted, and
+    ///   treating that as a foreign cast would drop exactly the character the
+    ///   player is about to control.
+    /// * a different scope — this is a new session. The previous cast has left.
+    pub fn enter_scope(
+        &mut self,
+        scope: Option<ambition_platformer_primitives::lifecycle::SessionScopeId>,
+    ) {
+        let Some(scope) = scope else {
+            return;
+        };
+        match self.scope {
+            None => self.scope = Some(scope),
+            Some(current) if current == scope => {}
+            Some(_) => {
+                self.ids.clear();
+                self.scope = Some(scope);
+            }
+        }
+    }
+
+    fn stage(&mut self, character_id: impl Into<String>) {
+        self.ids.insert(character_id.into());
+    }
+}
+
 /// Every demanded character's outcome. §4.9's readiness invariant reads this:
 /// every staged character must reach `Ready` or a NAMED terminal `Failed` before
 /// the reveal barrier opens — never "still unknown".
+///
+/// Append-only, and keyed by the demanded TOKEN rather than by character id, so a
+/// misspelled or display-name demand is reported back in the spelling the caller
+/// used. That makes it a diagnostic history and NOT a roster — see [`StagedCast`],
+/// which it carries alongside.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct CharacterLoadStates {
     by_token: BTreeMap<String, CharacterLoadOutcome>,
+    cast: StagedCast,
 }
 
 impl CharacterLoadStates {
@@ -191,13 +277,22 @@ impl CharacterLoadStates {
             })
     }
 
-    /// Every token this session staged, in deterministic order.
+    /// Every token ever demanded of this process, in deterministic order.
     ///
-    /// The cast, as far as the load ledger is concerned — including the ones that
-    /// reached a named failure, because a character whose sheet did not resolve is
-    /// still IN the fight and still needs its cues authorized.
-    pub fn staged_characters(&self) -> impl Iterator<Item = &str> {
+    /// Named for what it is. This is NOT the cast: it accumulates across rooms and
+    /// across sessions and it is keyed by demand spelling. Ask [`Self::cast`] who
+    /// is on stage.
+    pub fn staged_tokens(&self) -> impl Iterator<Item = &str> {
         self.by_token.keys().map(String::as_str)
+    }
+
+    /// The current session's cast, by canonical character id.
+    pub fn cast(&self) -> &StagedCast {
+        &self.cast
+    }
+
+    pub fn cast_mut(&mut self) -> &mut StagedCast {
+        &mut self.cast
     }
 
     pub fn len(&self) -> usize {
@@ -208,9 +303,43 @@ impl CharacterLoadStates {
         self.by_token.is_empty()
     }
 
-    fn record(&mut self, token: String, outcome: CharacterLoadOutcome) {
+    /// Settle one demanded token: its outcome into the history, its canonical id
+    /// into the cast.
+    ///
+    /// One method for both writes, because a token that reached a terminal state
+    /// without joining the cast is a character who loaded and then made no sound.
+    fn record(&mut self, token: String, character_id: &str, outcome: CharacterLoadOutcome) {
+        self.cast.stage(character_id);
         self.by_token.insert(token, outcome);
     }
+}
+
+/// **The canonical character id a demand token names.**
+///
+/// Rooms, LDtk entities and roster entries all legitimately submit display names
+/// (`"Mary-O"`), while every provider map — the prepared registry, the assembled
+/// catalog's owners — is keyed by stable id (`"mary_o"`). Resolve through the two
+/// declaration authorities, ids first, and hand back the token unchanged when
+/// nothing claims it (an unknown token has no canonical form, and the load ledger
+/// is where that gets reported).
+///
+/// Deliberately NOT resolved through the sprite table, which is the other place a
+/// token → id alias exists: `CharacterSpriteAssets::publish` consumes its
+/// declarations, so after the sheet decodes `sheet_state` answers `Ready` and the
+/// id is no longer recoverable from it. An authority that stops answering once
+/// the art arrives cannot be the one that names the cast.
+pub fn canonical_character_id<'a>(
+    registry: &'a PreparedCharacterRegistry,
+    catalog: &'a CharacterCatalog,
+    token: &'a str,
+) -> &'a str {
+    if registry.get(token).is_some() || catalog.get(token).is_some() {
+        return token;
+    }
+    registry
+        .id_for_display_name(token)
+        .or_else(|| catalog.id_for_display_name(token))
+        .unwrap_or(token)
 }
 
 /// Proof that the engine materialization service is installed.
@@ -244,11 +373,16 @@ pub fn materialize_character_demand(
     quality: Option<&VisualQualityBudget>,
 ) {
     for token in demand.take() {
+        // Whose cues this character will emit under, resolved BEFORE any decode:
+        // the cast is a roster, not a report on the art, and it must be right for a
+        // character whose sheet never resolves.
+        let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
         // Ask BEFORE decoding: an unknown token must be reported as unknown, not
         // as a decode that produced nothing. They are different bugs.
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
                 token,
+                &character_id,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::UnknownCharacter),
             );
             continue;
@@ -268,7 +402,7 @@ pub fn materialize_character_demand(
         } else {
             CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved)
         };
-        states.record(token, outcome);
+        states.record(token, &character_id, outcome);
     }
 }
 
@@ -352,6 +486,29 @@ pub fn demand_worn_character_sheets(
     }
 }
 
+/// **A new session gets a new cast.**
+///
+/// The load ledger accumulates forever by design, so without this the cast a
+/// session authorizes cues for is every character the PROCESS ever loaded: quit to
+/// the menu, start a different fight, and the previous fight's providers are
+/// authorized alongside the current one. `ActiveAudioSelection` resets on session
+/// select; the cast has to reset with it or the reset means nothing.
+///
+/// Runs before the materializer so a session that begins and stages in the same
+/// frame keeps what it staged.
+pub fn retire_previous_session_cast(
+    scope: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    states: Option<ResMut<CharacterLoadStates>>,
+) {
+    let (Some(scope), Some(mut states)) = (scope, states) else {
+        return;
+    };
+    let current = scope.current();
+    if states.cast().scope() != current {
+        states.cast_mut().enter_scope(current);
+    }
+}
+
 /// The standing materializer. No-ops without an asset pipeline (headless, art-free
 /// shells) exactly like the room barrier does, so a sim-only build pays nothing.
 #[allow(clippy::too_many_arguments)]
@@ -397,9 +554,19 @@ pub fn materialize_demanded_character_sheets(
         // its own variant instead of borrowing `NoSheetResolved`. "Nothing was ever
         // going to decode here" and "the decode produced nothing" call for different
         // responses from whoever reads the ledger.
+        let fallback_registry = PreparedCharacterRegistry::default();
+        let registry = registry.as_deref().unwrap_or(&fallback_registry);
         for token in demand.take() {
+            // Canonicalized here too. An art-free composition still emits cues, and
+            // authorization is deliberately not gated on the asset pipeline — so a
+            // headless session that staged `"Mary-O"` must still authorize
+            // `mary_o_demo`, or the one build where nothing is visible is also the
+            // one where nothing is audible.
+            let character_id =
+                canonical_character_id(registry, &character_catalog, &token).to_string();
             states.record(
                 token,
+                &character_id,
                 CharacterLoadOutcome::Failed(CharacterLoadFailure::NoAssetPipeline),
             );
         }
@@ -490,6 +657,9 @@ impl Plugin for CharacterRuntimePlugin {
                     // Declare before anything asks: a character registered only
                     // through `register_character` must not read as `Unknown`.
                     declare_registered_characters,
+                    // The cast belongs to ONE session. Before anything stages into
+                    // it, drop the previous session's.
+                    retire_previous_session_cast,
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.

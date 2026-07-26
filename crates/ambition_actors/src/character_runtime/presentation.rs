@@ -42,10 +42,16 @@ pub fn provider_of_character<'a>(
 
 /// Authorize a presentation source for every provider in the staged cast.
 ///
-/// Runs off [`CharacterLoadStates`] — the set of characters a session actually
-/// staged — rather than off everything registered, because authorization is a
-/// property of THIS session's cast. A game with fifty registered fighters and two
-/// on stage authorizes two providers.
+/// Runs off [`CharacterLoadStates::cast`] — the characters THIS session staged, by
+/// canonical id — rather than off everything registered, because authorization is a
+/// property of one session's cast. A game with fifty registered fighters and two on
+/// stage authorizes two providers.
+///
+/// It deliberately does not read the load ledger's token history. That map is
+/// append-only and keyed by demand spelling, which authorized every character the
+/// process had ever loaded and failed to authorize any room that staged a display
+/// name. [`StagedCast`](super::StagedCast) exists because those are two different
+/// facts.
 ///
 /// The source id is the provider id, which is exactly what `advance_move_playback`
 /// stamps onto a `MoveEventMessage` when it resolves a body's character to its
@@ -79,7 +85,7 @@ pub fn authorize_staged_character_presentation_sources(
         return;
     }
     let mut authorized: BTreeSet<String> = BTreeSet::new();
-    for character_id in states.staged_characters() {
+    for character_id in states.cast().ids() {
         let Some(provider) =
             provider_of_character(registry.as_deref(), owners.as_deref(), character_id)
         else {

@@ -11,10 +11,26 @@ fn session_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    let mut selection = ambition_audio::selection::ActiveAudioSelection::default();
-    selection.select_gameplay(1, "ambition", None, None, Default::default());
-    app.insert_resource(selection);
+    app.init_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>();
+    begin_session(&mut app, 1);
     app
+}
+
+/// Start a fresh gameplay session: a new scope, and a new audio authority whose
+/// authorized-source map starts over with only the session owner in it.
+fn begin_session(app: &mut App, owner: u64) {
+    app.world_mut()
+        .resource_mut::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>()
+        .begin();
+    let mut selection = ambition_audio::selection::ActiveAudioSelection::default();
+    selection.select_gameplay(owner, "ambition", None, None, Default::default());
+    app.insert_resource(selection);
+}
+
+fn is_authorized(app: &App, provider: &str) -> bool {
+    app.world()
+        .resource::<ambition_audio::selection::ActiveAudioSelection>()
+        .is_sfx_source_authorized(&PresentationSourceId::new(provider))
 }
 
 /// Stage a character the way a session does: submit demand and let the engine
@@ -84,10 +100,82 @@ fn a_registered_only_character_still_names_its_provider() {
     stage(&mut app, "sanic");
     app.update();
 
+    assert!(app
+        .world()
+        .resource::<ambition_audio::selection::ActiveAudioSelection>()
+        .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),);
+}
+
+/// **A room stages a display name, and the right provider is authorized.**
+///
+/// Rooms author characters by the name a designer typed — `demand_room_character_sheets`
+/// pushes `enemy.name` and an interactable's `character_id` straight through — while
+/// every provider map is keyed by stable id. The load ledger records the token it
+/// was handed, so a cast read off that ledger asked for the provider of `"Mary-O"`,
+/// found nothing, and skipped her: the character loaded correctly and was silent.
+#[test]
+fn staging_a_character_by_display_name_authorizes_its_provider() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    stage(&mut app, "Mary-O");
+    app.update();
+
     assert!(
-        app.world()
-            .resource::<ambition_audio::selection::ActiveAudioSelection>()
-            .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),
+        is_authorized(&app, "mary_o_demo"),
+        "a demand spelled with the DISPLAY name must still authorize the provider \
+         of `mary_o`: rooms author display names, and a cast keyed by demand \
+         spelling matches nothing in either provider map"
+    );
+    let states = app
+        .world()
+        .resource::<crate::character_runtime::CharacterLoadStates>();
+    assert!(
+        states.cast().contains("mary_o"),
+        "the cast holds canonical ids"
+    );
+    assert!(
+        states.staged_tokens().any(|token| token == "Mary-O"),
+        "and the ledger still reports the spelling that was demanded, which is the \
+         whole reason the two are separate"
+    );
+}
+
+/// **A later session does not authorize the previous session's cast.**
+///
+/// The load ledger is append-only across rooms AND across sessions, so reading the
+/// cast off it meant every character the process had ever loaded was authorized in
+/// every subsequent fight. `select_gameplay` builds a fresh authorized-source map;
+/// this is what makes that reset mean something.
+#[test]
+fn a_new_session_does_not_inherit_the_previous_casts_providers() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+
+    stage(&mut app, "mary_o");
+    app.update();
+    assert!(is_authorized(&app, "mary_o_demo"), "session one's cast");
+
+    // A different fight, with a different fighter.
+    begin_session(&mut app, 2);
+    stage(&mut app, "sanic");
+    app.update();
+
+    assert!(is_authorized(&app, "sanic_demo"), "session two's cast");
+    assert!(
+        !is_authorized(&app, "mary_o_demo"),
+        "Mary-O is not in this fight. Authorizing her provider anyway is how a \
+         fifty-character roster ends up authorizing fifty providers after an \
+         evening of play — and it makes the two-characters-authorize-two-providers \
+         invariant untestable in a long-running process"
+    );
+    let states = app
+        .world()
+        .resource::<crate::character_runtime::CharacterLoadStates>();
+    assert!(
+        states.staged_tokens().any(|token| token == "mary_o"),
+        "the load HISTORY still remembers her — it is a diagnostic ledger, and \
+         forgetting what failed to load two rooms ago is a different bug"
     );
 }
 
@@ -105,11 +193,9 @@ fn an_unclaimed_character_authorizes_nothing() {
     let selection = app
         .world()
         .resource::<ambition_audio::selection::ActiveAudioSelection>();
-    assert!(
-        selection
-            .sfx_for_source(&PresentationSourceId::new("someone_elses_fighter"))
-            .is_none()
-    );
+    assert!(selection
+        .sfx_for_source(&PresentationSourceId::new("someone_elses_fighter"))
+        .is_none());
 }
 
 /// **A13.** A body's cues are attributed to ITS character's provider.

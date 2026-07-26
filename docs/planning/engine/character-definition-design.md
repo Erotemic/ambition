@@ -1,8 +1,9 @@
 # The character definition — one authored unit
 
-**Status:** DESIGN SETTLED, nothing built. Opened 2026-07-26 after two review
-rounds with GPT-5.6 and Jon. §§4–6 are decided; §7 is the work queue; §8 records
-what is deliberately deferred.
+**Status:** DESIGN SETTLED, **§7 BUILT — all 11 slices landed 2026-07-26**.
+Opened 2026-07-26 after two review rounds with GPT-5.6 and Jon. §§4–6 are the
+decisions the code now implements; §7 is the (completed) work queue; §8 records
+what is deliberately deferred. §0 says what is done, what is not, and the traps.
 
 **Goal (Jon's words):** *"plop Mary-O or Sanic into Ambition and have them behave
 similarly to how they do in their standalone game"* — author movesets, VFX/SFX
@@ -31,8 +32,8 @@ deadline 2026-07-27T07:15Z).*
 
 ### Built so far
 
-**6 of 11 slices are landed**, in this order — §7.3, §7.4, §7.5, §7.9, §7.11's
-schema half, then §7.1 and §7.2 together.
+**All 11 slices of §7 are landed.** Verified by `scripts/goal_guard.py` — a
+command hook that reads the repository, 19/19 checks green, suite 18/18.
 
 | Slice | State |
 |---|---|
@@ -41,17 +42,35 @@ schema half, then §7.1 and §7.2 together.
 | 7.3 strict provider-local `inherits` | **DONE** |
 | 7.4 `AttackDir::Forward` + attack held/released | **DONE** |
 | 7.5 music: one runtime, `one_shot` survives generation | **DONE** |
+| 7.6 `register_character` + prepared authority | **DONE** |
+| 7.7 source-qualified presentation emission | **DONE** |
+| 7.8 match participants + `CharacterLoadDemand` | **DONE** |
 | 7.9 `AttackGestureState` + tilt/smash | **DONE** |
-| 7.11 hurtbox authoring **schema** | **DONE** (runtime half open) |
-| 7.6 character manifest + prepared registry | open |
-| 7.7 source-qualified presentation emission | open |
-| 7.8 match participants + `CharacterLoadDemand` | partly — the three staging
-  projections exist (`character_runtime::staging`); match seating is open |
-| 7.10 two characters actually fight | open |
-| 7.11 hurtbox **runtime** (live sim clock, selection) | open |
+| 7.10 two characters actually fight | **DONE** |
+| 7.11 hurtbox schema + runtime | **DONE** |
 
-§7.2 was **not** skipped. It landed in the same commit as §7.1, which is what
-§0 previously begged the next agent to do.
+§7.2 was **not** skipped — it landed in the same commit as §7.1, which is what
+this section previously begged the next agent to do.
+
+### What is NOT done, and is worth a slice each
+
+1. **`patrol_speed` / `chase_speed` / `aggro_radius` / `attack_range` are still
+   absolute world numbers on `CharacterArchetypeSpec`** (§4.7's standing
+   inconsistency). `NormalizedEffort` and the seam exist; moving authored content
+   across is a content migration.
+2. **Nothing authors a `HurtboxDoc` yet.** The schema, the runtime, the
+   selection, and the damageable-volume wiring are all in and tested; no shipped
+   character has authored volumes, so every body still uses its coarse box in
+   practice. The first real character to author one is the proof.
+3. **The prepared authority does not yet REPLACE the six old seams.** §4.1's end
+   state is subsystem read models derived from `PreparedCharacterRegistry`;
+   today it coexists with the catalog/roster fragments. That is the compatibility
+   bridge §4.1 explicitly permits during migration — but it is a bridge, and
+   ⛔ "six registries behind one function" is the failure mode to watch.
+4. **No versus mode.** `MatchParticipantRoster` seats participants and the fight
+   is proven in a test; nothing spawns a match in a running game yet.
+5. **The equipment rollback oracle is still `#[ignore]`d.** Narrowed, not fixed —
+   see its triage doc. Not caused by this work.
 
 ### What changed structurally, so you do not re-derive it
 

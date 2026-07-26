@@ -46,7 +46,43 @@ pub enum RollbackEntryKind {
 }
 
 impl RollbackEntryKind {
-    fn canonical_name(self) -> &'static str {
+    /// True when this registration means "the rollback carries this type's VALUE
+    /// across a save/load", and therefore that a localizer must be able to see it.
+    ///
+    /// The distinction is what makes probe coverage testable rather than asserted:
+    /// the other kinds accompany a state registration for the same type (entity
+    /// remapping, `Rollback` requirement) or describe something with no restored
+    /// value at all (a message channel that is cleared, a dynamic anchor). Only
+    /// these carry state, and every one of them must own a probe.
+    ///
+    /// `Derived` is included deliberately. Derived state is not snapshotted, but its
+    /// contract — "the named system rebuilds it before anything reads it" — is
+    /// exactly what the resimulation-boundary comparison tests, and
+    /// `ProjectileOwner` was a `declare_rollback_derived` naming a system whose query
+    /// could not see enemy projectiles. A derived declaration with no probe is a
+    /// promise with no auditor.
+    pub fn carries_state(self) -> bool {
+        match self {
+            Self::ComponentCanonical
+            | Self::ComponentCloneCursor
+            | Self::ComponentCloneResolved
+            | Self::ComponentClone
+            | Self::ComponentCloneCanonicalChecksum
+            | Self::ComponentCloneCustomChecksum
+            | Self::ResourceCanonical
+            | Self::ResourceCloneCursor
+            | Self::ResourceClone
+            | Self::ResourceCloneCustomChecksum
+            | Self::Derived => true,
+            Self::MessageClear
+            | Self::EntityMapping
+            | Self::ResourceEntityMapping
+            | Self::RequiredRollback
+            | Self::DynamicAnchor => false,
+        }
+    }
+
+    pub fn canonical_name(self) -> &'static str {
         match self {
             Self::ComponentCanonical => "component-canonical",
             Self::ComponentCloneCursor => "component-clone-cursor",
@@ -123,7 +159,6 @@ pub enum RollbackRegistrationOutcome {
     /// does not run GGRS and therefore must not install rollback machinery.
     RecordedOnly,
 }
-
 
 /// Record a localization probe beside the checksum projection.
 ///
@@ -506,6 +541,18 @@ impl AmbitionRollbackApp for App {
         ) == RollbackRegistrationOutcome::Inserted
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
+            // PRESENCE only, because this arm's contract is "snapshotted here,
+            // value checksummed by some other authoritative projection" — there is
+            // no projection to measure. A count still catches a carrier that
+            // bevy_ggrs did not put back, which is `PlayerVisual`'s exact failure,
+            // and `ProjectileOwner` is registered through here.
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_presence::<T>,
+                ),
+            );
         }
         self
     }
@@ -530,6 +577,13 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, state_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_state::<T>,
+                ),
+            );
         }
         self
     }
@@ -556,6 +610,14 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
             RollbackApp::checksum_component(self, checksum);
+            // The SAME projection GGRS was just handed, so the probe measures
+            // exactly what the session's aggregate measures.
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_with::<T>(world, checksum)
+                }),
+            );
         }
         self
     }
@@ -633,6 +695,16 @@ impl AmbitionRollbackApp for App {
         ) == RollbackRegistrationOutcome::Inserted
         {
             RollbackApp::rollback_resource_with_clone::<T>(self);
+            // Presence only, for the same reason as the component arm: no
+            // projection was supplied. 0-or-1 still distinguishes "absent after a
+            // load" from "present but different".
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_resource_presence::<T>,
+                ),
+            );
         }
         self
     }
@@ -659,6 +731,12 @@ impl AmbitionRollbackApp for App {
         {
             RollbackApp::rollback_resource_with_clone::<T>(self);
             RollbackApp::checksum_resource(self, checksum);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_resource_with::<T>(world, checksum)
+                }),
+            );
         }
         self
     }

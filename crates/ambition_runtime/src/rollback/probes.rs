@@ -58,10 +58,18 @@ pub struct ComponentCensus {
 }
 
 /// A type-erased census probe for one registered rollback component.
+///
+/// The census is boxed rather than a bare `fn` pointer because two registration
+/// arms take the checksum projection as a PARAMETER
+/// (`rollback_component_clone_checksum` and its resource twin). Those are the arms
+/// that shipped with no probe at all, and a probe shape that could not hold a
+/// caller-supplied projection is why: the only thing left to offer them would have
+/// been presence-only, for types that have a perfectly good value projection right
+/// there in the call.
 #[derive(Clone)]
 pub struct ChecksumProbe {
     pub type_name: &'static str,
-    census: fn(&mut World) -> ComponentCensus,
+    census: std::sync::Arc<dyn Fn(&mut World) -> ComponentCensus + Send + Sync>,
     /// True for state declared DERIVED rather than snapshotted.
     ///
     /// Derived state is legitimately absent or stale immediately after a load —
@@ -86,6 +94,16 @@ impl ChecksumProbe {
 /// rollback-registered and remain invisible to localization. That coupling is the
 /// point: the two holes in the previous instrument were both "the sweep did not
 /// know to look here".
+///
+/// ⚠ That sentence was written before it was true. `record_probe` was called from
+/// five of the ten state-bearing registration arms, so the plain-clone and
+/// custom-checksum arms installed GGRS machinery and no probe — `RoomSet`,
+/// `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and
+/// `ProjectileOwner` among them, the last being the very state the equipment
+/// divergence turned on. The claim is now enforced rather than asserted, by
+/// `rollback_exit_oracle::every_state_bearing_rollback_registration_owns_a_localization_probe`,
+/// which compares `type_names` against every descriptor whose
+/// `RollbackEntryKind::carries_state`. A comment is not a coupling.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackChecksumProbes {
     probes: Vec<ChecksumProbe>,
@@ -112,6 +130,12 @@ impl RollbackChecksumProbes {
             .collect()
     }
 
+    /// Every probed type name. What a coverage guard compares the rollback
+    /// registry's state-bearing descriptors against.
+    pub fn type_names(&self) -> BTreeSet<&'static str> {
+        self.probes.iter().map(|probe| probe.type_name).collect()
+    }
+
     /// The subset that is SNAPSHOT state — the only thing a restore must reproduce.
     pub fn snapshot_type_names(&self) -> BTreeSet<&'static str> {
         self.probes
@@ -120,26 +144,28 @@ impl RollbackChecksumProbes {
             .map(|probe| probe.type_name)
             .collect()
     }
-
 }
 
 impl ChecksumProbe {
-    pub const fn new(type_name: &'static str, census: fn(&mut World) -> ComponentCensus) -> Self {
+    pub fn new(
+        type_name: &'static str,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
         Self {
             type_name,
-            census,
+            census: std::sync::Arc::new(census),
             derived: false,
         }
     }
 
     /// A probe for DERIVED state: compared across resimulation, not across restore.
-    pub const fn derived(
+    pub fn derived(
         type_name: &'static str,
-        census: fn(&mut World) -> ComponentCensus,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
     ) -> Self {
         Self {
             type_name,
-            census,
+            census: std::sync::Arc::new(census),
             derived: true,
         }
     }
@@ -164,8 +190,8 @@ impl RollbackChecksumProbes {
 
 /// Census a component through the canonical STATE projection.
 ///
-/// A plain generic function rather than a closure so the probe stays a bare `fn`
-/// pointer: the projection is decided by the trait bound, not captured.
+/// A plain generic function rather than a closure: the projection is decided by the
+/// trait bound, not captured, so the registration arm names nothing twice.
 pub fn census_state<T>(world: &mut World) -> ComponentCensus
 where
     T: Component + super::SnapshotState,
@@ -189,12 +215,37 @@ where
     fold(world, super::resolved_checksum::<T>)
 }
 
-/// Census PRESENCE only, for components whose checksum projection is a
-/// caller-supplied function that cannot be baked into a `fn` pointer.
+/// Census a component through a CALLER-SUPPLIED checksum projection.
+///
+/// The registration arms that take `checksum: fn(&T) -> u64` hand the same function
+/// to GGRS and to this, so the probe measures byte-for-byte what the session's
+/// aggregate measures. That is the strongest census available and it costs nothing
+/// extra — the projection is already at the call site.
+pub fn census_with<T>(world: &mut World, projection: fn(&T) -> u64) -> ComponentCensus
+where
+    T: Component,
+{
+    fold(world, projection)
+}
+
+/// Resource twin of [`census_with`].
+pub fn census_resource_with<T>(world: &mut World, projection: fn(&T) -> u64) -> ComponentCensus
+where
+    T: Resource,
+{
+    fold_resource(world, projection)
+}
+
+/// Census PRESENCE only, for state registered with NO checksum projection at all.
 ///
 /// Weaker on purpose, and worth having: population change is exactly the failure
 /// `PlayerVisual` had — the tag was simply absent after bevy_ggrs recreated the
 /// entity — and a count catches that without knowing anything about the value.
+///
+/// This is the honest answer for `rollback_component_clone`, whose whole contract is
+/// "snapshotted here, checksummed by some other authoritative projection". A probe
+/// that cannot see the value can still see the carrier disappear, and `ProjectileOwner`
+/// — registered exactly this way — is the state the equipment divergence turned on.
 pub fn census_presence<T>(world: &mut World) -> ComponentCensus
 where
     T: Component,

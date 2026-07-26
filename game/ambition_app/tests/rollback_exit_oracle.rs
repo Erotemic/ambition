@@ -205,6 +205,79 @@ fn target_positions(
     (enemies, brick, switch)
 }
 
+/// **Every registration that carries state across a rollback owns a probe.**
+///
+/// The localizer's promise, as written in `probes.rs`, is that "a component cannot
+/// be rollback-registered and remain invisible to localization", and the planning
+/// notes turned that into "all 99 registered components and resources were probed".
+/// Neither was true. `record_probe` was called from five of the ten state-bearing
+/// registration arms; the plain-clone and custom-checksum arms installed GGRS
+/// snapshot and checksum machinery and no probe at all. `RoomSet`,
+/// `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and —
+/// pointedly — `ProjectileOwner`, whose remap is the fix the equipment divergence
+/// turned on, were all invisible to the tool built to find exactly that.
+///
+/// The diagnostic below asserted only `probes > 0`, which cannot tell the difference
+/// between full coverage and 5%. So its green result could not support the
+/// conclusion the triage report drew from it — "every registered component and
+/// resource came back identical" — and that conclusion was withdrawn.
+///
+/// This test is the forcing function. It is NOT `#[ignore]`d and it walks no route:
+/// it builds the sim, then compares the rollback registry's state-bearing
+/// descriptors against the probe set. A new registration arm that forgets its probe
+/// fails here, at the point the coverage is lost, instead of silently narrowing
+/// every future localizer run.
+#[test]
+fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
+    let sim = oracle_sim();
+    let registry = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackRegistry>();
+    let probed = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackChecksumProbes>()
+        .type_names();
+
+    let mut state_bearing = 0usize;
+    let mut missing: Vec<String> = Vec::new();
+    for descriptor in registry.descriptors() {
+        if !descriptor.kind.carries_state() {
+            continue;
+        }
+        state_bearing += 1;
+        if !probed.contains(descriptor.type_name.as_str()) {
+            missing.push(format!(
+                "  {} [{}] {}",
+                descriptor.name,
+                descriptor.kind.canonical_name(),
+                descriptor.type_name
+            ));
+        }
+    }
+    // Vacuity guard: a composition that registered nothing would pass the coverage
+    // check trivially, and this test would then be asserting that zero equals zero
+    // for the rest of the project's life.
+    assert!(
+        state_bearing > 50,
+        "only {state_bearing} state-bearing registrations were found; this sim is \
+         supposed to compose the whole game, so the comparison below would be \
+         vacuous"
+    );
+    missing.sort();
+    assert!(
+        missing.is_empty(),
+        "{} of {state_bearing} state-bearing rollback registrations have NO \
+         localization probe, so the localizer is blind to them and cannot support \
+         any statement about what did or did not survive a restore:\n{}",
+        missing.len(),
+        missing.join("\n")
+    );
+    println!(
+        "[probe coverage] {state_bearing} state-bearing registrations, {} probes",
+        probed.len()
+    );
+}
+
 /// Sharpest probe: no armor, no attacks — stand in the striker's path and take
 /// repeated hits. Isolates the victim-side damage path under rollback: every
 /// hit crosses the staging FIFO, the striker's swing runs its strike volume

@@ -36,7 +36,7 @@
 //! either combiner, and is accepted — this is a localizer pointing at a component,
 //! not a proof of equality. The oracle remains the guard.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::prelude::*;
 
@@ -62,6 +62,16 @@ pub struct ComponentCensus {
 pub struct ChecksumProbe {
     pub type_name: &'static str,
     census: fn(&mut World) -> ComponentCensus,
+    /// True for state declared DERIVED rather than snapshotted.
+    ///
+    /// Derived state is legitimately absent or stale immediately after a load —
+    /// that is what "derived" means. Its promise is that the named system rebuilds
+    /// it before anything reads it, and the boundary that tests THAT promise is
+    /// resimulation, not restore. Comparing derived state across a restore reports
+    /// the contract working as designed; the first version of this module did
+    /// exactly that and accused `ProjectileView`, a presentation read model, of
+    /// being a determinism defect.
+    derived: bool,
 }
 
 impl ChecksumProbe {
@@ -102,11 +112,40 @@ impl RollbackChecksumProbes {
             .collect()
     }
 
+    /// The subset that is SNAPSHOT state — the only thing a restore must reproduce.
+    pub fn snapshot_type_names(&self) -> BTreeSet<&'static str> {
+        self.probes
+            .iter()
+            .filter(|probe| !probe.derived)
+            .map(|probe| probe.type_name)
+            .collect()
+    }
+
 }
 
 impl ChecksumProbe {
     pub const fn new(type_name: &'static str, census: fn(&mut World) -> ComponentCensus) -> Self {
-        Self { type_name, census }
+        Self {
+            type_name,
+            census,
+            derived: false,
+        }
+    }
+
+    /// A probe for DERIVED state: compared across resimulation, not across restore.
+    pub const fn derived(
+        type_name: &'static str,
+        census: fn(&mut World) -> ComponentCensus,
+    ) -> Self {
+        Self {
+            type_name,
+            census,
+            derived: true,
+        }
+    }
+
+    pub fn is_derived(&self) -> bool {
+        self.derived
     }
 }
 
@@ -424,8 +463,14 @@ pub fn compare_restored_census(world: &mut World) {
         // is not a defect (the very first load of a session-restored frame).
         return;
     };
+    let snapshot_only = probes.snapshot_type_names();
     let mut found = Vec::new();
     for (type_name, restored_census) in &restored {
+        // Derived state is expected to be absent or stale here; its contract is
+        // tested at the resimulation boundary instead.
+        if !snapshot_only.contains(type_name) {
+            continue;
+        }
         let saved_census = saved.get(type_name).copied().unwrap_or_default();
         if saved_census != *restored_census {
             found.push(RestoreDivergence {

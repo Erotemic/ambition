@@ -336,7 +336,17 @@ fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
 /// NPCs and dialogue state, hazards and chests.
 #[test]
 fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
-    for room in ["portal_lab", "basement_npcs", "basement_hazards"] {
+    for room in [
+        "portal_lab",
+        "basement_npcs",
+        "basement_hazards",
+        // Encounter authority: waves, gates, and the mob bookkeeping that decides
+        // whether a room is cleared.
+        "goblin_encounter",
+        // Kinematic movers and the bodies riding them — moving platforms carry
+        // path state the sim advances every tick.
+        "vertical_shaft",
+    ] {
         let mut sim = SandboxSim::new_with_options(
             ambition_app::rl_sim::SandboxSimOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
@@ -356,6 +366,20 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // The rollback localizer's own state: the probe table and its audit ledger.
+    //
+    // Diagnostic instrumentation ABOUT the rollback, not state the rollback
+    // reproduces. The probe table is built once at plugin registration and never
+    // mutated by gameplay; the audit is inert unless a diagnostic test enables it,
+    // and rewinding a measurement of the rewind is meaningless — it would erase
+    // the very record being compared.
+    //
+    // Waived rather than exempted: this sweep caught the localizer the moment it
+    // was added, which is the sweep working correctly on its own author.
+    (
+        "ambition_runtime::rollback::probes::",
+        "rollback diagnostics: measures the rewind, is not reproduced by it",
+    ),
     // The engine character-art load pipeline (§7.1). Which SHEETS have been
     // decoded is presentation, not simulation: a body's collision, health, and
     // moves are identical whether its art arrived or it is drawing the marked

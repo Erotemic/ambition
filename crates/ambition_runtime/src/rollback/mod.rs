@@ -1026,27 +1026,27 @@ pub fn register_engine_rollback_state(app: &mut App) {
 
     // These values are guaranteed to be republished before any downstream
     // consumer in each GGRS frame, so storing them would duplicate authority.
-    app.declare_rollback_derived::<ambition_actors::avatar::body_integration::PlayerBodyFrameOutput>(
+    app.declare_rollback_derived_component::<ambition_actors::avatar::body_integration::PlayerBodyFrameOutput>(
         ENGINE,
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
     )
-    .declare_rollback_derived::<ambition_actors::body_mode::BodyModeCapabilities>(
+    .declare_rollback_derived_component::<ambition_actors::body_mode::BodyModeCapabilities>(
         ENGINE,
         "derived.body_mode_capabilities",
         "projected from the active body mode each frame",
     )
-    .declare_rollback_derived::<ambition_actors::control::PlayerInputFrame>(
+    .declare_rollback_derived_component::<ambition_actors::control::PlayerInputFrame>(
         ENGINE,
         "derived.player_input_frame",
         "copied from GGRS PlayerInputs at the head of every frame",
     )
-    .declare_rollback_derived::<ambition_characters::action_scheme::ActorActionScheme>(
+    .declare_rollback_derived_component::<ambition_characters::action_scheme::ActorActionScheme>(
         ENGINE,
         "derived.actor_action_scheme",
         "reconciled from abilities, moveset, and action set",
     )
-    .declare_rollback_derived::<ambition_characters::action_scheme::ResolvedTechniqueEdges>(
+    .declare_rollback_derived_component::<ambition_characters::action_scheme::ResolvedTechniqueEdges>(
         ENGINE,
         "derived.resolved_technique_edges",
         "cleared and republished from current input every frame",
@@ -1055,17 +1055,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // anything tests against it, so there is nothing to restore -- and registering
     // it would invite someone to MUTATE it, which is how a hurtbox stops being a
     // pure function of authoritative state (§4.11).
-    .declare_rollback_derived::<ambition_actors::character_runtime::ResolvedHurtboxes>(
+    .declare_rollback_derived_component::<ambition_actors::character_runtime::ResolvedHurtboxes>(
         ENGINE,
         "derived.resolved_hurtboxes",
         "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
     )
-    .declare_rollback_derived::<ambition_characters::actor::attack_gesture::ResolvedAttackGesture>(
+    .declare_rollback_derived_component::<ambition_characters::actor::attack_gesture::ResolvedAttackGesture>(
         ENGINE,
         "derived.resolved_attack_gesture",
         "republished from ActorControl and rollback-backed gesture history before move triggering",
     )
-    .declare_rollback_derived::<bevy::prelude::GlobalTransform>(
+    .declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(
         ENGINE,
         "derived.global_transform",
         "Bevy transform propagation rebuilds it from Transform and hierarchy",
@@ -1195,7 +1195,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "component.boss_anim_frame",
     )
-    .declare_rollback_derived::<ambition_actors::features::BossAnimationFrameSample>(
+    .declare_rollback_derived_component::<ambition_actors::features::BossAnimationFrameSample>(
         ENGINE,
         "derived.boss_animation_frame_sample",
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
@@ -1209,37 +1209,37 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "map.projectile_owner",
     )
-    .declare_rollback_derived::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
+    .declare_rollback_derived_component::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
         ENGINE,
         "derived.body_environment_contact",
         "rewritten every movement step from body geometry and the live world",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::frame_env::ResolvedMotionFrame>(
+    .declare_rollback_derived_component::<ambition_platformer_primitives::frame_env::ResolvedMotionFrame>(
         ENGINE,
         "derived.resolved_motion_frame",
         "published every tick from the live environment",
     )
-    .declare_rollback_derived::<ambition_engine_core::BodyMotionFacts>(
+    .declare_rollback_derived_component::<ambition_engine_core::BodyMotionFacts>(
         ENGINE,
         "derived.body_motion_facts",
         "republished from MotionModel every movement step",
     )
-    .declare_rollback_derived::<ambition_platformer_primitives::orientation::SurfaceUpright>(
+    .declare_rollback_derived_component::<ambition_platformer_primitives::orientation::SurfaceUpright>(
         ENGINE,
         "derived.surface_upright",
         "republished from support facts every movement step",
     )
-    .declare_rollback_derived::<ambition_sim_view::BodyPoseView>(
+    .declare_rollback_derived_component::<ambition_sim_view::BodyPoseView>(
         ENGINE,
         "derived.body_pose_view",
         "SimView projection rebuilt every tick",
     )
-    .declare_rollback_derived::<ambition_sim_view::ProjectileView>(
+    .declare_rollback_derived_component::<ambition_sim_view::ProjectileView>(
         ENGINE,
         "derived.projectile_view",
         "SimView projection rebuilt every tick",
     )
-    .declare_rollback_derived::<ambition_actors::boss_encounter::EncounterProgress>(
+    .declare_rollback_derived_component::<ambition_actors::boss_encounter::EncounterProgress>(
         ENGINE,
         "derived.encounter_progress",
         "recomputed from lifecycle and participant health every tick",

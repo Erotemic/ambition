@@ -353,6 +353,29 @@ pub trait AmbitionRollbackApp {
     where
         T: 'static;
 
+    /// Declare derived state that is a COMPONENT, and register a presence probe
+    /// for it.
+    ///
+    /// A `declare_rollback_derived` is an assertion about behaviour: "the system
+    /// named in `reason` rebuilds this every tick". Nothing checked that assertion,
+    /// and one of them was false — `ProjectileOwner` named a healing system whose
+    /// query could not see enemy projectiles at all, which cost a day of
+    /// bisection and was the equipment oracle's whole divergence. A derived
+    /// declaration that lies is worse than no declaration, because it satisfies
+    /// the coverage sweep.
+    ///
+    /// The probe makes it falsifiable: `RollbackRestoreAudit` compares each frame's
+    /// census against the first pass, so a derived component that FAILS to be
+    /// rebuilt on a replayed frame shows up by name.
+    fn declare_rollback_derived_component<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Component;
+
     fn declare_dynamic_anchor<T>(
         &mut self,
         owner: &'static str,
@@ -705,6 +728,26 @@ impl AmbitionRollbackApp for App {
                 clear_message_channel::<T>.in_set(LoadWorldSystems::Mapping),
             );
         }
+        self
+    }
+
+    fn declare_rollback_derived_component<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Component,
+    {
+        self.declare_rollback_derived::<T>(owner, name, reason);
+        record_probe(
+            self,
+            crate::rollback::ChecksumProbe::derived(
+                std::any::type_name::<T>(),
+                crate::rollback::census_presence::<T>,
+            ),
+        );
         self
     }
 

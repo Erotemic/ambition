@@ -152,27 +152,35 @@ fn observe(sim: &mut SandboxSim, enemy_health_baseline: i32, events: &mut Oracle
     }
 }
 
+/// Centers of the living enemies, in sim space.
+///
+/// Split out of `target_positions` because the probes below run a policy that
+/// only chases enemies: building and iterating the brick and switch queries for
+/// values they discard costs two fresh `QueryState`s on every simulated frame,
+/// and these loops run 600-2400 frames.
+fn enemy_positions(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<(
+        &ambition::platformer::body::BodyKinematics,
+        &BodyHealth,
+    ), Without<ambition::platformer::markers::PrimaryPlayer>>();
+    q.iter(world)
+        .filter(|(_, health)| health.health.current > 0)
+        .map(|(kin, _)| {
+            use bevy::math::bounding::BoundingVolume;
+            let center = kin.aabb().center();
+            (center.x, center.y)
+        })
+        .collect()
+}
+
 /// Positions of the actionable things, in sim space, queried live so the
 /// policy needs no knowledge of the room's coordinate frame.
 fn target_positions(
     sim: &mut SandboxSim,
 ) -> (Vec<(f32, f32)>, Option<(f32, f32)>, Option<(f32, f32)>) {
+    let enemies = enemy_positions(sim);
     let world = sim.world_mut();
-
-    let enemies: Vec<(f32, f32)> = {
-        let mut q = world.query_filtered::<(
-            &ambition::platformer::body::BodyKinematics,
-            &BodyHealth,
-        ), Without<ambition::platformer::markers::PrimaryPlayer>>();
-        q.iter(world)
-            .filter(|(_, health)| health.health.current > 0)
-            .map(|(kin, _)| {
-                use bevy::math::bounding::BoundingVolume;
-                let center = kin.aabb().center();
-                (center.x, center.y)
-            })
-            .collect()
-    };
 
     let brick = {
         let mut q = world.query::<(
@@ -209,7 +217,7 @@ fn a_player_taking_hp_damage_survives_rollback() {
     let mut sim = oracle_sim();
     let mut last_hp = i32::MAX;
     for frame in 0..600 {
-        let (enemies, _brick, _switch) = target_positions(&mut sim);
+        let enemies = enemy_positions(&mut sim);
         let obs = sim.observation();
         let (px, _) = obs.player_pos;
         if obs.hp != last_hp {
@@ -241,7 +249,7 @@ fn enemy_death_and_inplace_revive_survive_rollback() {
     let mut phase = "approach";
     let mut last_hp = i32::MAX;
     for frame in 0..900 {
-        let (enemies, _brick, _switch) = target_positions(&mut sim);
+        let enemies = enemy_positions(&mut sim);
         let obs = sim.observation();
         let (px, _) = obs.player_pos;
         let nearest = enemies
@@ -252,9 +260,10 @@ fn enemy_death_and_inplace_revive_survive_rollback() {
         let (hp, count) = {
             let world = sim.world_mut();
             let mut q = world.query_filtered::<&BodyHealth, Without<ambition::platformer::markers::PrimaryPlayer>>();
-            let hp: i32 = q.iter(world).map(|b| b.health.current).sum();
-            let count = q.iter(world).count();
-            (hp, count)
+            // One pass: this runs every frame for 900 frames, and the two
+            // values only feed the change-triggered log line below.
+            q.iter(world)
+                .fold((0, 0), |(hp, count), b| (hp + b.health.current, count + 1))
         };
         if hp != last_hp {
             eprintln!(

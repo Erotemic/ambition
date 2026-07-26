@@ -216,6 +216,8 @@ pub fn advance_body_pose_clocks(
 }
 
 #[cfg(test)]
+mod damage_tests;
+#[cfg(test)]
 mod tests;
 
 /// Place one entity-local hurtbox volume into the world.

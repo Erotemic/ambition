@@ -139,7 +139,7 @@ pub use ecs::{
     enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
-    reconcile_autonomous_actors, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    reconcile_autonomous_actors, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_room_feature_entities_from_plan, steer_mount_from_rider,
@@ -295,7 +295,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // composite bosses such as GNU-ton would briefly fall
                 // back to their coarse spawn envelope.
                 derive_boss_sprite_metrics,
-                refresh_actor_damageable_volumes,
+                refresh_body_damageable_volumes,
                 refresh_boss_damageable_volumes,
                 refresh_breakable_damageable_volumes,
                 derive_pogo_target_volumes,
@@ -352,6 +352,30 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             drive_boss_animators.after(project_boss_attack_state_from_move),
+        );
+        // ── The SECOND publication of every body's damageable volumes ──
+        //
+        // Same function, same rule, later phase. The `WorldPrep` copy above feeds
+        // the pogo derivation and the feature-world collision overlay, which are
+        // rebuilt in that set; this copy exists because DAMAGE resolves in
+        // `Combat`, and a body's `CenteredAabb` is written by its own integrator —
+        // an actor's in `WorldPrep`, the PLAYER's in `PlayerSimulation`. Publishing
+        // only in `WorldPrep` would therefore hand `apply_hitbox_damage` a player
+        // silhouette one frame stale, which is the Mary-O contact defect again: a
+        // hit classifier must read the positions the contact pass reads.
+        //
+        // `in_set(CoreSimulation)` keeps it inside `GameplaySimulationRoot`, so the
+        // session gate covers it like everything else.
+        app.add_systems(
+            sim,
+            refresh_body_damageable_volumes
+                .in_set(crate::schedule::SandboxSet::CoreSimulation)
+                .after(crate::schedule::SandboxSet::PlayerSimulation)
+                .before(crate::schedule::SandboxSet::Combat)
+                // Authored silhouettes are resolved from sim clocks by the
+                // character runtime; publish after that, or the first frame of a
+                // move would present the previous frame's volumes.
+                .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes),
         );
         // The decomposed per-actor pipeline: brain → intent, movement integration,
         // read-model mirror, and contact-damage observer, as four explicit phases.

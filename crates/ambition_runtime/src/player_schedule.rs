@@ -48,6 +48,20 @@ impl Plugin for PlayerSchedulePlugin {
         app.register_required_components_with::<ambition_actors::actor::PlayerEntity, ambition_engine_core::CenteredAabb>(
             || ambition_engine_core::CenteredAabb::new(ambition_engine_core::Vec2::ZERO, ambition_engine_core::Vec2::ZERO),
         );
+        // ...and the same PUBLISHED silhouette every other body has.
+        //
+        // Carrying `DamageableVolumes` is what makes a body a damage target, and
+        // the player did not carry it — so `refresh_body_damageable_volumes` had
+        // nothing to write into and `apply_hitbox_damage` fell back to the coarse
+        // box for the player alone. A player could author a hurtbox timeline and be
+        // hit on a rectangle instead. Jon's ruling: a thing that works for an enemy
+        // and not a player is a smell, not a special case.
+        //
+        // Default is EMPTY, which the damage path reads as intangible — safe only
+        // because the publisher is pinned to run every tick between
+        // `PlayerSimulation` and `Combat`, so no tick resolves damage against an
+        // unpublished player.
+        app.register_required_components::<ambition_actors::actor::PlayerEntity, ambition_combat::components::DamageableVolumes>();
 
         // ── PlayerInput, part A: the frame's time snapshot ────────────────
         //

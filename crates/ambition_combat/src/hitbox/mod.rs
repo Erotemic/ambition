@@ -69,6 +69,36 @@ fn resolved_hitbox_knockback_magnitude(
     }
 }
 
+/// Does this strike reach the volumes the victim actually published?
+///
+/// **The one victim-geometry rule**, shared by every family. A body that
+/// publishes [`DamageableVolumes`](super::components::DamageableVolumes) is hit on
+/// exactly those volumes; a body that publishes none falls back to its coarse
+/// box.
+///
+/// The distinction that matters: a body carrying the component with an EMPTY list
+/// is *intangible* — the authored answer for an invulnerable window, or a corpse
+/// the publisher cleared — so it is a MISS, not a reason to consult the coarse
+/// box. Collapsing those two cases is how an authored invulnerability silently
+/// stops working, and it is why the fallback is keyed on the component's absence
+/// rather than on the list being empty.
+pub fn strike_reaches_victim(
+    world_volume: &ambition_engine_core::CombatVolume,
+    victim_damageable: Option<&super::components::DamageableVolumes>,
+    victim_aabb: &super::components::CenteredAabb,
+) -> bool {
+    match victim_damageable {
+        Some(published) if published.published() => published
+            .volumes
+            .iter()
+            .any(|part| world_volume.intersects_aabb(*part)),
+        // No component, or one no publisher has spoken for yet: the coarse box is
+        // the best available answer, and it is what every consumer used before
+        // published silhouettes existed.
+        _ => world_volume.intersects_aabb(victim_aabb.aabb()),
+    }
+}
+
 /// Apply each live hitbox's damage to the right faction's targets.
 ///
 /// Enemy / Boss hitboxes hit the player and emit `HitEvent` with a
@@ -111,6 +141,17 @@ pub fn apply_hitbox_damage(
             &ambition_characters::actor::BodyCombat,
         ),
         bevy::prelude::Has<ambition_platformer_primitives::markers::PlayerEntity>,
+        // **The victim's published silhouette.** A body that publishes
+        // `DamageableVolumes` is hit on THOSE volumes — an authored hurtbox
+        // timeline, a boss's active head/hand parts, or its own coarse box when it
+        // authored nothing. This used to read `CenteredAabb` unconditionally, which
+        // meant an authored silhouette changed pogo targeting and the debug overlay
+        // and nothing else: no body in the game was ever hit on the volumes it
+        // published. `Option` only for bare test bodies and un-migrated props;
+        // when the component IS present, an EMPTY volume list means intangible
+        // (mid-move invulnerability, a cleared corpse) and must NOT fall back to
+        // the coarse box.
+        Option<&super::components::DamageableVolumes>,
         // CM1 knockback scaling: the victim's accumulated-damage meter and its
         // archetype weight. Both `Option` — the player carries `BodyHealth` but
         // no `CombatTuning` (weight → reference `1.0`); a headless test body may
@@ -204,6 +245,7 @@ pub fn apply_hitbox_damage(
                     // muting is the victim consumer's job now (see below).
                     _vuln,
                     is_player,
+                    victim_damageable,
                     victim_health,
                     victim_tuning,
                 ) in &victims
@@ -232,10 +274,10 @@ pub fn apply_hitbox_damage(
                     if hits.hit.contains(&victim_entity) {
                         continue;
                     }
-                    let victim_body = victim_aabb.aabb();
-                    if !world_volume.intersects_aabb(victim_body) {
+                    if !strike_reaches_victim(&world_volume, victim_damageable, victim_aabb) {
                         continue;
                     }
+                    let victim_body = victim_aabb.aabb();
                     // §A2: the EVENT always flows — i-frames resolve at CONSUME
                     // time in `resolve_body_hit`, the same for every body.
                     // CM8: hit FEEDBACK (the sfx/spray/debris) is no longer

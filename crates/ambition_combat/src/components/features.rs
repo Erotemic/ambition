@@ -148,19 +148,60 @@ pub struct SandboxSolidContributor;
 /// sprite-authored hurtboxes, and breakables can publish authored trigger
 /// volumes. Systems that care about "what can the player hit?" should consume
 /// this component instead of rediscovering family-specific geometry.
+/// Since damage resolution reads this component, it must distinguish **three**
+/// states, not two:
+///
+/// * *never published* (`published == false`) — nobody has spoken for this body
+///   yet, so a consumer falls back to the body's coarse box. A body spawned this
+///   tick, or a bare test fixture that does not run the publisher, lives here.
+/// * *published, non-empty* — these volumes ARE the body's silhouette.
+/// * *published, empty* — the body is deliberately **intangible**: an authored
+///   invulnerable window, or a corpse the publisher cleared.
+///
+/// Collapsing the first and third is how an authored invulnerability silently
+/// becomes a hittable rectangle, and collapsing them the other way makes every
+/// freshly spawned body a ghost. Both were live possibilities the first time
+/// damage started reading this component, and one of them broke a projectile test
+/// immediately.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct DamageableVolumes {
     pub volumes: Vec<ae::Aabb>,
+    published: bool,
 }
 
 impl DamageableVolumes {
+    /// True once a publisher has spoken for this body this session.
+    ///
+    /// A consumer that needs geometry must fall back to the coarse box while this
+    /// is false, and must respect an empty list once it is true.
+    pub fn published(&self) -> bool {
+        self.published
+    }
+
+    /// Publish "intangible": this body can be hit nowhere.
     pub fn clear(&mut self) {
         self.volumes.clear();
+        self.published = true;
     }
 
     pub fn set_single(&mut self, aabb: ae::Aabb) {
         self.volumes.clear();
         self.volumes.push(aabb);
+        self.published = true;
+    }
+
+    /// Publish an explicit list — an authored silhouette, or a boss's active parts.
+    pub fn publish(&mut self, volumes: Vec<ae::Aabb>) {
+        self.volumes = volumes;
+        self.published = true;
+    }
+
+    /// An already-published single volume, for fixtures that need a body which is
+    /// hittable without running a publisher.
+    pub fn single(aabb: ae::Aabb) -> Self {
+        let mut out = Self::default();
+        out.set_single(aabb);
+        out
     }
 }
 

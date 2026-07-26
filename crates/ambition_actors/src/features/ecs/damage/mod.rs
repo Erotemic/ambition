@@ -89,6 +89,19 @@ pub const ENEMY_HEALTH_DROP: i32 = 1;
 /// Apply typed slash / projectile / pogo hit messages to ECS feature targets.
 pub fn apply_feature_hit_events(
     mut hit_events: MessageReader<HitEvent>,
+    // Every victim's PUBLISHED silhouette, looked up by entity.
+    //
+    // A separate read-only query rather than another member of the actor tuple:
+    // that tuple is already nesting `Option<(..)>` groups to stay inside Bevy's
+    // arity ceiling, and this is read, never written, so it may overlap freely.
+    //
+    // Why it exists: this is the path the PLAYER's own attacks take to reach an
+    // enemy, and it tested the enemy's coarse `CenteredAabb`. So the authored
+    // hurtbox work reached neither direction of combat — an enemy could not be hit
+    // on its authored silhouette by the player, and the player could not be hit on
+    // its own. `strike_reaches_victim` is the single shared rule, so the two paths
+    // cannot drift again.
+    victim_volumes: Query<&crate::combat::components::DamageableVolumes>,
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::features::banter::CombatBanterRegistry>>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
@@ -319,7 +332,11 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
-            if !event.volume.intersects_aabb(aabb.aabb()) {
+            if !crate::combat::hitbox::strike_reaches_victim(
+                &event.volume,
+                victim_volumes.get(actor_entity).ok(),
+                aabb,
+            ) {
                 continue;
             }
             let interactable = interaction.map(|i| &i.interactable);

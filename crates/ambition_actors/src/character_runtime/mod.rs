@@ -62,6 +62,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::prelude::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
@@ -350,16 +351,23 @@ pub struct CharacterRuntimePlugin;
 
 impl Plugin for CharacterRuntimePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<CharacterLoadDemand>()
             .init_resource::<CharacterLoadStates>()
             .init_resource::<CharacterMaterializationService>()
             .add_systems(
-                Update,
+                // **The SIM schedule, not `Update`.** (§4.11)
+                //
+                // These two read and write simulation state — a pose clock and the
+                // volumes damage resolves against — so under rollback they must
+                // recompute on every resimulated tick. In `Update` they ran once per
+                // FRAME while the sim re-ran many times, which left
+                // `ResolvedHurtboxes` stale for every rewound tick even though it is
+                // declared rollback-DERIVED on the promise that the sim rebuilds it.
+                // A frame-rate-dependent hurtbox is also just a bug: two peers at
+                // different frame rates would disagree about what got hit.
+                sim,
                 (
-                    // Hurtboxes resolve from SIM clocks, so they belong in the sim
-                    // ordering, not beside the art load. They are here because this
-                    // plugin is the character runtime; the pose clock must advance
-                    // before the resolve reads it.
                     // Gated, not `Option<Res<..>>`: a world with no clock has no
                     // pose elapsed to advance, and a system that quietly treats a
                     // missing clock as dt=0 would freeze every pose timeline
@@ -371,7 +379,13 @@ impl Plugin for CharacterRuntimePlugin {
                     ),
                     hurtbox::resolve_body_hurtboxes,
                 )
-                    .chain(),
+                    .chain()
+                    // Before `Combat`, where damage resolves, and after the bodies
+                    // have moved — the volume publication that consumes this is
+                    // pinned to the same window (see `features::FeaturePlugin`).
+                    .in_set(crate::schedule::SandboxSet::CoreSimulation)
+                    .after(crate::schedule::SandboxSet::PlayerSimulation)
+                    .before(crate::schedule::SandboxSet::Combat),
             )
             .add_systems(
                 Update,

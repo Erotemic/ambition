@@ -164,7 +164,7 @@ pub(crate) use spawn_actors::{
     spec_is_limbed_host,
 };
 pub use target_volumes::{
-    derive_pogo_target_volumes, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes,
 };
 pub use targeting::{

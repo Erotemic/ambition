@@ -88,7 +88,7 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
     app.add_systems(
         Update,
         (
-            refresh_actor_damageable_volumes,
+            refresh_body_damageable_volumes,
             derive_pogo_target_volumes,
             rebuild_feature_ecs_world_overlay,
         )

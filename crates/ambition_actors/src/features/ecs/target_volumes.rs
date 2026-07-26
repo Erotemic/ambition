@@ -8,18 +8,44 @@
 
 use super::*;
 
-/// Publish player-damageable actor volumes for all live actors.
+/// Publish the damageable volumes of **every live body**, in one rule.
 ///
 /// Peaceful NPCs and hostile enemies intentionally share this path: both are
-/// valid player-strike targets, and by default both become pogo targets through
-/// [`derive_pogo_target_volumes`]. Hostility should affect AI and damage dealt
-/// to the player, not whether the player can refresh a downslash from the
-/// actor's body.
-pub fn refresh_actor_damageable_volumes(
-    mut actors: Query<
+/// valid strike targets, and by default both become pogo targets through
+/// [`derive_pogo_target_volumes`]. Hostility should affect AI and damage dealt,
+/// not whether a body can be hit.
+///
+/// **So does the player.** This system was gated `With<FeatureSimEntity>` — a
+/// marker the primary player does not carry — which meant a player could author
+/// hurtboxes and never publish them, and made "hittable" a property of which
+/// spawn path built the body. Jon's ruling: *it is a smell that something would
+/// work for an enemy but not a player; they should be unified.* The gate is gone,
+/// and the predicate for participating is now the honest one — **carrying
+/// [`DamageableVolumes`] is what makes a body a damage target**, whatever spawned
+/// it.
+///
+/// # Registered TWICE, deliberately
+///
+/// The same function runs in two phases, because two consumers need the answer
+/// at two different moments and there must not be two *rules*:
+///
+/// * in `WorldPrep`, so [`derive_pogo_target_volumes`] and the feature-world
+///   collision overlay (rebuilt in the same set) see this frame's targets;
+/// * again after `PlayerSimulation`, before `SandboxSet::Combat`, so damage
+///   resolves against **post-movement** positions. A body's `CenteredAabb` is
+///   written by its integrator — the player's in `PlayerSimulation`, an actor's
+///   in `WorldPrep` — so publishing only in `WorldPrep` would hand the damage
+///   path a player box one frame stale. That is the same defect class as the
+///   Mary-O contact bug: a classifier must read the positions the contact pass
+///   reads.
+///
+/// Two invocations of one rule is a refresh. Two rules writing one component is
+/// the clobber-by-ordering bug the boss exclusion below exists to prevent — keep
+/// it that way.
+pub fn refresh_body_damageable_volumes(
+    mut bodies: Query<
         (
             &CenteredAabb,
-            &ActorDisposition,
             Option<&ambition_characters::actor::BodyHealth>,
             // §7.10: a body that AUTHORED hurtboxes publishes those instead of its
             // coarse envelope. Exactly the seam the boss path already uses for its
@@ -29,18 +55,18 @@ pub fn refresh_actor_damageable_volumes(
             Option<&crate::actor::BodyKinematics>,
             &mut DamageableVolumes,
         ),
-        // Exclude bosses: they ALSO carry `DamageableVolumes` + the shared
-        // `ActorDisposition`, and `refresh_boss_damageable_volumes` publishes
-        // their authored head/hand hurtboxes. Without this, both systems write
-        // the boss's `DamageableVolumes` and the coarse actor AABB clobbers the
-        // authored boss hurtboxes (the GNU-ton seam) depending on system order.
+        // Two families that publish their OWN volumes by a different rule, and
+        // would be clobbered by the coarse box: a boss's active head/hand
+        // hurtboxes (the GNU-ton seam) and a breakable's intact/broken gate.
+        // Everything else -- player, enemy, npc, sandbag, a possessed anything --
+        // resolves here, through ONE rule.
         (
-            With<FeatureSimEntity>,
             Without<super::boss_clusters::BossConfig>,
+            Without<BreakableFeature>,
         ),
     >,
 ) {
-    for (aabb, _disposition, health, hurtboxes, kin, mut damageable) in &mut actors {
+    for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
         // Structural tangibility gate (Jon 2026-07-22): a live body — peaceful or
         // hostile — is a valid player-strike / pogo target; a dead one is an
         // intangible corpse and publishes no volume (so you cannot pogo off a
@@ -50,21 +76,26 @@ pub fn refresh_actor_damageable_volumes(
             damageable.clear();
             continue;
         }
-        // Authored volumes win. `Some(vec![])` is a real authored answer meaning
-        // "invulnerable during this window", so it must NOT fall through to the
-        // coarse box -- that fallthrough would silently delete an authored
-        // invulnerability.
-        let authored = hurtboxes.zip(kin).and_then(|(resolved, kin)| {
-            use bevy::math::bounding::BoundingVolume;
-            resolved.world_volumes(kin.aabb().center(), kin.facing)
-        });
-        match authored {
-            Some(volumes) => {
-                damageable.volumes = volumes.into_iter().map(|v| v.aabb()).collect();
-            }
+        match authored_world_volumes(hurtboxes, kin) {
+            Some(volumes) => damageable.publish(volumes),
             None => damageable.set_single(aabb.aabb()),
         }
     }
+}
+
+/// A body's authored silhouette in world space, if it authored one at all.
+///
+/// `Some(vec![])` is a real authored answer meaning "invulnerable during this
+/// window", so a caller must NOT treat it as "nothing authored" and fall through
+/// to a coarse box — that fallthrough would silently delete an authored
+/// invulnerability. `None` means no doc, which is what the fallback is for.
+fn authored_world_volumes(
+    hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
+    kin: Option<&crate::actor::BodyKinematics>,
+) -> Option<Vec<ambition_engine_core::Aabb>> {
+    let (resolved, kin) = hurtboxes.zip(kin)?;
+    let volumes = resolved.world_volumes(kin.aabb().center(), kin.facing)?;
+    Some(volumes.into_iter().map(|v| v.aabb()).collect())
 }
 
 /// Publish player-damageable boss volumes from the same authored hurtbox path
@@ -83,20 +114,31 @@ pub fn refresh_boss_damageable_volumes(
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
+            // A boss is a character too: if one AUTHORS a `HurtboxDoc`, that doc
+            // wins over the frame-sampled parts below. Without this branch a boss
+            // was the one family that could not use the authored path, which is
+            // backwards — the authored path exists BECAUSE bosses needed it.
+            Option<&crate::character_runtime::ResolvedHurtboxes>,
+            Option<&crate::actor::BodyKinematics>,
             &mut DamageableVolumes,
         ),
-        With<FeatureSimEntity>,
     >,
 ) {
-    for (feature, health, attack_state, animation_frame, mut damageable) in &mut bosses {
+    for (feature, health, attack_state, animation_frame, hurtboxes, kin, mut damageable) in
+        &mut bosses
+    {
         let boss = feature.as_boss_ref();
         if !health.alive() {
             damageable.clear();
             continue;
         }
+        if let Some(volumes) = authored_world_volumes(hurtboxes, kin) {
+            damageable.publish(volumes);
+            continue;
+        }
         let ctx = crate::features::BossVolumeContext::from_ref(&boss_catalog, boss, attack_state)
             .with_animation_frame(animation_frame);
-        damageable.volumes = crate::features::damageable_volumes(&ctx);
+        damageable.publish(crate::features::damageable_volumes(&ctx));
     }
 }
 
@@ -108,10 +150,7 @@ pub fn refresh_boss_damageable_volumes(
 /// stand-to-crumble platforms keep their legacy `PogoTargetContributor` marker
 /// instead of pretending to be player-damage targets.
 pub fn refresh_breakable_damageable_volumes(
-    mut breakables: Query<
-        (&CenteredAabb, &BreakableFeature, &mut DamageableVolumes),
-        With<FeatureSimEntity>,
-    >,
+    mut breakables: Query<(&CenteredAabb, &BreakableFeature, &mut DamageableVolumes)>,
 ) {
     for (aabb, feature, mut damageable) in &mut breakables {
         if feature.broken() {
@@ -156,9 +195,7 @@ mod tests {
         let mut app = App::new();
         let aabb = ae::Aabb::new(ae::Vec2::new(4.0, 5.0), ae::Vec2::new(2.0, 3.0));
         app.world_mut().spawn((
-            DamageableVolumes {
-                volumes: vec![aabb],
-            },
+            DamageableVolumes::single(aabb),
             PogoPolicy::FromDamageable,
             PogoTargetVolumes::default(),
         ));
@@ -175,9 +212,7 @@ mod tests {
         let mut app = App::new();
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0));
         app.world_mut().spawn((
-            DamageableVolumes {
-                volumes: vec![aabb],
-            },
+            DamageableVolumes::single(aabb),
             PogoPolicy::Disabled,
             PogoTargetVolumes {
                 volumes: vec![aabb],

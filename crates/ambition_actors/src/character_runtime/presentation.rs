@@ -80,11 +80,9 @@ pub fn authorize_staged_character_presentation_sources(
     }
     let mut authorized: BTreeSet<String> = BTreeSet::new();
     for character_id in states.staged_characters() {
-        let Some(provider) = provider_of_character(
-            registry.as_deref(),
-            owners.as_deref(),
-            character_id,
-        ) else {
+        let Some(provider) =
+            provider_of_character(registry.as_deref(), owners.as_deref(), character_id)
+        else {
             // No declaration names an author. The load ledger already reports
             // unknown characters; this is not a second place to complain about it.
             continue;
@@ -117,11 +115,18 @@ pub fn authorize_staged_character_presentation_sources(
     }
 }
 
-/// **Publish each body's presentation source, once per tick.**
+/// **Publish each body's presentation source, once per SIM tick.**
 ///
 /// The derivation `advance_move_playback` used to do inline, hoisted onto the body
 /// so every emitter can attribute a cue without repeating it — and so a cue
 /// attributed to the wrong provider is one bug in one place.
+///
+/// On the sim schedule, immediately before the move clock advances, for the same
+/// reason the hurtbox systems are: the move timeline reads this component on the
+/// tick it fires a cue. Published once per FRAME it would be a tick stale for
+/// every resimulated tick, and absent entirely for a body that is spawned and
+/// strikes before the next frame boundary — which is precisely the case a versus
+/// match makes ordinary.
 ///
 /// A body's source is its WORN character's author, falling back to the sprite
 /// character its combat tuning names. A body wearing nothing gets no component at
@@ -132,20 +137,31 @@ pub fn publish_body_presentation_sources(
     mut commands: Commands,
     registry: Option<Res<PreparedCharacterRegistry>>,
     owners: Option<Res<CharacterCatalogOwners>>,
-    bodies: Query<(
-        Entity,
-        Option<&ambition_characters::actor::WornCharacter>,
-        Option<&crate::combat::CombatTuning>,
-        Option<&ambition_sfx::BodyPresentationSource>,
-    )>,
+    bodies: Query<
+        (
+            Entity,
+            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&crate::combat::CombatTuning>,
+            Option<&ambition_sfx::BodyPresentationSource>,
+        ),
+        // Filtered, because this runs on the SIM clock and an all-`Option` tuple
+        // matches EVERY entity in the world — every resimulated tick. The three
+        // filters are exactly the components the body arms below read: the first
+        // two are the identity sources, and the third keeps an entity matched
+        // long enough for the removal arm to see it lose its identity.
+        Or<(
+            With<ambition_characters::actor::WornCharacter>,
+            With<crate::combat::CombatTuning>,
+            With<ambition_sfx::BodyPresentationSource>,
+        )>,
+    >,
 ) {
     for (entity, worn, tuning, current) in &bodies {
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
             .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
-        let provider = character_id.and_then(|id| {
-            provider_of_character(registry.as_deref(), owners.as_deref(), id)
-        });
+        let provider = character_id
+            .and_then(|id| provider_of_character(registry.as_deref(), owners.as_deref(), id));
         match provider {
             Some(provider) => {
                 let next = ambition_sfx::PresentationSourceId::new(provider);

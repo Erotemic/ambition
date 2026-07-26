@@ -23,7 +23,19 @@ use ambition_entity_catalog::{
 };
 use std::collections::BTreeMap;
 
+/// The cue a move announces itself with. Per-move, so the assertion can tell
+/// WHOSE swing it heard as well as which source it was credited to.
+fn swing_cue(move_id: &str) -> String {
+    format!("{move_id}.swing")
+}
+
 /// One damaging move: active from 0.1s to 0.2s, reaching +24 world units forward.
+///
+/// It also announces itself with a timed cue at 0.05s. That is not decoration:
+/// the move timeline is the ONLY authored path that emits a per-character cue,
+/// and until this fixture carried one, no test in the repo drove the production
+/// chain from "a provider registered this character" all the way to "an
+/// `OwnedSfxMessage` credited to that provider".
 fn strike(id: &str, damage: i32) -> MoveSpec {
     MoveSpec {
         id: id.to_string(),
@@ -32,7 +44,10 @@ fn strike(id: &str, damage: i32) -> MoveSpec {
             fallbacks: vec![],
         },
         duration_s: 0.4,
-        events: vec![],
+        events: vec![ambition_entity_catalog::MoveEvent {
+            at_s: 0.05,
+            kind: ambition_entity_catalog::MoveEventKind::Sfx { cue: swing_cue(id) },
+        }],
         windows: vec![MoveWindow {
             start_s: 0.1,
             end_s: 0.2,
@@ -275,11 +290,32 @@ const TICK: f32 = 1.0 / 60.0;
 #[derive(Resource, Default)]
 struct Traded(Vec<crate::features::HitEvent>);
 
-fn record_trades(
-    mut events: MessageReader<crate::features::HitEvent>,
-    mut out: ResMut<Traded>,
-) {
+fn record_trades(mut events: MessageReader<crate::features::HitEvent>, mut out: ResMut<Traded>) {
     out.0.extend(events.read().cloned());
+}
+
+/// Every cue the production dispatcher handed the audio authority, with the
+/// source it was credited to.
+#[derive(Resource, Default)]
+struct Heard(Vec<(ambition_sfx::SfxId, String)>);
+
+impl Heard {
+    /// The source a given cue was credited to, or `None` if it never played.
+    fn source_of(&self, cue: &str) -> Option<&str> {
+        let id = ambition_sfx::SfxId::new(cue);
+        self.0
+            .iter()
+            .find(|(heard, _)| *heard == id)
+            .map(|(_, source)| source.as_str())
+    }
+}
+
+fn record_cues(mut messages: MessageReader<ambition_sfx::OwnedSfxMessage>, mut out: ResMut<Heard>) {
+    for message in messages.read() {
+        if let ambition_sfx::SfxMessage::Play { id, .. } = &message.request {
+            out.0.push((*id, message.source.as_str().to_string()));
+        }
+    }
 }
 
 /// A body that can fight: a real actor cluster, plus the character's authored
@@ -339,6 +375,13 @@ fn spawn_fighter(
             // exactly what that provider authored.
             ActorMoveset(prepared.moveset.clone().expect("authored moveset")),
             AuthoredHurtboxes(prepared.hurtboxes.clone().expect("authored hurtboxes")),
+            // A fighter WEARS the character it fights as. Without this the body
+            // carries a moveset and a silhouette from a provider it cannot name:
+            // `ActorClusterSeed` resolves `CombatTuning::sprite_character_id` by
+            // DISPLAY NAME out of the assembled catalog, which a registered-only
+            // character is absent from, so every cue the body emitted was credited
+            // to whoever owned the session.
+            ambition_characters::actor::WornCharacter::new(character_id),
             ResolvedHurtboxes::default(),
             crate::combat::components::DamageableVolumes::default(),
             // The control seam + the gesture state §7.9 interprets.
@@ -380,21 +423,41 @@ fn fight_app() -> App {
     app.add_message::<crate::features::ActorStimulus>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
+    // A session whose speakers belong to somebody else. Every cue a fighter emits
+    // falls back to THIS source when the fighter is not attributed, so an
+    // attribution bug shows up as "the session owner made that sound" — the exact
+    // production symptom — rather than as an empty string that could also mean
+    // "no context installed".
+    {
+        let mut context = ambition_sfx::SfxEmissionContext::default();
+        context.set(
+            ambition_sfx::AudioContextOwner::Gameplay(1),
+            "session_owner",
+        );
+        app.insert_resource(context);
+    }
     app.add_systems(
         Update,
         (
             resolve_attack_gestures,
             trigger_moveset_moves,
             advance_move_playback,
+            // The cue dispatcher, in the chain. Without it the fight proved that a
+            // move fires a `MoveEventMessage` and nothing about what the audio
+            // authority receives — which is where the attribution actually lands.
+            crate::combat::moveset::dispatch_move_events,
             crate::character_runtime::hurtbox::resolve_body_hurtboxes,
             crate::features::refresh_body_damageable_volumes,
             apply_hitbox_damage,
             record_trades,
+            record_cues,
             apply_feature_hit_events,
         )
             .chain(),
     );
     app.init_resource::<Traded>();
+    app.init_resource::<Heard>();
     app
 }
 
@@ -505,6 +568,25 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
         8,
         "Mary-O loses exactly the damage SANIC's provider authored"
     );
+
+    // Each swing SOUNDS like the character that swung it. Both fighters are
+    // registered-only — neither has a `CharacterCatalogOwners` entry — so this is
+    // also the assertion that attribution reaches the registration seam.
+    let heard = app.world().resource::<Heard>();
+    for (character, cue, provider) in [
+        ("Mary-O", swing_cue("stomp"), "mary_o_demo"),
+        ("Sanic", swing_cue("roll"), "sanic_demo"),
+    ] {
+        assert_eq!(
+            heard.source_of(&cue),
+            Some(provider),
+            "{character}'s swing must be credited to `{provider}`, not to the \
+             session owner: a cue tagged with the wrong source plays out of the \
+             wrong bank, and one tagged `__unscoped__` is DENIED with nothing \
+             reported (heard: {:?})",
+            heard.0
+        );
+    }
 }
 
 /// The silhouette decides the fight, not the bounding box.

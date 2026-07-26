@@ -475,14 +475,21 @@ impl Plugin for CharacterRuntimePlugin {
                     .before(crate::combat::hitbox::apply_hitbox_damage),
             )
             .add_systems(
+                sim,
+                // A13: who a body sounds like, published BEFORE the move timeline
+                // reads it. The move clock is the emitter this whole attribution
+                // exists for, so a frame-scheduled publish would hand it stale (or
+                // missing) attribution on exactly the ticks a rollback resimulates.
+                presentation::publish_body_presentation_sources
+                    .in_set(crate::schedule::SandboxSet::Combat)
+                    .before(crate::combat::moveset::advance_move_playback),
+            )
+            .add_systems(
                 Update,
                 (
                     // Declare before anything asks: a character registered only
                     // through `register_character` must not read as `Unknown`.
                     declare_registered_characters,
-                    // A13: publish each body's presentation source so every cue
-                    // emitter can attribute without repeating the lookup.
-                    presentation::publish_body_presentation_sources,
                     demand_worn_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.

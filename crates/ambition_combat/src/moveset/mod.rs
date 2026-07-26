@@ -39,8 +39,8 @@ use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::actor::attack_gesture::{
-    resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture,
-    AttackStrength, ResolvedAttackGesture,
+    resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength,
+    ResolvedAttackGesture,
 };
 use ambition_characters::brain::action_set::{
     ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
@@ -355,6 +355,12 @@ pub fn advance_move_playback(
         // resolve authored per-animation blade geometry from the App-local catalog.
         Option<&super::components::CombatTuning>,
         Option<&ambition_characters::actor::WornCharacter>,
+        // A13's published attribution. THE authority on who this body sounds
+        // like: it is derived from the prepared registry FIRST and the assembled
+        // catalog second, so a character declared only through
+        // `register_character` — which has no `CharacterCatalogOwners` entry at
+        // all — still names its own provider here.
+        Option<&ambition_sfx::BodyPresentationSource>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
@@ -363,18 +369,35 @@ pub fn advance_move_playback(
     // the world before it is believed. See the `(inside, Some(slot))` arm.
     live_strike_volumes: Query<(), With<StrikeVolume>>,
 ) {
-    for (owner, mut playback, faction, brain, config, worn, kin, scale) in &mut players {
+    for (owner, mut playback, faction, brain, config, worn, body_source, kin, scale) in &mut players
+    {
         let strike_faction = crate::targeting::effective_faction(*faction, brain);
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
             .or_else(|| config.and_then(|tuning| tuning.sprite_character_id.as_deref()));
-        let presentation_source = character_id
-            .and_then(|id| {
-                character_owners
-                    .as_deref()
-                    .and_then(|owners| owners.provider_for(id))
+        // Read the published attribution; do NOT re-derive it. This function is
+        // the ORIGINAL caller of `write_from`, and it kept its own owners-map
+        // lookup after A13 hoisted the derivation onto the body — so the one
+        // emitter the whole mechanism was built for was the one attributing
+        // registered-only characters to nobody. `unscoped` then sent the cue to
+        // the session's global emission context, where it was either credited to
+        // the session owner's bank or denied outright.
+        //
+        // The fallback stays for bodies the publisher has not reached (an entity
+        // spawned and striking inside the same tick, or a composition without
+        // the character runtime): it is exactly the old behaviour, so this is
+        // never worse than before and is right whenever the component exists.
+        let presentation_source = body_source
+            .map(|source| source.id().clone())
+            .or_else(|| {
+                character_id
+                    .and_then(|id| {
+                        character_owners
+                            .as_deref()
+                            .and_then(|owners| owners.provider_for(id))
+                    })
+                    .map(PresentationSourceId::new)
             })
-            .map(PresentationSourceId::new)
             .unwrap_or_else(PresentationSourceId::unscoped);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.

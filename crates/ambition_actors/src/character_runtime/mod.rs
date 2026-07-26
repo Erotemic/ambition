@@ -350,6 +350,40 @@ pub fn canonical_character_id<'a>(
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct CharacterMaterializationService;
 
+/// **A registered character declares itself, rather than hoping it was declared.**
+///
+/// [`declare_registered_characters`] teaches the sheet table about the registry once
+/// per registry change — but it is an `Update` system, and the synchronous callers of
+/// [`materialize_character_demand`] (direct startup, room transitions) can run in the
+/// same frame BEFORE it. Nothing in the schedule expresses that order; they merely
+/// touch the same resources, so Bevy serializes them in an unspecified sequence.
+///
+/// The consequence of losing that race is not a delay, it is a WRONG TERMINAL
+/// VERDICT: `UnknownCharacter` means "no loaded content declares this, waiting will
+/// never help", and it would have been reported about a character the caller had
+/// just registered. The correctness of synchronous loading must not depend on which
+/// system happened to run first, so the decode path establishes the declaration it
+/// needs.
+///
+/// Declaring is not decoding — it teaches the table that the id exists and which
+/// display name aliases it. Idempotent, and cheap.
+/// `token` is the spelling that was demanded and `character_id` its canonical form
+/// ([`canonical_character_id`]); the table is consulted for the TOKEN, because that
+/// is the lookup whose `Unknown` answer would become the verdict.
+pub fn declare_registered_character_into(
+    sprites: &mut CharacterSpriteAssets,
+    registry: &PreparedCharacterRegistry,
+    token: &str,
+    character_id: &str,
+) {
+    if !sprites.sheet_state(token).is_unknown() {
+        return;
+    }
+    if let Some(prepared) = registry.get(character_id) {
+        sprites.declare(&prepared.id, &prepared.display_name);
+    }
+}
+
 /// Decode every outstanding demand, recording a terminal outcome for each.
 ///
 /// The engine's ONE decode path. Deliberately a free function as well as a
@@ -377,6 +411,7 @@ pub fn materialize_character_demand(
         // the cast is a roster, not a report on the art, and it must be right for a
         // character whose sheet never resolves.
         let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
+        declare_registered_character_into(sprites, registry, &token, &character_id);
         // Ask BEFORE decoding: an unknown token must be reported as unknown, not
         // as a decode that produced nothing. They are different bugs.
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {

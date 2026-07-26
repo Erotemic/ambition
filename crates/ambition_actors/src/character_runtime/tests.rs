@@ -474,3 +474,53 @@ fn a_character_registered_only_through_register_character_gets_art() {
         "a registered character must never be reported as unknown (was {outcome:?})"
     );
 }
+
+/// **The same frame it was registered in.**
+///
+/// The test above deliberately spends one whole update letting
+/// `declare_registered_characters` run before it demands anything, so it says
+/// nothing about the path direct startup and room transitions actually take:
+/// they call `materialize_character_demand` SYNCHRONOUSLY, and no schedule edge
+/// requires the declaring system to have run first. Losing that race does not
+/// delay the character, it reports `UnknownCharacter` — "waiting will never
+/// help" — about a character the caller had just handed over.
+///
+/// Driven against a sheet table nothing has touched, which is exactly the state
+/// the synchronous callers can find it in.
+#[test]
+fn the_decode_path_declares_a_registered_character_itself() {
+    let mut app = App::new();
+    app.register_character(
+        crate::character_runtime::definition::CharacterDefinition::new(
+            "mary_o",
+            "Mary-O",
+            "mary_o_demo",
+        )
+        .with_sheet("super_mary_o_spritesheet"),
+    );
+    let registry = app.world().resource::<PreparedCharacterRegistry>().clone();
+    let mut sprites = CharacterSpriteAssets::default();
+    assert!(
+        sprites.sheet_state("mary_o").is_unknown(),
+        "the fixture must START in the racy state, or it proves nothing"
+    );
+
+    declare_registered_character_into(&mut sprites, &registry, "mary_o", "mary_o");
+
+    assert!(
+        !sprites.sheet_state("mary_o").is_unknown(),
+        "the decode path must not need another system to have run first"
+    );
+    assert!(
+        !sprites.sheet_state("Mary-O").is_unknown(),
+        "and the display-name alias comes with it, since rooms stage by name"
+    );
+
+    // A token no provider registered stays unknown. This is the half that must
+    // NOT change: `UnknownCharacter` is the right verdict for a typo, and a
+    // declaration path that declared everything it was asked about would turn
+    // every misspelling into a silent placeholder.
+    let mut sprites = CharacterSpriteAssets::default();
+    declare_registered_character_into(&mut sprites, &registry, "mary_oh", "mary_oh");
+    assert!(sprites.sheet_state("mary_oh").is_unknown());
+}

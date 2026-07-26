@@ -48,7 +48,8 @@ pub use definition::{
     PreparedCharacterDefinition, PreparedCharacterRegistry, Vitals,
 };
 pub use staging::{
-    DirectStartupSpec, MatchParticipant, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,
+    ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
+    NormalizedEffort, RoomStagingPlan, StagesCharacters,
 };
 
 use std::collections::{BTreeMap, BTreeSet};

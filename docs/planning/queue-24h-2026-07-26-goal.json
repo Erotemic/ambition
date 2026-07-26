@@ -33,7 +33,8 @@
     "  * Full ./run_tests.sh is pre-commit discipline, NOT a guard check: it does",
     "    not fit the hook timeout, and a check that cannot finish cannot close.",
     "Check-authoring lesson, 2026-07-26: the first A7/A8 checks grepped for the ABSENCE of text (`With<FeatureSimEntity>`, `Update,`) and both went red on PROSE -- the phrase appeared in a docstring explaining the fix, and `Update,` is still correct for the asset-load systems in the same file. An absence-of-a-string check fails the moment anyone documents the thing. Name a TEST that asserts the property instead.",
-    "A11 recurrence, THIRD time: an absence-of-string check went red on prose again -- this time `CharacterLoadDemand` inside the docstring that explains why registration no longer calls it. The rule is now absolute: NEVER grep for the absence of an identifier. Name a test. Documenting a removal must not break the guard that verified it."
+    "A11 recurrence, THIRD time: an absence-of-string check went red on prose again -- this time `CharacterLoadDemand` inside the docstring that explains why registration no longer calls it. The rule is now absolute: NEVER grep for the absence of an identifier. Name a test. Documenting a removal must not break the guard that verified it.",
+    "`assets/manual-art/` is excluded: it holds hand-authored SVG work in progress that is NOT this agent's (appeared mid-run). Committing someone else's unfinished art to get a green check would be the worst possible way to satisfy this guard."
   ],
   "goal": "address everything in docs/planning, and every follow-up found while implementing it. There is no way this is finished -- if the queue in docs/planning/queue-24h-2026-07-26.md looks empty, that means the next item has not been WRITTEN DOWN yet, not that the work is done. Go read docs/planning, find it, add it, and get back to it.",
   "deadline_utc": "2026-07-27T15:00:00Z",
@@ -100,7 +101,7 @@
     },
     {
       "name": "nothing is left uncommitted",
-      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!game/ambition_content/assets/data/character_drafts' ':!docs/planning/gpt-diff.patch')\""
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!game/ambition_content/assets/data/character_drafts' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\""
     }
   ]
 }

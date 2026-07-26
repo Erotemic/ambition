@@ -725,6 +725,20 @@ pub fn register_engine_rollback_state(app: &mut App) {
     )
     .rollback_component_clone::<ambition_characters::brain::PlayerSlot>(ENGINE, "actor.player_slot")
     .rollback_component_clone::<ambition_characters::brain::ActionSet>(ENGINE, "actor.action_set")
+    // The UN-GRANTED baseline the live `ActionSet` / `ActorMoveset` are a pure
+    // function of (`identity + worn equipment`). Registering the two derived
+    // halves and not their base is the `WornEquipment` oversight again: a rewind
+    // restored the live kit but left the baseline at whatever an abandoned future
+    // derived, so the next `reconcile_equipment_grants` — fired by any armor
+    // spend or pickup — recomputed the live kit from the WRONG base and the
+    // resimulation stopped matching. That is precisely what
+    // `combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+    // caught: it went red when the protagonist's re-rig changed which kit the
+    // overlay derives, and stayed red because nothing rewound the base.
+    .rollback_component_clone::<ambition_characters::brain::action_set::IdentityKit>(
+        ENGINE,
+        "actor.identity_kit",
+    )
     .rollback_component_clone::<ambition_characters::brain::BossCapability>(
         ENGINE,
         "boss.capability",
@@ -806,6 +820,14 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_platformer_primitives::lifecycle::RoomVisual>(
         ENGINE,
         "lifecycle.room_visual",
+    )
+    // Same reasoning once more, for the tag on the player's body. The portal host
+    // asks `With<PlayerVisual>, Without<PortalSceneBody>` to decide what to tag
+    // as a portal scene body, so a recreated player that came back without the
+    // tag would stop being seen by portal staging entirely.
+    .rollback_component_clone::<ambition_platformer_primitives::lifecycle::PlayerVisual>(
+        ENGINE,
+        "lifecycle.player_visual",
     )
     .rollback_component_clone::<ambition_combat::components::PogoPolicy>(
         ENGINE,

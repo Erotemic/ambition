@@ -60,7 +60,7 @@ pub struct PersistentEntity;
 /// Marker on the player's rendered sprite entity. Content-free (a tag the renderer
 /// queries + gameplay systems that manipulate the player visual reference); lives
 /// here so neither side imports a presentation module to name it.
-#[derive(Component, Default)]
+#[derive(Component, Clone, Default)]
 pub struct PlayerVisual;
 
 /// Marker for simulation-side feature entities spawned from the active room.

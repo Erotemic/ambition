@@ -132,11 +132,23 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
     // The simulated population: every body/feature/projectile/encounter the sim
     // owns is tagged as a sim entity, which is precisely the set a rollback must
     // reproduce exactly.
+    //
+    // ⚠ `FeatureSimEntity` alone is NOT that set. The PLAYER does not carry it
+    // (`PlayerBundle` never inserts it), so for as long as this sweep asked only
+    // that tag, the single most heavily-mutated body in the game was never
+    // inspected — and the sweep reported a confident empty result while the
+    // rollback oracle was diverging on the player. Anything carrying
+    // `BodyKinematics` is a body the sim integrates every tick, which is the
+    // honest population; the union is what a rewind actually has to reproduce.
     let sim_entities: Vec<Entity> = {
         let world = sim.world_mut();
-        let mut q = world
+        let mut tagged = world
             .query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
-        q.iter(world).collect()
+        let mut found: BTreeSet<Entity> = tagged.iter(world).collect();
+        let mut bodies =
+            world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
+        found.extend(bodies.iter(world));
+        found.into_iter().collect()
     };
     assert!(
         !sim_entities.is_empty(),

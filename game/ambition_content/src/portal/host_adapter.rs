@@ -41,7 +41,7 @@ const HOST_ATTRIBUTE_REACH: f32 = 6.0;
 /// Marker: host attribution ran for this portal (whatever the outcome).
 /// Attribution is one-shot — a portal that failed to attach stays a static
 /// aperture for its lifetime rather than re-scanning every frame.
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct PortalHostScanned;
 
 /// Lazily attach just-placed portals to the identified face they sit on.

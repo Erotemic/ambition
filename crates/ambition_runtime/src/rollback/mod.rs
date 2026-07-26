@@ -16,8 +16,8 @@ use bevy::{
 use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
 
 pub use bevy_ggrs::{
-    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld, SaveWorld,
-    LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems,
+    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
+    LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems, SaveWorld,
 };
 
 /// Ambition-owned work that must run after every `bevy_ggrs` entity/data/map restore.
@@ -30,15 +30,15 @@ pub enum AmbitionLoadWorldSet {
 mod codec;
 mod codecs;
 mod motion_codec;
+mod probes;
 #[cfg(test)]
 mod provenance_tests;
-mod probes;
 mod registry;
 mod session;
 
 pub use codec::*;
-pub use probes::*;
 pub use codecs::{ensure_sim_id, heal_projectile_owners, mint_spawned_sim_ids};
+pub use probes::*;
 pub use registry::*;
 pub use session::*;
 
@@ -843,10 +843,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     //
     // Found by A19's unswept-population sweep; no room the sweep visited had ever
     // contained a chest.
-    .rollback_component_clone::<ambition_combat::components::ChestFeature>(
-        ENGINE,
-        "feature.chest",
-    )
+    .rollback_component_clone::<ambition_combat::components::ChestFeature>(ENGINE, "feature.chest")
     .rollback_component_clone::<ambition_combat::components::Opened>(ENGINE, "feature.opened")
     .rollback_component_clone::<ambition_combat::components::RespawnTimer>(
         ENGINE,
@@ -898,10 +895,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     //
     // Found by sweeping rooms nobody had swept before (A19). Their registered
     // siblings sat two lines away this whole time.
-    .rollback_component_clone::<ambition_combat::on_hit::PogoTarget>(
-        ENGINE,
-        "feature.pogo_target",
-    )
+    .rollback_component_clone::<ambition_combat::on_hit::PogoTarget>(ENGINE, "feature.pogo_target")
     .rollback_component_clone::<ambition_combat::components::PogoTargetContributor>(
         ENGINE,
         "feature.pogo_target_contributor",
@@ -998,6 +992,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "portal.transit_cooldown",
     )
+    // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
+    // rewind that kept an abandoned future's timer would let the same press that
+    // dropped a gun immediately re-grab it — or refuse a grab the confirmed
+    // timeline allowed. Surfaced by the coverage sweep only once its population was
+    // derived from the rollback vocabulary: a pickup carries neither
+    // `FeatureSimEntity` nor `BodyKinematics`.
+    .rollback_component_clone::<ambition_portal::PortalGunPickup>(ENGINE, "portal.gun_pickup")
     .rollback_component_clone::<ambition_portal::PortalEmission>(ENGINE, "portal.emission")
     .rollback_component_clone::<ambition_portal::PortalShot>(ENGINE, "portal.shot")
     .rollback_component_clone::<ambition_portal::PortalGun>(ENGINE, "portal.gun")
@@ -1030,6 +1031,16 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
+    )
+    // A per-tick MIRROR of the item's own body, not a second authority:
+    // `sync_ground_items_to_transitable` overwrites pos/vel/half_extent from the
+    // authoritative `GroundItem` (registered state) before portal core reads it, and
+    // `sync_transitable_to_ground_items` mirrors the possibly-teleported result
+    // straight back. Snapshotting it would give one body two restorable positions.
+    .declare_rollback_derived_component::<ambition_portal::PortalTransitable>(
+        ENGINE,
+        "derived.portal_transitable",
+        "mirrored from the item's authoritative body every frame, before transit reads it",
     )
     .declare_rollback_derived_component::<ambition_actors::body_mode::BodyModeCapabilities>(
         ENGINE,

@@ -97,6 +97,47 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_entity_catalog::",
         "authored contract, immutable during a session",
     ),
+    // ── The SESSION ROOT entity ──────────────────────────────────────────────
+    //
+    // Pulled into the population once it was derived from the rollback vocabulary:
+    // the root carries `RoomSet`, which is a rollback anchor, so the root is an
+    // entity the rollback participates in. What it carries besides `RoomSet` is
+    // session ACTIVATION identity, decided before the first simulated frame and
+    // never written again — rewinding it could only change which session the sim
+    // thinks it is in.
+    (
+        "ambition_platformer_primitives::lifecycle::session::SessionRoot",
+        "session activation identity; assigned at activation, never mutated",
+    ),
+    (
+        "ambition_runtime::content_identity::",
+        "content identity; a change invalidates the session rather than moving inside it",
+    ),
+    (
+        "ambition_runtime::session_world::PlatformerSessionCatalogs",
+        "which providers this session composed; fixed at activation",
+    ),
+    (
+        "ambition_actors::avatar::starting_character::StartingCharacter",
+        "session activation input, resolved once at player spawn",
+    ),
+    // ── Authored geometry and identity on world props ────────────────────────
+    //
+    // Same population change surfaced these: a shrine, a moving platform's visual
+    // index, and a portal's authored channel all sit on entities that carry
+    // registered state, and none of the three is written after the room loads.
+    (
+        "ambition_actors::shrine::HealShrine",
+        "authored shrine geometry; the heal reads it and never writes it",
+    ),
+    (
+        "ambition_actors::world::platforms::MovingPlatformVisual",
+        "presentation index for the platform's sprite",
+    ),
+    (
+        "ambition_portal::link::PortalLink",
+        "authored portal channel identity, hashed at spawn",
+    ),
 ];
 
 fn waiver(type_name: &str) -> Option<&'static str> {
@@ -104,6 +145,78 @@ fn waiver(type_name: &str) -> Option<&'static str> {
         .iter()
         .find(|(needle, _)| type_name.contains(needle))
         .map(|(_, reason)| *reason)
+}
+
+/// Every type name the rollback vocabulary mentions at all — state, anchors, and
+/// derived declarations alike.
+///
+/// Used to DERIVE the swept population rather than to judge coverage: an entity
+/// carrying even one type the rollback knows about is an entity the rollback
+/// participates in, and therefore one whose every component has to be accounted for.
+fn rollback_vocabulary(sim: &mut SandboxSim) -> BTreeSet<String> {
+    sim.world()
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .map(|d| d.type_name.clone())
+        .collect()
+}
+
+/// **The population a rewind has to reproduce.**
+///
+/// Three sources, unioned, and each was added because the previous set produced a
+/// confident empty result about something it never looked at:
+///
+/// * `FeatureSimEntity` — the original set. The PLAYER does not carry it
+///   (`PlayerBundle` never inserts it), so the single most heavily-mutated body in
+///   the game went uninspected while the rollback oracle was diverging on it.
+/// * `BodyKinematics` — anything the sim integrates every tick. That covers the
+///   player and every other body regardless of how it was spawned.
+/// * **anything carrying a type the rollback vocabulary names.** This is the
+///   mechanism's own answer, and it is not a list anyone maintains: if the rollback
+///   registers, anchors, or declares-derived even one component on an entity, that
+///   entity is in the rollback's world and all of its state is in scope.
+///
+/// The third source is what reaches the TRANSIENT families. A moveset strike volume
+/// carries `Hitbox`, `HitboxHits` and `StrikeVolume` and neither of the two tags
+/// above, so for as long as the population was those tags, new state on a live
+/// strike volume was outside this instrument no matter how many rooms were added —
+/// adding rooms cannot reach a family that exists for six frames.
+///
+/// `bevy_ggrs::Rollback` would be the obvious spelling of that third source and is
+/// the WRONG one here: these fixtures boot a fixed-tick host, where
+/// `require_rollback` is recorded for schema identity and never installed, so the
+/// marker is absent from every entity in the world and a population derived from it
+/// would silently be the old two-tag population again.
+fn simulated_population(sim: &mut SandboxSim) -> Vec<Entity> {
+    let vocabulary = rollback_vocabulary(sim);
+    let world = sim.world_mut();
+    let mut found: BTreeSet<Entity> = BTreeSet::new();
+    let mut tagged =
+        world.query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+    found.extend(tagged.iter(world));
+    let mut bodies =
+        world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
+    found.extend(bodies.iter(world));
+
+    let all: Vec<Entity> = {
+        let world = sim.world_mut();
+        let mut everything = world.query_filtered::<Entity, ()>();
+        everything.iter(world).collect()
+    };
+    let world = sim.world();
+    for entity in all {
+        if found.contains(&entity) {
+            continue;
+        }
+        let Ok(mut components) = world.inspect_entity(entity) else {
+            continue;
+        };
+        if components.any(|info| vocabulary.contains(&info.name().to_string())) {
+            found.insert(entity);
+        }
+    }
+    found.into_iter().collect()
 }
 
 /// The component sweep for one booted room: every `ambition_`-named component
@@ -129,27 +242,7 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
         .map(|d| d.type_name.clone())
         .collect();
 
-    // The simulated population: every body/feature/projectile/encounter the sim
-    // owns is tagged as a sim entity, which is precisely the set a rollback must
-    // reproduce exactly.
-    //
-    // ⚠ `FeatureSimEntity` alone is NOT that set. The PLAYER does not carry it
-    // (`PlayerBundle` never inserts it), so for as long as this sweep asked only
-    // that tag, the single most heavily-mutated body in the game was never
-    // inspected — and the sweep reported a confident empty result while the
-    // rollback oracle was diverging on the player. Anything carrying
-    // `BodyKinematics` is a body the sim integrates every tick, which is the
-    // honest population; the union is what a rewind actually has to reproduce.
-    let sim_entities: Vec<Entity> = {
-        let world = sim.world_mut();
-        let mut tagged = world
-            .query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
-        let mut found: BTreeSet<Entity> = tagged.iter(world).collect();
-        let mut bodies =
-            world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
-        found.extend(bodies.iter(world));
-        found.into_iter().collect()
-    };
+    let sim_entities = simulated_population(sim);
     assert!(
         !sim_entities.is_empty(),
         "no simulated entities found — the fixture did not actually boot a world, \
@@ -190,16 +283,7 @@ pub(crate) fn waived_components(sim: &mut SandboxSim) -> BTreeMap<String, &'stat
         .descriptors()
         .map(|d| d.type_name.clone())
         .collect();
-    let sim_entities: Vec<Entity> = {
-        let world = sim.world_mut();
-        let mut tagged = world
-            .query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
-        let mut found: BTreeSet<Entity> = tagged.iter(world).collect();
-        let mut bodies =
-            world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
-        found.extend(bodies.iter(world));
-        found.into_iter().collect()
-    };
+    let sim_entities = simulated_population(sim);
     let mut waived: BTreeMap<String, &'static str> = BTreeMap::new();
     let world = sim.world();
     for entity in sim_entities {
@@ -358,6 +442,88 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         }
         assert_components_accounted(&mut sim, room);
     }
+}
+
+/// **A TRANSIENT family, swept while it is actually alive.** (GPT 5.6 review 5)
+///
+/// Every sweep above inspects a room at rest, and a moveset strike volume exists
+/// only inside its authored active window — a handful of ticks. Those entities carry
+/// `Hitbox`, `HitboxHits`, `StrikeVolume` and optionally `HitboxOnHit`, and NONE of
+/// `FeatureSimEntity` or `BodyKinematics`. So for as long as the population was
+/// those two tags plus more rooms, new state parked on a live strike volume was
+/// outside this instrument no matter how thorough it looked: adding rooms cannot
+/// reach a family that only exists for six frames.
+///
+/// Two changes make this test mean something. The population now includes
+/// `bevy_ggrs::Rollback` — the mechanism's own answer to "what does the rollback
+/// carry" — and this test holds the attack button down, sweeping on the tick the
+/// volume is live and ASSERTING that it was. A transient sweep that silently missed
+/// its transient would be the same false negative in a new costume.
+#[test]
+fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
+    let mut sim = SandboxSim::new_with_options(
+        ambition_app::rl_sim::SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("combat_calibration_lab"),
+    )
+    .expect("sandbox sim builds in the calibration lab");
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+
+    // Swing repeatedly and sweep on every tick a volume is live. One swing is a
+    // handful of frames and the strike's own timeline decides which, so sampling a
+    // fixed frame number would be a guess.
+    let mut swept_with_a_live_volume = 0usize;
+    let mut live_volume_peak = 0usize;
+    for frame in 0..240 {
+        let action = AgentAction {
+            attack: frame % 24 == 0,
+            attack_held: frame % 24 < 4,
+            attack_released: frame % 24 == 4,
+            ..AgentAction::default()
+        };
+        sim.step(action);
+        let live: Vec<Entity> = {
+            let world = sim.world_mut();
+            let mut volumes =
+                world.query_filtered::<Entity, With<ambition::combat::moveset::StrikeVolume>>();
+            volumes.iter(world).collect()
+        };
+        if live.is_empty() {
+            continue;
+        }
+        live_volume_peak = live_volume_peak.max(live.len());
+        // The assertion that this test is FOR. A live transient existing is not the
+        // same fact as the sweep looking at it, and conflating the two is how an
+        // instrument reports coverage it does not have: the previous population
+        // would have left every one of these entities uninspected while this loop
+        // happily counted them.
+        let population: BTreeSet<Entity> = simulated_population(&mut sim).into_iter().collect();
+        for volume in &live {
+            assert!(
+                population.contains(volume),
+                "a live strike volume ({volume}) is not in the swept population, so \
+                 no amount of sweeping reaches the transient families — this is the \
+                 hole `Rollback` was added to the population to close"
+            );
+        }
+        swept_with_a_live_volume += 1;
+        assert_components_accounted(&mut sim, "combat_calibration_lab (live strike volume)");
+    }
+
+    // The vacuity guard, and the whole reason this test is not just another room.
+    assert!(
+        swept_with_a_live_volume > 0,
+        "no strike volume was ever alive during this sweep, so it inspected the \
+         same at-rest population as every other test here and proves nothing about \
+         transients. Either the attack never triggered or the window is shorter \
+         than one sampled tick."
+    );
+    println!(
+        "[transient sweep] {swept_with_a_live_volume} tick(s) with a live strike \
+         volume, peak {live_volume_peak} concurrent"
+    );
 }
 
 /// Resource type-name substrings that are NOT authoritative simulation state.

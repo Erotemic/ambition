@@ -96,6 +96,20 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::Transit)
                 .before(ambition_portal::resolve_portal_links),
         );
+        // **The attribution latch is rollback state.** (GPT 5.6 review 5)
+        //
+        // `attach_portal_hosts` is one-shot: a portal that failed to attach stays a
+        // static aperture rather than re-scanning every frame. Losing that latch on a
+        // restore is not benign, because attribution reads `RoomGeometry` AND
+        // `MovingPlatformSet` — a re-scan on a later frame sees platforms in a
+        // different place and can attach a portal the confirmed timeline left static,
+        // writing a `host`/`host_lift` into `PlacedPortal` that no peer agreed to.
+        //
+        // This is the same shape as the unregistered `Collected` latch the rollback
+        // oracle caught earlier: a marker whose ABSENCE is a decision.
+        ambition::runtime::rollback::AmbitionRollbackApp::rollback_component_clone::<
+            crate::portal::host_adapter::PortalHostScanned,
+        >(app, "ambition_content", "portal.host_scanned");
 
         // Bridge portal-owned carves → the host collision overlay. Runs in
         // `PortalSet::Carves` (which is `.before(CoreSimulation)`), after

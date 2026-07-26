@@ -15,7 +15,63 @@ several providers, live in one session, all player-drivable.
 > **Reading this cold?** §2 is the diagnosis, §3 is every verified code fact with
 > a location (do not re-derive these), §4–6 are the settled decisions, §7 is what
 > to build and in what order, and each §7 item says whether it can run in
-> parallel with the others.
+> parallel with the others. §0 is the current state — read it first.
+
+---
+
+## 0. Message to the next agent
+
+> **This section is a baton, not a record. Overwrite it when you hand off.**
+> Everything below it is the durable design; this is only "where things stand
+> and what I would tell you in person." Rewrite it wholesale — do not append.
+
+*Written 2026-07-26 by Claude Opus 5, after landing the binding-boundary work
+and settling this design across two GPT-5.6 review rounds. Suite was 18/18 green
+at commit `984d88062`, confirmed independently by Jon.*
+
+**Nothing here is built.** The design is settled; the code is untouched.
+
+### Two things that are not obvious from the rest of this document
+
+**1. §7.2 is the point, and it is the one you will skip.**
+
+Every bug that opened this investigation is one defect class: *an engine step
+written in an application crate, so every other app silently loses it.* Three
+instances, all found in a single session — sprites (§2), music (§3.6), movement
+inheritance (§3.4). §7.1 fixes the sprite instance and makes Mary-O playable
+again, which will feel like the job is done. **It is not.** After §7.1 nothing
+is visibly broken, so §7.2 — the engine-owned readiness invariant — reads like
+polish and gets deferred. It is the only item that stops the class from
+recurring, and the class has a 3-for-3 record. Jon's framing: *"the only thing
+that should change is what quit to title goes to."*
+
+**2. §7.3 is free right now, and that expires.**
+
+Making `inherits` strict and provider-local is a no-op migration *because zero
+`.ron` files author `inherits` today* (§3.4 — grepped, confirmed). The moment
+anyone authors a template — a Smash "heavy body" archetype is the obvious first
+one — the strict policy stops being free and starts being a content migration.
+Do it while it costs an afternoon and nothing else.
+
+### How to start
+
+- **Solo, want the game playable:** §7.1, then §7.2. Do not stop between them.
+- **Handing work to a second agent (GPT patch or otherwise):** §7.3, §7.4, and
+  §7.5 are parallel-safe — disjoint files, no dependency on the character work,
+  each independently valuable. §7.5 (the music fork) is the one Jon has already
+  asked for by name and has not received.
+- **Before writing any code:** read §3. Those facts cost real time to establish
+  and every one of them was checked against the source. Several contradict what
+  the surrounding comments claim.
+
+### What a reviewer got wrong, so you weigh the next one correctly
+
+GPT-5.6 was right about most of this and corrected me twice (see §4.3's
+correction note). But it twice reasoned confidently from an assumption the code
+disproved — the audio retrofit is far smaller than it argued, because
+`ProviderSfxHandleCache` is already source-qualified (§3.5). **Verify before
+conceding or rejecting.** Its file/line claims were reliable; its inferences
+about scale were not.
 
 ---
 

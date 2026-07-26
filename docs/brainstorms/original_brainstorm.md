@@ -702,3 +702,42 @@ in the stories.
 We should also include a Busy Beaver in the game, and have something it does
 linked to the Collatz Conjecture, so the character can ask him if he is going
 to repeat forever, and we can make a pun or joke around that.
+
+--- 
+
+
+Maybe the creator doesn't get killed. Maybe they get disappeared. Maybe their
+fate depends on your actions in the game. The disappearing of people could be a
+central theme of the game. The ceremonial legality that amounts to nothing in
+the face of well founded morality - whatever that is. Do unto others is
+something I can get behind.
+
+
+Different religious characters would be fun, but it could be too tempting to go
+overboard. Maybe for a DLC.
+
+
+Richard Dawkins might be a fun character to play with memes.
+
+We really need a lot of scientists. Having a super smash game with different
+science figures seems like its an extremely important thing that needs to
+exist.
+
+We are need to have characters for Fourier, Gauss, Einstein, maybe Feynman, Ann
+Druyan (Anne Druid).
+
+Archimedes, Aryabhata Reimann, Lagrange, Grothendieck, Leibniz, Neumann,
+Poincare, Fermat, Feyl, Weierstrass, Brahmagupta, Descartes, Cantor, Dirichlet,
+Pythagorous, Cauchy, Cayley, Hamilton, Fibonacci, EVERY SINGLE FUCKING
+BERNOULLI, which will be a joke, Laplace, Kepler, Peano, Borel, Dedekind,
+Klein, Pascal, Weil and Wyle and Wiles, will be confusing, Tarski, Hadamard,
+Maxwell, Galileo, Nash (Johny Nash), Sylvester, Lebesgue, Markov, Chebyshev,
+Johnson, Hypatia, Boole, Mandelbrot, Eratosthenes, Diophantus, Conway, Knuth,
+Penrose
+
+
+We can do a bojack horseman lisa hanawalt sort of thing, where there a bunch of
+anthropomorphic animals walking around and about as many regular humans, and
+its just totally normal 17 dimension stuff. Makes the game a bit more
+whimsical. Although I only wish we could user her art style, that would be a
+sick game. But that's not something we will do here,

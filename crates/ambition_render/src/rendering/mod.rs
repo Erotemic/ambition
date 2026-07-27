@@ -301,6 +301,20 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // (E4 slice 19: `FeatureViewSyncSchedulePlugin` owns the resource and
         // the overlay-advance + rebuild pair, in the FeatureViewSync tail this
         // chain is ordered after) — presentation is a pure consumer.
+        // The FLOOR: a body the sim published a view for that no family claimed
+        // gets a marked rectangle rather than nothing at all.
+        //
+        // Registered OUTSIDE the big chain deliberately. Inserting it into that
+        // chain adds a command-flush boundary, and doing so surfaced a
+        // pre-existing despawn/insert race in the worn-character binder — a
+        // system that spawns nothing in the failing scenario was enough to break
+        // it. Perturbing an ordering hazard is not the same as owning it, and
+        // this system has no business deciding when the chain flushes. (The race
+        // itself is written down as its own row.)
+        app.add_systems(
+            Update,
+            features::draw_unclaimed_feature_views.after(features::spawn_dynamic_feature_visuals),
+        );
         app.add_systems(
             Update,
             (

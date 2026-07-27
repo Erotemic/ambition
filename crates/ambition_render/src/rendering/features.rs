@@ -146,3 +146,73 @@ pub fn despawn_dead_dynamic_feature_visuals(
         }
     }
 }
+
+/// **Nothing the sim publishes goes undrawn.** (Jon, 2026-07-27)
+///
+/// Every render family discovers its own population — the authored room pass
+/// takes `spec.enemy_spawns`, the dynamic pass takes `EncounterMob` / staged
+/// actors / reward chests — and a body that fits none of them is simply never
+/// drawn. Not drawn wrong, not drawn as a placeholder: absent. A versus fighter
+/// shipped that way, with a body, a published view, a hurtbox, a moveset and no
+/// picture, and the reason the placeholder did not cover it is that a
+/// placeholder stands in for art that failed to RESOLVE, and nothing had been
+/// asked to resolve any.
+///
+/// So this is the floor: if the sim published a view for it and no family
+/// claimed it, it gets a marked rectangle. Deliberately ugly — it is a
+/// diagnosis, not a design, and a fighter that looks like a coloured box is a
+/// bug somebody will fix, where a fighter that looks like nothing is a bug
+/// somebody has to notice first.
+///
+/// Runs AFTER every family's own spawn, and skips any id that already has a
+/// visual, so it can only ever fill a genuine gap.
+pub fn draw_unclaimed_feature_views(
+    mut commands: Commands,
+    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
+        ambition_engine_core::RoomGeometry,
+    >,
+    active_session: Option<Res<ActiveSessionScope>>,
+    views: Res<ambition_sim_view::FeatureViewIndex>,
+    existing: Query<&FeatureVisual>,
+) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
+    for (id, view) in views.iter() {
+        if known.contains(id) {
+            continue;
+        }
+        // Zero-sized views are read-models for things with no body (a trigger
+        // volume's state). A rectangle of no size is not a diagnosis.
+        if view.size.x <= 0.0 || view.size.y <= 0.0 {
+            continue;
+        }
+        bevy::log::warn!(
+            target: "ambition::render",
+            "no render family claimed `{id}` ({:?}); drawing the unclaimed-body \
+             placeholder. Some spawn path is missing its family marker.",
+            view.kind
+        );
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(UNCLAIMED_BODY_COLOR, BVec2::new(view.size.x, view.size.y)),
+                Transform::from_translation(world_to_bevy(
+                    &world.0,
+                    view.pos,
+                    feature_z(view.kind),
+                )),
+                Name::new(format!("UNCLAIMED body placeholder: {id}")),
+                FeatureVisual { id: id.to_string() },
+                RoomVisual,
+                DynamicFeatureVisual,
+            ),
+        );
+    }
+}
+
+/// Magenta, because nobody ships magenta on purpose.
+const UNCLAIMED_BODY_COLOR: Color = Color::srgba(1.0, 0.0, 0.85, 0.85);

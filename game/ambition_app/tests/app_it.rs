@@ -80,4 +80,5 @@ mod shell_host_startup;
 mod symmetry_attunement;
 mod unified_body_movement;
 mod unified_melee;
+mod versus_stage;
 mod world_manifest_parameterization;

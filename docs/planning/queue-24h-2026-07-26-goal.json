@@ -188,6 +188,11 @@
       "name": "D11 the CC3 collision oracle is an executable GATE, not a diagnostic",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it collision_oracle_full_sweep -- --ignored 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 2400
+    },
+    {
+      "name": "C4 the shipped host offers a Versus stage that seats two fighters",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --test app_it versus_stage 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 3 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

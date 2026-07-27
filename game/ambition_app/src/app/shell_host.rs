@@ -99,6 +99,11 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition_demo_pocket::PocketExperiencePlugin,
     ));
 
+    // The versus stage. Registered AFTER the providers because its fighters are
+    // theirs: `mary_o` and `sanic` are registered by two different provider
+    // plugins, and this composition is the only one where both casts exist.
+    crate::app::versus::compose_versus_experience(app);
+
     // Host routing: boot into the launcher; every provider's ReturnHome
     // resolves to the launcher. The home route is a plain shell experience
     // (the basic launcher presentation renders it).

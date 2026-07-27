@@ -404,9 +404,13 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Pocket"],
-        "launcher entries derive from the four registered providers \
-         (Exit is the built-in fifth row)"
+        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "Versus"],
+        "launcher entries derive from the registered experiences. `Versus` is the \
+         app-composed crossover stage (C4): its fighters belong to two different \
+         provider plugins, so the multi-game host is the only composition where \
+         both casts exist and it is registered here rather than inside a provider. \
+         An exact list on purpose — a launcher that silently gains or loses a row \
+         is the first thing a player sees."
     );
 
     let mut seen_scopes: Vec<SessionScopeId> = Vec::new();
@@ -637,7 +641,18 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after sanic #2");
 
     // ── Exit ───────────────────────────────────────────────────────────
-    launch_entry(&mut app, 4);
+    //
+    // Exit is the built-in row AFTER every provider entry, so its index is the
+    // entry count — derived, not the literal `4` this used to be. That literal
+    // silently became "Versus" the day a fifth experience registered, and the
+    // failure read as "selecting Exit raises the shell exit request", which names
+    // the symptom and not the cause.
+    let exit_index = app
+        .world()
+        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .entries
+        .len();
+    launch_entry(&mut app, exit_index);
     app.update();
     assert!(
         app.world().resource::<ShellRouter>().exit_requested,

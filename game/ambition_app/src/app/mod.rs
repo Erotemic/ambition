@@ -34,6 +34,7 @@ pub mod shell_host;
 mod sim_resources;
 mod sim_systems;
 mod startup_loading;
+pub mod versus;
 pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]

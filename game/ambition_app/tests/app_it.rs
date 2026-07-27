@@ -19,6 +19,7 @@ mod app_it_sync;
 mod actor_phase_split;
 mod app_local_catalog_composition;
 mod blink_run_reachability;
+mod boot_budget;
 mod boss_contact_iframes;
 mod boss_draw_cursor;
 mod boss_lifecycle;

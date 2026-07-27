@@ -178,6 +178,11 @@
       "name": "K6 the SimId encoding is injective (two entities cannot share an identity)",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer_primitives sim_id::tests::the_id_encoding_is_injective_over_adversarial_segments 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 900
+    },
+    {
+      "name": "D13 the boot decode budget is ENFORCED, not just printed",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --test app_it boot_budget::boot_decodes_no_more_than_its_budget 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

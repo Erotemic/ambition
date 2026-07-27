@@ -894,3 +894,82 @@ fn returning_to_versus_starts_a_fresh_match() {
         "the new match started mid-KO, inheriting the old one's countdown"
     );
 }
+
+/// **A KO stops the fight.** (GPT 5.6, 2026-07-27)
+///
+/// The KO card used to be shown over a fight that never stopped: the surviving
+/// fighter kept taking input, the CPU kept steering, attacks kept resolving and
+/// anything already in flight crossed the round boundary. Only the rules and
+/// the HUD ever read `MatchPhase`.
+///
+/// Asserts the SIM CLOCK is zeroed during the hold, because that is the fix —
+/// the engine's own freeze primitive, rather than this module trying to name
+/// and silence every system that could still act.
+#[test]
+fn a_knockout_freezes_the_fight_until_the_next_round() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let scale = |app: &App| {
+        app.world()
+            .resource::<ambition::time::ClockState>()
+            .time_scale
+    };
+    assert!(
+        scale(&app) > 0.5,
+        "the fight was already frozen before anybody was knocked out"
+    );
+
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+    app.world_mut()
+        .get_mut::<BodyHealth>(seat_one)
+        .unwrap()
+        .health
+        .current = 0;
+    for _ in 0..6 {
+        app.update();
+    }
+    assert!(
+        matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Ko { .. }
+        ),
+        "the fixture never reached the KO hold"
+    );
+    // The engine RAMPS a clock scale rather than snapping it (the time-control
+    // smoother's job), so the freeze arrives over a few frames rather than on
+    // the tick the KO lands. Deliberately not asserted as instantaneous: an
+    // instant stop is a feel decision this stage has not made.
+    for _ in 0..40 {
+        app.update();
+    }
+    assert!(
+        scale(&app) < 0.01,
+        "the simulation kept running through the KO card at scale {} — the \
+         surviving fighter is still playing while the round is over",
+        scale(&app)
+    );
+}

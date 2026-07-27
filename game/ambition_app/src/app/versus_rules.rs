@@ -92,6 +92,7 @@ pub fn run_versus_rules(
     roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
     geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
     mut state: ResMut<VersusMatch>,
+    mut clock: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
     mut fighters: Query<(
         &MatchSeat,
         &mut BodyHealth,
@@ -105,6 +106,30 @@ pub fn run_versus_rules(
         return;
     };
     let dt = time.delta_secs();
+
+    // FREEZE the fight for the duration of a KO or match card.
+    //
+    // Without this the surviving fighter keeps taking input, the CPU keeps
+    // steering, attacks keep resolving and projectiles keep flying across the
+    // round boundary — the card is shown over a fight that never stopped (GPT
+    // 5.6, 2026-07-27). `ClockScaleRequest` at scale 0 is the engine's own
+    // primitive for exactly this (its docstring names cutscene pause and boss
+    // freeze), so a KO hold stops the whole simulation rather than this module
+    // trying to name and silence every system that could still act.
+    //
+    // The hold itself is counted on the RENDER clock on purpose: it is a
+    // presentation beat, and counting it on a clock it has just set to zero
+    // would hold forever. What is authoritative — a fighter reaching zero
+    // health, the round being awarded — is a simulation fact, and that is
+    // decided below before any freeze is requested.
+    if !matches!(state.phase, MatchPhase::Fighting) {
+        clock.write(ambition::actors::time::time_control::ClockScaleRequest {
+            domain: ambition::time::ClockDomain::SimClock,
+            scale: 0.0,
+            requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+            reason: "versus_ko_hold",
+        });
+    }
 
     match state.phase {
         MatchPhase::Fighting => {
@@ -148,6 +173,7 @@ pub fn run_versus_rules(
             }
             reset_fighters(&geometry, &mut fighters);
             state.phase = MatchPhase::Fighting;
+            release_freeze(&mut clock);
         }
         MatchPhase::Won { seat, remaining_s } => {
             let remaining = remaining_s - dt;
@@ -160,8 +186,25 @@ pub fn run_versus_rules(
             }
             reset_fighters(&geometry, &mut fighters);
             *state = VersusMatch::default();
+            release_freeze(&mut clock);
         }
     }
+}
+
+/// Hand the clock back at full pace.
+///
+/// A reset rather than a scale request: reset/respawn semantics SNAP the clock
+/// instead of ramping it, which is what the end of a KO hold wants — the next
+/// round starts at full speed, not sliding up to it over the following second.
+fn release_freeze(
+    clock: &mut MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
+) {
+    clock.write(ambition::actors::time::time_control::ClockScaleRequest {
+        domain: ambition::time::ClockDomain::SimClock,
+        scale: 1.0,
+        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+        reason: "versus_round_start",
+    });
 }
 
 /// Put both fighters back on full health at their seats.

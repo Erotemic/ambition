@@ -4,15 +4,19 @@
 //! only the host face differs: `DefaultPlugins` with a window, the engine's
 //! generic presentation plugin, and the standard input path.
 //!
-//! Two recorded SDK findings ride along (campaign doc, Phase-6 account):
-//! - the AssetServer file root must be pointed at the ENGINE's asset tree via
-//!   `actors_desktop_asset_root()` — consumer-owned art still has no home
-//!   (leak #3), and a consumer that forgets this line gets bare boxes;
-//! - the in-repo demo shells each hand-roll a standalone asset-resource
-//!   install (`SandboxAssetCatalog` + `GameAssets`) that no umbrella helper
-//!   offers, so this binary ships WITHOUT it and draws the world as colored
-//!   primitives — a faithful record of what a third party gets today, not a
-//!   bug in this fixture.
+//! One recorded SDK finding rides along (campaign doc, Phase-6 account): the
+//! AssetServer file root must be pointed at the ENGINE's asset tree via
+//! `actors_desktop_asset_root()` — consumer-owned art still has no home (leak
+//! #3), and a consumer that forgets this line gets bare boxes.
+//!
+//! The SECOND recorded finding is CLOSED (2026-07-27). It read: "the in-repo
+//! demo shells each hand-roll a standalone asset-resource install
+//! (`SandboxAssetCatalog` + `GameAssets`) that no umbrella helper offers, so
+//! this binary ships WITHOUT it and draws the world as colored primitives — a
+//! faithful record of what a third party gets today". The helper exists now
+//! (`ambition::game_assets::PlatformerAssetsPlugin`) and this binary is its
+//! first external caller, which is the point of the fixture: the gap it
+//! recorded is the gap it now proves is gone.
 
 fn main() {
     use bevy::prelude::*;
@@ -38,6 +42,14 @@ fn main() {
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
     outlander::compose_outlander_shell(&mut app);
+    // AFTER the content, which registers the catalogs this reads, and BEFORE the
+    // presentation, which draws from what it installs.
+    app.add_plugins(
+        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
+            outlander::OUTLANDER_EXPERIENCE,
+        )
+        .with_room(outlander::outlander_room().metadata),
+    );
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
     app.run();
 }

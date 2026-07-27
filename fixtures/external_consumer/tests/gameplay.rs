@@ -87,3 +87,75 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
          running the timeline the other is"
     );
 }
+
+/// **A third party gets REAL ART, not coloured rectangles.** (Phase 6, the
+/// visible-shell half)
+///
+/// The visible binary's own comment used to record the gap: the in-repo demo
+/// shells each hand-rolled a ~90-line asset-resource install that no umbrella
+/// helper offered, so a consumer following the demos doctrine drew the world as
+/// primitives. A stranger cloning this engine and running their game saw
+/// untextured boxes — the most visible way "an engine another game can be built
+/// on" can fail, and it failed for want of a function.
+///
+/// `ambition::game_assets::PlatformerAssetsPlugin` is that function, and this is
+/// the test that it works from OUTSIDE the workspace: the fixture resolves its
+/// own dependency graph, so this is the build a third party gets.
+///
+/// Asserts the two resources the generic presentation actually reads. A
+/// compile-only proof would say nothing — the failure being closed here is
+/// precisely "it composes and draws nothing".
+#[test]
+fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    // The visible binary's composition minus the window: the asset plugin
+    // pointed at the ENGINE's tree (recorded leak #3 — a consumer that forgets
+    // this line gets bare boxes), states, then the engine group.
+    app.add_plugins(bevy::MinimalPlugins);
+    app.add_plugins(bevy::state::app::StatesPlugin);
+    app.add_plugins(bevy::asset::AssetPlugin {
+        file_path: ambition::asset_manager::actors_desktop_asset_root(),
+        ..Default::default()
+    });
+    app.init_asset::<Image>();
+    app.init_asset::<TextureAtlasLayout>();
+    ambition::engine::init_engine_states(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
+    outlander::compose_outlander_shell(&mut app);
+    app.add_plugins(
+        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
+            outlander::OUTLANDER_EXPERIENCE,
+        )
+        .with_room(outlander::outlander_room().metadata),
+    );
+    app.update();
+
+    let catalog = app
+        .world()
+        .get_resource::<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>()
+        .expect(
+            "the plugin did not install a SandboxAssetCatalog, so every asset path \
+             policy the presentation reads is missing",
+        );
+    assert!(
+        catalog
+            .path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank())
+            .is_some(),
+        "the installed catalog resolves no paths at all, so it was built from \
+         nothing — the composition-order failure this plugin is supposed to make \
+         loud"
+    );
+
+    let assets = app
+        .world()
+        .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+        .expect("the plugin did not install GameAssets");
+    assert!(
+        !assets.entities.is_empty(),
+        "GameAssets carries no entity sprites, so the world still draws as \
+         coloured primitives — which is the exact state this plugin was written \
+         to end, and a green compile would not have noticed"
+    );
+}

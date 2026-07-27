@@ -2294,11 +2294,20 @@ document's sketch and what each one bought.
 - ✅ it uses prepared content and construction APIs (its staged enemy is a
   plan row through `ambition.staged-actor`; catalogs flow through the
   provider preparation lifecycle);
-- deliberate authoring failures produce actionable diagnostics (the
-  `from_ron` seams reject malformed content; a systematic error-quality
-  pass remains open);
-- the same content runs headlessly today; the visible-shell half remains
-  open;
+- ✅ deliberate authoring failures produce actionable diagnostics — and it is
+  CHECKED from outside the workspace now
+  (`authoring_mistakes_name_the_thing_the_author_must_fix`), not asserted.
+  Rejecting malformed content is the easy half; the half that decides whether
+  somebody can build a game here is whether the rejection names the fragment, the
+  id and the kind of failure. It does: a mistyped default character reports
+  "character catalog fragment 'outlander' names missing default character
+  'wandrer_typo'". The test asserts on the message a consumer actually sees,
+  through both public authoring seams;
+- ✅ the same content runs visibly and headlessly from the same content: the
+  visible binary composes the umbrella asset install
+  (`ambition::game_assets::PlatformerAssetsPlugin`) and registers its OWN
+  `game://` source layered over the engine tree
+  (`ambition_asset_manager::consumer_source`), which closes recorded leak #3;
 - ✅ evidence exists to design a public recipe/prefab API — the five
   recorded leaks in the Phase 6 account ARE that evidence.
 

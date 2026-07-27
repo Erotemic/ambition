@@ -215,3 +215,106 @@ fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
          reader that says yes to everything"
     );
 }
+
+/// **A third party who authors bad content is TOLD WHAT IS WRONG.** (Phase 6,
+/// Milestone E's remaining clause)
+///
+/// The campaign doc lists this one as open: "deliberate authoring failures
+/// produce actionable diagnostics (the `from_ron` seams reject malformed
+/// content; a systematic error-quality pass remains open)". Rejecting is the
+/// easy half. The half that decides whether somebody can build a game on this
+/// engine is whether the rejection says which FILE, which ID, and which FIELD —
+/// from outside the workspace, where the reader cannot go and read the parser.
+///
+/// Every case below asserts on the message a consumer would actually see. The
+/// requirement is deliberately concrete: the message must name the thing the
+/// author has to go and change. "invalid catalog" is a rejection; "fragment
+/// 'outlander' names missing default character 'typo_id'" is a diagnostic.
+#[test]
+fn authoring_mistakes_name_the_thing_the_author_must_fix() {
+    use ambition::characters::actor::character_catalog::CharacterCatalogFragment;
+
+    // A catalog that parses and names a default character it does not contain —
+    // the single most common authoring slip, a typo in one id.
+    let good_ron = r#"(
+        brain_presets: { "still": StandStill },
+        action_set_presets: {
+            "none": (move_style: Walk, melee: None, ranged: None, special: None),
+        },
+        characters: {
+            "outlander_wanderer": (
+                display_name: "Wanderer",
+                spritesheet: "sprites/robot_spritesheet.png",
+                manifest: "sprites/robot_spritesheet.ron",
+                tier: Basement,
+                body_kind: Standard,
+                composition: None,
+                default_brain: "still",
+                default_action_set: "none",
+                tags: [],
+            ),
+        },
+    )"#;
+    let missing_default = CharacterCatalogFragment::from_ron(
+        "outlander",
+        Some("wandrer_typo"),
+        good_ron,
+    )
+    .expect_err("a default character that is not in the fragment must be refused");
+    let message = missing_default.to_string();
+    for needle in ["outlander", "wandrer_typo"] {
+        assert!(
+            message.contains(needle),
+            "the diagnostic for a mistyped default character does not name \
+             `{needle}`, so an author outside this workspace cannot tell which \
+             fragment or which id to fix: {message}"
+        );
+    }
+
+    // Syntactically broken RON. The author needs to know it was THEIR fragment
+    // and that the failure was a parse, not a validation rule they can argue
+    // with.
+    let malformed = CharacterCatalogFragment::from_ron(
+        "outlander",
+        None::<String>,
+        "( characters: { \"x\": ( display_name: ",
+    )
+    .expect_err("truncated RON must be refused");
+    let message = malformed.to_string();
+    assert!(
+        message.contains("outlander"),
+        "a malformed fragment's diagnostic does not name the provider, so a host \
+         composing several cannot tell whose content is broken: {message}"
+    );
+    assert!(
+        message.to_lowercase().contains("malformed") || message.to_lowercase().contains("ron"),
+        "the diagnostic does not say the content failed to PARSE, which is the \
+         difference between a typo and a rule the author has to look up: {message}"
+    );
+
+    // The ROSTER seam, the fixture's other public authoring surface. A roster is
+    // a second file naming ids the catalog owns, which is precisely where a
+    // rename goes wrong.
+    {
+        use ambition::actors::features::CharacterRosterFragment;
+        let broken = CharacterRosterFragment::from_ron(
+            "outlander",
+            None::<String>,
+            "( roster: { \"missing\": ",
+        )
+        .expect_err("truncated roster RON must be refused");
+        let message = broken.to_string();
+        assert!(
+            message.contains("outlander"),
+            "the roster diagnostic does not name the provider: {message}"
+        );
+    }
+
+    // An empty provider id — the mistake a host makes rather than an author.
+    let anonymous = CharacterCatalogFragment::from_ron("  ", None::<String>, good_ron)
+        .expect_err("an anonymous fragment must be refused");
+    assert!(
+        anonymous.to_string().to_lowercase().contains("provider"),
+        "the diagnostic does not mention the provider id at all: {anonymous}"
+    );
+}

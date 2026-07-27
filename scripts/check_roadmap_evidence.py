@@ -30,6 +30,17 @@ That is a human question and pretending otherwise would be the same
 overclaiming this exists to catch. It only reports rows whose evidence has
 VANISHED, plus rows that cite none at all.
 
+Two document shapes are read, because the planning tree has two and forcing one
+into the other would damage a document to fit a tool:
+
+* the engine roadmap's `### Task N` sections with a `**Status … MET**` line, and
+* `status.md`'s workstream TABLE, whose rows carry a bolded verdict
+  (`**DONE**`, `**FIXED**`, `**CLOSED**`, `**LANDED**`) in their state cell.
+
+A document with NEITHER is reported as a problem rather than as zero rows
+checked. "Checked 0 rows, no problems" is the most misleading output a guard can
+produce, and it is what pointing the task parser at `status.md` used to say.
+
 Usage:
     python3 scripts/check_roadmap_evidence.py             # report
     python3 scripts/check_roadmap_evidence.py --check     # exit 1 on a problem
@@ -56,8 +67,35 @@ STATUS_RE = re.compile(r"^\*\*Status[^*]*\*\*", re.M)
 # Evidence a machine can look for: a Rust test/function name in backticks, or a
 # path. Deliberately loose — the question is "did the author point at anything",
 # not "did they point at it in an approved format".
-IDENT_RE = re.compile(r"`([a-z_][a-z0-9_]{6,})`")
+# snake_case (a function or test) OR CamelCase (a type). Both are things a
+# machine can look for, and restricting to the first meant two `status.md` rows
+# citing only TYPE names read as "cites nothing checkable" — the guard demanding
+# a particular vocabulary rather than any evidence at all.
+IDENT_RE = re.compile(r"`([a-z_][a-z0-9_]{6,}|[A-Z][A-Za-z0-9]{6,})`")
 PATH_RE = re.compile(r"`([\w./-]+\.(?:rs|md|py|ron))`")
+
+
+# The SECOND shape (2026-07-27). `docs/planning/status.md` has no task headings
+# and no `**Status**` lines at all: it is a table of WORKSTREAMS, each row a
+# name, a bolded verdict, and what would close it. Pointing the task parser at it
+# reports "checked 0 rows" and looks clean, which is the most misleading output a
+# guard can produce.
+#
+# Giving that document the roadmap's row shape was the other option, and it is
+# the wrong one: a table of workstreams and a list of tasks are different
+# documents on purpose, and damaging one to fit a tool is how a tool starts
+# deciding what may be written down.
+TABLE_ROW_RE = re.compile(r"^\|(?!\s*-)(.+)\|\s*$", re.M)
+
+# A verdict is the FIRST bolded run in the state cell — the row's headline. A
+# row may go on to say a later slice landed while its headline is PARTIAL, and
+# it is the headline that claims completion.
+VERDICT_RE = re.compile(r"\*\*([A-Z][A-Z0-9 /+-]{2,})")
+
+# Bolded verdicts that assert the work is finished. Everything else — PARTIAL,
+# OPEN, BOUNDED, DESIGN CORRECTION REQUIRED — is not overclaiming and is skipped,
+# exactly as a non-MET task row is.
+COMPLETION_WORDS = ("DONE", "FIXED", "CLOSED", "LANDED", "PROVEN", "MET", "COMPLETE")
 
 
 def task_sections(text: str) -> list[tuple[str, str, str]]:
@@ -67,6 +105,24 @@ def task_sections(text: str) -> list[tuple[str, str, str]]:
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         out.append((m.group(1), m.group(2), text[m.start() : end]))
+    return out
+
+
+def table_rows(text: str) -> list[tuple[str, str, str]]:
+    """(row label, verdict, body) for every workstream table row claiming done."""
+    out = []
+    for match in TABLE_ROW_RE.finditer(text):
+        cells = [cell.strip() for cell in match.group(1).split("|")]
+        if len(cells) < 2 or not cells[0] or cells[0].lower() == "workstream":
+            continue
+        state = cells[1]
+        verdict = VERDICT_RE.search(state)
+        if not verdict:
+            continue
+        headline = verdict.group(1).strip()
+        if not any(word in headline for word in COMPLETION_WORDS):
+            continue
+        out.append((cells[0], headline, match.group(0)))
     return out
 
 
@@ -108,9 +164,14 @@ def identifier_exists(name: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
-def path_exists(candidate: str) -> bool:
-    """A cited path is checked AS a path — a file, not a string that occurs."""
-    return (REPO_ROOT / candidate).exists()
+def path_exists(candidate: str, document: Path) -> bool:
+    """A cited path is checked AS a path — a file, not a string that occurs.
+
+    Resolved against the DOCUMENT as well as the repo root: a planning page
+    links to its siblings relatively (`engine/encounter-orchestration.md`), and
+    resolving those only from the root reports a live document as deleted.
+    """
+    return (REPO_ROOT / candidate).exists() or (document.parent / candidate).exists()
 
 
 def main() -> int:
@@ -149,15 +210,29 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
 
+    claims: list[tuple[str, str]] = []
     for number, title, body in task_sections(text):
         status = STATUS_RE.search(body)
         if not status:
             problems.append(f"Task {number} ({title}): no **Status** line at all")
             continue
-        status_line = status.group(0)
-        if "MET" not in status_line:
+        if "MET" not in status.group(0):
             # A row that says it is partial is not overclaiming; nothing to check.
             continue
+        claims.append((f"Task {number} ({title})", body))
+    for label, headline, body in table_rows(text):
+        claims.append((f"{label} [{headline}]", body))
+
+    if not claims and not problems:
+        problems.append(
+            "no completion claims found at all — neither a `### Task N` section "
+            "claiming MET nor a table row with a bolded DONE/FIXED/CLOSED "
+            "verdict. A guard reporting zero rows checked is not a clean bill of "
+            "health; it means this document does not have a shape this script "
+            "can read."
+        )
+
+    for label, body in claims:
         checked += 1
 
         # Evidence anywhere in the task body, not just the status line: the
@@ -169,13 +244,13 @@ def main() -> int:
         cited = paths | idents
         if not cited:
             problems.append(
-                f"Task {number} ({title}): claims MET and cites NOTHING checkable. "
+                f"{label}: claims done and cites NOTHING checkable. "
                 "Name the test or the module that makes it true."
             )
             continue
 
         missing = sorted(
-            [name for name in paths if not path_exists(name)]
+            [name for name in paths if not path_exists(name, Path(args.document))]
             + [name for name in idents if not identifier_exists(name)]
         )
         # One missing citation among many is usually prose (a word in backticks
@@ -183,15 +258,15 @@ def main() -> int:
         # pointing at a world that no longer exists.
         if missing and len(missing) == len(cited):
             problems.append(
-                f"Task {number} ({title}): claims MET and every citation is gone "
+                f"{label}: claims done and every citation is gone "
                 f"from the source: {', '.join(missing)}"
             )
 
-    print(f"checked {checked} task row(s) claiming MET")
+    print(f"checked {checked} row(s) claiming the work is done")
     for problem in problems:
         print(f"  ✗ {problem}")
     if not problems:
-        print("  every MET row cites something that still exists")
+        print("  every completed row cites something that still exists")
 
     return 1 if (problems and args.check) else 0
 

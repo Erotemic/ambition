@@ -1,8 +1,14 @@
 {
   "_comment": [
-    "ARMED 2026-07-26T15:10Z for a 24h run (deadline 2026-07-27T15:00Z).",
-    "  python3 scripts/goal_guard.py --arm .goal/planning-sweep.json",
+    "RE-ARMED 2026-07-27T01:30Z by Jon for a fresh 24h run (deadline 2026-07-28T01:30Z).",
+    "  python3 scripts/goal_guard.py --arm docs/planning/queue-24h-2026-07-26-goal.json",
     "",
+    "Jon, 2026-07-27: 'Everything in docs/planning is in scope, with the focus",
+    "being on things that get us closer to a polished unity and godot competitor.'",
+    "That REFOCUSES the goal, it does not narrow it: the queue below is still the",
+    "ledger, but when two open rows compete, the one a Unity/Godot evaluator would",
+    "notice wins. Engine-shaped work over one-game work; a thing you can SEE, RUN",
+    "and SHIP over a thing only a test knows about.",
     "Jon's goal, verbatim: 'address everything in docs/planning and every follow",
     "up that is found while implementing docs planning. The hook should basically",
     "say: there's no way you finished everything in docs/planning, get back to it.'",
@@ -36,8 +42,8 @@
     "A11 recurrence, THIRD time: an absence-of-string check went red on prose again -- this time `CharacterLoadDemand` inside the docstring that explains why registration no longer calls it. The rule is now absolute: NEVER grep for the absence of an identifier. Name a test. Documenting a removal must not break the guard that verified it.",
     "`assets/manual-art/` is excluded: it holds hand-authored SVG work in progress that is NOT this agent's (appeared mid-run). Committing someone else's unfinished art to get a green check would be the worst possible way to satisfy this guard."
   ],
-  "goal": "address everything in docs/planning, and every follow-up found while implementing it. There is no way this is finished -- if the queue in docs/planning/queue-24h-2026-07-26.md looks empty, that means the next item has not been WRITTEN DOWN yet, not that the work is done. Go read docs/planning, find it, add it, and get back to it.",
-  "deadline_utc": "2026-07-27T15:00:00Z",
+  "goal": "address everything in docs/planning, and every follow-up found while implementing it, prioritising what moves this closer to a POLISHED Unity/Godot competitor -- an engine another game can be built on, that a stranger can run and see working. There is no way this is finished -- if the queue in docs/planning/queue-24h-2026-07-26.md looks empty, that means the next item has not been WRITTEN DOWN yet, not that the work is done. Go read docs/planning, find it, add it, and get back to it.",
+  "deadline_utc": "2026-07-28T01:30:00Z",
   "max_stalled_blocks": 30,
   "checks": [
     {

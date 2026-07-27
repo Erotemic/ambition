@@ -19,6 +19,8 @@
 //! assists, alternate forms, and a boss revealed mid-fight all arrive the same
 //! way — by demanding more tokens later — with no new staging concept.
 
+use bevy::prelude::Resource;
+
 use super::CharacterLoadDemand;
 
 /// Anything that knows which characters it needs art for.
@@ -172,7 +174,10 @@ impl NormalizedEffort {
 
 /// What a MATCH stages: one character per seat. Several seats may name the SAME
 /// character (a mirror match), which the demand set collapses.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// A `Resource` because a match's roster is SESSION state: it is what the seating
+/// pass reads to turn participants into bodies (C4), and what the load projection
+/// reads to demand their art. Both are per-session facts with one owner.
+#[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
 pub struct MatchParticipantRoster {
     pub participants: Vec<MatchParticipant>,
 }

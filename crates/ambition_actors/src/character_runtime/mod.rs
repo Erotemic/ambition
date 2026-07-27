@@ -38,6 +38,7 @@ pub mod audit;
 pub mod definition;
 pub mod hurtbox;
 pub mod presentation;
+pub mod seating;
 pub mod staging;
 
 pub use audit::{
@@ -58,6 +59,7 @@ pub use presentation::{
     project_prepared_character_definitions, provider_of_character,
     publish_body_presentation_sources, ProjectedCharacterKit,
 };
+pub use seating::{seat_character, seat_match_participants, MatchSeated};
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
     NormalizedEffort, RoomStagingPlan, StagesCharacters,
@@ -723,6 +725,27 @@ impl Plugin for CharacterRuntimePlugin {
                     .chain()
                     .in_set(crate::schedule::SandboxSet::Combat)
                     .before(crate::schedule::CombatSet::Playback),
+            )
+            .init_resource::<seating::MatchSeated>()
+            .add_systems(
+                sim,
+                // C4 slice 1: a match roster becomes bodies. Before the character
+                // projection in the same phase, so a fighter seated this tick wears
+                // its moveset and silhouette on the tick it appears rather than the
+                // one after — the difference between a fighter that can be hit on
+                // frame one and one that is briefly a bare rectangle.
+                seating::seat_match_participants
+                    // Seating needs an ASSEMBLED content composition. The archetype
+                    // roster is built from registered fragments, so a bare engine
+                    // App legitimately has none — and this is a run condition
+                    // rather than an `Option<Res<..>>` parameter deliberately:
+                    // `engine.character-authority-is-app-local` forbids making the
+                    // character authority optional, and it is right to. "Not part
+                    // of this composition" and "optional here" are different
+                    // claims, and only the first one is true.
+                    .run_if(resource_exists::<crate::features::CharacterRoster>)
+                    .in_set(crate::schedule::PlayerInputSet::CharacterProjection)
+                    .before(presentation::project_prepared_character_definitions),
             )
             .add_systems(
                 sim,

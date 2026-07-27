@@ -80,10 +80,20 @@ fn engine_owned_ui_node_count(app: &mut App) -> usize {
 }
 
 /// Nodes belonging to the HUD this demo declared.
+/// How many READOUTS the demo draws.
+///
+/// Counts `DeclaredHudSlot`, not `DeclaredHudRoot`. Both ride the nodes the
+/// declared-HUD pass owns and they answer different questions:
+/// `DeclaredHudRoot` is the LIFETIME marker (the retire sweep keys on it, and a
+/// gauge bar carries one so it dies with its slot), while a slot is one declared
+/// readout. Counting roots made a demo that declared two readouts and published
+/// gauges look like four — a gauge is presentation OF a readout, not another
+/// one. Twin of the Mary-O shell's counter; both broke when health bars landed
+/// and neither was compiled by `cargo test --workspace`.
 fn declared_hud_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudRoot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudSlot>>();
     query.iter(app.world()).count()
 }
 

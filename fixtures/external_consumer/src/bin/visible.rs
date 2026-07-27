@@ -4,10 +4,15 @@
 //! only the host face differs: `DefaultPlugins` with a window, the engine's
 //! generic presentation plugin, and the standard input path.
 //!
-//! One recorded SDK finding rides along (campaign doc, Phase-6 account): the
-//! AssetServer file root must be pointed at the ENGINE's asset tree via
-//! `actors_desktop_asset_root()` — consumer-owned art still has no home (leak
-//! #3), and a consumer that forgets this line gets bare boxes.
+//! BOTH recorded SDK findings are CLOSED (2026-07-27), and this binary is the
+//! caller that proves each one.
+//!
+//! Leak #3 read: "the AssetServer file root must be pointed at the ENGINE's
+//! asset tree via `actors_desktop_asset_root()` — consumer-owned art still has
+//! no home, and a consumer that forgets this line gets bare boxes." A consumer
+//! now registers its OWN `game://` source layered over the engine's tree
+//! (`ambition_asset_manager::consumer_source`), so its art has somewhere to
+//! live and anything it did not author still resolves.
 //!
 //! The SECOND recorded finding is CLOSED (2026-07-27). It read: "the in-repo
 //! demo shells each hand-roll a standalone asset-resource install
@@ -22,6 +27,9 @@ fn main() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+    // BEFORE `DefaultPlugins`: Bevy seals its asset sources when `AssetPlugin`
+    // builds, so a consumer's own tree has to be registered first.
+    outlander::register_outlander_asset_source(&mut app);
     app.add_plugins(
         DefaultPlugins
             .set(bevy::asset::AssetPlugin {

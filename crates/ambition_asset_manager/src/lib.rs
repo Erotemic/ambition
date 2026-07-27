@@ -32,6 +32,10 @@ pub mod resolver;
 #[cfg(feature = "bevy")]
 pub mod bevy_integration;
 
+/// A game's own asset tree, layered over the engine's (recorded SDK leak #3).
+#[cfg(all(feature = "bevy", not(target_arch = "wasm32")))]
+pub mod consumer_source;
+
 #[cfg(feature = "bevy")]
 pub mod sandbox_assets;
 

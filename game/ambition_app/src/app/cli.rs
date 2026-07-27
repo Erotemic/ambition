@@ -54,120 +54,23 @@ pub(super) fn game_asset_root() -> String {
 }
 
 /// A provider-owned `game://` source with a read-only fallback to the shared
-/// generated asset tree.
+
+/// The game's OWN asset source (`game://`): the content crate's assets dir in a
+/// dev checkout, layered over the shared engine tree.
 ///
-/// Authored worlds remain in `ambition_content/assets`, while LDtk's relative
-/// tileset and entity-sprite paths still name `sprites/...`. Those generated
-/// images are canonical under `ambition_actors/assets`. A single source-level
-/// fallback preserves the provider-owned world root without copying generated
-/// binaries into the content crate or emitting misleading `Path not found`
-/// errors for assets that are present in the shared tree.
-#[cfg(not(target_arch = "wasm32"))]
-struct ProviderGameAssetReader {
-    authored: bevy::asset::io::file::FileAssetReader,
-    shared: bevy::asset::io::file::FileAssetReader,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl ProviderGameAssetReader {
-    fn new(
-        authored_root: impl AsRef<std::path::Path>,
-        shared_root: impl AsRef<std::path::Path>,
-    ) -> Self {
-        Self {
-            authored: bevy::asset::io::file::FileAssetReader::new(authored_root),
-            shared: bevy::asset::io::file::FileAssetReader::new(shared_root),
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl bevy::asset::io::AssetReader for ProviderGameAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a std::path::Path,
-    ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::AssetReaderError;
-        match self.authored.read(path).await {
-            Ok(reader) => Ok(Box::new(reader)),
-            Err(AssetReaderError::NotFound(_)) => match self.shared.read(path).await {
-                Ok(reader) => Ok(Box::new(reader)),
-                Err(error) => Err(error),
-            },
-            Err(error) => Err(error),
-        }
-    }
-
-    async fn read_meta<'a>(
-        &'a self,
-        path: &'a std::path::Path,
-    ) -> Result<Box<dyn bevy::asset::io::Reader + 'a>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::AssetReaderError;
-        match self.authored.read_meta(path).await {
-            Ok(reader) => Ok(Box::new(reader)),
-            Err(AssetReaderError::NotFound(_)) => match self.shared.read_meta(path).await {
-                Ok(reader) => Ok(Box::new(reader)),
-                Err(error) => Err(error),
-            },
-            Err(error) => Err(error),
-        }
-    }
-
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a std::path::Path,
-    ) -> Result<Box<bevy::asset::io::PathStream>, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::AssetReaderError;
-        match self.authored.read_directory(path).await {
-            Ok(entries) => Ok(entries),
-            Err(AssetReaderError::NotFound(_)) => self.shared.read_directory(path).await,
-            Err(error) => Err(error),
-        }
-    }
-
-    async fn is_directory<'a>(
-        &'a self,
-        path: &'a std::path::Path,
-    ) -> Result<bool, bevy::asset::io::AssetReaderError> {
-        use bevy::asset::io::AssetReaderError;
-        match self.authored.is_directory(path).await {
-            Ok(true) => Ok(true),
-            Ok(false) | Err(AssetReaderError::NotFound(_)) => self.shared.is_directory(path).await,
-            Err(error) => Err(error),
-        }
-    }
-}
-
+/// The reader that spans two roots used to live here, ~120 lines of it, where
+/// nothing outside this shell could reach it — which is recorded SDK leak #3:
+/// "consumer-owned art still has no home". It is
+/// `ambition_asset_manager::consumer_source` now, so a third party's game can
+/// own its art the same way Ambition's content crate owns its worlds, and there
+/// is ONE copy of the packaged-build rule about not shadowing the platform
+/// reader.
 #[cfg(not(target_arch = "wasm32"))]
 fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
-    let authored_root = game_asset_root();
-    let shared_root = desktop_asset_root();
-    let builder = bevy::asset::io::AssetSourceBuilder::platform_default(&authored_root, None);
-    if authored_root == shared_root {
-        // ONE root: a PACKAGED build. Both resolvers collapse to the same
-        // relative `"assets"` whenever the dev-checkout paths do not exist
-        // (Android APK, Steam Deck, anything under BEVY_ASSET_ROOT), because the
-        // packager has already merged the two trees into a single assets dir.
-        //
-        // The fallback reader below is a pure dev-checkout affordance — it
-        // exists only to span two SEPARATE directories — and it is built from
-        // `FileAssetReader`. Installing it here would be actively harmful: on
-        // Android it would shadow the platform's AssetManager reader with a
-        // filesystem reader that resolves against the process CWD and can never
-        // see inside the APK, so every `game://` load would fail. With one root
-        // there is nothing to fall back to, so the platform default IS the
-        // correct reader.
-        return builder;
-    }
-    // Two roots: a dev checkout. Preserve the authored root's normal filesystem
-    // watcher/writer behavior; only replace the reader with the two-root
-    // fallback.
-    builder.with_reader(move || {
-        Box::new(ProviderGameAssetReader::new(
-            authored_root.clone(),
-            shared_root.clone(),
-        ))
-    })
+    ambition::asset_manager::consumer_source::layered_asset_source(
+        game_asset_root(),
+        desktop_asset_root(),
+    )
 }
 
 /// True when no display server is reachable for `bevy_winit` to attach to.

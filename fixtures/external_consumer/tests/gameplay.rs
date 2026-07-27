@@ -159,3 +159,59 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
          to end, and a green compile would not have noticed"
     );
 }
+
+/// **A consumer's OWN art has a home.** (Phase 6, recorded SDK leak #3)
+///
+/// The visible binary's second recorded finding read: "the AssetServer file root
+/// must be pointed at the ENGINE's asset tree … consumer-owned art still has no
+/// home, and a consumer that forgets this line gets bare boxes." So a third
+/// party could load the engine's sprites or nothing; there was nowhere for its
+/// own to live, because the two-root reader that lets Ambition's content crate
+/// own a world tree lived inside `ambition_app`'s CLI module.
+///
+/// It is `ambition_asset_manager::consumer_source` now. This asserts BOTH
+/// directions, because either alone is a different bug: a consumer file must win
+/// over the engine tree, and a file the consumer never authored must still
+/// resolve out of the engine's.
+#[test]
+fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    outlander::register_outlander_asset_source(&mut app);
+    app.add_plugins(bevy::asset::AssetPlugin {
+        file_path: ambition::asset_manager::actors_desktop_asset_root(),
+        ..Default::default()
+    });
+
+    // Through the real `AssetServer`, which is what every load path uses — not
+    // a hand-built reader that would only prove this test can construct one.
+    let server = app.world().resource::<AssetServer>();
+    let source = server
+        .get_source(bevy::asset::io::AssetSourceId::from("game"))
+        .expect("the consumer registered a `game://` source");
+    let reader = source.reader();
+
+    let read = |path: &str| -> bool {
+        bevy::tasks::block_on(async { reader.read(std::path::Path::new(path)).await.is_ok() })
+    };
+
+    assert!(
+        read("sprites/outlander_marker.txt"),
+        "a file that exists ONLY in this consumer's own assets dir did not \
+         resolve through its `game://` source, so consumer-owned art still has \
+         nowhere to live"
+    );
+    assert!(
+        read("sprites/robot_spritesheet.ron"),
+        "a file that exists only in the ENGINE's tree did not resolve, so the \
+         consumer source shadowed the engine instead of layering over it — the \
+         opposite failure, and the one that makes every shared sprite vanish"
+    );
+    assert!(
+        !read("sprites/definitely_not_authored_anywhere.txt"),
+        "a path in NEITHER tree resolved, so this test cannot tell a hit from a \
+         reader that says yes to everything"
+    );
+}

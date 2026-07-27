@@ -33,6 +33,35 @@ use ambition::runtime::demo_fixture::{
 use ambition::runtime::PreparedPlatformerSource;
 use ambition::world::rooms::RoomSpec;
 
+/// This fixture's OWN asset tree — `fixtures/external_consumer/assets`.
+///
+/// Recorded SDK leak #3 said "consumer-owned art still has no home": a third
+/// party could point the `AssetServer` at the ENGINE's tree or at nothing, so
+/// its own sprites had nowhere to live. `layered_asset_source` is the answer,
+/// and a fixture whose whole job is to be a third party has to exercise it.
+///
+/// Absolute, from this crate's manifest dir, because a consumer is built from
+/// wherever it likes and a relative path would resolve against the process CWD.
+pub fn outlander_asset_root() -> String {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string()
+}
+
+/// Register the consumer's `game://` source: this fixture's art first, the
+/// engine's tree for everything it did not author.
+///
+/// Must run BEFORE `AssetPlugin` builds — Bevy seals its sources there, which is
+/// why this is a free function a consumer calls rather than a plugin.
+pub fn register_outlander_asset_source(app: &mut bevy::prelude::App) {
+    use bevy::asset::AssetApp as _;
+    app.register_asset_source(
+        "game",
+        ambition::asset_manager::consumer_source::layered_asset_source(
+            outlander_asset_root(),
+            ambition::asset_manager::actors_desktop_asset_root(),
+        ),
+    );
+}
+
 pub const OUTLANDER_EXPERIENCE: &str = "outlander";
 pub const OUTLANDER_GAMEPLAY_ROUTE: &str = "outlander_gameplay";
 pub const OUTLANDER_LAUNCHER_ROUTE: &str = "outlander_launcher";

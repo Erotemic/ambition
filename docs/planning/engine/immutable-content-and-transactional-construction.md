@@ -2079,6 +2079,22 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > `GameAssets`) is app-local boilerplate no umbrella helper offers — the
 > binary ships without it and honestly draws colored primitives (leak #8).
 >
+> **BOTH CLOSED 2026-07-27, and neither was a missing capability.** Leak #8 is
+> `ambition::game_assets::PlatformerAssetsPlugin` — the ~90 lines each in-repo
+> demo hand-rolled, which both now call, so the helper an external consumer
+> depends on is exercised by the real games. Leak #3 is
+> `ambition_asset_manager::consumer_source::layered_asset_source`: the two-root
+> `game://` reader that lets Ambition's content crate own a world tree, lifted
+> out of `ambition_app`'s CLI module (111 lines deleted there) into a crate a
+> consumer can name. The fixture has an assets tree of its own and registers the
+> source before `AssetPlugin` builds.
+>
+> ⚠ **The shape both leaks shared is worth more than either fix: a capability
+> with no address.** Neither was absent; both were unreachable from outside the
+> shell. A repo grep for "can the engine do this" answered yes the whole time,
+> which is exactly why an SDK audit has to be run FROM the consumer rather than
+> over the engine.
+>
 > Remaining Phase-6 work: an interactive visible run on a machine with a
 > display, and the task-7 workflow measurements beyond the qualitative ones
 > above.

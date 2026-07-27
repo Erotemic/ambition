@@ -42582,7 +42582,7 @@
 					"entityInstances": [
 						{
 							"__identifier": "PlayerStart",
-							"__grid": [6,27],
+							"__grid": [10,27],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": { "tilesetUid": 6566, "x": 0, "y": 0, "w": 256, "h": 256 },
@@ -42591,13 +42591,13 @@
 							"width": 28,
 							"height": 46,
 							"defUid": 2000,
-							"px": [110,434],
+							"px": [170,433],
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "stagger_steps_spawn", "__tile": null, "defUid": 3000, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["stagger_steps_spawn"]
 							}] }],
-							"__worldX": -4498,
-							"__worldY": 8114
+							"__worldX": -4438,
+							"__worldY": 8113
 						},
 						{
 							"__identifier": "LoadingZone",

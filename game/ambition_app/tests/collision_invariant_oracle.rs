@@ -941,6 +941,57 @@ fn collision_oracle_full_sweep() {
         rooms.len(),
         seeds.len()
     );
+
+    // ── THE GATE (CC3 enforcement) ────────────────────────────────────────
+    //
+    // `collision-and-ccd.md` §6.1 has said since 2026-07-10: *"Re-close CC3
+    // only after an executable behavioral gate runs all required rooms and
+    // fails on the exact invariant classes it claims to exclude."* This sweep
+    // ran all the rooms and asserted nothing, so it was measurement — valuable,
+    // and not a guarantee.
+    //
+    // What is excluded is every invariant class EXCEPT an out-of-bounds that
+    // left through an open edge. §6.1 already rules those legal: they are level
+    // authoring, a body walking off an unwalled edge, and the doc's own analysis
+    // says promoting this gate "would now cost only the authored-exit allowlist,
+    // not a bug hunt". Re-running it on 2026-07-27 proved that TRUE — after one
+    // real defect it also found: `stagger_steps` authored its `PlayerStart`
+    // inside a step, so the body spawned 15px embedded in solid and tripped
+    // invariant 1 the moment a dash lifted its centre into the tile.
+    //
+    // An OOB that ended PAST a Solid at the crossed edge is NOT excluded: that
+    // is a clip-through, the thing the boundary walls exist to prevent.
+    let excluded: Vec<&Violation> = all
+        .iter()
+        .filter(|v| {
+            !matches!(
+                (v.kind, v.through_wall),
+                (
+                    Kind::OutOfBoundsAbove | Kind::OutOfBoundsBelow | Kind::OutOfBoundsSide,
+                    Some(false)
+                )
+            )
+        })
+        .collect();
+    assert!(
+        excluded.is_empty(),
+        "{} violation(s) of an invariant class CC3 claims to EXCLUDE. Open-edge \
+         walk-offs are legal level authoring and are not counted here; \
+         everything else is a collision defect with a seeded repro above:\n{}",
+        excluded.len(),
+        excluded
+            .iter()
+            .map(|v| format!("  {} {} — {}", v.room, v.kind.label(), v.detail))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    // Vacuity: a sweep that stepped nothing excludes everything.
+    assert!(
+        total_steps > 50_000,
+        "only {total_steps} steps were simulated across {episodes} episodes; the \
+         gate is not exercising the rooms it claims to cover"
+    );
 }
 
 /// Load the game's merged LDtk project the way a sim entry point does:

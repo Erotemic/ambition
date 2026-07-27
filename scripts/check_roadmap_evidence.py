@@ -30,16 +30,24 @@ That is a human question and pretending otherwise would be the same
 overclaiming this exists to catch. It only reports rows whose evidence has
 VANISHED, plus rows that cite none at all.
 
-Two document shapes are read, because the planning tree has two and forcing one
-into the other would damage a document to fit a tool:
+THREE document shapes are read, because the planning tree has three and forcing
+any of them into another would damage a document to fit a tool:
 
-* the engine roadmap's `### Task N` sections with a `**Status … MET**` line, and
+* the engine roadmap's `### Task N` sections with a `**Status … MET**` line;
 * `status.md`'s workstream TABLE, whose rows carry a bolded verdict
-  (`**DONE**`, `**FIXED**`, `**CLOSED**`, `**LANDED**`) in their state cell.
+  (`**DONE**`, `**FIXED**`, `**CLOSED**`, `**LANDED**`) in their state cell; and
+* an ADR, which is ONE claim: `## Status` followed by a verdict paragraph.
+  "Accepted direction; implementation remains incremental" claims nothing and is
+  skipped; "Accepted; IMPLEMENTED (2026-07-06)" is checked.
 
-A document with NEITHER is reported as a problem rather than as zero rows
+A document with NONE of them is reported as a problem rather than as zero rows
 checked. "Checked 0 rows, no problems" is the most misleading output a guard can
 produce, and it is what pointing the task parser at `status.md` used to say.
+
+⚠ A document whose shape WAS read and whose rows honestly claim nothing is a
+legitimate zero, and must not be confused with an unparseable one — most ADRs
+record a decision rather than finished work. The two look identical in the
+output, which is exactly why the distinction is tracked rather than inferred.
 
 Usage:
     python3 scripts/check_roadmap_evidence.py             # report
@@ -95,7 +103,20 @@ VERDICT_RE = re.compile(r"\*\*([A-Z][A-Z0-9 /+-]{2,})")
 # Bolded verdicts that assert the work is finished. Everything else — PARTIAL,
 # OPEN, BOUNDED, DESIGN CORRECTION REQUIRED — is not overclaiming and is skipped,
 # exactly as a non-MET task row is.
-COMPLETION_WORDS = ("DONE", "FIXED", "CLOSED", "LANDED", "PROVEN", "MET", "COMPLETE")
+COMPLETION_WORDS = (
+    "DONE",
+    "FIXED",
+    "CLOSED",
+    "LANDED",
+    "PROVEN",
+    "MET",
+    "COMPLETE",
+    # The ADRs' vocabulary. Omitting these made every implemented ADR report
+    # "checked 0 rows" — the quiet-clean-bill output this script exists to
+    # refuse, produced by the script itself.
+    "IMPLEMENTED",
+    "ENFORCED",
+)
 
 # A verdict that ALSO says part of the work is unfinished is not claiming the row
 # is done, and must not be checked as though it were.
@@ -107,7 +128,17 @@ COMPLETION_WORDS = ("DONE", "FIXED", "CLOSED", "LANDED", "PROVEN", "MET", "COMPL
 # row that is honestly admitting it has none yet, and — because ANY surviving
 # citation in the body passes — it lets the partial clauses' citations vouch for
 # the completed one.
-PARTIAL_WORDS = ("PARTIAL", "OPEN", "NOT MET", "UNMET", "PLAINLY FALSE")
+PARTIAL_WORDS = (
+    "PARTIAL",
+    "OPEN",
+    "NOT MET",
+    "UNMET",
+    "PLAINLY FALSE",
+    # The ADRs' way of saying the same thing: "Accepted direction; implementation
+    # remains incremental" is not a claim that the work is done.
+    "INCREMENTAL",
+    "DIRECTION",
+)
 
 
 def verdict_sentence(text: str) -> str:
@@ -138,6 +169,21 @@ def task_sections(text: str) -> list[tuple[str, str, str]]:
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         out.append((m.group(1), m.group(2), text[m.start() : end]))
     return out
+
+
+# The THIRD shape (2026-07-27): an ADR is ONE claim. `## Status` is followed by
+# a verdict paragraph — "Accepted direction; implementation remains incremental"
+# (not a completion claim) or "Accepted; IMPLEMENTED (2026-07-06)" (one). The
+# roadmap's task parser does not apply and neither does the workstream table's,
+# which is the third time a planning document has had a shape of its own; the
+# alternative was reshaping thirty ADRs to suit a script.
+ADR_STATUS_RE = re.compile(r"^## Status\s*\n+(.+?)(?=\n##\s|\Z)", re.M | re.S)
+
+
+def adr_claim(text: str) -> str | None:
+    """The verdict paragraph of a document whose whole body is one claim."""
+    match = ADR_STATUS_RE.search(text)
+    return match.group(1).strip() if match else None
 
 
 def mixed_table_rows(text: str) -> list[tuple[str, str]]:
@@ -278,8 +324,21 @@ def main() -> int:
         claims.append((f"{label} [{headline}]", body))
     for label, state in mixed_table_rows(text):
         partial.append(f"{label} [{state}]")
+    shape_found = bool(claims) or bool(partial) or bool(TASK_RE.search(text))
+    if (verdict := adr_claim(text)) is not None:
+        shape_found = True
+        headline = verdict_sentence(verdict).strip()[:60]
+        if is_a_completion_claim(verdict):
+            claims.append((f"{Path(args.document).name} [{headline}]", text))
+        elif any(word in verdict_sentence(verdict) for word in COMPLETION_WORDS):
+            partial.append(f"{Path(args.document).name} [{headline}]")
 
-    if not claims and not problems:
+    # A document whose shape was READ and whose rows honestly claim nothing is a
+    # legitimate zero — most ADRs say "Accepted direction", which is a decision
+    # rather than a claim that work is finished. The failure being caught here is
+    # a document this script cannot PARSE, which looks identical in the output
+    # and is not the same thing at all.
+    if not claims and not problems and not shape_found:
         problems.append(
             "no completion claims found at all — neither a `### Task N` section "
             "claiming MET nor a table row with a bolded DONE/FIXED/CLOSED "

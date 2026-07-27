@@ -189,6 +189,19 @@ pub fn seat_character(
                     // heart, a death explosion, an in-place respawn timer — none of
                     // which an arena has any use for.
                     crate::combat::components::RulesetOwnsDeath,
+                    // WITHOUT THIS THE FIGHTER IS INVISIBLE. The marker's own
+                    // documentation says so: "the authored render pass only spawns
+                    // visuals for `spec.enemy_spawns`, and the dynamic pass only for
+                    // EncounterMob / reward chests, so a directly-staged actor would
+                    // render invisibly."
+                    //
+                    // A seated fighter is a directly-staged actor, and seating did
+                    // not apply it — so the versus arena had a body with a published
+                    // view, a hurtbox, a moveset and no picture. Jon found it by
+                    // picking Versus and seeing one fighter (2026-07-27); the seat-0
+                    // fighter looked fine only because it is the adopted PRIMARY
+                    // PLAYER, which renders through the player path entirely.
+                    crate::combat::components::RuntimeStagedActor,
                     ambition_characters::brain::ActorControl::default(),
                     ambition_characters::actor::attack_gesture::AttackGestureState::default(),
                     ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),

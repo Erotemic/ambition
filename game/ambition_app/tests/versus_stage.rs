@@ -1046,3 +1046,66 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
         "hurting one fighter moved the other's bar"
     );
 }
+
+/// **Every seated fighter is actually DRAWN.** (Jon, 2026-07-27)
+///
+/// Jon picked Versus and saw one fighter. The other had a body, a published
+/// view, a hurtbox, a moveset, health and a team — and no picture, and not even
+/// the placeholder rectangle a body with unresolvable art is supposed to fall
+/// back to.
+///
+/// The cause is named in the marker's own documentation: "the authored render
+/// pass only spawns visuals for `spec.enemy_spawns`, and the dynamic pass only
+/// for EncounterMob / reward chests, so a directly-staged actor would render
+/// invisibly." A seated fighter is a directly-staged actor and seating did not
+/// mark it as one.
+///
+/// The seat-0 fighter looked fine throughout, which is what hid it: seat 0 is
+/// the adopted PRIMARY PLAYER and renders through the player path entirely, so
+/// exactly half the cast was proof of nothing.
+#[test]
+fn every_seated_fighter_has_something_on_screen() {
+    use ambition::actors::character_runtime::MatchSeat;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+
+    // Seats that are SPAWNED bodies (not the adopted player) must each have a
+    // feature visual. The adopted seat is excluded by construction — it carries
+    // no `FeatureId` because it is the player.
+    let world = app.world_mut();
+    let mut seats = world.query::<(&MatchSeat, &ambition::actors::features::FeatureId)>();
+    let spawned: Vec<(usize, String)> = seats
+        .iter(world)
+        .map(|(seat, id)| (seat.0, id.0.clone()))
+        .collect();
+    assert!(
+        !spawned.is_empty(),
+        "no seat is a spawned body, so this is measuring nothing"
+    );
+
+    let mut visuals = world.query::<&ambition::render::rendering::FeatureVisual>();
+    let drawn: Vec<String> = visuals.iter(world).map(|v| v.id.clone()).collect();
+    for (seat, id) in &spawned {
+        assert!(
+            drawn.contains(id),
+            "seat {seat} (`{id}`) has a body and NOTHING on screen. Drawn: \
+             {drawn:?}. A fighter nobody can see is not a fighter — and the \
+             placeholder rectangle that is supposed to cover unresolvable art \
+             does not cover a body no render family ever claimed."
+        );
+    }
+}

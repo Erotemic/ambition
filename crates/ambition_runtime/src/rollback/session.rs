@@ -130,11 +130,52 @@ pub fn build_sync_test_session(
 /// destructive resets a rebase entails — frame counters and, crucially, the
 /// `Time<GgrsTime>` clock — then installs the session. Because it cannot fail, a
 /// caller can run it AFTER its own destructive step knowing the rebase completes.
+/// Say so, loudly, when a session is being started before there is a world to
+/// rewind.
+///
+/// A rollback session takes the CURRENT world as frame zero. If gameplay
+/// construction has not run yet, the frames immediately after this one build the
+/// room and the bodies through `Commands` — and a rollback cannot undo
+/// construction, so every resimulated frame in that window mismatches. GGRS
+/// reports that correctly and reports it as a checksum difference, which tells a
+/// consumer nothing about the cause.
+///
+/// The engine's own harness cannot hit this: `SandboxSim` builds the room first
+/// by construction. So the only people who meet it are exactly the ones with no
+/// way to diagnose it — an external consumer starting a session at boot gets
+/// frames 2, 3 and 4 mismatching forever. Outlander did precisely that
+/// (2026-07-27).
+///
+/// A warning and not a refusal: a fixture may legitimately want a session over an
+/// empty world, and the engine does not get to veto a composition it cannot see
+/// the purpose of. What it can do is name the cause the one time it is cheap to
+/// name it.
+fn warn_if_no_world_to_rewind(world: &World) {
+    if has_session_world_root(world) {
+        return;
+    }
+    bevy::log::warn!(
+        target: "ambition::rollback",
+        "starting a rollback session with no session world: frame zero is an          EMPTY world, so the construction that runs next happens inside the          rollback window. A rollback cannot undo `Commands`, so the frames that          build the room will mismatch on every resimulation and GGRS will report          it only as a checksum difference. Activate the session world first, then          start the session — it rebases onto whatever is live."
+    );
+}
+
+/// Whether a gameplay session world has been constructed. `try_query` yields
+/// `None` when `SessionRoot` was never registered, which is the correct "no
+/// world" answer for a bare fixture.
+fn has_session_world_root(world: &World) -> bool {
+    world
+        .try_query::<&ambition_platformer_primitives::lifecycle::SessionRoot>()
+        .map(|mut query| query.iter(world).next().is_some())
+        .unwrap_or(false)
+}
+
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
     settings: SyncTestSettings,
 ) {
+    warn_if_no_world_to_rewind(world);
     // A newly installed GGRS session always starts from the current live world
     // as frame zero. Snapshot stores are intentionally retained here: the first
     // SaveWorld request at frame zero replaces every non-negative frame in each
@@ -589,6 +630,32 @@ mod tests {
         drive_control_frame(&mut windowed, pressed);
         assert_eq!(windowed.resource::<ControlFrameLatch>().peek().axis_x, 1.0);
         assert_eq!(windowed.resource::<PendingLocalInput>().0.axis_x, 0.0);
+    }
+
+    /// The "no world to rewind" detector fires exactly when construction has not
+    /// happened, and stays quiet once it has.
+    ///
+    /// The condition is worth a test rather than a comment because the SYMPTOM it
+    /// explains is unattributable: GGRS reports a checksum difference on frames
+    /// 2, 3 and 4 and cannot know that a room was being built inside the window.
+    /// A detector that also fired on healthy sessions would be worse than none —
+    /// a warning every correct host prints is a warning nobody reads.
+    #[test]
+    fn a_session_started_over_an_empty_world_is_the_detectable_case() {
+        use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
+
+        let empty = World::new();
+        assert!(
+            !has_session_world_root(&empty),
+            "an empty world is exactly the case the warning exists for"
+        );
+
+        let mut constructed = World::new();
+        constructed.spawn(SessionRoot(SessionScopeId(0)));
+        assert!(
+            has_session_world_root(&constructed),
+            "a constructed session must NOT warn, or the warning is noise every              correct host prints and nobody reads"
+        );
     }
 
     #[test]

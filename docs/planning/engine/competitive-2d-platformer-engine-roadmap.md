@@ -1111,21 +1111,36 @@ inconvenient.
 use a selected plugin, retain a justified Ambition contract, refactor duplication,
 or defer because no current customer requires it.
 
-**Status 2026-07-27 — NOT STARTED as an audit. Individual rulings exist; the
-sweep that makes them complete does not.**
+**Status 2026-07-27 — MET. See
+[`presentation-and-shell-audit.md`](presentation-and-shell-audit.md).**
 
-The exit criterion is about coverage — "every reviewed domain has an explicit
-ruling" — and there is no document enumerating the domains, so nothing can say
-whether one was skipped. What exists is a scattering of correct individual
-rulings: `decisions-2026-07-16.md` settles a table of proposals so future audits
-do not reopen them, `bevy_material_ui` / `bevy_lunex` / `virtual_joystick` /
-`bevy_falling_sand` are selected plugins in use, and the audio, HUD and load
-presentation seams each carry a justified Ambition contract in their own docs.
+The criterion is about COVERAGE — "EVERY reviewed domain has an explicit ruling" —
+so individually correct decisions scattered across crate docs could never satisfy
+it: nothing could say whether a domain had been skipped. Thirteen domains are now
+enumerated with a ruling each, written against the code rather than against crate
+names (the method correction recorded at Task 9 applies here, and this audit was
+the one remaining "not started" it had to be applied to).
 
-This is the cheapest high-value task remaining and it is a WRITING task, not a
-refactor: enumerate the presentation and game-shell domains, attach the ruling
-that is already implicit in the code to each, and mark the ones nobody has
-decided. Doing it would also give Task 9 the vocabulary it is missing.
+Eleven resolve to "Bevy core", "selected plugin", or a justified Ambition contract.
+The two that do not say what would have to be true to change them:
+
+- **localization — DEFER.** No i18n dependency and no string table; every
+  user-facing string is a Rust literal. The trigger is the first non-English
+  target, and the cost grows with every month of authored content, so this one
+  should be re-examined deliberately rather than by drift.
+- **accessibility — PARTIAL.** Colorblind mode, flash intensity (a real
+  photosensitivity control, clamped), shader strength and camera framing all ship.
+  Missing: input remapping surfaced in the menu, text scaling, `bevy_a11y` /
+  screen-reader integration, subtitles. No customer yet; platform certification
+  mandating remapping is the likeliest first one.
+
+Two gaps found while writing it are tracked rather than absorbed: diagnostics are
+measured and never enforced (D13), and who owes `AmbitionLoadPlugin` is an
+undocumented composition rule whose violation is a hard panic — which is how the
+external fixture sat red until somebody read it.
+
+The audit's own instruction was that it does not authorize building a renderer, a
+mixer, or a UI framework. The finding is that nobody has.
 
 ---
 

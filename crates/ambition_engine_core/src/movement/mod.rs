@@ -26,6 +26,7 @@ mod adhesive_crawler;
 mod authority;
 mod blink;
 pub(crate) mod collision;
+pub mod containment;
 mod control;
 mod events;
 mod facts;

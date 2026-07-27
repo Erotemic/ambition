@@ -26,6 +26,7 @@ mod boss_lifecycle;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;
+mod character_containment;
 mod collision_invariant_oracle;
 mod crouch_stability;
 mod dash_stability;

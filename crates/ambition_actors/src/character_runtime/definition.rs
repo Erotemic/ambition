@@ -68,6 +68,17 @@ impl Namespace for MoveId {
     const NAME: &'static str = "move";
 }
 
+/// The input verbs the moveset runtime can actually press.
+///
+/// Engine-scoped, unlike [`MoveId`]: a verb is a word content and runtime have to
+/// agree on, and the runtime's list is fixed. A moveset binding a verb outside it
+/// authors a perfectly valid move onto a button that does not exist.
+pub struct VerbId;
+
+impl Namespace for VerbId {
+    const NAME: &'static str = "input verb";
+}
+
 /// Sheet manifest targets the composition can actually resolve.
 ///
 /// A character's `sheet` is the single most consequential cross-layer reference it
@@ -439,6 +450,36 @@ impl PreparedCharacter {
 /// that refuses to boot. Where a defect genuinely should refuse publication —
 /// malformed movement inheritance (§4.4) — that refusal lives at the seam that
 /// owns it and names the whole chain.
+/// Every input verb the moveset runtime resolves.
+///
+/// The four bases the trigger path asks for, each with the directional and
+/// airborne suffixes `directional_verb_chain` produces. Built rather than
+/// listed so it cannot drift from the chain that consumes it: if a fifth base
+/// or a fifth direction is added, this is the one place that has to learn about
+/// it, and every character's registration starts checking against it for free.
+fn runtime_verb_vocabulary() -> Vec<String> {
+    use crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
+    let mut vocabulary = Vec::new();
+    for base in [ATTACK_VERB, SMASH_VERB, RANGED_VERB, SPECIAL_VERB] {
+        for dir in [
+            ambition_entity_catalog::AttackDir::Neutral,
+            ambition_entity_catalog::AttackDir::Forward,
+            ambition_entity_catalog::AttackDir::Up,
+            ambition_entity_catalog::AttackDir::Down,
+            ambition_entity_catalog::AttackDir::Back,
+        ] {
+            for grounded in [true, false] {
+                vocabulary.extend(ambition_entity_catalog::directional_verb_chain(
+                    base, dir, grounded,
+                ));
+            }
+        }
+    }
+    vocabulary.sort();
+    vocabulary.dedup();
+    vocabulary
+}
+
 pub fn prepare_character(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
@@ -457,9 +498,26 @@ pub fn prepare_character(
     // which is indistinguishable from a peaceful character at runtime.
     if let Some(moveset) = definition.moveset.as_ref() {
         let moves = Resolver::<MoveId>::new(moveset.moves.iter().map(|m| m.id.as_str()));
+        // And every VERB must be one the runtime can actually press. A verb
+        // outside the vocabulary binds a perfectly valid move to a button that
+        // does not exist, and the move is simply never triggered — the same
+        // "this character has no attack" outcome as a dangling move id, reached
+        // from the other side and just as silent.
+        //
+        // The failure this exists for was worse than unreachable: the arena's
+        // first hand-authored fighter swung, spawned a hitbox and made a sound,
+        // and the hitbox was inert, because a downstream reader inferred
+        // melee-ness from the move's ID rather than its verb. That coupling is
+        // gone, but the class is not — content and runtime agreeing about a
+        // string is exactly what a resolver is for.
+        let verb_vocabulary = runtime_verb_vocabulary();
+        let verbs = Resolver::<VerbId>::new(verb_vocabulary.iter().map(String::as_str));
         for (verb, target) in &moveset.verbs {
             if moves.bind(target).is_none() {
                 ledger.record(moves.explain(target, format!("{declared_by} verb `{verb}`")));
+            }
+            if verbs.bind(verb).is_none() {
+                ledger.record(verbs.explain(verb, format!("{declared_by} moveset verb")));
             }
         }
         // Move-time hurtbox overrides must name a declared move too, or the

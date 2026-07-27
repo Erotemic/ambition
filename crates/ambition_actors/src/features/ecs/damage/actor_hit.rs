@@ -38,12 +38,16 @@ const CLING_DETACH_POP_SPEED: f32 = 180.0;
 /// landed-hit feedback (hitstop + Hit SFX) and re-syncs the read-models. A dead
 /// hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     roster: &crate::features::CharacterRoster,
     actor_entity: Entity,
     disposition: ActorDisposition,
+    // Does a RULESET own this body's death? A match fighter's KO belongs to the
+    // match, not to the world's exploration economy.
+    ruleset_owns_death: bool,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
     // The body's explicit movement policy, for typed policy operations (the
     // crawler cling-break detach).
@@ -344,7 +348,16 @@ pub(crate) fn apply_actor_hit(
                 em.kin.vel += peel;
             }
         }
-        if killed {
+        if killed && ruleset_owns_death {
+            // A RULESET owns this body's death (`RulesetOwnsDeath`). Health is
+            // already zero and stays zero, and NONE of the world's death
+            // consequences run: no bounty coin, no heart, no death explosion, no
+            // split offspring, no held-item drop, no in-place respawn timer.
+            //
+            // Those are an exploration economy. An arena has no economy, and a
+            // round that funds the player's wallet and detonates the loser is
+            // not a round (GPT 5.6, 2026-07-27).
+        } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
             // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
             if let ambition_entity_catalog::placements::RespawnPolicy::InPlace(respawn_s) =

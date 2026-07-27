@@ -302,6 +302,9 @@ pub(crate) fn death_respawn_player(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
     player_entity: Entity,
+    // True when this body carries `RulesetOwnsDeath` — a match, not the world,
+    // decides what a zero-health fighter means.
+    ruleset_owns_death: bool,
     // A13: the attacker's bank and this body's own, resolved by the caller which
     // holds the queries.
     attacker_source: Option<&ambition_sfx::PresentationSourceId>,
@@ -456,6 +459,15 @@ pub(crate) fn handle_player_damage_events(
                     false
                 }
             }
+        }
+        BodyHitResolution::Damaged { died: true, .. } if ruleset_owns_death => {
+            // A RULESET owns this body's death (`RulesetOwnsDeath`). The health
+            // is already zero and it STAYS zero: no teleport to the room spawn,
+            // no full heal, no banner. A match cannot count a round it is never
+            // allowed to observe, and the exploration respawn ran before any
+            // rules layer could look — so seat 0 could not lose (GPT 5.6,
+            // 2026-07-27).
+            false
         }
         BodyHitResolution::Damaged { died: true, .. } => {
             // Attribution for the death fact: the killing hit's source category
@@ -960,6 +972,10 @@ pub fn apply_player_hit_events(
             &mut BodyAnimFacts,
             &mut BodyCombat,
             &mut PlayerSafetyState,
+            // Does a RULESET own this body's death? A match fighter's zero
+            // health is the match's business; the exploration respawn would
+            // teleport and full-heal it before any rules layer could look.
+            bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
             // The controlled body's held input, for directional influence (CM2).
             // `Option` so a headless player with no brain still resolves (→ ZERO,
             // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
@@ -1040,6 +1056,7 @@ pub fn apply_player_hit_events(
         mut anim,
         mut combat,
         mut safety,
+        ruleset_owns_death,
         control,
         resolved_frame,
         mut motion_model,
@@ -1073,6 +1090,7 @@ pub fn apply_player_hit_events(
             .map(|source| source.id().clone());
         let remapped = handle_player_damage_events(
             player_entity,
+            ruleset_owns_death,
             attacker_source.as_ref(),
             victim_source.as_ref(),
             &world.0,

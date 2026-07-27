@@ -680,3 +680,217 @@ fn the_cpu_opponent_is_not_a_statue() {
          controller plays, and it is a fight against a statue."
     );
 }
+
+/// **Seat 0 can lose a round.** (GPT 5.6, 2026-07-27)
+///
+/// Seat 0 is the adopted PRIMARY PLAYER, and the primary player's death runs
+/// `death_respawn_player`: teleport to the room spawn, full heal, banner. That
+/// happens inside the damage pass, long before any rules layer looks at health
+/// — so seat 0 was never observed at zero, seat 1 could never be awarded a
+/// round, and best-of-three was rigged one way.
+///
+/// Drives real health to zero and asserts the round is counted to the OTHER
+/// seat, which is the only statement that distinguishes "the fighter died" from
+/// "the fighter respawned and nobody noticed".
+#[test]
+fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::VersusMatch;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let seat_zero = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the stage seats a player")
+    };
+    let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
+
+    // A REAL lethal hit, through the real damage path. Writing health to zero
+    // directly proves nothing: the death CONSEQUENCE lives in the damage pass,
+    // so a hand-zeroed body never invokes it and the test passes whether or not
+    // the fix exists. (It did, first time round.)
+    let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
+    let volume: ambition::engine_core::CombatVolume = ambition::engine_core::Aabb::new(
+        where_it_stood,
+        ambition::engine_core::Vec2::new(40.0, 40.0),
+    )
+    .into();
+    app.world_mut()
+        .write_message(ambition::combat::events::HitEvent {
+            strike_sfx: None,
+            volume,
+            damage: hp + 10,
+            source: ambition::combat::events::HitSource::EnemyAttack,
+            attacker: None,
+            target: ambition::combat::events::HitTarget::Player(seat_zero),
+            mode: ambition::combat::events::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+    for _ in 0..4 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<BodyHealth>(seat_zero).unwrap().current() <= 0,
+        "the lethal hit did not reach seat 0 at all, so this measures nothing"
+    );
+
+    let state = app.world().resource::<VersusMatch>();
+    assert_eq!(
+        state.rounds_won[1], 1,
+        "seat 0 hit zero health and seat 1 was not awarded the round. The \
+         exploration respawn healed it before the rules could look, so seat 0 \
+         cannot lose and the match is rigged."
+    );
+    let after = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
+    assert!(
+        (after - where_it_stood).length() < 200.0,
+        "seat 0 was teleported to the room spawn on death — that is the \
+         exploration respawn, and a round is not an exploration event"
+    );
+}
+
+/// **Coming back to Versus starts a new match.** (GPT 5.6, 2026-07-27)
+///
+/// `VersusMatch` is a long-lived resource and `run_versus_rules` simply returns
+/// when no roster exists, so leaving mid-match froze the score rather than
+/// ending it. Walking back in resumed somebody else's game — 1-0, or a KO
+/// countdown already running.
+#[test]
+fn returning_to_versus_starts_a_fresh_match() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    let enter = |app: &mut App| {
+        app.world_mut()
+            .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+        // Wait for the ROSTER, not for seated bodies: the previous match's
+        // bodies can still be around while the route is switching, so a seat
+        // count breaks the loop before re-entry has happened at all.
+        for _ in 0..900 {
+            app.update();
+            if app
+                .world()
+                .get_resource::<ambition::actors::character_runtime::MatchParticipantRoster>()
+                .is_some()
+            {
+                break;
+            }
+        }
+        for _ in 0..30 {
+            app.update();
+        }
+    };
+    enter(&mut app);
+
+    // Win a round, then walk out mid-match.
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+    app.world_mut()
+        .get_mut::<BodyHealth>(seat_one)
+        .unwrap()
+        .health
+        .current = 0;
+    app.update();
+    assert_eq!(
+        app.world().resource::<VersusMatch>().rounds_won[0],
+        1,
+        "the fixture never won a round, so leaving proves nothing"
+    );
+
+    app.world_mut()
+        .write_message(ambition::game_shell::ShellCommand::QuitToHome);
+    for _ in 0..600 {
+        app.update();
+        if app
+            .world()
+            .get_resource::<ambition::actors::character_runtime::MatchParticipantRoster>()
+            .is_none()
+        {
+            break;
+        }
+    }
+    assert!(
+        app.world()
+            .get_resource::<ambition::actors::character_runtime::MatchParticipantRoster>()
+            .is_none(),
+        "the fixture never actually left the stage, so re-entry is not being tested"
+    );
+    // The previous match's bodies go with it. A seated fighter used to be
+    // spawned UNSCOPED, so a knocked-out loser survived leaving the stage and
+    // was still lying at zero health when the next match started — which the new
+    // match instantly scored as round one.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        assert_eq!(
+            q.iter(world).count(),
+            0,
+            "the previous match's fighters outlived their session"
+        );
+    }
+    enter(&mut app);
+
+    // And both fighters start the new match on full health.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(&MatchSeat, &BodyHealth)>();
+        let mut rows: Vec<(usize, i32, i32)> = q
+            .iter(world)
+            .map(|(seat, health)| (seat.0, health.current(), health.health.max))
+            .collect();
+        rows.sort_by_key(|(seat, ..)| *seat);
+        for (seat, current, max) in rows {
+            assert_eq!(
+                current, max,
+                "seat {seat} started the new match on {current}/{max} — a match \
+                 that begins with somebody already hurt is the previous match \
+                 leaking into it"
+            );
+        }
+    }
+
+    let state = app.world().resource::<VersusMatch>();
+    assert_eq!(
+        state.rounds_won,
+        [0, 0],
+        "walking back into Versus resumed the previous match's score"
+    );
+    assert!(
+        matches!(state.phase, MatchPhase::Fighting),
+        "the new match started mid-KO, inheriting the old one's countdown"
+    );
+}

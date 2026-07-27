@@ -40,6 +40,30 @@ impl ActorIdentity {
     }
 }
 
+/// **This body's death belongs to a RULESET, not to the world.**
+///
+/// A body carrying this still takes damage and its health still reaches zero.
+/// What is suppressed is the CONSEQUENCE the world would otherwise impose:
+///
+/// - the player's exploration respawn (teleport to the room spawn, full heal),
+/// - the enemy death economy (a bounty coin, heart drops, death explosions,
+///   split offspring, held-item drops, in-place respawn timers).
+///
+/// Both are correct for an exploration game and wrong for a match. A fighter
+/// knocked out in round one must STAY at zero health long enough for the rules
+/// to see it, count the round, and put it back — and it must not fund the
+/// player's wallet from an arena that has no economy.
+///
+/// The KO'd body is left at zero HP for its owner to deal with, which is the
+/// whole contract: whoever attached this is now responsible for what happens
+/// next, and nothing else will act on the death.
+///
+/// Engine-shaped rather than versus-shaped on purpose. Any ruleset with rounds,
+/// stocks, lives, or a training mode needs exactly this, and none of them wants
+/// to fight the exploration policy to get it.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RulesetOwnsDeath;
+
 /// High-level actor disposition. Peaceful actors talk/patrol; hostile actors
 /// chase/attack. Hostility is data now, not an enum arm callers must discover
 /// by inspecting an actor-type tag.

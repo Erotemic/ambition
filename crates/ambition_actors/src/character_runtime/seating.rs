@@ -73,6 +73,12 @@ const SEAT_BODY_PX: Vec2 = Vec2::new(30.0, 48.0);
 #[allow(clippy::too_many_arguments)]
 pub fn seat_character(
     commands: &mut Commands,
+    // The seated body's session owner. A fighter belongs to the MATCH's
+    // session: without this it is spawned unscoped and survives leaving the
+    // stage, so the next visit finds the previous match's knocked-out body
+    // still lying at zero health and immediately awards round one to whoever
+    // did not die (found 2026-07-27 while testing re-entry).
+    session_scope: ambition_platformer_primitives::lifecycle::SessionSpawnScope,
     registry: &PreparedCharacterRegistry,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     roster: &crate::features::CharacterRoster,
@@ -128,58 +134,67 @@ pub fn seat_character(
     let derived_brain = crate::features::ecs::enemy_default_brain(&seed.config);
     let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
     let cluster = seed.into_components();
+    use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
     Some(
         commands
-            .spawn((
-                // The SAME bundle every other actor spawn builds. Seating used to
-                // hand-pick a subset of these components, and the subset was
-                // missing `ActorTarget` — which `tick_actor_brains` requires
-                // non-optionally, so a seated fighter silently dropped out of the
-                // brain tick entirely and stood still. It looked like a body in
-                // every way a test that queries components can see.
-                crate::features::EnemyActorBundle::new(
-                    crate::features::FeatureBaseBundle::new(
-                        character_id,
-                        prepared.display_name.clone(),
-                        centered,
-                    ),
-                    identity,
-                    disposition,
-                    faction,
-                    crate::features::ActorPose::from_parts(at, SEAT_BODY_PX / 2.0, facing),
-                    combat_kit,
-                    crate::features::ActorAggression::hostile(),
-                    combat,
-                    intent,
-                    cooldowns,
-                )
-                .with_motion_model(motion_model),
-                cluster,
-                action_set,
-                derived_brain,
-                // `Name` and `ActorMoveset` are here for one reason: they are
-                // REQUIRED columns of `apply_worn_character_gameplay`, the ONE
-                // writer that turns `WornCharacter` into a persona (name, action
-                // set, moveset, identity kit). A body missing either does not
-                // match the derive at all, so it wears a character and derives
-                // nothing from it — the fighter walks and cannot swing. Both are
-                // placeholders; the derive overwrites them on the tick the worn
-                // character lands.
-                Name::new(prepared.display_name.clone()),
-                crate::combat::moveset::ActorMoveset(Default::default()),
-                // The body WEARS the character. Everything that makes it that
-                // fighter rather than a generic actor follows from this one
-                // component: the moveset and silhouette arrive via
-                // `project_prepared_character_definitions`, and the presentation
-                // source via `publish_body_presentation_sources`. Seating does not
-                // insert any of them by hand — that hand projection is exactly
-                // what made the old fixture prove less than it looked like.
-                ambition_characters::actor::WornCharacter::new(character_id),
-                ambition_characters::brain::ActorControl::default(),
-                ambition_characters::actor::attack_gesture::AttackGestureState::default(),
-                ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
-                ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
-            ))
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    // The SAME bundle every other actor spawn builds. Seating used to
+                    // hand-pick a subset of these components, and the subset was
+                    // missing `ActorTarget` — which `tick_actor_brains` requires
+                    // non-optionally, so a seated fighter silently dropped out of the
+                    // brain tick entirely and stood still. It looked like a body in
+                    // every way a test that queries components can see.
+                    crate::features::EnemyActorBundle::new(
+                        crate::features::FeatureBaseBundle::new(
+                            character_id,
+                            prepared.display_name.clone(),
+                            centered,
+                        ),
+                        identity,
+                        disposition,
+                        faction,
+                        crate::features::ActorPose::from_parts(at, SEAT_BODY_PX / 2.0, facing),
+                        combat_kit,
+                        crate::features::ActorAggression::hostile(),
+                        combat,
+                        intent,
+                        cooldowns,
+                    )
+                    .with_motion_model(motion_model),
+                    cluster,
+                    action_set,
+                    derived_brain,
+                    // `Name` and `ActorMoveset` are here for one reason: they are
+                    // REQUIRED columns of `apply_worn_character_gameplay`, the ONE
+                    // writer that turns `WornCharacter` into a persona (name, action
+                    // set, moveset, identity kit). A body missing either does not
+                    // match the derive at all, so it wears a character and derives
+                    // nothing from it — the fighter walks and cannot swing. Both are
+                    // placeholders; the derive overwrites them on the tick the worn
+                    // character lands.
+                    Name::new(prepared.display_name.clone()),
+                    crate::combat::moveset::ActorMoveset(Default::default()),
+                    // The body WEARS the character. Everything that makes it that
+                    // fighter rather than a generic actor follows from this one
+                    // component: the moveset and silhouette arrive via
+                    // `project_prepared_character_definitions`, and the presentation
+                    // source via `publish_body_presentation_sources`. Seating does not
+                    // insert any of them by hand — that hand projection is exactly
+                    // what made the old fixture prove less than it looked like.
+                    ambition_characters::actor::WornCharacter::new(character_id),
+                    // The MATCH owns this fighter's death, not the world. Without
+                    // this a KO runs the exploration economy — a bounty coin, a
+                    // heart, a death explosion, an in-place respawn timer — none of
+                    // which an arena has any use for.
+                    crate::combat::components::RulesetOwnsDeath,
+                    ambition_characters::brain::ActorControl::default(),
+                    ambition_characters::actor::attack_gesture::AttackGestureState::default(),
+                    ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
+                    ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
+                ),
+            )
             .id(),
     )
 }
@@ -253,10 +268,16 @@ pub fn seat_match_participants(
             ambition_engine_core::RoomGeometry,
         >,
     >,
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     mut seated: ResMut<MatchSeated>,
+    // Seats that already have a body. Derived from the world rather than
+    // remembered, so a seat can never be counted twice and the retry below
+    // cannot spawn a second copy of a fighter that seated fine last tick.
+    already_seated: Query<&MatchSeat>,
     mut player: Query<
         (
             Entity,
+            &mut ambition_characters::actor::BodyHealth,
             ambition_engine_core::BodyClusterQueryData,
             &mut crate::features::MotionModel,
             &ambition_characters::actor::WornCharacter,
@@ -273,16 +294,31 @@ pub fn seat_match_participants(
     if roster.participants.is_empty() {
         return;
     }
+    // No active session means no owner for the bodies. Seating waits rather
+    // than spawning orphans; the roster is still there next tick.
+    let Some(session_scope) =
+        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
     // The stage centre is the room's authored spawn: the one point a room
     // guarantees is standable, which is the only guarantee seating needs.
     let centre = geometry.0.spawn;
-    let mut any = false;
+    let occupied: std::collections::BTreeSet<usize> =
+        already_seated.iter().map(|seat| seat.0).collect();
+    let mut seated_count = occupied.len();
     for (index, participant) in roster.participants.iter().enumerate() {
         let MatchParticipant {
             character,
             controller,
             ..
         } = participant;
+        // Already has a body from an earlier tick's partial seating.
+        if occupied.contains(&index) {
+            continue;
+        }
         let (at, facing) = seat_for(index, centre);
         // A HUMAN seat is the body the player already has. Adopt it — move it to
         // its seat and face it inward — rather than spawning a second body
@@ -301,6 +337,7 @@ pub fn seat_match_participants(
             if slot != ambition_characters::brain::PlayerSlot::PRIMARY {
                 if let Some(body) = seat_character(
                     &mut commands,
+                    session_scope,
                     &registry,
                     &catalog,
                     &archetypes,
@@ -315,17 +352,17 @@ pub fn seat_match_participants(
                     // strolling off looking possessed.
                     ambition_entity_catalog::placements::CharacterBrain::Passive,
                 ) {
+                    seated_count += 1;
                     commands.entity(body).insert((
                         MatchSeat(index),
                         ambition_characters::brain::Brain::Player(slot),
                         crate::control::components::LocalPlayer,
                         crate::control::components::PlayerInputFrame::default(),
                     ));
-                    any = true;
                 }
                 continue;
             }
-            let Ok((body, clusters, mut model, worn)) = player.single_mut() else {
+            let Ok((body, mut health, clusters, mut model, worn)) = player.single_mut() else {
                 continue;
             };
             if worn.id() != character {
@@ -339,6 +376,11 @@ pub fn seat_match_participants(
             // bare `kin.pos = at` is a pose write the kernel never sees, so the
             // body arrives believing it is still standing on the floor it left.
             // The workspace policy caught that draft, and was right to.
+            // A seat starts at FULL health, adopted or spawned. A spawned seat
+            // gets its character's vitals from the seed; the adopted primary
+            // player kept whatever the last session left it on, so a match could
+            // begin with one fighter already half dead.
+            health.health.current = health.health.max;
             let mut item = clusters;
             let mut clusters = item.as_clusters_mut();
             ambition_engine_core::movement::transit_body(
@@ -348,8 +390,16 @@ pub fn seat_match_participants(
                 ambition_engine_core::movement::TransitVelocity::Zero,
             );
             clusters.kinematics.facing = facing;
-            commands.entity(body).insert(MatchSeat(index));
-            any = true;
+            // The adopted PRIMARY PLAYER needs it most. Its death runs
+            // `death_respawn_player`, which teleports it to the room spawn and
+            // restores full health BEFORE any rules layer can look — so seat 0
+            // could never be seen at zero health, and the match was rigged in
+            // its favour (GPT 5.6, 2026-07-27).
+            commands.entity(body).insert((
+                MatchSeat(index),
+                crate::combat::components::RulesetOwnsDeath,
+            ));
+            seated_count += 1;
             continue;
         }
         let Some(profile) = controller.brain_profile() else {
@@ -358,6 +408,7 @@ pub fn seat_match_participants(
         let faction = faction_for(index);
         if let Some(body) = seat_character(
             &mut commands,
+            session_scope,
             &registry,
             &catalog,
             &archetypes,
@@ -368,10 +419,19 @@ pub fn seat_match_participants(
             ambition_entity_catalog::placements::CharacterBrain::Custom(profile.to_string()),
         ) {
             commands.entity(body).insert(MatchSeat(index));
-            any = true;
+            seated_count += 1;
         }
     }
-    if any {
+    // ATOMIC: the latch closes only when EVERY participant got a body.
+    //
+    // `any` was the wrong question. A roster whose seat 0 could not be adopted
+    // yet (the primary player has not spawned, or wears a different character)
+    // while seat 1 spawned fine would set the latch on the strength of seat 1,
+    // and seat 0 would never be retried — a one-fighter match, permanently
+    // (GPT 5.6, 2026-07-27). Seating runs every tick until the roster is
+    // complete, and `seat_character`/adoption are the only things that decide
+    // whether a seat is possible yet.
+    if seated_count == roster.participants.len() {
         seated.0 = true;
     }
 }

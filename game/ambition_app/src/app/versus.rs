@@ -168,6 +168,7 @@ fn track_versus_roster(
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
     mut seated: ResMut<ambition::actors::character_runtime::MatchSeated>,
     mut friendly_fire: ResMut<ambition::combat::targeting::FriendlyFire>,
+    mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
     let on_versus = router
         .active
@@ -199,6 +200,13 @@ fn track_versus_roster(
             // still do nothing, and making factions team-aware is the real fix
             // for a team mode. A free-for-all needs no teams to be correct.
             friendly_fire.enabled = true;
+            // A FRESH match. `VersusMatch` is a long-lived resource, so without
+            // this, leaving mid-round and coming back resumes the old score —
+            // and a KO or match-over countdown resumes with it, which reads as
+            // the stage opening onto somebody else's game (GPT 5.6,
+            // 2026-07-27). Reset on ENTRY rather than exit so a crash or a
+            // route change that skips the teardown still starts clean.
+            *match_state = super::versus_rules::VersusMatch::default();
         }
         (false, true) => {
             commands.remove_resource::<MatchParticipantRoster>();

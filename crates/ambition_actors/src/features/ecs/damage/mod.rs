@@ -180,7 +180,16 @@ pub fn apply_feature_hit_events(
             // `Option` for bare test fixtures spawned without the combat carrier
             // (they fall back to the ENEMY default). The victim owns its spray;
             // the attack owns only the strike sound.
-            Option<&'static crate::combat::CombatTuning>,
+            // Bundled: this query is AT Bevy's 16-column ceiling, so the
+            // combat-tuning read rides with the death-ownership flag.
+            //
+            // `RulesetOwnsDeath`: does a RULESET own this body's death? A match
+            // fighter's KO is the match's business; the world's death economy is
+            // not invited.
+            (
+                Option<&'static crate::combat::CombatTuning>,
+                bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
+            ),
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
         // `&mut BodyKinematics` (the unified component), so exclude bosses
@@ -340,7 +349,7 @@ pub fn apply_feature_hit_events(
             mut motion_model,
             wallet_shield,
             mut cq,
-            combat_tuning,
+            (combat_tuning, ruleset_owns_death),
         ) in &mut actors
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
@@ -384,6 +393,7 @@ pub fn apply_feature_hit_events(
                 &catalogs.hostile_archetypes,
                 actor_entity,
                 *disposition,
+                ruleset_owns_death,
                 &mut em,
                 &mut motion_model,
                 &mut combat,

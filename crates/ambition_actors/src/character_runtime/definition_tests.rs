@@ -483,3 +483,65 @@ fn re_registering_one_character_still_reports_the_duplicate_id() {
         CharacterRegistrationError::DuplicateId { .. }
     ));
 }
+
+/// A verb the runtime cannot press is named at preparation. (queue L10)
+///
+/// The dangling-move-id check has always covered "the verb points at nothing".
+/// This is the other side: the move exists, the binding is well-formed, and the
+/// VERB is a word the trigger path never asks for — so the move is authored,
+/// prepared, projected onto the body, and never triggered by anything.
+///
+/// Worth a check rather than a convention because the failure has no symptom.
+/// A character with an unreachable move reads exactly like a character with no
+/// moves, which is a legitimate thing to be.
+#[test]
+fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
+    let unreachable =
+        CharacterDefinition::new("duelist", "Duelist", "arena").with_moveset(moveset_with(
+            // `heavy` is not in the runtime vocabulary. `attack` / `smash` /
+            // `ranged` / `special` are, with directional and airborne suffixes.
+            &[("heavy", "big_swing")],
+            vec![slash("big_swing", "arena.swing", "arena.hit")],
+        ));
+
+    let prepared = prepare_character(unreachable, &CharacterBindings::default());
+    let problems: Vec<String> = prepared
+        .report
+        .unresolved()
+        .iter()
+        .map(|entry| format!("{entry:?}"))
+        .collect();
+    assert!(
+        problems.iter().any(|entry| entry.contains("heavy")),
+        "an unreachable verb was not reported. The move is authored and can \
+         never fire, which looks exactly like a character that authored no \
+         moves: {problems:?}"
+    );
+
+    // And the vocabulary really does accept what content legitimately writes —
+    // otherwise this check would be a wall every real fighter walks into.
+    for verb in [
+        "attack",
+        "attack_up",
+        "attack_down",
+        "attack_forward",
+        "attack_back",
+        "attack_air",
+        "attack_air_down",
+        "smash",
+        "ranged",
+        "special",
+    ] {
+        let ok =
+            CharacterDefinition::new("duelist", "Duelist", "arena").with_moveset(moveset_with(
+                &[(verb, "big_swing")],
+                vec![slash("big_swing", "arena.swing", "arena.hit")],
+            ));
+        let prepared = prepare_character(ok, &CharacterBindings::default());
+        assert!(
+            prepared.is_clean(),
+            "`{verb}` is a verb the runtime presses and preparation rejected it: {:?}",
+            prepared.report.unresolved()
+        );
+    }
+}

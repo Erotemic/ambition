@@ -189,21 +189,129 @@ pub fn install_outlander_content(app: &mut App) {
     }
 }
 
+// ── §authority ──────────────────────────────────────────────────────────────
+// Task 1's exit criterion, from the only place that can actually test it: *"a
+// feature-owned authoritative component and system are mechanically accounted,
+// run under the simulation gate, and survive real rewind/resimulation without
+// edits to a giant runtime list."* Everything below is authored in the CONSUMER
+// crate and reaches the engine only through `ambition::runtime::rollback`.
+//
+// The engine's own 246 registrations do live in one function. That is not what
+// the criterion is about: the question is whether a game the engine has never
+// heard of can put authoritative state into the simulation, and the honest place
+// to answer it is outside the workspace, where a forgotten `pub` is a compile
+// error rather than a crate-private convenience.
+
+/// Charge accumulated by standing in the beacon's field. AUTHORITATIVE: the
+/// ridge gate refuses to fire until it is full, so a value that fails to rewind
+/// is a gate that opens on a frame the real timeline never had.
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq)]
+pub struct BeaconCharge {
+    /// Seconds of contact accumulated, saturating at [`BEACON_FULL_SECONDS`].
+    pub seconds: f32,
+    /// Ticks the body has spent inside the field. A second field on purpose: an
+    /// encoder that round-trips one member and drops the other is a real bug
+    /// class, and a single-field state cannot catch it.
+    pub ticks: u32,
+}
+
+/// Contact seconds required before the ridge gate will transit a body.
+pub const BEACON_FULL_SECONDS: f32 = 0.25;
+/// The field's left edge. A body walking right crosses it well before the gate,
+/// so the ordinary acceptance walk charges the beacon on its way past.
+pub const BEACON_FIELD_X: f32 = 700.0;
+
+impl BeaconCharge {
+    pub fn is_full(&self) -> bool {
+        self.seconds >= BEACON_FULL_SECONDS
+    }
+}
+
+// The snapshot codec, written by the consumer for the consumer's own type. The
+// engine cannot supply this: it has never seen `BeaconCharge`. `put_f32`
+// canonicalizes NaN so two peers that computed the same value byte-agree.
+impl ambition::runtime::rollback::SnapshotState for BeaconCharge {
+    fn encode(&self, out: &mut Vec<u8>) {
+        ambition::runtime::rollback::put_f32(out, self.seconds);
+        ambition::runtime::rollback::put_u32(out, self.ticks);
+    }
+
+    fn decode(reader: &mut ambition::runtime::rollback::Reader<'_>) -> Option<Self> {
+        Some(Self {
+            seconds: reader.f32()?,
+            ticks: reader.u32()?,
+        })
+    }
+}
+
+/// Charge the beacon while the primary body stands in its field.
+///
+/// On the SIM clock (`WorldTime::scaled_dt`), never `Res<Time>`: a resimulated
+/// tick must add exactly what the original tick added, and wall-clock dt does
+/// not repeat.
+pub fn beacon_charge_system(
+    time: Res<ambition::time::WorldTime>,
+    mut bodies: Query<
+        (
+            &ambition::platformer::body::BodyKinematics,
+            &mut BeaconCharge,
+        ),
+        With<ambition::platformer::markers::PrimaryPlayer>,
+    >,
+) {
+    for (kin, mut charge) in &mut bodies {
+        if kin.pos.x < BEACON_FIELD_X {
+            continue;
+        }
+        charge.seconds = (charge.seconds + time.scaled_dt).min(BEACON_FULL_SECONDS);
+        charge.ticks += 1;
+    }
+}
+
+/// Give the primary body its beacon charge the tick it appears.
+///
+/// A separate system rather than a spawn-time bundle because the body is built
+/// by the ENGINE's construction path from the character catalog — a consumer
+/// adding authoritative state to an engine-constructed entity is the case worth
+/// proving, and it is strictly harder than authoring its own entity.
+pub fn attach_beacon_charge(
+    mut commands: Commands,
+    bodies: Query<
+        Entity,
+        (
+            With<ambition::platformer::markers::PrimaryPlayer>,
+            Without<BeaconCharge>,
+        ),
+    >,
+) {
+    for body in &bodies {
+        commands.entity(body).insert(BeaconCharge::default());
+    }
+}
+
 // ── §transition ─────────────────────────────────────────────────────────────
 /// The ridge gate: a body standing past `GATE_ENTRY_X` on the lower floor is
 /// discretely relocated to the upper ledge through the engine's ONE transit
 /// authority (`transit_body`, ADR 0024) — arrival at rest, contacts and
 /// attachment reconciled, no pushout, no teleport hack.
+/// The gate is GATED on [`BeaconCharge`], which is what makes that component
+/// authoritative rather than decorative: a charge that failed to rewind would
+/// open the gate on a frame the real timeline never had, and the position it
+/// produces is the thing the acceptance walk asserts on.
 pub fn ridge_gate_system(
     mut bodies: Query<
         (
             ae::BodyClusterQueryData,
             &mut ambition::actors::features::MotionModel,
+            Option<&BeaconCharge>,
         ),
         With<ambition::platformer::markers::PrimaryPlayer>,
     >,
 ) {
-    for (clusters, mut model) in &mut bodies {
+    for (clusters, mut model, charge) in &mut bodies {
+        if !charge.is_some_and(BeaconCharge::is_full) {
+            continue;
+        }
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
         let pos = clusters.kinematics.pos;
@@ -230,7 +338,34 @@ impl Plugin for OutlanderExperiencePlugin {
         {
             use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
             let sim = app.sim_schedule();
-            app.add_systems(sim, ridge_gate_system.in_set(SandboxSet::PlayerSimulation));
+            app.add_systems(
+                sim,
+                // §authority, then §transition — the gate reads what the beacon
+                // wrote this tick, so the order is a real dependency and not a
+                // preference. Both in `PlayerSimulation`, the engine's semantic
+                // phase for post-input body authority; no leaf system of the
+                // engine's is named.
+                (
+                    attach_beacon_charge,
+                    beacon_charge_system,
+                    ridge_gate_system,
+                )
+                    .chain()
+                    .in_set(SandboxSet::PlayerSimulation),
+            );
+        }
+        // The consumer's own authoritative state joins the rollback contract
+        // through the public vocabulary. No engine file lists `BeaconCharge`;
+        // nothing in `ambition` could, because nothing in `ambition` has heard
+        // of it. `rollback_component_canonical` is a no-op on a fixed-tick host
+        // by design (the registration vocabulary gates installation on host
+        // kind), so this one line is correct for BOTH Outlander hosts.
+        {
+            use ambition::runtime::rollback::AmbitionRollbackApp;
+            app.rollback_component_canonical::<BeaconCharge>(
+                "outlander::beacon",
+                "outlander.beacon_charge",
+            );
         }
         PlatformerExperienceAuthoring::new(
             OUTLANDER_EXPERIENCE,
@@ -267,6 +402,55 @@ pub fn build_outlander_app() -> App {
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app
+}
+
+/// The SAME game under a GGRS rollback host, with a sync-test session.
+///
+/// Sync test is the strongest available proof and the cheapest to run: GGRS
+/// resimulates every frame `check_distance` times from a restored snapshot and
+/// compares checksums itself, so a divergence is a panic inside the engine
+/// rather than an assertion this fixture had to invent. If `BeaconCharge` did
+/// not round-trip, or its encoder dropped a field, or the charge system read
+/// wall-clock time, that comparison is what notices.
+///
+/// The host switch is one line versus [`build_outlander_app`]. That is the
+/// claim: a consumer does not restructure its game to become rollback-capable.
+pub fn build_outlander_rollback_app() -> Result<App, String> {
+    let mut app = App::new();
+    ambition::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::rollback());
+    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    compose_outlander_shell(&mut app);
+
+    // Under GGRS the sim advances only through session requests, so the frame dt
+    // must be the tick dt exactly (integer nanos, no drift).
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64),
+    ));
+    // Boot and ACTIVATE before the session exists. This ordering is the whole
+    // lesson of the first draft, which started the session on update #1 and then
+    // watched GGRS report a checksum mismatch on frames 2, 3 and 4 forever: the
+    // shell's preparation and the session-world commit build the room and the
+    // body through `Commands`, and a rollback cannot undo construction. Rewinding
+    // across it is a guaranteed divergence, and the sync test says so immediately
+    // — correctly. `start_sync_test_session` rebases onto the CURRENT live world
+    // as frame zero, so the fix is to let construction finish first.
+    activate_outlander(&mut app)?;
+    // A few settled frames past activation, for the same reason: activation
+    // completing is not the same fact as the tick after it being quiet.
+    for _ in 0..8 {
+        app.update();
+    }
+    ambition::runtime::rollback::start_sync_test_session(
+        app.world_mut(),
+        ambition::runtime::rollback::SyncTestSettings {
+            check_distance: 4,
+            max_prediction_window: 10,
+        },
+    )
+    .map_err(|error| format!("failed to start the Outlander sync-test session: {error}"))?;
+    app.update();
+    Ok(app)
 }
 
 /// The shell wiring the headless and visible hosts SHARE — one provider, one
@@ -310,6 +494,28 @@ pub fn compose_outlander_shell(app: &mut App) {
     ));
 }
 
+/// Drive one frame of input, whichever host is running.
+///
+/// LEAK (recorded, Phase-6 evidence): a consumer that wants to run its game
+/// under both hosts must know TWO input seams. A fixed-tick host consumes the
+/// `ControlFrame` resource directly; a GGRS host consumes
+/// `PendingLocalInput`, because the frame it simulates is the one the session
+/// confirmed and not the one the device produced. Writing `ControlFrame` under
+/// GGRS is silently ignored — the walk still runs, the body never moves, and
+/// nothing says why. Detected by resource presence rather than by a host flag
+/// the consumer would have to thread everywhere, but the underlying asymmetry
+/// is the engine's and should be a single seam.
+pub fn drive_control_frame(app: &mut App, frame: ambition::input::ControlFrame) {
+    let world = app.world_mut();
+    if let Some(mut pending) =
+        world.get_resource_mut::<ambition::runtime::rollback::PendingLocalInput>()
+    {
+        pending.0 = frame;
+    } else if let Some(mut control) = world.get_resource_mut::<ambition::input::ControlFrame>() {
+        *control = frame;
+    }
+}
+
 /// What the acceptance walk proved, for the binary to print and tests to pin.
 #[derive(Debug)]
 pub struct OutlanderRunReport {
@@ -321,6 +527,11 @@ pub struct OutlanderRunReport {
     pub ticks_to_gate: usize,
     /// Player position after the gate delivered it (upper-ledge coordinates).
     pub player_pos: ae::Vec2,
+    /// The consumer-owned authoritative state at the end of the walk. Reported
+    /// rather than merely asserted so a rollback run can compare it against the
+    /// fixed-tick run: the two hosts must produce the same number, and a report
+    /// that only said "the gate fired" could not tell them apart.
+    pub beacon: BeaconCharge,
 }
 
 /// Boot-to-gate acceptance walk through the PUBLIC surface only: update until
@@ -333,8 +544,42 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     use bevy::prelude::With;
 
     // 1. The session activates: the shell prepares the route, the provider's
-    //    prepared world commits, and the room set publishes the ridge.
-    let mut ticks_to_activate = None;
+    //    prepared world commits, and the room set publishes the ridge. Already
+    //    done under the rollback host, which has to activate BEFORE it starts a
+    //    session; this returns 1 there and re-proves nothing, which is correct.
+    let ticks_to_activate = activate_outlander(app)?;
+
+    // 2. The constructed world holds the authored population.
+    {
+        let world = app.world_mut();
+        let mut players = world
+            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
+        let player_count = players.iter(world).count();
+        if player_count != 1 {
+            return Err(format!(
+                "expected exactly one primary player after activation, found {player_count}"
+            ));
+        }
+        let mut actors = world.query::<&ambition::actors::features::ActorConfig>();
+        if !actors
+            .iter(world)
+            .any(|config| config.id == OUTLANDER_SENTRY_ID)
+        {
+            let present: Vec<String> = actors.iter(world).map(|config| config.id.clone()).collect();
+            return Err(format!(
+                "the staged sentry {OUTLANDER_SENTRY_ID:?} is missing; actors present: {present:?}"
+            ));
+        }
+    }
+
+    walk_outlander_to_the_ledge(app, ticks_to_activate)
+}
+
+/// Update until the Outlander session is active, returning the tick it landed
+/// on. Split out of the walkthrough because the rollback host must complete
+/// construction BEFORE it starts a session, and running the same loop twice is
+/// cheaper than two versions of it drifting apart.
+pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
     for tick in 0..600 {
         app.update();
         let world = app.world_mut();
@@ -344,11 +589,10 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
             .next()
             .map(|set| set.active_spec().id.clone());
         if active.as_deref() == Some(OUTLANDER_ROOM_ID) {
-            ticks_to_activate = Some(tick + 1);
-            break;
+            return Ok(tick + 1);
         }
     }
-    let ticks_to_activate = ticks_to_activate.ok_or_else(|| {
+    Err({
         // Name where the shell actually got stuck — the difference between
         // "misconfigured route", "preparation never finished", and "activated
         // into the wrong room" is the whole diagnosis.
@@ -381,44 +625,29 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
             "the Outlander session never activated in 600 ticks; \
              router: {router}; session active: {session}; room sets: {active_rooms:?}"
         )
-    })?;
+    })
+}
 
-    // 2. The constructed world holds the authored population.
-    {
-        let world = app.world_mut();
-        let mut players = world
-            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
-        let player_count = players.iter(world).count();
-        if player_count != 1 {
-            return Err(format!(
-                "expected exactly one primary player after activation, found {player_count}"
-            ));
-        }
-        let mut actors = world.query::<&ambition::actors::features::ActorConfig>();
-        if !actors
-            .iter(world)
-            .any(|config| config.id == OUTLANDER_SENTRY_ID)
-        {
-            let present: Vec<String> = actors.iter(world).map(|config| config.id.clone()).collect();
-            return Err(format!(
-                "the staged sentry {OUTLANDER_SENTRY_ID:?} is missing; actors present: {present:?}"
-            ));
-        }
-    }
+/// Hold right on the engine's input seam until the ridge gate delivers the body
+/// to the upper ledge, then report what the walk produced.
+fn walk_outlander_to_the_ledge(
+    app: &mut App,
+    ticks_to_activate: usize,
+) -> Result<OutlanderRunReport, String> {
+    use ambition::platformer::markers::PrimaryPlayer;
+    use bevy::prelude::With;
 
     // 3. The ridge gate is load-bearing: hold right on the engine's input seam
     //    until `transit_body` delivers the body onto the upper ledge.
     let mut ticks_to_gate = None;
     for tick in 0..1200 {
-        {
-            let mut control = app
-                .world_mut()
-                .resource_mut::<ambition::input::ControlFrame>();
-            *control = ambition::input::ControlFrame {
+        drive_control_frame(
+            app,
+            ambition::input::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
-            };
-        }
+            },
+        );
         app.update();
         let world = app.world_mut();
         let mut players = world
@@ -441,17 +670,28 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     })?;
 
     let world = app.world_mut();
-    let mut players =
-        world.query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
-    let player_pos = players
+    let mut players = world.query_filtered::<(
+        &ambition::platformer::body::BodyKinematics,
+        Option<&BeaconCharge>,
+    ), With<PrimaryPlayer>>();
+    let (player_pos, beacon) = players
         .single(world)
-        .map(|kin| kin.pos)
+        .map(|(kin, charge)| (kin.pos, charge.copied()))
         .map_err(|error| format!("primary player lost after the gate: {error}"))?;
+    // The gate cannot have fired without it, so this is a premise check rather
+    // than a discovery — but a missing component here would mean the gate opened
+    // through some other path and the walk proved nothing about §authority.
+    let beacon = beacon.ok_or_else(|| {
+        "the player reached the ledge with no BeaconCharge, so the gate did not \
+         open through the consumer's authoritative state"
+            .to_string()
+    })?;
 
     Ok(OutlanderRunReport {
         ticks_to_activate,
         ticks_to_gate,
         player_pos,
+        beacon,
     })
 }
 

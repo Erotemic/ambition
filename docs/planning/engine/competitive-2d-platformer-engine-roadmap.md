@@ -458,6 +458,43 @@ that simply moves synchronization errors.
 mechanically accounted, run under the simulation gate, and survive real
 rewind/resimulation without edits to a giant runtime list.
 
+**Status 2026-07-27 — exit criteria MET; the internal cleanup is not.**
+
+The criterion is answered, and deliberately from outside the workspace, in
+`fixtures/external_consumer` (Outlander):
+`consumer_owned_authoritative_state_survives_real_resimulation`. Outlander
+declares `BeaconCharge`, writes its own snapshot codec, registers it with
+`app.rollback_component_canonical::<BeaconCharge>(..)` through the public
+`ambition::runtime::rollback` vocabulary, and installs its systems into
+`SandboxSet::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
+component; nothing in `ambition` could, because nothing in `ambition` has heard
+of it. The rewind is real — a GGRS sync-test session, ~900 loads and ~4500
+resimulated advances in the test's own run — and the ridge gate is GATED on the
+charge, so the state is authoritative rather than decorative. Verified RED:
+delete the one registration line and the rollback host reports `ticks: 150`
+against the fixed-tick host's `32`.
+
+That settles "can a feature own its authority". It does NOT settle the
+housekeeping the task also lists: the engine's own ~246 registrations still live
+in `register_engine_rollback_state`, and item 3 (removing gameplay-authoritative
+`Local<T>`) is untouched. Those are real, but they are internal tidiness — the
+capability question is the one that decides whether another game can be built on
+this, and it is now answered by an executable test rather than by inspection.
+
+Two findings the proof produced, both recorded rather than papered over:
+
+- **Starting a rollback session before construction finishes is a guaranteed
+  divergence, and nothing said so.** The first draft started the sync test on
+  update #1; GGRS reported a checksum mismatch on frames 2–4 forever, because
+  the shell's preparation and the session-world commit build the room through
+  `Commands` a rollback cannot undo. The engine's own harness avoids this by
+  construction (`with_start_room` builds first), so no in-repo test could find
+  it. A consumer gets a raw checksum mismatch and no hint.
+- **A consumer that wants both hosts must know TWO input seams** — the
+  `ControlFrame` resource under fixed tick, `PendingLocalInput` under GGRS.
+  Writing the wrong one is silently ignored: the walk runs, the body never
+  moves. Recorded as Phase-6 leak #4.
+
 ---
 
 ### Task 2 — minimal deterministic scenario and replay harness

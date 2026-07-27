@@ -25,8 +25,20 @@ use bevy::prelude::*;
 pub struct ParticipantId(pub u8);
 
 impl ParticipantId {
-    /// The first (and, today, only) local seat.
+    /// The first local seat. Owns the global `ControlFrame`.
     pub const PRIMARY: Self = Self(0);
+
+    /// The second local seat — couch versus. Writes `SlotControls[1]` directly
+    /// and never touches the global frame, which is what keeps player one
+    /// unaffected by player two arriving or leaving.
+    pub const SECONDARY: Self = Self(1);
+
+    /// The controller slot this seat drives. Participant ids and player slots
+    /// are the same numbering on purpose: a seat IS a slot, and two maps that
+    /// have to agree eventually disagree.
+    pub const fn slot(self) -> u8 {
+        self.0
+    }
 }
 
 /// The persistent participant entity marker. Spawned once by the host input
@@ -41,6 +53,10 @@ impl InputParticipant {
         Self {
             id: ParticipantId::PRIMARY,
         }
+    }
+
+    pub const fn with_id(id: ParticipantId) -> Self {
+        Self { id }
     }
 }
 

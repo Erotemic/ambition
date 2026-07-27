@@ -79,6 +79,7 @@ impl Plugin for HostInputBindingsPlugin {
         use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
+            populate_secondary_slot_controls,
             populate_menu_control_frame_from_actions, spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
         };
@@ -224,6 +225,10 @@ impl Plugin for HostInputBindingsPlugin {
                     populate_menu_control_frame_from_actions
                         .in_set(ambition_input::InputSet::Route),
                     populate_control_frame_from_actions.in_set(ambition_input::InputSet::Route),
+                    // Every seat past the first writes its own slot directly.
+                    // Same phase as the primary bridge: both are device→control
+                    // translation, and neither reads the other's output.
+                    populate_secondary_slot_controls.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
                     apply_menu_frame_to_cutscene_request,
                     dialog_pointer_input,

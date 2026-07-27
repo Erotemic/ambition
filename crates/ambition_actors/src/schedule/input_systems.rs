@@ -172,7 +172,7 @@ pub fn toggle_player_trail_emission_from_actions(
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<ActiveInputContext>,
-    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
+    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
@@ -218,20 +218,20 @@ pub fn populate_control_frame_from_actions(
         *frame = ControlFrame::default();
         return;
     }
-    let mut player_inputs = player_input.iter();
-    let action_state = player_inputs.next();
-    if player_inputs.next().is_some() {
-        // Two input-bearing participants are never a benign transition: they
-        // would compete to author the single simulation ControlFrame. (Real
-        // multi-participant support keys frames by ParticipantId → slot.)
-        bevy::log::warn_once!(
-            "populate_control_frame_from_actions: multiple participant ActionState \
-             components are active; gameplay input is NEUTRAL until exact participant \
-             ownership is restored."
-        );
-        *frame = ControlFrame::default();
-        return;
-    }
+    // THE PRIMARY seat authors the global `ControlFrame`, by id.
+    //
+    // This used to take "the only participant" and go NEUTRAL when a second one
+    // existed, warning that two would compete to author one frame. The warning
+    // was right about the hazard and the remedy was the wrong way round: it made
+    // adding a second local player break the FIRST one, silently, with the
+    // symptom "gameplay input stopped working". Its own comment named the fix —
+    // *real multi-participant support keys frames by ParticipantId → slot* — so
+    // that is what this does. Seat 0 owns this resource; every other seat writes
+    // its own slot (`populate_secondary_slot_controls`) and cannot touch this one.
+    let action_state = player_input
+        .iter()
+        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, actions)| actions);
     *frame = match action_state {
         Some(action_state) => {
             if mode.get().allows_gameplay() {
@@ -254,6 +254,67 @@ pub fn populate_control_frame_from_actions(
         // boot spawn. Neutral input is the contract there, not a warning.
         None => ControlFrame::default(),
     };
+}
+
+/// Per-seat dash edge state.
+///
+/// The primary seat's lives in the `PlayerDashTriggerState` RESOURCE, which is
+/// correct for exactly one seat and wrong for two: a shared edge means player
+/// one's dash release cancels player two's press. A second seat carries its own
+/// on its participant entity.
+#[cfg(feature = "input")]
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeState);
+
+/// **Every non-primary seat writes its OWN slot.** (C4 couch versus)
+///
+/// `populate_slot_controls` fills slot 0 from the global `ControlFrame` and says
+/// in its own docs that co-op adds writers for higher slots without touching it.
+/// This is that writer.
+///
+/// It deliberately does not go through `ControlFrame`: that resource is the
+/// primary seat's, everything downstream of it is allowlisted as single-frame,
+/// and routing a second player through it is what the old "two participants
+/// compete" guard was protecting against. Seat N reads its own `ActionState` and
+/// publishes straight into `SlotControls[N]`, which is where
+/// `tick_player_brains` already looks for it.
+///
+/// ⚠ **Known limit, stated rather than discovered later:** the primary seat's
+/// frame passes through `ControlFrameLatch`, which ORs sub-tick press edges
+/// together so a tap between two ticks is never swallowed. A secondary seat has
+/// no latch yet, so on a fixed-tick host a very short player-two tap can be
+/// missed. It matters at 60Hz only for single-frame inputs and it is a bounded,
+/// named follow-up rather than a hidden asymmetry.
+#[cfg(feature = "input")]
+pub fn populate_secondary_slot_controls(
+    mode: Res<State<GameMode>>,
+    active_context: Res<ActiveInputContext>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
+    mut seats: Query<(
+        &InputParticipant,
+        &ActionState<SandboxAction>,
+        &mut SeatDashTriggerState,
+    )>,
+    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+) {
+    let gameplay = active_context.gameplay_owned() && mode.get().allows_gameplay();
+    for (participant, actions, mut dash) in &mut seats {
+        if participant.id == ambition_input::ParticipantId::PRIMARY {
+            continue;
+        }
+        let slot = ambition_characters::brain::PlayerSlot(participant.id.slot());
+        if !gameplay {
+            // Neutral, and RESET the edge, so the post-pause re-press starts from
+            // a clean Released state — the same rule the primary seat follows.
+            dash.0 = crate::persistence::settings::TriggerEdgeState::default();
+            slots.set(slot, ControlFrame::default());
+            continue;
+        }
+        let (frame, next) =
+            read_gameplay_control_frame_with_settings(actions, &user_settings.controls, dash.0);
+        dash.0 = next;
+        slots.set(slot, frame);
+    }
 }
 
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.

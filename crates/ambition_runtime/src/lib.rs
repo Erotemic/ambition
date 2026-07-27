@@ -105,8 +105,8 @@ pub mod host_input {
     pub use ambition_actors::schedule::{
         apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
-        spawn_primary_input_participant, toggle_player_trail_emission_from_actions,
-        SimulationSetupSet,
+        populate_secondary_slot_controls, spawn_primary_input_participant,
+        toggle_player_trail_emission_from_actions, SeatDashTriggerState, SimulationSetupSet,
     };
     pub use ambition_dialog::dialog_pointer_input;
 }

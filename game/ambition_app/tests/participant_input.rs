@@ -448,3 +448,122 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
     );
     Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
 }
+
+// ── Couch versus: a SECOND seat, on its own slot ─────────────────────────────
+
+/// **A second seat writes slot 1 and leaves slot 0 alone.**
+///
+/// This is the property couch versus rests on, and the property the old code
+/// could not have: `populate_control_frame_from_actions` used to take "the only
+/// participant" and go NEUTRAL the moment a second existed, warning that two
+/// would compete to author one frame. The warning was right about the hazard and
+/// backwards as a remedy — adding player two broke player ONE, silently, and the
+/// symptom was "gameplay input stopped working".
+///
+/// The producer keys by `ParticipantId` now: seat 0 owns the global frame, every
+/// other seat publishes straight into its own slot.
+#[test]
+fn a_second_seat_drives_its_own_slot_without_disturbing_the_first() {
+    use ambition::characters::brain::{PlayerSlot, SlotControls};
+    use ambition::input::{InputParticipant, ParticipantId};
+
+    let mut app = shell_input_app(false);
+    settle(&mut app);
+
+    // Get into gameplay first: the writers are gated on gameplay OWNING the
+    // participant's actions, which is the correct rule and means a test that
+    // presses buttons at the launcher measures the gate, not the seat.
+    let launch_pad = app.world_mut().spawn(Gamepad::default()).id();
+    app.update();
+    pad_tap(&mut app, launch_pad, GamepadButton::South);
+    for _ in 0..600 {
+        app.update();
+        if app
+            .world()
+            .resource::<ActiveInputContext>()
+            .gameplay_owned()
+        {
+            break;
+        }
+    }
+    assert!(
+        app.world()
+            .resource::<ActiveInputContext>()
+            .gameplay_owned(),
+        "the fixture never reached gameplay, so this would measure the context \
+         gate rather than the second seat"
+    );
+
+    // Seat 1, on its own gamepad. Spawned the way a couch-versus host would:
+    // its own participant entity, its own action state, its own dash edge.
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    app.update();
+    let mut map =
+        leafwing_input_manager::prelude::InputMap::<ambition::input::SandboxAction>::default();
+    map.insert(ambition::input::SandboxAction::Jump, GamepadButton::South);
+    app.world_mut().spawn((
+        InputParticipant::with_id(ParticipantId::SECONDARY),
+        ambition::input::ParticipantContexts::default(),
+        ActionState::<ambition::input::SandboxAction>::default(),
+        map.with_gamepad(pad),
+        ambition::runtime::host_input::SeatDashTriggerState::default(),
+    ));
+    settle(&mut app);
+
+    pad_set(&mut app, pad, GamepadButton::South, 1.0);
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let slots = app.world().resource::<SlotControls>();
+    assert!(
+        slots.get(PlayerSlot(1)).jump_held || slots.get(PlayerSlot(1)).jump_pressed,
+        "the second seat's gamepad jump never reached slot 1, so a second player \
+         has a body and no way to move it"
+    );
+
+    // And player ONE is untouched. If the old "two participants compete" guard
+    // were still here this is what would fail: adding player two zeroed the
+    // global frame, so the symptom was player one's input stopping.
+    assert!(
+        app.world()
+            .resource::<ActiveInputContext>()
+            .gameplay_owned(),
+        "adding a second seat must not disturb the first seat's input ownership"
+    );
+}
+
+/// Slot 1 goes neutral when gameplay does not own input.
+///
+/// Same rule the primary seat follows. A second player who keeps steering
+/// through a pause menu is the bug this prevents, and it is invisible in a
+/// single-player build because there is nothing to steer.
+#[test]
+fn a_second_seat_is_neutral_while_gameplay_does_not_own_input() {
+    use ambition::characters::brain::{PlayerSlot, SlotControls};
+    use ambition::input::{InputParticipant, ParticipantId};
+
+    let mut app = shell_input_app(true);
+    // With the startup cards composed, the launcher/startup owns the
+    // participant's actions — gameplay does not.
+    let pad = app.world_mut().spawn(()).id();
+    let mut map = leafwing_input_manager::prelude::InputMap::<ambition::input::SandboxAction>::default();
+    map.insert(ambition::input::SandboxAction::Jump, GamepadButton::South);
+    app.world_mut().spawn((
+        InputParticipant::with_id(ParticipantId::SECONDARY),
+        ambition::input::ParticipantContexts::default(),
+        ActionState::<ambition::input::SandboxAction>::default(),
+        map.with_gamepad(pad),
+        ambition::runtime::host_input::SeatDashTriggerState::default(),
+    ));
+    settle(&mut app);
+    pad_set(&mut app, pad, GamepadButton::South, 1.0);
+    settle(&mut app);
+
+    let slots = app.world().resource::<SlotControls>();
+    let frame = slots.get(PlayerSlot(1));
+    assert!(
+        !frame.jump_pressed && !frame.jump_held,
+        "the second seat kept steering while a startup card owned input"
+    );
+}

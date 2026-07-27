@@ -19,7 +19,8 @@ pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
-    populate_menu_control_frame_from_actions, spawn_primary_input_participant,
+    populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
+    spawn_primary_input_participant, SeatDashTriggerState,
     toggle_player_trail_emission_from_actions, MenuNavConsume,
 };
 pub use schedule::configure_sandbox_sets;

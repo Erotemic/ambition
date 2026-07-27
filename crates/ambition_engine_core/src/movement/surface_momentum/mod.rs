@@ -468,12 +468,45 @@ fn step_riding(
         return;
     }
 
+    // 2b) OBSTRUCTION. A rider knows the chain under it and nothing else, so a
+    // solid block standing in its path was invisible: a momentum character ran
+    // straight through the wall of any room built out of blocks and off the edge
+    // of the world. (Found 2026-07-27 by putting Sanic in the versus arena — he
+    // left it.) The airborne arm has always swept solids; this is the same sweep
+    // on the riding arm.
+    //
+    // The ridden surface cannot report itself: travel is tangential, so
+    // `delta · n == 0` and the "moving away from / along the face" filter drops
+    // it. What survives is genuine geometry ahead.
+    //
+    // ⚠ Only while riding a BLOCK. A CHAIN is an authored route, and the author
+    // who drew one through a room has already said where the body goes; the
+    // blocks under it are the geometry it was drawn over, and treating them as
+    // obstructions pins a rider mid-course. That is not a guess — it is the same
+    // doctrine `first_circle_hit` already applies when a chain and a block tie
+    // ("a guide chain and its floor block are ONE surface; the routable one is
+    // the authority"), and the Sanic speedway oracles fail loudly the moment it
+    // is violated. A momentum body riding a chain THROUGH a block-built room can
+    // still leave it; that is the chain author's call and is tracked separately.
+    let mut travel = v_t * dt;
+    let mut obstruction: Option<CircleHit> = None;
+    if matches!(on, SurfaceRef::Block(_)) && travel.abs() > 1.0e-6 {
+        let delta = frame.tangent * travel;
+        if let Some(hit) = first_block_hit(world, body.pos, body.radius, delta, motion_frame.down())
+        {
+            if hit.toi < 1.0 {
+                travel *= hit.toi;
+                obstruction = Some(hit);
+            }
+        }
+    }
+
     // 3) Advance along the arc, applying the joint rule at every crossed join.
     match advance_riding(
         world,
         on,
         stabilized_s,
-        v_t * dt,
+        travel,
         v_t,
         motion_frame,
         params,
@@ -492,6 +525,12 @@ fn step_riding(
             };
             let final_chain = final_chain.as_ref();
             let f = final_chain.frame_at(new_s);
+            // A body that ran into something keeps NONE of the speed it was
+            // carrying into it. Letting the tangent survive parks the rider
+            // against the wall re-colliding every tick at full speed, which
+            // reads as a body vibrating in place — and any residual re-enters
+            // the sweep next tick and clamps to zero travel anyway.
+            let new_v_t = if obstruction.is_some() { 0.0 } else { new_v_t };
             body.pos = f.point + f.normal * body.radius;
             body.vel = new_v_t * f.tangent + per_frame_to_per_sec(final_chain.velocity, dt);
             body.depth_lane = final_chain.segment_depth(f.segment);
@@ -500,6 +539,19 @@ fn step_riding(
                 s: new_s,
                 v_t: new_v_t,
             };
+            if let (Some(hit), Some(sink)) = (&obstruction, contacts.as_deref_mut()) {
+                sink.push(Contact {
+                    kind: crate::collision_semantics::classify_contact_normal(
+                        hit.contact_normal,
+                        motion_frame.down(),
+                    ),
+                    point: body.pos - hit.contact_normal * body.radius,
+                    normal: hit.contact_normal,
+                    toi: hit.toi,
+                    surface_velocity: hit.surface_velocity,
+                    source: hit.source.clone(),
+                });
+            }
             if let Some(sink) = contacts.as_deref_mut() {
                 sink.push(Contact {
                     kind: crate::collision_semantics::ContactKind::Support,
@@ -1717,6 +1769,50 @@ fn first_circle_hit(
         }
     }
     let best_chain = best.map(|(hit, _)| hit);
+    let best_block = first_block_hit(world, center, radius, delta, down);
+    match (best_chain, best_block) {
+        (Some(chain_hit), Some(block_hit)) => {
+            // The block face wins only when it is genuinely earlier — never
+            // on the floating-point tie a chain authored over the same
+            // geometry produces (a guide chain and its floor block are ONE
+            // surface; the routable one is the authority).
+            if block_hit.toi < chain_hit.toi - tie_toi {
+                Some(block_hit)
+            } else {
+                Some(chain_hit)
+            }
+        }
+        (chain_hit, block_hit) => chain_hit.or(block_hit),
+    }
+}
+
+/// The first SOLID BLOCK face this travel runs into.
+///
+/// Split out of [`first_circle_hit`] because the riding arm needs the block
+/// half ALONE. Chains are the ride network — a rider curving along one is
+/// perpetually "penetrating" the segment ahead of it when you approximate the
+/// arc by a chord, so sweeping chains from the riding arm stops a body on the
+/// very surface it is riding. Blocks are the other thing in the room, and
+/// running into one is exactly what a rider needs to be told about.
+fn first_block_hit(
+    world: &World,
+    center: Vec2,
+    radius: f32,
+    delta: Vec2,
+    down: Vec2,
+) -> Option<CircleHit> {
+    if delta.length_squared() <= 1.0e-12 {
+        return None;
+    }
+    let ball = Ball::new(radius);
+    let options = ShapeCastOptions {
+        max_time_of_impact: 1.0,
+        target_distance: 0.0,
+        stop_at_penetration: false,
+        compute_impact_geometry_on_penetration: true,
+    };
+    let pose = Pose::translation(center.x, center.y);
+    let vel = Vector::new(delta.x, delta.y);
     let mut best_block: Option<CircleHit> = None;
 
     // Solid blocks: their exterior boundaries are surfaces, swept exactly
@@ -1797,20 +1893,7 @@ fn first_circle_hit(
             }
         }
     }
-    match (best_chain, best_block) {
-        (Some(chain_hit), Some(block_hit)) => {
-            // The block face wins only when it is genuinely earlier — never
-            // on the floating-point tie a chain authored over the same
-            // geometry produces (a guide chain and its floor block are ONE
-            // surface; the routable one is the authority).
-            if block_hit.toi < chain_hit.toi - tie_toi {
-                Some(block_hit)
-            } else {
-                Some(chain_hit)
-            }
-        }
-        (chain_hit, block_hit) => chain_hit.or(block_hit),
-    }
+    best_block
 }
 
 fn approach(value: f32, target: f32, delta: f32) -> f32 {

@@ -1890,3 +1890,66 @@ fn an_airborne_pad_impulse_keeps_perpendicular_momentum() {
         body.vel
     );
 }
+
+/// A rider stops at a wall instead of running through it.
+///
+/// Found 2026-07-27 by putting Sanic in the versus arena — a flat floor with a
+/// wall at each end. He ran through the right wall, off the end of the floor,
+/// and fell forever. The riding arm knew only the surface under the body: the
+/// airborne arm had swept solid blocks since blocks became surfaces, and the
+/// riding arm never did.
+///
+/// This is not a versus-stage problem. Any room built out of blocks — which is
+/// every room the LDtk importer produces — could not contain a momentum
+/// character, so the motion model was unusable outside a hand-authored chain
+/// course.
+#[test]
+fn a_rider_is_stopped_by_a_wall_and_does_not_leave_the_room() {
+    let floor = floor_block(Vec2::new(0.0, 500.0), Vec2::new(960.0, 100.0));
+    let wall = crate::world::Block::solid("wall", Vec2::new(944.0, 0.0), Vec2::new(16.0, 560.0));
+    let world = world_with_blocks(vec![floor, wall]);
+    let params = frictionless();
+    let mut body = SurfaceBody::new(Vec2::new(200.0, 400.0), 14.0);
+    let frame = MotionFrame::from_acceleration(G).expect("non-zero acceleration");
+
+    for _ in 0..30 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            frame,
+            SurfaceInputs::default(),
+            DT,
+            None,
+        );
+    }
+    assert!(body.riding(), "the body never grounded on the floor");
+
+    // Run right, hard, for long enough to cross the whole room several times.
+    let running = SurfaceInputs {
+        local_axes: crate::LocalAxes::new(1.0, 0.0),
+        jump_pressed: false,
+    };
+    for _ in 0..600 {
+        step_surface_body(&mut body, &world, &params, frame, running, DT, None);
+    }
+
+    assert!(
+        body.pos.x < 944.0,
+        "the rider passed through the wall at x=944 and is at x={:.1} — a \
+         momentum character cannot be contained by any room made of blocks",
+        body.pos.x
+    );
+    assert!(
+        body.riding(),
+        "the rider left the ground; running into a wall must not shed it into \
+         a fall off the end of the world"
+    );
+    assert!(
+        body.pos.x > 900.0,
+        "the rider stopped at x={:.1}, nowhere near the wall — it is being \
+         blocked by something else, so this test would pass even if the wall \
+         were removed",
+        body.pos.x
+    );
+}

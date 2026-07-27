@@ -8095,39 +8095,39 @@
 							]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "OneWayPlatform",
 							"__grid": [93,40],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#A4D65E",
 							"__worldX": 1490,
 							"__worldY": 646,
-							"iid": "Solid-106894",
+							"iid": "OneWayPlatform-106894",
 							"width": 26,
 							"height": 26,
-							"defUid": 2001,
+							"defUid": 2003,
 							"px": [1490,646],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "monitor_super", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "monitor_super", "__tile": null, "defUid": 3008, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["monitor_super"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "OneWayPlatform",
 							"__grid": [290,24],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#A4D65E",
 							"__worldX": 4650,
 							"__worldY": 390,
-							"iid": "Solid-106895",
+							"iid": "OneWayPlatform-106895",
 							"width": 26,
 							"height": 26,
-							"defUid": 2001,
+							"defUid": 2003,
 							"px": [4650,390],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "monitor_speed", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "monitor_speed", "__tile": null, "defUid": 3008, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["monitor_speed"]
 							}] }]

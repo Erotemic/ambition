@@ -140,6 +140,16 @@ pub fn seat_character(
                 .with_motion_model(motion_model),
                 cluster,
                 action_set,
+                // `Name` and `ActorMoveset` are here for one reason: they are
+                // REQUIRED columns of `apply_worn_character_gameplay`, the ONE
+                // writer that turns `WornCharacter` into a persona (name, action
+                // set, moveset, identity kit). A body missing either does not
+                // match the derive at all, so it wears a character and derives
+                // nothing from it — the fighter walks and cannot swing. Both are
+                // placeholders; the derive overwrites them on the tick the worn
+                // character lands.
+                Name::new(prepared.display_name.clone()),
+                crate::combat::moveset::ActorMoveset(Default::default()),
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component: the moveset and silhouette arrive via

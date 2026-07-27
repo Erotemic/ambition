@@ -376,6 +376,13 @@ impl ActiveAudioSelection {
         let primary_sfx_source = PresentationSourceId::new(provider_id.clone());
         let primary =
             ActiveSfxSource::new(provider_id.clone(), sfx, bank_ids, explicit_sfx_allowlist);
+        // A new authority starts with a clean conflict list. The conflicts
+        // describe cues that fail to resolve UNDER THE ACTIVE SELECTION — that
+        // is what the accessor's own documentation promises — so carrying them
+        // across a selection change turns a live diagnostic into historical
+        // residue, and every later clean session reports the first bad one
+        // forever (GPT 5.6, 2026-07-27).
+        self.sfx_source_conflicts.clear();
         self.current = Some(ActiveAudioAuthority {
             owner,
             provider_id,
@@ -390,11 +397,13 @@ impl ActiveAudioSelection {
 
     pub fn clear(&mut self) {
         self.current = None;
+        self.sfx_source_conflicts.clear();
     }
 
     pub fn clear_if_owner(&mut self, owner: AudioContextOwner) {
         if self.owner() == Some(owner) {
             self.current = None;
+            self.sfx_source_conflicts.clear();
         }
     }
 
@@ -876,6 +885,44 @@ mod source_claim_tests {
 
         assert_eq!(ids(&forward), 2);
         assert_eq!(ids(&backward), 2);
+    }
+
+    /// A conflict describes the ACTIVE selection, not the history of the process.
+    ///
+    /// `sfx_source_conflicts` documents itself as "a provider's cues currently
+    /// fail to resolve". Carrying the list across a selection change makes that
+    /// sentence false: one bad session poisons every later clean one, and the
+    /// diagnostic quietly becomes residue nobody can act on.
+    #[test]
+    fn a_new_selection_does_not_inherit_the_previous_one_s_conflicts() {
+        let mut selection = gameplay();
+        selection.authorize_sfx_source("shared", "sanic", None, BTreeSet::from([cue("a")]));
+        selection.authorize_sfx_source("shared", "mary_o", None, BTreeSet::from([cue("b")]));
+        assert_eq!(
+            selection.sfx_source_conflicts().len(),
+            1,
+            "the fixture never produced a conflict, so this proves nothing"
+        );
+
+        // Ending the session clears it...
+        selection.clear();
+        assert!(
+            selection.sfx_source_conflicts().is_empty(),
+            "a conflict outlived the selection it described"
+        );
+
+        // ...and so does selecting a NEW authority on the same resource, which
+        // is the path a shell host takes between two games — it re-selects
+        // rather than clearing first.
+        let mut across_games = gameplay();
+        across_games.authorize_sfx_source("shared", "sanic", None, BTreeSet::from([cue("a")]));
+        across_games.authorize_sfx_source("shared", "mary_o", None, BTreeSet::from([cue("b")]));
+        assert_eq!(across_games.sfx_source_conflicts().len(), 1);
+        across_games.select_gameplay(2, "host", None, None, Default::default());
+        assert!(
+            across_games.sfx_source_conflicts().is_empty(),
+            "the next game's audio authority reported the previous game's conflict"
+        );
     }
 
     /// **The genuine conflict, which is NOT a merge.**

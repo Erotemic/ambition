@@ -1180,7 +1180,8 @@ persisting too much runtime state.
 restores intentional state through the canonical construction and lifecycle
 paths, including a tested version transition.
 
-**Status 2026-07-27 — MET, after BOTH halves were made real the same day.**
+**Status 2026-07-27 — PARTIAL. Same-room restoration works; "resume where you
+last rested" does not.**
 
 ⚠ This row claimed "met" twice before it was true, in two different ways, and
 both corrections are worth keeping visible.
@@ -1197,10 +1198,29 @@ Both halves now exist. `PersistedCheckpoint { room_id, x, y }` is schema v3 —
 which is what finally exercised the migration chain on a real change rather than
 a hypothetical one — recorded by the shrine and applied by
 `restore_checkpoint_on_session_start` through `transit_body`, the one transit
-authority, so arrival is at rest with contacts reconciled. A checkpoint in another
-room is deliberately not applied; that is what the room id is for. Cutscene
-progress and the encounter/switch state ride the same save, so "intentional state"
-is more than a position.
+authority, so arrival is at rest with contacts reconciled. Cutscene progress and
+the encounter/switch state ride the same save, so "intentional state" is more
+than a position.
+
+⚠ **THIRD correction, and this row is NOT met (GPT 5.6, 2026-07-27, correct).**
+The saved `room_id` is never used to CHOOSE the opening room — it is only
+compared against whatever room the session already opened, and a mismatch
+returns. So a player who rests in room B, quits, and starts a session that opens
+in room A does not resume at their checkpoint; they start in A. Worse, the
+generation latch is set BEFORE the room comparison, so walking into B later in
+that same session does not apply it either.
+
+The previous draft called the mismatch "deliberately not applied; that is what
+the room id is for", and that sentence is true of the COMPARISON and false as a
+description of the feature. Refusing to teleport a body into another room's
+coordinates is right. Refusing to OPEN the checkpoint's room is the gap, and
+naming the first does not discharge the second.
+
+▢ **What is left:** startup routing has to consult the checkpoint when choosing
+the initial room, and the latch has to stay open until the checkpoint's room is
+actually entered (or be keyed per room rather than per session). Until then this
+row is same-room position restoration, which is a real feature and is not the
+exit criterion.
 
 **Correction to this row's first draft**, which said versioning did not exist:
 that was grepped from `save.rs` alone, and the version lives in `save_data.rs`.

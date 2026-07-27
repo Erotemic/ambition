@@ -272,8 +272,7 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 
 use crate::combat::hitbox::apply_hitbox_damage;
 use crate::combat::moveset::{
-    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, ActorMoveset,
-    MovePlayback,
+    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
 };
 use crate::features::apply_feature_hit_events;
 use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};
@@ -431,12 +430,14 @@ fn spawn_fighter(
                 crate::features::MotionModel::default(),
             ),
             (identity, disposition, combat, intent, cooldowns, faction),
-            // §7.6 → gameplay: the character's OWN authored moveset and silhouette,
-            // straight off the prepared definition. This is the join the plan is
-            // for — a provider registered a character, and this body fights with
-            // exactly what that provider authored.
-            ActorMoveset(prepared.moveset.clone().expect("authored moveset")),
-            AuthoredHurtboxes(prepared.hurtboxes.clone().expect("authored hurtboxes")),
+            // §7.6 → gameplay: the character's own authored moveset and silhouette
+            // are NOT inserted here. `project_prepared_character_definitions` puts
+            // them on the body from the registry, which is C3 — the join the plan is
+            // for. This fixture used to do it by hand, and that hand projection was
+            // the whole reason A1's ✔ was narrower than it read: it proved the
+            // projection works, not that registering a character reaches a body.
+            // Deleting it is what makes this test evidence for the engine seam.
+            //
             // A fighter WEARS the character it fights as. Without this the body
             // carries a moveset and a silhouette from a provider it cannot name:
             // `ActorClusterSeed` resolves `CombatTuning::sprite_character_id` by
@@ -444,8 +445,6 @@ fn spawn_fighter(
             // character is absent from, so every cue the body emitted was credited
             // to whoever owned the session.
             ambition_characters::actor::WornCharacter::new(character_id),
-            ResolvedHurtboxes::default(),
-            crate::combat::components::DamageableVolumes::default(),
             // The control seam + the gesture state §7.9 interprets.
             ActorControl(ActorControlFrame::default()),
             ambition_characters::actor::attack_gesture::AttackGestureState::default(),
@@ -517,7 +516,14 @@ fn fight_app() -> App {
             apply_feature_hit_events,
             decay_reaction_timers,
         )
-            .chain(),
+            .chain()
+            // The engine projects a registered character's moveset and silhouette
+            // onto the body (C3), and everything below reads what it projects. In
+            // production that edge comes from `SandboxSet::Combat`'s internal order;
+            // this fixture composes the systems by hand, so it has to name the edge
+            // by hand. Without it the projection landed AFTER the move trigger and
+            // the first swing of the fight found no moveset.
+            .after(crate::character_runtime::project_prepared_character_definitions),
     );
     app.init_resource::<Traded>();
     app.init_resource::<Heard>();

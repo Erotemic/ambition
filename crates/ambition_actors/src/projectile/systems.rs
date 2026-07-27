@@ -832,19 +832,17 @@ mod parry_tests {
                 ambition_sfx::PresentationSourceId::new("mary_o_demo"),
             ))
             .id();
-        app.world_mut()
-            .spawn((
-                BodyKinematics {
-                    pos: ae::Vec2::ZERO,
-                    vel: ae::Vec2::new(100.0, 0.0),
-                    size: ae::Vec2::new(8.0, 8.0),
-                    facing: 1.0,
-                },
-                ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(
-                    "sanic_demo",
-                )),
-            ))
-            .id();
+        app.world_mut().spawn((
+            BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::new(100.0, 0.0),
+                size: ae::Vec2::new(8.0, 8.0),
+                facing: 1.0,
+            },
+            ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(
+                "sanic_demo",
+            )),
+        ));
         app.insert_resource(Parrier(parrier));
         app.add_systems(Update, reflect_the_shot);
         app.update();

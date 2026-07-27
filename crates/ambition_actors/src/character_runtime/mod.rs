@@ -55,7 +55,8 @@ pub use hurtbox::{
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
-    provider_of_character, publish_body_presentation_sources,
+    project_prepared_character_definitions, provider_of_character,
+    publish_body_presentation_sources,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -711,6 +712,11 @@ impl Plugin for CharacterRuntimePlugin {
                 // exists for, so a frame-scheduled publish would hand it stale (or
                 // missing) attribution on exactly the ticks a rollback resimulates.
                 (
+                    // C3: a registered character's authored moveset and silhouette
+                    // land on the body BEFORE the move clock reads either. First in
+                    // the chain because the two systems after it consult what this
+                    // one projects.
+                    presentation::project_prepared_character_definitions,
                     presentation::publish_body_presentation_sources,
                     // G1/H1: the BACKSTOP for a projectile that reached the world
                     // without a source. The materializers stamp it themselves —

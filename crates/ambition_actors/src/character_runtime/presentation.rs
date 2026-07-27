@@ -242,5 +242,97 @@ pub fn inherit_projectile_presentation_sources(
     }
 }
 
+/// **C3: a registered character's authored fight reaches a spawned BODY.**
+///
+/// §4.1's end state is that the prepared registry replaces the old seams; A1 built
+/// the DECLARATION half (sheets, cue authorization, presentation source) and left
+/// construction reading `CharacterCatalog`. So registering a character with a
+/// moveset and a silhouette produced a definition nothing spawned ever consulted —
+/// the §7.10 fight test had to project it onto its own bodies by hand, which proved
+/// the projection works and not that registration reaches production.
+///
+/// This is that projection, once, in the engine. It runs on the same identity chain
+/// as [`publish_body_presentation_sources`] — the worn character, falling back to
+/// the sprite character its combat tuning names — because a body's identity must
+/// mean the same thing to every derivation that reads it. In practice that reaches
+/// both the player (which carries `WornCharacter`) and every spawned actor (which
+/// carries only `CombatTuning`).
+///
+/// **The registry wins where it authored something**, matching `provider_of_character`
+/// and `sheet_for_declared_character`: a character that exists in both authorities
+/// is the registry's. Where the definition authored `None` the catalog's value
+/// stands untouched, which is the ordinary migration state and not a conflict —
+/// `audit_character_authority_parity` reports the case where the two disagree.
+///
+/// Triggered by change detection rather than an already-projected marker,
+/// deliberately:
+/// a marker would be one more component to register for rollback, and bevy_ggrs
+/// recreating an entity re-inserts its components, so the same edge that fires at
+/// spawn fires again after a load. Wearing a different character (a power-up tier,
+/// a super form) re-projects for free.
+///
+/// Vitals are NOT projected. Health is live state, and writing a definition's max
+/// HP onto a body mid-fight would heal it on every transformation — a spawn-time
+/// concern that belongs to whatever constructs the body, not to a per-tick
+/// derivation.
+pub fn project_prepared_character_definitions(
+    mut commands: Commands,
+    registry: Option<Res<PreparedCharacterRegistry>>,
+    bodies: Query<
+        (
+            Entity,
+            Option<&ambition_characters::actor::WornCharacter>,
+            Option<&crate::combat::CombatTuning>,
+        ),
+        Or<(
+            Changed<ambition_characters::actor::WornCharacter>,
+            Added<crate::combat::CombatTuning>,
+        )>,
+    >,
+) {
+    let Some(registry) = registry else {
+        return;
+    };
+    for (entity, worn, tuning) in &bodies {
+        let character_id = worn
+            .map(ambition_characters::actor::WornCharacter::id)
+            .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
+        let Some(prepared) = character_id.and_then(|id| registry.get(id)) else {
+            continue;
+        };
+        if let Some(moveset) = prepared.moveset.clone() {
+            let has_attack = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::ATTACK_VERB);
+            let has_ranged = moveset
+                .verbs
+                .contains_key(crate::combat::moveset::RANGED_VERB);
+            commands
+                .entity(entity)
+                .insert(crate::combat::moveset::ActorMoveset(moveset));
+            // The same two markers `ActorClusterSeed::into_components` derives from
+            // an authored moveset, for the same reason: they are what route melee
+            // and ranged through the move timeline instead of the flat emission.
+            if has_attack {
+                commands
+                    .entity(entity)
+                    .insert(crate::combat::moveset::MovesetMelee);
+            }
+            if has_ranged {
+                commands
+                    .entity(entity)
+                    .insert(ambition_characters::brain::MovesetRanged);
+            }
+        }
+        if let Some(hurtboxes) = prepared.hurtboxes.clone() {
+            commands.entity(entity).insert((
+                super::AuthoredHurtboxes(hurtboxes),
+                super::ResolvedHurtboxes::default(),
+                crate::combat::components::DamageableVolumes::default(),
+            ));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -495,6 +495,17 @@ pub struct ActorRenderIndex {
 }
 
 impl ActorRenderIndex {
+    /// Build an index from explicit rows — see
+    /// [`FeatureViewIndex::from_rows`] for why a read-model owes its consumers
+    /// a fixture constructor.
+    pub fn from_rows(entries: impl IntoIterator<Item = (String, ActorRenderView)>) -> Self {
+        let mut index = Self::default();
+        for (id, view) in entries {
+            index.views.insert(id, (view, index.generation));
+        }
+        index
+    }
+
     pub fn get(&self, id: &str) -> Option<&ActorRenderView> {
         self.views.get(id).map(|(view, _)| view)
     }

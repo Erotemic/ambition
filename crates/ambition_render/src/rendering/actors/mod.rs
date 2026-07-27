@@ -52,7 +52,11 @@ pub fn ensure_player_visual_sprite(
     >,
 ) {
     for entity in &players {
-        commands.entity(entity).insert(Sprite::from_color(
+        // `try_insert`: REPRODUCED (queue L24). A `PlayerVisual` is
+        // session-scoped, and session teardown despawns the whole scope — so a
+        // provider switch on the frame this safety net fires lands the sprite on
+        // a dead entity.
+        commands.entity(entity).try_insert(Sprite::from_color(
             Color::srgba(0.18, 0.55, 1.0, 1.0),
             BVec2::ONE,
         ));
@@ -633,7 +637,12 @@ pub fn upgrade_actor_sprites(
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
         // The trimmed-sheet render basis is the sprite's own size + anchor, so
         // the renderer self-captures it — nothing to thread in here.
-        commands.entity(entity).insert((
+        // `try_insert`: REPRODUCED (queue L24), and the same shape as the boss
+        // twin — these are `FeatureVisual` entities, which
+        // `despawn_dead_dynamic_feature_visuals` retires the moment a feature's
+        // view disappears. An actor dying on the frame its sheet finishes
+        // decoding is the ordinary way to hit it.
+        commands.entity(entity).try_insert((
             sprite,
             anchor,
             CharacterAnimator::new(character_asset),

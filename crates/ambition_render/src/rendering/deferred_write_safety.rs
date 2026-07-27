@@ -43,12 +43,67 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
 ) where
     P: bevy::ecs::schedule::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
 {
-    app.add_systems(schedule.clone(), pass);
-    // Chained AFTER the pass and still inside the same schedule, so both sets of
-    // commands land in the same flush — which is precisely the frame shape that
-    // produced the crash.
-    app.add_systems(schedule, despawn_doomed::<Doomed>);
+    // The teardown is CHAINED BEFORE the pass, and that is the whole fidelity of
+    // this harness.
+    //
+    // Deferred commands apply at the sync point in the order their systems ran.
+    // For the pass's `insert` to land on a dead entity, the despawn has to be
+    // QUEUED FIRST — while the entity is still live, so the pass's query still
+    // yields it. That is exactly the production shape: one system reads an
+    // entity another system has already asked to despawn, and the flush honours
+    // the despawn first.
+    //
+    // It used to be two unordered `add_systems` calls under a comment claiming
+    // "chained AFTER the pass". Neither half was true: nothing chained them, so
+    // which ran first was the scheduler's choice, and a probe reported a hazard
+    // as absent whenever the pass happened to win. That is how
+    // `upgrade_actor_sprites` passed this harness while holding a plain
+    // `insert` (2026-07-27).
+    // `chain_ignore_deferred`, NOT `chain`: a plain `.chain()` inserts an
+    // `ApplyDeferred` sync point between the two, so the despawn would be
+    // APPLIED before the pass runs and the pass's query would never yield the
+    // entity at all. That is the safe case, not the hazard — and it is what made
+    // the harness's own meta-test stop failing when the ordering was first
+    // corrected. Both command buffers must reach ONE flush.
+    app.add_systems(
+        schedule,
+        (despawn_doomed::<Doomed>, pass).chain_ignore_deferred(),
+    );
     app.update();
+}
+
+/// The same frame, plus PROOF the pass did something.
+///
+/// A probe whose fixture misses one precondition takes an early-out, never
+/// reaches the deferred write, and passes — reporting a hazard as absent when it
+/// was simply never exercised. The portal probe did exactly that on its first
+/// outing, and the actor-sprite probe below did it again on its first run: green
+/// against an unconverted `insert`, because the pass had skipped the entity.
+///
+/// So the caller spawns a WITNESS alongside the doomed target — same population,
+/// same frame, not despawned — and names a component the pass must have written
+/// to it. If the witness is untouched, the fixture was wrong and the run proved
+/// nothing.
+pub fn run_frame_despawning_targets_with_witness<Doomed, Witness, Written, M, P>(
+    app: &mut App,
+    schedule: impl ScheduleLabel + Clone,
+    pass: P,
+) where
+    Doomed: Component,
+    Witness: Component,
+    Written: Component,
+    P: bevy::ecs::schedule::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+{
+    run_frame_despawning_targets::<Doomed, M, P>(app, schedule, pass);
+    let world = app.world_mut();
+    let mut witnesses = world.query_filtered::<(), (With<Witness>, With<Written>)>();
+    assert!(
+        witnesses.iter(world).next().is_some(),
+        "the pass wrote nothing to the surviving witness, so it took an early-out \
+         and never reached the deferred write this probe exists to exercise. The \
+         fixture is missing a precondition — a green result here would report a \
+         hazard as absent when it was never tried."
+    );
 }
 
 fn despawn_doomed<Doomed: Component>(mut commands: Commands, doomed: Query<Entity, With<Doomed>>) {
@@ -127,6 +182,12 @@ mod production_passes {
     #[derive(Component)]
     struct Doomed;
 
+    /// Survives the frame and proves the pass reached its write. Added
+    /// 2026-07-27, after the harness's ordering bug showed that a probe passing
+    /// is not the same as a probe running.
+    #[derive(Component)]
+    struct Witness;
+
     /// Portal sprite marking targets `PropVisual` entities, which room teardown
     /// despawns with the room.
     #[test]
@@ -156,11 +217,25 @@ mod production_passes {
             Visibility::default(),
             Doomed,
         ));
-        run_frame_despawning_targets::<Doomed, _, _>(
-            &mut app,
-            Update,
-            sync_portal_sprite_visibility,
-        );
+        app.world_mut().spawn((
+            PropVisual {
+                id: "w".into(),
+                kind: "portal".into(),
+                name: "portal".into(),
+                size: Vec2::splat(16.0),
+                draw: Default::default(),
+                flip_y: false,
+            },
+            Visibility::default(),
+            Witness,
+        ));
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            crate::rendering::primitives::PortalSprite,
+            _,
+            _,
+        >(&mut app, Update, sync_portal_sprite_visibility);
     }
 
     #[test]
@@ -174,14 +249,18 @@ mod production_passes {
         });
         app.init_resource::<ambition_sim_view::FeatureViewIndex>();
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
-        // A sprite entity that a teardown is about to take.
+        // A sprite entity that a teardown is about to take, and one that
+        // survives to prove the pass reached its write.
         app.world_mut().spawn((Sprite::default(), Doomed));
+        app.world_mut().spawn((Sprite::default(), Witness));
 
-        run_frame_despawning_targets::<Doomed, _, _>(
-            &mut app,
-            Update,
-            apply_placeholder_sprites_override,
-        );
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            crate::rendering::actors::SpriteOriginalState,
+            _,
+            _,
+        >(&mut app, Update, apply_placeholder_sprites_override);
     }
 }
 
@@ -203,9 +282,14 @@ mod boss_pass {
     #[derive(Component)]
     struct Doomed;
 
-    const BOSS_ID: &str = "probe_boss";
+    /// Survives the frame and proves the pass reached its write.
+    #[derive(Component)]
+    struct Witness;
 
-    fn a_boss_view() -> ambition_sim_view::FeatureView {
+    const BOSS_ID: &str = "probe_boss";
+    const WITNESS_ID: &str = "probe_boss_witness";
+
+    pub(super) fn a_feature_view() -> ambition_sim_view::FeatureView {
         ambition_sim_view::FeatureView {
             pos: ambition_engine_core::Vec2::new(64.0, 64.0),
             size: ambition_engine_core::Vec2::new(96.0, 128.0),
@@ -262,17 +346,18 @@ mod boss_pass {
 
         // Both read-models must carry the id: the boss identity is the GATE, and
         // the geometry view supplies the render size.
-        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
-            BOSS_ID.to_string(),
-            a_boss_view(),
-        )]));
-        app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(
-            BOSS_ID.to_string(),
-            ambition_sim_view::BossRenderView {
-                name: "Probe Boss".to_string(),
-                behavior_id: "probe_boss".to_string(),
-            },
-        )]));
+        let identity = || ambition_sim_view::BossRenderView {
+            name: "Probe Boss".to_string(),
+            behavior_id: "probe_boss".to_string(),
+        };
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
+            (BOSS_ID.to_string(), a_feature_view()),
+            (WITNESS_ID.to_string(), a_feature_view()),
+        ]));
+        app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([
+            (BOSS_ID.to_string(), identity()),
+            (WITNESS_ID.to_string(), identity()),
+        ]));
 
         // A boss visual with neither animator — the exact population the pass
         // upgrades — that a teardown is about to take.
@@ -282,11 +367,160 @@ mod boss_pass {
             },
             Doomed,
         ));
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: WITNESS_ID.to_string(),
+            },
+            Witness,
+        ));
 
-        run_frame_despawning_targets::<Doomed, _, _>(
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            ambition_sprite_sheet::boss::BossAnimator,
+            _,
+            _,
+        >(&mut app, Update, crate::rendering::actors::upgrade_boss_sprites);
+    }
+}
+
+/// The character-sprite passes — the "also worth doing" half of L24.
+///
+/// `upgrade_actor_sprites` is the boss pass's twin over the ordinary actor
+/// population, and its targets are the same `FeatureVisual` entities
+/// `despawn_dead_dynamic_feature_visuals` retires. The two player passes target
+/// `PlayerVisual`, which session teardown takes.
+#[cfg(test)]
+mod character_sprite_passes {
+    use super::*;
+    use crate::rendering::primitives::{FeatureVisual, PlayerVisual};
+
+    #[derive(Component)]
+    struct Doomed;
+
+    const ACTOR_ID: &str = "probe_actor";
+    const WITNESS_ID: &str = "probe_actor_witness";
+    const ACTOR_NAME: &str = "Probe Actor";
+
+    /// Survives the frame, and proves the pass reached its write. See
+    /// [`run_frame_despawning_targets_with_witness`].
+    #[derive(Component)]
+    struct Witness;
+
+    /// A real baked sheet, resolved through the same loader production uses.
+    ///
+    /// Hand-rolling a `CharacterSheetSpec` would be a fixture agreeing with
+    /// itself; this asks the shipped record table for one, so a probe cannot
+    /// pass against geometry no sheet has.
+    fn a_published_sheet(
+        app: &mut App,
+    ) -> Option<ambition_sprite_sheet::character::CharacterSpriteAsset> {
+        use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
+
+        let spec = try_load_spec_for_target("robot", &SheetTuning::new(1.0, 1))?;
+        let texture = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+        let layout = app
+            .world_mut()
+            .resource_mut::<Assets<bevy::image::TextureAtlasLayout>>()
+            .add(bevy::image::TextureAtlasLayout::new_empty(
+                bevy::math::UVec2::splat(128),
+            ));
+        Some(ambition_sprite_sheet::character::CharacterSpriteAsset {
+            texture: texture.clone(),
+            layout: layout.clone(),
+            spec,
+            pages: vec![ambition_sprite_sheet::character::CharacterSpritePage {
+                texture,
+                layout,
+            }],
+        })
+    }
+
+    fn asset_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.init_asset::<bevy::image::TextureAtlasLayout>();
+        app
+    }
+
+    #[test]
+    fn the_actor_sprite_upgrade_survives_its_target_being_retired() {
+        let mut app = asset_app();
+        let Some(sheet) = a_published_sheet(&mut app) else {
+            // The baked record table is populated by `build.rs` from
+            // `assets/sprites`. A checkout without it cannot run this probe, and
+            // a probe that silently "passes" there would be the vacuous kind.
+            eprintln!(
+                "[deferred-write] SKIPPED: no baked `robot` sheet record, so this fixture \
+                 cannot reach the insert it exists to exercise"
+            );
+            return;
+        };
+        let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
+        assets.characters.publish(ACTOR_NAME, sheet);
+        app.insert_resource(assets);
+
+        let identity = || ambition_sim_view::ActorRenderView {
+            name: ACTOR_NAME.to_string(),
+            sprite_override_name: None,
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+        };
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
+            (ACTOR_ID.to_string(), super::boss_pass::a_feature_view()),
+            (WITNESS_ID.to_string(), super::boss_pass::a_feature_view()),
+        ]));
+        // The identity read-model: without a row the pass skips a frame, and the
+        // probe would prove nothing.
+        app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([
+            (ACTOR_ID.to_string(), identity()),
+            (WITNESS_ID.to_string(), identity()),
+        ]));
+        // Empty: a boss id would make the actor path YIELD rather than bind.
+        app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: ACTOR_ID.to_string(),
+            },
+            Doomed,
+        ));
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: WITNESS_ID.to_string(),
+            },
+            Witness,
+        ));
+
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            ambition_sprite_sheet::character::CharacterAnimator,
+            _,
+            _,
+        >(
             &mut app,
             Update,
-            crate::rendering::actors::upgrade_boss_sprites,
+            crate::rendering::actors::upgrade_actor_sprites,
+        );
+    }
+
+    /// The bare-player safety net: a `PlayerVisual` with no worn identity and no
+    /// sprite, which session teardown can take before the flush.
+    #[test]
+    fn the_bare_player_sprite_fallback_survives_its_target_being_retired() {
+        let mut app = App::new();
+        app.world_mut().spawn((PlayerVisual, Doomed));
+        app.world_mut().spawn((PlayerVisual, Witness));
+        run_frame_despawning_targets_with_witness::<Doomed, Witness, Sprite, _, _>(
+            &mut app,
+            Update,
+            crate::rendering::actors::ensure_player_visual_sprite,
         );
     }
 }

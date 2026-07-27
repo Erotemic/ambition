@@ -200,8 +200,41 @@ pub struct SandboxSaveData {
 
 pub const CURRENT_SAVE_VERSION: u32 = 2;
 
+/// What a file with no `version` field actually is: written by a build from
+/// before the field existed, i.e. v1.
+///
+/// This used to default to [`CURRENT_SAVE_VERSION`], which made every
+/// pre-versioning file CLAIM to be current — the one thing a version tag exists
+/// to prevent. Nothing read the tag, so nothing noticed.
+pub const PRE_VERSIONING_SAVE_VERSION: u32 = 1;
+
 fn default_save_version() -> u32 {
-    CURRENT_SAVE_VERSION
+    PRE_VERSIONING_SAVE_VERSION
+}
+
+/// What loading a file concluded about its format.
+///
+/// Returned rather than logged because the interesting case is not "it worked":
+/// [`SaveCompatibility::FromTheFuture`] means the caller MUST NOT write over the
+/// file, and a caller that cannot see the verdict cannot honour that.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveCompatibility {
+    /// Already at [`CURRENT_SAVE_VERSION`].
+    Current,
+    /// Upgraded from an older version, which is named so a log line can say it.
+    Migrated { from: u32 },
+    /// Written by a NEWER build than this one. Not an error to read — the data
+    /// that parsed is still there — but writing over it destroys whatever the
+    /// newer build knew and this one does not. A player who launches an older
+    /// build once should not lose the save they made in the newer one.
+    FromTheFuture { found: u32 },
+}
+
+impl SaveCompatibility {
+    /// May this build commit its own state over the file it read?
+    pub fn is_writable(self) -> bool {
+        !matches!(self, Self::FromTheFuture { .. })
+    }
 }
 
 /// A fresh save stamped with the current version. `Default` delegates here so a
@@ -382,6 +415,52 @@ impl SandboxSaveData {
         before - self.flags.len()
     }
 
+    /// Bring a just-deserialized save up to [`CURRENT_SAVE_VERSION`], reporting
+    /// what it found.
+    ///
+    /// The version field has existed since v2 and was WRITTEN and never READ:
+    /// no migration, no compatibility check, no consumer anywhere in the
+    /// workspace. A tag nothing reads is not a tag, and the cost only arrives
+    /// once real player files exist — which is why this landed before release
+    /// rather than after.
+    ///
+    /// Steps run in sequence so each one only has to know how to get from `n` to
+    /// `n + 1`. v1 → v2 is deliberately EMPTY and deliberately present: the wire
+    /// change was additive (`#[serde(default)]` on the new collections already
+    /// fills them), so there is nothing to do — but the step has to exist, or the
+    /// first migration that does something real would also be the first one that
+    /// has to invent the mechanism, under pressure, with player data at stake.
+    #[must_use]
+    pub fn migrate(&mut self) -> SaveCompatibility {
+        if self.version > CURRENT_SAVE_VERSION {
+            return SaveCompatibility::FromTheFuture {
+                found: self.version,
+            };
+        }
+        if self.version == CURRENT_SAVE_VERSION {
+            return SaveCompatibility::Current;
+        }
+        let from = self.version;
+        while self.version < CURRENT_SAVE_VERSION {
+            match self.version {
+                // v1 → v2: `bosses`, `quests`, `flags`, `dialog_visits`, `items`,
+                // `wallet` and `inventory_saved` were added. Every one is
+                // `#[serde(default)]`, so deserialization already produced the
+                // right empty value; the upgrade is the version stamp itself.
+                1 => {}
+                // Unreachable while the loop bound is CURRENT_SAVE_VERSION, but a
+                // future version added without a step must not spin here.
+                other => {
+                    self.version = CURRENT_SAVE_VERSION;
+                    debug_assert!(false, "no migration step from save version {other}");
+                    break;
+                }
+            }
+            self.version += 1;
+        }
+        SaveCompatibility::Migrated { from }
+    }
+
     /// Wholesale clear all gameplay state. Keeps `version` so the
     /// schema remains current. Used by debug "reset save" hooks and
     /// tests.
@@ -448,11 +527,76 @@ mod tests {
         assert_eq!(s, restored);
     }
 
+    /// A file with no `version` field was written before the field existed —
+    /// it is v1, and saying so is the entire job of a version tag.
+    ///
+    /// This test previously asserted the opposite (`uses_current`), which made
+    /// every pre-versioning file claim to be the current shape. That was
+    /// harmless only because nothing read the tag; the moment a migration exists,
+    /// it is the difference between upgrading a file and misreading it.
     #[test]
-    fn deserialize_missing_version_uses_current() {
+    fn a_file_with_no_version_field_is_the_version_from_before_the_field() {
         let json = r#"{"encounters":[],"switches":[]}"#;
         let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        assert_eq!(s.version, PRE_VERSIONING_SAVE_VERSION);
+    }
+
+    #[test]
+    fn a_fresh_save_is_stamped_current_and_needs_no_migration() {
+        let mut s = SandboxSaveData::new();
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
+        assert_eq!(s.migrate(), SaveCompatibility::Current);
+    }
+
+    /// The whole point: an old file becomes a current one, and says where it
+    /// came from so the log can too.
+    #[test]
+    fn an_old_save_migrates_up_to_the_current_version() {
+        let json = r#"{"version":1,"encounters":[{"id":"goblin_encounter","state":"Cleared"}],"switches":[]}"#;
+        let mut s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        assert_eq!(s.migrate(), SaveCompatibility::Migrated { from: 1 });
+        assert_eq!(s.version, CURRENT_SAVE_VERSION);
+        // Migrating must not cost the player anything it was carrying.
+        assert_eq!(
+            s.encounter("goblin_encounter"),
+            PersistedEncounterState::Cleared
+        );
+    }
+
+    /// The case that loses real progress if it is got wrong: a player runs a
+    /// newer build, then launches an older one. The older build cannot
+    /// understand the file, and must say so rather than quietly adopting it —
+    /// because whatever it adopts is what it will write back.
+    #[test]
+    fn a_save_from_a_newer_build_is_refused_rather_than_adopted() {
+        let mut s = SandboxSaveData::new();
+        s.version = CURRENT_SAVE_VERSION + 7;
+        assert_eq!(
+            s.migrate(),
+            SaveCompatibility::FromTheFuture {
+                found: CURRENT_SAVE_VERSION + 7
+            }
+        );
+        assert!(!s.migrate().is_writable());
+        // And it did NOT quietly stamp itself current on the way past.
+        assert_eq!(s.version, CURRENT_SAVE_VERSION + 7);
+    }
+
+    /// A migration is only worth having if it is total. Every version from the
+    /// first to the current one must arrive at the current one — the loop has a
+    /// step for each, and a version added without a step is the failure this
+    /// catches.
+    #[test]
+    fn every_version_in_range_migrates_to_current() {
+        for version in PRE_VERSIONING_SAVE_VERSION..=CURRENT_SAVE_VERSION {
+            let mut s = SandboxSaveData::new();
+            s.version = version;
+            let verdict = s.migrate();
+            assert_eq!(
+                s.version, CURRENT_SAVE_VERSION,
+                "version {version} did not reach the current version: {verdict:?}"
+            );
+        }
     }
 
     #[test]

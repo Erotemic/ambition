@@ -1153,26 +1153,37 @@ persisting too much runtime state.
 restores intentional state through the canonical construction and lifecycle
 paths, including a tested version transition.
 
-**Status 2026-07-27 — a checkpoint flow exists; VERSIONING does not exist at
-all.**
+**Status 2026-07-27 — MET, after the version transition was made real the same
+day.**
 
 `ambition_persistence::save::SandboxSave` is a live resource that autosaves on
-change, and the shrine is a real checkpoint author: touching the resource marks
-it dirty and `autosave_sandbox_save` persists it. Cutscene progress reads the
-same save, so "intentional state" is more than a position. That is a
-representative flow.
+change, and the shrine is a real checkpoint author. Cutscene progress reads the
+same save, so "intentional state" is more than a position. That half was already
+a representative flow.
 
-The second half is simply absent. `save.rs` contains no `version` field, no
-migration, and no word matching `migrate` — so the criterion's "tested version
-transition" cannot be partially credited: the FIRST time the save shape changes,
-every existing player file becomes a parse error or, worse, silently deserializes
-into the wrong meaning. This is the cheapest catastrophic-failure class on the
-whole roadmap to close, and it must be closed BEFORE anything ships, because
-after that the untagged files already exist.
+**Correction to this row's first draft**, which said versioning did not exist:
+that was grepped from `save.rs` alone, and the version lives in `save_data.rs`.
+`version: u32` and `CURRENT_SAVE_VERSION = 2` had existed for a while. The real
+defect was worse than absence and less visible — the tag was WRITTEN and never
+READ. No migration, no compatibility check, no consumer of `CURRENT_SAVE_VERSION`
+anywhere in the workspace, and `default_save_version()` returned CURRENT, so
+every pre-versioning file claimed to be the current shape. A tag nothing reads is
+not a tag; it is a comment that costs a field.
 
-Concrete next row: add a version tag and one migration step with a test that
-loads a v1 file into the current shape — the migration does not need to do
-anything yet, it needs to EXIST and be exercised.
+Closed 2026-07-27: `SandboxSaveData::migrate()` runs the version chain and
+returns a `SaveCompatibility` verdict, a missing field now means v1 (what it
+actually is), and `load_save` returns `LoadedSave { data, writable }`. The
+`writable` half is the part that protects a player: a save from a NEWER build, or
+bytes that will not parse, are read as a fresh sandbox and the file is LEFT
+ALONE, so an older build launched once cannot overwrite progress it could not
+understand. Seven tests, including two verified RED — remove the gate and both
+report the original file destroyed.
+
+The v1 → v2 step is deliberately empty and deliberately present: the wire change
+was additive, so there is nothing to do, but the mechanism has to exist before
+the first migration that does something real — otherwise that migration is also
+the one that has to invent the mechanism, under pressure, with player data at
+stake.
 
 ---
 

@@ -18,7 +18,8 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs as _, Startup, Update};
 
-        app.init_resource::<save::LastPersistedSave>()
+        app.init_resource::<save::SaveFileWritable>()
+            .init_resource::<save::LastPersistedSave>()
             .init_resource::<settings::persistence::LastPersistedSettings>()
             .add_systems(
                 Startup,

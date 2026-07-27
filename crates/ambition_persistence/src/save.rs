@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-use crate::save_data::SandboxSaveData;
+use crate::save_data::{SandboxSaveData, SaveCompatibility, CURRENT_SAVE_VERSION};
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
@@ -52,30 +52,99 @@ pub fn save_path_under(root: &Path) -> PathBuf {
     root.join(SANDBOX_SAVE_FILE)
 }
 
-pub fn load_save(path: &Path) -> SandboxSaveData {
+/// A save read from disk, together with whether this build may write over it.
+///
+/// The second field is the point. Every failure path here produces a usable
+/// `SandboxSaveData` — that is the long-standing and correct choice, since a
+/// player would rather start a fresh sandbox than stare at a crash — but
+/// "usable" and "safe to commit over the original" are different facts, and
+/// collapsing them is how an unreadable file becomes a destroyed one on the next
+/// autosave.
+#[derive(Clone, Debug)]
+pub struct LoadedSave {
+    pub data: SandboxSaveData,
+    /// False when the file on disk holds something this build must not replace:
+    /// a save from a NEWER build, or bytes it could not parse at all.
+    pub writable: bool,
+}
+
+impl LoadedSave {
+    /// A save that came from nowhere (no file yet) — fresh, and writable.
+    fn fresh() -> Self {
+        Self {
+            data: SandboxSaveData::default(),
+            writable: true,
+        }
+    }
+
+    /// A file exists and this build cannot safely replace it.
+    fn preserve() -> Self {
+        Self {
+            data: SandboxSaveData::default(),
+            writable: false,
+        }
+    }
+}
+
+pub fn load_save(path: &Path) -> LoadedSave {
     let bytes = match fs::read_to_string(path) {
         Ok(s) => s,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return SandboxSaveData::default();
+            return LoadedSave::fresh();
         }
         Err(error) => {
+            // The file EXISTS and could not be read (permissions, a bad mount, a
+            // transient I/O error). Playing on is fine; overwriting it is not —
+            // the next attempt might succeed, and it cannot if this session
+            // replaced the file with a blank one.
             warn!(
                 target: "ambition::save",
-                "could not read save file {}: {error}; using fresh sandbox",
+                "could not read save file {}: {error}; playing on a fresh sandbox \
+                 and NOT writing over the existing file",
                 path.display()
             );
-            return SandboxSaveData::default();
+            return LoadedSave::preserve();
         }
     };
     match ron::from_str::<SandboxSaveData>(&bytes) {
-        Ok(save) => save,
+        Ok(mut save) => match save.migrate() {
+            SaveCompatibility::Current => LoadedSave {
+                data: save,
+                writable: true,
+            },
+            SaveCompatibility::Migrated { from } => {
+                info!(
+                    target: "ambition::save",
+                    "migrated save file {} from version {from} to {CURRENT_SAVE_VERSION}",
+                    path.display(),
+                );
+                LoadedSave {
+                    data: save,
+                    writable: true,
+                }
+            }
+            SaveCompatibility::FromTheFuture { found } => {
+                // A player who launches an older build once must not lose the
+                // save they made in the newer one. Their progress is still on
+                // disk after this session; it just is not loaded.
+                warn!(
+                    target: "ambition::save",
+                    "save file {} is version {found}, newer than this build's \
+                     {CURRENT_SAVE_VERSION}; playing on a fresh sandbox and \
+                     leaving the file untouched",
+                    path.display(),
+                );
+                LoadedSave::preserve()
+            }
+        },
         Err(error) => {
             warn!(
                 target: "ambition::save",
-                "could not parse save file {}: {error}; using fresh sandbox",
+                "could not parse save file {}: {error}; playing on a fresh sandbox \
+                 and NOT writing over the existing file",
                 path.display()
             );
-            SandboxSaveData::default()
+            LoadedSave::preserve()
         }
     }
 }
@@ -92,22 +161,53 @@ pub fn write_save(path: &Path, save: &SandboxSaveData) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Whether this session may commit its save to disk.
+///
+/// Default TRUE, so any app that never loads a file (every test fixture, every
+/// headless harness) keeps saving exactly as it did. It is only ever cleared by
+/// [`load_save_at_startup`] finding something on disk it must not destroy.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SaveFileWritable(pub bool);
+
+impl Default for SaveFileWritable {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_save_at_startup(mut save: ResMut<SandboxSave>, mut last: ResMut<LastPersistedSave>) {
+pub fn load_save_at_startup(
+    mut save: ResMut<SandboxSave>,
+    mut last: ResMut<LastPersistedSave>,
+    mut writable: ResMut<SaveFileWritable>,
+) {
     let path = save_path();
     if !path.exists() {
         return;
     }
-    save.0 = load_save(&path);
+    let loaded = load_save(&path);
+    save.0 = loaded.data;
+    writable.0 = loaded.writable;
     // What we just read IS what is on disk, so the autosave has nothing to do
     // until something actually changes. Without this the first frame rewrites
     // the file it just finished reading.
     last.0 = Some(save.0.clone());
-    info!(
-        target: "ambition::save",
-        "loaded sandbox save from {}",
-        path.display()
-    );
+    if loaded.writable {
+        info!(
+            target: "ambition::save",
+            "loaded sandbox save from {}",
+            path.display()
+        );
+    } else {
+        // Said once, at the point of decision. The `warn!` inside `load_save`
+        // explains WHY; this says what it costs the player for the rest of the
+        // session, which is the part they need.
+        warn!(
+            target: "ambition::save",
+            "this session will not write to {} — progress made now is NOT being saved",
+            path.display()
+        );
+    }
 }
 
 /// What was last committed to disk. The autosave compares against this
@@ -139,7 +239,17 @@ pub struct LastPersistedSave(Option<SandboxSaveData>);
 /// racing them; if that moment never comes, not autosaving is the correct
 /// outcome, not a missed one.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn autosave_sandbox_save(save: Res<SandboxSave>, mut last: ResMut<LastPersistedSave>) {
+pub fn autosave_sandbox_save(
+    save: Res<SandboxSave>,
+    mut last: ResMut<LastPersistedSave>,
+    writable: Res<SaveFileWritable>,
+) {
+    // Startup found a file this build must not replace — a save from a newer
+    // build, or bytes it could not parse. Refusing to write is the whole
+    // protection; without this the first flag the player sets destroys it.
+    if !writable.0 {
+        return;
+    }
     if last.0.as_ref() == Some(&save.0) {
         return;
     }
@@ -183,7 +293,8 @@ mod tests {
         let root = temp_root("missing");
         let path = save_path_under(&root);
         let s = load_save(&path);
-        assert_eq!(s, SandboxSaveData::default());
+        assert_eq!(s.data, SandboxSaveData::default());
+        assert!(s.writable, "no file at all means a fresh, writable sandbox");
     }
 
     #[test]
@@ -195,7 +306,7 @@ mod tests {
         save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         save.set_switch("reset_switch", true);
         write_save(&path, &save).unwrap();
-        let restored = load_save(&path);
+        let restored = load_save(&path).data;
         assert_eq!(
             restored.encounter("goblin_encounter"),
             PersistedEncounterState::Cleared
@@ -278,7 +389,7 @@ mod tests {
         speculating(&mut app, 10, 10);
         app.update();
 
-        let written = load_save(&save_path_under(&root));
+        let written = load_save(&save_path_under(&root)).data;
         assert!(
             written.flag("reached_the_vault"),
             "the change made during the predicted window must not be lost"
@@ -328,9 +439,115 @@ mod tests {
         app.update();
 
         assert!(
-            load_save(&save_path_under(&root)).flag("reached_the_vault"),
+            load_save(&save_path_under(&root))
+                .data
+                .flag("reached_the_vault"),
             "a game that never speculates must save exactly as it always did"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A save written by a NEWER build survives being opened by an older one.
+    ///
+    /// This is the failure that cannot be undone: the player runs a new build,
+    /// makes progress, launches the old one for any reason, and the old one
+    /// writes its own understanding over a file it could not read. Playing on a
+    /// fresh sandbox is fine. Committing that sandbox is not.
+    #[test]
+    fn an_older_build_never_writes_over_a_newer_builds_save() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("from_the_future");
+        let path = save_path_under(&root);
+        let mut future = SandboxSaveData::default();
+        future.version = crate::save_data::CURRENT_SAVE_VERSION + 1;
+        future.set_flag("beat_the_final_boss", true);
+        write_save(&path, &future).unwrap();
+        let on_disk_before = fs::read_to_string(&path).unwrap();
+
+        std::env::set_var("AMBITION_DATA_DIR", &root);
+        let mut app = App::new();
+        app.init_resource::<SandboxSave>()
+            .init_resource::<crate::settings::UserSettings>()
+            .add_plugins(crate::PersistenceSchedulePlugin);
+        app.update();
+        // The session is playable, and playable means changes happen.
+        touch_save(&mut app, "wandered_around");
+        for _ in 0..3 {
+            app.update();
+        }
+
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            on_disk_before,
+            "an older build overwrote a save it could not understand — the \
+             player's progress in the newer build is gone"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The same protection for bytes that are not a save at all. A corrupt file
+    /// might be recoverable by hand, or might be the only copy of something; a
+    /// session that cannot read it has no business replacing it.
+    #[test]
+    fn an_unreadable_save_is_left_on_disk_rather_than_replaced() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("keep_corrupt");
+        let path = save_path_under(&root);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"garbage not ron").unwrap();
+
+        std::env::set_var("AMBITION_DATA_DIR", &root);
+        let mut app = App::new();
+        app.init_resource::<SandboxSave>()
+            .init_resource::<crate::settings::UserSettings>()
+            .add_plugins(crate::PersistenceSchedulePlugin);
+        app.update();
+        touch_save(&mut app, "wandered_around");
+        for _ in 0..3 {
+            app.update();
+        }
+
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "garbage not ron",
+            "the unreadable file was replaced; whatever it was is now unrecoverable"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// An old file is migrated on load AND written back at the current version,
+    /// so the tag on disk describes the shape that is actually there. Without
+    /// the rewrite, a v1 file stays labelled v1 forever no matter how many
+    /// current-shape saves are committed over it.
+    #[test]
+    fn a_migrated_save_is_written_back_at_the_current_version() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("migrate_write_back");
+        let path = save_path_under(&root);
+        let mut old = SandboxSaveData::default();
+        old.version = 1;
+        old.set_flag("found_the_shrine", true);
+        write_save(&path, &old).unwrap();
+
+        std::env::set_var("AMBITION_DATA_DIR", &root);
+        let mut app = App::new();
+        app.init_resource::<SandboxSave>()
+            .init_resource::<crate::settings::UserSettings>()
+            .add_plugins(crate::PersistenceSchedulePlugin);
+        app.update();
+        touch_save(&mut app, "kept_going");
+        for _ in 0..3 {
+            app.update();
+        }
+
+        let reread = load_save(&path);
+        assert!(reread.writable);
+        assert_eq!(reread.data.version, crate::save_data::CURRENT_SAVE_VERSION);
+        assert!(
+            reread.data.flag("found_the_shrine"),
+            "the migration must not cost the player what the old file held"
+        );
+        assert!(reread.data.flag("kept_going"));
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -342,7 +559,7 @@ mod tests {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, b"garbage not ron").unwrap();
         let s = load_save(&path);
-        assert_eq!(s, SandboxSaveData::default());
+        assert_eq!(s.data, SandboxSaveData::default());
         let _ = fs::remove_dir_all(&root);
     }
 }

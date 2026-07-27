@@ -399,9 +399,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "map.resource.encounter_registry",
         )
-        .rollback_resource_clone::<ambition_actors::abilities::traversal::possession::PossessionState>(
+        // G2b: probed through the possessed/home pair's stable identities. A
+        // presence probe over a singleton resource sees "still present" and
+        // nothing else — and a restore that exchanged the possessed body for the
+        // home avatar would invert the whole possession while folding the same
+        // census, which is why the ORDER of the pair is folded in.
+        .rollback_resource_clone_entity_set::<ambition_actors::abilities::traversal::possession::PossessionState>(
             ENGINE,
             "resource.possession_state",
+            |state| state.possessed.into_iter().chain(state.home).collect(),
         )
         .rollback_resource_map_entities::<ambition_actors::abilities::traversal::possession::PossessionState>(
             ENGINE,
@@ -528,9 +534,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         |volume| volume.owner,
     )
     .rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(ENGINE, "map.strike_volume")
-    .rollback_component_clone::<ambition_combat::on_hit::HitboxOnHit>(
+    // G2b: probed through the fired victims' stable identities. A presence
+    // count sees the component and nothing of WHO is in the set, so a remap
+    // redirecting one victim to the wrong body changes no census — and the
+    // visible consequence is a sustained overlap re-firing an on-hit at a body
+    // it has already fired at.
+    .rollback_component_clone_entity_set::<ambition_combat::on_hit::HitboxOnHit>(
         ENGINE,
         "combat.hitbox_on_hit",
+        |on_hit| on_hit.fired_victims(),
     )
     .rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(ENGINE, "map.hitbox_on_hit");
 

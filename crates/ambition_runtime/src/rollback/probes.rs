@@ -512,6 +512,37 @@ where
     ComponentCensus { count, xor: sum }
 }
 
+/// **Census a RESOURCE holding entity references, through stable sim identity.**
+///
+/// The resource twin of [`census_entity_set`]. A resource has no carrier entity
+/// to pair against, so the ORDER of the projected handles is the pairing: the
+/// index is folded in with each identity, which is what distinguishes
+/// `PossessionState { possessed: A, home: B }` from the same pair swapped — a
+/// restore that exchanged the possessed body and the home avatar would otherwise
+/// fold identically while inverting the whole possession.
+pub fn census_resource_entity_set<T>(
+    world: &mut World,
+    referenced: fn(&T) -> Vec<Entity>,
+) -> ComponentCensus
+where
+    T: Resource,
+{
+    let Some(targets) = world.get_resource::<T>().map(referenced) else {
+        return ComponentCensus { count: 0, xor: 0 };
+    };
+    let mut sum: u64 = 0;
+    for (index, target) in targets.iter().enumerate() {
+        let mut pair = [0u8; 16];
+        pair[..8].copy_from_slice(&(index as u64).to_le_bytes());
+        pair[8..].copy_from_slice(&stable_identity(world, *target).to_le_bytes());
+        sum = sum.wrapping_add(super::checksum_bytes(&pair));
+    }
+    ComponentCensus {
+        count: targets.len(),
+        xor: sum,
+    }
+}
+
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
 ///
 /// Weaker on purpose, and worth having: population change is exactly the failure

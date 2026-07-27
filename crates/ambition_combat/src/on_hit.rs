@@ -50,14 +50,19 @@ pub struct HitboxOnHit {
     /// Victims already fired for — one on-hit per target, mirroring
     /// `HitboxHits`. A fresh hitbox spawns per Active window, so this resets
     /// per strike.
-    fired: std::collections::HashSet<Entity>,
+    ///
+    /// A `BTreeSet`, not a `HashSet` (ADR 0023): the rollback localizer projects
+    /// this set through `fired_victims`, and a std hash container's iteration
+    /// order differs between runs. Ordering at the source beats sorting at every
+    /// reader.
+    fired: std::collections::BTreeSet<Entity>,
 }
 
 impl HitboxOnHit {
     pub fn new(effect: EffectRef) -> Self {
         Self {
             effect,
-            fired: std::collections::HashSet::new(),
+            fired: std::collections::BTreeSet::new(),
         }
     }
 
@@ -71,6 +76,15 @@ impl HitboxOnHit {
     /// Mark `target` as fired (idempotent).
     pub fn mark_fired(&mut self, target: Entity) {
         self.fired.insert(target);
+    }
+
+    /// The victims fired for, for the rollback localizer's stable-identity
+    /// projection (G2b). A presence probe counts the component and sees nothing
+    /// of WHO is in the set, so a remap that redirects one victim to the wrong
+    /// body changes no census — and the visible consequence is a sustained
+    /// overlap re-firing an on-hit at a body it already fired at.
+    pub fn fired_victims(&self) -> Vec<Entity> {
+        self.fired.iter().copied().collect()
     }
 }
 

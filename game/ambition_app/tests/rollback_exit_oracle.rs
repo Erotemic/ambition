@@ -471,10 +471,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // promise is actually written down instead.
     const PRESENCE_ONLY: &[(&str, &str)] = &[
         (
-            "ambition_actors::abilities::traversal::possession::PossessionState",
-            "holds an entity handle; wants the stable-identity pair projection (G2b)",
-        ),
-        (
             "ambition_actors::avatar::components::PlayerBlinkCameraState",
             "presentation camera state, republished from the blink clock",
         ),
@@ -492,7 +488,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_actors::encounter::switches::SwitchActivationQueue",
-            "queued activations carry target handles; wants stable identities (G2b)",
+            "queued activations are (id, action, target) STRINGS — already stable identities, no handle to remap",
         ),
         (
             "ambition_actors::encounter::switches::SwitchFeature",
@@ -508,7 +504,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_actors::features::ecs::actors::limbs::Limb",
-            "authored limb payload; immutable at runtime",
+            "authored limb payload, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
         ),
         (
             "ambition_actors::features::ecs::actors::limbs::LimbIntents",
@@ -516,7 +512,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_actors::features::ecs::actors::limbs::LimbRig",
-            "authored rig; immutable at runtime",
+            "authored rig, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
         ),
         (
             "ambition_actors::features::ecs::actors::limbs::LimbRouteState",
@@ -536,7 +532,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_actors::features::ecs::mount::MountSlot",
-            "authored mount geometry; immutable at runtime",
+            "authored mount geometry, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
         ),
         (
             "ambition_actors::features::ecs::mount::Mountable",
@@ -544,7 +540,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_actors::features::ecs::mount::MountedBrainCache",
-            "holds an entity handle; wants the stable-identity pair projection (G2b)",
+            "a cached Brain + ActionSet; holds no entity handle (checked 2026-07-27)",
         ),
         (
             "ambition_actors::features::ecs::mount::MountedSize",
@@ -675,10 +671,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored moveset; the mutable half is MovePlayback, canonical",
         ),
         (
-            "ambition_combat::on_hit::HitboxOnHit",
-            "carries per-victim fired handles; wants stable identities (G2b)",
-        ),
-        (
             "ambition_combat::targeting::FactionRelations",
             "authored relation matrix; immutable at runtime",
         ),
@@ -692,7 +684,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_encounter::entity::Encounter",
-            "authored encounter handle; immutable at runtime",
+            "an encounter id STRING; already a stable identity",
         ),
         (
             "ambition_encounter::music::EncounterMusicRequest",
@@ -704,7 +696,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_encounter::registry::EncounterRegistry",
-            "authored registry; immutable at runtime",
+            "authored registry, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
         ),
         (
             "ambition_encounter::staging::EncounterCameraZoom",
@@ -740,23 +732,23 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_portal::eviction::PortalFrameHistory",
-            "per-frame body handles; wants stable identities (G2b)",
+            "channel -> aperture geometry; holds no entity handle (checked 2026-07-27)",
         ),
         (
             "ambition_portal::gun::PortalGun",
-            "carries its held-portal handles; wants stable identities (G2b)",
+            "an active flag and the next channel colour; holds no entity handle",
         ),
         (
             "ambition_portal::gun_pickup::PortalGunPickup",
-            "arm timer plus a claim handle; wants a canonical projection (G2b)",
+            "position, half-extent and an arm timer; holds no entity handle",
         ),
         (
             "ambition_portal::gun_projectile::PortalShot",
-            "carries its firer handle; wants stable identities (G2b)",
+            "channel plus shot kinematics; holds no entity handle",
         ),
         (
             "ambition_portal::transit::PortalEmission",
-            "carries the emitting portal handle; wants stable identities (G2b)",
+            "an exit normal and a protection timer; holds no entity handle",
         ),
         (
             "ambition_portal::transit::PortalPolicy",
@@ -764,11 +756,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_portal::transit::PortalTransit",
-            "carries the transiting pair; wants stable identities (G2b)",
+            "the straddled CHANNEL plus a crossed flag; a channel is a stable identity, not a handle",
         ),
         (
             "ambition_portal::types::PlacedPortal",
-            "carries its partner handle; wants stable identities (G2b)",
+            "hosted on a `GeoFaceRef` (a stable `GeoId` + face), which is the stable identity G2b asks for — deliberately never an entity handle",
         ),
         (
             "ambition_runtime::input_stream::InputStreamRecorder",
@@ -890,6 +882,71 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         stale.is_empty(),
         "these entries no longer describe a presence-only probe:\n  {}",
         stale.join("\n  ")
+    );
+
+    // **The reasons themselves are now checked against the registry.** (G2b,
+    // 2026-07-27)
+    //
+    // This list enforced that a sentence EXISTS, never that it is true, and nine
+    // of its thirteen entity-handle claims were false: `PortalShot` carries shot
+    // kinematics, `PortalGun` a flag and a colour, `SwitchActivationQueue` three
+    // strings, `PlacedPortal` a `GeoFaceRef` whose `GeoId` is deliberately the
+    // stable identity G2b asks for. The row would have sent somebody to add
+    // stable-identity projections to types that hold nothing else.
+    //
+    // A type holds remappable handles exactly when it has an entity-mapping
+    // registration, and that is a fact in the registry. So the two must agree in
+    // both directions.
+    let entity_mapped: std::collections::BTreeSet<&str> = registry
+        .descriptors()
+        .filter(|d| {
+            matches!(
+                d.kind,
+                ambition::runtime::rollback::RollbackEntryKind::EntityMapping
+                    | ambition::runtime::rollback::RollbackEntryKind::ResourceEntityMapping
+            )
+        })
+        .map(|d| d.type_name.as_str())
+        .collect();
+    assert!(
+        entity_mapped.len() > 5,
+        "only {} entity-mapping registrations found, so the cross-check below \
+         would be vacuous",
+        entity_mapped.len()
+    );
+
+    // The convention is a MARKER, not prose: a reason for an entity-mapped type
+    // must contain the literal `entity-mapped`, and a reason for a type that is
+    // not mapped must not. Sniffing for the word "handle" was the first attempt
+    // and it flagged three of its own corrections, because "carries no entity
+    // handle" contains "handle" — a check that reads English is a check that
+    // reads its author's mood.
+    let mut wrong: Vec<String> = Vec::new();
+    for (name, reason) in &listed {
+        let marked = reason.contains("entity-mapped");
+        match (entity_mapped.contains(name), marked) {
+            (true, false) => wrong.push(format!(
+                "  {name}\n    is ENTITY-MAPPED and its reason does not say so. The \
+                 remap is a runtime write that a presence count cannot check, and \
+                 it is the write that can land on the wrong body — whatever else \
+                 is true of the payload, that is the weakness this list exists to \
+                 record."
+            )),
+            (false, true) => wrong.push(format!(
+                "  {name}\n    is marked entity-mapped and nothing registers an \
+                 entity mapping for it, so it holds no remappable handle. Nine \
+                 entries claimed handles that their types do not have (2026-07-27); \
+                 this is the direction that sends somebody to fix a non-problem."
+            )),
+            _ => {}
+        }
+    }
+    wrong.sort();
+    assert!(
+        wrong.is_empty(),
+        "{} presence-only reason(s) disagree with the rollback registry:\n{}",
+        wrong.len(),
+        wrong.join("\n")
     );
 
     let (complete, value, presence) = probes.strength_tally();

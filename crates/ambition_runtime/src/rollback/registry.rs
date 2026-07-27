@@ -396,6 +396,18 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource + Clone;
 
+    /// Clone-snapshot a RESOURCE holding entity references, probed through their
+    /// stable sim identities. The resource twin of
+    /// [`Self::rollback_component_clone_entity_set`].
+    fn rollback_resource_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+    ) -> &mut Self
+    where
+        T: Resource + Clone;
+
     fn rollback_resource_clone_checksum<T>(
         &mut self,
         owner: &'static str,
@@ -882,6 +894,39 @@ impl AmbitionRollbackApp for App {
                     std::any::type_name::<T>(),
                     crate::rollback::census_resource_presence::<T>,
                 ),
+            );
+        }
+        self
+    }
+
+    fn rollback_resource_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+    ) -> &mut Self
+    where
+        T: Resource + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ResourceClone,
+                "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_resource_with_clone::<T>(self);
+            // No GGRS checksum: the raw handles differ across a load by design.
+            // The TARGETS' identities do not, so localization is not stuck at
+            // presence — which for a singleton resource is very nearly nothing.
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_resource_entity_set::<T>(world, referenced)
+                }),
             );
         }
         self

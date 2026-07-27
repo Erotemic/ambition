@@ -181,3 +181,5 @@ zones, or KO. Recommended first slice: a `MatchSession` consuming
 
 ⚠ His standing note defers Matchbox netplay *until* Smash. A6 is fixed, so that
 gate is now open — but re-read the triage doc before building on it.
+
+Note from jon: just having smash does not mean we go to matchbox. We need cpu vs cpu, player vs cpu first, then local "couch" player vs player, and only then do we start considering netcode. 

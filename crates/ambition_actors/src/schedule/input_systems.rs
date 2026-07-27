@@ -98,6 +98,67 @@ pub fn spawn_primary_input_participant(
     ));
 }
 
+/// Give every HUMAN seat the roster declares an input participant, and take
+/// away the ones it no longer declares.
+///
+/// The roster is the authority on who is playing, so it is the authority on how
+/// many seats exist. Deriving seats from connected HARDWARE instead would mean
+/// a controller left plugged into a machine silently becomes a second player in
+/// every game on it.
+///
+/// The primary seat is not managed here — it is spawned at boot by
+/// [`spawn_primary_input_participant`] and outlives every session, because the
+/// launcher needs somebody to drive it before any roster exists.
+///
+/// Extra seats get [`KeyboardPreset::gamepad_only_map`]. A second player on the
+/// same keyboard as the first is not a second player.
+#[cfg(feature = "input")]
+pub fn seat_input_participants_for_roster(
+    mut commands: Commands,
+    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    existing: Query<(Entity, &InputParticipant)>,
+) {
+    let wanted: Vec<u8> = roster
+        .map(|roster| {
+            roster
+                .participants
+                .iter()
+                .filter_map(|participant| match participant.controller {
+                    crate::character_runtime::ControllerBinding::Human { device_slot } => {
+                        Some(device_slot)
+                    }
+                    _ => None,
+                })
+                .filter(|slot| *slot != ambition_input::ParticipantId::PRIMARY.slot())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for (entity, participant) in &existing {
+        if participant.id != ambition_input::ParticipantId::PRIMARY
+            && !wanted.contains(&participant.id.slot())
+        {
+            // The match is over, or this seat left it. A participant with no
+            // seat still holds an `ActionState` that keeps writing its slot.
+            commands.entity(entity).despawn();
+        }
+    }
+
+    for slot in wanted {
+        let id = ambition_input::ParticipantId(slot);
+        if existing.iter().any(|(_, participant)| participant.id == id) {
+            continue;
+        }
+        commands.spawn((
+            InputParticipant::with_id(id),
+            ParticipantContexts::default(),
+            ActionState::<SandboxAction>::default(),
+            KeyboardPreset::gamepad_only_map(),
+            SeatDashTriggerState::default(),
+        ));
+    }
+}
+
 /// The session lifecycle's context claim: a live gameplay session owns the
 /// participant's actions.
 ///
@@ -482,6 +543,102 @@ mod focus_gate_tests {
                 .contains::<InputMap<SandboxAction>>(),
             "the participant owns the active input map"
         );
+    }
+
+    /// The roster is the authority on how many people are playing.
+    ///
+    /// Not connected hardware: a controller left plugged into a machine must not
+    /// silently become a second player in every game on it.
+    #[test]
+    fn declaring_a_human_seat_creates_it_and_undeclaring_it_takes_it_away() {
+        use crate::character_runtime::{
+            ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        };
+
+        let mut app = App::new();
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                super::seat_input_participants_for_roster,
+            )
+                .chain(),
+        );
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0], "boot seats player one only");
+
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("sanic")
+                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+            ],
+        });
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0, 1]);
+
+        // A CPU opponent is not a seat: nobody is holding a controller for it.
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Cpu {
+                    brain_profile: Some("medium_striker".into()),
+                }),
+            ],
+        });
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0]);
+
+        // And the match ending takes the seat with it. A participant with no
+        // seat still holds an `ActionState` that keeps writing its slot, so the
+        // next game would start with a ghost second player in it.
+        app.world_mut().remove_resource::<MatchParticipantRoster>();
+        app.update();
+        assert_eq!(
+            seat_slots(&mut app),
+            vec![0],
+            "the primary seat outlives every match; it is the launcher's driver"
+        );
+    }
+
+    /// Player two's bindings must not include player one's keyboard.
+    #[test]
+    fn a_declared_seat_is_bound_to_a_controller_and_not_the_keyboard() {
+        use crate::character_runtime::{
+            ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        };
+
+        let mut app = App::new();
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![MatchParticipant::new("sanic")
+                .driven_by(ControllerBinding::Human { device_slot: 1 })],
+        });
+        app.add_systems(Update, super::seat_input_participants_for_roster);
+        app.update();
+
+        let world = app.world_mut();
+        let mut seats = world.query::<(&InputParticipant, &InputMap<SandboxAction>)>();
+        let (_, map) = seats
+            .iter(world)
+            .find(|(seat, _)| seat.id == ParticipantId::SECONDARY)
+            .expect("the declared seat exists");
+        for (action, binding) in map.buttonlike_bindings() {
+            assert!(
+                !binding.as_reflect().reflect_type_path().contains("KeyCode"),
+                "{action:?} is bound to a key on the second seat — player one is \
+                 typing on that keyboard"
+            );
+        }
+    }
+
+    fn seat_slots(app: &mut App) -> Vec<u8> {
+        let world = app.world_mut();
+        let mut seats = world.query::<&InputParticipant>();
+        let mut slots: Vec<u8> = seats.iter(world).map(|seat| seat.id.slot()).collect();
+        slots.sort();
+        slots
     }
 
     #[test]

@@ -80,7 +80,8 @@ impl Plugin for HostInputBindingsPlugin {
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
-            spawn_primary_input_participant, toggle_player_trail_emission_from_actions,
+            seat_input_participants_for_roster, spawn_primary_input_participant,
+            toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -210,6 +211,14 @@ impl Plugin for HostInputBindingsPlugin {
             // participant a later gameplay session does; possession, session
             // relaunch, and actor death never touch its device state.
             .add_systems(Startup, spawn_primary_input_participant)
+            // Extra local seats come and go with the match roster, so unlike
+            // the primary they are a per-frame reconciliation rather than a
+            // boot-time spawn. `Collect` because a seat is a device source: it
+            // has to exist before bindings resolve anything for it.
+            .add_systems(
+                Update,
+                seat_input_participants_for_roster.in_set(ambition_input::InputSet::Collect),
+            )
             // Context ownership: surfaces declare claims during
             // `ResolveContext` (the session lifecycle here; the shell's
             // startup/launcher surfaces in `ambition_game_shell`), then the

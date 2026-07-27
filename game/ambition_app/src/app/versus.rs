@@ -101,7 +101,7 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     )
 }
 
-/// The roster this stage seats: the player, and one CPU opponent.
+/// The roster this stage seats: the player, and either a friend or a CPU.
 ///
 /// Seat 0 is HUMAN and is the body the session already spawned wearing
 /// `FIGHTERS[0]` — seating adopts it rather than spawning beside it. That is not
@@ -111,20 +111,33 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// present, which is the assertion you write when you have not looked at the
 /// screen.
 ///
-/// Player-versus-CPU is also the second step of Jon's order (cpu vs cpu, then
-/// player vs cpu, then local couch, and only then netcode). Step one is what the
-/// seating tests prove; this is the one a stranger can pick up a controller and
-/// play.
-pub fn versus_roster() -> MatchParticipantRoster {
+/// Seat 1 is a HUMAN when a second controller is plugged in, and a CPU
+/// otherwise. That is the whole of Jon's ordering (cpu vs cpu, then player vs
+/// cpu, then local couch, and only then netcode) reaching its third step, and it
+/// needs no menu: the presence of a second controller is an unambiguous
+/// statement that a second person is here, and a stage that asked the question
+/// in a lobby screen would be a lobby screen standing between a stranger and the
+/// thing they came to see.
+///
+/// Deliberately decided at STAGE ENTRY, not per frame. A pad unplugged mid-match
+/// must not silently hand player two's fighter to the AI, and a pad plugged in
+/// mid-match must not spawn a third body into a running fight; both are
+/// mid-match roster edits, which is a rule change, and this stage has no rules.
+pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
+    let opponent = if local_players > 1 {
+        ControllerBinding::Human { device_slot: 1 }
+    } else {
+        ControllerBinding::Cpu {
+            brain_profile: Some("medium_striker".into()),
+        }
+    };
     MatchParticipantRoster {
         participants: vec![
             MatchParticipant::new(FIGHTERS[0])
                 .driven_by(ControllerBinding::Human { device_slot: 0 })
                 .on_team("blue"),
             MatchParticipant::new(FIGHTERS[1])
-                .driven_by(ControllerBinding::Cpu {
-                    brain_profile: Some("medium_striker".into()),
-                })
+                .driven_by(opponent)
                 .on_team("red"),
         ],
     }
@@ -140,6 +153,7 @@ pub fn versus_roster() -> MatchParticipantRoster {
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition::game_shell::ShellRouter>,
+    devices: Res<ambition::input::LocalDeviceOrder>,
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
     mut seated: ResMut<ambition::actors::character_runtime::MatchSeated>,
@@ -150,7 +164,10 @@ fn track_versus_roster(
         .is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE);
     match (on_versus, roster.is_some()) {
         (true, false) => {
-            let roster = versus_roster();
+            // One local player per connected controller, capped by the stage's
+            // two seats. Zero controllers is one seat: the keyboard is player
+            // one, which is how every other route in the shell already plays.
+            let roster = versus_roster(devices.devices().len().max(1));
             // Demand the art before the bodies exist: a fighter seated with no
             // decoded sheet draws a placeholder, and the whole point of a visible
             // slice is that it looks like the two characters it says it is.
@@ -190,6 +207,15 @@ pub fn compose_versus_experience(app: &mut App) {
                 .expect("the silent versus audio fragment is valid"),
         );
     }
+
+    // The stage READS the device order, so the stage guarantees it exists.
+    // `ambition_host` owns the systems that maintain it, and a composition
+    // without the host input plugin (the lifecycle fixtures) still routes
+    // through here — an `Option<Res>` would turn "this host has no device
+    // layer" into "zero controllers", which is exactly the answer that decides
+    // player two is a CPU. `init_resource` is a no-op when the host already
+    // installed it, so there is still one writer.
+    app.init_resource::<ambition::input::LocalDeviceOrder>();
 
     // `Update`, NOT the sim schedule.
     //

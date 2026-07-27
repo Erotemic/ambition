@@ -251,76 +251,63 @@ impl KeyboardPreset {
     /// behind `input` because the return type is leafwing-owned.
     #[cfg(feature = "input")]
     pub fn input_map(&self) -> InputMap<SandboxAction> {
+        let mut map = InputMap::default();
+        self.insert_keyboard_bindings(&mut map);
+        insert_gamepad_bindings(&mut map);
+        map
+    }
+
+    /// A map with the GAMEPAD half only.
+    ///
+    /// This is what a second local seat gets. Handing player two the full
+    /// preset would bind them to the same keyboard player one is using, which
+    /// is the couch bug one layer up from the one device assignment fixes:
+    /// partitioning the controllers is pointless if WASD still moves both
+    /// fighters.
+    ///
+    /// Not a reduced or "good enough" binding set — it is the same gamepad
+    /// bindings player one has, so the two seats are symmetric on the pad and
+    /// nobody is playing a worse version of the game because they joined second.
+    /// (`Special` has no gamepad button on either seat: every face, shoulder,
+    /// trigger and stick button is already assigned, and double-binding one
+    /// would fire two actions at once. It is left to the remap UX, as
+    /// `special_is_a_dedicated_slot_...` pins.)
+    #[cfg(feature = "input")]
+    pub fn gamepad_only_map() -> InputMap<SandboxAction> {
+        let mut map = InputMap::default();
+        insert_gamepad_bindings(&mut map);
+        map
+    }
+
+    /// The keyboard half of a preset: everything whose binding is a key this
+    /// preset chose.
+    #[cfg(feature = "input")]
+    fn insert_keyboard_bindings(&self, map: &mut InputMap<SandboxAction>) {
         let keyboard_move = match self.id {
             PresetId::ArrowsZxc | PresetId::ArrowsQwer => VirtualDPad::arrow_keys(),
             PresetId::WasdJkl | PresetId::WasdUipo => VirtualDPad::wasd(),
         };
-
-        let mut map = InputMap::default()
-            .with_dual_axis(SandboxAction::Move, keyboard_move)
-            .with_dual_axis(SandboxAction::Move, VirtualDPad::dpad())
-            .with_dual_axis(SandboxAction::Move, GamepadStick::LEFT)
-            .with(SandboxAction::MoveLeft, self.movement.left)
-            .with(SandboxAction::MoveRight, self.movement.right)
-            .with(SandboxAction::MoveUp, self.movement.up)
-            .with(SandboxAction::MoveDown, self.movement.down)
-            // Gamepad bindings for the discrete `MoveX` actions. Without
-            // these, `actions.just_pressed(&SandboxAction::MoveDown)`
-            // never fires on a controller — the double-tap-down gesture
-            // that enters MorphBall was keyboard-only as a result. Both
-            // the DPad and a stick-direction cross past the deadzone
-            // generate the same press edge, so DPad → MorphBall feels
-            // the same as Down-Arrow → MorphBall.
-            //
-            // `STICK_DIRECTION_THRESHOLD` keeps spring-return overshoot
-            // from registering as a press in the *opposite* direction.
-            // After pushing the left stick down and releasing, real
-            // hardware briefly snaps positive on the Y axis; without a
-            // threshold leafwing's `LEFT_UP` direction (which defaults
-            // to `threshold = 0.0`) fires a `MoveUp` press edge, and
-            // that edge exits MorphBall the same frame the player
-            // entered it.
-            .with(SandboxAction::MoveLeft, GamepadButton::DPadLeft)
-            .with(
-                SandboxAction::MoveLeft,
-                GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
-            )
-            .with(SandboxAction::MoveRight, GamepadButton::DPadRight)
-            .with(
-                SandboxAction::MoveRight,
-                GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
-            )
-            .with(SandboxAction::MoveUp, GamepadButton::DPadUp)
-            .with(
-                SandboxAction::MoveUp,
-                GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
-            )
-            .with(SandboxAction::MoveDown, GamepadButton::DPadDown)
-            .with(
-                SandboxAction::MoveDown,
-                GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
-            )
-            .with(SandboxAction::Jump, self.actions.jump)
-            .with(SandboxAction::Jump, GamepadButton::South)
-            .with(SandboxAction::Attack, self.actions.attack)
-            .with(SandboxAction::Attack, GamepadButton::West)
-            .with(SandboxAction::Dash, self.actions.dash)
-            .with(SandboxAction::Dash, GamepadButton::RightTrigger2)
-            .with(SandboxAction::Reset, self.actions.select_reset)
-            .with(SandboxAction::Reset, KeyCode::Delete)
-            .with(SandboxAction::Reset, GamepadButton::Select)
-            .with(SandboxAction::Start, self.actions.pause)
-            .with(SandboxAction::Start, GamepadButton::Start);
+        map.insert_dual_axis(SandboxAction::Move, keyboard_move);
+        map.insert(SandboxAction::MoveLeft, self.movement.left);
+        map.insert(SandboxAction::MoveRight, self.movement.right);
+        map.insert(SandboxAction::MoveUp, self.movement.up);
+        map.insert(SandboxAction::MoveDown, self.movement.down);
+        map.insert(SandboxAction::Jump, self.actions.jump);
+        map.insert(SandboxAction::Attack, self.actions.attack);
+        map.insert(SandboxAction::Dash, self.actions.dash);
+        map.insert(SandboxAction::Reset, self.actions.select_reset);
+        map.insert(SandboxAction::Reset, KeyCode::Delete);
+        map.insert(SandboxAction::Start, self.actions.pause);
 
         map.insert(SandboxAction::Blink, self.actions.secondary);
         // Special is a FIRST-CLASS slot with its OWN dedicated key on every
         // preset — no longer aliasing Blink. Dynamic-slot policy for the gamepad:
-        // every face/shoulder/trigger/stick button is already assigned (see the
-        // gamepad block below), so rather than double-bind a button (which would
-        // fire TWO actions at once), gamepad-Special is intentionally left to the
-        // remap UX (P5). Keyboard (this key) and the touch overlay's dedicated
-        // Special button cover it meanwhile. `special_is_a_dedicated_slot_...`
-        // pins this policy.
+        // every face/shoulder/trigger/stick button is already assigned (see
+        // `insert_gamepad_bindings`), so rather than double-bind a button (which
+        // would fire TWO actions at once), gamepad-Special is intentionally left
+        // to the remap UX (P5). Keyboard (this key) and the touch overlay's
+        // dedicated Special button cover it meanwhile.
+        // `special_is_a_dedicated_slot_...` pins this policy.
         map.insert(SandboxAction::Special, self.actions.special);
         map.insert(SandboxAction::QuickAction, self.actions.quick_action);
         map.insert(SandboxAction::Interact, self.actions.interact);
@@ -330,52 +317,23 @@ impl KeyboardPreset {
         map.insert(SandboxAction::Inventory, self.actions.inventory);
         map.insert(SandboxAction::Projectile, self.actions.projectile);
         map.insert(SandboxAction::TrailToggle, self.actions.trail_toggle);
-        insert_optional(&mut map, SandboxAction::Pogo, self.actions.dedicated_pogo);
-
-        // Gamepad bindings. Every action has a button so both input modes
-        // are fully playable.
-        //   South        Jump
-        //   East         Blink, MenuBack
-        //   West         Attack
-        //   North        Projectile (fireball)
-        //   LeftTrigger  Utility (fly toggle)
-        //   LeftTrigger2 Modifier
-        //   RightTrigger QuickAction, Interact
-        //   RightTrigger2 Dash
-        //   LeftThumb    Map (click left stick)
-        //   RightThumb   Inventory (click right stick)
-        //   Select       Reset
-        //   Start        Start (pause)
-        //   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
-        map.insert(SandboxAction::Blink, GamepadButton::East);
-        map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
-        map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
-        map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
-        map.insert(SandboxAction::Utility, GamepadButton::LeftTrigger);
-        map.insert(SandboxAction::Map, GamepadButton::LeftThumb);
-        map.insert(SandboxAction::Inventory, GamepadButton::RightThumb);
-        map.insert(SandboxAction::Projectile, GamepadButton::North);
+        insert_optional(map, SandboxAction::Pogo, self.actions.dedicated_pogo);
 
         // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
-        // same MenuNavigate* actions; analog stick provides MenuStick
+        // same MenuNavigate* actions; the analog stick provides MenuStick
         // for repeat handling, and Enter/Space/South map to MenuSelect.
         map.insert(SandboxAction::MenuNavigateUp, KeyCode::ArrowUp);
         map.insert(SandboxAction::MenuNavigateUp, KeyCode::KeyW);
-        map.insert(SandboxAction::MenuNavigateUp, GamepadButton::DPadUp);
         map.insert(SandboxAction::MenuNavigateDown, KeyCode::ArrowDown);
         map.insert(SandboxAction::MenuNavigateDown, KeyCode::KeyS);
-        map.insert(SandboxAction::MenuNavigateDown, GamepadButton::DPadDown);
         map.insert(SandboxAction::MenuNavigateLeft, KeyCode::ArrowLeft);
         map.insert(SandboxAction::MenuNavigateLeft, KeyCode::KeyA);
-        map.insert(SandboxAction::MenuNavigateLeft, GamepadButton::DPadLeft);
         map.insert(SandboxAction::MenuNavigateRight, KeyCode::ArrowRight);
         map.insert(SandboxAction::MenuNavigateRight, KeyCode::KeyD);
-        map.insert(SandboxAction::MenuNavigateRight, GamepadButton::DPadRight);
 
         map.insert(SandboxAction::MenuSelect, KeyCode::Enter);
         map.insert(SandboxAction::MenuSelect, KeyCode::NumpadEnter);
         map.insert(SandboxAction::MenuSelect, KeyCode::Space);
-        map.insert(SandboxAction::MenuSelect, GamepadButton::South);
         // Also accept the player's configured Jump and Interact keys as
         // confirm so existing dialogue/cutscene muscle memory survives the
         // participant migration. Enter remains the canonical menu confirmation.
@@ -384,27 +342,113 @@ impl KeyboardPreset {
 
         map.insert(SandboxAction::MenuBack, KeyCode::Escape);
         map.insert(SandboxAction::MenuBack, KeyCode::Backspace);
-        map.insert(SandboxAction::MenuBack, GamepadButton::East);
 
-        // Paged-menu page turn: the L/R shoulder bumpers (L1/LB, R1/RB) turn the
-        // page directly in the 3D inventory cube, plus the Q/E keyboard equivalents.
-        // The bumpers double as gameplay Utility/QuickAction, but menu page actions
-        // are only read while a paged menu is open, so the physical button is shared
-        // safely. `MoveLeft`/`MoveRight` already own A/D, so paging uses Q/E.
-        map.insert(SandboxAction::MenuPageLeft, GamepadButton::LeftTrigger);
+        // Paged-menu page turn: `MoveLeft`/`MoveRight` already own A/D, so
+        // paging uses Q/E.
         map.insert(SandboxAction::MenuPageLeft, KeyCode::KeyQ);
-        map.insert(SandboxAction::MenuPageRight, GamepadButton::RightTrigger);
         map.insert(SandboxAction::MenuPageRight, KeyCode::KeyE);
-
-        map.insert_dual_axis(SandboxAction::MenuStick, GamepadStick::LEFT);
-        map.insert_dual_axis(SandboxAction::AimStick, GamepadStick::RIGHT);
-        // RIGHT_Z is the analog right-trigger axis on most pads.
-        // Reading it as an axis lets us apply hysteresis ourselves
-        // instead of relying on the binary just_pressed edge.
-        map.insert_axis(SandboxAction::DashAnalog, GamepadControlAxis::RIGHT_Z);
-        map
     }
+}
 
+/// The gamepad half, identical for every preset and every seat.
+///
+/// Free-standing rather than a method because it depends on nothing about the
+/// preset — the preset chooses KEYS. A second local seat has no preset (it does
+/// not use the keyboard at all) and needs exactly this.
+///
+/// Every action has a button so both input modes are fully playable:
+///   South        Jump, MenuSelect
+///   East         Blink, MenuBack
+///   West         Attack
+///   North        Projectile (fireball)
+///   LeftTrigger  Utility (fly toggle), MenuPageLeft
+///   LeftTrigger2 Modifier
+///   RightTrigger QuickAction, Interact, MenuPageRight
+///   RightTrigger2 Dash
+///   LeftThumb    Map (click left stick)
+///   RightThumb   Inventory (click right stick)
+///   Select       Reset
+///   Start        Start (pause)
+///   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
+#[cfg(feature = "input")]
+fn insert_gamepad_bindings(map: &mut InputMap<SandboxAction>) {
+    map.insert_dual_axis(SandboxAction::Move, VirtualDPad::dpad());
+    map.insert_dual_axis(SandboxAction::Move, GamepadStick::LEFT);
+
+    // Gamepad bindings for the discrete `MoveX` actions. Without
+    // these, `actions.just_pressed(&SandboxAction::MoveDown)`
+    // never fires on a controller — the double-tap-down gesture
+    // that enters MorphBall was keyboard-only as a result. Both
+    // the DPad and a stick-direction cross past the deadzone
+    // generate the same press edge, so DPad → MorphBall feels
+    // the same as Down-Arrow → MorphBall.
+    //
+    // `STICK_DIRECTION_THRESHOLD` keeps spring-return overshoot
+    // from registering as a press in the *opposite* direction.
+    // After pushing the left stick down and releasing, real
+    // hardware briefly snaps positive on the Y axis; without a
+    // threshold leafwing's `LEFT_UP` direction (which defaults
+    // to `threshold = 0.0`) fires a `MoveUp` press edge, and
+    // that edge exits MorphBall the same frame the player
+    // entered it.
+    map.insert(SandboxAction::MoveLeft, GamepadButton::DPadLeft);
+    map.insert(
+        SandboxAction::MoveLeft,
+        GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
+    );
+    map.insert(SandboxAction::MoveRight, GamepadButton::DPadRight);
+    map.insert(
+        SandboxAction::MoveRight,
+        GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
+    );
+    map.insert(SandboxAction::MoveUp, GamepadButton::DPadUp);
+    map.insert(
+        SandboxAction::MoveUp,
+        GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
+    );
+    map.insert(SandboxAction::MoveDown, GamepadButton::DPadDown);
+    map.insert(
+        SandboxAction::MoveDown,
+        GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
+    );
+
+    map.insert(SandboxAction::Jump, GamepadButton::South);
+    map.insert(SandboxAction::Attack, GamepadButton::West);
+    map.insert(SandboxAction::Dash, GamepadButton::RightTrigger2);
+    map.insert(SandboxAction::Reset, GamepadButton::Select);
+    map.insert(SandboxAction::Start, GamepadButton::Start);
+
+    map.insert(SandboxAction::Blink, GamepadButton::East);
+    map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
+    map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
+    map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
+    map.insert(SandboxAction::Utility, GamepadButton::LeftTrigger);
+    map.insert(SandboxAction::Map, GamepadButton::LeftThumb);
+    map.insert(SandboxAction::Inventory, GamepadButton::RightThumb);
+    map.insert(SandboxAction::Projectile, GamepadButton::North);
+
+    map.insert(SandboxAction::MenuNavigateUp, GamepadButton::DPadUp);
+    map.insert(SandboxAction::MenuNavigateDown, GamepadButton::DPadDown);
+    map.insert(SandboxAction::MenuNavigateLeft, GamepadButton::DPadLeft);
+    map.insert(SandboxAction::MenuNavigateRight, GamepadButton::DPadRight);
+    map.insert(SandboxAction::MenuSelect, GamepadButton::South);
+    map.insert(SandboxAction::MenuBack, GamepadButton::East);
+
+    // The bumpers double as gameplay Utility/QuickAction, but menu page actions
+    // are only read while a paged menu is open, so the physical button is shared
+    // safely.
+    map.insert(SandboxAction::MenuPageLeft, GamepadButton::LeftTrigger);
+    map.insert(SandboxAction::MenuPageRight, GamepadButton::RightTrigger);
+
+    map.insert_dual_axis(SandboxAction::MenuStick, GamepadStick::LEFT);
+    map.insert_dual_axis(SandboxAction::AimStick, GamepadStick::RIGHT);
+    // RIGHT_Z is the analog right-trigger axis on most pads.
+    // Reading it as an axis lets us apply hysteresis ourselves
+    // instead of relying on the binary just_pressed edge.
+    map.insert_axis(SandboxAction::DashAnalog, GamepadControlAxis::RIGHT_Z);
+}
+
+impl KeyboardPreset {
     pub fn action_label(&self) -> String {
         let mut parts = vec![
             format!("Jump {}", key_name(self.actions.jump)),
@@ -531,5 +575,43 @@ mod tests {
                 preset.id
             );
         }
+    }
+
+    /// A second local seat's map must touch NO key.
+    ///
+    /// Partitioning the controllers between two seats accomplishes nothing if
+    /// the keyboard still drives both of them: player one types on the same
+    /// keyboard player two would be bound to, so every WASD press would move
+    /// both fighters.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_second_seats_map_binds_no_key() {
+        let map = KeyboardPreset::gamepad_only_map();
+        for (action, binding) in map.buttonlike_bindings() {
+            let path = binding.as_reflect().reflect_type_path();
+            assert!(
+                !path.contains("KeyCode"),
+                "{action:?} is bound to {path} in the second seat's map — the \
+                 keyboard belongs to player one"
+            );
+        }
+        // The dual-axis half is where this would slip in unnoticed: a
+        // `VirtualDPad` of arrow keys and a `VirtualDPad` of D-pad buttons are
+        // the same type, so the count is the only thing that distinguishes
+        // them. The full preset binds Move three ways (keys, D-pad, stick).
+        assert_eq!(
+            map.get_dual_axislike(&SandboxAction::Move).map(Vec::len),
+            Some(2),
+            "the second seat's Move should be D-pad + left stick and nothing else"
+        );
+        assert_eq!(
+            KeyboardPreset::by_index(0)
+                .input_map()
+                .get_dual_axislike(&SandboxAction::Move)
+                .map(Vec::len),
+            Some(3),
+            "player one's Move should still be keys + D-pad + left stick; if \
+             this drops to 2 the keyboard half stopped being installed"
+        );
     }
 }

@@ -18,6 +18,14 @@ use ambition::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouteId, ShellR
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
+/// Push a raw gamepad button value, the way the device backend would.
+fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
+    app.world_mut()
+        .write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+            bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, button, value),
+        ));
+}
+
 fn versus_app() -> App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
@@ -180,5 +188,131 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
             .is_none(),
         "the roster outlived the versus route: the next game the player picks \
          will have two fighters seated into it"
+    );
+}
+
+/// **C4 slice 6: two controllers make it couch versus.**
+///
+/// Everything below this line existed before and drove nobody: the second seat
+/// got a body in slice 3, `SlotControls[1]` got a writer in slice 4, and the
+/// controllers got partitioned in slice 5. This is the assertion that the three
+/// meet — plug in two pads, pick Versus, and two people are playing.
+///
+/// It presses a real button on a real pad rather than writing `SlotControls`
+/// directly, because every one of those slices could be individually correct
+/// while the chain has a gap, and a test that starts halfway down the chain
+/// cannot see the gap.
+#[test]
+fn two_controllers_make_versus_a_two_player_game() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::characters::brain::{Brain, PlayerSlot};
+
+    let mut app = versus_app();
+    // Both pads present BEFORE the stage is chosen. The roster decides at stage
+    // entry on purpose — a pad arriving mid-match is a roster edit, and this
+    // stage has no rules for that.
+    let pad_one = app.world_mut().spawn(Gamepad::default()).id();
+    let pad_two = app.world_mut().spawn(Gamepad::default()).id();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // Two HUMAN seats, one per controller.
+    let world = app.world_mut();
+    let mut brains = world.query::<(Entity, &Brain)>();
+    let mut seated: Vec<(u8, Entity)> = brains
+        .iter(world)
+        .filter_map(|(entity, brain)| match brain {
+            Brain::Player(PlayerSlot(slot)) => Some((*slot, entity)),
+            _ => None,
+        })
+        .collect();
+    seated.sort_by_key(|(slot, _)| *slot);
+    let slots: Vec<u8> = seated.iter().map(|(slot, _)| *slot).collect();
+    assert_eq!(
+        slots,
+        vec![0, 1],
+        "with two controllers connected the versus stage must seat two PLAYERS, \
+         not a player and a CPU — this is the difference between watching the \
+         fight and being in it"
+    );
+    let (_, body_one) = seated[0];
+    let (_, body_two) = seated[1];
+    let start_one = app.world().get::<BodyKinematics>(body_one).unwrap().pos.x;
+    let start_two = app.world().get::<BodyKinematics>(body_two).unwrap().pos.x;
+
+    // Player two walks right. Nothing is touched on player one's pad.
+    pad_set(&mut app, pad_two, GamepadButton::DPadRight, 1.0);
+    for _ in 0..40 {
+        app.update();
+    }
+    let moved_one = app.world().get::<BodyKinematics>(body_one).unwrap().pos.x - start_one;
+    let moved_two = app.world().get::<BodyKinematics>(body_two).unwrap().pos.x - start_two;
+    assert!(
+        moved_two > 1.0,
+        "player two pressed right and their fighter did not move ({moved_two:.2}px): \
+         somewhere between the controller, SlotControls[1] and Brain::Player(1) the \
+         chain is broken, and the second player is a spectator"
+    );
+    assert!(
+        moved_one.abs() < 1.0,
+        "player two's controller moved player one's fighter ({moved_one:.2}px) — the \
+         two seats are reading the same device"
+    );
+
+    // ...and the reverse, so a passing test cannot mean "one pad drives both".
+    // Let player two's fighter COME TO REST before measuring again. A body that
+    // was walking a moment ago is still decelerating, and 2px of coast read as
+    // "player one's controller moved player two" the first time this ran.
+    pad_set(&mut app, pad_two, GamepadButton::DPadRight, 0.0);
+    let mut resting = 0;
+    let mut last = f32::NAN;
+    for _ in 0..240 {
+        app.update();
+        let x = app.world().get::<BodyKinematics>(body_two).unwrap().pos.x;
+        if (x - last).abs() < 0.001 {
+            resting += 1;
+            if resting >= 10 {
+                break;
+            }
+        } else {
+            resting = 0;
+            last = x;
+        }
+    }
+    assert!(
+        resting >= 10,
+        "player two's fighter never stopped after the stick was released"
+    );
+    let before_two = app.world().get::<BodyKinematics>(body_two).unwrap().pos.x;
+    let before_one = app.world().get::<BodyKinematics>(body_one).unwrap().pos.x;
+    pad_set(&mut app, pad_one, GamepadButton::DPadRight, 1.0);
+    for _ in 0..40 {
+        app.update();
+    }
+    let one_moved = app.world().get::<BodyKinematics>(body_one).unwrap().pos.x - before_one;
+    let two_moved = app.world().get::<BodyKinematics>(body_two).unwrap().pos.x - before_two;
+    assert!(
+        one_moved > 1.0,
+        "player one pressed right and their fighter did not move ({one_moved:.2}px)"
+    );
+    assert!(
+        two_moved.abs() < 1.0,
+        "player one's controller moved player two's fighter ({two_moved:.2}px)"
     );
 }

@@ -100,19 +100,46 @@ pub fn seat_character(
         ambition_characters::actor::Health::new(prepared.vitals.max_health.max(1)),
     );
     seed.kin.facing = facing;
+    let centered = ambition_engine_core::CenteredAabb::from_center_size(at, SEAT_BODY_PX);
+    let motion_model = seed.config.tuning.motion_model();
     let (identity, disposition, combat, intent, cooldowns) =
         crate::features::ecs::enemy_component_snapshot(&seed);
+    // A default action set, matching what an enemy spawn does before its
+    // archetype fills one in. The character's real attacks arrive from
+    // `apply_worn_character_gameplay`, which derives the persona from
+    // `WornCharacter` — that is the ONE writer for a worn body's moves, and
+    // seating must not author a second opinion about them.
+    let action_set = ambition_characters::brain::ActionSet::default();
+    let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
+    let cluster = seed.into_components();
     Some(
         commands
             .spawn((
-                (
-                    ambition_platformer_primitives::lifecycle::FeatureSimEntity,
-                    crate::features::FeatureId::new(character_id),
-                    ambition_engine_core::CenteredAabb::from_center_size(at, SEAT_BODY_PX),
-                    seed.into_components(),
-                    crate::features::MotionModel::default(),
-                ),
-                (identity, disposition, combat, intent, cooldowns, faction),
+                // The SAME bundle every other actor spawn builds. Seating used to
+                // hand-pick a subset of these components, and the subset was
+                // missing `ActorTarget` — which `tick_actor_brains` requires
+                // non-optionally, so a seated fighter silently dropped out of the
+                // brain tick entirely and stood still. It looked like a body in
+                // every way a test that queries components can see.
+                crate::features::EnemyActorBundle::new(
+                    crate::features::FeatureBaseBundle::new(
+                        character_id,
+                        prepared.display_name.clone(),
+                        centered,
+                    ),
+                    identity,
+                    disposition,
+                    faction,
+                    crate::features::ActorPose::from_parts(at, SEAT_BODY_PX / 2.0, facing),
+                    combat_kit,
+                    crate::features::ActorAggression::hostile(),
+                    combat,
+                    intent,
+                    cooldowns,
+                )
+                .with_motion_model(motion_model),
+                cluster,
+                action_set,
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component: the moveset and silhouette arrive via

@@ -205,7 +205,15 @@ pub fn apply_placeholder_sprites_override(
         for (entity, mut sprite, original, feature, player, player_pose, proj_id) in &mut sprites {
             // Record original state once so we can restore on toggle-off.
             if original.is_none() {
-                commands.entity(entity).insert(SpriteOriginalState {
+                // `try_insert`: the targets are sprite entities, and
+                // `despawn_dead_dynamic_feature_visuals` retires those the moment
+                // a feature's view disappears — so this deferred write can land
+                // on an entity that is already gone. Recording the "original"
+                // appearance of a sprite that is being destroyed has no meaning.
+                //
+                // REPRODUCED, not reasoned: see
+                // `deferred_write_safety::production_passes`.
+                commands.entity(entity).try_insert(SpriteOriginalState {
                     image: sprite.image.clone(),
                     atlas: sprite.texture_atlas.clone(),
                     color: sprite.color,
@@ -253,7 +261,7 @@ pub fn apply_placeholder_sprites_override(
                 sprite.color = orig.color;
                 sprite.custom_size = orig.custom_size;
                 sprite.image_mode = orig.image_mode.clone();
-                commands.entity(entity).remove::<SpriteOriginalState>();
+                commands.entity(entity).try_remove::<SpriteOriginalState>();
             }
         }
     }

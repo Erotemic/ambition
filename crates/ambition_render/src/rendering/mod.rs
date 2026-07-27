@@ -34,6 +34,7 @@ pub mod actors;
 pub mod bubble_shield;
 mod camera;
 pub mod debug_viz;
+pub mod deferred_write_safety;
 mod features;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;

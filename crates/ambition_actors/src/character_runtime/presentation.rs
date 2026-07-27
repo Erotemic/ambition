@@ -1,7 +1,7 @@
 //! **A staged cast authorizes its own presentation sources.** (§4.5, §4.7)
 //!
 //! §7.7 gave the engine the vocabulary for several providers emitting cues in one
-//! session: a request carries a [`PresentationSourceId`], and
+//! session: a request carries a [`PresentationSourceId`](ambition_sfx::PresentationSourceId), and
 //! `ActiveAudioSelection::authorize_sfx_source` binds that source to a provider's
 //! cue registry and bank allowlist. So the same logical cue id — `Dash` — can
 //! resolve to two genuinely different sounds for two characters in one fight.
@@ -19,7 +19,6 @@ use bevy::prelude::*;
 use std::collections::BTreeSet;
 
 use ambition_characters::actor::character_catalog::CharacterCatalogOwners;
-use ambition_sfx::PresentationSourceId;
 
 use super::{CharacterLoadStates, PreparedCharacterRegistry};
 
@@ -58,10 +57,10 @@ pub fn provider_of_character<'a>(
 /// author. Those two must agree or the tag is unauthorized; deriving both from
 /// `provider_of_character` is what keeps them agreeing.
 ///
-/// Idempotent by construction: `authorize_sfx_source` treats a repeat with an
-/// identical definition as a no-op (and panics on a repeat with a DIFFERENT one,
-/// which is the right behaviour — two disagreeing definitions of one source is a
-/// composition bug, not a runtime condition to paper over).
+/// Idempotent by construction: for the SAME provider, `authorize_sfx_source`
+/// merges by union, so running every tick can only add cues as banks arrive. Two
+/// DIFFERENT providers claiming one source is a content conflict and is recorded
+/// on the selection (`sfx_source_conflicts`) rather than merged or fatal.
 /// Not gated on the `audio` feature: `ambition_audio` is an unconditional
 /// dependency (only the Kira playback backend is optional), and gating the
 /// AUTHORIZATION would mean a headless or art-free build silently denies cues it
@@ -96,19 +95,19 @@ pub fn authorize_staged_character_presentation_sources(
         if !authorized.insert(provider.to_string()) {
             continue;
         }
-        // NEVER redefine a source the session already established.
+        // Re-authorizing the session owner's own source is FINE now, and used to
+        // be a crash.
         //
-        // `select_gameplay` registers the session owner's own provider as a
-        // presentation source, with the registry and bank allowlist it had at
-        // selection time. A cast member from that same provider must not
-        // re-authorize it: `authorize_sfx_source` PANICS on a repeat with a
-        // different definition, and the definitions legitimately differ — bank ids
-        // load asynchronously, so this system's view is whatever has arrived.
-        // Late-loading banks are refreshed per provider by the audio layer, which
-        // is the seam that owns that problem.
-        if selection.is_sfx_source_authorized(&PresentationSourceId::new(provider)) {
-            continue;
-        }
+        // `select_gameplay` registers that provider as a presentation source with
+        // the registry and bank allowlist it had at selection time; this system's
+        // view is whatever has arrived since, because bank ids load
+        // asynchronously. Both views are honest about a different instant.
+        // `authorize_sfx_source` used to PANIC on any difference, so this had to
+        // skip re-authorizing entirely — which meant a source authorized BEFORE
+        // its bank landed was never refreshed by this path at all. It now merges
+        // by union for the same provider, so re-authorizing can only add cues,
+        // never remove them, and the outcome does not depend on which view came
+        // first (A15).
         let sfx = audio_catalog
             .as_deref()
             .and_then(|catalog| catalog.sfx_for(provider))

@@ -166,6 +166,29 @@ impl FrontendAudioProfile {
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ActiveAudioSelection {
     current: Option<ActiveAudioAuthority>,
+    /// Presentation sources two different providers both tried to claim.
+    ///
+    /// Recorded rather than fatal. This used to `panic!` — "authorized twice with
+    /// different definitions" — which killed a running game over a content
+    /// misconfiguration whose worst honest outcome is one provider's cues not
+    /// resolving. It also could not tell that case apart from the ROUTINE one: the
+    /// same provider re-authorizing its own source as asynchronously-loaded bank
+    /// ids arrive. Conflating them is why the one production caller had to skip
+    /// re-authorizing entirely, and why a source authorized before its bank landed
+    /// was never refreshed by that path.
+    sfx_source_conflicts: Vec<SfxSourceClaimConflict>,
+}
+
+/// Two providers claiming one presentation source. See
+/// [`ActiveAudioSelection::sfx_source_conflicts`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SfxSourceClaimConflict {
+    pub source: PresentationSourceId,
+    /// The provider that claimed it first and still owns it.
+    pub holder: String,
+    /// The provider that was refused. Its cues will not resolve under this
+    /// source; it needs one of its own.
+    pub rejected: String,
 }
 
 /// One presentation source authorized inside the active audio context.
@@ -218,6 +241,20 @@ impl ActiveSfxSource {
     fn refresh_bank_ids(&mut self, bank_ids: BTreeSet<SfxId>) {
         self.authorized =
             Self::authorized_ids(&self.sfx, bank_ids, self.explicit_allowlist.as_ref());
+    }
+
+    /// Fold another view of the SAME source into this one.
+    ///
+    /// Union on the authorized set and prefer a present registry over an absent
+    /// one, so the result is independent of which view arrived first. Two callers
+    /// looking at one source at different moments of an async bank load are both
+    /// telling the truth about a different instant; the union is the only answer
+    /// that is true at every instant after both.
+    fn absorb(&mut self, other: ActiveSfxSource) {
+        if self.sfx.is_none() {
+            self.sfx = other.sfx;
+        }
+        self.authorized.extend(other.authorized);
     }
 }
 
@@ -440,25 +477,69 @@ impl ActiveAudioSelection {
         sfx: Option<SfxRegistry>,
         bank_ids: BTreeSet<SfxId>,
     ) {
+        // Split the borrow up front: the conflict list and the authority are
+        // independent fields, and the conflict arm needs both.
+        let conflicts = &mut self.sfx_source_conflicts;
         let Some(current) = self.current.as_mut() else {
             return;
         };
         let source = source.into();
         let provider_id = provider_id.into();
         let candidate = ActiveSfxSource::new(provider_id, sfx, bank_ids, None);
-        match current.sfx_sources.get(&source) {
-            Some(existing)
-                if existing.provider_id == candidate.provider_id
-                    && existing.sfx == candidate.sfx
-                    && existing.authorized == candidate.authorized => {}
-            Some(_) => panic!(
-                "presentation source '{}' was authorized twice with different definitions",
-                source
-            ),
+        match current.sfx_sources.get_mut(&source) {
+            // The SAME provider authorizing its own source again. Legitimate and
+            // routine: bank ids arrive asynchronously, so two callers on two ticks
+            // hold two honest views of the same source. This used to PANIC on any
+            // difference, which forced the one production caller to skip
+            // re-authorizing entirely — and that skip is why a source authorized
+            // before its bank arrived was never refreshed by that path.
+            //
+            // Merged, not replaced, and that is the load-bearing choice: the
+            // authorized set only GROWS within a session, so the outcome does not
+            // depend on which caller ran first or on when a bank finished loading.
+            // Replacement would let an early empty-bank view silently downgrade a
+            // richer one.
+            Some(existing) if existing.provider_id == candidate.provider_id => {
+                existing.absorb(candidate);
+            }
+            // A DIFFERENT provider claiming a source another already owns. That is
+            // a content conflict, not a timing artifact, and no merge is correct:
+            // two providers' cue tables under one identity means every cue
+            // resolves to whichever won.
+            //
+            // Loud and deterministic rather than fatal. A panic here kills a
+            // running game over a misconfiguration whose worst honest outcome is
+            // one provider's cues not resolving — and the same judgement the
+            // binding boundary makes (a placeholder beats a session that refuses
+            // to boot). FIRST wins, so the result does not depend on iteration
+            // order.
+            Some(existing) => {
+                let conflict = SfxSourceClaimConflict {
+                    source: source.clone(),
+                    holder: existing.provider_id.clone(),
+                    rejected: candidate.provider_id.clone(),
+                };
+                // RECORDED, not logged. This crate builds without `bevy_log`
+                // (default features off), and a value beats a log line anyway: a
+                // test can assert on it, and a tick-scoped reporter in a
+                // full-Bevy crate can surface each conflict ONCE instead of
+                // every frame.
+                if !conflicts.contains(&conflict) {
+                    conflicts.push(conflict);
+                }
+            }
             None => {
                 current.sfx_sources.insert(source, candidate);
             }
         }
+    }
+
+    /// Presentation sources two different providers both tried to claim.
+    ///
+    /// Empty is the only correct state for shipped content. A non-empty list
+    /// means some provider's cues silently do not resolve.
+    pub fn sfx_source_conflicts(&self) -> &[SfxSourceClaimConflict] {
+        &self.sfx_source_conflicts
     }
 
     /// Refresh one provider's runtime bank identities after asynchronous load.
@@ -626,11 +707,9 @@ mod tests {
             Some("ambition")
         );
         assert_eq!(selection.sfx_provider_for_source(&sanic), Some("sanic"));
-        assert!(
-            selection
-                .sfx_authority_for_source(&sanic)
-                .allows(SoundCueKey::Jump.sfx_id())
-        );
+        assert!(selection
+            .sfx_authority_for_source(&sanic)
+            .allows(SoundCueKey::Jump.sfx_id()));
         assert!(
             !selection
                 .sfx_authority_for_source(&ambition)
@@ -727,5 +806,117 @@ mod tests {
         selection.select_gameplay(3, "mary_o", None, None, BTreeSet::new());
         assert!(selection.music_authority().is_deliberate_silence());
         assert!(selection.sfx_authority().is_deliberate_silence());
+    }
+}
+
+#[cfg(test)]
+mod source_claim_tests {
+    use super::*;
+
+    fn cue(name: &str) -> SfxId {
+        SfxId::new(name)
+    }
+
+    /// Is this cue playable under this source right now?
+    fn allows(selection: &ActiveAudioSelection, source: &str, id: &str) -> bool {
+        match selection.sfx_authority_for_source(&PresentationSourceId::new(source)) {
+            SfxAuthority::Denied => false,
+            SfxAuthority::Governed { authorized } => authorized.contains(&cue(id)),
+        }
+    }
+
+    fn gameplay() -> ActiveAudioSelection {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(1, "host", None, None, Default::default());
+        selection
+    }
+
+    /// **The routine case that used to be a panic.**
+    ///
+    /// Bank ids load asynchronously, so two callers on two ticks hold two honest
+    /// views of one source. `authorize_sfx_source` used to panic on ANY
+    /// difference, which forced the production authorizer to skip re-authorizing
+    /// entirely — and that skip is why a source authorized before its bank
+    /// arrived was never refreshed by that path.
+    #[test]
+    fn a_later_view_of_the_same_source_adds_cues_rather_than_crashing() {
+        let mut selection = gameplay();
+        selection.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("sanic.dash")]));
+        selection.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("sanic.ring")]));
+
+        assert!(selection.is_sfx_source_authorized(&PresentationSourceId::new("sanic")));
+        for id in ["sanic.dash", "sanic.ring"] {
+            assert!(
+                allows(&selection, "sanic", id),
+                "`{id}` was lost: re-authorizing must UNION, or whichever view \
+                 arrived last silently narrows what the source may play"
+            );
+        }
+        assert!(selection.sfx_source_conflicts().is_empty());
+    }
+
+    /// Order must not matter. A union is the only merge that is true at every
+    /// instant after both views, which is what makes an async bank load safe.
+    #[test]
+    fn the_merge_does_not_depend_on_which_view_arrived_first() {
+        let ids = |selection: &ActiveAudioSelection| {
+            ["a", "b"]
+                .into_iter()
+                .filter(|id| allows(selection, "sanic", id))
+                .count()
+        };
+
+        let mut forward = gameplay();
+        forward.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("a")]));
+        forward.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("b")]));
+
+        let mut backward = gameplay();
+        backward.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("b")]));
+        backward.authorize_sfx_source("sanic", "sanic", None, BTreeSet::from([cue("a")]));
+
+        assert_eq!(ids(&forward), 2);
+        assert_eq!(ids(&backward), 2);
+    }
+
+    /// **The genuine conflict, which is NOT a merge.**
+    ///
+    /// Two providers under one source identity means every cue resolves to
+    /// whichever won. Recorded and deterministic — first claim holds — rather
+    /// than fatal: a panic kills a running game over a misconfiguration whose
+    /// worst honest outcome is one provider's cues not resolving.
+    #[test]
+    fn two_providers_claiming_one_source_is_recorded_and_the_first_holds() {
+        let mut selection = gameplay();
+        selection.authorize_sfx_source("shared", "sanic", None, BTreeSet::from([cue("a")]));
+        selection.authorize_sfx_source("shared", "mary_o", None, BTreeSet::from([cue("b")]));
+
+        let conflicts = selection.sfx_source_conflicts();
+        assert_eq!(
+            conflicts.len(),
+            1,
+            "the conflict must be reported: {conflicts:?}"
+        );
+        assert_eq!(conflicts[0].holder, "sanic");
+        assert_eq!(conflicts[0].rejected, "mary_o");
+
+        assert!(allows(&selection, "shared", "a"));
+        assert!(
+            !allows(&selection, "shared", "b"),
+            "the rejected provider's cues must NOT be merged in — that is the \
+             difference between a late bank and two providers colliding"
+        );
+    }
+
+    /// Reported once, not once per tick. The production authorizer runs every
+    /// frame, and a conflict list that grows without bound is a leak and a log
+    /// nobody can read.
+    #[test]
+    fn a_repeated_conflict_is_recorded_once() {
+        let mut selection = gameplay();
+        for _ in 0..5 {
+            selection.authorize_sfx_source("shared", "sanic", None, BTreeSet::new());
+            selection.authorize_sfx_source("shared", "mary_o", None, BTreeSet::new());
+        }
+        assert_eq!(selection.sfx_source_conflicts().len(), 1);
     }
 }

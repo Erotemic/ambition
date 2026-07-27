@@ -56,10 +56,17 @@ pub enum MatchPhase {
 /// Rounds are indexed by SEAT, not by player, because a seat is what the roster
 /// declares and what a body carries — "player two" is a thing about controllers
 /// and stops being well-defined the moment seat 1 is a CPU.
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Clone)]
 pub struct VersusMatch {
     pub rounds_won: [u8; 2],
     pub phase: MatchPhase,
+    /// The presentation half has finished holding the card and the AUTHORITATIVE
+    /// half should start the next round on its next tick.
+    ///
+    /// The one bit that crosses between the two systems, and it crosses in the
+    /// safe direction: the render clock decides WHEN a beat is over, the sim
+    /// clock decides what happens because of it.
+    pub reset_pending: bool,
 }
 
 impl Default for VersusMatch {
@@ -67,6 +74,7 @@ impl Default for VersusMatch {
         Self {
             rounds_won: [0, 0],
             phase: MatchPhase::Fighting,
+            reset_pending: false,
         }
     }
 }
@@ -80,19 +88,23 @@ impl VersusMatch {
     }
 }
 
-/// Watch for a KO, count the round, and start the next one.
+/// **The authoritative half: who lost, who scored, and putting them back.**
 ///
-/// One system for the whole rule because the three states are one state machine
-/// and splitting it across systems would put its transitions at the mercy of
-/// system order — the failure mode being a round that both ends and resets in
-/// the same tick, or neither.
-#[allow(clippy::type_complexity)]
-pub fn run_versus_rules(
-    time: Res<Time>,
+/// Runs on the SIM schedule, because every fact it reads and every value it
+/// writes is simulation state — a fighter's health, a body's position and
+/// velocity, the score. The earlier version ran in `Update` under a comment
+/// claiming "nothing here needs the sim schedule's ordering", which was simply
+/// false: it teleported bodies between simulation boundaries and counted rounds
+/// off the render clock (GPT 5.6, 2026-07-27).
+///
+/// The KO HOLD is not here. Holding a card is a presentation beat, and it is
+/// counted by [`advance_versus_hold`] on the render clock — deliberately, since
+/// the hold zeroes the sim clock and a hold counted on that clock would never
+/// end. The two meet at one bit: `reset_pending`.
+pub fn settle_versus_round(
     roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
     geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
     mut state: ResMut<VersusMatch>,
-    mut clock: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
     mut fighters: Query<(
         &MatchSeat,
         &mut BodyHealth,
@@ -105,90 +117,103 @@ pub fn run_versus_rules(
     let (Some(_roster), Some(geometry)) = (roster, geometry) else {
         return;
     };
-    let dt = time.delta_secs();
 
-    // FREEZE the fight for the duration of a KO or match card.
+    if state.reset_pending {
+        state.reset_pending = false;
+        reset_fighters(&geometry, &mut fighters);
+        state.phase = if state.winner().is_some() {
+            // The match was won and its card has been shown: start over.
+            *state = VersusMatch::default();
+            return;
+        } else {
+            MatchPhase::Fighting
+        };
+        return;
+    }
+    if !matches!(state.phase, MatchPhase::Fighting) {
+        return;
+    }
+
+    // A fighter at zero health loses the round. Read health rather than any "is
+    // dead" marker: health is the fact, and a marker is a downstream opinion
+    // about it that a versus stage does not install.
+    let Some(loser) = fighters
+        .iter()
+        .find(|(_, health, _, _)| health.current() <= 0)
+        .map(|(seat, ..)| seat.0)
+    else {
+        return;
+    };
+    let winner = 1 - loser.min(1);
+    if let Some(wins) = state.rounds_won.get_mut(winner) {
+        *wins += 1;
+    }
+    state.phase = if state.winner().is_some() {
+        MatchPhase::Won {
+            seat: winner,
+            remaining_s: MATCH_HOLD_S,
+        }
+    } else {
+        MatchPhase::Ko {
+            seat: winner,
+            remaining_s: KO_HOLD_S,
+        }
+    };
+}
+
+/// **The presentation half: hold the card, and freeze the fight while it is up.**
+///
+/// Render clock on purpose — see [`settle_versus_round`]. This writes no
+/// simulation state: it counts a timer, asks the engine to scale the sim clock,
+/// and raises the one bit that tells the authoritative half a beat has ended.
+pub fn advance_versus_hold(
+    time: Res<Time>,
+    roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
+    mut state: ResMut<VersusMatch>,
+    mut clock: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
+) {
+    if roster.is_none() {
+        return;
+    }
+    let dt = time.delta_secs();
+    let (seat, remaining) = match state.phase {
+        MatchPhase::Fighting => return,
+        MatchPhase::Ko { seat, remaining_s } | MatchPhase::Won { seat, remaining_s } => {
+            (seat, remaining_s - dt)
+        }
+    };
+
+    // FREEZE the fight for the duration of the card.
     //
     // Without this the surviving fighter keeps taking input, the CPU keeps
     // steering, attacks keep resolving and projectiles keep flying across the
-    // round boundary — the card is shown over a fight that never stopped (GPT
-    // 5.6, 2026-07-27). `ClockScaleRequest` at scale 0 is the engine's own
-    // primitive for exactly this (its docstring names cutscene pause and boss
-    // freeze), so a KO hold stops the whole simulation rather than this module
-    // trying to name and silence every system that could still act.
-    //
-    // The hold itself is counted on the RENDER clock on purpose: it is a
-    // presentation beat, and counting it on a clock it has just set to zero
-    // would hold forever. What is authoritative — a fighter reaching zero
-    // health, the round being awarded — is a simulation fact, and that is
-    // decided below before any freeze is requested.
-    if !matches!(state.phase, MatchPhase::Fighting) {
-        clock.write(ambition::actors::time::time_control::ClockScaleRequest {
-            domain: ambition::time::ClockDomain::SimClock,
-            scale: 0.0,
-            requester: ambition::actors::time::time_control::ClockRequester::Scripted,
-            reason: "versus_ko_hold",
-        });
-    }
+    // round boundary — the card is shown over a fight that never stopped.
+    // `ClockScaleRequest` at scale 0 is the engine's own primitive for exactly
+    // this (its docstring names cutscene pause and boss freeze), so a hold stops
+    // the whole simulation rather than this module trying to name and silence
+    // every system that could still act.
+    clock.write(ambition::actors::time::time_control::ClockScaleRequest {
+        domain: ambition::time::ClockDomain::SimClock,
+        scale: 0.0,
+        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+        reason: "versus_ko_hold",
+    });
 
-    match state.phase {
-        MatchPhase::Fighting => {
-            // A fighter at zero health loses the round. Read health rather than
-            // any "is dead" marker: health is the fact, and a marker is a
-            // downstream opinion about it that a versus stage does not install.
-            let mut knocked_out = None;
-            for (seat, health, _, _) in &fighters {
-                if health.current() <= 0 {
-                    knocked_out = Some(seat.0);
-                    break;
-                }
-            }
-            let Some(loser) = knocked_out else {
-                return;
-            };
-            let winner = 1 - loser.min(1);
-            if let Some(wins) = state.rounds_won.get_mut(winner) {
-                *wins += 1;
-            }
-            state.phase = if state.winner().is_some() {
-                MatchPhase::Won {
-                    seat: winner,
-                    remaining_s: MATCH_HOLD_S,
-                }
-            } else {
-                MatchPhase::Ko {
-                    seat: winner,
-                    remaining_s: KO_HOLD_S,
-                }
-            };
-        }
-        MatchPhase::Ko { seat, remaining_s } => {
-            let remaining = remaining_s - dt;
-            if remaining > 0.0 {
-                state.phase = MatchPhase::Ko {
-                    seat,
-                    remaining_s: remaining,
-                };
-                return;
-            }
-            reset_fighters(&geometry, &mut fighters);
-            state.phase = MatchPhase::Fighting;
-            release_freeze(&mut clock);
-        }
-        MatchPhase::Won { seat, remaining_s } => {
-            let remaining = remaining_s - dt;
-            if remaining > 0.0 {
-                state.phase = MatchPhase::Won {
-                    seat,
-                    remaining_s: remaining,
-                };
-                return;
-            }
-            reset_fighters(&geometry, &mut fighters);
-            *state = VersusMatch::default();
-            release_freeze(&mut clock);
-        }
+    if remaining > 0.0 {
+        state.phase = match state.phase {
+            MatchPhase::Won { .. } => MatchPhase::Won {
+                seat,
+                remaining_s: remaining,
+            },
+            _ => MatchPhase::Ko {
+                seat,
+                remaining_s: remaining,
+            },
+        };
+        return;
     }
+    state.reset_pending = true;
+    release_freeze(&mut clock);
 }
 
 /// Hand the clock back at full pace.

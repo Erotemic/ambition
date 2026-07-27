@@ -280,15 +280,36 @@ pub fn compose_versus_experience(app: &mut App) {
     .install(app, versus_prepared_session_world);
 
     app.init_resource::<super::versus_rules::VersusMatch>();
-    // `Update`, like the roster tracker and for the same reason: a rule that
-    // lives inside the session it rules over cannot run at the moment the
-    // session ends, and resetting the match on the way out is exactly that
-    // moment. The rules read engine facts and write engine verbs; nothing here
-    // needs the sim schedule's ordering.
+    // The scoreboard is SIMULATION state: a rewind that restores the fighters
+    // and not the score leaves the two disagreeing about what round it is.
+    {
+        use ambition::runtime::rollback::AmbitionRollbackApp;
+        app.rollback_resource_clone::<super::versus_rules::VersusMatch>(
+            VERSUS_EXPERIENCE,
+            "resource.versus_match",
+        );
+    }
+
+    // The AUTHORITATIVE half on the sim schedule, after damage has resolved —
+    // it reads this tick's health outcome and writes body position. `Settle` is
+    // the phase for exactly that: "everything that reads this tick's damage
+    // outcome rather than producing it".
+    {
+        use ambition::platformer::schedule::{CombatSet, SimScheduleExt};
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            super::versus_rules::settle_versus_round.in_set(CombatSet::Settle),
+        );
+    }
+
+    // The PRESENTATION half in `Update`, on the render clock. It holds the KO
+    // card and asks the engine to freeze the sim while it is up; counting that
+    // hold on the clock it just zeroed would hold forever.
     app.add_systems(
         Update,
         (
-            super::versus_rules::run_versus_rules,
+            super::versus_rules::advance_versus_hold,
             super::versus_rules::publish_versus_hud,
         )
             .chain(),

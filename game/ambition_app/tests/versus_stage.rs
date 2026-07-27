@@ -1203,3 +1203,96 @@ fn four_controllers_make_versus_a_two_versus_two() {
         }
     }
 }
+
+/// **Four pads, four bodies, each moving only its own.** (queue L19 remainder)
+///
+/// The 1v1 has this end to end; the 2v2 asserted seating and the damage
+/// relation and stopped short of four live devices. Slots 2 and 3 of
+/// `SlotControls` had never carried one, so "four players" rested on the
+/// two-player writer generalising — which is the kind of assumption that has
+/// been wrong four times already this session.
+#[test]
+fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+
+    let mut app = versus_app();
+    let pads: Vec<Entity> = (0..4)
+        .map(|_| app.world_mut().spawn(Gamepad::default()).id())
+        .collect();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 4 {
+            break;
+        }
+    }
+    for _ in 0..40 {
+        app.update();
+    }
+
+    let bodies = |app: &mut App| -> Vec<(usize, Entity)> {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut v: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        v.sort_by_key(|(seat, _)| *seat);
+        v
+    };
+    let seated = bodies(&mut app);
+    assert_eq!(seated.len(), 4, "the stage did not seat four");
+
+    // The device order is connection order, so pad N drives seat N.
+    let order = app
+        .world()
+        .resource::<ambition::input::LocalDeviceOrder>()
+        .devices()
+        .to_vec();
+    assert_eq!(
+        order, pads,
+        "the pads were not assigned in connection order"
+    );
+
+    for (seat, body) in &seated {
+        let before: Vec<f32> = seated
+            .iter()
+            .map(|(_, e)| app.world().get::<BodyKinematics>(*e).unwrap().pos.x)
+            .collect();
+        pad_set(&mut app, pads[*seat], GamepadButton::DPadRight, 1.0);
+        for _ in 0..30 {
+            app.update();
+        }
+        pad_set(&mut app, pads[*seat], GamepadButton::DPadRight, 0.0);
+        let after: Vec<f32> = seated
+            .iter()
+            .map(|(_, e)| app.world().get::<BodyKinematics>(*e).unwrap().pos.x)
+            .collect();
+
+        let moved = app.world().get::<BodyKinematics>(*body).unwrap().pos.x - before[*seat];
+        assert!(
+            moved > 1.0,
+            "pad {seat} pressed right and seat {seat} did not move ({moved:.2}px) \
+             — slots 2 and 3 have never carried a real device before this"
+        );
+        // Everybody else is either still or coasting from their own earlier
+        // turn; nobody should be ACCELERATING on somebody else's input.
+        for (other, _) in &seated {
+            if other == seat {
+                continue;
+            }
+            let drift = (after[*other] - before[*other]).abs();
+            assert!(
+                drift < moved * 0.5,
+                "pad {seat} moved seat {other} by {drift:.2}px while moving its \
+                 own by {moved:.2}px — two seats are reading one device"
+            );
+        }
+        // Let the coast die down before the next seat's turn.
+        for _ in 0..120 {
+            app.update();
+        }
+    }
+}

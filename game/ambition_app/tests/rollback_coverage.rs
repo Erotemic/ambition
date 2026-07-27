@@ -1080,7 +1080,7 @@ fn sim_with_a_stopped_clock() -> SandboxSim {
 }
 
 /// Every RESTORED resource — not the derived ones — the registry knows about.
-fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
+pub(crate) fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
     use ambition::runtime::rollback::RollbackEntryKind;
     world
         .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
@@ -1187,15 +1187,21 @@ fn the_render_frame_sweep_actually_catches_a_write_from_outside_the_sim() {
 /// changes during such a frame was written by something that is not the
 /// simulation.
 ///
-/// ## What this does NOT cover, stated plainly
+/// ## What this covers, and what its sibling covers
 ///
 /// It watches the 29 restored resources the RL-sim composition installs — the
-/// engine and its content. It does **not** see resources that only the shell app
-/// registers, and `VersusMatch` is one of them: the shipped host runs its sim on
-/// the render frame, so there is no such thing as a render-only frame there to
-/// probe. **This sweep would not have caught the bug it was written for.** It
-/// covers the same class of defect across the engine, which is worth having, and
-/// saying otherwise would be the overclaiming that produced the bug.
+/// engine and its content. It does not see resources that only the shell app
+/// registers, and `VersusMatch` is one of them.
+///
+/// ⚠ This paragraph used to end "the shipped host runs its sim on the render
+/// frame, so there is no such thing as a render-only frame there to probe", and
+/// that was WRONG — reasoned rather than checked, hours after a whole session
+/// spent on exactly that mistake. `build_visible_app` sets
+/// `SimulationHost::Ggrs` under `dev_tools`, so the shell app's sim lives in
+/// `GgrsSchedule` and stopping the fixed-step clock leaves `Update` running over
+/// a still simulation, same as here. `versus_stage::
+/// no_render_only_frame_of_the_shipped_host_writes_rollback_state` is that
+/// sweep, RED-verified against the shape the bug actually shipped in.
 ///
 /// Only `Derived` declarations are excluded, and deliberately: a derived
 /// resource is one republished every frame before anyone reads it, so writing it

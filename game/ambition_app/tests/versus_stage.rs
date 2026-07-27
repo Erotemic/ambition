@@ -1532,3 +1532,105 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
          of this one, and the fighter it is about to hit has not moved yet"
     );
 }
+
+/// **The SHIPPED host has render-only frames too, and nothing writes sim state
+/// on them.** (queue N9 residue)
+///
+/// The engine-side sweep in `rollback_coverage` watches the RL-sim composition
+/// and says so in its own docs — it cannot see `VersusMatch`, which the shell app
+/// registers. That doc also said the shipped host "runs its sim on the render
+/// frame, so there is no render-only frame there to probe", and that was WRONG:
+/// `build_visible_app` sets `SimulationHost::Ggrs` under `dev_tools`, so the sim
+/// lives in `GgrsSchedule` and a frame whose fixed-step accumulator gets nothing
+/// runs `Update` while the simulation stands still. Reasoned once, checked here.
+///
+/// So this is the same instrument pointed at the composition that had the bug:
+/// stop the clock, run frames, and require that nothing GGRS restores changed.
+/// `SimTick` standing still is the proof the sim really did not run — without it
+/// a frame that quietly kept simulating would report a clean sweep.
+#[test]
+fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use bevy::time::TimeUpdateStrategy;
+    use std::time::Duration;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    // The match must actually be running, or this sweeps a stage that never
+    // started and every resource is trivially unchanged.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        assert_eq!(
+            q.iter(world).count(),
+            2,
+            "the versus stage never seated its fighters, so this would sweep an \
+             idle host"
+        );
+    }
+    let watched = crate::rollback_coverage::restored_resource_type_names(app.world());
+    assert!(
+        watched.iter().any(|name| name.ends_with("VersusMatch")),
+        "the shell app's own rollback state is not in the watched set, so this \
+         would miss the exact resource the sweep was written for"
+    );
+
+    // Stop the fixed-step clock. `Update` keeps running; the GGRS-hosted sim
+    // gets no step.
+    app.world_mut()
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
+    app.update();
+
+    let tick_before = *app.world().resource::<ambition::time::SimTick>();
+    let baseline = app.world().read_change_tick();
+    for _ in 0..4 {
+        app.update();
+    }
+    let now = app.world().read_change_tick();
+    assert_eq!(
+        *app.world().resource::<ambition::time::SimTick>(),
+        tick_before,
+        "the simulation kept stepping through the frames this test calls \
+         render-only, so a clean result below would mean nothing"
+    );
+
+    let world = app.world();
+    let mut written: Vec<String> = Vec::new();
+    for (info, _) in world.iter_resources() {
+        let name = info.name().to_string();
+        if !watched.contains(&name) {
+            continue;
+        }
+        let Some(ticks) = world.get_resource_change_ticks_by_id(info.id()) else {
+            continue;
+        };
+        if ticks.is_changed(baseline, now) {
+            written.push(name);
+        }
+    }
+    written.sort();
+    assert!(
+        written.is_empty(),
+        "these rollback-registered resources changed during frames in which the \
+         shipped host's simulation did not step:\n  {}\n\n\
+         A resimulation replays sim steps, not render frames, so whatever the \
+         render frame contributed is lost and the restored value disagrees with \
+         the one that was live. `VersusMatch` shipped exactly this way — properly \
+         registered AND advanced by a system in `Update` — which is why this \
+         sweep exists.",
+        written.join("\n  ")
+    );
+}

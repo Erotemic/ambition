@@ -166,7 +166,11 @@ pub fn complete_pending_physics_despawns(
 /// should compile/run regardless of whether debris bodies actually exist.
 #[cfg(feature = "physics_debris")]
 pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
-    commands.entity(entity).insert((
+    // `try_insert`, for the same reason as the plain-despawn arm it sits beside
+    // in `retire_outgoing`: the outgoing roster is collected before the frame's
+    // commands flush, so an entity in it can already be gone. Disabling the
+    // physics of a body that no longer exists is the outcome this wants.
+    commands.entity(entity).try_insert((
         RigidBodyDisabled,
         ColliderDisabled,
         PendingPhysicsDespawn {

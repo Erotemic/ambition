@@ -368,7 +368,19 @@ impl RoomConstructionPlan {
             if is_physics {
                 physics::retire_physics_entity(commands, entity);
             } else {
-                commands.entity(entity).despawn();
+                // `try_despawn`: the outgoing roster is collected BEFORE the
+                // frame's commands flush, so an entity in it can already have
+                // been despawned by something else in the same frame — an actor
+                // death, a session teardown racing a transition. Retiring a room
+                // entity that is already gone is the outcome this wants, so
+                // failing on it turns a success into a crash.
+                //
+                // This is the honest residue of Task 5's transactionality
+                // question (queue M2): `apply_to_world` promises no fallible
+                // LOOKUP, and promised nothing about the commands it queues.
+                // This was the only command in the construction path that could
+                // fail — everything else spawns.
+                commands.entity(entity).try_despawn();
             }
         }
     }

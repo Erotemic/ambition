@@ -808,19 +808,35 @@ that fails its boundary check has already mutated the live world". Source-checke
 So plan → validate → commit is real for room construction. Verification does
 PREVENT here.
 
-▢ **The actual gap is failure HANDLING, and it is not uniform.** Of the callers:
-`lifecycle_commit.rs` handles a failed prepare gracefully (logs, returns
+✔ **The actual gap was failure HANDLING, and it is closed.** Of the callers,
+`lifecycle_commit.rs` already handled a failed prepare gracefully (logs, returns
 `CommitOutcome::Retry`, world untouched), while `session/setup.rs` and
-`session/reset/mod.rs` both do
-`.unwrap_or_else(|error| panic!("… failed: {error}"))`. A preflight that
-correctly refuses therefore kills the process on two of the paths instead of
-declining. That is a much smaller and much more actionable row than "build a
-staging world", and it is the one that should be taken.
+`session/reset/mod.rs` both did
+`.unwrap_or_else(|error| panic!("… failed: {error}"))` — a preflight that
+correctly refused killed the process on two paths instead of declining.
+`process_sandbox_reset_request` declines now; `session/setup.rs` still panics
+DELIBERATELY, because no game exists yet and a silent partial start is worse
+than a loud stop.
 
-▢ **Still genuinely unproven:** whether `spawn_contents`' individual COMMANDS can
-fail after the infallible boundary — the L23/L24 despawn/insert class lives
-exactly there, and `deferred_write_safety` now exists to answer it. That is the
-honest residue of the transactionality question.
+✔ **And a second half nobody had looked for.** Declining is not the same as
+costing nothing: `clear_transient_on_sandbox_reset` was chained BEFORE the
+processor and keyed on the REQUEST, so a refused reset had already emptied the
+player's hands, despawned the portals and stripped the portal gun (GPT 5.6,
+2026-07-27). `despawn_player_clones_on_reset` in the app crate did the same.
+Both now wait for a `SandboxResetCommitted` message the processor writes only
+once the preflight has agreed — a request is what somebody asked for, a
+commitment is what the preflight allowed, and only the second may authorise a
+teardown. `sandbox_reset_clears_portals_held_items_and_summons` drives the
+refusal shape.
+
+✔ **The residue is answered:** whether `spawn_contents`' individual COMMANDS can
+fail after the infallible boundary. Audited rather than assumed — almost
+everything queued is a SPAWN, which cannot fail; three commands touch existing
+entities, two of them the arms of one `if` in `retire_outgoing`, and retiring
+something already gone is the outcome both arms want, so both are `try_`. The
+third is left alone deliberately: its entities come from its own query.
+`deferred_write_safety` is the harness that answers this class by running a real
+pass against a real teardown.
 
 Approach item 1 named "the active Phase 6 remainder": the second slice landed
 (Outlander launches and walks its ridge gate under a real routed shell, gated in

@@ -22,12 +22,21 @@
 //! through the enemy spawner would mean every fighter needs a second declaration
 //! in a roster fragment, which is the duplication the character seam removed.
 //!
-//! ## What it does not do yet
+//! ## Human seats ADOPT, they do not spawn
 //!
-//! Only CPU participants are seated. A `Human` binding needs a slot-to-body
-//! assignment (`Brain::Player(slot)`), which is the couch-versus slice and comes
-//! after this one — Jon's order is CPU vs CPU, then player vs CPU, then local
-//! couch, and only then netcode.
+//! A stage already has a primary player body: the session's `StartingCharacter`
+//! spawns one, and it is what the camera follows and what device input drives. A
+//! `Human` participant is that body, not a second one beside it.
+//!
+//! Getting this wrong is not subtle and it shipped for an hour: the versus stage
+//! seated a CPU `mary_o` while the session had already spawned a player body
+//! wearing `mary_o`, and the arena held two of her. The test passed because it
+//! asserted both fighters were PRESENT rather than that the roster was the cast —
+//! presence is the assertion you write when you have not looked at the screen.
+//!
+//! So a human seat binds to the existing body and spawns nothing. That is also
+//! why it is the fix for the duplicate rather than a separate feature: a stage's
+//! starting character IS a seat, and seating had no way to say so.
 
 use bevy::prelude::*;
 
@@ -163,6 +172,14 @@ pub fn seat_match_participants(
         >,
     >,
     mut seated: ResMut<MatchSeated>,
+    mut player: Query<
+        (
+            ambition_engine_core::BodyClusterQueryData,
+            &mut crate::features::MotionModel,
+            &ambition_characters::actor::WornCharacter,
+        ),
+        crate::actor::PrimaryPlayerOnly,
+    >,
 ) {
     if seated.0 {
         return;
@@ -183,12 +200,41 @@ pub fn seat_match_participants(
             controller,
             ..
         } = participant;
-        // CPU only for this slice. A human seat needs a slot-to-body assignment,
-        // which is the next one.
+        let (at, facing) = seat_for(index, centre);
+        // A HUMAN seat is the body the player already has. Adopt it — move it to
+        // its seat and face it inward — rather than spawning a second body
+        // wearing the same character, which is what produced two Mary-Os in the
+        // arena the first time this stage shipped.
+        if matches!(controller, super::ControllerBinding::Human { .. }) {
+            let Ok((clusters, mut model, worn)) = player.single_mut() else {
+                continue;
+            };
+            if worn.id() != character {
+                // The stage's starting character and this seat disagree. Seating
+                // does not re-dress the player body — that is `WornCharacter`'s
+                // job and a stage that wants a different fighter should say so in
+                // its `StartingCharacter`.
+                continue;
+            }
+            // Through `transit_body`, the ONE transit authority (ADR 0024): a
+            // bare `kin.pos = at` is a pose write the kernel never sees, so the
+            // body arrives believing it is still standing on the floor it left.
+            // The workspace policy caught that draft, and was right to.
+            let mut item = clusters;
+            let mut clusters = item.as_clusters_mut();
+            ambition_engine_core::movement::transit_body(
+                &mut model,
+                &mut clusters,
+                at,
+                ambition_engine_core::movement::TransitVelocity::Zero,
+            );
+            clusters.kinematics.facing = facing;
+            any = true;
+            continue;
+        }
         let Some(profile) = controller.brain_profile() else {
             continue;
         };
-        let (at, facing) = seat_for(index, centre);
         // Alternating factions so the two sides can actually hit each other:
         // `effective_faction` refuses a strike between same-faction bodies, so a
         // roster seated all-Enemy would stand and stare.

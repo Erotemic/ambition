@@ -113,17 +113,20 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     let mut worn = world.query::<&ambition::characters::actor::WornCharacter>();
     let mut characters: Vec<String> = worn.iter(world).map(|worn| worn.id().to_string()).collect();
     characters.sort();
-    characters.dedup();
 
-    for fighter in ["mary_o", "sanic"] {
-        assert!(
-            characters.iter().any(|id| id == fighter),
-            "`{fighter}` is not on the stage. Bodies present: {characters:?}. The \
-             stage seats one fighter from EACH provider on purpose — a match \
-             between characters whose art, cues and movesets come from different \
-             packages is the case the whole character seam was built for."
-        );
-    }
+    // EXACTLY the roster, not "at least the roster". The first version of this
+    // asserted presence and passed while the arena held two Mary-Os: the session
+    // spawns a player body wearing the starting character, and seating spawned a
+    // second one beside it. Presence is the assertion you write when you have not
+    // looked at the screen.
+    assert_eq!(
+        characters,
+        vec!["mary_o".to_string(), "sanic".to_string()],
+        "the stage's cast must be exactly its roster. One fighter comes from each \
+         provider on purpose — a match between characters whose art, cues and \
+         movesets come from different packages is the case the whole character \
+         seam was built for."
+    );
 }
 
 /// **Leaving versus takes the roster with it.**

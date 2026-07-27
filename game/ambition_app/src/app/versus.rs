@@ -101,24 +101,32 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     )
 }
 
-/// The roster this stage seats.
+/// The roster this stage seats: the player, and one CPU opponent.
+///
+/// Seat 0 is HUMAN and is the body the session already spawned wearing
+/// `FIGHTERS[0]` — seating adopts it rather than spawning beside it. That is not
+/// a detail: the first version of this stage made both seats CPU while the
+/// session had already spawned a player wearing the same character, and the
+/// arena held two Mary-Os. The test passed because it asserted both fighters were
+/// present, which is the assertion you write when you have not looked at the
+/// screen.
+///
+/// Player-versus-CPU is also the second step of Jon's order (cpu vs cpu, then
+/// player vs cpu, then local couch, and only then netcode). Step one is what the
+/// seating tests prove; this is the one a stranger can pick up a controller and
+/// play.
 pub fn versus_roster() -> MatchParticipantRoster {
     MatchParticipantRoster {
-        participants: FIGHTERS
-            .iter()
-            .enumerate()
-            .map(|(index, character)| {
-                MatchParticipant::new(*character)
-                    .driven_by(ControllerBinding::Cpu {
-                        // Both sides think the same way for now. Two profiles
-                        // would make the match interesting and would also make a
-                        // one-sided result ambiguous — the stage has to be right
-                        // before the AI is worth tuning.
-                        brain_profile: Some("medium_striker".into()),
-                    })
-                    .on_team(if index % 2 == 0 { "blue" } else { "red" })
-            })
-            .collect(),
+        participants: vec![
+            MatchParticipant::new(FIGHTERS[0])
+                .driven_by(ControllerBinding::Human { device_slot: 0 })
+                .on_team("blue"),
+            MatchParticipant::new(FIGHTERS[1])
+                .driven_by(ControllerBinding::Cpu {
+                    brain_profile: Some("medium_striker".into()),
+                })
+                .on_team("red"),
+        ],
     }
 }
 

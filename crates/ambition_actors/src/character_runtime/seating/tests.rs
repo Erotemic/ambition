@@ -138,25 +138,101 @@ fn an_unregistered_participant_is_not_seated() {
     );
 }
 
-/// A HUMAN seat is not a CPU seat, and this slice only does CPU. Asserted rather
-/// than left implicit so the couch-versus slice has something to turn red.
+/// **A human seat ADOPTS the player body; it does not spawn a second one.**
+///
+/// This is the bug the versus stage shipped with for an hour: the session spawns
+/// a primary player wearing the starting character, seating spawned a fighter
+/// wearing the same character, and the arena held two of them. The old test here
+/// asserted a human seat produced NO body, which was true and useless — the
+/// defect was the body it did not account for.
 #[test]
-fn a_human_participant_is_left_for_the_couch_slice() {
+fn a_human_seat_adopts_the_existing_player_body_instead_of_duplicating_it() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    // The REAL player bundle. A hand-rolled body without the movement clusters
+    // does not match seating's query, so adoption silently skips and the body
+    // simply never moves — which the first version of this fixture could not tell
+    // apart from working, because the seat count was right for the wrong reason.
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::avatar::PlayerSimulationBundle::from_scratch(
+                crate::avatar::primary_player_scratch(
+                    Vec2::new(0.0, 0.0),
+                    ambition_engine_core::AbilitySet::default(),
+                ),
+                ambition_characters::actor::Health::new(5),
+            ),
+            ambition_characters::actor::WornCharacter::new("mary_o"),
+        ))
+        .id();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            cpu("mary_o"),
+        ],
+    });
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    assert_eq!(
+        worn.iter(world).count(),
+        2,
+        "one body per seat. A human seat that spawns instead of adopting leaves \
+         the player's own body beside a copy of itself — which is what the versus \
+         arena looked like before this existed"
+    );
+
+    // The adopted body MOVED to its seat. A human seat left at the session spawn
+    // is standing wherever the room put it rather than where the match wants it,
+    // which is only invisible while the two happen to coincide.
+    let kin = app
+        .world()
+        .get::<ambition_platformer_primitives::body::BodyKinematics>(player)
+        .expect("the player body survives adoption");
+    assert_ne!(
+        kin.pos.x, 0.0,
+        "the human seat was not moved to its side of the stage"
+    );
+    assert_eq!(kin.facing, 1.0, "the left seat looks right");
+}
+
+/// A human seat whose character disagrees with the body's is NOT re-dressed.
+///
+/// Seating places fighters; `WornCharacter` decides who they are. A stage that
+/// wants a different fighter says so in its `StartingCharacter`, and silently
+/// re-dressing the player body here would make two authorities for one fact.
+#[test]
+fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.world_mut().spawn((
+        crate::avatar::PlayerSimulationBundle::from_scratch(
+            crate::avatar::primary_player_scratch(
+                Vec2::new(7.0, 0.0),
+                ambition_engine_core::AbilitySet::default(),
+            ),
+            ambition_characters::actor::Health::new(5),
+        ),
+        ambition_characters::actor::WornCharacter::new("sanic"),
+    ));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
     });
+
     app.update();
 
     let world = app.world_mut();
-    let mut q = world.query::<&ambition_characters::actor::WornCharacter>();
+    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    let ids: Vec<String> = worn.iter(world).map(|w| w.id().to_string()).collect();
     assert_eq!(
-        q.iter(world).count(),
-        0,
-        "seating a human seat needs a slot-to-body assignment (`Brain::Player`), \
-         which is the next slice — not a CPU brain wearing a human's character"
+        ids,
+        vec!["sanic".to_string()],
+        "seating re-dressed the player body, or spawned beside it"
     );
 }

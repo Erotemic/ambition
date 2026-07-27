@@ -23,8 +23,8 @@ use bevy::prelude::*;
 
 use ambition_platformer_primitives::{
     gameplay_presentation::{
-        ActiveHudDeclaration, HudReadouts, HudSlotId, HudSlotSpec, ResolvedGameplayPresentation,
-        ScreenOccluder, ScreenRect, SurroundRegion,
+        ActiveHudDeclaration, HudFigure, HudReadouts, HudSlotId, HudSlotSpec,
+        ResolvedGameplayPresentation, ScreenOccluder, ScreenRect, SurroundRegion,
     },
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
 };
@@ -340,13 +340,21 @@ pub fn update_declared_hud_gauges(
                 node.top = top;
             }
         }
-        let fill = readouts.get(&bar.0).and_then(|readout| readout.fill);
-        let Some(fill) = fill else {
-            if node.height != Val::Px(0.0) {
-                node.height = Val::Px(0.0);
-                node.width = Val::Px(0.0);
+        // EXHAUSTIVE on purpose (queue L20). A new `HudFigure` variant stops
+        // this file compiling until somebody decides how it is drawn, which is
+        // the point of the enum: a renderer that has not been taught a new
+        // figure would otherwise draw nothing and look like a game that simply
+        // did not publish one.
+        let figure = readouts.get(&bar.0).and_then(|readout| readout.figure);
+        let fill = match figure {
+            Some(HudFigure::Gauge(fill)) => fill,
+            None => {
+                if node.height != Val::Px(0.0) {
+                    node.height = Val::Px(0.0);
+                    node.width = Val::Px(0.0);
+                }
+                continue;
             }
-            continue;
         };
         // The slot's own declared minimum width is the bar's full extent, so a
         // game sizes its gauge by declaring how much room it wants rather than

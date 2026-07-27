@@ -1042,7 +1042,7 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
         app.world()
             .resource::<ambition::presentation::HudReadouts>()
             .get(&ambition::presentation::HudSlotId::from(slot))
-            .and_then(|readout| readout.fill)
+            .and_then(|readout| readout.fill())
     };
     assert_eq!(
         fill(&app, seat_0_slot),
@@ -1378,7 +1378,7 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
             app.world()
                 .resource::<ambition::presentation::HudReadouts>()
                 .get(&ambition::presentation::HudSlotId::from(*slot))
-                .and_then(|readout| readout.fill)
+                .and_then(|readout| readout.fill())
         })
         .collect();
     assert_eq!(

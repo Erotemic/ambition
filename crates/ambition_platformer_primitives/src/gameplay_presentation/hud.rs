@@ -213,18 +213,48 @@ impl HudDeclaration {
 pub struct HudReadout {
     pub label: String,
     pub value: String,
-    /// A 0..=1 fill, when this readout is a GAUGE rather than a number.
+    /// The non-textual part of this readout, when it has one.
     ///
     /// The declared HUD published strings and nothing else, so a health readout
     /// could only ever be "47/60". A number is precise and a bar is READABLE,
     /// and in a fight the thing a player needs at a glance is "am I nearly
     /// dead", not an integer. Games that want a number keep publishing one;
     /// this is additive and `None` behaves exactly as before.
-    ///
-    /// The FRACTION, not a rendered bar: how a fill is drawn — width, colour,
-    /// whether it animates — belongs to presentation, and a game that formatted
-    /// its own block characters would have decided all three by accident.
-    pub fill: Option<f32>,
+    pub figure: Option<HudFigure>,
+}
+
+/// **The non-textual VALUE a readout carries.** (queue L20)
+///
+/// The split this type defends is the one the gauge already stated in prose and
+/// nothing enforced: a readout publishes a VALUE, and how that value is drawn —
+/// width, colour, whether it animates — belongs to presentation. A game that
+/// formatted its own block characters would have decided all three by accident.
+///
+/// ## Why an enum and not another `Option` field
+///
+/// `fill: Option<f32>` was the first non-string thing the declared HUD could
+/// carry, and the obvious way to add the second (a portrait, a stock counter, an
+/// icon row) is a second `Option`. That is the wrong shape for one reason:
+/// **a renderer that has not been taught a new field silently draws nothing.**
+/// Silence is the failure mode this codebase keeps paying for — a body no family
+/// claimed rendered as absence, a binding that failed resolved to nothing — so
+/// the seam is an enum the renderer matches EXHAUSTIVELY. Adding a variant stops
+/// the renderer compiling until somebody decides how it looks, which is exactly
+/// when that decision should be made.
+///
+/// It is also why this is not `kind: HudReadoutKind`. A health slot is a label
+/// AND a number AND a bar at the same time; a readout that had to be exactly one
+/// of those could not express the only case that exists today.
+///
+/// Variants are presentation PRIMITIVES, not content vocabulary — the same
+/// category as [`SurroundRegion`]. The engine still never learns what "health"
+/// is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum HudFigure {
+    /// A `0..=1` proportion, drawn as a bar. Clamped on construction, because a
+    /// game computing `current / max` with a max of zero should get an empty bar
+    /// rather than a NaN that propagates into a layout.
+    Gauge(f32),
 }
 
 impl HudReadout {
@@ -232,24 +262,28 @@ impl HudReadout {
         Self {
             label: label.into(),
             value: value.into(),
-            fill: None,
+            figure: None,
         }
     }
 
     /// A GAUGE: a label, a fill, and the text to draw beside it.
-    ///
-    /// `fill` is clamped, because a game computing `current / max` with a max of
-    /// zero should get an empty bar rather than a NaN that propagates into a
-    /// layout.
     pub fn gauge(label: impl Into<String>, value: impl Into<String>, fill: f32) -> Self {
         Self {
             label: label.into(),
             value: value.into(),
-            fill: Some(if fill.is_finite() {
+            figure: Some(HudFigure::Gauge(if fill.is_finite() {
                 fill.clamp(0.0, 1.0)
             } else {
                 0.0
-            }),
+            })),
+        }
+    }
+
+    /// This readout's gauge fraction, if it is a gauge.
+    pub fn fill(&self) -> Option<f32> {
+        match self.figure {
+            Some(HudFigure::Gauge(fill)) => Some(fill),
+            None => None,
         }
     }
 
@@ -258,7 +292,7 @@ impl HudReadout {
         Self {
             label: String::new(),
             value: value.into(),
-            fill: None,
+            figure: None,
         }
     }
 

@@ -38,8 +38,8 @@ pub use control_regions::{
 // learns what any of it means. Pairs with `hud_region` below, which already
 // owned WHERE a HUD may live.
 pub use hud::{
-    ActiveHudDeclaration, HudDeclaration, HudDeclarationCatalog, HudReadout, HudReadouts,
-    HudSlotId, HudSlotSpec,
+    ActiveHudDeclaration, HudDeclaration, HudDeclarationCatalog, HudFigure, HudReadout,
+    HudReadouts, HudSlotId, HudSlotSpec,
 };
 pub use presets::profiles;
 pub use resolve::{resolve_gameplay_presentation, GameplayPresentationInput};

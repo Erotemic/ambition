@@ -129,11 +129,15 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     // looked at the screen.
     assert_eq!(
         characters,
-        vec!["mary_o".to_string(), "sanic".to_string()],
-        "the stage's cast must be exactly its roster. One fighter comes from each \
-         provider on purpose — a match between characters whose art, cues and \
-         movesets come from different packages is the case the whole character \
-         seam was built for."
+        vec![
+            "arena_duelist_close".to_string(),
+            "arena_duelist_long".to_string()
+        ],
+        "the stage's cast must be exactly its roster. The two fighters are the \
+         arena's own — the demo casts author no move list, and giving one attacks \
+         to make versus work would be authoring against its design — but they \
+         SHARE the demos' art by id, so the crossover the character seam was \
+         built for is still what the stage draws."
     );
 }
 
@@ -354,20 +358,127 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
         .next()
         .expect("the versus stage seats an opponent");
 
-    assert_eq!(worn.id(), "sanic");
+    assert_eq!(worn.id(), "arena_duelist_close");
     assert_ne!(
         name.as_str(),
-        "sanic",
+        "arena_duelist_close",
         "the body still carries seating's placeholder name, so the persona \
          derive never matched it — which means it has none of the character's \
          gameplay either, only its id"
     );
 
-    // NOT asserted: that the fighter has attacks. Sanic's catalog row says out
-    // loud that he is "a peaceful speedster: the momentum ride + ball dash ARE
-    // the kit; no combat moveset", so an empty `ActionSet` here is the authored
-    // truth and an assertion against it would be a demand that content change to
-    // suit a test. What IS asserted is that the derive RAN — once it runs, a
-    // fighter that authors moves gets them through the same path.
+    // The action set stays EMPTY on purpose and that is not a gap: these
+    // fighters author their moves on their `CharacterDefinition`, which the
+    // persona derive prefers over anything the catalog row implies. An
+    // `ActionSet` melee would be a second opinion that never wins. The moveset
+    // itself is checked by `both_fighters_can_actually_hit_each_other`.
     let _ = action_set;
+}
+
+/// **The whole point: one fighter presses attack and the other loses health.**
+///
+/// Couch versus worked and was two people walking into each other, because
+/// neither demo cast authors a move list. This is the assertion that the
+/// arena's own fighters changed that — and it drives the REAL path (press the
+/// button, let the move play, let the volume resolve) rather than writing
+/// damage, because every intermediate seam between the button and the HP is
+/// exactly what could be missing.
+#[test]
+fn both_fighters_can_actually_hit_each_other() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::characters::actor::BodyHealth;
+    use ambition::characters::brain::{Brain, PlayerSlot};
+
+    let mut app = versus_app();
+    let pad_one = app.world_mut().spawn(Gamepad::default()).id();
+    let pad_two = app.world_mut().spawn(Gamepad::default()).id();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut brains = world.query::<(Entity, &Brain)>();
+    let mut seated: Vec<(u8, Entity)> = brains
+        .iter(world)
+        .filter_map(|(entity, brain)| match brain {
+            Brain::Player(PlayerSlot(slot)) => Some((*slot, entity)),
+            _ => None,
+        })
+        .collect();
+    seated.sort_by_key(|(slot, _)| *slot);
+    assert_eq!(seated.len(), 2, "the arena did not seat two players");
+    let (attacker, victim) = (seated[0].1, seated[1].1);
+    let pads = [pad_one, pad_two];
+
+    // Walk the attacker into range. The fighters start a seat-spread apart,
+    // which is deliberately outside every authored reach — a swing that landed
+    // from the starting positions would mean the reach is wrong, not that the
+    // damage path works.
+    let toward = |app: &App| -> f32 {
+        let a = app.world().get::<BodyKinematics>(attacker).unwrap().pos.x;
+        let v = app.world().get::<BodyKinematics>(victim).unwrap().pos.x;
+        (v - a).signum()
+    };
+    let dir = toward(&app);
+    let walk = if dir > 0.0 {
+        GamepadButton::DPadRight
+    } else {
+        GamepadButton::DPadLeft
+    };
+    pad_set(&mut app, pads[0], walk, 1.0);
+    for _ in 0..240 {
+        app.update();
+        let a = app.world().get::<BodyKinematics>(attacker).unwrap().pos.x;
+        let v = app.world().get::<BodyKinematics>(victim).unwrap().pos.x;
+        if (v - a).abs() < 28.0 {
+            break;
+        }
+    }
+    pad_set(&mut app, pads[0], walk, 0.0);
+    for _ in 0..10 {
+        app.update();
+    }
+
+    let start_hp = app.world().get::<BodyHealth>(victim).unwrap().current();
+    assert!(start_hp > 0, "the victim started the fight already dead");
+
+    // Swing, repeatedly. One press could land in a frame the victim has drifted
+    // out of; a fighter that can never hit is what this is looking for.
+    for _ in 0..12 {
+        pad_set(&mut app, pads[0], GamepadButton::West, 1.0);
+        for _ in 0..3 {
+            app.update();
+        }
+        pad_set(&mut app, pads[0], GamepadButton::West, 0.0);
+        for _ in 0..20 {
+            app.update();
+        }
+        if app.world().get::<BodyHealth>(victim).unwrap().current() < start_hp {
+            break;
+        }
+    }
+
+    let end_hp = app.world().get::<BodyHealth>(victim).unwrap().current();
+    assert!(
+        end_hp < start_hp,
+        "player one swung twelve times in range and the other fighter is still \
+         on {end_hp}/{start_hp} HP. Versus is two people walking into each other: \
+         the hand-authored moveset never reached the body, or the swing never \
+         resolved a volume against it."
+    );
 }

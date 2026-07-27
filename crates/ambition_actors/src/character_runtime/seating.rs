@@ -102,8 +102,16 @@ pub fn seat_character(
     seed.kin.facing = facing;
     let centered = ambition_engine_core::CenteredAabb::from_center_size(at, SEAT_BODY_PX);
     let motion_model = seed.config.tuning.motion_model();
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, _seed_disposition, combat, intent, cooldowns) =
         crate::features::ecs::enemy_component_snapshot(&seed);
+    // A match participant is a COMBATANT, whatever brain drives it.
+    //
+    // The disposition the seed derives follows the authored brain, and a human
+    // seat authors `Passive` (its real driver is the player). `apply_actor_hit`
+    // reads the disposition first: a peaceful body takes NO health damage — it
+    // barks and turns hostile instead. So a seated fighter was unkillable, and
+    // the symptom was a swing that connected, played its sound, and did nothing.
+    let disposition = crate::combat::components::ActorDisposition::Hostile;
     // A default action set, matching what an enemy spawn does before its
     // archetype fills one in. The character's real attacks arrive from
     // `apply_worn_character_gameplay`, which derives the persona from

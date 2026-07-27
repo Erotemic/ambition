@@ -43,11 +43,21 @@ pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
 pub const VERSUS_GAMEPLAY_ROUTE: &str = "versus_gameplay";
 pub const VERSUS_ROOM_ID: &str = "versus_arena";
 
-/// The two fighters. Deliberately one from each demo provider: a match between
-/// characters whose art, cues and movesets come from different packages is the
-/// case every seam in the character work was built for, and the case a
-/// single-provider roster would never exercise.
-const FIGHTERS: [&str; 2] = ["mary_o", "sanic"];
+/// The two fighters.
+///
+/// They used to be `mary_o` and `sanic`, chosen because a match between two
+/// demo providers' casts is the crossover the character seam was built for.
+/// That was the right cast for proving the seam and the wrong one for a fight:
+/// neither authors a move list, so couch versus was two people walking into
+/// each other, and giving either one attacks would have been authoring against
+/// their design to make a different mode work (Sanic's row says "no combat
+/// moveset" in as many words; Mary-O has to play like SMB1).
+///
+/// The arena has its own fighters now — see [`super::versus_fighters`]. The
+/// crossover is not lost: they SHARE the demos' art by id, so the stage still
+/// draws one cast against the other, and it is still the only composition where
+/// both sheets exist.
+const FIGHTERS: [&str; 2] = ["arena_duelist_long", "arena_duelist_close"];
 
 /// A flat arena with walls. Nothing else: the stage exists so two bodies have
 /// somewhere to stand and something to be stopped by, and every feature it does
@@ -157,6 +167,7 @@ fn track_versus_roster(
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
     mut seated: ResMut<ambition::actors::character_runtime::MatchSeated>,
+    mut friendly_fire: ResMut<ambition::combat::targeting::FriendlyFire>,
 ) {
     let on_versus = router
         .active
@@ -174,10 +185,29 @@ fn track_versus_roster(
             roster.project_demand(&mut demand);
             commands.insert_resource(roster);
             seated.0 = false;
+            // FREE-FOR-ALL, for the duration of the stage.
+            //
+            // Two human seats cannot hit each other otherwise, and the reason is
+            // load-bearing elsewhere: `effective_faction` maps ANY player-brained
+            // body to `ActorFaction::Player`, which is what makes a possessed
+            // enemy stop being hittable by the player who possesses it. Two
+            // players are therefore always the same faction, and friendly fire is
+            // the engine's existing name for "same faction damages each other" —
+            // which is what a versus stage IS.
+            //
+            // Not a workaround for the roster's teams: those are declared and
+            // still do nothing, and making factions team-aware is the real fix
+            // for a team mode. A free-for-all needs no teams to be correct.
+            friendly_fire.enabled = true;
         }
         (false, true) => {
             commands.remove_resource::<MatchParticipantRoster>();
             seated.0 = false;
+            // Off again on the way out, for the same reason the roster is
+            // removed: a match rule that outlives its match is a rule the next
+            // game silently inherits, and "your allies can now shoot you" is a
+            // bad surprise to bring into a co-op level.
+            friendly_fire.enabled = false;
         }
         _ => {}
     }
@@ -185,6 +215,27 @@ fn track_versus_roster(
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
+    // The ROW (who they are) and the DEFINITION (what they do), in that order.
+    // Preparation refuses an experience whose starting character has no catalog
+    // row, and the hand-authored moveset only exists on the definition.
+    {
+        use ambition::characters::actor::character_catalog::{
+            CharacterCatalogAppExt, CharacterCatalogFragment,
+        };
+        app.register_character_catalog_fragment(
+            CharacterCatalogFragment::from_ron(
+                VERSUS_EXPERIENCE,
+                Some(FIGHTERS[0]),
+                super::versus_fighters::VERSUS_CATALOG_RON,
+            )
+            .expect("the versus fighter catalog is valid"),
+        );
+    }
+    use ambition::actors::character_runtime::CharacterDefinitionAppExt;
+    for fighter in super::versus_fighters::duelists() {
+        app.register_character(fighter);
+    }
+
     PlatformerExperienceAuthoring::new(
         VERSUS_EXPERIENCE,
         VERSUS_GAMEPLAY_ROUTE,

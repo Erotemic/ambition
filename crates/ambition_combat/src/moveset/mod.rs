@@ -1134,17 +1134,19 @@ pub fn dispatch_move_events(
 /// of a `MovesetMelee` body's swing — there is no flat melee driver competing for
 /// it anymore.
 pub fn project_moveset_melee_to_body_melee(
-    mut bodies: Query<(Option<&MovePlayback>, &mut BodyMelee), With<MovesetMelee>>,
+    mut bodies: Query<
+        (Option<&MovePlayback>, Option<&ActorMoveset>, &mut BodyMelee),
+        With<MovesetMelee>,
+    >,
 ) {
-    for (playback, mut melee) in &mut bodies {
-        // Only a MELEE swing move projects a swing — the base `"attack"` AND its
-        // directional variants (`attack_up` / `attack_air_down` / …). A body's
-        // ranged shot (`"ranged"`) or a special as a moveset move is ALSO
-        // `MovesetMelee`, and those are NOT swings — projecting one would publish a
-        // phantom `BodyMelee.swing` the movement pipeline reads as "mid-attack",
-        // freezing a firing/special-ing body. Match the melee verb family.
+    for (playback, moveset, mut melee) in &mut bodies {
+        // Only a MELEE swing move projects a swing. A body's ranged shot
+        // (`"ranged"`) or a special as a moveset move is ALSO `MovesetMelee`, and
+        // those are NOT swings — projecting one would publish a phantom
+        // `BodyMelee.swing` the movement pipeline reads as "mid-attack", freezing
+        // a firing/special-ing body.
         match playback {
-            Some(pb) if is_melee_swing_move(&pb.spec.id) => {
+            Some(pb) if is_melee_swing_move(moveset.map(|m| &m.0), &pb.spec.id) => {
                 melee.swing = Some(synth_swing_from_move(pb))
             }
             _ => melee.swing = None,
@@ -1152,10 +1154,41 @@ pub fn project_moveset_melee_to_body_melee(
     }
 }
 
-/// Whether a move id is a melee swing (the `"attack"` verb family) versus a
-/// ranged shot or a content special. The directional derive names every swing
-/// `attack` / `attack_<dir>`, so the melee family is exactly that prefix.
-fn is_melee_swing_move(id: &str) -> bool {
+/// Which input verb a move answers in this moveset, if any.
+///
+/// The moveset binds verb → move id, so this is just the inverse. Deterministic:
+/// `verbs` is a `BTreeMap`, and a move bound to two verbs answers to the first
+/// in sort order — a case no authored moveset has, and one that must not depend
+/// on hash order if it ever appears.
+fn verb_for_move<'a>(moveset: &'a MovesetContract, id: &str) -> Option<&'a str> {
+    moveset
+        .verbs
+        .iter()
+        .find(|(_, bound)| bound.as_str() == id)
+        .map(|(verb, _)| verb.as_str())
+}
+
+/// Whether a move is a melee swing versus a ranged shot or a content special.
+///
+/// **Asks the VERB, not the name.** The derived movesets name every swing after
+/// its verb (`attack` / `attack_up` / `attack_air_down`), so for years "does the
+/// id start with `attack`" and "is it bound to the attack verb" were the same
+/// question — and the id was the cheaper one to ask.
+///
+/// They stop being the same question the moment a moveset is hand-authored, and
+/// a fighting game's move list is named after its MOVES (`jab`, `smash_forward`,
+/// `tilt_up`), not after the buttons. The failure was silent and expensive to
+/// find: the move triggered, played, spawned its hitbox and made its sound, and
+/// the hitbox was inert, because the Player melee arm emits nothing without a
+/// projected `BodyMelee.swing`. A whole authored fighter did nothing.
+///
+/// The id check remains as the fallback for a move that the owner's moveset does
+/// not bind (a boss projecting moves it never registered a verb for), so this is
+/// a strict SUPERSET of the old rule: nothing that swung before stops swinging.
+fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
+    if let Some(verb) = moveset.and_then(|m| verb_for_move(m, id)) {
+        return verb == ATTACK_VERB || verb.starts_with("attack_");
+    }
     id == ATTACK_VERB || id.starts_with("attack_")
 }
 

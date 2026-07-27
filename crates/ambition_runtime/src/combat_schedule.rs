@@ -310,11 +310,6 @@ impl Plugin for CombatSchedulePlugin {
         // each slot. Both slots live in `SandboxSet::Combat`.
         //
         // `ContentSpecials` slots in where the inline boss-special block
-        // used to be: after the enemy-action consumers, before the
-        // effect/projectile executors that drain the specials' output.
-        // `ContentFlavor` slots in after feature-hit resolution (so it
-        // observes this frame's alive-flag transitions) and before the
-        // mount/rider bookkeeping — the cut-rope block's former position.
         // Both slots' PLACEMENT is `configure_sandbox_sets`' job now — the phase
         // chain puts `ContentSpecials` inside `Materialize` and `ContentFlavor`
         // between `Resolve` and `Settle`, which is exactly where the two
@@ -334,32 +329,47 @@ mod tests {
     use super::*;
     use bevy::ecs::schedule::Schedules;
 
-    /// Guards the content combat-extension slot configuration. Both
-    /// `CombatSet` slots must be registered as set nodes in the `Update`
-    /// schedule after `CombatSchedulePlugin` builds — that registration IS
-    /// the `configure_sets` block above, the seam content boss-specials and
-    /// cut-rope flavor hang on. If it is dropped, those content systems
-    /// still run but float unordered relative to the projectile/effect
-    /// executors that drain their output — a silent spawn-timing
-    /// regression with no compile error. (Same graph-introspection pattern
-    /// as `presentation_visual_sync_runs_after_feature_view_sync` in
-    /// `gameplay_core`.)
+    /// Guards the content combat-extension slots: both must be REGISTERED set
+    /// nodes, and both must sit in the combat phase chain.
+    ///
+    /// If a slot is not a node, the content systems hanging on it still run and
+    /// float unordered relative to the projectile/effect executors that drain
+    /// their output — a silent spawn-timing regression with no compile error.
+    ///
+    /// ⚠ The composition matters and this test used to get it wrong. It built
+    /// `CombatSchedulePlugin` alone, because that plugin used to configure both
+    /// slots itself with leaf-named edges (`.after(spawn_enemy_projectiles…)`,
+    /// `.before(enforce_mount_rider_link)`). Placement now belongs to
+    /// `configure_sandbox_sets`, which owns the phase chain — so a test that adds
+    /// only the combat plugin is asserting about a composition no app ships.
+    /// Both authorities participate here for the same reason production has both.
     #[test]
     fn content_combat_slots_are_registered_in_the_combat_chain() {
         let mut app = App::new();
+        ambition_actors::schedule::configure_sandbox_sets(&mut app);
         app.add_plugins(CombatSchedulePlugin);
 
         let schedules = app.world().resource::<Schedules>();
         let graph = schedules
             .get(Update)
-            .expect("Update schedule must exist after CombatSchedulePlugin")
+            .expect("Update schedule must exist after the combat schedule is configured")
             .graph();
-        for slot in [CombatSet::ContentSpecials, CombatSet::ContentFlavor] {
+        for slot in [
+            CombatSet::ContentSpecials,
+            CombatSet::ContentFlavor,
+            // The engine phases the slots hang between. A slot registered into a
+            // phase that does not exist is the same silent float, one level up.
+            CombatSet::Trigger,
+            CombatSet::Playback,
+            CombatSet::Materialize,
+            CombatSet::Resolve,
+            CombatSet::Settle,
+        ] {
             assert!(
                 graph.system_sets.get_key(slot.intern()).is_some(),
-                "{slot:?} must be a registered combat-extension set node \
-                 (configured by CombatSchedulePlugin). Without it the \
-                 content systems that hang on the slot float unordered."
+                "{slot:?} must be a registered combat set node. Without it the \
+                 systems that hang on it float unordered relative to the \
+                 executors that consume their output."
             );
         }
     }

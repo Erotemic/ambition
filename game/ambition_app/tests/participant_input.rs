@@ -495,7 +495,11 @@ fn a_second_seat_drives_its_own_slot_without_disturbing_the_first() {
     );
 
     // Seat 1, on its own gamepad. Spawned the way a couch-versus host would:
-    // its own participant entity, its own action state, its own dash edge.
+    // its own participant entity, its own action state, its own dash edge — and
+    // deliberately NO gamepad association. Wiring the pad by hand here would
+    // test leafwing rather than this engine: which controller a seat owns is
+    // `assign_local_seat_devices`' job, and if it does not do it a real second
+    // player plugging in a real controller gets nothing.
     let pad = app.world_mut().spawn(Gamepad::default()).id();
     app.update();
     let mut map =
@@ -505,10 +509,18 @@ fn a_second_seat_drives_its_own_slot_without_disturbing_the_first() {
         InputParticipant::with_id(ParticipantId::SECONDARY),
         ambition::input::ParticipantContexts::default(),
         ActionState::<ambition::input::SandboxAction>::default(),
-        map.with_gamepad(pad),
+        map,
         ambition::runtime::host_input::SeatDashTriggerState::default(),
     ));
     settle(&mut app);
+
+    let order = app.world().resource::<ambition::input::LocalDeviceOrder>();
+    assert_eq!(
+        order.devices(),
+        [launch_pad, pad],
+        "the device order must be CONNECTION order — player one is already \
+         holding the first pad when player two joins"
+    );
 
     pad_set(&mut app, pad, GamepadButton::South, 1.0);
     for _ in 0..4 {
@@ -522,14 +534,38 @@ fn a_second_seat_drives_its_own_slot_without_disturbing_the_first() {
          has a body and no way to move it"
     );
 
-    // And player ONE is untouched. If the old "two participants compete" guard
-    // were still here this is what would fail: adding player two zeroed the
-    // global frame, so the symptom was player one's input stopping.
+    // Player ONE did not jump. Two things could break this: the old "two
+    // participants compete" guard, which zeroed the global frame the moment a
+    // second seat existed (so the symptom of adding player two was player one
+    // going dead), and an unassociated input map, which is leafwing's default
+    // and means player two's stick moves player one.
+    assert!(
+        !app.world().resource::<ControlFrame>().jump_held,
+        "player two's controller moved player one: with no device assignment \
+         leafwing resolves an unassociated map against `gamepads.iter().next()`, \
+         so both seats read whichever pad the query yields first"
+    );
     assert!(
         app.world()
             .resource::<ActiveInputContext>()
             .gameplay_owned(),
         "adding a second seat must not disturb the first seat's input ownership"
+    );
+
+    // ...and the reverse: player one's controller does not drive slot 1.
+    pad_set(&mut app, pad, GamepadButton::South, 0.0);
+    for _ in 0..4 {
+        app.update();
+    }
+    pad_set(&mut app, launch_pad, GamepadButton::South, 1.0);
+    for _ in 0..4 {
+        app.update();
+    }
+    let slots = app.world().resource::<SlotControls>();
+    assert!(
+        !slots.get(PlayerSlot(1)).jump_held && !slots.get(PlayerSlot(1)).jump_pressed,
+        "player one's controller reached player two's slot — device ownership \
+         has to hold in both directions or the two players fight over one pad"
     );
 }
 
@@ -547,7 +583,8 @@ fn a_second_seat_is_neutral_while_gameplay_does_not_own_input() {
     // With the startup cards composed, the launcher/startup owns the
     // participant's actions — gameplay does not.
     let pad = app.world_mut().spawn(()).id();
-    let mut map = leafwing_input_manager::prelude::InputMap::<ambition::input::SandboxAction>::default();
+    let mut map =
+        leafwing_input_manager::prelude::InputMap::<ambition::input::SandboxAction>::default();
     map.insert(ambition::input::SandboxAction::Jump, GamepadButton::South);
     app.world_mut().spawn((
         InputParticipant::with_id(ParticipantId::SECONDARY),

@@ -19,6 +19,8 @@ mod actions;
 mod active_input;
 mod control;
 pub mod cues;
+#[cfg(feature = "input")]
+mod local_seats;
 mod menu;
 mod motion_input;
 pub mod participant;
@@ -46,6 +48,8 @@ pub use control::PlayerDashTriggerState;
 pub use control::{
     read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
+#[cfg(feature = "input")]
+pub use local_seats::{assign_local_seat_devices, track_local_device_order, LocalDeviceOrder};
 
 /// Schedule contract for the participant input pipeline (one frame, in
 /// order): device adapters complete before routing, and every routed output

@@ -79,9 +79,8 @@ impl Plugin for HostInputBindingsPlugin {
         use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
-            populate_secondary_slot_controls,
-            populate_menu_control_frame_from_actions, spawn_primary_input_participant,
-            toggle_player_trail_emission_from_actions,
+            populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
+            spawn_primary_input_participant, toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -102,6 +101,22 @@ impl Plugin for HostInputBindingsPlugin {
                 ambition_input::InputSet::Consume,
             )
                 .chain(),
+        );
+        // Device ownership, BEFORE leafwing resolves this frame's actions.
+        //
+        // In `PreUpdate` and pinned ahead of `InputManagerSystem::Update`
+        // because the association is an input to that resolution: made after
+        // it, a seat that joins reads its controller a frame late, and the
+        // join press itself lands on nobody.
+        app.init_resource::<ambition_input::LocalDeviceOrder>();
+        app.add_systems(
+            PreUpdate,
+            (
+                ambition_input::track_local_device_order,
+                ambition_input::assign_local_seat_devices,
+            )
+                .chain()
+                .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
         );
         app.init_resource::<ambition_input::ActiveInputContext>();
         app.init_resource::<ambition_input::ActiveUiCues>();

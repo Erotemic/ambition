@@ -52,8 +52,26 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
     );
 
     let mut escapes = Vec::new();
+    let mut sized = 0usize;
     for id in &ids {
         let spec = ambition::actors::avatar::motion_model_spec_for_character_id(catalog, id);
+        // The character's OWN body, not a generic one. A wide fighter reaches a
+        // wall before a narrow one and a tall one can clip a ceiling the default
+        // never touches, so probing every character against one scratch body
+        // measured the POLICY and called it the character (L13).
+        //
+        // `None` for a character whose sheet publishes no body metrics — the
+        // probe falls back to the engine default rather than inventing a size,
+        // and the count below keeps that from quietly becoming everybody.
+        let body = ambition::actors::character_sprites::sprite_body_collision_for_character_id_in(
+            catalog,
+            id,
+            Vec2::new(28.0, 44.0),
+        )
+        .map(|collision| collision.collision);
+        if body.is_some() {
+            sized += 1;
+        }
         // BOTH directions. A wall on one side is not evidence about the other,
         // and an asymmetric solver bug is exactly the kind that survives a
         // one-sided probe.
@@ -61,13 +79,11 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
             ("right", LocalAxes::new(1.0, 0.0)),
             ("left", LocalAxes::new(-1.0, 0.0)),
         ] {
-            let outcome = probe_containment(
-                &world,
-                spec,
-                world.spawn,
-                bounds,
-                ContainmentProbe::holding(axes),
-            );
+            let probe = match body {
+                Some(size) => ContainmentProbe::holding(axes).with_body_size(size),
+                None => ContainmentProbe::holding(axes),
+            };
+            let outcome = probe_containment(&world, spec, world.spawn, bounds, probe);
             if !outcome.contained() {
                 escapes.push(format!(
                     "{id} holding {label}: left the room by {:.0}px (ended at \
@@ -78,7 +94,18 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         }
     }
 
-    eprintln!("[containment] {} characters x 2 directions", ids.len());
+    eprintln!(
+        "[containment] {} characters x 2 directions ({sized} with authored body \
+         sizes, the rest on the engine default)",
+        ids.len()
+    );
+    assert!(
+        sized * 2 > ids.len(),
+        "only {sized} of {} characters resolved an authored body size, so this \
+         is mostly probing the default box and the row's claim about \
+         character-level containment would be hollow",
+        ids.len()
+    );
     assert!(
         escapes.is_empty(),
         "{} of {} characters can walk out of a plain walled room:\n  {}\n\n\

@@ -35,6 +35,11 @@ pub struct ContainmentProbe {
     pub axes: LocalAxes,
     pub steps: usize,
     pub dt: f32,
+    /// The body's collision size. `None` uses the engine default, which is what
+    /// a probe of a POLICY wants; a probe of a CHARACTER passes its authored
+    /// size, because a wide body reaches a wall before a narrow one does and a
+    /// tall one can clip a ceiling the default never touches.
+    pub body_size: Option<Vec2>,
 }
 
 impl ContainmentProbe {
@@ -46,7 +51,14 @@ impl ContainmentProbe {
             axes,
             steps: 900,
             dt: 1.0 / 60.0,
+            body_size: None,
         }
+    }
+
+    /// Probe a specific body size — a CHARACTER rather than a policy.
+    pub fn with_body_size(mut self, size: Vec2) -> Self {
+        self.body_size = Some(size);
+        self
     }
 }
 
@@ -54,8 +66,13 @@ impl ContainmentProbe {
 #[derive(Clone, Copy, Debug)]
 pub struct ContainmentOutcome {
     pub final_pos: Vec2,
-    /// The furthest the body's CENTRE got outside `bounds`, in pixels. Zero
-    /// means it never left.
+    /// The furthest any part of the body's BOX got outside `bounds`, in pixels.
+    /// Zero means it never left.
+    ///
+    /// The box, not the centre. A centre-point test passes a body that is
+    /// visibly half outside the room, which is the thing a player would call
+    /// "he went through the wall" — and the bigger the character, the more of it
+    /// can be outside before the test notices.
     pub max_escape_px: f32,
     /// True if the body was in contact with something at the end. A body that
     /// stopped because it hit a wall and one that stopped because it fell out
@@ -87,6 +104,9 @@ pub fn probe_containment(
         spawn,
         crate::AbilitySet::sandbox_all(),
     );
+    if let Some(size) = probe.body_size {
+        scratch.kinematics.size = size;
+    }
     // The scratch OWNS its motion model, exactly like a real body does — so the
     // probe drives the same component the simulation drives, not a copy beside it.
     scratch.parts().0.apply_spec(spec);
@@ -113,10 +133,11 @@ pub fn probe_containment(
             },
         );
         let pos = scratch.kinematics.pos;
-        let escape = (bounds.min.x - pos.x)
-            .max(pos.x - bounds.max.x)
-            .max(bounds.min.y - pos.y)
-            .max(pos.y - bounds.max.y);
+        let half = scratch.kinematics.size * 0.5;
+        let escape = (bounds.min.x - (pos.x - half.x))
+            .max((pos.x + half.x) - bounds.max.x)
+            .max(bounds.min.y - (pos.y - half.y))
+            .max((pos.y + half.y) - bounds.max.y);
         max_escape = max_escape.max(escape);
     }
 
@@ -156,6 +177,42 @@ pub fn walled_box(size: Vec2, wall_px: f32) -> World {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The escape measure is the BOX, not the centre.
+    ///
+    /// A centre-point test passes a body that is visibly half outside the room —
+    /// and the bigger the character, the more of it can be out before the test
+    /// notices. This pins the difference directly: a body wider than the room's
+    /// clear span reports an escape while its centre never leaves.
+    #[test]
+    fn a_body_wider_than_the_room_is_reported_even_with_its_centre_inside() {
+        let size = Vec2::new(240.0, 240.0);
+        let world = walled_box(size, 16.0);
+        let bounds = Aabb {
+            min: Vec2::ZERO,
+            max: size,
+        };
+        let outcome = probe_containment(
+            &world,
+            MotionModelSpec::AxisSwept(Default::default()),
+            world.spawn,
+            bounds,
+            ContainmentProbe::holding(LocalAxes::new(0.0, 0.0))
+                // Wider and taller than the room itself: whatever the solver
+                // does, part of this body is outside.
+                .with_body_size(Vec2::new(400.0, 400.0)),
+        );
+        assert!(
+            outcome.max_escape_px > 0.0,
+            "a body larger than the room reported full containment, so the \
+             measure is still the centre point"
+        );
+        assert!(
+            outcome.final_pos.x > bounds.min.x && outcome.final_pos.x < bounds.max.x,
+            "this test is only meaningful while the CENTRE stays inside — \
+             otherwise a centre test would have caught it too"
+        );
+    }
 
     /// Both shipped policies stay in the box. This is the engine-side half of
     /// L6; the app-side half runs it over every REGISTERED character, which is

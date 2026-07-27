@@ -1240,3 +1240,30 @@ on dead code just relocates the confusion.
 Transferable: "improved behavior on an unused helper" reads exactly like a
 landed feature in a diff. Before claiming a path is production, grep for a
 caller — the method's own doc comment naming its caller is not evidence.
+
+## The two demo shells' `ov1_draws_the_world.rs` are near-copies (2026-07-27)
+
+`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs` and its Sanic twin
+share their fixtures, their helper names, and most of their assertions. The
+duplication is not theoretical: `declared_hud_node_count` counted
+`DeclaredHudRoot` in BOTH, a gauge bar carries that marker, and both broke on the
+same commit for the same reason. I fixed one, thought the row was closed, and
+found the second only because `./run_tests.sh` runs per-crate feature jobs.
+
+Two things make this worse than ordinary test duplication:
+
+* `visible` is not a default feature of either crate, so `cargo test --workspace`
+  compiles NEITHER. The copies were red for a day with the suite reported green.
+* The shared part is exactly the part that encodes an ENGINE invariant ("the
+  presentation face draws the world, not the game's HUD"). A demo-specific
+  expectation belongs in a demo; the invariant does not.
+
+The shape that would fix it: the engine-invariant half — no engine-owned UI
+nodes, an exact count of the DEMO's own declared readouts, camera published,
+room visuals spawned — as one reusable acceptance helper the shells call with
+their own numbers. Deliberately NOT done as part of the bug fix, because a
+test-harness extraction under a red suite is how a fix stops being reviewable.
+
+Transferable: when a bug is found in a file that has a twin, the SECOND question
+is "where is the other copy" — and if the answer is a feature-gated target, the
+suite you have been reading does not cover it.

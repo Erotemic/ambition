@@ -21,7 +21,7 @@
           {
             "type": "command",
             "command": "python3 scripts/goal_guard.py --inject",
-            "timeout": 900,
+            "timeout": 15,
             "statusMessage": "Restating the armed goal..."
           }
         ]

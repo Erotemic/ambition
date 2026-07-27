@@ -26,11 +26,17 @@ and the bar goes up again.
 ## Wiring (`.claude/settings.json`)
 
     "hooks": {
-      "Stop": [{"hooks": [{"type": "command", "timeout": 600,
+      "Stop": [{"hooks": [{"type": "command", "timeout": 900,
                 "command": "python3 scripts/goal_guard.py"}]}],
-      "SessionStart": [{"hooks": [{"type": "command",
+      "SessionStart": [{"hooks": [{"type": "command", "timeout": 15,
                 "command": "python3 scripts/goal_guard.py --inject"}]}]
     }
+
+Only the Stop hook runs the checks, and only the Stop hook gets a long timeout.
+`--inject` reads `.goal/state.json` and returns immediately: SessionStart blocks
+session startup, so a hook that shells out to `cargo check` there can lock you
+out of the repository entirely. The short timeout is a second line of defence,
+not the fix.
 
 Both are INERT unless `.goal/active.json` exists, so committing that config does
 not change ordinary interactive sessions. Arming is an explicit act:
@@ -327,27 +333,71 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
 
 def mode_inject(root: Path, hook_input: dict) -> int:
-    """Re-state the goal wherever context can be injected.
+    """Re-state the goal wherever context can be injected — from CACHE only.
 
     Compaction is the reason this exists. `PostCompact` cannot inject context
     (its schema has no `additionalContext`), so the goal has to re-enter through
     a channel that fires anyway — SessionStart on resume, and the Stop hook's own
     block reason after every single turn.
+
+    It must NOT run the checks. SessionStart fires before the session is ready,
+    and the caller waits: on 2026-07-27 a goal whose checks include a 900s
+    `cargo check` wedged startup until the IDE gave up at 60s and the only way
+    in was `mv .goal/active.json .goal/active.json.paused`. A guard that can
+    lock you out of the repository it guards is worse than no guard.
+
+    So this reads `.goal/state.json` — the open items the last Stop hook wrote —
+    and says so. That is a cache, and it can be stale, but it is stale in the
+    safe direction: it restates work as OPEN, and the Stop hook is still the
+    authority that decides anything is finished.
     """
     goal = load_json(active_path(root))
     if not goal:
         return 0
-    results = run_checks(goal, root)
-    if results and all(r.ok for r in results):
+
+    deadline = parse_deadline(goal.get("deadline_utc"))
+    if deadline and now_utc() >= deadline:
+        clear_goal(root, "deadline passed before this session started")
+        emit({"systemMessage": f"Goal guard: deadline passed, releasing the run. Goal was: {goal.get('goal', '')}"})
         return 0
+
+    state = load_json(state_path(root)) or {}
+    last_open = state.get("last_open")
+    if isinstance(last_open, list) and last_open:
+        lines = [
+            f"GOAL STILL OPEN: {goal.get('goal', '(unnamed goal)')}",
+            "",
+            f"Open as of the last Stop check ({state.get('last_block_at', 'unknown time')}):",
+        ]
+        lines += [f"  ▢ {name}" for name in last_open]
+    else:
+        lines = [
+            f"GOAL ARMED: {goal.get('goal', '(unnamed goal)')}",
+            "",
+            "Checks that will be run at the end of every turn:",
+        ]
+        lines += [
+            f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}"
+            for raw in goal.get("checks", [])
+        ]
+
+    if deadline:
+        hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
+        lines += ["", f"{hours:.1f}h remain before this goal releases on its own."]
+    lines += [
+        "",
+        "This goal is enforced by a command hook (scripts/goal_guard.py) reading "
+        "the repository, not by a judge reading your summary. The list above is "
+        "the last recorded state, not a fresh run — the Stop hook re-checks for "
+        "real when this turn ends. Continue working it.",
+    ]
+
     event = hook_input.get("hook_event_name") or "SessionStart"
     emit(
         {
             "hookSpecificOutput": {
                 "hookEventName": event,
-                "additionalContext": open_items_text(goal, results)
-                + "\n\nThis goal is enforced by a command hook (scripts/goal_guard.py), "
-                "not by a judge. Continue working it.",
+                "additionalContext": "\n".join(lines),
             }
         }
     )

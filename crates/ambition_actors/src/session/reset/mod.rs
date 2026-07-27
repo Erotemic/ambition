@@ -183,8 +183,27 @@ pub fn process_sandbox_reset_request(
             }
             context
         },
-    )
-    .unwrap_or_else(|error| panic!("sandbox reset room preflight failed: {error}"));
+    );
+    // DECLINE, do not die. The preflight runs before the wipe precisely so a
+    // refusal costs nothing — and a reset that cannot be prepared is a reason to
+    // keep playing the game that is running, not to kill the process holding it.
+    //
+    // (Initial session setup still panics on the same failure, and that is a
+    // different judgement: there is no game yet, so a silent partial start would
+    // be worse than a loud stop. Same error, different stakes.)
+    let room_plan = match room_plan {
+        Ok(plan) => plan,
+        Err(error) => {
+            bevy::log::error!(
+                target: "ambition::reset",
+                "sandbox reset declined: room preflight failed ({error}). The \
+                 running session is untouched."
+            );
+            // The request was already consumed above, so this cannot spin:
+            // leaving it armed would retry the same failing preflight forever.
+            return;
+        }
+    };
 
     info!(
         target: "ambition::reset",

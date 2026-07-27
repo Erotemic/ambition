@@ -778,7 +778,9 @@ expanding the campaign into every transient effect.
 lifecycle paths share the canonical plan/commit boundary; ownership transfers
 restore exact prior state.
 
-**Status 2026-07-27 — MET on ownership, NOT on transactionality.**
+**Status 2026-07-27 — MET on ownership; the transactionality verdict below was
+CORRECTED after a source check (the boundary exists; the failure HANDLING is
+what is uneven).**
 
 `../status.md` carries the evidence row and it is unusually complete. Phase 4
 landed 2026-07-23: every authored family is a plan row, the outer roster is
@@ -790,14 +792,35 @@ them, and N3.2b atomic room restore. Phase 5 landed the coverage forcing
 functions and the behavioral restore proofs, which caught two demo mode owners
 registered-but-unanchored.
 
-**But the task is named "canonical construction" and its own approach lists a
-plan/validate/commit boundary, and that boundary does not exist.** Verification
-DETECTS, it does not PREVENT: there is no staging world, so a construction that
-fails its boundary check has already mutated the live world by the time it says
-so. A failed construction leaves partial state behind. Calling this simply "met"
-was an overclaim (GPT 5.6, 2026-07-27) — the ownership half is genuinely
-finished, the transaction half has not been started, and the two should not be
-averaged into one verdict. Queued as the staging-world row.
+**⚠ THE PARAGRAPH THAT USED TO BE HERE WAS WRONG, and wrong in the expensive
+direction: it would have sent somebody to build a staging world for a problem
+this path does not have.** It said "there is no staging world, so a construction
+that fails its boundary check has already mutated the live world". Source-checked
+2026-07-27:
+
+- `RoomConstructionPlan::prepare_from_parts` returns
+  `Result<Self, RoomConstructionError>` and every variant is detected BEFORE any
+  live-room mutation — the type says so and the error enum's own doc comment
+  claims it.
+- `apply_to_world` documents itself as having "no fallible lookup" after it
+  returns, i.e. the commit half is infallible BY CONSTRUCTION.
+
+So plan → validate → commit is real for room construction. Verification does
+PREVENT here.
+
+▢ **The actual gap is failure HANDLING, and it is not uniform.** Of the callers:
+`lifecycle_commit.rs` handles a failed prepare gracefully (logs, returns
+`CommitOutcome::Retry`, world untouched), while `session/setup.rs` and
+`session/reset/mod.rs` both do
+`.unwrap_or_else(|error| panic!("… failed: {error}"))`. A preflight that
+correctly refuses therefore kills the process on two of the paths instead of
+declining. That is a much smaller and much more actionable row than "build a
+staging world", and it is the one that should be taken.
+
+▢ **Still genuinely unproven:** whether `spawn_contents`' individual COMMANDS can
+fail after the infallible boundary — the L23/L24 despawn/insert class lives
+exactly there, and `deferred_write_safety` now exists to answer it. That is the
+honest residue of the transactionality question.
 
 Approach item 1 named "the active Phase 6 remainder": the second slice landed
 (Outlander launches and walks its ridge gate under a real routed shell, gated in

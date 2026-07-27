@@ -497,28 +497,42 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // the hit-once sets are dedup truth whose loss re-lands landed hits, and
     // `StrikeVolume` is the owner/window key `retire_orphaned_strike_volumes`
     // reconciles against restored `MovePlayback.live_boxes`.
-    app.rollback_component_clone::<ambition_vfx::Hitbox>(ENGINE, "combat.hitbox")
-        .rollback_map_entities::<ambition_vfx::Hitbox>(ENGINE, "map.hitbox")
-        .rollback_component_clone::<ambition_vfx::HitboxHits>(ENGINE, "combat.hitbox_hits")
-        .rollback_map_entities::<ambition_vfx::HitboxHits>(ENGINE, "map.hitbox_hits")
-        .rollback_component_clone_probed::<ambition_vfx::HitboxLifetime>(
-            ENGINE,
-            "combat.hitbox_lifetime",
-            |lifetime| lifetime.remaining_s.to_bits() as u64,
-        )
-        .rollback_component_clone::<ambition_combat::moveset::StrikeVolume>(
-            ENGINE,
-            "combat.strike_volume",
-        )
-        .rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(
-            ENGINE,
-            "map.strike_volume",
-        )
-        .rollback_component_clone::<ambition_combat::on_hit::HitboxOnHit>(
-            ENGINE,
-            "combat.hitbox_on_hit",
-        )
-        .rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(ENGINE, "map.hitbox_on_hit");
+    // G2b: probed through the OWNER's stable identity, paired with the hitbox's
+    // own — the same treatment `ProjectileOwner` has. A strike volume remapped onto
+    // the wrong body damages the wrong faction's targets, and a presence count
+    // could not tell that from a correct restore.
+    app.rollback_component_clone_entity_ref::<ambition_vfx::Hitbox>(
+        ENGINE,
+        "combat.hitbox",
+        |hitbox| hitbox.owner,
+    )
+    .rollback_map_entities::<ambition_vfx::Hitbox>(ENGINE, "map.hitbox")
+    // The victims this strike has ALREADY hit. Losing one from the set is a
+    // sustained overlap re-hitting a body it already hit, which is exactly the
+    // kind of one-frame difference the aggregate reports as a desync with no
+    // name attached.
+    .rollback_component_clone_entity_set::<ambition_vfx::HitboxHits>(
+        ENGINE,
+        "combat.hitbox_hits",
+        |hits| hits.hit.iter().copied().collect(),
+    )
+    .rollback_map_entities::<ambition_vfx::HitboxHits>(ENGINE, "map.hitbox_hits")
+    .rollback_component_clone_probed::<ambition_vfx::HitboxLifetime>(
+        ENGINE,
+        "combat.hitbox_lifetime",
+        |lifetime| lifetime.remaining_s.to_bits() as u64,
+    )
+    .rollback_component_clone_entity_ref::<ambition_combat::moveset::StrikeVolume>(
+        ENGINE,
+        "combat.strike_volume",
+        |volume| volume.owner,
+    )
+    .rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(ENGINE, "map.strike_volume")
+    .rollback_component_clone::<ambition_combat::on_hit::HitboxOnHit>(
+        ENGINE,
+        "combat.hitbox_on_hit",
+    )
+    .rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(ENGINE, "map.hitbox_on_hit");
 
     // Actor, combat, and brain state.
     app.rollback_component_canonical::<ambition_combat::components::BodyMelee>(ENGINE, "actor.body_melee")
@@ -736,7 +750,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_map_entities::<ambition_actors::features::MountSlot>(ENGINE, "map.mount_slot")
     .rollback_component_clone::<ambition_actors::features::Mountable>(ENGINE, "mount.mountable")
     .rollback_component_clone::<ambition_actors::features::Mounted>(ENGINE, "mount.mounted")
-    .rollback_component_clone::<ambition_actors::features::RidingOn>(ENGINE, "mount.riding_on")
+    .rollback_component_clone_entity_ref::<ambition_actors::features::RidingOn>(
+        ENGINE,
+        "mount.riding_on",
+        |riding| riding.mount,
+    )
     .rollback_map_entities::<ambition_actors::features::RidingOn>(ENGINE, "map.riding_on")
     .rollback_component_clone::<ambition_actors::features::BossOverrides>(ENGINE, "boss.overrides")
     .rollback_component_clone::<ambition_actors::items::pickup::StashedActionSet>(

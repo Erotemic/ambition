@@ -468,6 +468,44 @@ fn stable_identity(world: &World, entity: Entity) -> u64 {
     }
 }
 
+/// **Census a component holding a SET of entity references.**
+///
+/// The multi-handle twin of [`census_entity_reference`]: `HitboxHits` holds the
+/// victims a strike has already hit, and a restore that put back the right NUMBER
+/// of hit-sets while losing one victim from one of them is the difference between a
+/// sustained overlap re-hitting a body and not.
+///
+/// Per carrier the targets are folded with a wrapping SUM — a `HashSet` has no
+/// stable iteration order, so anything order-sensitive would report noise — and the
+/// resulting digest is then hashed together with the CARRIER's identity, so two
+/// strikes swapping their victim lists is a different census. Same reasoning as the
+/// pair projection, one level up.
+pub fn census_entity_set<T>(world: &mut World, referenced: fn(&T) -> Vec<Entity>) -> ComponentCensus
+where
+    T: Component,
+{
+    let rows: Vec<(Entity, Vec<Entity>)> = {
+        let mut query = world.query::<(Entity, &T)>();
+        query
+            .iter(world)
+            .map(|(carrier, value)| (carrier, referenced(value)))
+            .collect()
+    };
+    let count = rows.len();
+    let mut sum: u64 = 0;
+    for (carrier, targets) in rows {
+        let mut digest: u64 = targets.len() as u64;
+        for target in targets {
+            digest = digest.wrapping_add(stable_identity(world, target));
+        }
+        let mut pair = [0u8; 16];
+        pair[..8].copy_from_slice(&stable_identity(world, carrier).to_le_bytes());
+        pair[8..].copy_from_slice(&digest.to_le_bytes());
+        sum = sum.wrapping_add(super::checksum_bytes(&pair));
+    }
+    ComponentCensus { count, xor: sum }
+}
+
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
 ///
 /// Weaker on purpose, and worth having: population change is exactly the failure
@@ -865,6 +903,49 @@ mod tests {
             census_entity_reference::<Owner>(&mut world, |owner| owner.0).xor
         }
         assert_eq!(build(false), build(true));
+    }
+
+    #[derive(Component, Clone)]
+    struct Hits(Vec<Entity>);
+
+    /// A hit-set that lost one victim is a strike that will hit that body again.
+    /// The carrier count is unchanged, so presence could not see it.
+    #[test]
+    fn losing_one_victim_from_a_hit_set_changes_the_census() {
+        let mut world = World::new();
+        let alpha = world.spawn(SimId::placement("alpha")).id();
+        let beta = world.spawn(SimId::placement("beta")).id();
+        let strike = world
+            .spawn((SimId::placement("strike"), Hits(vec![alpha, beta])))
+            .id();
+
+        let both = census_entity_set::<Hits>(&mut world, |hits| hits.0.clone());
+        world.entity_mut(strike).insert(Hits(vec![alpha]));
+        let one = census_entity_set::<Hits>(&mut world, |hits| hits.0.clone());
+
+        assert_eq!((both.count, one.count), (1, 1));
+        assert_ne!(both.xor, one.xor);
+    }
+
+    /// And two strikes exchanging their victim lists is a different world, for the
+    /// same reason a permutation of owners is.
+    #[test]
+    fn two_strikes_swapping_hit_sets_changes_the_census() {
+        let mut world = World::new();
+        let alpha = world.spawn(SimId::placement("alpha")).id();
+        let beta = world.spawn(SimId::placement("beta")).id();
+        let first = world
+            .spawn((SimId::placement("first"), Hits(vec![alpha])))
+            .id();
+        let second = world
+            .spawn((SimId::placement("second"), Hits(vec![beta])))
+            .id();
+
+        let correct = census_entity_set::<Hits>(&mut world, |hits| hits.0.clone());
+        world.entity_mut(first).insert(Hits(vec![beta]));
+        world.entity_mut(second).insert(Hits(vec![alpha]));
+        let swapped = census_entity_set::<Hits>(&mut world, |hits| hits.0.clone());
+        assert_ne!(correct.xor, swapped.xor);
     }
 
     /// A reference into nothing is distinguishable from a reference to an

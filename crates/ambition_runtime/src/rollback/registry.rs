@@ -327,6 +327,18 @@ pub trait AmbitionRollbackApp {
     where
         T: Component<Mutability = Mutable> + Clone;
 
+    /// Clone-snapshot a component holding a SET of entity references, probed
+    /// through their stable sim identities. The multi-handle twin of
+    /// [`Self::rollback_component_clone_entity_ref`].
+    fn rollback_component_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone;
+
     /// Clone-snapshot with a projection the LOCALIZER measures and the GGRS
     /// aggregate does not.
     ///
@@ -656,6 +668,36 @@ impl AmbitionRollbackApp for App {
                 self,
                 crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
                     crate::rollback::census_entity_reference::<T>(world, referenced)
+                }),
+            );
+        }
+        self
+    }
+
+    fn rollback_component_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ComponentClone,
+                "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_component_with_clone::<T>(self);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_entity_set::<T>(world, referenced)
                 }),
             );
         }

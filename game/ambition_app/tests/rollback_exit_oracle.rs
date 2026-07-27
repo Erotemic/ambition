@@ -551,10 +551,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored size; immutable at runtime",
         ),
         (
-            "ambition_actors::features::ecs::mount::RidingOn",
-            "holds an entity handle; wants the stable-identity pair projection (G2b)",
-        ),
-        (
             "ambition_actors::features::ecs::pickups::PickupArt",
             "authored art id; immutable at runtime",
         ),
@@ -679,10 +675,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored moveset; the mutable half is MovePlayback, canonical",
         ),
         (
-            "ambition_combat::moveset::StrikeVolume",
-            "carries its owner handle; wants the stable-identity pair projection (G2b)",
-        ),
-        (
             "ambition_combat::on_hit::HitboxOnHit",
             "carries per-victim fired handles; wants stable identities (G2b)",
         ),
@@ -781,14 +773,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         (
             "ambition_runtime::input_stream::InputStreamRecorder",
             "the recorded input stream itself; grows every frame by design",
-        ),
-        (
-            "ambition_vfx::Hitbox",
-            "carries its owner handle; wants the stable-identity pair projection (G2b)",
-        ),
-        (
-            "ambition_vfx::HitboxHits",
-            "holds an entity SET; wants a stable-identity multiset projection (G2b)",
         ),
         (
             "ambition_world::rooms::metadata::ActiveRoomMetadata",

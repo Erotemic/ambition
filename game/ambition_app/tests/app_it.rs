@@ -63,6 +63,7 @@ mod projectile_portal_transit;
 mod registered_character_art_resolves;
 mod replay_fixture_regression;
 mod repro_walls;
+mod rollback_contact;
 mod rollback_coverage;
 mod rollback_exit_oracle;
 mod rollback_full_reset;

@@ -163,6 +163,11 @@
       "name": "D6 an older build never overwrites a save it cannot understand",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_persistence save::tests::an_older_build_never_writes_over_a_newer_builds_save 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 900
+    },
+    {
+      "name": "D8 the CONTACT scenario family is rewound and checksum-compared",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_contact::contact_state_survives_real_rewind_and_resimulation 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 1800
     }
   ]
 }

@@ -533,7 +533,8 @@ future debugger before semantic contracts stabilize.
 scenarios can be stepped, rewound, checksum-compared, and asserted through the
 real schedule.
 
-**Status 2026-07-27 — three of the four families are there; CONTACT is not.**
+**Status 2026-07-27 — all four families rewind; the DECLARATIVE scenario half
+does not exist.**
 
 `SandboxSim` steps the real schedule and `with_sync_test_rollback_settings`
 turns any scenario into a rewound, checksum-compared one. By family:
@@ -546,11 +547,14 @@ turns any scenario into a rewound, checksum-compared one. By family:
 - action — `desync_canary::sync_test_session_performs_real_rewinds_and_resimulation`
   drives a scripted stream containing attack, dash, jump and projectile, and
   `two_ggrs_harnesses_match_under_the_same_input_stream` compares two hosts.
-- **contact — NO.** `collision_invariant_oracle` is the contact instrument and it
-  builds a plain fixed-tick sim: `SandboxSimOptions::default().with_timestep(..)
-  .with_start_room(..)`, no rollback settings anywhere in the file. It stress-walks
-  contact invariants thoroughly and never rewinds one, so the exit criterion's
-  fourth family is asserted through the real schedule but not through a rewind.
+- contact — **added the same day this status was written.** The gap was real:
+  `collision_invariant_oracle` is the contact instrument and every sim in it is a
+  plain fixed-tick one, so contact was asserted through the real schedule and
+  never through a rewind. `rollback_contact::contact_state_survives_real_rewind_and_resimulation`
+  now walks a contact-dense traversal under a sync-test session (236 loads, 1185
+  advances over 240 frames), with vacuity guards on grounded, airborne and wall
+  contact separately — a body that never leaves the ground has a constant flag,
+  and any restore preserves a constant.
 
 Approach items 3–5 (typed opaque facts, persisted failing fixtures, defer
 interactive inspection) are satisfied by `ambition_gameplay_trace` and

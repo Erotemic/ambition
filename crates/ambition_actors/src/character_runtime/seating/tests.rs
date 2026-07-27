@@ -236,3 +236,101 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
         "seating re-dressed the player body, or spawned beside it"
     );
 }
+
+/// **Couch versus: two human seats, two bodies, two slots.**
+///
+/// The engine has been ready for this for a while and nobody had asked it:
+/// `SlotControls` holds four slots and `tick_player_brains` drives any body whose
+/// `Brain::Player(slot)` names one. What was missing was a seat that produces the
+/// second body — and, still, a device writer for the second slot, which is the
+/// part `populate_slot_controls` names in its own docs as co-op's job.
+///
+/// So this asserts the half that exists: seat 1 gets its own body carrying
+/// `Brain::Player(1)`, `LocalPlayer` and a `PlayerInputFrame`. A body that
+/// carries the player brain for a slot nothing writes simply stands still, which
+/// is the correct behaviour for an unplugged controller.
+#[test]
+fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.world_mut().spawn((
+        crate::avatar::PlayerSimulationBundle::from_scratch(
+            crate::avatar::primary_player_scratch(
+                Vec2::new(0.0, 0.0),
+                ambition_engine_core::AbilitySet::default(),
+            ),
+            ambition_characters::actor::Health::new(5),
+        ),
+        ambition_characters::actor::WornCharacter::new("mary_o"),
+    ));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 }),
+        ],
+    });
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(&ambition_characters::actor::WornCharacter, Option<&Brain>)>();
+    let mut seats: Vec<(String, Option<u8>)> = bodies
+        .iter(world)
+        .map(|(worn, brain)| {
+            (
+                worn.id().to_string(),
+                brain.and_then(Brain::player_slot).map(|slot| slot.0),
+            )
+        })
+        .collect();
+    seats.sort();
+
+    assert_eq!(
+        seats.len(),
+        2,
+        "two human seats are two bodies, not one adopted body: {seats:?}"
+    );
+    assert_eq!(
+        seats,
+        vec![
+            ("mary_o".to_string(), Some(PlayerSlot::PRIMARY.0)),
+            ("sanic".to_string(), Some(1)),
+        ],
+        "each seat's body must carry ITS OWN slot. Two bodies on one slot is one \
+         player driving both, which looks like a control bug and is a seating one"
+    );
+}
+
+/// A second human body is a LOCAL player, or the slot→body bridge skips it.
+///
+/// `sync_local_player_input_frame` only mirrors slots onto bodies carrying
+/// `LocalPlayer`. Without the marker the body has a player brain, receives
+/// nothing, and stands still — indistinguishable from an unplugged controller,
+/// which is exactly the kind of silence that takes an afternoon to diagnose.
+#[test]
+fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 })
+        ],
+    });
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut locals = world.query::<(
+        &crate::control::components::LocalPlayer,
+        &crate::control::components::PlayerInputFrame,
+    )>();
+    assert_eq!(
+        locals.iter(world).count(),
+        1,
+        "the second human's body is not a `LocalPlayer` with a `PlayerInputFrame`, \
+         so `sync_local_player_input_frame` will never hand it its slot's input"
+    );
+}

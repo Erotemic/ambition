@@ -143,6 +143,17 @@ fn seat_for(index: usize, centre: Vec2) -> (Vec2, f32) {
     (Vec2::new(x, centre.y), -side)
 }
 
+/// Alternating sides, so the two can actually hit each other:
+/// `effective_faction` refuses a strike between same-faction bodies, and a
+/// roster seated all one way would stand and stare.
+fn faction_for(index: usize) -> crate::combat::components::ActorFaction {
+    if index % 2 == 0 {
+        crate::combat::components::ActorFaction::Player
+    } else {
+        crate::combat::components::ActorFaction::Enemy
+    }
+}
+
 /// Marker: this roster has already been seated for this session.
 ///
 /// Seating is a one-shot per match. Without the latch the system would re-seat
@@ -205,7 +216,42 @@ pub fn seat_match_participants(
         // its seat and face it inward — rather than spawning a second body
         // wearing the same character, which is what produced two Mary-Os in the
         // arena the first time this stage shipped.
-        if matches!(controller, super::ControllerBinding::Human { .. }) {
+        if let super::ControllerBinding::Human { device_slot } = controller {
+            let slot = ambition_characters::brain::PlayerSlot(*device_slot);
+            // A SECOND human is a second body. Only slot 0 has a body already —
+            // the one the session spawned as the primary player — so every other
+            // seat is spawned and handed its own `Brain::Player(slot)`.
+            //
+            // `tick_player_brains` already drives any body whose brain names a
+            // slot, and `SlotControls` already holds four. What couch versus was
+            // missing is not the engine: it is a writer for the second slot. This
+            // seats the body that writer will drive.
+            if slot != ambition_characters::brain::PlayerSlot::PRIMARY {
+                if let Some(body) = seat_character(
+                    &mut commands,
+                    &registry,
+                    &catalog,
+                    &archetypes,
+                    character,
+                    at,
+                    facing,
+                    faction_for(index),
+                    // `Passive` is the authored brain the seed needs; the insert
+                    // below replaces the runtime `Brain` with the player slot. A
+                    // passive placeholder rather than a wandering one so a body
+                    // whose player writer never arrives stands still instead of
+                    // strolling off looking possessed.
+                    ambition_entity_catalog::placements::CharacterBrain::Passive,
+                ) {
+                    commands.entity(body).insert((
+                        ambition_characters::brain::Brain::Player(slot),
+                        crate::control::components::LocalPlayer,
+                        crate::control::components::PlayerInputFrame::default(),
+                    ));
+                    any = true;
+                }
+                continue;
+            }
             let Ok((clusters, mut model, worn)) = player.single_mut() else {
                 continue;
             };
@@ -235,14 +281,7 @@ pub fn seat_match_participants(
         let Some(profile) = controller.brain_profile() else {
             continue;
         };
-        // Alternating factions so the two sides can actually hit each other:
-        // `effective_faction` refuses a strike between same-faction bodies, so a
-        // roster seated all-Enemy would stand and stare.
-        let faction = if index % 2 == 0 {
-            crate::combat::components::ActorFaction::Player
-        } else {
-            crate::combat::components::ActorFaction::Enemy
-        };
+        let faction = faction_for(index);
         if seat_character(
             &mut commands,
             &registry,

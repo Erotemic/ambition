@@ -1404,3 +1404,132 @@ fn which_component_does_the_rollback_divergence_live_in() {
     // assertion fired".
     println!("[localizer] {}", audit.coverage());
 }
+
+/// **A14: every gameplay message channel is either rewound or named.**
+///
+/// A `MessageReader<T>` reads through a `Local<MessageCursor<T>>`. `Local` is system
+/// state, GGRS does not rewind it, and so any gameplay fact derived from `.read()`
+/// is non-deterministic across a rollback BY CONSTRUCTION: after a load the reader
+/// resumes from wherever the abandoned future left its cursor, and either re-reads
+/// messages it already consumed or skips ones it has not.
+///
+/// The engine's answer is `clear_message_on_rollback::<T>`, which empties the channel
+/// during `LoadWorld::Mapping` so both peers resume from an empty buffer and a stale
+/// cursor has nothing to be stale about. Seventy-one channels are registered that
+/// way. The hazard this test closes is the channel that is NOT — it was known,
+/// written down as A14, measured not to be the equipment divergence's cause, and
+/// then left as a sentence in a queue.
+///
+/// So: enumerate. Every `Messages<T>` resource the composed sim carries is compared
+/// against the registered clears, and anything unregistered must appear below with a
+/// reason. Same discipline as the probe-strength guard — a hazard that has to be
+/// written down is a different thing from one that has to be remembered.
+#[test]
+fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
+    // (exact message type name, why an un-rewound cursor is harmless for it)
+    //
+    // Every entry says the same kind of thing — the channel is read OUTSIDE the
+    // rollback schedule — and that is a stated premise, not something this test can
+    // verify: Bevy does not expose which schedule a `MessageReader` param belongs
+    // to. What the test does enforce is that the list stays short and deliberate.
+    // A new gameplay channel lands here as a failure, and its author has to decide
+    // rather than inherit silence.
+    const NOT_REWOUND: &[(&str, &str)] = &[
+        (
+            "ambition_load::plugin::LoadCommand",
+            "asset-loading orchestration; `apply_load_commands` runs in Update, not              the GGRS schedule",
+        ),
+        (
+            "ambition_load::plugin::LoadEvent",
+            "the same coordinator's outbound channel, read by the loading UI",
+        ),
+        (
+            "ambition_platformer_primitives::developer_hotkeys::DeveloperAction",
+            "developer hotkeys: shell, trace and debug-viz consumers, none in the sim",
+        ),
+        (
+            "bevy_asset::event::AssetEvent<ambition_actors::session::data::SandboxDataSpec>",
+            "bevy's asset lifecycle, delivered on the frame clock",
+        ),
+        (
+            "bevy_asset::event::AssetLoadFailedEvent<ambition_actors::session::data::SandboxDataSpec>",
+            "bevy's asset lifecycle, delivered on the frame clock",
+        ),
+        (
+            "bevy_state::state::transitions::StateTransitionEvent<ambition_platformer_primitives::schedule::GameMode>",
+            "bevy's state machinery; a mode transition is a frame-level fact the sim              never reads",
+        ),
+    ];
+
+    let mut sim = oracle_sim();
+    let registered: std::collections::BTreeSet<String> = sim
+        .world()
+        .resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .descriptors()
+        .filter(|d| d.kind == ambition::runtime::rollback::RollbackEntryKind::MessageClear)
+        .map(|d| d.type_name.clone())
+        .collect();
+
+    // Every live message channel, by the payload type inside `Messages<T>`.
+    let world = sim.world_mut();
+    let mut channels: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for (info, _) in world.iter_resources() {
+        let name = info.name().to_string();
+        let Some(inner) = name
+            .strip_prefix("bevy_ecs::message::messages::Messages<")
+            .and_then(|rest| rest.strip_suffix('>'))
+        else {
+            continue;
+        };
+        // Only OUR channels: bevy's own (window events, asset events) are not
+        // gameplay facts and are not read by the sim schedule.
+        if inner.contains("ambition") {
+            channels.insert(inner.to_string());
+        }
+    }
+    assert!(
+        channels.len() > 25,
+        "only {} ambition message channels found — the scan is not seeing the \
+         composed sim's channels and the comparison below would be vacuous",
+        channels.len()
+    );
+
+    let named: std::collections::BTreeSet<&str> =
+        NOT_REWOUND.iter().map(|(name, _)| *name).collect();
+    let mut unhandled: Vec<&str> = channels
+        .iter()
+        .filter(|name| !registered.contains(*name))
+        .filter(|name| !named.contains(name.as_str()))
+        .map(String::as_str)
+        .collect();
+    unhandled.sort();
+    // And the reverse, so the list cannot outlive what it describes: an entry for a
+    // channel that has since been registered, or that no longer exists, is removed.
+    let mut stale: Vec<&str> = named
+        .iter()
+        .filter(|name| registered.contains(**name) || !channels.contains(**name))
+        .copied()
+        .collect();
+    stale.sort();
+    assert!(
+        stale.is_empty(),
+        "these entries no longer describe an un-rewound channel:\n  {}",
+        stale.join("\n  ")
+    );
+    assert!(
+        unhandled.is_empty(),
+        "{} message channel(s) are neither cleared on rollback nor named here. A \
+         reader's cursor is `Local` state GGRS never rewinds, so after a load it \
+         resumes wherever an abandoned future left it — re-reading consumed \
+         messages or skipping unread ones. Either register \
+         `clear_message_on_rollback::<T>` or add an entry saying why a stale cursor \
+         cannot change the simulation:\n  {}",
+        unhandled.len(),
+        unhandled.join("\n  ")
+    );
+    println!(
+        "[message channels] {} ambition channels, {} cleared on rollback",
+        channels.len(),
+        registered.len()
+    );
+}

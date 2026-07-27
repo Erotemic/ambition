@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -234,12 +235,31 @@ def render_registry() -> str:
     return "\n".join(lines) + "\n"
 
 
+def tracked_ids(text: str) -> set[str]:
+    """Every ``id:`` in an existing registry, without parsing RON properly.
+
+    A regex is enough and deliberate: this is a SAFETY check on the file we are
+    about to overwrite, so it must work on whatever is on disk — including a
+    file some future edit shaped slightly differently.
+    """
+    return set(re.findall(r'id:\s*"([^"]+)"', text))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
         action="store_true",
         help="exit non-zero if the registry is out of date instead of writing it",
+    )
+    parser.add_argument(
+        "--allow-removals",
+        action="store_true",
+        help=(
+            "permit the regeneration to DELETE tracks the committed registry has. "
+            "Required whenever a cue is genuinely retired, and refused otherwise "
+            "so a partial asset tree cannot silently shrink the shipped registry."
+        ),
     )
     args = parser.parse_args()
 
@@ -250,8 +270,37 @@ def main() -> int:
     content = render_registry()
     track_count = content.count("\n            id:") + content.count("        (id:")
 
+    # A REMOVAL GUARD, on both paths.
+    #
+    # The registry is a projection of `audio/music/generated/<cue>/full.ogg`,
+    # and those OGGs are build artifacts nobody commits. So regenerating on a
+    # machine that has not rendered every cue does not report a difference of
+    # opinion about the roster — it deletes real content, and says "regenerated"
+    # while doing it. That happened on 2026-07-27: seven cues vanished from the
+    # shipped registry as a side effect of an unrelated fresh-clone fix, and one
+    # test happened to name one of the seven, which is the only reason anybody
+    # noticed the other six.
+    #
+    # Adding is still free. This generator's own docstring calls registration an
+    # invariant rather than a chore, and it stays one — it is REMOVAL that needs
+    # somebody to have meant it.
+    current = REGISTRY_PATH.read_text(encoding="utf8") if REGISTRY_PATH.exists() else ""
+    removed = sorted(tracked_ids(current) - tracked_ids(content))
+    if removed and not args.allow_removals:
+        listed = "\n  ".join(removed)
+        print(
+            f"error: regenerating would DELETE {len(removed)} track(s) from "
+            f"{REGISTRY_PATH.relative_to(REPO_ROOT)}:\n  {listed}\n\n"
+            "The registry projects the rendered-OGG tree, and those OGGs are build "
+            "artifacts that are not committed — so this usually means THIS checkout "
+            "has not rendered them, not that they are gone. Render the missing cues "
+            "(scripts/regen_music.sh), or pass --allow-removals if they are really "
+            "retired.",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.check:
-        current = REGISTRY_PATH.read_text(encoding="utf8") if REGISTRY_PATH.exists() else ""
         if current != content:
             print(
                 f"music_registry.ron is out of date — run scripts/regen_music_registry.py "

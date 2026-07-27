@@ -209,7 +209,12 @@ pub fn attach_hit_flash_overlays(
                 ),
             )
             .id();
-        commands.entity(source_entity).insert(HitFlashSource {
+        // `try_insert`: this pass's own comment above notes that enemy sources
+        // are ROOM-SCOPED, so a room transition despawns them — and a body can
+        // take its last hit on the frame it is torn down. Marking a corpse as a
+        // flash source has no meaning, and the same L23 reasoning applies: a
+        // deferred presentation write must tolerate its target going away.
+        commands.entity(source_entity).try_insert(HitFlashSource {
             overlay: overlay_entity,
         });
     }
@@ -296,7 +301,9 @@ pub fn sync_hit_flash_overlays(
             // about to die). Drop the stale `HitFlashSource` so the
             // attach gate spawns a fresh overlay next frame instead
             // of letting the source flash silently forever.
-            commands.entity(source_entity).remove::<HitFlashSource>();
+            commands
+                .entity(source_entity)
+                .try_remove::<HitFlashSource>();
             continue;
         };
         if overlay.source != source_entity {

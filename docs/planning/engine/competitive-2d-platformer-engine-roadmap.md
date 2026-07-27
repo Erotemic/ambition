@@ -762,7 +762,7 @@ expanding the campaign into every transient effect.
 lifecycle paths share the canonical plan/commit boundary; ownership transfers
 restore exact prior state.
 
-**Status 2026-07-27 — MET, with one known weakening recorded at its source.**
+**Status 2026-07-27 — MET on ownership, NOT on transactionality.**
 
 `../status.md` carries the evidence row and it is unusually complete. Phase 4
 landed 2026-07-23: every authored family is a plan row, the outer roster is
@@ -774,11 +774,14 @@ them, and N3.2b atomic room restore. Phase 5 landed the coverage forcing
 functions and the behavioral restore proofs, which caught two demo mode owners
 registered-but-unanchored.
 
-The weakening, stated in `status.md` rather than glossed: **verification DETECTS,
-it does not PREVENT** — there is no staging world, so a construction that fails
-its boundary check has already mutated the live world when it says so. That is a
-real difference from "transactional" in the strict sense and should stay visible
-until a staging world exists or the gap is deliberately accepted.
+**But the task is named "canonical construction" and its own approach lists a
+plan/validate/commit boundary, and that boundary does not exist.** Verification
+DETECTS, it does not PREVENT: there is no staging world, so a construction that
+fails its boundary check has already mutated the live world by the time it says
+so. A failed construction leaves partial state behind. Calling this simply "met"
+was an overclaim (GPT 5.6, 2026-07-27) — the ownership half is genuinely
+finished, the transaction half has not been started, and the two should not be
+averaged into one verdict. Queued as the staging-world row.
 
 Approach item 1 named "the active Phase 6 remainder": the second slice landed
 (Outlander launches and walks its ridge gate under a real routed shell, gated in
@@ -1157,13 +1160,27 @@ persisting too much runtime state.
 restores intentional state through the canonical construction and lifecycle
 paths, including a tested version transition.
 
-**Status 2026-07-27 — MET, after the version transition was made real the same
-day.**
+**Status 2026-07-27 — MET, after BOTH halves were made real the same day.**
 
-`ambition_persistence::save::SandboxSave` is a live resource that autosaves on
-change, and the shrine is a real checkpoint author. Cutscene progress reads the
-same save, so "intentional state" is more than a position. That half was already
-a representative flow.
+⚠ This row claimed "met" twice before it was true, in two different ways, and
+both corrections are worth keeping visible.
+
+The first draft said versioning did not exist; that came from grepping `save.rs`
+alone. The second draft then called the flow representative on the strength of
+the shrine — and the shrine was not a checkpoint at all. It called
+`save.set_changed()` on a value it never modified, which the value-comparing
+autosave correctly ignores, and there was no checkpoint field to write into
+anyway. It healed, logged "healed to full + saved", and persisted nothing (GPT
+5.6, 2026-07-27). "Marks the resource changed" reads like persistence and is not.
+
+Both halves now exist. `PersistedCheckpoint { room_id, x, y }` is schema v3 —
+which is what finally exercised the migration chain on a real change rather than
+a hypothetical one — recorded by the shrine and applied by
+`restore_checkpoint_on_session_start` through `transit_body`, the one transit
+authority, so arrival is at rest with contacts reconciled. A checkpoint in another
+room is deliberately not applied; that is what the room id is for. Cutscene
+progress and the encounter/switch state ride the same save, so "intentional state"
+is more than a position.
 
 **Correction to this row's first draft**, which said versioning did not exist:
 that was grepped from `save.rs` alone, and the version lives in `save_data.rs`.

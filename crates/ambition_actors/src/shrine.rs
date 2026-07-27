@@ -2,9 +2,22 @@
 //!
 //! An interactable shrine that, on a single `Interact`, **heals the player to
 //! full** (health + mana) and acts as a **save point** (decided: one Interact
-//! does both). The save is a checkpoint write: touching `Res<SandboxSave>` marks
-//! it changed, and the existing `autosave_sandbox_save` persists it (desktop;
-//! no-op on wasm).
+//! does both).
+//!
+//! The save point is two systems, and it was neither of them until 2026-07-27.
+//! [`heal_save_shrine_system`] records a [`PersistedCheckpoint`] — room id plus
+//! position — into `SandboxSave`, which the value-comparing autosave then commits
+//! to disk. [`restore_checkpoint_on_session_start`] puts the body back there when
+//! a session opens in that room.
+//!
+//! What was here before was `save.set_changed()` on a value the shrine never
+//! modified, plus a log line claiming it had saved. The autosave compares values,
+//! so the marker wrote nothing; and there was no checkpoint field to write into
+//! even if it had (GPT 5.6 review, 2026-07-27). Both halves matter: a checkpoint
+//! nothing records is a lie, and a checkpoint nothing restores is a number in a
+//! file.
+//!
+//! [`PersistedCheckpoint`]: ambition_persistence::save_data::PersistedCheckpoint
 //!
 //! Handoff / not-yet-built:
 //! - placement is LDtk-authored (`ShrineSpawn`); routing the heal/save through
@@ -56,6 +69,12 @@ pub fn heal_save_shrine_system(
     // slot 0 happens to be driving — hence the second, primary-scoped query.
     primary: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     shrines: Query<&HealShrine>,
+    // WHICH room the checkpoint is in. A position with no room is not a
+    // checkpoint — it is a pair of numbers that will one day be applied in the
+    // wrong place. Optional so narrow fixtures without a room set still heal.
+    room_set: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: ambition_sfx::SfxWriter,
@@ -81,15 +100,107 @@ pub fn heal_save_shrine_system(
     }
     health.reset(); // health to full
     mana.meter.refill_full(); // mana to full
-                              // Save checkpoint: mark the live save changed so `autosave_sandbox_save`
-                              // persists the current state to disk.
-    save.set_changed();
+
+    // THE CHECKPOINT. This used to be `save.set_changed()` and nothing else — a
+    // marker on a value the shrine never modified, which the value-comparing
+    // autosave correctly ignores, so resting at a "save point" wrote nothing to
+    // disk while the log line said it had (GPT 5.6, 2026-07-27).
+    //
+    // Written for the PRIMARY player's session, not the possessed subject's body:
+    // the checkpoint is where this player resumes, and a possessed actor's
+    // position is not where the player will be standing next session. The heal
+    // above is the subject's; the checkpoint is the session's.
+    if let Some(room_set) = room_set.as_deref() {
+        let checkpoint = ambition_persistence::save_data::PersistedCheckpoint::new(
+            room_set.active_spec().id.clone(),
+            kin.pos.x.round() as i32,
+            kin.pos.y.round() as i32,
+        );
+        // Assign only on a real change, so resting twice at the same shrine does
+        // not churn the file.
+        if save.data().checkpoint.as_ref() != Some(&checkpoint) {
+            save.data_mut().checkpoint = Some(checkpoint);
+        }
+    }
     activation.remaining = 0.78;
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_HEALTH_COLLECT,
         pos: kin.pos,
     });
-    bevy::log::info!(target: "ambition::shrine", "shrine: healed to full + saved");
+    bevy::log::info!(
+        target: "ambition::shrine",
+        "shrine: healed to full + checkpoint recorded"
+    );
+}
+
+/// **Resume where the player last rested.**
+///
+/// A checkpoint you cannot return to is a number in a file. This is the other
+/// half: once per constructed session, if the save names a checkpoint in the room
+/// that was just built, the primary body starts THERE instead of at the room's
+/// authored spawn.
+///
+/// Deliberately a separate system rather than a branch inside session setup.
+/// Construction has one job and already has more parameters than it should; a
+/// post-construction placement is additive, is testable on its own, and cannot
+/// make the authored-spawn path behave differently for every existing test.
+///
+/// Movement goes through [`ae::movement::transit_body`] — the ONE transit
+/// authority (ADR 0024) — so arrival is at rest with contacts and attachment
+/// reconciled, not a raw position write that leaves the body believing it is
+/// still standing on the floor it left.
+///
+/// Runs once per session: `applied_for` remembers which session generation it has
+/// already placed, so a later room transition does not yank the player back to the
+/// shrine they woke up at.
+pub fn restore_checkpoint_on_session_start(
+    save: Res<ambition_persistence::save::SandboxSave>,
+    room_set: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
+    scope: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    mut bodies: Query<
+        (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
+        crate::actor::PrimaryPlayerOnly,
+    >,
+    mut applied_for: Local<Option<Option<u64>>>,
+) {
+    let Some(room_set) = room_set.as_deref() else {
+        return;
+    };
+    let generation = scope.and_then(|scope| scope.current()).map(|id| id.0);
+    if *applied_for == Some(generation) {
+        return;
+    }
+    let Ok((clusters, mut model)) = bodies.single_mut() else {
+        // No body yet — construction has not finished. Leave `applied_for`
+        // untouched so the next tick tries again, rather than marking a session
+        // handled that was never placed.
+        return;
+    };
+    *applied_for = Some(generation);
+    let Some(checkpoint) = save.data().checkpoint.as_ref() else {
+        return;
+    };
+    // A checkpoint in ANOTHER room is not wrong, it is just not applicable here:
+    // the session opened somewhere else, and teleporting the body to coordinates
+    // from a different room is the exact failure the room id exists to prevent.
+    if checkpoint.room_id != room_set.active_spec().id {
+        return;
+    }
+    let mut item = clusters;
+    let mut clusters = item.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+        ae::movement::TransitVelocity::Zero,
+    );
+    bevy::log::info!(
+        target: "ambition::shrine",
+        "resumed at the checkpoint in `{}` ({}, {})",
+        checkpoint.room_id, checkpoint.x, checkpoint.y
+    );
 }
 
 pub use ambition_platformer_primitives::shrine::ShrineActivationPulse;

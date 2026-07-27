@@ -161,6 +161,40 @@ impl PersistedItem {
     }
 }
 
+/// Where the player resumes: the last checkpoint they touched.
+///
+/// A shrine has always claimed to be a save point — it logged "healed to full +
+/// saved" — while writing no checkpoint anywhere, because the save had no field
+/// for one and the shrine only called `set_changed()` on a value it never
+/// modified (GPT 5.6, 2026-07-27). Under a value-comparing autosave that marker
+/// commits nothing at all, so the claim was false twice over.
+///
+/// Room id AND position, not just a room: a room is where you are, a checkpoint
+/// is where you STAND, and resuming at the room's authored spawn after resting
+/// at a shrine on the far side of it is the difference players notice.
+///
+/// The position is INTEGER world pixels, and deliberately so. A checkpoint has no
+/// use for sub-pixel precision, and a float here would cost two things that
+/// matter more: `SandboxSaveData` could no longer derive `Eq`, and a NaN — which
+/// compares unequal to itself — would make the value-comparing autosave rewrite
+/// the file on every single frame, forever.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedCheckpoint {
+    pub room_id: String,
+    pub x: i32,
+    pub y: i32,
+}
+
+impl PersistedCheckpoint {
+    pub fn new(room_id: impl Into<String>, x: i32, y: i32) -> Self {
+        Self {
+            room_id: room_id.into(),
+            x,
+            y,
+        }
+    }
+}
+
 /// Top-level sandbox save. Versioned so a future schema change can
 /// migrate or refuse to load gracefully.
 ///
@@ -196,9 +230,15 @@ pub struct SandboxSaveData {
     /// save (keep the starter set).
     #[serde(default)]
     pub inventory_saved: bool,
+    /// The last checkpoint the player touched, if any. `None` is a fresh run.
+    #[serde(default)]
+    pub checkpoint: Option<PersistedCheckpoint>,
 }
 
-pub const CURRENT_SAVE_VERSION: u32 = 2;
+/// v3 adds `checkpoint`. The bump is what exercises the migration chain on a real
+/// schema change rather than on a hypothetical one — every v2 file on disk now
+/// takes the v2 → v3 step on load and is written back tagged v3.
+pub const CURRENT_SAVE_VERSION: u32 = 3;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -259,6 +299,7 @@ impl SandboxSaveData {
             items: Vec::new(),
             wallet: 0,
             inventory_saved: false,
+            checkpoint: None,
         }
     }
 
@@ -448,6 +489,11 @@ impl SandboxSaveData {
                 // `#[serde(default)]`, so deserialization already produced the
                 // right empty value; the upgrade is the version stamp itself.
                 1 => {}
+                // v2 → v3: `checkpoint` was added. Additive and
+                // `#[serde(default)]`, so a v2 file already deserialized to
+                // `None` — which is the correct answer: it was written by a build
+                // where touching a shrine saved nothing.
+                2 => {}
                 // Unreachable while the loop bound is CURRENT_SAVE_VERSION, but a
                 // future version added without a step must not spin here.
                 other => {
@@ -461,16 +507,45 @@ impl SandboxSaveData {
         SaveCompatibility::Migrated { from }
     }
 
-    /// Wholesale clear all gameplay state. Keeps `version` so the
-    /// schema remains current. Used by debug "reset save" hooks and
-    /// tests.
+    /// Wholesale clear all gameplay state. Keeps `version` so the schema remains
+    /// current.
+    ///
+    /// **Every field except the version, and that is the point.** This used to
+    /// clear six of the nine collections and silently keep `items`, `wallet` and
+    /// `inventory_saved` — so a "reset save" would have left the player their
+    /// money, their inventory, and the flag saying the inventory had been saved
+    /// before (which suppresses the starter set). Nothing in the shipping game
+    /// calls this yet, which is exactly why it was worth fixing now: the defect
+    /// costs nothing today and is a silently-wrong reset button the day someone
+    /// wires one up (GPT 5.6, 2026-07-27).
+    ///
+    /// A field added to `SandboxSaveData` and not cleared here is the same bug
+    /// again; `reset_all_clears_every_collection` is written to fail on that.
     pub fn reset_all(&mut self) {
-        self.encounters.clear();
-        self.switches.clear();
-        self.bosses.clear();
-        self.quests.clear();
-        self.flags.clear();
-        self.dialog_visits.clear();
+        let Self {
+            // Kept: the schema is still the current schema after a reset.
+            version: _,
+            encounters,
+            switches,
+            bosses,
+            quests,
+            flags,
+            dialog_visits,
+            items,
+            wallet,
+            inventory_saved,
+            checkpoint,
+        } = self;
+        encounters.clear();
+        switches.clear();
+        bosses.clear();
+        quests.clear();
+        flags.clear();
+        dialog_visits.clear();
+        items.clear();
+        *wallet = 0;
+        *inventory_saved = false;
+        *checkpoint = None;
     }
 }
 
@@ -649,6 +724,12 @@ mod tests {
         assert!(s.flags.is_empty());
     }
 
+    /// A reset leaves NOTHING behind but the schema version.
+    ///
+    /// Written against the whole value rather than field by field: comparing to
+    /// a fresh save is what makes a newly-added field fail here the day it is
+    /// added, instead of quietly surviving every reset like `wallet` and `items`
+    /// did (GPT 5.6, 2026-07-27).
     #[test]
     fn reset_all_clears_every_collection() {
         let mut s = SandboxSaveData::new();
@@ -657,12 +738,24 @@ mod tests {
         s.set_boss("c", PersistedEncounterState::Cleared);
         s.set_quest("d", PersistedQuestState::InProgress, 2);
         s.set_flag("e", true);
+        s.dialog_visits.push(PersistedDialogVisit::new("f", 3));
+        s.items.push(PersistedItem {
+            id: "g".to_string(),
+            count: 2,
+        });
+        s.wallet = 400;
+        s.inventory_saved = true;
+
         s.reset_all();
-        assert!(s.encounters.is_empty());
-        assert!(s.switches.is_empty());
-        assert!(s.bosses.is_empty());
-        assert!(s.quests.is_empty());
-        assert!(s.flags.is_empty());
+
+        assert_eq!(
+            s,
+            SandboxSaveData::new(),
+            "a wholesale reset must leave exactly a fresh save. Anything surviving \
+             here is progress a player asked to erase and did not — the original \
+             offenders were the wallet, the item list, and the flag that suppresses \
+             the starter inventory"
+        );
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
     }
 }

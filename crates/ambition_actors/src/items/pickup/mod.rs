@@ -69,6 +69,12 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // gravity zones are LDtk-authored room entities.
                 crate::shrine::heal_save_shrine_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                // The other half of the shrine: resume at the checkpoint it
+                // recorded. Not gated on `gameplay_allowed` — it must land on the
+                // FIRST tick a constructed session has a body, and that tick can
+                // fall inside a room transition or a loading frame, which is
+                // exactly when gameplay is suspended.
+                crate::shrine::restore_checkpoint_on_session_start,
                 pickup_held_item_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 // Touch-to-collect equipment pickups (mushroom / flower). A

@@ -66,6 +66,11 @@ pub struct LoadedSave {
     /// False when the file on disk holds something this build must not replace:
     /// a save from a NEWER build, or bytes it could not parse at all.
     pub writable: bool,
+    /// True when `data` no longer matches the bytes on disk because a migration
+    /// ran. The caller must NOT record it as the persisted shadow — see
+    /// [`load_save_at_startup`], where doing exactly that left upgraded files
+    /// un-upgraded on disk.
+    pub upgraded: bool,
 }
 
 impl LoadedSave {
@@ -74,6 +79,7 @@ impl LoadedSave {
         Self {
             data: SandboxSaveData::default(),
             writable: true,
+            upgraded: false,
         }
     }
 
@@ -82,6 +88,7 @@ impl LoadedSave {
         Self {
             data: SandboxSaveData::default(),
             writable: false,
+            upgraded: false,
         }
     }
 }
@@ -111,6 +118,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
             SaveCompatibility::Current => LoadedSave {
                 data: save,
                 writable: true,
+                upgraded: false,
             },
             SaveCompatibility::Migrated { from } => {
                 info!(
@@ -121,6 +129,9 @@ pub fn load_save(path: &Path) -> LoadedSave {
                 LoadedSave {
                     data: save,
                     writable: true,
+                    // The bytes on disk are still the OLD version. Saying so is
+                    // what gets them rewritten.
+                    upgraded: true,
                 }
             }
             SaveCompatibility::FromTheFuture { found } => {
@@ -149,6 +160,21 @@ pub fn load_save(path: &Path) -> LoadedSave {
     }
 }
 
+/// Commit a save through a temp file, so a crash mid-write cannot leave a
+/// half-written save where a whole one used to be.
+///
+/// The replacement step is where portability bites. `fs::rename` replaces an
+/// existing destination on Unix and is documented as platform-dependent
+/// otherwise: on Windows it maps to `MoveFileEx` WITHOUT
+/// `MOVEFILE_REPLACE_EXISTING`, so the FIRST save succeeds (no destination yet)
+/// and every save after it fails because the destination exists (GPT 5.6,
+/// 2026-07-27). A desktop game that saves exactly once is not a saving game.
+///
+/// The fallback is ordered so the original is never the thing that goes missing:
+/// try the atomic rename first; only if it fails do we move the live file ASIDE,
+/// put the new one in place, and delete the backup. If the second rename fails
+/// after the backup moved, the backup is restored — so the failure modes are
+/// "old save kept" or "new save written", never "neither".
 pub fn write_save(path: &Path, save: &SandboxSaveData) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -157,8 +183,27 @@ pub fn write_save(path: &Path, save: &SandboxSaveData) -> std::io::Result<()> {
         .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
     let tmp = path.with_extension("ron.tmp");
     fs::write(&tmp, body)?;
-    fs::rename(&tmp, path)?;
-    Ok(())
+    match fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(_) if path.exists() => {
+            let backup = path.with_extension("ron.bak");
+            let _ = fs::remove_file(&backup);
+            fs::rename(path, &backup)?;
+            match fs::rename(&tmp, path) {
+                Ok(()) => {
+                    let _ = fs::remove_file(&backup);
+                    Ok(())
+                }
+                Err(error) => {
+                    // Put the player's save back. Losing the new state is a
+                    // recoverable annoyance; losing the old state is not.
+                    let _ = fs::rename(&backup, path);
+                    Err(error)
+                }
+            }
+        }
+        Err(error) => Err(error),
+    }
 }
 
 /// Whether this session may commit its save to disk.
@@ -186,12 +231,21 @@ pub fn load_save_at_startup(
         return;
     }
     let loaded = load_save(&path);
+    let upgraded = loaded.upgraded;
     save.0 = loaded.data;
     writable.0 = loaded.writable;
-    // What we just read IS what is on disk, so the autosave has nothing to do
-    // until something actually changes. Without this the first frame rewrites
-    // the file it just finished reading.
-    last.0 = Some(save.0.clone());
+    // Seed the persisted shadow with what is ACTUALLY on disk, which is not
+    // always what was just loaded.
+    //
+    // When nothing was migrated the two agree, and recording the value stops the
+    // first frame rewriting the file it just finished reading. When a migration
+    // ran they DIFFER: the in-memory save is upgraded and the file is not.
+    // Recording the upgraded value there told the autosave its work was done, so
+    // the file stayed on the old schema until some unrelated gameplay state
+    // happened to change — and a player who loaded and quit re-migrated on every
+    // startup, forever (GPT 5.6, 2026-07-27). `None` means "disk does not match",
+    // which is the truth, and the first autosave commits the upgrade.
+    last.0 = if upgraded { None } else { Some(save.0.clone()) };
     if loaded.writable {
         info!(
             target: "ambition::save",
@@ -511,6 +565,70 @@ mod tests {
             fs::read_to_string(&path).unwrap(),
             "garbage not ron",
             "the unreadable file was replaced; whatever it was is now unrecoverable"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// **The migration reaches the DISK, not just memory.**
+    ///
+    /// Startup used to record the migrated value as `LastPersistedSave` — "what
+    /// is on disk" — when what was on disk was still the old version. The autosave
+    /// then compared equal and skipped, so the file stayed on the old schema until
+    /// some unrelated gameplay state happened to change, and a player who loaded
+    /// and quit re-migrated on every single startup (GPT 5.6, 2026-07-27).
+    ///
+    /// No gameplay mutation here on purpose: loading and doing NOTHING is the case
+    /// that was broken.
+    #[test]
+    fn a_migration_is_committed_without_waiting_for_unrelated_gameplay() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("migrate_commits");
+        let path = save_path_under(&root);
+        let mut old = SandboxSaveData::default();
+        old.version = 1;
+        old.set_flag("found_the_shrine", true);
+        write_save(&path, &old).unwrap();
+
+        std::env::set_var("AMBITION_DATA_DIR", &root);
+        let mut app = App::new();
+        app.init_resource::<SandboxSave>()
+            .init_resource::<crate::settings::UserSettings>()
+            .add_plugins(crate::PersistenceSchedulePlugin);
+        app.update();
+
+        let on_disk = load_save(&path);
+        assert!(
+            !on_disk.upgraded,
+            "the file on disk is STILL the old version: the migration lives only \
+             in memory and will run again on every startup"
+        );
+        assert_eq!(on_disk.data.version, crate::save_data::CURRENT_SAVE_VERSION);
+        assert!(on_disk.data.flag("found_the_shrine"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Saving TWICE has to work. `fs::rename` replaces the destination on Unix
+    /// and not on Windows, so a writer that only ever ran once in a test would
+    /// pass here and fail for half the players on the second save.
+    #[test]
+    fn writing_the_save_repeatedly_replaces_the_previous_file() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("repeat_write");
+        let path = save_path_under(&root);
+        for round in 0..4 {
+            let mut save = SandboxSaveData::default();
+            save.set_flag(&format!("round_{round}"), true);
+            write_save(&path, &save)
+                .unwrap_or_else(|error| panic!("save #{round} failed to commit: {error}"));
+            let reread = load_save(&path);
+            assert!(
+                reread.data.flag(&format!("round_{round}")),
+                "save #{round} did not reach the file"
+            );
+        }
+        assert!(
+            !path.with_extension("ron.bak").exists(),
+            "the replacement fallback left its backup behind"
         );
         let _ = fs::remove_dir_all(&root);
     }

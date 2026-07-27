@@ -61,11 +61,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     // Room transitions are load transactions in both direct-entry and shell
     // hosts. Install the contributor-neutral coordinator at the simulation
     // boundary; shell composition later adds only its route adapter and
-    // presentation. Avoid a duplicate when an alternate host installed it
-    // before this plugin.
-    if !app.is_plugin_added::<ambition::load::AmbitionLoadPlugin>() {
-        app.add_plugins(ambition::load::AmbitionLoadPlugin);
-    }
+    // presentation. The plugin is idempotent, so this needs no order guard.
+    app.add_plugins(ambition::load::AmbitionLoadPlugin);
     // `RoomTransitionLoadState` / `RoomTransitionContentEpoch` are the engine's
     // now — `RoomTransitionComposerPlugin` owns them.
 

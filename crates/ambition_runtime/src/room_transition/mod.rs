@@ -63,11 +63,14 @@ impl Plugin for RoomTransitionComposerPlugin {
     fn build(&self, app: &mut App) {
         // The transition IS an `ambition_load` plan — barrier, work items,
         // one-shot commit authorization — so the engine group owes the
-        // coordinator rather than requiring every host to remember it. Guarded
-        // because Ambition and both demo shells already add it themselves.
-        if !app.is_plugin_added::<ambition_load::AmbitionLoadPlugin>() {
-            app.add_plugins(ambition_load::AmbitionLoadPlugin);
-        }
+        // coordinator rather than requiring every host to remember it.
+        //
+        // Unconditional: the plugin is idempotent by construction now, so a host
+        // or shell group that also adds it composes in any order. The guard that
+        // used to be here worked for THIS caller and could not help the shell
+        // group, which adds the plugin as a `PluginGroupBuilder` member and
+        // cannot make that conditional.
+        app.add_plugins(ambition_load::AmbitionLoadPlugin);
         app.init_resource::<RoomTransitionContentEpoch>()
             .init_resource::<RoomTransitionLoadState>()
             .init_resource::<RoomConstructionPlanPrefetch>();

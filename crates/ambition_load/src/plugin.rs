@@ -87,8 +87,40 @@ pub enum LoadEvent {
 #[derive(Default)]
 pub struct AmbitionLoadPlugin;
 
+/// Marker proving this plugin's `build` has already run.
+///
+/// Bevy's own duplicate-plugin check cannot serve here: it panics, and the panic
+/// is the problem. See [`AmbitionLoadPlugin`] for why.
+#[derive(bevy::prelude::Resource)]
+struct AmbitionLoadInstalled;
+
 impl Plugin for AmbitionLoadPlugin {
+    /// **Adding this twice is a no-op, not a crash.**
+    ///
+    /// The room-transition transaction IS a load plan, so the ENGINE group needs
+    /// this plugin; a shell host also needs it, and `MinimalLoadShellPlugins`
+    /// adds it as a group member, which a `PluginGroupBuilder` cannot make
+    /// conditional. Whether an app crashed therefore depended on which groups it
+    /// composed and in what order — an unwritten rule enforced by a hard panic.
+    ///
+    /// Both in-repo demos were edited when the ownership moved. The external
+    /// consumer fixture, outside the workspace and invisible to a repo grep, was
+    /// not: it sat red until somebody read the panic (Phase-6 leak, restated by
+    /// the 2026-07-27 presentation audit). An engine a stranger composes cannot
+    /// have composition rules that are only discoverable by crashing.
+    ///
+    /// So the plugin is not unique and `build` is idempotent. The guard is a
+    /// marker resource rather than `is_plugin_added::<Self>()`, because Bevy has
+    /// already registered the name by the time `build` runs.
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut App) {
+        if app.world().contains_resource::<AmbitionLoadInstalled>() {
+            return;
+        }
+        app.insert_resource(AmbitionLoadInstalled);
         app.init_resource::<LoadCoordinator>()
             .add_message::<LoadCommand>()
             .add_message::<LoadEvent>()
@@ -112,5 +144,64 @@ fn apply_load_commands(
         for event in coordinator.apply(command.clone()) {
             events.write(event);
         }
+    }
+}
+
+#[cfg(test)]
+mod composition_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// **Adding the load coordinator twice, in either order, must not crash.**
+    ///
+    /// This is the composition hazard the Phase-6 external fixture hit: the
+    /// engine group needs the coordinator because a room transition IS a load
+    /// plan, and a shell host needs it too, and `MinimalLoadShellPlugins` adds it
+    /// as a group member — which a `PluginGroupBuilder` cannot make conditional.
+    /// Whether an app booted therefore depended on which groups it composed, and
+    /// the failure was a hard Bevy panic with no hint about the rule it broke.
+    ///
+    /// Both in-repo demos were updated when ownership moved. The external
+    /// consumer, invisible to a repo grep, sat red until somebody read the panic.
+    /// An engine a stranger composes cannot have rules discoverable only by
+    /// crashing, so this is the test that says the rule no longer exists.
+    #[test]
+    fn adding_the_load_coordinator_twice_is_a_no_op() {
+        let mut app = App::new();
+        app.add_plugins(AmbitionLoadPlugin);
+        app.add_plugins(AmbitionLoadPlugin);
+        app.add_plugins(AmbitionLoadPlugin);
+        // It is installed and usable, not merely non-crashing.
+        assert!(app.world().contains_resource::<LoadCoordinator>());
+        app.update();
+    }
+
+    /// The second add must not re-register the message channels either. A
+    /// duplicate `add_message` installs a SECOND update system for the same
+    /// channel, which drains it twice as fast — messages a reader has not seen
+    /// yet vanish, and nothing reports it. Idempotence has to mean "did nothing",
+    /// not "did not panic".
+    #[test]
+    fn the_second_add_installs_nothing() {
+        let mut once = App::new();
+        once.add_plugins(AmbitionLoadPlugin);
+        let systems_after_one = once
+            .get_schedule(Update)
+            .map(|schedule| schedule.systems_len())
+            .unwrap_or(0);
+
+        let mut twice = App::new();
+        twice.add_plugins(AmbitionLoadPlugin);
+        twice.add_plugins(AmbitionLoadPlugin);
+        let systems_after_two = twice
+            .get_schedule(Update)
+            .map(|schedule| schedule.systems_len())
+            .unwrap_or(0);
+
+        assert_eq!(
+            systems_after_one, systems_after_two,
+            "the second add installed systems; a duplicated message-update system \
+             drains a channel twice per frame and silently eats unread messages"
+        );
     }
 }

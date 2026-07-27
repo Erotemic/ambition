@@ -469,14 +469,17 @@ pub fn compose_outlander_shell(app: &mut App) {
     app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
         OUTLANDER_EXPERIENCE,
     ));
-    // `AmbitionLoadPlugin` is NOT added here: `PlatformerEnginePlugins` supplies
-    // it (the room-transition transaction IS a load plan), and a second copy is a
-    // hard Bevy panic. The in-repo shells carry the same note.
+    // LEAK CLOSED 2026-07-27. This used to read "`AmbitionLoadPlugin` is NOT added
+    // here, and a second copy is a hard Bevy panic" — an undocumented rule about
+    // which group owes the load coordinator, enforced by a crash. Both in-repo
+    // demos were edited when ownership moved; this fixture, outside the workspace
+    // and invisible to a repo grep, sat red until somebody read the panic.
     //
-    // LEAK (recorded): the engine group's guarded `add_plugins` makes "who owes
-    // the load coordinator" an undocumented composition rule. Both in-repo demos
-    // were edited when it moved; this fixture — outside the workspace, invisible
-    // to a repo grep — was not, and sat red until someone read the panic.
+    // The plugin is idempotent now, so a consumer may add it, omit it, or add it
+    // twice. Added here DELIBERATELY, as the thing under test: an external
+    // consumer stating a dependency it actually has should not have to know which
+    // engine group already satisfied it.
+    app.add_plugins(ambition::load::AmbitionLoadPlugin);
     app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(OutlanderExperiencePlugin);
 

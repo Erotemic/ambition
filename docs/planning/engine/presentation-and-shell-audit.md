@@ -176,10 +176,10 @@ Loading surfaces for room transitions and shell routes, contributor-neutral so a
 provider gets one without writing one. Tied to the load-plan transaction, which is
 Ambition's.
 
-⚠ **Recorded composition hazard** (Phase-6 leak): whether the engine group or the
-host owes `AmbitionLoadPlugin` is an undocumented rule, and adding it twice is a
-hard Bevy panic. The in-repo demos were updated when it moved; the external
-fixture, invisible to a repo grep, sat red until someone read the panic.
+✔ **Composition hazard closed 2026-07-27** (was a Phase-6 leak): whether the
+engine group or the host owed `AmbitionLoadPlugin` was an undocumented rule
+enforced by a hard Bevy panic. The plugin is idempotent now — a host may add it,
+omit it, or add it twice — and Outlander adds it itself as the proof.
 
 ## 12. Localization — **no crate**
 

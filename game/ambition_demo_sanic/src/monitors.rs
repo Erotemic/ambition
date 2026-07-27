@@ -138,13 +138,17 @@ pub fn break_monitor_boxes(
         // The monitor's own pop (the super grant's transform sound fires
         // separately from the worn-identity edge in `sync_super_form_traits`).
         //
-        // H2: GLOBAL, classified. A monitor is a world PROP authored into the
-        // course — it is not a body and has no character to sound like. The
-        // BREAKER's cue (the roll, the stomp bounce) is emitted by the breaker.
-        sfx.write_global(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(crate::SFX_MONITOR),
-            pos: center,
-        });
+        // H2/I3: the COURSE's. A monitor is a world PROP authored into this
+        // course — not a body, so it has no character to sound like, but it is
+        // still Sanic's prop and not the host's. The BREAKER's cue (the roll, the
+        // stomp bounce) is emitted by the breaker.
+        sfx.write_from(
+            crate::provider::SANIC_EXPERIENCE,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::from_static(crate::SFX_MONITOR),
+                pos: center,
+            },
+        );
         match block.name.as_str() {
             SUPER_MONITOR => {
                 // The transformation grant reuses the ONE identity authority

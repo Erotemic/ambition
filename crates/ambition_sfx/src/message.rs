@@ -304,10 +304,15 @@ impl SfxWriter<'_> {
 /// - [`write_for`](Self::write_for): a body's own cue. Its death, its block, its
 ///   ability, its footfall. Falls back to the session context when the entity has no
 ///   source, which is what an unworn body or a hazard should do.
-/// - [`write_global`](Self::write_global): genuinely world-owned. A menu blip, a
-///   room transition, a checkpoint chime. Identical to [`SfxWriter::write`], named
-///   differently so that reading the call tells you the site was CLASSIFIED rather
-///   than merely not converted.
+/// - [`write_global`](Self::write_global): owned by the SESSION's world. A menu
+///   blip, a room transition, a checkpoint chime. Identical to
+///   [`SfxWriter::write`], named differently so that reading the call tells you
+///   the site was CLASSIFIED rather than merely not converted.
+/// - [`write_from`](Self::write_from): owned by a named content PROVIDER. A
+///   course's own furniture — a monitor, a breakable brick, a distance marker —
+///   makes sound no body caused, and it is the course's sound, not the host's.
+///   Two cases were never enough: `write_global` reaches for the session context,
+///   so under a shell host every course cue was attributed to the launcher.
 ///
 /// Any emitting entity may carry the source, not just a worn body: a projectile
 /// inherits its firer's at spawn, so a bolt that outlives its owner still impacts in
@@ -333,8 +338,30 @@ impl BodySfxWriter<'_, '_> {
     }
 
     /// Emit a cue that belongs to the WORLD, not to any body.
+    ///
+    /// "The world" means the SESSION's world — a menu blip, a pause chime, a
+    /// checkpoint. It takes the session context's source, so it is the wrong
+    /// operation for anything a course authored; see [`write_from`](Self::write_from).
     pub fn write_global(&mut self, request: SfxMessage) {
         self.sfx.write(request);
+    }
+
+    /// Emit a cue owned by a named CONTENT PROVIDER rather than by a body or by
+    /// the session.
+    ///
+    /// The third case, and the one that was missing. A course's own furniture
+    /// makes sound that no body caused: Sanic's distance markers and act-clear
+    /// fanfare, a monitor popping, a Mary-O brick smashing. None of those belong
+    /// to a character, so `write_for` is wrong; none of them belong to whoever is
+    /// HOSTING, so `write_global` is wrong too — under a shell host that is the
+    /// launcher's provider, and a crossover session would hear the wrong bank
+    /// answer for the course's own cues.
+    ///
+    /// Ownership still comes from the active session context, exactly as
+    /// [`SfxWriter::write_from`] does: naming a source says who authored the
+    /// sound, never which session is allowed to play it.
+    pub fn write_from(&mut self, source: impl Into<PresentationSourceId>, request: SfxMessage) {
+        self.sfx.write_from(source, request);
     }
 
     /// This entity's presentation source, for a caller that must resolve it before

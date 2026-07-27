@@ -133,7 +133,12 @@ pub fn begin_death_sequence(
     // player is driving, which is the same body the message came from.
     match subject.and_then(|s| s.0) {
         Some(body) => sfx.write_for(body, ambition::sfx::SfxMessage::Reset { pos: death.pos }),
-        None => sfx.write_global(ambition::sfx::SfxMessage::Reset { pos: death.pos }),
+        // I3: the COURSE, not the session. A shell host's session provider is the
+        // launcher, which does not author this cue.
+        None => sfx.write_from(
+            crate::provider::MARY_O_EXPERIENCE,
+            ambition::sfx::SfxMessage::Reset { pos: death.pos },
+        ),
     }
 }
 

@@ -1299,8 +1299,11 @@ fn sync_super_form_traits(
             pos,
         };
         match body {
+            // I3: with no body to attribute it to, the fallback is the COURSE that
+            // authored the cue — not the session, which under a shell host is the
+            // launcher and has never heard of this sound.
             Some(body) => sfx.write_for(body, transform),
-            None => sfx.write_global(transform),
+            None => sfx.write_from(provider::SANIC_EXPERIENCE, transform),
         }
         // The transformation MOMENT, off the same edge the sound uses — Jon
         // asked for it for Sanic too. Becoming super only: dropping the form is
@@ -1403,12 +1406,16 @@ fn spawn_sanic_mode_owner(
         // standard SfxMessage seam. Distance markers emit alternating cues as
         // the player advances, so this one also proves the bank at room entry.
         //
-        // H2: GLOBAL, classified. A distance marker belongs to the COURSE — the
-        // room announces that the runner passed it — and in a crossover the course
-        // is still Sanic's regardless of who is running it.
-        sfx.write_global(ambition::sfx::SfxMessage::Dash {
-            pos: ae::Vec2::ZERO,
-        });
+        // H2/I3: the COURSE's, by name. The room announces that the runner passed
+        // it, so it is neither the runner's sound nor the host's — and
+        // `write_global` would have made it the host's, because it reaches for the
+        // session context.
+        sfx.write_from(
+            provider::SANIC_EXPERIENCE,
+            ambition::sfx::SfxMessage::Dash {
+                pos: ae::Vec2::ZERO,
+            },
+        );
     }
 }
 
@@ -1450,9 +1457,10 @@ fn emit_sanic_milestone_sfx(
             } else {
                 ambition::sfx::SfxMessage::Jump { pos: kin.pos }
             };
-            // H2: GLOBAL. A distance marker is the COURSE announcing that the
-            // runner passed it — the room's event, not the runner's.
-            sfx.write_global(message);
+            // H2/I3: the COURSE's. A milestone is the room announcing that the
+            // runner passed it — the room's event, not the runner's, and not the
+            // host's either.
+            sfx.write_from(provider::SANIC_EXPERIENCE, message);
             state.next_milestone += 1;
         }
     }
@@ -1997,12 +2005,16 @@ pub fn clear_act_at_goal(
             color: [1.0, 0.92, 0.35, 1.0],
             kind: ambition::vfx::ParticleKind::Dust,
         });
-        // H2: GLOBAL. Clearing the act is the ACT's fanfare, which belongs to the
-        // course the way the goal jingle does — not to whoever happened to run it.
-        sfx.write_global(ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(SFX_TRANSFORM),
-            pos: kin.pos,
-        });
+        // H2/I3: the COURSE's. Clearing the act is the ACT's fanfare, belonging to
+        // the course the way a goal jingle does — not to whoever happened to run
+        // it, and not to whoever is hosting them.
+        sfx.write_from(
+            provider::SANIC_EXPERIENCE,
+            ambition::sfx::SfxMessage::Play {
+                id: ambition::sfx::SfxId::from_static(SFX_TRANSFORM),
+                pos: kin.pos,
+            },
+        );
     }
 }
 

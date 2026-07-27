@@ -107,10 +107,15 @@ pub fn break_bricks(
             // thunk. It reads as a smash and needs no asset; a bespoke crumble can
             // replace the authored spec later without touching this call site,
             // because what is emitted here is the SEMANTIC cue, not a sound.
-            // H2: GLOBAL, classified. A brick is authored room geometry, not a
-            // body — it has no character to sound like. The SMASHER's own cue (the
-            // head-bonk, the swing) is emitted by the smasher.
-            sfx.write_global(ambition::sfx::SfxMessage::Hit { pos: center });
+            // H2/I3: the COURSE's. A brick is authored room geometry, not a body,
+            // so it has no character to sound like — but it is Mary-O's geometry,
+            // and `write_global` would have credited whoever is hosting her. The
+            // SMASHER's own cue (the head-bonk, the swing) is emitted by the
+            // smasher.
+            sfx.write_from(
+                crate::provider::MARY_O_EXPERIENCE,
+                ambition::sfx::SfxMessage::Hit { pos: center },
+            );
         }
     }
 }

@@ -703,6 +703,53 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     );
 }
 
+/// **I3: the course's own sound belongs to the course, not to the host.**
+///
+/// H2 classified every call site as body-owned or world-owned, and the
+/// world-owned half was still wrong (GPT 5.6, 2026-07-26): `write_global`
+/// reaches for the session context, so under a shell host a distance marker was
+/// credited to the launcher. A distance marker is not a body's sound — no body
+/// caused it, the ROOM did — but it is emphatically Sanic's, and the third
+/// operation is what lets a call site say so.
+///
+/// Same fixture shape as the transformation test above and for the same reason:
+/// the session belongs to `some_host`, so the two answers differ. In a
+/// Sanic-only game they are the same string and nothing is observable.
+#[test]
+fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
+    let mut app = App::new();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    let mut context = ambition::sfx::SfxEmissionContext::default();
+    context.set(ambition::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    app.insert_resource(context);
+
+    // Parked just past the first marker, so one milestone fires this update.
+    app.world_mut().spawn((
+        ambition::actors::actor::PrimaryPlayer,
+        ae::BodyKinematics {
+            pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
+            ..Default::default()
+        },
+    ));
+    app.world_mut().spawn(SanicActState::default());
+    app.add_systems(bevy::app::Update, emit_sanic_milestone_sfx);
+    app.update();
+
+    let sources: Vec<String> = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .iter_current_update_messages()
+        .map(|message| message.source.as_str().to_string())
+        .collect();
+    assert_eq!(
+        sources,
+        vec![provider::SANIC_EXPERIENCE.to_string()],
+        "the course announcing its own marker was attributed to whoever was \
+         hosting the session, so in a crossover it resolved against the host's \
+         bank — which has never heard of this cue"
+    );
+}
+
 /// **The D-C pattern, end to end.** `SanicRulesPlugin::hosted()` ticks the act
 /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
 /// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when

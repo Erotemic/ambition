@@ -656,11 +656,17 @@ pub fn run_snake_shells(
             // H2: a stomp is the STOMPER's verb — the same rule the engine's pogo
             // uses, where the bouncing owner owns the cue. It is the player who
             // bounced off this shell, so the thud is the player's.
+            // I3: with nobody to credit, it falls back to the COURSE, not to the
+            // session — a Mary-O sound stays Mary-O's even when the stomper is
+            // gone by the time the effect resolves.
             match stomper {
                 Some(stomper) => {
                     sfx.write_for(stomper, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
                 }
-                None => sfx.write_global(ambition::sfx::SfxMessage::Pogo { pos: kin.pos }),
+                None => sfx.write_from(
+                    crate::provider::MARY_O_EXPERIENCE,
+                    ambition::sfx::SfxMessage::Pogo { pos: kin.pos },
+                ),
             }
         }
         if fx.just_kicked {
@@ -669,7 +675,10 @@ pub fn run_snake_shells(
                 Some(kicker) => {
                     sfx.write_for(kicker, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
                 }
-                None => sfx.write_global(ambition::sfx::SfxMessage::Pogo { pos: kin.pos }),
+                None => sfx.write_from(
+                    crate::provider::MARY_O_EXPERIENCE,
+                    ambition::sfx::SfxMessage::Pogo { pos: kin.pos },
+                ),
             }
         }
 

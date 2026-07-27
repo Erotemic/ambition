@@ -1429,6 +1429,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.room_transition_requested",
     )
     .clear_message_on_rollback::<ambition_actors::ActorDiedMessage>(ENGINE, "message.actor_died")
+    // A same-tick handshake: the reset processor announces it, and the teardown
+    // systems chained after it read it. A cursor GGRS did not rewind would let
+    // that teardown fire for a reset the resimulation never committed to — the
+    // held items and portals of a session that was, on this timeline, never
+    // reset.
+    .clear_message_on_rollback::<ambition_actors::session::reset::SandboxResetCommitted>(
+        ENGINE,
+        "message.sandbox_reset_committed",
+    )
     .clear_message_on_rollback::<ambition_actors::features::ecs::damage_apply::WalletShieldSpent>(
         ENGINE,
         "message.wallet_shield_spent",

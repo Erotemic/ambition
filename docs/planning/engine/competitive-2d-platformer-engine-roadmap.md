@@ -533,6 +533,31 @@ future debugger before semantic contracts stabilize.
 scenarios can be stepped, rewound, checksum-compared, and asserted through the
 real schedule.
 
+**Status 2026-07-27 — three of the four families are there; CONTACT is not.**
+
+`SandboxSim` steps the real schedule and `with_sync_test_rollback_settings`
+turns any scenario into a rewound, checksum-compared one. By family:
+
+- damage — `rollback_exit_oracle::a_player_taking_hp_damage_survives_rollback`,
+  `enemy_death_and_inplace_revive_survive_rollback`, and the four-objective
+  `combat_equipment_switch_and_breakable_survive_forced_rollback_identically`.
+- transition — `rollback_room_transition::a_room_transition_survives_the_rollback_window`,
+  plus the intent-committed-exactly-once and momentum-preserved cases.
+- action — `desync_canary::sync_test_session_performs_real_rewinds_and_resimulation`
+  drives a scripted stream containing attack, dash, jump and projectile, and
+  `two_ggrs_harnesses_match_under_the_same_input_stream` compares two hosts.
+- **contact — NO.** `collision_invariant_oracle` is the contact instrument and it
+  builds a plain fixed-tick sim: `SandboxSimOptions::default().with_timestep(..)
+  .with_start_room(..)`, no rollback settings anywhere in the file. It stress-walks
+  contact invariants thoroughly and never rewinds one, so the exit criterion's
+  fourth family is asserted through the real schedule but not through a rewind.
+
+Approach items 3–5 (typed opaque facts, persisted failing fixtures, defer
+interactive inspection) are satisfied by `ambition_gameplay_trace` and
+`replay_fixture_regression`. Item 1 — a concise DECLARATIVE scenario description
+— is not: a scenario today is Rust in a test file, and `SandboxSimOptions` +
+`AgentAction` is the closest thing to a vocabulary.
+
 ---
 
 ### Task 3 — finish participant action routing and temporal action ownership
@@ -587,6 +612,32 @@ parallel activation paths indefinitely.
 from human, brain, replay, and provider sources; prompts and eligibility agree;
 participant ownership is explicit; temporal/cooldown state is rollback-safe; the
 old activation and affordance path for that family is deleted.
+
+**Status 2026-07-27 — MET for melee, which is the selected family.**
+
+Clause by clause, since a five-clause criterion is exactly the kind that gets
+called done on two of them:
+
+- one resolver from every source — `trigger_moveset_moves` reads `ActorControl`,
+  which is written by a human slot, a brain, or a replayed `InputStream`
+  identically; the moveset itself is provider-authored.
+- prompts and eligibility agree — `control_prompt.rs` rebuilds the prompt from
+  the same gate, and `a_same_tick_kit_swap_cannot_drift_the_prompt_from_the_gate`
+  is the test that says so on the tick where drift is possible.
+- participant ownership explicit — `ControlledSubject` + `SlotControls`, and
+  `prompt_follows_the_controlled_subject_on_possession`.
+- temporal state rollback-safe — `MovePlayback` is registered
+  `rollback_component_resolved` with `rollback_map_entities`, so its live hitbox
+  handles are remapped rather than dangling.
+- old path deleted — the flat `BodyMelee` driver is GONE; `BodyMelee` survives
+  only as a read-model projected from the live `MovePlayback`, so there is one
+  strike path and the other consumers did not have to change.
+
+What remains is scope the criterion does not name: only melee has been taken
+through this. Ranged and special still ride the same `ActionSet` but have no
+equivalent statement, and "shared temporal action state where existing timelines
+do not already provide it" was deferred, correctly, until a second family needs
+it.
 
 ---
 
@@ -643,6 +694,30 @@ remaining path-dependent readers use canonical swept queries; CC3's chosen gate
 is executable; migrated effects preserve stable causal identity without new
 solver branches or a second area/contact framework.
 
+**Status 2026-07-27 — three of four clauses met; the CC3 GATE is diagnostic, not
+enforcing.**
+
+The doctrine is source-audited and the audit is written down, per reader, in
+[`collision-and-ccd.md`](collision-and-ccd.md)'s CC2-completion table: hazard
+touch, Door zones, EdgeExit/Walk zones, water/climbable regions and ledge grab
+each carry a verdict and the date it was checked, and the ones that stayed
+discrete carry `discrete_ok` at the reader with the reason. That is exactly what
+"source-audited status" asked for, and it is rarer than it sounds.
+
+Path-dependent readers use the canonical queries: one `transition_for_player`
+sweep subsumes Door and Walk zones through `cast::aabb_path_contacts`, ledge grab
+derives from resolved kernel contacts rather than a trigger overlap. Causal
+identity is standardized — `GeoId`/`GeoSource` reaches 18 crates, and reactive
+blocks carry `GeoId` on `ContactSource::Block` — with no second area engine: no
+generic enter/stay/exit layer was built, which was the named risk.
+
+The gap is the third clause. CC3's illegal-state coverage is a fuzz/diagnostic
+rig, and approach item 2 says to "turn the diagnostic illegal-state coverage into
+enforcement only when its documented behavioral preconditions are met". Nobody
+has re-checked whether those preconditions now hold, so the gate is neither
+executable nor explicitly deferred — it is simply unexamined. That is the row
+worth taking next on this task.
+
 ---
 
 ### Task 5 — finish canonical construction and lifecycle ownership
@@ -683,6 +758,30 @@ expanding the campaign into every transient effect.
 lifecycle paths share the canonical plan/commit boundary; ownership transfers
 restore exact prior state.
 
+**Status 2026-07-27 — MET, with one known weakening recorded at its source.**
+
+`../status.md` carries the evidence row and it is unusually complete. Phase 4
+landed 2026-07-23: every authored family is a plan row, the outer roster is
+exactly `planned_ids()`, all five lifecycle paths share one transaction, and
+stale content bindings are refused at the boundary (`ActiveContentBinding` +
+fatal `ContentBindingMismatch`). Ownership transfer restores exact prior state —
+that is N3.1 take/restore, where restore PATCHES survivors rather than rebuilding
+them, and N3.2b atomic room restore. Phase 5 landed the coverage forcing
+functions and the behavioral restore proofs, which caught two demo mode owners
+registered-but-unanchored.
+
+The weakening, stated in `status.md` rather than glossed: **verification DETECTS,
+it does not PREVENT** — there is no staging world, so a construction that fails
+its boundary check has already mutated the live world when it says so. That is a
+real difference from "transactional" in the strict sense and should stay visible
+until a staging world exists or the gap is deliberately accepted.
+
+Approach item 1 named "the active Phase 6 remainder": the second slice landed
+(Outlander launches and walks its ridge gate under a real routed shell, gated in
+`run_tests.py`), and 2026-07-27 added consumer-owned rollback state to it — see
+Task 1. What is left of Phase 6 is the visible-shell half and the Task 7
+measurements, neither of which is a construction question.
+
 ---
 
 ### Task 6 — provider plugin surface and engine boundary cleanup
@@ -722,6 +821,26 @@ stabilizing weak APIs too early.
 **Exit criteria:** domain plugins own their local installation; runtime orders
 semantic sets rather than naming leaf systems; providers use ordinary Bevy
 composition plus documented Ambition contracts.
+
+**Status 2026-07-27 — third clause MET and proved externally; SECOND clause is
+plainly false.**
+
+Providers use ordinary Bevy composition: Outlander is a `Plugin` that calls
+`app.sim_schedule()` and `.in_set(SandboxSet::PlayerSimulation)`, never a literal
+schedule, and it assembles a whole game from outside the workspace through the
+`ambition` umbrella. Four recorded API leaks is the honest cost, and they are
+listed rather than hidden. Domain plugins largely own their installation — the
+2026-07-27 addition of consumer-owned rollback registration is the strongest case
+of that, since the engine cannot even name the type.
+
+The second clause is not met and the file says so at a glance:
+`crates/ambition_runtime/src/player_schedule.rs` names `ambition_actors::` leaf
+systems THIRTY times in one chain. It is a readable chain with good reasons
+written beside each entry, but "orders semantic sets rather than naming leaf
+systems" is exactly what it does not do — and the 2026-07-27 `GgrsSchedule` cycle
+came out of that chain, because a system's set membership is discoverable only by
+reading which `add_systems` block it happens to sit in. Turning that chain into
+ordered semantic sub-sets is the concrete next row.
 
 ---
 
@@ -781,6 +900,31 @@ with runtime handles, or trying to solve binary distribution inside the engine.
 content binds exact dependencies; missing or stale assets fail transactionally
 and diagnostically.
 
+**Status 2026-07-27 — two clauses met; "fail TRANSACTIONALLY" is deliberately
+not, and 2026-07-27 showed what that costs.**
+
+One loading path: `AmbitionLoadPlugin` is supplied by the engine group, every
+host gets the same room-transition-as-load-plan, and the game's own content is a
+registered `game://` asset source so worlds load without the engine's asset root
+containing one. Prepared content binds exact dependencies — that is Task 6.5, and
+the prepared definition additionally carries derived cue and vfx inventories.
+
+Failures are DIAGNOSTIC and not transactional, on purpose: an unresolved
+reference is reported and the registration publishes anyway, because a character
+that draws a placeholder and says why beats a session that refuses to boot. The
+cost showed up on 2026-07-27: four shipped characters named the sheet FILE where
+the registry is keyed by its `target:`, drew placeholders, printed a 400-id ERROR
+on every boot, and `checked_namespaces()` still called the sheet namespace
+verified — because it recorded that a resolver RAN, not what it answered. Now
+`unresolved_references()` rides on the published value and
+`registered_character_art_resolves` fails the build for the shipped composition.
+So the criterion is met in spirit by a test rather than by a transaction, and
+that substitution should be an explicit ruling here rather than an accident.
+
+Not covered at all: "supported hosts" currently means desktop. There is no
+android or wasm crate, so cross-target content validation is untested rather than
+passing.
+
 ---
 
 ### Task 8 — participant input composition on Bevy input
@@ -818,6 +962,28 @@ to gameplay input, or forcing every provider to pay for multiplayer complexity.
 same authoritative participant/body boundary; device reassignment does not
 change simulation semantics.
 
+**Status 2026-07-27 — MET for the five sources; a SIXTH boundary exists that the
+criterion did not anticipate.**
+
+All five arrive at the same place and one test drives all of them:
+`participant_input.rs` taps keys, sets gamepad buttons and axes, and moves a
+touch stick against the real shell composition, while `input_stream_replay`
+proves a recorded stream replays a fresh sim with zero divergence and brains
+write the same `ActorControl` a human slot does. Device reassignment is the
+participant slice's subject — `SlotControls[PRIMARY]` is keyed by slot, not by
+device, and possession transfers the brain rather than the body.
+
+The unanticipated part, found on 2026-07-27 while giving Outlander a rollback
+host: there are TWO seams depending on host. Fixed tick consumes the
+`ControlFrame` resource; GGRS consumes `PendingLocalInput`, because the frame it
+simulates is the one the session confirmed. Writing the wrong one is silently
+ignored — the walk runs, the body never moves, nothing says why. Every in-repo
+caller happens to be on the right side of it, so no test could notice; a consumer
+outside hits it immediately. Recorded as Phase-6 leak #4 and queued as D2b(b).
+The criterion says inputs reach "the same authoritative boundary" and they do —
+but which resource carries them is host-dependent, and that is the same class of
+defect one level up.
+
 ---
 
 ### Task 9 — provider-owned animation and camera policy over Bevy presentation
@@ -854,6 +1020,33 @@ provider independence without destabilizing simulation.
 wrapping Bevy presentation primitives without semantic value.
 **Exit criteria:** Mary-O, Sanic, and the main game provide distinct animation and
 camera policies without adding named branches to central selectors.
+
+**Status 2026-07-27 — PARTIAL. The declaration seam exists and is used; the
+POLICIES named here are not the ones it carries.**
+
+`GameplayPresentationProfiles` is a real provider-declared, route-keyed seam and
+all three providers declare through it — `gameplay_presentation_profiles.rs`
+tests the flagship, Sanic and Mary-O separately, with no central match arm. The
+character-definition seam then made animation genuinely provider-owned in the
+sense that matters most: a character's sheet, body silhouette and per-anim
+collision box come from its own `CharacterDefinition`, and `SpritePosedBody`
+derives the collision box from the authored animation rather than a shared
+constant.
+
+But the criterion names two specific policies and neither is declared:
+
+- **camera** — there is one `HostCameraPlugin`, host-owned. A provider cannot
+  declare a camera policy at all; Mary-O's and Sanic's cameras differ only
+  through whatever the shared follow logic reads. `grep` finds no
+  `CameraPolicy` type.
+- **animation policy** — no `AnimationPolicy` type exists. Per-character DATA is
+  provider-owned; the RULES that choose a clip from a body state are still
+  central.
+
+So this is a good foundation misfiled as a finished task. The honest next row is
+to name what a camera policy IS before declaring it, because the requirement
+"without named branches in central selectors" is already satisfied by the profile
+seam — what is missing is content for it to carry.
 
 ---
 
@@ -906,6 +1099,22 @@ inconvenient.
 use a selected plugin, retain a justified Ambition contract, refactor duplication,
 or defer because no current customer requires it.
 
+**Status 2026-07-27 — NOT STARTED as an audit. Individual rulings exist; the
+sweep that makes them complete does not.**
+
+The exit criterion is about coverage — "every reviewed domain has an explicit
+ruling" — and there is no document enumerating the domains, so nothing can say
+whether one was skipped. What exists is a scattering of correct individual
+rulings: `decisions-2026-07-16.md` settles a table of proposals so future audits
+do not reopen them, `bevy_material_ui` / `bevy_lunex` / `virtual_joystick` /
+`bevy_falling_sand` are selected plugins in use, and the audio, HUD and load
+presentation seams each carry a justified Ambition contract in their own docs.
+
+This is the cheapest high-value task remaining and it is a WRITING task, not a
+refactor: enumerate the presentation and game-shell domains, attach the ruling
+that is already implicit in the code to each, and mark the ones nobody has
+decided. Doing it would also give Task 9 the vocabulary it is missing.
+
 ---
 
 ### Task 11 — intentional persistence and checkpoint contracts
@@ -943,6 +1152,27 @@ persisting too much runtime state.
 **Exit criteria:** a representative exploration/checkpoint flow saves and
 restores intentional state through the canonical construction and lifecycle
 paths, including a tested version transition.
+
+**Status 2026-07-27 — a checkpoint flow exists; VERSIONING does not exist at
+all.**
+
+`ambition_persistence::save::SandboxSave` is a live resource that autosaves on
+change, and the shrine is a real checkpoint author: touching the resource marks
+it dirty and `autosave_sandbox_save` persists it. Cutscene progress reads the
+same save, so "intentional state" is more than a position. That is a
+representative flow.
+
+The second half is simply absent. `save.rs` contains no `version` field, no
+migration, and no word matching `migrate` — so the criterion's "tested version
+transition" cannot be partially credited: the FIRST time the save shape changes,
+every existing player file becomes a parse error or, worse, silently deserializes
+into the wrong meaning. This is the cheapest catastrophic-failure class on the
+whole roadmap to close, and it must be closed BEFORE anything ships, because
+after that the untagged files already exist.
+
+Concrete next row: add a version tag and one migration step with a test that
+loads a v1 file into the current shape — the migration does not need to do
+anything yet, it needs to EXIST and be exercised.
 
 ---
 
@@ -983,6 +1213,31 @@ Bevy tooling, or optimizing without representative workloads.
 **Exit criteria:** recorded scenarios can explain the important causal decisions
 at a selected tick; supported hosts have artifact smoke tests and measured
 budgets; diagnostics do not affect authoritative outcomes.
+
+**Status 2026-07-27 — third clause MET and enforced; the first two are partial.**
+
+"Diagnostics do not affect authoritative outcomes" is the strongest one and it is
+architectural rather than promised: the confirmed-frame external-effect
+quarantine (`ambition_runtime::external_effects`) means a speculating host defers
+an effect instead of suppressing it, and the emit-time gate that used to drop
+sounds during resimulation was deleted precisely because suppressing at emit time
+destroys the corrected outcome.
+
+Causal explanation at a tick is partly there and not assembled. The pieces exist
+— `ambition_gameplay_trace` (`actor_trace`, `buffer`, `dump`, `policy`), the
+per-component rollback localizer (`RollbackChecksumProbes` +
+`RollbackRestoreAudit`, which answers "which component diverged" and is run by
+two `#[ignore]`d bisection tests), and the binding report, which Task 6.5 called
+"the first inspectable-causality surface, as a value not a UI". What is missing
+is the selection step: nothing takes a tick and returns the decisions at it.
+
+Budgets are measured but not ENFORCED, and only on one host. The always-on
+censuses print `[schedule-census]`, `[frame-spike]` and `[image]` lines every
+boot — that is how the 627MP/2.5GB decode was found — but nothing fails when a
+number regresses, and "supported hosts" is desktop only (see Task 7: no android
+or wasm crate exists). Artifact smoke tests exist for the shipping entrypoint
+(`shell_host_headless_entrypoint`, plus the heavy `run_game.sh` acceptance
+cycles), so that half is real.
 
 ---
 

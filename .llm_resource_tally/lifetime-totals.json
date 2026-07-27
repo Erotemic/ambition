@@ -1,32 +1,34 @@
 {
-  "generated_at": "2026-07-10T23:13:26.528142+00:00",
+  "generated_at": "2026-07-27T04:04:40.185711+00:00",
   "schema": "llm-resource-tally/v3",
-  "ledger_rows": 716,
-  "commits_accounted": 524,
-  "turns": 50894,
+  "ledger_rows": 1411,
+  "commits_accounted": 1152,
+  "turns": 74836,
   "tokens": {
-    "input": 27780446,
-    "cache_write": 163013709,
-    "cache_read": 18689586398,
-    "output": 58619538,
-    "billable_input": 18880380553
+    "input": 29997298,
+    "cache_write": 226972117,
+    "cache_read": 26180800685,
+    "output": 81723831,
+    "billable_input": 26437770100
   },
   "output_tokens_by_model": {
-    "claude-opus-4-8": 50910890,
-    "claude-fable-5": 5802478,
+    "claude-opus-4-8": 66458447,
+    "claude-fable-5": 11009848,
     "<synthetic>": 0,
     "claude-sonnet-4-6": 107211,
     "gpt-5.5": 965691,
-    "gpt-5.4-mini": 833268
+    "gpt-5.4-mini": 833268,
+    "claude-opus-5": 2349366
   },
   "output_tokens_by_activity": {
-    "unlabeled": 12902431,
+    "unlabeled": 35995722,
     "backfill": 45165737,
-    "implementation": 549591,
-    "test-organization-campaign": 1779
+    "implementation": 559976,
+    "test-organization-campaign": 1779,
+    "review-followup": 617
   },
   "output_tokens_by_agent": {
-    "claude-code": 56820579,
+    "claude-code": 79924872,
     "codex": 1798959
   },
   "server_tool_calls": {
@@ -34,12 +36,12 @@
     "web_fetch": 0
   },
   "time": {
-    "wall_clock_s": 4083234.9
+    "wall_clock_s": 5232470.7
   },
   "compaction_signals": {
-    "events": 67,
-    "peak_context_tokens": 50180424,
-    "summary_chars": 1152706
+    "events": 131,
+    "peak_context_tokens": 79405048,
+    "summary_chars": 2254718
   },
   "modeled_post_hoc": "inference_seconds, energy_kwh, carbon_gco2e — derived from the measurements above by a separate pass; not stored here."
 }

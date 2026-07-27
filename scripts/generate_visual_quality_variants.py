@@ -43,7 +43,7 @@ if str(SPRITE_RENDERER_ROOT) not in sys.path:
 
 from ambition_sprite2d_renderer.authoring.packer import FrameInput, pack_frames  # noqa: E402
 from ambition_sprite2d_renderer.registry import (  # noqa: E402
-    AdapterTarget,
+    Target,
     discover_all_targets,
 )
 
@@ -844,24 +844,28 @@ def process_sheet(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     return len(result.pages)
 
 
-def source_publishable_targets() -> dict[str, AdapterTarget]:
+def source_publishable_targets() -> dict[str, Target]:
     """Targets that can render quality tiers directly from vector/source data.
 
     The quality publisher's primary path is source render -> pack. Today the
-    YAML adapter surface is scale-aware end-to-end; bespoke tack-on targets are
+    YAML config surface is scale-aware end-to-end; module-authored targets are
     left on the frame-local fallback until their render functions accept the
     same `quality_scale` protocol.
+
+    The renderer unified `TackonTarget`/`AdapterTarget` into one `Target` with a
+    `kind` discriminator, so this selects `kind == "config"` — the YAML-authored
+    path that `AdapterTarget` used to name.
     """
     report = discover_all_targets()
     return {
         name: target
         for name, target in report.targets.items()
-        if isinstance(target, AdapterTarget)
+        if target.kind == "config"
     }
 
 
 def publish_source_quality_target(
-    target: AdapterTarget,
+    target: Target,
     variant: Variant,
     dst_root: Path,
 ) -> int:

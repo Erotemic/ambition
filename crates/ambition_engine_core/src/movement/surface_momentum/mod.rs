@@ -479,22 +479,31 @@ fn step_riding(
     // `delta · n == 0` and the "moving away from / along the face" filter drops
     // it. What survives is genuine geometry ahead.
     //
-    // ⚠ Only while riding a BLOCK. A CHAIN is an authored route, and the author
-    // who drew one through a room has already said where the body goes; the
-    // blocks under it are the geometry it was drawn over, and treating them as
-    // obstructions pins a rider mid-course. That is not a guess — it is the same
-    // doctrine `first_circle_hit` already applies when a chain and a block tie
-    // ("a guide chain and its floor block are ONE surface; the routable one is
-    // the authority"), and the Sanic speedway oracles fail loudly the moment it
-    // is violated. A momentum body riding a chain THROUGH a block-built room can
-    // still leave it; that is the chain author's call and is tracked separately.
+    // A CHAIN is an authored route, so the blocks it was DRAWN OVER are not
+    // obstructions — treating them as such pins a rider mid-course, which is
+    // what the Sanic speedway oracles fail on. But a block the chain was NOT
+    // drawn over is an ordinary wall, and a room that mixes a guide chain with
+    // block walls is a perfectly plausible LDtk composition (L5).
+    //
+    // So the discriminator is COINCIDENCE, not surface type: a hit whose contact
+    // point lies on the ridden chain is the same surface the chain represents,
+    // and anything else is genuinely in the way. Riding a block needs no such
+    // test — its own faces are already filtered out by "moving away from / along
+    // the face".
     let mut travel = v_t * dt;
     let mut obstruction: Option<CircleHit> = None;
-    if matches!(on, SurfaceRef::Block(_)) && travel.abs() > 1.0e-6 {
+    if travel.abs() > 1.0e-6 {
         let delta = frame.tangent * travel;
         if let Some(hit) = first_block_hit(world, body.pos, body.radius, delta, motion_frame.down())
         {
-            if hit.toi < 1.0 {
+            let coincident = matches!(on, SurfaceRef::Chain(_))
+                && hit_lies_on_chain(
+                    chain,
+                    body.pos + delta * hit.toi,
+                    hit.contact_normal,
+                    body.radius,
+                );
+            if hit.toi < 1.0 && !coincident {
                 travel *= hit.toi;
                 obstruction = Some(hit);
             }
@@ -1520,6 +1529,28 @@ fn project_to_segment(chain: &SurfaceChain, segment: usize, point: Vec2) -> f32 
 /// "coincident" for occlusion purposes — both when collecting spans at launch
 /// and when deciding a flight has separated from one.
 const OCCLUSION_CLEAR_SLOP: f32 = 2.0;
+
+/// Is this block hit the SAME SURFACE the ridden chain represents?
+///
+/// The contact point of a face the chain was drawn over sits on the chain
+/// itself; a wall the rider is about to run into does not. One slop value, sized
+/// to authoring precision rather than to any solver tolerance — a chain drawn a
+/// pixel off the block it traces is still tracing it.
+fn hit_lies_on_chain(
+    chain: &SurfaceChain,
+    center_at_impact: Vec2,
+    normal: Vec2,
+    radius: f32,
+) -> bool {
+    /// How far a chain may sit from the geometry it traces and still count as
+    /// tracing it.
+    const COINCIDENT_SLOP: f32 = 2.0;
+    let contact = center_at_impact - normal * radius;
+    (0..chain.segment_count()).any(|i| {
+        let (a, b) = chain.segment(i);
+        point_segment_distance(contact, a, b) <= COINCIDENT_SLOP
+    })
+}
 
 fn point_segment_distance(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     let ab = b - a;

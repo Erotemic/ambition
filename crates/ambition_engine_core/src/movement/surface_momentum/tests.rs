@@ -1953,3 +1953,55 @@ fn a_rider_is_stopped_by_a_wall_and_does_not_leave_the_room() {
         body.pos.x
     );
 }
+
+/// A rider on an authored CHAIN is still stopped by a wall the chain never
+/// traced. (queue L5)
+///
+/// The obstruction sweep was originally scoped to bodies riding BLOCKS, because
+/// a chain is an authored route and the blocks under it are the geometry it was
+/// drawn over — treating those as obstructions pins a rider mid-course, which
+/// the speedway oracles catch loudly.
+///
+/// But that scoping made every block invisible to a chain rider, including walls
+/// the chain has nothing to do with. A room that mixes a guide chain with block
+/// walls is an ordinary LDtk composition, and this is that room: a chain drawn
+/// along a floor, and a wall standing on it that the chain stops short of.
+#[test]
+fn a_chain_rider_is_stopped_by_a_wall_the_chain_was_never_drawn_over() {
+    let floor_top = 500.0;
+    // The guide chain traces the floor and ENDS before the wall.
+    let guide = SurfaceChain::open(
+        "guide",
+        vec![Vec2::new(0.0, floor_top), Vec2::new(900.0, floor_top)],
+    );
+    let mut world = world_with_blocks(vec![
+        floor_block(Vec2::new(0.0, floor_top), Vec2::new(960.0, 100.0)),
+        crate::world::Block::solid("wall", Vec2::new(600.0, 0.0), Vec2::new(16.0, 520.0)),
+    ]);
+    world.chains.push(guide);
+
+    let params = frictionless();
+    let frame = MotionFrame::from_acceleration(G).expect("non-zero acceleration");
+    let mut body = ride(0, 100.0, 0.0, &world, 14.0);
+
+    let running = SurfaceInputs {
+        local_axes: crate::LocalAxes::new(1.0, 0.0),
+        jump_pressed: false,
+    };
+    for _ in 0..600 {
+        step_surface_body(&mut body, &world, &params, frame, running, DT, None);
+    }
+
+    assert!(
+        body.pos.x < 600.0,
+        "the rider passed through the wall at x=600 and is at x={:.1} — a chain \
+         does not make every block in the room intangible",
+        body.pos.x
+    );
+    assert!(
+        body.pos.x > 520.0,
+        "the rider stopped at x={:.1}, nowhere near the wall — it is being held \
+         by the chain's own floor, so this would pass with the wall removed",
+        body.pos.x
+    );
+}

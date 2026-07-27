@@ -581,7 +581,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
             app.update();
             if matches!(
                 app.world().resource::<VersusMatch>().phase,
-                MatchPhase::Fighting
+                MatchPhase::Fighting { .. }
             ) {
                 break;
             }
@@ -611,7 +611,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         [0, 0],
         "the match did not reset after it was won"
     );
-    assert!(matches!(state.phase, MatchPhase::Fighting));
+    assert!(matches!(state.phase, MatchPhase::Fighting { .. }));
 }
 
 /// **The CPU opponent actually fights.** (L11)
@@ -890,7 +890,7 @@ fn returning_to_versus_starts_a_fresh_match() {
         "walking back into Versus resumed the previous match's score"
     );
     assert!(
-        matches!(state.phase, MatchPhase::Fighting),
+        matches!(state.phase, MatchPhase::Fighting { .. }),
         "the new match started mid-KO, inheriting the old one's countdown"
     );
 }
@@ -971,5 +971,78 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
         "the simulation kept running through the KO card at scale {} — the \
          surviving fighter is still playing while the round is over",
         scale(&app)
+    );
+}
+
+/// **The health readout is a GAUGE, and it tracks damage.** (queue L18)
+///
+/// The declared HUD published strings and nothing else, so a health readout
+/// could only ever be "47/60". A number is precise; a bar is readable, and in a
+/// fight what a player needs at a glance is "am I nearly dead".
+///
+/// Asserts the published FILL rather than any drawn pixels: what the stage owes
+/// the HUD is a fraction, and how wide that gets drawn is presentation's
+/// business — which is the whole reason the fraction is what crosses the seam.
+#[test]
+fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{HEALTH_HUD_SLOT_LEFT, HEALTH_HUD_SLOT_RIGHT};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let fill = |app: &App, slot: &str| -> Option<f32> {
+        app.world()
+            .resource::<ambition::presentation::HudReadouts>()
+            .get(&ambition::presentation::HudSlotId::from(slot))
+            .and_then(|readout| readout.fill)
+    };
+    assert_eq!(
+        fill(&app, HEALTH_HUD_SLOT_LEFT),
+        Some(1.0),
+        "the left fighter's health readout published no gauge, so the HUD can \
+         only draw a number"
+    );
+    assert_eq!(fill(&app, HEALTH_HUD_SLOT_RIGHT), Some(1.0));
+
+    // Hurt seat 1 and watch its bar, and only its bar, move.
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+    {
+        let mut health = app.world_mut().get_mut::<BodyHealth>(seat_one).unwrap();
+        let max = health.health.max;
+        health.health.current = max / 4;
+    }
+    app.update();
+
+    let hurt = fill(&app, HEALTH_HUD_SLOT_RIGHT).expect("the gauge is still published");
+    assert!(
+        hurt > 0.0 && hurt < 0.5,
+        "the hurt fighter's gauge reads {hurt}, which does not follow its health"
+    );
+    assert_eq!(
+        fill(&app, HEALTH_HUD_SLOT_LEFT),
+        Some(1.0),
+        "hurting one fighter moved the other's bar"
     );
 }

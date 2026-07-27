@@ -206,10 +206,25 @@ impl HudDeclaration {
 /// `label` and `value` are drawn as `"{label} {value}"` when both are present,
 /// so a game controls its own vocabulary and formatting entirely — including
 /// zero-padding, units, and whether there is a label at all.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+// `Eq` is gone with the addition of `fill`: a float is not totally ordered, and
+// the equality this type actually needs is "did the published value change",
+// which `PartialEq` answers.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct HudReadout {
     pub label: String,
     pub value: String,
+    /// A 0..=1 fill, when this readout is a GAUGE rather than a number.
+    ///
+    /// The declared HUD published strings and nothing else, so a health readout
+    /// could only ever be "47/60". A number is precise and a bar is READABLE,
+    /// and in a fight the thing a player needs at a glance is "am I nearly
+    /// dead", not an integer. Games that want a number keep publishing one;
+    /// this is additive and `None` behaves exactly as before.
+    ///
+    /// The FRACTION, not a rendered bar: how a fill is drawn — width, colour,
+    /// whether it animates — belongs to presentation, and a game that formatted
+    /// its own block characters would have decided all three by accident.
+    pub fill: Option<f32>,
 }
 
 impl HudReadout {
@@ -217,6 +232,24 @@ impl HudReadout {
         Self {
             label: label.into(),
             value: value.into(),
+            fill: None,
+        }
+    }
+
+    /// A GAUGE: a label, a fill, and the text to draw beside it.
+    ///
+    /// `fill` is clamped, because a game computing `current / max` with a max of
+    /// zero should get an empty bar rather than a NaN that propagates into a
+    /// layout.
+    pub fn gauge(label: impl Into<String>, value: impl Into<String>, fill: f32) -> Self {
+        Self {
+            label: label.into(),
+            value: value.into(),
+            fill: Some(if fill.is_finite() {
+                fill.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }),
         }
     }
 
@@ -225,6 +258,7 @@ impl HudReadout {
         Self {
             label: String::new(),
             value: value.into(),
+            fill: None,
         }
     }
 

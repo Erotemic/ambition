@@ -164,6 +164,26 @@ pub fn spawn_declared_hud(
             session_scope,
             (
                 DeclaredHudRoot,
+                DeclaredHudBar(spec.id.clone()),
+                Node {
+                    position_type: PositionType::Absolute,
+                    // Under the slot's text, spanning the width it declared a
+                    // minimum for. Zero height until a gauge is published, so a
+                    // slot that never publishes one is byte-identical to before.
+                    left: Val::Px(0.0),
+                    top: Val::Px(spec.font_size + 2.0),
+                    width: Val::Px(0.0),
+                    height: Val::Px(0.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(r, g, b, a)),
+                Name::new(format!("Declared HUD gauge ({})", spec.id.as_str())),
+            ),
+        );
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                DeclaredHudRoot,
                 DeclaredHudSlot(spec.id.clone()),
                 DeclaredHudSpec(spec.clone()),
                 Text::new(String::new()),
@@ -283,6 +303,68 @@ pub fn place_declared_hud(
     }
 }
 
+/// The gauge bar belonging to one declared slot.
+///
+/// A child node rather than a second slot: a gauge is a PRESENTATION of the
+/// readout the slot already publishes, so it moves, hides and dies with it and
+/// the game never learns it exists.
+#[derive(bevy::prelude::Component, Debug)]
+pub struct DeclaredHudBar(pub HudSlotId);
+
+/// Size each slot's gauge from its published fill.
+///
+/// A slot whose readout has no `fill` collapses to zero size — so a game may
+/// publish a gauge conditionally (a boss bar that appears with the boss)
+/// without declaring two slots.
+pub fn update_declared_hud_gauges(
+    readouts: Res<HudReadouts>,
+    // The slot's live node, so the bar FOLLOWS its placement. `place_declared_hud`
+    // moves slots between regions as the active presentation profile changes, and
+    // a bar pinned to where it spawned would drift away from the number it
+    // belongs to the first time that happened.
+    specs: Query<(&DeclaredHudSlot, &DeclaredHudSpec, &Node), Without<DeclaredHudBar>>,
+    mut bars: Query<(&DeclaredHudBar, &mut Node)>,
+) {
+    for (bar, mut node) in &mut bars {
+        let slot = specs.iter().find(|(slot, ..)| slot.0 == bar.0);
+        if let Some((_, spec, slot_node)) = slot {
+            let left = slot_node.left;
+            let top = match slot_node.top {
+                Val::Px(px) => Val::Px(px + spec.0.font_size + 2.0),
+                other => other,
+            };
+            if node.left != left {
+                node.left = left;
+            }
+            if node.top != top {
+                node.top = top;
+            }
+        }
+        let fill = readouts.get(&bar.0).and_then(|readout| readout.fill);
+        let Some(fill) = fill else {
+            if node.height != Val::Px(0.0) {
+                node.height = Val::Px(0.0);
+                node.width = Val::Px(0.0);
+            }
+            continue;
+        };
+        // The slot's own declared minimum width is the bar's full extent, so a
+        // game sizes its gauge by declaring how much room it wants rather than
+        // by knowing anything about pixels here.
+        let full = slot
+            .map(|(_, spec, _)| spec.0.min_px.x.max(120.0))
+            .unwrap_or(120.0);
+        let width = Val::Px(full * fill);
+        let height = Val::Px(6.0);
+        if node.width != width {
+            node.width = width;
+        }
+        if node.height != height {
+            node.height = height;
+        }
+    }
+}
+
 /// Mirror the game's published readouts into the spawned text nodes.
 ///
 /// A slot with no published readout draws an empty string rather than stale
@@ -324,6 +406,9 @@ impl Plugin for DeclaredHudPlugin {
                 place_declared_hud.after(
                     ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
                 ),
+                // AFTER the placer: a gauge tracks its slot's live position, so
+                // it has to read the position this frame settled on.
+                update_declared_hud_gauges.after(place_declared_hud),
             )
                 .chain()
                 .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),

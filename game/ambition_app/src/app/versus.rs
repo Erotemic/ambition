@@ -250,15 +250,28 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
-    // The scoreboard. Three declared readouts; the engine never learns what a
+    // The scoreboard. Four declared readouts; the engine never learns what a
     // ROUND is — `publish_versus_hud` writes the words.
     .with_hud(
         ambition::presentation::HudDeclaration::new()
             .slot(
-                ambition::presentation::HudSlotSpec::new(super::versus_rules::HEALTH_HUD_SLOT)
+                ambition::presentation::HudSlotSpec::new(super::versus_rules::HEALTH_HUD_SLOT_LEFT)
                     .with_region(ambition::presentation::SurroundRegion::Top)
                     .with_font_size(22.0)
-                    .with_color([1.0, 0.95, 0.9, 1.0]),
+                    // The gauge's full extent is the slot's declared minimum width,
+                    // so a stage sizes its bar by saying how much room it wants
+                    // rather than by knowing anything about the renderer.
+                    .with_min_px(ambition::engine_core::Vec2::new(240.0, 30.0))
+                    .with_color([0.55, 0.85, 1.0, 1.0]),
+            )
+            .slot(
+                ambition::presentation::HudSlotSpec::new(
+                    super::versus_rules::HEALTH_HUD_SLOT_RIGHT,
+                )
+                .with_region(ambition::presentation::SurroundRegion::Top)
+                .with_font_size(22.0)
+                .with_min_px(ambition::engine_core::Vec2::new(240.0, 30.0))
+                .with_color([1.0, 0.6, 0.55, 1.0]),
             )
             .slot(
                 ambition::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)

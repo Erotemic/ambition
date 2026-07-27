@@ -41,10 +41,19 @@ const KO_HOLD_S: f32 = 2.0;
 /// How long the match-over card stays up before the match resets.
 const MATCH_HOLD_S: f32 = 4.0;
 
+/// How long "ROUND n — FIGHT" stays up at the start of a round. Short: it is
+/// telling the player the freeze ended, and it is over before it is in the way.
+const ROUND_ANNOUNCE_S: f32 = 1.2;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MatchPhase {
     /// The round is live.
-    Fighting,
+    ///
+    /// `announce_s` counts down a "ROUND n — FIGHT" card at the start. It is a
+    /// PRESENTATION beat and the fight is already live under it: freezing again
+    /// would make every round begin with a stutter, and a player who can move
+    /// while the card fades learns the round started without being told twice.
+    Fighting { announce_s: f32 },
     /// Somebody was knocked out; `seat` won the round.
     Ko { seat: usize, remaining_s: f32 },
     /// `seat` took the match.
@@ -73,7 +82,7 @@ impl Default for VersusMatch {
     fn default() -> Self {
         Self {
             rounds_won: [0, 0],
-            phase: MatchPhase::Fighting,
+            phase: MatchPhase::Fighting { announce_s: 0.0 },
             reset_pending: false,
         }
     }
@@ -121,16 +130,17 @@ pub fn settle_versus_round(
     if state.reset_pending {
         state.reset_pending = false;
         reset_fighters(&geometry, &mut fighters);
-        state.phase = if state.winner().is_some() {
+        if state.winner().is_some() {
             // The match was won and its card has been shown: start over.
             *state = VersusMatch::default();
             return;
-        } else {
-            MatchPhase::Fighting
+        }
+        state.phase = MatchPhase::Fighting {
+            announce_s: ROUND_ANNOUNCE_S,
         };
         return;
     }
-    if !matches!(state.phase, MatchPhase::Fighting) {
+    if !matches!(state.phase, MatchPhase::Fighting { .. }) {
         return;
     }
 
@@ -177,7 +187,16 @@ pub fn advance_versus_hold(
     }
     let dt = time.delta_secs();
     let (seat, remaining) = match state.phase {
-        MatchPhase::Fighting => return,
+        MatchPhase::Fighting { announce_s } => {
+            // Count the round-start card down. No freeze: the fight is live
+            // under it.
+            if announce_s > 0.0 {
+                state.phase = MatchPhase::Fighting {
+                    announce_s: (announce_s - dt).max(0.0),
+                };
+            }
+            return;
+        }
         MatchPhase::Ko { seat, remaining_s } | MatchPhase::Won { seat, remaining_s } => {
             (seat, remaining_s - dt)
         }
@@ -263,7 +282,12 @@ fn reset_fighters(
 }
 
 /// Slot ids for the versus readouts.
-pub const HEALTH_HUD_SLOT: &str = "versus_health";
+///
+/// One health slot PER FIGHTER rather than one line for both: a gauge is a
+/// per-body fact, and two bars in one slot would be one bar showing something
+/// meaningless.
+pub const HEALTH_HUD_SLOT_LEFT: &str = "versus_health_left";
+pub const HEALTH_HUD_SLOT_RIGHT: &str = "versus_health_right";
 pub const ROUNDS_HUD_SLOT: &str = "versus_rounds";
 pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 
@@ -280,7 +304,8 @@ pub fn publish_versus_hud(
     mut readouts: ResMut<ambition::presentation::HudReadouts>,
 ) {
     let (Some(state), Some(_roster)) = (state, roster) else {
-        readouts.clear_slot(HEALTH_HUD_SLOT);
+        readouts.clear_slot(HEALTH_HUD_SLOT_LEFT);
+        readouts.clear_slot(HEALTH_HUD_SLOT_RIGHT);
         readouts.clear_slot(ROUNDS_HUD_SLOT);
         readouts.clear_slot(ANNOUNCE_HUD_SLOT);
         return;
@@ -301,15 +326,30 @@ pub fn publish_versus_hud(
         .collect();
     rows.sort_by_key(|(seat, ..)| *seat);
 
-    readouts.set(
-        HEALTH_HUD_SLOT,
-        ambition::presentation::HudReadout::bare(
-            rows.iter()
-                .map(|(_, name, hp, max)| format!("{name}  {hp}/{max}"))
-                .collect::<Vec<_>>()
-                .join("        "),
-        ),
-    );
+    // One GAUGE per fighter, plus the number. A bar is what a player reads at a
+    // glance mid-fight — "am I nearly dead" — and the number is what they read
+    // when they want to know exactly. The declared HUD had no bar at all until
+    // this stage needed one (L18).
+    for (index, (seat, name, hp, max)) in rows.iter().enumerate() {
+        let slot = if *seat == 0 {
+            HEALTH_HUD_SLOT_LEFT
+        } else {
+            HEALTH_HUD_SLOT_RIGHT
+        };
+        let _ = index;
+        readouts.set(
+            slot,
+            ambition::presentation::HudReadout::gauge(
+                name.clone(),
+                format!("{hp}/{max}"),
+                if *max > 0 {
+                    *hp as f32 / *max as f32
+                } else {
+                    0.0
+                },
+            ),
+        );
+    }
     readouts.set(
         ROUNDS_HUD_SLOT,
         ambition::presentation::HudReadout::bare(format!(
@@ -325,7 +365,14 @@ pub fn publish_versus_hud(
             .unwrap_or_else(|| format!("SEAT {}", seat + 1))
     };
     match state.phase {
-        MatchPhase::Fighting => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
+        MatchPhase::Fighting { announce_s } if announce_s > 0.0 => readouts.set(
+            ANNOUNCE_HUD_SLOT,
+            ambition::presentation::HudReadout::bare(format!(
+                "ROUND {}  —  FIGHT",
+                state.rounds_won[0] + state.rounds_won[1] + 1
+            )),
+        ),
+        MatchPhase::Fighting { .. } => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
         MatchPhase::Ko { seat, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
             ambition::presentation::HudReadout::bare(format!(

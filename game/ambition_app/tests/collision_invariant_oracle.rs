@@ -60,6 +60,26 @@ enum Kind {
     /// material that is not part of the carve of the portal it straddles. The
     /// §7.6 class: it got into the wall through some other hole.
     StraddleOutsideCarve,
+    /// §6.1 invariant 1, WIDENED — a body that is grounded and settled with its
+    /// AABB overlapping solid material.
+    ///
+    /// Invariant 1 proper tests the body's CENTRE, which misses a body embedded
+    /// up to half its height: `stagger_steps` authored a `PlayerStart` fifteen
+    /// pixels inside a step and the oracle saw nothing until a dash lifted the
+    /// centre into the tile (2026-07-27).
+    ///
+    /// The naive widening — any AABB overlap — is WRONG, and measuring said so:
+    /// 116 frames across twelve rooms, all of them an airborne body clipping the
+    /// corner of a step it was jumping onto. An axis-separated solver resolves
+    /// the vertical clearance before the horizontal push, so the front edge rides
+    /// inside the step's side for the few frames of the arc. That is the
+    /// behaviour, not a bug, which is why the depth sequence was identical in
+    /// seven unrelated rooms — it is the same jump.
+    ///
+    /// GROUNDED AND SETTLED is the qualifier that separates them. A body standing
+    /// still on the floor has no arc to be part-way through. Measured at ZERO
+    /// across all 72 rooms once the `stagger_steps` spawn was fixed.
+    EmbeddedAtRest,
     /// §6.1 invariant 5 — two Class-B remaps applied to one body in one frame
     /// (§3.2's ordering invariant). A re-ordering bug, not a tolerated race.
     DoubleClassBRemap,
@@ -70,7 +90,7 @@ impl Kind {
     /// trace payload: `(seed, room id, tick, invariant #, body)`.
     fn invariant(self) -> u8 {
         match self {
-            Kind::EmbeddedInSolid => 1,
+            Kind::EmbeddedInSolid | Kind::EmbeddedAtRest => 1,
             // The OOB family and Teleport are both invariant 3's margin test
             // (center outside the world AABB) split by side, plus the legacy
             // single-tick-jump probe that predates the numbering.
@@ -86,6 +106,7 @@ impl Kind {
     fn label(self) -> &'static str {
         match self {
             Kind::EmbeddedInSolid => "EMBEDDED-IN-SOLID",
+            Kind::EmbeddedAtRest => "EMBEDDED-AT-REST",
             Kind::OutOfBoundsAbove => "OOB-ABOVE-CEILING",
             Kind::OutOfBoundsBelow => "OOB-BELOW-FLOOR",
             Kind::OutOfBoundsSide => "OOB-SIDE",
@@ -689,6 +710,45 @@ fn run_episode(
             &transit_ctx,
             &mut suppressed,
         ));
+        // Invariant 1, widened: a SETTLED body must not be inside anything. See
+        // `Kind::EmbeddedAtRest` for why the qualifier is what makes this safe.
+        if obs.on_ground
+            && obs.player_vel.0.abs() <= 1.0
+            && obs.player_vel.1.abs() <= 1.0
+            && obs.player_pos.0.is_finite()
+            && obs.player_pos.1.is_finite()
+        {
+            let (px, py) = obs.player_pos;
+            let (half_w, half_h) = (obs.player_size.0 * 0.5, obs.player_size.1 * 0.5);
+            for b in &blocks {
+                let a = b.aabb;
+                let dx = (px + half_w).min(a.max.x) - (px - half_w).max(a.min.x);
+                let dy = (py + half_h).min(a.max.y) - (py - half_h).max(a.min.y);
+                if dx > EMBED_MARGIN && dy > EMBED_MARGIN {
+                    violations.push(Violation {
+                        room: obs.active_room.clone(),
+                        seed,
+                        tick: obs.tick,
+                        kind: Kind::EmbeddedAtRest,
+                        pos: obs.player_pos,
+                        detail: format!(
+                            "pos=({px:.1},{py:.1}) size={}x{} overlaps [{},{}]..[{},{}] \
+                             by {dx:.1}x{dy:.1}",
+                            obs.player_size.0,
+                            obs.player_size.1,
+                            a.min.x,
+                            a.min.y,
+                            a.max.x,
+                            a.max.y
+                        ),
+                        through_wall: None,
+                        geo: Some(b.geo.clone()),
+                    });
+                    break;
+                }
+            }
+        }
+
         // Carry this tick's support forward. A room change invalidates it (the
         // platform belongs to the room we left).
         prev_support = if transitioned {
@@ -1445,6 +1505,17 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
             if !px.is_finite() || !py.is_finite() {
                 continue;
             }
+            // GROUNDED AND SETTLED only. An airborne body legitimately clips the
+            // corner of a step it is jumping onto — an axis-separated solver
+            // resolves the vertical clearance before the horizontal push, so the
+            // front edge rides inside the step's side for the few frames of the
+            // arc. Every one of the 116 frames the first measurement found was
+            // exactly that, which is why the depth sequence was identical in seven
+            // rooms: it is the same jump. A body standing still on the floor has
+            // no such excuse.
+            if !obs.on_ground || obs.player_vel.0.abs() > 1.0 || obs.player_vel.1.abs() > 1.0 {
+                continue;
+            }
             let (half_w, half_h) = (w * 0.5, h * 0.5);
             let blocks = solid_blocks(&sim);
             let mut deepest = 0.0f32;
@@ -1466,9 +1537,9 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
     }
 
     eprintln!(
-        "=== D18: {overlapping_frames} of {total_frames} frames ended with the body \
-         overlapping solid material by more than {OVERLAP_MARGIN}px \
-         ({} rooms x 1 seed x 300 ticks) ===",
+        "=== D18: {overlapping_frames} of {total_frames} GROUNDED-AT-REST frames \
+         ended with the body overlapping solid material by more than \
+         {OVERLAP_MARGIN}px ({} rooms x 1 seed x 300 ticks) ===",
         rooms.len()
     );
     let mut rows: Vec<_> = worst.into_iter().collect();

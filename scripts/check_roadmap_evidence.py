@@ -97,6 +97,38 @@ VERDICT_RE = re.compile(r"\*\*([A-Z][A-Z0-9 /+-]{2,})")
 # exactly as a non-MET task row is.
 COMPLETION_WORDS = ("DONE", "FIXED", "CLOSED", "LANDED", "PROVEN", "MET", "COMPLETE")
 
+# A verdict that ALSO says part of the work is unfinished is not claiming the row
+# is done, and must not be checked as though it were.
+#
+# Substring matching for the completion word was the whole classifier, so
+# "third clause MET … the first two are partial" and "QUARANTINE DONE …;
+# residual debt OPEN" both counted as completed rows (GPT 5.6, 2026-07-27). That
+# is the wrong direction to be wrong in twice over: it demands evidence from a
+# row that is honestly admitting it has none yet, and — because ANY surviving
+# citation in the body passes — it lets the partial clauses' citations vouch for
+# the completed one.
+PARTIAL_WORDS = ("PARTIAL", "OPEN", "NOT MET", "UNMET", "PLAINLY FALSE")
+
+
+def verdict_sentence(text: str) -> str:
+    """The leading VERDICT sentence — everything up to the first full stop.
+
+    Only this is classified. A row's body goes on to discuss residues, struck-out
+    corrections and follow-ups, and scanning all of it for the word "partial"
+    would silently stop checking rows that are genuinely complete — the same
+    quiet-drop failure as reporting zero rows, one row at a time.
+    """
+    head = text.split(".", 1)[0]
+    return head.upper()
+
+
+def is_a_completion_claim(verdict: str) -> bool:
+    """Does this verdict claim the WHOLE row is done, without qualification?"""
+    head = verdict_sentence(verdict)
+    if not any(word in head for word in COMPLETION_WORDS):
+        return False
+    return not any(word in head for word in PARTIAL_WORDS)
+
 
 def task_sections(text: str) -> list[tuple[str, str, str]]:
     """(task number, title, body) for every task, body running to the next task."""
@@ -105,6 +137,19 @@ def task_sections(text: str) -> list[tuple[str, str, str]]:
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         out.append((m.group(1), m.group(2), text[m.start() : end]))
+    return out
+
+
+def mixed_table_rows(text: str) -> list[tuple[str, str]]:
+    """Rows whose verdict names a completion word AND qualifies it."""
+    out = []
+    for match in TABLE_ROW_RE.finditer(text):
+        cells = [cell.strip() for cell in match.group(1).split("|")]
+        if len(cells) < 2 or not cells[0] or cells[0].lower() == "workstream":
+            continue
+        head = verdict_sentence(cells[1])
+        if any(word in head for word in COMPLETION_WORDS) and not is_a_completion_claim(cells[1]):
+            out.append((cells[0], head.strip()[:60]))
     return out
 
 
@@ -120,7 +165,10 @@ def table_rows(text: str) -> list[tuple[str, str, str]]:
         if not verdict:
             continue
         headline = verdict.group(1).strip()
-        if not any(word in headline for word in COMPLETION_WORDS):
+        # The WHOLE state cell, not just the bolded run: a headline reading
+        # "QUARANTINE DONE 2026-07-21; residual debt OPEN." qualifies itself
+        # outside the bold, and reading only the bold calls it complete.
+        if not is_a_completion_claim(state):
             continue
         out.append((cells[0], headline, match.group(0)))
     return out
@@ -211,17 +259,25 @@ def main() -> int:
         return 2
 
     claims: list[tuple[str, str]] = []
+    # Rows deliberately NOT checked, REPORTED rather than dropped in silence. A
+    # classifier that quietly stops looking at a row is the same failure as
+    # reporting zero rows, one row at a time.
+    partial: list[str] = []
     for number, title, body in task_sections(text):
         status = STATUS_RE.search(body)
         if not status:
             problems.append(f"Task {number} ({title}): no **Status** line at all")
             continue
-        if "MET" not in status.group(0):
+        if not is_a_completion_claim(status.group(0)):
             # A row that says it is partial is not overclaiming; nothing to check.
+            if any(word in status.group(0).upper() for word in COMPLETION_WORDS):
+                partial.append(f"Task {number} ({title})")
             continue
         claims.append((f"Task {number} ({title})", body))
     for label, headline, body in table_rows(text):
         claims.append((f"{label} [{headline}]", body))
+    for label, state in mixed_table_rows(text):
+        partial.append(f"{label} [{state}]")
 
     if not claims and not problems:
         problems.append(
@@ -263,6 +319,8 @@ def main() -> int:
             )
 
     print(f"checked {checked} row(s) claiming the work is done")
+    for row in partial:
+        print(f"  – not checked, verdict is qualified: {row}")
     for problem in problems:
         print(f"  ✗ {problem}")
     if not problems:

@@ -502,19 +502,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_actors::features::ecs::actor_clusters::ActorConfig",
             "authored actor definition; nothing writes it after spawn",
         ),
-        (
-            "ambition_actors::features::ecs::actors::limbs::Limb",
-            "authored limb payload, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
-        ),
-        (
+                (
             "ambition_actors::features::ecs::actors::limbs::LimbIntents",
             "republished every tick by the limb router",
         ),
-        (
-            "ambition_actors::features::ecs::actors::limbs::LimbRig",
-            "authored rig, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
-        ),
-        (
+                (
             "ambition_actors::features::ecs::actors::limbs::LimbRouteState",
             "republished every tick by the limb router",
         ),
@@ -530,11 +522,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_actors::features::ecs::mount::Mass",
             "authored mass; immutable at runtime",
         ),
-        (
-            "ambition_actors::features::ecs::mount::MountSlot",
-            "authored mount geometry, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
-        ),
-        (
+                (
             "ambition_actors::features::ecs::mount::Mountable",
             "authored capability payload; immutable at runtime",
         ),
@@ -694,11 +682,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_encounter::objective::EncounterObjective",
             "authored objective; immutable at runtime",
         ),
-        (
-            "ambition_encounter::registry::EncounterRegistry",
-            "authored registry, but entity-mapped: the remap is a runtime write a presence count cannot check (G2b)",
-        ),
-        (
+                (
             "ambition_encounter::staging::EncounterCameraZoom",
             "authored staging camera; immutable at runtime",
         ),
@@ -915,38 +899,37 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         entity_mapped.len()
     );
 
-    // The convention is a MARKER, not prose: a reason for an entity-mapped type
-    // must contain the literal `entity-mapped`, and a reason for a type that is
-    // not mapped must not. Sniffing for the word "handle" was the first attempt
-    // and it flagged three of its own corrections, because "carries no entity
-    // handle" contains "handle" — a check that reads English is a check that
-    // reads its author's mood.
-    let mut wrong: Vec<String> = Vec::new();
-    for (name, reason) in &listed {
-        let marked = reason.contains("entity-mapped");
-        match (entity_mapped.contains(name), marked) {
-            (true, false) => wrong.push(format!(
-                "  {name}\n    is ENTITY-MAPPED and its reason does not say so. The \
-                 remap is a runtime write that a presence count cannot check, and \
-                 it is the write that can land on the wrong body — whatever else \
-                 is true of the payload, that is the weakness this list exists to \
-                 record."
-            )),
-            (false, true) => wrong.push(format!(
-                "  {name}\n    is marked entity-mapped and nothing registers an \
-                 entity mapping for it, so it holds no remappable handle. Nine \
-                 entries claimed handles that their types do not have (2026-07-27); \
-                 this is the direction that sends somebody to fix a non-problem."
-            )),
-            _ => {}
-        }
-    }
-    wrong.sort();
+    // **NO entity-mapped type may be presence-only.** (G2b, closed 2026-07-27)
+    //
+    // This started as a marker convention — a reason for a mapped type had to
+    // say `entity-mapped` — which was bookkeeping around a weakness rather than
+    // its removal, and it let four types (`Limb`, `LimbRig`, `MountSlot`,
+    // `EncounterRegistry`) sit marked-and-unobservable while the row that
+    // introduced the marker claimed no entity-handle cases were left (GPT 5.6,
+    // 2026-07-27). Marking a gap is not closing it.
+    //
+    // A type holds remappable handles exactly when something registers an entity
+    // mapping for it, and every one of those now has a projection through the
+    // targets' stable sim identities. So the rule is the invariant itself: a
+    // remap that lands on the wrong body must be OBSERVABLE, and a new
+    // entity-mapped registration fails here until it is.
+    let mut unobservable: Vec<&str> = entity_mapped
+        .iter()
+        .filter(|name| presence_only.contains(*name))
+        .copied()
+        .collect();
+    unobservable.sort();
     assert!(
-        wrong.is_empty(),
-        "{} presence-only reason(s) disagree with the rollback registry:\n{}",
-        wrong.len(),
-        wrong.join("\n")
+        unobservable.is_empty(),
+        "{} entity-mapped registration(s) carry only a PRESENCE probe, so a \
+         restore can preserve the COUNT while attaching the wrong limb to a \
+         slot, the wrong rider to a mount, or the wrong entity to an id — and \
+         the localizer reports no difference:\n  {}\n\n\
+         Give each a projection through its targets' stable identities \
+         (`rollback_component_clone_entity_ref` / `_entity_set`, or \
+         `rollback_resource_clone_entity_set` for a resource).",
+        unobservable.len(),
+        unobservable.join("\n  ")
     );
 
     let (complete, value, presence) = probes.strength_tally();

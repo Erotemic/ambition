@@ -391,9 +391,14 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.owned_items",
         )
-        .rollback_resource_clone::<ambition_encounter::EncounterRegistry>(
+        // G2b: id → live encounter entity, remapped on every load. A presence
+        // probe over a singleton resource sees "still present"; this sees an id
+        // pointing at the wrong encounter. Folded in the map's own (sorted) key
+        // order, so a permutation between two ids is a difference.
+        .rollback_resource_clone_entity_set::<ambition_encounter::EncounterRegistry>(
             ENGINE,
             "resource.encounter_registry",
+            |registry| registry.ids.values().copied().collect(),
         )
         .rollback_resource_map_entities::<ambition_encounter::EncounterRegistry>(
             ENGINE,
@@ -747,9 +752,23 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "actor.anim_override",
     )
     .rollback_component_clone::<ambition_actors::features::BossConfig>(ENGINE, "boss.config")
-    .rollback_component_clone::<ambition_actors::features::LimbRig>(ENGINE, "limb.rig")
+    // G2b: a rig IS its slot→limb map, and the map is remapped on every load.
+    // A presence count sees "one rig, still here" while the left hand hangs off
+    // the right shoulder. The projection folds the slot ORDER with each limb's
+    // identity, so a swap between two slots is a difference.
+    .rollback_component_clone_entity_set::<ambition_actors::features::LimbRig>(
+        ENGINE,
+        "limb.rig",
+        |rig| rig.limbs.values().copied().collect(),
+    )
     .rollback_map_entities::<ambition_actors::features::LimbRig>(ENGINE, "map.limb_rig")
-    .rollback_component_clone::<ambition_actors::features::Limb>(ENGINE, "limb.member")
+    // G2b: which HOST this limb belongs to. Remapped onto the wrong body, the
+    // limb station-keeps around a stranger and strikes where that stranger is.
+    .rollback_component_clone_entity_ref::<ambition_actors::features::Limb>(
+        ENGINE,
+        "limb.member",
+        |limb| limb.of,
+    )
     .rollback_map_entities::<ambition_actors::features::Limb>(ENGINE, "map.limb_member")
     .rollback_component_clone::<ambition_actors::features::LimbRouteState>(
         ENGINE,
@@ -758,7 +777,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_actors::features::LimbIntents>(ENGINE, "limb.intents")
     .rollback_component_clone::<ambition_actors::features::CanPilot>(ENGINE, "mount.can_pilot")
     .rollback_component_clone::<ambition_actors::features::Mass>(ENGINE, "mount.mass")
-    .rollback_component_clone::<ambition_actors::features::MountSlot>(ENGINE, "mount.slot")
+    // G2b: who is riding. A remap that seats the wrong rider locks a body to a
+    // mount it never boarded, and the count of occupied slots is unchanged.
+    .rollback_component_clone_entity_set::<ambition_actors::features::MountSlot>(
+        ENGINE,
+        "mount.slot",
+        |slot| slot.rider.into_iter().collect(),
+    )
     .rollback_map_entities::<ambition_actors::features::MountSlot>(ENGINE, "map.mount_slot")
     .rollback_component_clone::<ambition_actors::features::Mountable>(ENGINE, "mount.mountable")
     .rollback_component_clone::<ambition_actors::features::Mounted>(ENGINE, "mount.mounted")

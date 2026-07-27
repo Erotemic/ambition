@@ -112,12 +112,20 @@ pub fn spawn_declared_hud(
     active_session: Option<Res<ActiveSessionScope>>,
     fonts: Option<Res<crate::ui_fonts::UiFonts>>,
     existing: Query<(Entity, &DeclaredHudSlot, Option<&DeclaredHudSpec>)>,
+    // EVERYTHING this pass owns, slots AND gauges. The retire sweeps used to
+    // query `DeclaredHudSlot` only, and the gauge is a sibling root rather than
+    // a child of its slot — so a declaration rebuilt while a session stayed live
+    // despawned the text and left the bar, and the replacement bar rendered on
+    // top of it. Repeated style or layout changes accumulated duplicate bars
+    // (GPT 5.6, 2026-07-27). One marker every spawn below carries, so the sweep
+    // cannot miss a family somebody adds later.
+    owned: Query<Entity, With<DeclaredHudRoot>>,
 ) {
     let declared = active.slots();
 
     // Nothing declared: retire anything a previous route left behind.
     if declared.is_empty() {
-        for (entity, _, _) in &existing {
+        for entity in &owned {
             commands.entity(entity).despawn();
         }
         return;
@@ -130,7 +138,7 @@ pub fn spawn_declared_hud(
     if exact {
         return;
     }
-    for (entity, _, _) in &existing {
+    for entity in &owned {
         commands.entity(entity).despawn();
     }
 
@@ -305,9 +313,14 @@ pub fn place_declared_hud(
 
 /// The gauge bar belonging to one declared slot.
 ///
-/// A child node rather than a second slot: a gauge is a PRESENTATION of the
-/// readout the slot already publishes, so it moves, hides and dies with it and
-/// the game never learns it exists.
+/// A SIBLING root, not a child — it is positioned against the slot's live `Node`
+/// every frame (see [`update_declared_hud_gauges`]) because the slot itself
+/// moves between regions as the active presentation profile changes.
+///
+/// ⚠ It said "a child node" for a while and was never one, which is exactly how
+/// the retire sweep came to miss it: a comment claiming a lifetime the code did
+/// not implement. Both sweeps in [`spawn_declared_hud`] now key on
+/// [`DeclaredHudRoot`], which every spawn there carries.
 #[derive(bevy::prelude::Component, Debug)]
 pub struct DeclaredHudBar(pub HudSlotId);
 
@@ -455,6 +468,48 @@ mod tests {
             &[spec],
             [Some(&live)].into_iter(),
         ));
+    }
+
+    /// **A rebuilt declaration leaves exactly one gauge per slot.**
+    ///
+    /// The gauge is a SIBLING root, not a child of its slot, and the retire
+    /// sweeps used to query `DeclaredHudSlot` alone — so restyling a slot while
+    /// a session stayed live despawned the text, spawned a replacement, and left
+    /// the old bar rendering underneath the new one. Repeated layout or style
+    /// changes accumulated bars (GPT 5.6, 2026-07-27).
+    #[test]
+    fn restyling_a_slot_does_not_accumulate_gauge_bars() {
+        let mut app = App::new();
+        app.insert_resource(ResolvedGameplayPresentation::default());
+        app.insert_resource(ActiveHudDeclaration(Some(
+            HudDeclaration::new().slot(HudSlotSpec::new("health").with_font_size(18.0)),
+        )));
+        app.add_systems(Update, spawn_declared_hud);
+        app.update();
+
+        let bars = |app: &mut App| {
+            let world = app.world_mut();
+            let mut query = world.query::<&DeclaredHudBar>();
+            query.iter(world).count()
+        };
+        assert_eq!(bars(&mut app), 1, "the first build spawned no gauge at all");
+
+        // Same id, different style — the case that forces a rebuild without a
+        // route change, and the one this regressed on.
+        for size in [24.0_f32, 30.0, 36.0] {
+            *app.world_mut().resource_mut::<ActiveHudDeclaration>() = ActiveHudDeclaration(Some(
+                HudDeclaration::new().slot(HudSlotSpec::new("health").with_font_size(size)),
+            ));
+            app.update();
+        }
+        assert_eq!(
+            bars(&mut app),
+            1,
+            "three restyles left {} gauge bars for one slot — every rebuild \
+             despawned the text and abandoned its bar, and they draw on top of \
+             each other",
+            bars(&mut app)
+        );
     }
 
     #[test]

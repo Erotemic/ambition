@@ -551,13 +551,11 @@ pub fn install_sanic_content(app: &mut App) {
     // naming sheets and stopped hand-rolling the decode.
     {
         use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        // The sheet TARGET, not the sheet file: `sanic_spritesheet.ron` declares
+        // `target: "sanic"`, and the registry is keyed by the target.
         for (id, display, sheet) in [
-            (SANIC_CHARACTER_ID, "Sanic", "sanic_spritesheet"),
-            (
-                SUPER_SANIC_CHARACTER_ID,
-                "Super Sanic",
-                "super_sanic_spritesheet",
-            ),
+            (SANIC_CHARACTER_ID, "Sanic", "sanic"),
+            (SUPER_SANIC_CHARACTER_ID, "Super Sanic", "super_sanic"),
         ] {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE).with_sheet(sheet),

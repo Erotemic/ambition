@@ -229,6 +229,24 @@ pub struct PreparedCharacterDefinition {
     /// is the entire reason the binding boundary exists — and a distinction that
     /// survives only until the value is stored is not a distinction.
     checked: Vec<&'static str>,
+    /// References a resolver was supplied for and REJECTED, formatted for a reader.
+    ///
+    /// [`Self::checked`] says a vocabulary was consulted; it says nothing about the
+    /// verdict, so a typo'd sheet target read as "verified" — which is how four
+    /// shipped characters declared `<name>_spritesheet` (the sheet FILE) instead of
+    /// the sheet TARGET and drew placeholders while every check stayed green.
+    /// Registration still publishes (a placeholder beats a session that refuses to
+    /// boot); carrying the failures onto the published value is what lets a guard
+    /// be red about them without making the runtime fatal.
+    unresolved: Vec<String>,
+}
+
+impl PreparedCharacterDefinition {
+    /// Every reference preparation could check and rejected. Empty is the only
+    /// acceptable state for shipped content.
+    pub fn unresolved_references(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.unresolved.iter().map(String::as_str)
+    }
 }
 
 impl PreparedCharacterDefinition {
@@ -489,6 +507,7 @@ pub fn prepare_character(
         }
     }
 
+    let report = ledger.finish();
     let prepared = PreparedCharacterDefinition {
         id: definition.id,
         display_name: definition.display_name,
@@ -503,11 +522,30 @@ pub fn prepare_character(
         cue_dependencies,
         vfx_dependencies,
         checked: bindings.checked(),
+        // The COMPACT form, not the resolver's `Display`. That one appends every
+        // available id so a single log line can be acted on without a debugger,
+        // which is right for a log and wrong for a value stored per character:
+        // one unresolved sheet carries 400 ids, and a guard listing several of
+        // them buries its own verdict. The log already printed the long form.
+        unresolved: report
+            .unresolved()
+            .iter()
+            .map(|reference| {
+                let mut line = format!(
+                    "unknown {} `{}` declared by `{}`",
+                    reference.namespace, reference.id, reference.declared_by
+                );
+                if let Some(suggestion) = &reference.did_you_mean {
+                    line.push_str(&format!(" — did you mean `{suggestion}`?"));
+                }
+                line
+            })
+            .collect(),
     };
     let checked = prepared.checked.clone();
     PreparedCharacter {
         prepared,
-        report: ledger.finish(),
+        report,
         checked,
     }
 }
@@ -582,6 +620,7 @@ impl PreparedCharacterRegistry {
     /// `pub(crate)` and named for what it is: the registration seam is the door
     /// (it rejects duplicate ids and ambiguous display names), and this is the
     /// hatch a focused test uses when it wants a registry without an `App`.
+    #[cfg(test)]
     pub(crate) fn insert_prepared(&mut self, prepared: PreparedCharacterDefinition) {
         self.insert(prepared);
     }

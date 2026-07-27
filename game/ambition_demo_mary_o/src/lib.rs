@@ -1050,17 +1050,11 @@ pub fn install_mary_o_content(app: &mut App) {
     // demanded or the grown Mary-O draws a placeholder.
     {
         use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        // The sheet TARGET, not the sheet file: `super_mary_o_spritesheet.ron`
+        // declares `target: "super_mary_o"`, and the registry is keyed by the target.
         for (id, display, sheet) in [
-            (
-                provider::MARY_O_CHARACTER_ID,
-                "Mary-O",
-                "super_mary_o_spritesheet",
-            ),
-            (
-                "mary_o_tall",
-                "Mary-O (Tall)",
-                "super_mary_o_tall_spritesheet",
-            ),
+            (provider::MARY_O_CHARACTER_ID, "Mary-O", "super_mary_o"),
+            ("mary_o_tall", "Mary-O (Tall)", "super_mary_o_tall"),
         ] {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)

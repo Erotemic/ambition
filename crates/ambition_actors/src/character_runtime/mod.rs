@@ -712,18 +712,6 @@ impl Plugin for CharacterRuntimePlugin {
                 // exists for, so a frame-scheduled publish would hand it stale (or
                 // missing) attribution on exactly the ticks a rollback resimulates.
                 (
-                    // C3: a registered character's authored moveset and silhouette
-                    // land on the body BEFORE the move clock reads either. First in
-                    // the chain because the two systems after it consult what this
-                    // one projects.
-                    presentation::project_prepared_character_definitions
-                        // ...and before the PERSONA construction, which builds a
-                        // worn body's action set, moveset and identity baseline
-                        // together and then has equipment overlaid onto it. Landing
-                        // AFTER that pair erased equipment-granted moves; the two
-                        // agree now because `apply_worn_character_kit` consults the
-                        // same registry.
-                        .before(crate::avatar::apply_worn_character_gameplay),
                     presentation::publish_body_presentation_sources,
                     // G1/H1: the BACKSTOP for a projectile that reached the world
                     // without a source. The materializers stamp it themselves —
@@ -735,6 +723,24 @@ impl Plugin for CharacterRuntimePlugin {
                     .chain()
                     .in_set(crate::schedule::SandboxSet::Combat)
                     .before(crate::combat::moveset::advance_move_playback),
+            )
+            .add_systems(
+                sim,
+                // C3/I1: a registered character's authored moveset and silhouette
+                // land on the body BEFORE the PERSONA construction, which builds a
+                // worn body's action set, moveset and identity baseline together
+                // and then has equipment overlaid onto it. Landing after that pair
+                // erased equipment-granted moves; the two agree now because
+                // `apply_worn_character_kit` consults the same registry.
+                //
+                // In `PlayerInput` because that is the set the persona construction
+                // lives in. Ordering it from `Combat` — which the move clock also
+                // runs in — closed a cycle through the set edges (`PlayerInput`
+                // precedes `Combat`), and no minimal-App test could see it: the
+                // cycle only exists once the player schedule is installed.
+                presentation::project_prepared_character_definitions
+                    .in_set(crate::schedule::SandboxSet::PlayerInput)
+                    .before(crate::avatar::apply_worn_character_gameplay),
             )
             .add_systems(
                 Update,

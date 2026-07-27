@@ -206,14 +206,12 @@ impl SandboxSim {
     /// routing them back through `AgentAction` would silently drop every field
     /// that type does not carry.
     pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
-        if self.rollback.enabled() {
-            self.app
-                .world_mut()
-                .resource_mut::<ambition::runtime::rollback::PendingLocalInput>()
-                .0 = frame;
-        } else {
-            *self.app.world_mut().resource_mut::<ControlFrame>() = frame;
-        }
+        // ONE seam, whichever host this harness was built with. The branch that
+        // used to be here is the engine's now
+        // (`rollback::drive_control_frame`), because every driver that grew its
+        // own copy grew the same bug: writing the wrong resource is silently
+        // ignored, and the sim simply never moves.
+        ambition::runtime::rollback::drive_control_frame(self.app.world_mut(), frame);
         self.app.update();
         self.tick = self.tick.saturating_add(1);
         self.observation()

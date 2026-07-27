@@ -497,26 +497,19 @@ pub fn compose_outlander_shell(app: &mut App) {
     ));
 }
 
-/// Drive one frame of input, whichever host is running.
+/// Drive one frame of input, through the engine's own driver seam.
 ///
-/// LEAK (recorded, Phase-6 evidence): a consumer that wants to run its game
-/// under both hosts must know TWO input seams. A fixed-tick host consumes the
-/// `ControlFrame` resource directly; a GGRS host consumes
-/// `PendingLocalInput`, because the frame it simulates is the one the session
-/// confirmed and not the one the device produced. Writing `ControlFrame` under
-/// GGRS is silently ignored — the walk still runs, the body never moves, and
-/// nothing says why. Detected by resource presence rather than by a host flag
-/// the consumer would have to thread everywhere, but the underlying asymmetry
-/// is the engine's and should be a single seam.
+/// LEAK CLOSED 2026-07-27. This used to carry its own branch — `PendingLocalInput`
+/// under GGRS, the `ControlFrame` resource under fixed tick — because a consumer
+/// running its game under both hosts had to know both, and writing the wrong one
+/// is silently ignored: the walk runs, the body never moves, nothing says why.
+/// That is a rule the engine can state once, and now does
+/// (`ambition::runtime::rollback::drive_control_frame`).
+///
+/// Kept as a one-line wrapper rather than deleted, because the binaries and the
+/// walkthrough all call it and the name says what it is FOR.
 pub fn drive_control_frame(app: &mut App, frame: ambition::input::ControlFrame) {
-    let world = app.world_mut();
-    if let Some(mut pending) =
-        world.get_resource_mut::<ambition::runtime::rollback::PendingLocalInput>()
-    {
-        pending.0 = frame;
-    } else if let Some(mut control) = world.get_resource_mut::<ambition::input::ControlFrame>() {
-        *control = frame;
-    }
+    ambition::runtime::rollback::drive_control_frame(app.world_mut(), frame);
 }
 
 /// What the acceptance walk proved, for the binary to print and tests to pin.

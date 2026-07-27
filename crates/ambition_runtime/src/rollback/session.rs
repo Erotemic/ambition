@@ -243,6 +243,42 @@ pub fn session_is_active(world: &World) -> bool {
     world.contains_resource::<AmbitionGgrsSession>()
 }
 
+/// **THE seam a driver writes input through, whichever host is running.**
+///
+/// A driver is anything supplying input that is not a device: a headless
+/// harness, an RL agent, a replay, an integration test, a consumer's acceptance
+/// walk. There are two resources underneath and picking the wrong one FAILS
+/// SILENTLY — the walk runs, the body never moves, nothing says why — so this
+/// exists to make the choice unnecessary rather than merely documented.
+///
+/// The split is not an accident and cannot be merged away. Under a fixed-tick
+/// host [`ControlFrame`] is the input the sim reads. Under GGRS it is an
+/// OUTPUT: `publish_ggrs_input` writes it from the session's confirmed inputs
+/// every advance, so a driver writing it would be feeding resimulated input
+/// back in as new input. `PendingLocalInput` is the input side there.
+///
+/// A device-backed host writes neither: it accumulates into
+/// [`ControlFrameLatch`], which both hosts drain at their own clock. If a latch
+/// is present this defers to it, so a driver can nudge a windowed build without
+/// fighting the device layer.
+///
+/// Found while giving the external-consumer fixture a rollback host: it had to
+/// carry its own copy of this branch, which is the definition of a leak — every
+/// consumer rediscovering an engine rule the engine could have stated once.
+pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
+    if let Some(mut latch) = world.get_resource_mut::<ControlFrameLatch>() {
+        latch.accumulate(frame);
+        return;
+    }
+    if let Some(mut pending) = world.get_resource_mut::<PendingLocalInput>() {
+        pending.0 = frame;
+        return;
+    }
+    if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
+        *control = frame;
+    }
+}
+
 pub(crate) fn install_session_bridge(app: &mut App) {
     // Only a speculating host quarantines external effects, so the whole
     // mechanism is installed HERE rather than in the engine group: a fixed-tick
@@ -506,6 +542,54 @@ fn live_content_identity(world: &mut World) -> Option<PreparedContentIdentity> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **One call reaches whichever seam the host actually reads.**
+    ///
+    /// The three cases are not interchangeable and getting one wrong is silent:
+    /// the driver keeps driving, the sim never sees the input, and nothing
+    /// reports a thing. Each arm is asserted separately because "it did not
+    /// panic" is not the claim — "it landed in the resource this host consumes"
+    /// is.
+    #[test]
+    fn the_driver_seam_writes_whichever_resource_this_host_reads() {
+        let pressed = ControlFrame {
+            axis_x: 1.0,
+            ..Default::default()
+        };
+
+        // A driver with no device under a fixed-tick host: `ControlFrame` IS the
+        // input the sim reads.
+        let mut fixed = World::new();
+        fixed.insert_resource(ControlFrame::default());
+        drive_control_frame(&mut fixed, pressed);
+        assert_eq!(fixed.resource::<ControlFrame>().axis_x, 1.0);
+
+        // The same driver under GGRS. `ControlFrame` is an OUTPUT there —
+        // `publish_ggrs_input` overwrites it from the session's confirmed inputs
+        // every advance — so the input must land in `PendingLocalInput`, and
+        // must NOT be written to `ControlFrame`, or a driver would be feeding
+        // resimulated input back in as new input.
+        let mut rollback = World::new();
+        rollback.insert_resource(ControlFrame::default());
+        rollback.insert_resource(PendingLocalInput::default());
+        drive_control_frame(&mut rollback, pressed);
+        assert_eq!(rollback.resource::<PendingLocalInput>().0.axis_x, 1.0);
+        assert_eq!(
+            rollback.resource::<ControlFrame>().axis_x,
+            0.0,
+            "a driver must not write the resource GGRS publishes into"
+        );
+
+        // A device-backed host: the latch wins, so nudging a windowed build does
+        // not fight the device layer for the same resource.
+        let mut windowed = World::new();
+        windowed.insert_resource(ControlFrame::default());
+        windowed.insert_resource(PendingLocalInput::default());
+        windowed.insert_resource(ControlFrameLatch::default());
+        drive_control_frame(&mut windowed, pressed);
+        assert_eq!(windowed.resource::<ControlFrameLatch>().peek().axis_x, 1.0);
+        assert_eq!(windowed.resource::<PendingLocalInput>().0.axis_x, 0.0);
+    }
 
     #[test]
     fn restarting_a_sync_test_session_rebases_ggrs_time_to_frame_zero() {

@@ -129,7 +129,22 @@ pub fn bind_worn_character_presentation(
                 player_render.x,
                 player_render.y,
             );
-            commands.entity(entity).insert((
+            // `try_insert`, not `insert`: this binder is deferred (Commands) and
+            // its target is the PLAYER BODY, which session teardown despawns. A
+            // provider switch therefore has one frame where the body is going
+            // away and this pass is still decorating it, and whether the insert
+            // or the despawn flushes first is decided by system ordering rather
+            // than by anything either system knows.
+            //
+            // Failing silently is CORRECT here, not a papering-over: binding a
+            // sprite onto a body that is being destroyed has no meaning, and the
+            // alternative — ordering presentation around teardown — makes the
+            // render layer responsible for session lifecycle.
+            //
+            // (Surfaced 2026-07-27 by adding ONE system to the render chain,
+            // which moved a command-flush boundary. A hazard that a no-op can
+            // trip was already a hazard.)
+            commands.entity(entity).try_insert((
                 sprite,
                 anchor,
                 CharacterAnimator::new(asset),
@@ -147,10 +162,13 @@ pub fn bind_worn_character_presentation(
             // rebind never leaves a stale animator/anchor/baseline behind.
             commands
                 .entity(entity)
-                .remove::<CharacterAnimator>()
-                .remove::<bevy::sprite::Anchor>()
-                .remove::<PlayerSpriteBaseline>()
-                .insert((
+                // Same reasoning as the bind above: the whole chain targets a
+                // body that may be mid-teardown, and a `remove` on a despawned
+                // entity fails exactly like an `insert` does.
+                .try_remove::<CharacterAnimator>()
+                .try_remove::<bevy::sprite::Anchor>()
+                .try_remove::<PlayerSpriteBaseline>()
+                .try_insert((
                     Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), player_collision),
                     PlayerSpriteCharacter {
                         id: worn.id().to_string(),

@@ -323,6 +323,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // ones whose sim feature is gone (an expired loot drop) so a
                 // room doesn't accumulate invisible sprites.
                 features::spawn_dynamic_feature_visuals,
+                // The FLOOR, after every family has had its chance: a body the
+                // sim published a view for that nothing claimed gets a marked
+                // rectangle rather than nothing at all.
+                features::draw_unclaimed_feature_views,
                 features::despawn_dead_dynamic_feature_visuals,
                 // The reusable selected-character binder: install (and rebind) the
                 // worn character's sheet/animator/anchor from the canonical

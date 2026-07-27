@@ -1180,8 +1180,7 @@ persisting too much runtime state.
 restores intentional state through the canonical construction and lifecycle
 paths, including a tested version transition.
 
-**Status 2026-07-27 — PARTIAL. Same-room restoration works; "resume where you
-last rested" does not.**
+**Status 2026-07-27 — MET, on the third attempt, after the third correction.**
 
 ⚠ This row claimed "met" twice before it was true, in two different ways, and
 both corrections are worth keeping visible.
@@ -1216,11 +1215,18 @@ description of the feature. Refusing to teleport a body into another room's
 coordinates is right. Refusing to OPEN the checkpoint's room is the gap, and
 naming the first does not discharge the second.
 
-▢ **What is left:** startup routing has to consult the checkpoint when choosing
-the initial room, and the latch has to stay open until the checkpoint's room is
-actually entered (or be keyed per room rather than per session). Until then this
-row is same-room position restoration, which is a real feature and is not the
-exit criterion.
+✔ **Closed the same day it was corrected.** `restore_checkpoint_on_session_start`
+now ROUTES: a checkpoint naming another room of this world emits an ordinary
+`RoomTransitionRequested` at the checkpoint's coordinates, so the session opens
+where the player rested. It requests once per session (a transition takes several
+frames to commit, and re-requesting every frame restarts it forever), and a
+checkpoint naming a room this world does NOT contain warns and keeps the
+session's own room — which is the case the earlier draft was really describing.
+
+Routing through the ordinary transition rather than repointing the room set is
+deliberate: staging a room is a transaction with content, geometry and
+authorization in it, and "one place stages a room" is worth more than saving a
+message.
 
 **Correction to this row's first draft**, which said versioning did not exist:
 that was grepped from `save.rs` alone, and the version lives in `save_data.rs`.

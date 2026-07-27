@@ -159,11 +159,13 @@ pub fn restore_checkpoint_on_session_start(
         ambition_platformer_primitives::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     scope: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    mut transitions: MessageWriter<ambition_world::rooms::RoomTransitionRequested>,
     mut bodies: Query<
         (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
         crate::actor::PrimaryPlayerOnly,
     >,
     mut applied_for: Local<Option<Option<u64>>>,
+    mut routed_for: Local<Option<Option<u64>>>,
 ) {
     let Some(room_set) = room_set.as_deref() else {
         return;
@@ -172,6 +174,70 @@ pub fn restore_checkpoint_on_session_start(
     if *applied_for == Some(generation) {
         return;
     }
+    let Some(checkpoint) = save.data().checkpoint.as_ref() else {
+        // Nothing to resume. Mark the session handled so this stops looking.
+        *applied_for = Some(generation);
+        return;
+    };
+
+    // ROUTE FIRST. The checkpoint's room is where the player rested, so it is
+    // where the session belongs — and until 2026-07-27 nothing acted on that.
+    // The room id was only COMPARED against whatever room the session happened
+    // to open, and a mismatch returned: rest in B, quit, start a session that
+    // opens in A, and the checkpoint was silently ignored. Worse, the handled
+    // latch was set BEFORE the comparison, so walking into B later in the same
+    // session did not apply it either (GPT 5.6, 2026-07-27).
+    //
+    // Requesting an ordinary transition rather than repointing the room set:
+    // staging a room is a transaction with content, geometry and authorization
+    // in it, and "the one place rooms are staged" is worth more than saving a
+    // message.
+    if checkpoint.room_id != room_set.active_spec().id {
+        // Once per session. A transition takes several frames to commit, and
+        // re-requesting every frame would restart it forever.
+        if *routed_for == Some(generation) {
+            return;
+        }
+        let Some(target_room) = room_set
+            .rooms
+            .iter()
+            .position(|room| room.id == checkpoint.room_id)
+        else {
+            // The checkpoint names a room this world does not have — a save from
+            // another game, or a room that was removed. Not fatal and not
+            // silent: the session keeps its own starting room.
+            bevy::log::warn!(
+                target: "ambition::shrine",
+                "checkpoint names room `{}`, which this world does not contain; \
+                 starting at the session's own room instead",
+                checkpoint.room_id
+            );
+            *applied_for = Some(generation);
+            return;
+        };
+        *routed_for = Some(generation);
+        transitions.write(ambition_world::rooms::RoomTransitionRequested::new(
+            ambition_world::rooms::RoomTransition {
+                // A synthetic zone: the resume is not a door anybody walked
+                // through, and `Door` is the activation that never fires on its
+                // own, so this cannot be re-triggered by proximity.
+                zone: ambition_world::rooms::LoadingZone {
+                    id: "checkpoint_resume".to_string(),
+                    name: "Checkpoint".to_string(),
+                    activation: ambition_world::rooms::LoadingZoneActivation::Door,
+                    aabb: ae::Aabb::new(
+                        ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                        ae::Vec2::ONE,
+                    ),
+                },
+                target_room,
+                arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+            },
+            None,
+        ));
+        return;
+    }
+
     let Ok((clusters, mut model)) = bodies.single_mut() else {
         // No body yet — construction has not finished. Leave `applied_for`
         // untouched so the next tick tries again, rather than marking a session
@@ -179,15 +245,6 @@ pub fn restore_checkpoint_on_session_start(
         return;
     };
     *applied_for = Some(generation);
-    let Some(checkpoint) = save.data().checkpoint.as_ref() else {
-        return;
-    };
-    // A checkpoint in ANOTHER room is not wrong, it is just not applicable here:
-    // the session opened somewhere else, and teleporting the body to coordinates
-    // from a different room is the exact failure the room id exists to prevent.
-    if checkpoint.room_id != room_set.active_spec().id {
-        return;
-    }
     let mut item = clusters;
     let mut clusters = item.as_clusters_mut();
     ae::movement::transit_body(

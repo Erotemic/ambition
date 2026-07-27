@@ -11,6 +11,7 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 fn interacting_at_the_shrine_heals_to_full() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_world::rooms::RoomTransitionRequested>();
     app.init_resource::<ambition_persistence::save::SandboxSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);
@@ -213,6 +214,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     // A fresh app with the recorded save: the body starts at the room's authored
     // spawn and must be moved to the checkpoint instead.
     let mut next = App::new();
+    next.add_message::<ambition_world::rooms::RoomTransitionRequested>();
     next.insert_resource(ambition_persistence::save::SandboxSave(
         app.world()
             .resource::<ambition_persistence::save::SandboxSave>()
@@ -264,6 +266,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
         999,
         999,
     ));
+    app.add_message::<ambition_world::rooms::RoomTransitionRequested>();
     app.insert_resource(ambition_persistence::save::SandboxSave(save));
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
@@ -300,4 +303,93 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
         (32.0, 400.0),
         "a checkpoint from another room was applied to this one"
     );
+}
+
+/// **A checkpoint in ANOTHER room of this world routes the session to it.**
+///
+/// This is what "resume where you last rested" means, and until 2026-07-27 it
+/// did not happen: the saved room id was only COMPARED against whatever room
+/// the session opened, and a mismatch returned. Rest in B, quit, start a
+/// session that opens in A, and the checkpoint was silently ignored — and the
+/// handled latch was set BEFORE the comparison, so walking into B later in that
+/// same session did not apply it either.
+///
+/// Distinct from `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned`,
+/// which covers a room this world does NOT contain. Refusing to teleport a body
+/// into coordinates from a room that does not exist is right; refusing to OPEN a
+/// room that does is the gap.
+#[test]
+fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
+    use ambition_platformer_primitives::lifecycle::{
+        insert_session_world_component, ActiveSessionScope,
+    };
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::SandboxSaveData::default();
+    save.checkpoint = Some(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.add_message::<ambition_world::rooms::RoomTransitionRequested>();
+    app.insert_resource(ambition_persistence::save::SandboxSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        crate::rooms::RoomSpec::new(
+            name,
+            ambition_engine_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    insert_session_world_component(
+        app.world_mut(),
+        // Opens in `entry`; the player rested in `rest_room`.
+        crate::rooms::RoomSet::from_parts(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+    app.update();
+
+    let requests: Vec<_> = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition_world::rooms::RoomTransitionRequested>>()
+        .iter_current_update_messages()
+        .cloned()
+        .collect();
+    assert_eq!(
+        requests.len(),
+        1,
+        "the session opened in `entry` while the checkpoint is in `rest_room` \
+         and no transition was requested — the player does not resume where \
+         they rested"
+    );
+    assert_eq!(requests[0].transition.target_room, 1);
+    assert_eq!(
+        (
+            requests[0].transition.arrival.x,
+            requests[0].transition.arrival.y
+        ),
+        (512.0, 300.0),
+        "the transition must arrive AT the checkpoint, not at the room's own spawn"
+    );
+
+    // Once per session: a transition takes several frames to commit, and
+    // re-requesting every frame would restart it forever.
+    app.update();
+    app.update();
+    let repeats = app
+        .world()
+        .resource::<bevy::prelude::Messages<ambition_world::rooms::RoomTransitionRequested>>()
+        .iter_current_update_messages()
+        .count();
+    assert_eq!(repeats, 0, "the resume transition was requested repeatedly");
 }

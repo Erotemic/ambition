@@ -562,3 +562,90 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
         "a dead foe is dropped and the relational fighter goes target-less (stands down)"
     );
 }
+
+/// **A team outranks faction for "may this hit land".** (queue L9)
+///
+/// `effective_faction` maps ANY player-brained body to `Player`, which is
+/// load-bearing for possession and fatal for a match: two humans are always the
+/// same faction no matter what the roster declared. A versus stage got around
+/// that by switching on GLOBAL friendly fire, which is right for a free-for-all
+/// and wrong the moment a 2v2 exists — it makes teammates hittable too, and it
+/// is a world-wide rule change made by one stage.
+#[test]
+fn teams_decide_between_two_bodies_that_share_a_faction() {
+    use super::{damage_lands_between, ActorFaction, FriendlyFire, MatchTeam};
+
+    let blue = MatchTeam::new("blue");
+    let red = MatchTeam::new("red");
+    let victim = Entity::from_raw_u32(7).expect("a valid test entity id");
+    let no_ff = FriendlyFire { enabled: false };
+
+    // Same faction (two humans), DIFFERENT teams: the hit lands.
+    assert!(damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Player,
+        Some(&blue),
+        Some(&red),
+        no_ff,
+        None,
+        victim,
+    ));
+
+    // Same faction, SAME team: it does not. This is the 2v2 case global
+    // friendly fire could never express.
+    assert!(!damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Player,
+        Some(&blue),
+        Some(&blue),
+        no_ff,
+        None,
+        victim,
+    ));
+
+    // DIFFERENT factions but the same team — an escorted ally, a possessed
+    // teammate. The team wins: it is the ruleset's statement and the faction is
+    // the world's.
+    assert!(!damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Enemy,
+        Some(&blue),
+        Some(&blue),
+        no_ff,
+        None,
+        victim,
+    ));
+
+    // A grudge still overrides a shared team: a per-entity feud is deliberately
+    // stronger than any group rule.
+    assert!(damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Player,
+        Some(&blue),
+        Some(&blue),
+        no_ff,
+        Some(victim),
+        victim,
+    ));
+
+    // And a body with NO team is judged exactly as before — nothing outside a
+    // match notices teams exist.
+    assert!(damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Enemy,
+        None,
+        None,
+        no_ff,
+        None,
+        victim,
+    ));
+    assert!(!damage_lands_between(
+        ActorFaction::Player,
+        ActorFaction::Player,
+        Some(&blue),
+        None,
+        no_ff,
+        None,
+        victim,
+    ));
+}

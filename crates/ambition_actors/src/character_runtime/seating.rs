@@ -313,8 +313,17 @@ pub fn seat_match_participants(
         let MatchParticipant {
             character,
             controller,
+            team,
             ..
         } = participant;
+        // The roster's declared TEAM, on the body. It had been declared and read
+        // by nothing since §7.8; `MatchTeam` is what the damage relation
+        // consults, and it is what lets two human seats hit each other without
+        // the stage switching on GLOBAL friendly fire (which also makes
+        // teammates hittable, and is therefore wrong the moment a 2v2 exists).
+        let team_tag = team
+            .as_ref()
+            .map(|team| crate::combat::targeting::MatchTeam::new(team.clone()));
         // Already has a body from an earlier tick's partial seating.
         if occupied.contains(&index) {
             continue;
@@ -353,6 +362,9 @@ pub fn seat_match_participants(
                     ambition_entity_catalog::placements::CharacterBrain::Passive,
                 ) {
                     seated_count += 1;
+                    if let Some(team) = team_tag.clone() {
+                        commands.entity(body).insert(team);
+                    }
                     commands.entity(body).insert((
                         MatchSeat(index),
                         ambition_characters::brain::Brain::Player(slot),
@@ -419,6 +431,9 @@ pub fn seat_match_participants(
             ambition_entity_catalog::placements::CharacterBrain::Custom(profile.to_string()),
         ) {
             commands.entity(body).insert(MatchSeat(index));
+            if let Some(team) = team_tag.clone() {
+                commands.entity(body).insert(team);
+            }
             seated_count += 1;
         }
     }

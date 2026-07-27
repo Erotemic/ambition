@@ -186,20 +186,18 @@ fn track_versus_roster(
             roster.project_demand(&mut demand);
             commands.insert_resource(roster);
             seated.0 = false;
-            // FREE-FOR-ALL, for the duration of the stage.
+            // NO global free-for-all. The fighters are on declared TEAMS
+            // (`blue` / `red`), and `MatchTeam` outranks faction for "may this
+            // land" — which is what the roster's teams were for since §7.8 and
+            // what nothing read until 2026-07-27.
             //
-            // Two human seats cannot hit each other otherwise, and the reason is
-            // load-bearing elsewhere: `effective_faction` maps ANY player-brained
-            // body to `ActorFaction::Player`, which is what makes a possessed
-            // enemy stop being hittable by the player who possesses it. Two
-            // players are therefore always the same faction, and friendly fire is
-            // the engine's existing name for "same faction damages each other" —
-            // which is what a versus stage IS.
-            //
-            // Not a workaround for the roster's teams: those are declared and
-            // still do nothing, and making factions team-aware is the real fix
-            // for a team mode. A free-for-all needs no teams to be correct.
-            friendly_fire.enabled = true;
+            // The stage DID switch on global `FriendlyFire` for a day, because
+            // `effective_faction` maps any player-brained body to Player and two
+            // humans are therefore always the same faction. That works for a
+            // free-for-all and is wrong the moment a 2v2 exists: it makes
+            // teammates hittable too, and it is a world-wide rule change made by
+            // one stage. Teams say the same thing locally and correctly.
+            friendly_fire.enabled = false;
             // A FRESH match. `VersusMatch` is a long-lived resource, so without
             // this, leaving mid-round and coming back resumes the old score —
             // and a KO or match-over countdown resumes with it, which reads as

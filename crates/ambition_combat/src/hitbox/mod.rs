@@ -161,12 +161,20 @@ pub fn apply_hitbox_damage(
         // (E2 verdict b).
         Option<&ambition_characters::actor::BodyHealth>,
         Option<&super::components::CombatTuning>,
+        // The victim's TEAM, when a ruleset gave it one. Outranks faction for
+        // "may this land": two humans are always the same faction, so a match
+        // could not otherwise let them hit each other without switching on
+        // GLOBAL friendly fire.
+        Option<&crate::targeting::MatchTeam>,
     )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
     // personal grudge against (two `Npc` duelists), without re-tagging factions.
     // Read-only, so it may overlap the other actor queries.
     attacker_aggression: Query<&ActorAggression>,
+    // The swing owner's team, looked up the same way its grudge is. Read-only,
+    // so it may overlap the victim query.
+    attacker_team: Query<&crate::targeting::MatchTeam>,
     // The owner's melee swing, so a Player-faction FollowOwner strike (the player's
     // slash — and a possessed actor's) reads the per-swing `hit_targets` for
     // one-hit-per-target dedup and emits only while the swing is live.
@@ -248,6 +256,7 @@ pub fn apply_hitbox_damage(
                     victim_damageable,
                     victim_health,
                     victim_tuning,
+                    victim_team,
                 ) in &victims
                 {
                     if victim_entity == hitbox.owner {
@@ -262,9 +271,11 @@ pub fn apply_hitbox_damage(
                         continue;
                     }
                     let victim_faction = effective_faction(*victim_faction, victim_brain);
-                    if !damage_lands(
+                    if !crate::targeting::damage_lands_between(
                         source_faction,
                         victim_faction,
+                        attacker_team.get(hitbox.owner).ok(),
+                        victim_team,
                         friendly_fire,
                         owner_grudge,
                         victim_entity,

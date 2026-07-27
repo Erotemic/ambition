@@ -148,6 +148,49 @@ pub fn effective_faction(
 /// grudge, or a grudge-less attacker like the environment) falls straight back to the
 /// faction rule. This is a strict SUPERSET of `can_damage`, so it never spares a hit
 /// the faction baseline would have landed.
+/// **Which side of a match this body fights for.**
+///
+/// A team is a relation a RULESET declares, and it outranks faction for the one
+/// question that matters here: may this hit land? Two bodies on different teams
+/// damage each other; two on the same team do not.
+///
+/// It exists because faction cannot express it. `effective_faction` maps ANY
+/// player-brained body to `ActorFaction::Player` — load-bearing for possession,
+/// since a possessed enemy must stop being hittable by the player possessing it
+/// — so two humans are always the same faction no matter what the roster says.
+/// A versus stage had to switch on GLOBAL friendly fire to get around that,
+/// which is right for a free-for-all and wrong the moment a 2v2 exists: it makes
+/// teammates hittable too.
+///
+/// Only bodies that HAVE a team are judged by it. A body with no team is
+/// unchanged in every respect, so nothing outside a match notices this exists.
+#[derive(bevy::prelude::Component, Clone, Debug, PartialEq, Eq)]
+pub struct MatchTeam(pub String);
+
+impl MatchTeam {
+    pub fn new(team: impl Into<String>) -> Self {
+        Self(team.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The team relation between two bodies, when both have one.
+///
+/// `None` means teams have nothing to say — at least one side is not in a match
+/// — and the faction rule decides, exactly as before.
+pub fn team_allows_damage(
+    attacker: Option<&MatchTeam>,
+    victim: Option<&MatchTeam>,
+) -> Option<bool> {
+    match (attacker, victim) {
+        (Some(a), Some(v)) => Some(a != v),
+        _ => None,
+    }
+}
+
 pub fn damage_lands(
     attacker: ActorFaction,
     victim: ActorFaction,
@@ -156,6 +199,33 @@ pub fn damage_lands(
     victim_entity: Entity,
 ) -> bool {
     can_damage(attacker, victim, friendly_fire) || attacker_grudge == Some(victim_entity)
+}
+
+/// [`damage_lands`], with a TEAM relation taking precedence when both bodies
+/// have one.
+///
+/// A grudge still overrides: it is a per-entity feud and it is deliberately
+/// stronger than any group rule, which is what lets two teammates settle
+/// something the ruleset did not anticipate.
+pub fn damage_lands_between(
+    attacker: ActorFaction,
+    victim: ActorFaction,
+    attacker_team: Option<&MatchTeam>,
+    victim_team: Option<&MatchTeam>,
+    friendly_fire: FriendlyFire,
+    attacker_grudge: Option<Entity>,
+    victim_entity: Entity,
+) -> bool {
+    if let Some(allowed) = team_allows_damage(attacker_team, victim_team) {
+        return allowed || attacker_grudge == Some(victim_entity);
+    }
+    damage_lands(
+        attacker,
+        victim,
+        friendly_fire,
+        attacker_grudge,
+        victim_entity,
+    )
 }
 
 /// Pick each non-player actor's `ActorTarget` for this frame.

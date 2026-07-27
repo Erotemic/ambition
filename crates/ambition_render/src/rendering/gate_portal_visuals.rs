@@ -48,7 +48,11 @@ pub fn sync_portal_sprite_visibility(
                 continue;
             }
             if marker.is_none() {
-                commands.entity(entity).insert(PortalSprite);
+                // `try_insert`: these are room-scoped prop visuals, so a room
+                // teardown despawns them and this deferred marker can land on a
+                // corpse. Tagging a prop that is being destroyed has no meaning.
+                // REPRODUCED by `deferred_write_safety::production_passes`.
+                commands.entity(entity).try_insert(PortalSprite);
             }
             if *vis != target_visibility {
                 *vis = target_visibility;
@@ -135,7 +139,11 @@ pub fn sync_portal_ring_rotation_system(
                 continue;
             }
             if marker.is_none() {
-                commands.entity(entity).insert(PortalSprite);
+                // `try_insert`: these are room-scoped prop visuals, so a room
+                // teardown despawns them and this deferred marker can land on a
+                // corpse. Tagging a prop that is being destroyed has no meaning.
+                // REPRODUCED by `deferred_write_safety::production_passes`.
+                commands.entity(entity).try_insert(PortalSprite);
             }
             animator.request(target_anim);
             let index = animator.tick(dt);

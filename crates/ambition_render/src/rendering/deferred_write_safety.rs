@@ -127,6 +127,42 @@ mod production_passes {
     #[derive(Component)]
     struct Doomed;
 
+    /// Portal sprite marking targets `PropVisual` entities, which room teardown
+    /// despawns with the room.
+    #[test]
+    fn portal_sprite_marking_survives_its_targets_being_retired() {
+        use crate::rendering::gate_portal_visuals::sync_portal_sprite_visibility;
+        use crate::rendering::primitives::PropVisual;
+
+        let mut app = App::new();
+        // A REGISTERED portal whose sprite name matches the prop below. Without
+        // this the pass's outer loop is over an empty map, it never reaches the
+        // insert, and the probe passes while proving nothing — which is exactly
+        // what it did on the first run.
+        let mut registry = ambition_world::rooms::GatePortalRegistry::default();
+        registry.register("zone", "switch", "portal", "ring");
+        app.insert_resource(registry);
+        app.world_mut().spawn((
+            PropVisual {
+                id: "p".into(),
+                kind: "portal".into(),
+                // The pass matches on NAME, so this has to be a name it acts on
+                // — otherwise the loop skips and the test proves nothing.
+                name: "portal".into(),
+                size: Vec2::splat(16.0),
+                draw: Default::default(),
+                flip_y: false,
+            },
+            Visibility::default(),
+            Doomed,
+        ));
+        run_frame_despawning_targets::<Doomed, _, _>(
+            &mut app,
+            Update,
+            sync_portal_sprite_visibility,
+        );
+    }
+
     #[test]
     fn the_placeholder_sprite_override_survives_its_targets_being_retired() {
         let mut app = App::new();

@@ -698,8 +698,8 @@ remaining path-dependent readers use canonical swept queries; CC3's chosen gate
 is executable; migrated effects preserve stable causal identity without new
 solver branches or a second area/contact framework.
 
-**Status 2026-07-27 — three of four clauses met; the CC3 GATE is diagnostic, not
-enforcing.**
+**Status 2026-07-27 — MET. All four clauses, with the CC3 gate enforcing in both
+the default suite (cheap tier) and the full guarded sweep.**
 
 The doctrine is source-audited and the audit is written down, per reader, in
 [`collision-and-ccd.md`](collision-and-ccd.md)'s CC2-completion table: hazard
@@ -715,12 +715,28 @@ identity is standardized — `GeoId`/`GeoSource` reaches 18 crates, and reactive
 blocks carry `GeoId` on `ContactSource::Block` — with no second area engine: no
 generic enter/stay/exit layer was built, which was the named risk.
 
-The gap is the third clause. CC3's illegal-state coverage is a fuzz/diagnostic
-rig, and approach item 2 says to "turn the diagnostic illegal-state coverage into
-enforcement only when its documented behavioral preconditions are met". Nobody
-has re-checked whether those preconditions now hold, so the gate is neither
-executable nor explicitly deferred — it is simply unexamined. That is the row
-worth taking next on this task.
+**The third clause was taken on 2026-07-27 and this paragraph is half stale, so
+here is what is actually true.** `collision_oracle_full_sweep` ASSERTS: every
+invariant class CC3 claims to exclude is a failure with a seeded repro, and the
+one exclusion is an out-of-bounds that left through an open edge (§6.1 already
+rules those legal). Promoting it from measurement to enforcement found and fixed
+a real level defect on the way — `stagger_steps` spawned a body 15px inside a
+step — and the grounded-and-settled `EmbeddedAtRest` invariant was added and
+measured at zero.
+
+What is NOT true is that it gates ordinary work. It stays `#[ignore]`d because a
+full sweep is minutes, not seconds, so `cargo test --workspace` does not run it;
+the goal guard runs it explicitly with `--ignored`. So a regression is caught by
+a guarded run and NOT by a developer's ordinary test loop.
+
+✔ **The wiring gap is closed too.** `collision_oracle_smoke` already ran in the
+default suite and asserted nothing about violations — its comment still called
+embed/teleport/OOB "the deferred bugs" long after the full sweep stopped
+deferring them. It now applies the SAME exclusion rule at a cost the default
+suite can afford (two seeds, cold-launch room, 0.74s), so a break that affects
+the launch room fails in an ordinary `cargo test` instead of waiting for a
+guarded run. The full sweep remains the authority on COVERAGE; the cheap tier is
+the authority on "did somebody just break it".
 
 ---
 

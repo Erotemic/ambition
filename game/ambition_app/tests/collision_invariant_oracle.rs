@@ -942,9 +942,21 @@ fn trace_oob_under_town_pipes() {
     }
 }
 
-/// Smoke test: proves the oracle harness runs end-to-end and prints a report.
-/// Does NOT assert zero violations (embed/teleport/OOB are the deferred bugs +
-/// gap rooms — see the module docs). Fast: a couple seeds on the cold-launch room.
+/// **The cheap tier of the CC3 gate, and it ENFORCES.**
+///
+/// This used to be harness liveness only — "does not assert zero violations,
+/// embed/teleport/OOB are the deferred bugs". Those are not deferred any more:
+/// `collision_oracle_full_sweep` asserts them across every room and seed, and it
+/// found and fixed a real level defect getting there.
+///
+/// But the full sweep is `#[ignore]`d because it takes minutes, so
+/// `cargo test --workspace` never runs it and only a guarded run does.
+/// "Enforcing, but only where somebody remembers to look" is a weaker guarantee
+/// than it sounds, so this tier applies the SAME exclusion rule at a cost the
+/// default suite can afford: two seeds on the cold-launch room.
+///
+/// The full sweep remains the authority on COVERAGE. This is the authority on
+/// "did somebody just break collision everywhere".
 #[test]
 fn collision_oracle_smoke() {
     let zones = load_loading_zones();
@@ -962,8 +974,36 @@ fn collision_oracle_smoke() {
         all.append(&mut v);
     }
     eprintln!("{}", format_report(&all, episodes, total_steps, suppressed));
-    // Harness liveness only — the sim stepped without panicking across the run.
     assert_eq!(episodes, 2);
+    // The SAME exclusion the full sweep applies: an out-of-bounds that left
+    // through an open edge without passing a Solid is legal level authoring
+    // (§6.1). Everything else is a collision defect.
+    let excluded: Vec<&Violation> = all
+        .iter()
+        .filter(|v| {
+            !matches!(
+                (v.kind, v.through_wall),
+                (
+                    Kind::OutOfBoundsAbove | Kind::OutOfBoundsBelow | Kind::OutOfBoundsSide,
+                    Some(false)
+                )
+            )
+        })
+        .collect();
+    assert!(
+        excluded.is_empty(),
+        "{} collision invariant violation(s) on the CHEAP tier. The full sweep \
+         (`collision_oracle_full_sweep -- --ignored`) has every room, every seed \
+         and the per-room repro list; this tier exists so a break that affects \
+         the cold-launch room fails in an ordinary `cargo test` instead of \
+         waiting for a guarded run:\n{}",
+        excluded.len(),
+        excluded
+            .iter()
+            .map(|v| format!("  {} {} — {}", v.room, v.kind.label(), v.detail))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
 
 /// Comprehensive on-demand catalog: every room, several seeds, longer episodes.

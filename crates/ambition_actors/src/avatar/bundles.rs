@@ -235,6 +235,10 @@ impl PlayerSimulationBundle {
         // kit), so spawn and runtime can never disagree on what a character is.
         let _ = crate::avatar::apply_worn_character_overlay(
             catalog,
+            // A from-scratch bundle predates the world it will live in, so there is
+            // no registry to consult here. The per-frame derivation above reaches
+            // the body on its first tick with the prepared moveset if one exists.
+            None,
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,

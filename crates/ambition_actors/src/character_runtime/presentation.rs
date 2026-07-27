@@ -242,6 +242,24 @@ pub fn inherit_projectile_presentation_sources(
     }
 }
 
+/// Which registered character's definition is currently projected onto a body.
+///
+/// The projection needs REPLACEMENT semantics, not insert-only: a body that wears
+/// a new form must lose the previous character's moves, silhouette, and routing
+/// markers, and "insert whatever the new definition has" leaves all three behind
+/// when the new definition is quieter than the old one (GPT 5.6, 2026-07-27).
+/// Knowing which definition is on the body is what makes the removal computable —
+/// the same reason [`IdentityKit`](ambition_characters::brain::action_set::IdentityKit)
+/// records what identity alone derived, so an equipment grant stays revocable.
+///
+/// ⚠ It records the id, not the DISPLACED value. So a body whose spawn seeded an
+/// archetype moveset, then wore a registered character that authored one, then wore
+/// one that authors none, ends with no moveset rather than its archetype's. Fixing
+/// that means storing the displaced value here — `IdentityKit`'s exact pattern —
+/// and no character needs it yet. Named rather than discovered.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct ProjectedCharacterKit(pub String);
+
 /// **C3: a registered character's authored fight reaches a spawned BODY.**
 ///
 /// §4.1's end state is that the prepared registry replaces the old seams; A1 built
@@ -283,6 +301,7 @@ pub fn project_prepared_character_definitions(
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
             Option<&crate::combat::CombatTuning>,
+            Option<&ProjectedCharacterKit>,
         ),
         Or<(
             Changed<ambition_characters::actor::WornCharacter>,
@@ -293,13 +312,38 @@ pub fn project_prepared_character_definitions(
     let Some(registry) = registry else {
         return;
     };
-    for (entity, worn, tuning) in &bodies {
+    for (entity, worn, tuning, projected) in &bodies {
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
             .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
-        let Some(prepared) = character_id.and_then(|id| registry.get(id)) else {
+        let resolved = character_id.filter(|id| registry.get(id).is_some());
+        if projected.map(|p| p.0.as_str()) == resolved {
+            continue;
+        }
+        // RETRACT what the previous definition put here, before projecting the new
+        // one. Looked up by the recorded id, so the removal is exactly what this
+        // system granted and never something the spawn seeded.
+        if let Some(previous) = projected.and_then(|p| registry.get(&p.0)) {
+            if previous.moveset.is_some() {
+                commands
+                    .entity(entity)
+                    .remove::<crate::combat::moveset::ActorMoveset>()
+                    .remove::<crate::combat::moveset::MovesetMelee>()
+                    .remove::<ambition_characters::brain::MovesetRanged>();
+            }
+            if previous.hurtboxes.is_some() {
+                commands.entity(entity).remove::<super::AuthoredHurtboxes>();
+            }
+        }
+        let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
+            if projected.is_some() {
+                commands.entity(entity).remove::<ProjectedCharacterKit>();
+            }
             continue;
         };
+        commands
+            .entity(entity)
+            .insert(ProjectedCharacterKit(prepared.id.clone()));
         if let Some(moveset) = prepared.moveset.clone() {
             let has_attack = moveset
                 .verbs

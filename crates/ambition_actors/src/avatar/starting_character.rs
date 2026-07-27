@@ -194,6 +194,12 @@ fn resolve_playable_action_set(
 /// capability; the ECS derive system synchronizes its marker and mutable state.
 pub fn apply_worn_character_overlay(
     catalog: &CharacterCatalog,
+    // C3: the prepared registry, consulted for the moveset. Threaded THROUGH this
+    // one construction rather than written over its result downstream — the action
+    // set, the identity baseline and the moveset have to be built together, or
+    // equipment reconciliation re-derives from a baseline that disagrees with the
+    // moveset actually on the body (GPT 5.6, 2026-07-27).
+    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
@@ -211,6 +217,7 @@ pub fn apply_worn_character_overlay(
 
     apply_worn_character_kit(
         catalog,
+        registry,
         action_set,
         moveset,
         identity,
@@ -228,6 +235,7 @@ pub fn apply_worn_character_overlay(
 /// reset their name, authored kit, or persistent movement state.
 fn apply_worn_character_kit(
     catalog: &CharacterCatalog,
+    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
@@ -281,6 +289,17 @@ fn apply_worn_character_kit(
     if wears_host_code_kit {
         crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
     }
+    // C3: a REGISTERED character's authored moveset replaces the catalog-derived
+    // one, matching every other resolver's "the registry wins where it authored
+    // something". It happens HERE, before the identity baseline is published, so
+    // `reconcile_equipment_grants` overlays equipment onto the prepared moves
+    // instead of onto a moveset that is about to be overwritten behind it.
+    if let Some(prepared) = registry
+        .and_then(|registry| registry.get(character_id))
+        .and_then(|prepared| prepared.moveset.clone())
+    {
+        derived = prepared;
+    }
     // Publish what IDENTITY alone derived, before any equipment overlay. This is
     // the baseline `reconcile_equipment_grants` re-derives the live kit from, which
     // is what makes a granted verb revocable: without it, a consumed or downgraded
@@ -327,6 +346,9 @@ fn sync_charge_projectile_capability(
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
     catalog: Res<CharacterCatalog>,
+    // Optional, like every other reader of it: a composition with no registered
+    // characters is the ordinary case and must not require the resource.
+    registry: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut commands: Commands,
     mut worn: Query<
         (
@@ -364,6 +386,7 @@ pub fn apply_worn_character_gameplay(
         if character.is_changed() {
             let charges_projectiles = apply_worn_character_overlay(
                 &catalog,
+                registry.as_deref(),
                 &mut name,
                 &mut action_set,
                 &mut moveset,
@@ -409,6 +432,7 @@ pub fn apply_worn_character_gameplay(
             if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
                 let charges_projectiles = apply_worn_character_kit(
                     &catalog,
+                    registry.as_deref(),
                     &mut action_set,
                     &mut moveset,
                     &mut identity,

@@ -858,3 +858,75 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
         "a plain attack move does not raise the bubble shield"
     );
 }
+
+/// **C3: the ONE persona construction consults the prepared registry.**
+///
+/// A worn body's `ActionSet`, moveset and `IdentityKit` are built together here,
+/// and `reconcile_equipment_grants` then overlays equipment onto that baseline. The
+/// C3 projection first landed AFTER both and overwrote only the moveset, which
+/// erased equipment-granted moves and left an action set that did not authorize the
+/// verbs of the moveset beside it (GPT 5.6, 2026-07-27).
+///
+/// The fix is that this construction reads the registry itself, so the prepared
+/// moves ARE the identity baseline — which is what makes the equipment overlay
+/// apply on top of them instead of behind them.
+#[test]
+fn a_registered_characters_moveset_becomes_the_identity_baseline() {
+    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
+
+    let swat = MoveSpec {
+        id: "swat".to_string(),
+        clip: ClipBinding {
+            clip: "swat".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.2,
+        events: vec![],
+        windows: vec![],
+        gates: MoveGates { grounded: None },
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    };
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let prepared = crate::character_runtime::prepare_character(
+        crate::character_runtime::CharacterDefinition::new("hero", "Hero", "demo").with_moveset(
+            MovesetContract {
+                verbs: std::collections::BTreeMap::from([(
+                    "attack".to_string(),
+                    "swat".to_string(),
+                )]),
+                moves: vec![swat],
+            },
+        ),
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    registry.insert_prepared(prepared.prepared);
+
+    let catalog = CharacterCatalog::empty();
+    let mut name = Name::new("placeholder");
+    let mut action_set = ActionSet::default();
+    let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
+    let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
+    crate::avatar::apply_worn_character_overlay(
+        &catalog,
+        Some(&registry),
+        &mut name,
+        &mut action_set,
+        &mut moveset,
+        &mut identity,
+        "hero",
+        ambition_engine_core::AbilitySet::default(),
+    );
+
+    assert!(
+        moveset.0.moves.iter().any(|m| m.id == "swat"),
+        "the registered character's authored move must be the one on the body"
+    );
+    assert!(
+        identity.moveset.moves.iter().any(|m| m.id == "swat"),
+        "and it must be the IDENTITY BASELINE, because that is what \
+         `reconcile_equipment_grants` re-derives the live kit from — a baseline \
+         that disagreed with the body's moveset is how a granted move gets erased \
+         and how a revoked one cannot be taken back"
+    );
+}

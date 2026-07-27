@@ -577,6 +577,15 @@ impl PreparedCharacterRegistry {
             .collect()
     }
 
+    /// Publish a prepared definition directly.
+    ///
+    /// `pub(crate)` and named for what it is: the registration seam is the door
+    /// (it rejects duplicate ids and ambiguous display names), and this is the
+    /// hatch a focused test uses when it wants a registry without an `App`.
+    pub(crate) fn insert_prepared(&mut self, prepared: PreparedCharacterDefinition) {
+        self.insert(prepared);
+    }
+
     fn insert(&mut self, prepared: PreparedCharacterDefinition) -> Option<String> {
         let id = prepared.id.clone();
         match self.by_id.insert(id.clone(), prepared) {

@@ -457,3 +457,74 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
         .get::<crate::combat::moveset::ActorMoveset>(actor)
         .is_none());
 }
+
+/// **A form change must not leave the previous character's fight behind.**
+///
+/// Insert-only projection kept the old moveset, the old silhouette, and the old
+/// `MovesetMelee` routing marker whenever the new definition was quieter than the
+/// old one (GPT 5.6, 2026-07-27). That is not hypothetical: Sanic's super form and
+/// Mary-O's power tiers are exactly this — one body, a new worn character — and a
+/// stale melee marker keeps diverting attacks into a move timeline the new form
+/// does not have.
+#[test]
+fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
+    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
+
+    let mut app = session_app();
+    let swat = MoveSpec {
+        id: "swat".to_string(),
+        clip: ClipBinding {
+            clip: "swat".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.2,
+        events: vec![],
+        windows: vec![],
+        gates: MoveGates { grounded: None },
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    };
+    app.register_character(
+        CharacterDefinition::new("armed", "Armed", "demo").with_moveset(MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                crate::combat::moveset::ATTACK_VERB.to_string(),
+                "swat".to_string(),
+            )]),
+            moves: vec![swat],
+        }),
+    );
+    app.register_character(CharacterDefinition::new("unarmed", "Unarmed", "demo"));
+
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("armed"))
+        .id();
+    app.update();
+    assert!(
+        app.world()
+            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .is_some(),
+        "the armed form projects its moveset"
+    );
+
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("unarmed"));
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .is_none(),
+        "the unarmed form authors no moveset, so the armed form's must be RETRACTED \
+         — an insert-only projection leaves the previous character's attack \
+         timelines on the body"
+    );
+    assert!(
+        app.world()
+            .get::<crate::combat::moveset::MovesetMelee>(body)
+            .is_none(),
+        "and its routing marker with it: a stale `MovesetMelee` keeps diverting \
+         attacks into a move timeline this form does not have"
+    );
+}

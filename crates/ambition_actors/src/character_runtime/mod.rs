@@ -56,7 +56,7 @@ pub use hurtbox::{
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
     project_prepared_character_definitions, provider_of_character,
-    publish_body_presentation_sources,
+    publish_body_presentation_sources, ProjectedCharacterKit,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -716,7 +716,14 @@ impl Plugin for CharacterRuntimePlugin {
                     // land on the body BEFORE the move clock reads either. First in
                     // the chain because the two systems after it consult what this
                     // one projects.
-                    presentation::project_prepared_character_definitions,
+                    presentation::project_prepared_character_definitions
+                        // ...and before the PERSONA construction, which builds a
+                        // worn body's action set, moveset and identity baseline
+                        // together and then has equipment overlaid onto it. Landing
+                        // AFTER that pair erased equipment-granted moves; the two
+                        // agree now because `apply_worn_character_kit` consults the
+                        // same registry.
+                        .before(crate::avatar::apply_worn_character_gameplay),
                     presentation::publish_body_presentation_sources,
                     // G1/H1: the BACKSTOP for a projectile that reached the world
                     // without a source. The materializers stamp it themselves —

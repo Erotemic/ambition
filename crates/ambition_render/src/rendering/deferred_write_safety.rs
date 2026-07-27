@@ -510,6 +510,52 @@ mod character_sprite_passes {
         );
     }
 
+    /// The quality-change rebind, the last plain `insert` in the render layer.
+    ///
+    /// Same `PlayerVisual` target as the safety net below, reached on a very
+    /// different frame: a confirmed quality-profile switch rebuilds `GameAssets`,
+    /// and a provider switch in the same frame despawns the session scope.
+    #[test]
+    fn the_player_sprite_quality_rebind_survives_its_target_being_retired() {
+        let mut app = asset_app();
+        let Some(sheet) = a_published_sheet(&mut app) else {
+            eprintln!(
+                "[deferred-write] SKIPPED: no baked `robot` sheet record, so this fixture \
+                 cannot reach the insert it exists to exercise"
+            );
+            return;
+        };
+        let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
+        // `"player"` is the id this pass falls back to for a visual with no
+        // `PlayerSpriteCharacter` marker — publishing under any other name makes
+        // the pass skip and the probe vacuous.
+        assets.characters.publish("player", sheet);
+        app.insert_resource(assets);
+
+        app.world_mut().spawn((
+            PlayerVisual,
+            ambition_sim_view::BodyPoseView::default(),
+            Doomed,
+        ));
+        app.world_mut().spawn((
+            PlayerVisual,
+            ambition_sim_view::BodyPoseView::default(),
+            Witness,
+        ));
+
+        run_frame_despawning_targets_with_witness::<
+            Doomed,
+            Witness,
+            crate::rendering::PlayerSpriteBaseline,
+            _,
+            _,
+        >(
+            &mut app,
+            Update,
+            crate::rendering::actors::refresh_player_sprites_on_game_assets_change,
+        );
+    }
+
     /// The bare-player safety net: a `PlayerVisual` with no worn identity and no
     /// sprite, which session teardown can take before the flush.
     #[test]

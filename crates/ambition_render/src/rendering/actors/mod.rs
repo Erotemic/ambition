@@ -705,7 +705,12 @@ pub fn refresh_player_sprites_on_game_assets_change(
              (seed: live pose, trigger: assets changed)",
             start_id, collision.x, collision.y, render.x, render.y,
         );
-        commands.entity(entity).insert((
+        // `try_insert`: REPRODUCED (queue L24). Same `PlayerVisual` target as the
+        // bare-player safety net, reached on a very different frame — a
+        // confirmed quality-profile switch rebuilds `GameAssets`, and a provider
+        // switch in the same frame despawns the session scope this visual
+        // belongs to.
+        commands.entity(entity).try_insert((
             build_character_sprite_with_render_size(asset, render),
             feet_anchor_for_render_size(&asset.spec, collision, render),
             CharacterAnimator::new(asset),

@@ -40,12 +40,45 @@ use bevy::prelude::Component;
 #[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimId(String);
 
+/// Make one authored segment safe to concatenate.
+///
+/// `/` is the structural separator between segments and `:` between a namespace
+/// and its body, so an authored id containing either would produce a string that
+/// parses — to a reader, or to a future tool — as a different identity. Without
+/// this, `placement("giant/0")` and `spawned(placement("giant"), 0)` are the SAME
+/// STRING (GPT 5.6, 2026-07-27), and a collision there merges two distinct
+/// entities on restore, misattributes a reference probe, or despawns the wrong
+/// body.
+///
+/// Percent-escaping rather than rejection, because an authored id with a slash in
+/// it is not a mistake the engine gets to veto — LDtk hands over whatever the
+/// designer typed. `%` is escaped first so the encoding stays reversible, which is
+/// what makes it injective: distinct inputs cannot produce the same output.
+///
+/// The common case costs nothing. An id with no reserved character passes through
+/// unchanged, so the ids in a desync report still read as sentences.
+fn escape_segment(segment: &str) -> std::borrow::Cow<'_, str> {
+    if !segment.contains(['%', '/', ':']) {
+        return std::borrow::Cow::Borrowed(segment);
+    }
+    let mut escaped = String::with_capacity(segment.len() + 8);
+    for ch in segment.chars() {
+        match ch {
+            '%' => escaped.push_str("%25"),
+            '/' => escaped.push_str("%2F"),
+            ':' => escaped.push_str("%3A"),
+            other => escaped.push(other),
+        }
+    }
+    std::borrow::Cow::Owned(escaped)
+}
+
 impl SimId {
     /// An authored placement: an LDtk iid, a `FeatureId`, an actor's config id.
     /// The identity the MAP gave it, which is the identity a save file already
     /// uses.
     pub fn placement(id: &str) -> Self {
-        Self(format!("placement:{id}"))
+        Self(format!("placement:{}", escape_segment(id)))
     }
 
     /// A player body, by its slot. Not by which entity happens to hold the brain:
@@ -61,7 +94,7 @@ impl SimId {
     /// the boss BODY already owns `placement:{id}` — orchestration and body
     /// are two rows, not one.
     pub fn encounter(id: &str) -> Self {
-        Self(format!("encounter:{id}"))
+        Self(format!("encounter:{}", escape_segment(id)))
     }
 
     /// A dynamically-spawned sim entity: a projectile, a dropped item, a summoned
@@ -91,7 +124,11 @@ impl SimId {
     /// so two simultaneous hitboxes with SWAPPED owners hashed identically — the
     /// exact permutation the pair projection was added to catch.
     pub fn strike_volume(owner: &SimId, move_id: &str, window: usize, volume: usize) -> Self {
-        Self(format!("{}/strike/{move_id}/w{window}/v{volume}", owner.0))
+        Self(format!(
+            "{}/strike/{}/w{window}/v{volume}",
+            owner.0,
+            escape_segment(move_id)
+        ))
     }
 
     /// Rebuild an id from a snapshot blob's key.
@@ -155,6 +192,81 @@ mod tests {
         // A boss WRAP and the boss BODY share the raw id string but live in
         // different namespaces (orchestration vs body).
         assert_ne!(SimId::encounter("boss_1"), SimId::placement("boss_1"));
+    }
+
+    /// **The encoding is INJECTIVE: distinct constructions, distinct strings.**
+    ///
+    /// `the_constructors_never_collide` above checks three hand-picked pairs, and
+    /// that is what let the real collision through: the constructors concatenated
+    /// unescaped segments, so `placement("giant/0")` and
+    /// `spawned(placement("giant"), 0)` produced the SAME STRING (GPT 5.6,
+    /// 2026-07-27). Two distinct entities with one identity merge on restore,
+    /// misattribute a reference probe, and can despawn each other.
+    ///
+    /// So this enumerates a cross-product of adversarial segments — every one
+    /// containing a separator this format uses — and asserts the whole set maps to
+    /// distinct strings. Adding a constructor without extending this list leaves
+    /// the new one unchecked, which is the honest limit of the approach; adding a
+    /// RESERVED CHARACTER without escaping it fails here immediately.
+    #[test]
+    fn the_id_encoding_is_injective_over_adversarial_segments() {
+        let segments = [
+            "giant", "giant/0", "0", "a/b", "a%2Fb", "%", "::", "slot:0", "strike", "w0",
+        ];
+        let mut minted: Vec<(String, String)> = Vec::new();
+        for segment in segments {
+            minted.push((
+                format!("placement({segment:?})"),
+                SimId::placement(segment).0,
+            ));
+            minted.push((
+                format!("encounter({segment:?})"),
+                SimId::encounter(segment).0,
+            ));
+            for sequence in 0..3u64 {
+                let parent = SimId::placement(segment);
+                minted.push((
+                    format!("spawned(placement({segment:?}), {sequence})"),
+                    SimId::spawned(&parent, sequence).0,
+                ));
+            }
+            for other in segments {
+                let owner = SimId::placement(other);
+                minted.push((
+                    format!("strike_volume(placement({other:?}), {segment:?}, 0, 0)"),
+                    SimId::strike_volume(&owner, segment, 0, 0).0,
+                ));
+            }
+        }
+        for slot in 0..4u8 {
+            minted.push((format!("player_slot({slot})"), SimId::player_slot(slot).0));
+        }
+
+        let mut seen: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        for (how, id) in minted {
+            if let Some(first) = seen.insert(id.clone(), how.clone()) {
+                panic!(
+                    "two DIFFERENT constructions produced the same identity `{id}`:\n  \
+                     {first}\n  {how}\nTwo entities sharing one SimId merge on restore."
+                );
+            }
+        }
+    }
+
+    /// The common case still reads as a sentence. Escaping that fired on every id
+    /// would trade a real bug for an unreadable desync report, which is a bad
+    /// trade — the format exists to be read.
+    #[test]
+    fn an_ordinary_id_is_untouched_by_escaping() {
+        assert_eq!(
+            SimId::placement("BossSpawn-4308").as_str(),
+            "placement:BossSpawn-4308"
+        );
+        assert_eq!(
+            SimId::spawned(&SimId::placement("BossSpawn-4308"), 3).as_str(),
+            "placement:BossSpawn-4308/3"
+        );
     }
 
     /// A spawned id names its parent, so a desync report reads as a sentence.

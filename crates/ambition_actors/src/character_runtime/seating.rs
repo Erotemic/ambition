@@ -118,6 +118,14 @@ pub fn seat_character(
     // `WornCharacter` — that is the ONE writer for a worn body's moves, and
     // seating must not author a second opinion about them.
     let action_set = ambition_characters::brain::ActionSet::default();
+    // The BRAIN, derived from the seed's archetype exactly as the enemy spawner
+    // derives it. `into_components()` does not carry one — the enemy spawn path
+    // inserts it beside the cluster, and seating did not, so a CPU fighter had a
+    // body, a target, an empty `ActorControl` and no brain to write it. It stood
+    // perfectly still while every component that would explain why was present
+    // and correct. (Same shape as the missing `ActorTarget`: a construction path
+    // that copies most of another one is a claim, not a guarantee.)
+    let derived_brain = crate::features::ecs::enemy_default_brain(&seed.config);
     let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
     let cluster = seed.into_components();
     Some(
@@ -148,6 +156,7 @@ pub fn seat_character(
                 .with_motion_model(motion_model),
                 cluster,
                 action_set,
+                derived_brain,
                 // `Name` and `ActorMoveset` are here for one reason: they are
                 // REQUIRED columns of `apply_worn_character_gameplay`, the ONE
                 // writer that turns `WornCharacter` into a persona (name, action

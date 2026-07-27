@@ -73,7 +73,7 @@ pub(super) fn held_item_for_spec(
 ///
 /// Reads `brain_template()` off the consolidated `CharacterArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
-pub(in crate::features) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
+pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
     match enemy.brain_spec.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {

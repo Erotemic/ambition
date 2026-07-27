@@ -525,6 +525,14 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         v.sort_by_key(|(seat, _)| *seat);
         v
     };
+    let centre = {
+        let world = app.world_mut();
+        let mut q = world.query::<&ambition::engine_core::RoomGeometry>();
+        q.iter(world)
+            .next()
+            .map(|geometry| geometry.0.spawn)
+            .expect("the arena has geometry")
+    };
     let all = seats(&mut app);
     assert_eq!(
         all.len(),
@@ -532,7 +540,6 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         "the fighters carry no MatchSeat, so the rules cannot tell who is who"
     );
     let seat_one = all[1].1;
-
     // KO seat 1, twice. Seat 0 should take both rounds and the match.
     for round in 1..=ROUNDS_TO_WIN {
         // Move the fighter off its seat FIRST. Knocking out a fighter that
@@ -540,7 +547,12 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         // is the assertion you write when you have not checked whether the
         // reset does anything. Written directly because the point is to test
         // the RESET, not to reproduce a walk.
-        let seat_x = app.world().get::<BodyKinematics>(seat_one).unwrap().pos.x;
+        //
+        // The seat is COMPUTED, not sampled: the CPU walks, so "where it is
+        // now" stopped being its seat the moment the opponent got a brain.
+        let seat_x = ambition::actors::character_runtime::seat_placement(1, centre)
+            .0
+            .x;
         app.world_mut()
             .get_mut::<BodyKinematics>(seat_one)
             .unwrap()
@@ -600,4 +612,71 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         "the match did not reset after it was won"
     );
     assert!(matches!(state.phase, MatchPhase::Fighting));
+}
+
+/// **The CPU opponent actually fights.** (L11)
+///
+/// Player-vs-CPU is the mode anybody with ONE controller gets, which makes it
+/// the default versus experience and the one a stranger sees first. It shipped
+/// as a fight against a statue: the seated body had a target, an `ActorControl`
+/// and a faction, and no `Brain` — the enemy spawn path inserts one beside the
+/// cluster and seating did not, so every component that would explain the
+/// stillness was present and correct.
+///
+/// Asserts MOVEMENT, not damage. Whether a given brain profile is a good
+/// opponent is a tuning question with no single right answer; whether it does
+/// anything at all is not.
+#[test]
+fn the_cpu_opponent_is_not_a_statue() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // No gamepads were connected, so seat 1 is the CPU.
+    let cpu = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the versus stage seats an opponent")
+    };
+    assert!(
+        app.world()
+            .get::<ambition::characters::brain::Brain>(cpu)
+            .is_some(),
+        "the CPU fighter has no Brain at all, so nothing will ever write its \
+         ActorControl and it cannot move whatever else is right"
+    );
+
+    let start = app.world().get::<BodyKinematics>(cpu).unwrap().pos;
+    for _ in 0..300 {
+        app.update();
+    }
+    let moved = (app.world().get::<BodyKinematics>(cpu).unwrap().pos - start).length();
+    assert!(
+        moved > 8.0,
+        "the CPU opponent moved {moved:.1}px in five seconds with a player \
+         standing in front of it. Player-vs-CPU is what anybody with one \
+         controller plays, and it is a fight against a statue."
+    );
 }

@@ -48,6 +48,7 @@ pub mod attack;
 pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
+pub(crate) use brain_builders::enemy_default_brain;
 mod brain_effects;
 pub mod chests;
 mod damage;

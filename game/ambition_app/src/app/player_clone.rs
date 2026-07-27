@@ -239,15 +239,19 @@ pub fn tick_player_clone_brains(
 /// On a sandbox reset, despawn brain-driven clones. A clone is a transient dev
 /// body (spawned with K), like the held-item / portal / summon transients the
 /// sandbox's own `clear_transient_on_sandbox_reset` clears — but `PlayerClone`
-/// lives in this app crate, so the despawn is app-side. Runs before
-/// `process_sandbox_reset_request` consumes the request flag, so a reset returns
-/// to a clean single-primary world instead of leaving orphaned clones wandering.
+/// lives in this app crate, so the despawn is app-side.
+///
+/// Keyed on `SandboxResetCommitted`, the same signal that engine-side clear
+/// uses, and for the same reason: a reset whose room preflight refuses must
+/// leave the running session exactly as it found it. Reading the REQUEST meant
+/// a refused reset still deleted the player's clones — a teardown for a reset
+/// that never happened.
 pub fn despawn_player_clones_on_reset(
-    request: Res<ambition::actors::session::reset::SandboxResetRequested>,
+    mut committed: MessageReader<ambition::actors::session::reset::SandboxResetCommitted>,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {
-    if !request.request {
+    if committed.read().count() == 0 {
         return;
     }
     for entity in &clones {

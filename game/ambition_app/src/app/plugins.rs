@@ -188,7 +188,9 @@ fn register_app_local_sim_systems(app: &mut App) {
             sim,
             crate::app::player_clone::despawn_player_clones_on_reset
                 .in_set(SandboxSet::ResetProcessing)
-                .before(ambition::actors::session::reset::process_sandbox_reset_request),
+                // AFTER, not before: the processor is the only system that may
+                // decline a reset, and this one waits for its commitment.
+                .after(ambition::actors::session::reset::process_sandbox_reset_request),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───

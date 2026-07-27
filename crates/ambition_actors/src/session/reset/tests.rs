@@ -23,10 +23,18 @@ fn request_helper_sets_the_flag() {
     assert!(req.request);
 }
 
+/// The transient clear follows the COMMITMENT, and a bare request — which is
+/// what a reset whose preflight refuses leaves behind — clears nothing.
+///
+/// That second half is the point. This system used to run first and read
+/// `SandboxResetRequested`, so a start room that failed its boundary check
+/// produced the one outcome the decline path exists to prevent: the player's
+/// hands emptied, the portals gone, the reset declined, and the old room still
+/// on screen (GPT 5.6, 2026-07-27).
 #[test]
 fn sandbox_reset_clears_portals_held_items_and_summons() {
     let mut app = App::new();
-    app.insert_resource(SandboxResetRequested::default());
+    app.add_message::<SandboxResetCommitted>();
     app.add_systems(Update, clear_transient_on_sandbox_reset);
 
     let ground = app
@@ -69,10 +77,28 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
         .get::<crate::features::HeldItem>(player)
         .is_some());
 
-    // Reset requested → transient entities despawn + player held-state stripped.
+    // A reset that was ASKED FOR but refused: the request resource is set and
+    // no commitment was announced. Nothing may be taken away.
+    app.insert_resource(SandboxResetRequested { request: true });
+    app.update();
+    assert!(
+        app.world()
+            .get::<crate::features::HeldItem>(player)
+            .is_some(),
+        "a refused reset emptied the player's hands. The decline path promises \
+         the running session is untouched; this is the system that has to make \
+         that true."
+    );
+    assert!(
+        app.world()
+            .get::<crate::items::pickup::GroundItem>(ground)
+            .is_some(),
+        "a refused reset despawned a dropped item"
+    );
+
+    // Committed → transient entities despawn + player held-state stripped.
     app.world_mut()
-        .resource_mut::<SandboxResetRequested>()
-        .request = true;
+        .write_message(SandboxResetCommitted);
     app.update();
     assert!(
         app.world()
@@ -212,6 +238,7 @@ fn min_app() -> App {
     app.add_message::<crate::session::RespawnRoomVisualsRequested>();
     app.add_message::<crate::rooms::RoomLoaded>();
     app.add_message::<crate::time::time_control::ClockResetRequest>();
+    app.add_message::<SandboxResetCommitted>();
     app.add_systems(Update, process_sandbox_reset_request);
     app
 }

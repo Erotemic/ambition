@@ -17,7 +17,8 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer_primitives::lifecycle::simulation_authorized;
 use ambition_platformer_primitives::schedule::{
-    CombatSet, GameplaySimulationRoot, PlayerInputSet, SandboxSet, SimScheduleExt,
+    CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, SandboxSet,
+    SimScheduleExt,
 };
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
@@ -114,6 +115,20 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+
+    // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the
+    // engine registers nothing into it, and a host that registers nothing gets
+    // the chain with the slot collapsed.
+    app.configure_sets(
+        sim,
+        (
+            PlayerSimulationSet::Possession,
+            PlayerSimulationSet::PostPossession,
+            PlayerSimulationSet::Outcome,
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation),
     );
 
     // The phases INSIDE Combat, plus the two content slots between them. Same

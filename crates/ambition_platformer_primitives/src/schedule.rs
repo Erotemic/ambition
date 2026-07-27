@@ -388,6 +388,36 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
+/// **The phases inside [`SandboxSet::PlayerSimulation`].**
+///
+/// Third of the six `SandboxSet` phases to get named sub-sets (after
+/// [`PlayerInputSet`] and [`CombatSet`]), for the same reason and with the same
+/// rule: naming them changed no order.
+///
+/// This one had an explicit LEAF-NAMED SLOT in its docs — *"the
+/// home-reset/presentation pair pins `.after(release_possession_if_target_lost)
+/// .before(apply_player_hit_events)`"*. A documented slot is still a coupling: a
+/// host reading that sentence has to trust it stays true, and nothing checks that
+/// it does. [`Self::PostPossession`] IS that slot, and a host joins it by name.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum PlayerSimulationSet {
+    /// **Who is driving which body.** Possession triggers and releases; a target
+    /// that stopped existing hands control back.
+    Possession,
+    /// **The host's slot between control settling and damage landing.** Home
+    /// reset policy and player presentation live here in Ambition: they read the
+    /// movement phase's hand-off and move no body, so they must run once
+    /// possession is settled and before the frame's damage is applied.
+    ///
+    /// Empty in a host that registers nothing, which is what makes it a slot
+    /// rather than a phase the engine owes systems to.
+    PostPossession,
+    /// **This frame's damage and death facts applied to the player body.**
+    /// Includes the kernel's own death path (pit, drown, tile hazard), which
+    /// never reaches the hit resolver and publishes here instead.
+    Outcome,
+}
+
 /// Bevy run condition: returns `true` only in [`GameMode::Playing`].
 ///
 /// Use this to gate simulation systems that must not run while paused,

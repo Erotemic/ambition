@@ -16,9 +16,10 @@
 //!   `RoomReplayRequested` consumer, is engine-side as of 2026-07-21 —
 //!   see [`crate::sandbox_reset`];
 //! - the home-reset/presentation pair (`apply_home_reset_policy`,
-//!   `sync_player_presentation`) pins
-//!   `.after(release_possession_if_target_lost).before(apply_player_hit_events)`
-//!   in `SandboxSet::PlayerSimulation`.
+//!   `sync_player_presentation`) joins `PlayerSimulationSet::PostPossession` —
+//!   the slot between control settling and damage landing. It used to pin itself
+//!   with `.after(release_possession_if_target_lost).before(apply_player_hit_events)`,
+//!   which is the same position stated as two leaf names a host had to trust.
 //!
 //! Both gaps are ordering SLOTS: a host that registers nothing there gets the
 //! same engine chain with the slot collapsed.
@@ -28,7 +29,7 @@ use bevy::prelude::*;
 use ambition_actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
-use ambition_platformer_primitives::schedule::{PlayerInputSet, SandboxSet};
+use ambition_platformer_primitives::schedule::{PlayerInputSet, PlayerSimulationSet, SandboxSet};
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system
@@ -288,6 +289,13 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_actors::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
                 ambition_actors::abilities::traversal::possession::release_possession_if_target_lost,
+            )
+                .chain()
+                .in_set(PlayerSimulationSet::Possession),
+        );
+        app.add_systems(
+            sim,
+            (
                 ambition_actors::features::ecs::damage_apply::apply_player_hit_events
                     .run_if(gameplay_allowed),
                 // The kernel's own death path (pit / drown / tile hazard) never
@@ -300,7 +308,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_actors::features::ecs::damage_apply::publish_kernel_reset_death,
             )
                 .chain()
-                .in_set(SandboxSet::PlayerSimulation),
+                .in_set(PlayerSimulationSet::Outcome),
         );
 
         // ── PresentationSync: player ECS write-back + timer decay ──────────

@@ -208,11 +208,11 @@ fn register_app_local_sim_systems(app: &mut App) {
             sync_player_presentation.run_if(gameplay_allowed),
         )
             .chain()
-            .in_set(SandboxSet::PlayerSimulation)
-            .after(
-                ambition::actors::abilities::traversal::possession::release_possession_if_target_lost,
-            )
-            .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
+            // The engine's named slot for exactly this: after control has
+            // settled, before the frame's damage lands. It used to be two leaf
+            // names a host had to trust stayed true — the position was documented
+            // in the engine's module docs and enforced nowhere.
+            .in_set(ambition::platformer::schedule::PlayerSimulationSet::PostPossession),
     );
 
     // The RoomTransition gap — readiness transaction + authorized commit — is

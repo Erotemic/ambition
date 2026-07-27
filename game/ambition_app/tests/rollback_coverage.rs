@@ -1050,3 +1050,184 @@ fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
         panic!("{report}");
     }
 }
+
+/// Build a sim whose simulation lives in `FixedUpdate`, boot it, and then stop
+/// the fixed clock so `Update` keeps running while the sim cannot.
+///
+/// `fixed_tick`, not merely a fixed FRAME dt: it is what puts the sim in
+/// `FixedUpdate`. Without it the sim hosts on the render frame and there is no
+/// such thing as a render-only frame to probe — the first draft of this made
+/// exactly that mistake and reported twenty resources, every one of them a sim
+/// write.
+fn sim_with_a_stopped_clock() -> SandboxSim {
+    use bevy::time::TimeUpdateStrategy;
+    use std::time::Duration;
+
+    let mut sim = SandboxSim::new_with_options(
+        ambition_app::SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_fixed_tick(true),
+    )
+    .expect("sandbox sim builds");
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+    }
+    sim.world_mut()
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
+    // One frame to drain whatever the switch itself disturbed.
+    sim.step(AgentAction::default());
+    sim
+}
+
+/// Every RESTORED resource — not the derived ones — the registry knows about.
+fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
+    use ambition::runtime::rollback::RollbackEntryKind;
+    world
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .filter(|descriptor| {
+            matches!(
+                descriptor.kind,
+                RollbackEntryKind::ResourceCanonical
+                    | RollbackEntryKind::ResourceClone
+                    | RollbackEntryKind::ResourceCloneCursor
+                    | RollbackEntryKind::ResourceCloneCustomChecksum
+            )
+        })
+        .map(|descriptor| descriptor.type_name.clone())
+        .collect()
+}
+
+/// Which of `watched` changed while the clock was stopped.
+///
+/// `between_frames` runs once per frame OUTSIDE any schedule, which is what the
+/// poison test uses to stand in for a render-frame writer — and is a faithful
+/// stand-in, because "not the sim schedule" is the whole of the claim.
+fn changed_while_the_sim_could_not_run(
+    sim: &mut SandboxSim,
+    watched: &BTreeSet<String>,
+    mut between_frames: impl FnMut(&mut World),
+) -> Vec<String> {
+    let baseline = sim.world().read_change_tick();
+    for _ in 0..4 {
+        between_frames(sim.world_mut());
+        sim.step(AgentAction::default());
+    }
+    let now = sim.world().read_change_tick();
+
+    let world = sim.world();
+    let mut written: Vec<String> = Vec::new();
+    for (info, _) in world.iter_resources() {
+        let name = unwrap_message_buffer(info.name().as_ref()).to_string();
+        if !watched.contains(&name) {
+            continue;
+        }
+        let Some(ticks) = world.get_resource_change_ticks_by_id(info.id()) else {
+            continue;
+        };
+        if ticks.is_changed(baseline, now) {
+            written.push(name);
+        }
+    }
+    written.sort();
+    written.dedup();
+    written
+}
+
+/// Poison: a resource registered as RESTORED rollback state that something
+/// outside the sim schedule writes. The sweep must flag it, or every green
+/// result it produces is worthless.
+mod render_frame_poison {
+    #[derive(bevy::prelude::Resource, Default)]
+    pub struct WrittenOffTheSimSchedule(pub u32);
+}
+
+#[test]
+fn the_render_frame_sweep_actually_catches_a_write_from_outside_the_sim() {
+    let mut sim = sim_with_a_stopped_clock();
+    let type_name = std::any::type_name::<render_frame_poison::WrittenOffTheSimSchedule>()
+        .to_string();
+    sim.world_mut()
+        .insert_resource(render_frame_poison::WrittenOffTheSimSchedule::default());
+
+    let watched: BTreeSet<String> = std::iter::once(type_name.clone()).collect();
+    let flagged = changed_while_the_sim_could_not_run(&mut sim, &watched, |world| {
+        world
+            .resource_mut::<render_frame_poison::WrittenOffTheSimSchedule>()
+            .0 += 1;
+    });
+    assert!(
+        flagged.contains(&type_name),
+        "the sweep did not notice a resource written from outside the sim \
+         schedule, so it cannot have proved anything about the ones it passed: \
+         {flagged:?}"
+    );
+}
+
+/// **No render frame writes state the simulation owns.** (queue N4)
+///
+/// The two sweeps above ask *"is this state registered?"*. This asks the
+/// question they cannot: *"is registered state being written from the wrong
+/// schedule?"* Both answers can be yes at once, and that combination is what
+/// shipped — `VersusMatch` was properly rollback-registered AND advanced by a
+/// system in `Update` counting on the render clock (GPT 5.6, 2026-07-27).
+///
+/// That is a subtle desync rather than a loud one. Resimulation replays sim
+/// steps; it does not replay render frames with their original durations. So
+/// the restored value depends on presentation history the rewind does not have,
+/// and the two peers disagree about a scoreboard neither of them wrote wrongly.
+/// Nothing in the registry, the type system, or the other two sweeps notices —
+/// registering the resource is exactly what makes it look correct.
+///
+/// The instrument is a frame in which the SIM CANNOT RUN. Under this host the
+/// sim schedule is `FixedUpdate`, so a zero-length frame leaves the `Time<Fixed>`
+/// accumulator empty and the whole simulation is skipped while `Update`,
+/// `PostUpdate` and the rest run normally. Anything rollback-registered that
+/// changes during such a frame was written by something that is not the
+/// simulation.
+///
+/// ## What this does NOT cover, stated plainly
+///
+/// It watches the 29 restored resources the RL-sim composition installs — the
+/// engine and its content. It does **not** see resources that only the shell app
+/// registers, and `VersusMatch` is one of them: the shipped host runs its sim on
+/// the render frame, so there is no such thing as a render-only frame there to
+/// probe. **This sweep would not have caught the bug it was written for.** It
+/// covers the same class of defect across the engine, which is worth having, and
+/// saying otherwise would be the overclaiming that produced the bug.
+///
+/// Only `Derived` declarations are excluded, and deliberately: a derived
+/// resource is one republished every frame before anyone reads it, so writing it
+/// off the sim schedule is exactly its job. `ControlFrame` — the input the
+/// harness hands in per frame — is the honest example, and it is the one entry
+/// the first draft flagged.
+#[test]
+fn no_render_only_frame_writes_a_rollback_registered_resource() {
+    let mut sim = sim_with_a_stopped_clock();
+    let watched = restored_resource_type_names(sim.world());
+    assert!(
+        watched.len() > 10,
+        "only {} restored resources found, so this would sweep an almost empty \
+         set and pass for the wrong reason",
+        watched.len()
+    );
+
+    eprintln!(
+        "[render-frame sweep] {} restored resources watched over 4 render-only frames",
+        watched.len()
+    );
+    let written = changed_while_the_sim_could_not_run(&mut sim, &watched, |_| {});
+    assert!(
+        written.is_empty(),
+        "these rollback-registered resources changed during frames in which the \
+         simulation did not run, so something outside the sim schedule is \
+         writing simulation state:\n  {}\n\n\
+         A resimulation replays sim steps, not render frames — so whatever the \
+         render frame contributed is simply lost, and the restored value \
+         disagrees with the one that was live. Move the writer into the sim \
+         schedule, or (if the value genuinely is presentation) take it out of \
+         the rollback registry.",
+        written.join("\n  ")
+    );
+}

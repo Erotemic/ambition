@@ -184,3 +184,109 @@ mod production_passes {
         );
     }
 }
+
+/// The last candidate the L24 sweep left open: the BOSS visual insert.
+///
+/// Deliberately not converted on the strength of "same shape as the other two",
+/// which is reasoning, and this row exists because reasoning was not enough.
+///
+/// The fixture is expensive, and the expense IS the point — the pass early-outs
+/// unless a boss sheet resolves AND `Assets<Image>` already holds its page-0
+/// texture AND both read-models carry the id. Every one of those is a way for
+/// the probe to pass while exercising nothing, which is exactly how the portal
+/// probe was vacuous on its first outing.
+#[cfg(test)]
+mod boss_pass {
+    use super::*;
+    use crate::rendering::primitives::FeatureVisual;
+
+    #[derive(Component)]
+    struct Doomed;
+
+    const BOSS_ID: &str = "probe_boss";
+
+    fn a_boss_view() -> ambition_sim_view::FeatureView {
+        ambition_sim_view::FeatureView {
+            pos: ambition_engine_core::Vec2::new(64.0, 64.0),
+            size: ambition_engine_core::Vec2::new(96.0, 128.0),
+            kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind::Actor,
+            visible: true,
+            flash: false,
+            breakable_state: None,
+            chest_opened: false,
+            fighting: true,
+            switch_on: false,
+            rotation_rad: 0.0,
+            alive: true,
+            hit_flash_secs: 0.0,
+            hp_current: 40,
+            hp_max: 40,
+            training_dummy: false,
+            sprite_offset: None,
+        }
+    }
+
+    #[test]
+    fn the_boss_sprite_upgrade_survives_its_target_being_retired() {
+        use ambition_sprite_sheet::boss::{BossSpriteAsset, BossSpritePage, BOSS_SHEET};
+
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.init_asset::<bevy::image::TextureAtlasLayout>();
+
+        // A REAL page-0 texture in `Assets<Image>`. The pass skips any boss
+        // whose page-0 image has not finished loading, so without this the
+        // insert below is never reached and the probe proves nothing.
+        let texture = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+        let layout = app
+            .world_mut()
+            .resource_mut::<Assets<bevy::image::TextureAtlasLayout>>()
+            .add(bevy::image::TextureAtlasLayout::new_empty(
+                bevy::math::UVec2::splat(128),
+            ));
+        let spec = BOSS_SHEET.clone();
+        let record = spec.synth_record("probe_boss_spritesheet.png");
+        let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
+        // The GENERIC sheet, which is the fallback arm every boss without a
+        // dedicated sheet takes — so this probe covers the common path.
+        assets.boss = Some(BossSpriteAsset {
+            pages: vec![BossSpritePage { texture, layout }],
+            record,
+            spec,
+        });
+        app.insert_resource(assets);
+
+        // Both read-models must carry the id: the boss identity is the GATE, and
+        // the geometry view supplies the render size.
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            BOSS_ID.to_string(),
+            a_boss_view(),
+        )]));
+        app.insert_resource(ambition_sim_view::BossRenderIndex::from_rows([(
+            BOSS_ID.to_string(),
+            ambition_sim_view::BossRenderView {
+                name: "Probe Boss".to_string(),
+                behavior_id: "probe_boss".to_string(),
+            },
+        )]));
+
+        // A boss visual with neither animator — the exact population the pass
+        // upgrades — that a teardown is about to take.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: BOSS_ID.to_string(),
+            },
+            Doomed,
+        ));
+
+        run_frame_despawning_targets::<Doomed, _, _>(
+            &mut app,
+            Update,
+            crate::rendering::actors::upgrade_boss_sprites,
+        );
+    }
+}

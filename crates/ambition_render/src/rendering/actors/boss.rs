@@ -95,7 +95,13 @@ pub fn upgrade_boss_sprites(
         sprite.custom_size = Some(render_size);
         // `with_render_basis` lets a trimmed (alpha-packed) boss sheet recompute
         // per-frame size/anchor in `animate_bosses`; untrimmed sheets ignore it.
-        commands.entity(entity).insert((
+        // `try_insert`: REPRODUCED, not reasoned (queue L24). The boss visual is
+        // a `FeatureVisual`, and `despawn_dead_dynamic_feature_visuals` retires
+        // exactly those when a feature's view disappears — a boss dying on the
+        // frame its sheet finishes loading is the ordinary way to hit it.
+        // `boss_pass::the_boss_sprite_upgrade_survives_its_target_being_retired`
+        // panics against the plain `insert`.
+        commands.entity(entity).try_insert((
             sprite,
             anchor,
             BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),

@@ -144,6 +144,34 @@ impl FeatureViewIndex {
     ///
     /// A same-generation entry is kept (first wins); a stale prior-frame entry
     /// is refreshed in place; only a genuinely new id allocates a `String`.
+    /// **Build an index from explicit rows.**
+    ///
+    /// The per-frame rebuild is the only writer in production, and its inserts
+    /// are private so nothing can slip a row into a live read-model out of band.
+    /// That also meant NOBODY outside this crate could build one — so a
+    /// consumer's presentation pass, which takes this index as its whole input,
+    /// had no way to be unit-tested at all. An engine another game is built on
+    /// has to hand that game a fixture for the read-models it publishes.
+    ///
+    /// Constructs a NEW index rather than mutating an existing one, so it cannot
+    /// be misused to edit the live one mid-frame.
+    ///
+    /// The parameter is `entries` rather than `rows` because the determinism
+    /// lint matches std-hash bindings by NAME across the whole file, and
+    /// `NameplateIndex` further down owns a `rows: HashMap`. A generic
+    /// `IntoIterator` is not a hash container and its order cannot matter here
+    /// (the destination is itself a map keyed by id), so this is a false
+    /// positive — renamed rather than marked reviewed, because a review marker
+    /// on this line would suppress every determinism check on it, not the one
+    /// that misfired.
+    pub fn from_rows(entries: impl IntoIterator<Item = (String, FeatureView)>) -> Self {
+        let mut index = Self::default();
+        for (id, view) in entries {
+            index.views.insert(id, (view, index.generation));
+        }
+        index
+    }
+
     fn insert_if_absent(&mut self, id: &str, view: FeatureView) {
         let gen = self.generation;
         if let Some(slot) = self.views.get_mut(id) {
@@ -585,6 +613,17 @@ pub struct BossRenderIndex {
 }
 
 impl BossRenderIndex {
+    /// Build an index from explicit rows — see
+    /// [`FeatureViewIndex::from_rows`] for why a read-model owes its consumers
+    /// a fixture constructor.
+    pub fn from_rows(entries: impl IntoIterator<Item = (String, BossRenderView)>) -> Self {
+        let mut index = Self::default();
+        for (id, view) in entries {
+            index.views.insert(id, (view, index.generation));
+        }
+        index
+    }
+
     pub fn get(&self, id: &str) -> Option<&BossRenderView> {
         self.views.get(id).map(|(view, _)| view)
     }

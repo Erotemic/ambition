@@ -1028,32 +1028,37 @@ wrapping Bevy presentation primitives without semantic value.
 **Exit criteria:** Mary-O, Sanic, and the main game provide distinct animation and
 camera policies without adding named branches to central selectors.
 
-**Status 2026-07-27 — PARTIAL. The declaration seam exists and is used; the
-POLICIES named here are not the ones it carries.**
+**Status 2026-07-27 — MET. (This row's first draft said PARTIAL and was wrong on
+both clauses; the correction is more interesting than the verdict.)**
 
-`GameplayPresentationProfiles` is a real provider-declared, route-keyed seam and
-all three providers declare through it — `gameplay_presentation_profiles.rs`
-tests the flagship, Sanic and Mary-O separately, with no central match arm. The
-character-definition seam then made animation genuinely provider-owned in the
-sense that matters most: a character's sheet, body silhouette and per-anim
-collision box come from its own `CharacterDefinition`, and `SpritePosedBody`
-derives the collision box from the authored animation rather than a shared
-constant.
+All three providers declare distinct camera framing and get distinct animation,
+and `grep` finds no game name in any central selector — the only occurrence of
+"Sanic" or "Mary O" in the host presentation layer is a doc line forbidding it.
 
-But the criterion names two specific policies and neither is declared:
+- **camera** — `SubjectFramingPolicy::SoftSafeRegion(SoftFramingProfile)` rides on
+  the route-declared `GameplayPresentationProfile`, per environment. The flagship
+  takes `adaptive_platformer` (full bleed, occlusion-aware on touch), Sanic takes
+  `high_speed_full_bleed` (velocity-aware soft framing everywhere), Mary-O takes
+  `fixed_four_by_three` (fixed viewport, reserved surround, top-pinned on touch).
+  Three genuinely different cameras, declared, no branches.
+- **animation** — `pick_body_anim` is one priority ladder driven by body state and
+  per-body thresholds (`idle_below`, `run_above`, `fly_above`), and the sheet rows
+  it names are per-character. Distinct animation comes from data, which is the
+  form the criterion asks for.
 
-- **camera** — there is one `HostCameraPlugin`, host-owned. A provider cannot
-  declare a camera policy at all; Mary-O's and Sanic's cameras differ only
-  through whatever the shared follow logic reads. `grep` finds no
-  `CameraPolicy` type.
-- **animation policy** — no `AnimationPolicy` type exists. Per-character DATA is
-  provider-owned; the RULES that choose a clip from a body state are still
-  central.
+⚠ **The correction, and why it is written down.** The first draft asserted "there
+is no `CameraPolicy` and no `AnimationPolicy` type" — true, and irrelevant. Both
+capabilities exist under names I did not grep for. That is the SECOND time in one
+audit that grepping for a type name produced a false "not started" (the other was
+Task 11's save versioning, which lives in `save_data.rs` and not `save.rs`). A
+capability is not a type name; checking for one by searching for the other finds
+absence reliably and presence never.
 
-So this is a good foundation misfiled as a finished task. The honest next row is
-to name what a camera policy IS before declaring it, because the requirement
-"without named branches in central selectors" is already satisfied by the profile
-seam — what is missing is content for it to carry.
+What is genuinely NOT declarable, stated narrowly this time: `CameraEaseTuning`
+(zoom-in / zoom-out rates and the snap epsilon) and the shake amplitude cap are
+single global resources, so two games in one host cannot ease differently. No
+provider has asked yet, and it is a small addition to the same route-keyed
+catalog when one does.
 
 ---
 

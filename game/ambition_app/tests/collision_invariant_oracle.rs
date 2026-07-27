@@ -1390,3 +1390,90 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
         "the transfer frame's position jump is explicitly legal (§6.1)"
     );
 }
+
+/// **D18 measurement: how blind is invariant 1?**
+///
+/// §6.1 invariant 1 tests the body's CENTRE against solid material. A body
+/// embedded up to half its height therefore does not register — which is not
+/// hypothetical: `stagger_steps` authored its `PlayerStart` fifteen pixels inside
+/// a step, and the body stood there for whole episodes while the oracle said
+/// nothing. It only fired once a stress dash lifted the centre into the tile.
+///
+/// Widening invariant 1 to a full AABB-overlap test would see that. Whether it
+/// SHOULD be widened depends entirely on a number nobody has: how many frames
+/// across every shipped room end with a body overlapping solid material. If the
+/// answer is "a handful of authoring mistakes", widen it. If it is "thousands",
+/// the resolver legitimately leaves sub-pixel overlaps and a widened invariant
+/// would be noise — and adopting it would turn CC3's promotion into the bug hunt
+/// §6.1 says it must not be.
+///
+/// So this MEASURES and asserts nothing about the count. Deliberately: a
+/// measurement that fails is a gate, and this is not one yet.
+///
+/// The margin matters. A body at rest has its bottom exactly on the floor's top,
+/// so a `<=` test would flag every grounded frame in the game. This uses a strict
+/// overlap of more than one pixel, which is well inside "a body is standing on
+/// something" and well outside "a body is inside something".
+#[test]
+#[ignore = "measurement for D18: run with --ignored --nocapture and read the count"]
+fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
+    const OVERLAP_MARGIN: f32 = 1.0;
+
+    let rooms = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("SandboxSim::new should succeed")
+        .room_ids();
+    assert!(!rooms.is_empty(), "no rooms — the measurement is vacuous");
+
+    let mut overlapping_frames = 0u64;
+    let mut total_frames = 0u64;
+    let mut worst: std::collections::BTreeMap<String, (f32, u64)> =
+        std::collections::BTreeMap::new();
+
+    for room in &rooms {
+        let opts = SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room(room);
+        let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
+            continue;
+        };
+        let mut policy = RandomWalkPolicy::traversal_stress(42);
+        for _ in 0..300u32 {
+            let obs = sim.step(policy.act());
+            total_frames += 1;
+            let (px, py) = obs.player_pos;
+            let (w, h) = obs.player_size;
+            if !px.is_finite() || !py.is_finite() {
+                continue;
+            }
+            let (half_w, half_h) = (w * 0.5, h * 0.5);
+            let blocks = solid_blocks(&sim);
+            let mut deepest = 0.0f32;
+            for b in &blocks {
+                let a = b.aabb;
+                let dx = (px + half_w).min(a.max.x) - (px - half_w).max(a.min.x);
+                let dy = (py + half_h).min(a.max.y) - (py - half_h).max(a.min.y);
+                if dx > OVERLAP_MARGIN && dy > OVERLAP_MARGIN {
+                    deepest = deepest.max(dx.min(dy));
+                }
+            }
+            if deepest > 0.0 {
+                overlapping_frames += 1;
+                let entry = worst.entry(obs.active_room.clone()).or_insert((0.0, 0));
+                entry.0 = entry.0.max(deepest);
+                entry.1 += 1;
+            }
+        }
+    }
+
+    eprintln!(
+        "=== D18: {overlapping_frames} of {total_frames} frames ended with the body \
+         overlapping solid material by more than {OVERLAP_MARGIN}px \
+         ({} rooms x 1 seed x 300 ticks) ===",
+        rooms.len()
+    );
+    let mut rows: Vec<_> = worst.into_iter().collect();
+    rows.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
+    for (room, (deepest, frames)) in rows.iter().take(25) {
+        eprintln!("  {room:28} {frames:5} frames   deepest {deepest:6.1}px");
+    }
+}

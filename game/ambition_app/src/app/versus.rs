@@ -226,7 +226,7 @@ fn track_versus_roster(
             // the stage opening onto somebody else's game (GPT 5.6,
             // 2026-07-27). Reset on ENTRY rather than exit so a crash or a
             // route change that skips the teardown still starts clean.
-            *match_state = super::versus_rules::VersusMatch::default();
+            *match_state = super::versus_rules::VersusMatch::opening();
         }
         (false, true) => {
             commands.remove_resource::<MatchParticipantRoster>();

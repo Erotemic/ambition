@@ -1467,6 +1467,14 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
         (rows[0].0, rows[1].0)
     };
 
+    // The survivor is mid-smash when the KO lands, a shot is in the air, and it
+    // is holding a BUFFERED attack — the class `transit_body` deliberately keeps
+    // ("axis maneuver state … are time facts, not place facts"), which is true
+    // of a teleport and false of a round boundary (GPT 5.6, 2026-07-27).
+    app.world_mut()
+        .get_mut::<ambition::engine_core::BodyActionBuffer>(seat_zero)
+        .expect("a fighter carries the shared action buffer")
+        .attack = 0.25;
     // The survivor is mid-smash when the KO lands, and a shot is in the air.
     let smash = ambition_app::app::versus_fighters::duelist_moveset(
         ambition_app::app::versus_fighters::DuelistNumbers {
@@ -1530,6 +1538,16 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
         app.world().get_entity(shot).is_err(),
         "a projectile from the previous round is still in the air at the start \
          of this one, and the fighter it is about to hit has not moved yet"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ambition::engine_core::BodyActionBuffer>(seat_zero)
+            .map(|buffer| buffer.attack),
+        Some(0.0),
+        "round two began with a buffered attack from round one still queued. A \
+         round boundary is a RESET, not a teleport: `transit_body` keeps the \
+         maneuver timers on purpose and `reset_body_clusters` is the verb that \
+         means this body starts again."
     );
 }
 
@@ -1632,5 +1650,154 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
          registered AND advanced by a system in `Update` — which is why this \
          sweep exists.",
         written.join("\n  ")
+    );
+}
+
+/// **The round is decided and the fight stops on the SAME tick.** (GPT 5.6,
+/// 2026-07-27)
+///
+/// The KO arm used to set the phase and return, leaving the freeze request to
+/// the next run of the system — and the system is in `CombatSet::Settle`, so
+/// "next run" is a whole further tick of input, move triggering, playback,
+/// projectile materialization and damage at full speed after the round was
+/// already over. A fighter could take a hit after losing.
+///
+/// Asserts on the CLOCK TARGET rather than the live scale, because the live
+/// scale ramps on purpose (a KO decelerating into the card is the genre's own
+/// beat, and it is the same primitive hitstop uses). The target is what says
+/// "the freeze was asked for", and asking a tick late is the defect.
+#[test]
+fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let target = |app: &App| {
+        app.world()
+            .resource::<ambition::actors::time::time_control::RequestedClockScale>()
+            .sim_clock
+    };
+    assert!(
+        target(&app) > 0.5,
+        "the fight was already being asked to stop before anybody was knocked out"
+    );
+
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+    app.world_mut()
+        .get_mut::<BodyHealth>(seat_one)
+        .unwrap()
+        .health
+        .current = 0;
+
+    // Step until the rules NOTICE. The freeze must have been asked for by the
+    // end of that very tick — not one tick later.
+    let mut noticed = false;
+    for _ in 0..8 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
+        ) {
+            noticed = true;
+            break;
+        }
+    }
+    assert!(noticed, "the rules never noticed the knockout");
+    assert_eq!(
+        target(&app),
+        0.0,
+        "the round was decided and the simulation was still not asked to stop. \
+         The next tick is a full-speed tick of input, attacks and damage over a \
+         fight that is already over."
+    );
+}
+
+/// **Round two says "ROUND 2", and round one says anything at all.** (GPT 5.6,
+/// 2026-07-27)
+///
+/// Two defects in one counter. Route entry reset the match with `default()`,
+/// which announced nothing, so the opening card never appeared at the start of a
+/// match — only after a later round reset. And the number was derived by summing
+/// WINS, so a draw (which scores for nobody) made round two announce itself as
+/// round one.
+#[test]
+fn the_round_counter_counts_rounds_and_not_wins() {
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ANNOUNCE_HUD_SLOT};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    let mut opened_with_a_card = false;
+    for _ in 0..900 {
+        app.update();
+        if app
+            .world()
+            .resource::<ambition::presentation::HudReadouts>()
+            .get(&ambition::presentation::HudSlotId::from(ANNOUNCE_HUD_SLOT))
+            .is_some_and(|readout| readout.text().contains("ROUND 1"))
+        {
+            opened_with_a_card = true;
+            break;
+        }
+    }
+    assert!(
+        opened_with_a_card,
+        "the match opened with no round card at all — the documented \
+         \"ROUND 1 — FIGHT\" beat never happened, because route entry reset the \
+         match through the constructor that announces nothing"
+    );
+
+    // A DRAW: nobody scores, and the round still advances.
+    {
+        let mut state = app.world_mut().resource_mut::<VersusMatch>();
+        state.phase = MatchPhase::Ko {
+            winner: None,
+            remaining_s: 0.01,
+        };
+    }
+    for _ in 0..600 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ) {
+            break;
+        }
+    }
+    let state = app.world().resource::<VersusMatch>();
+    assert!(
+        state.rounds_won.values().all(|wins| *wins == 0),
+        "a draw scored for somebody: {:?}",
+        state.rounds_won
+    );
+    assert_eq!(
+        state.round, 2,
+        "the round after a draw is still round {}. Rounds played and rounds WON \
+         are different facts, and a counter derived from the win totals repeats \
+         itself every time nobody scores.",
+        state.round
     );
 }

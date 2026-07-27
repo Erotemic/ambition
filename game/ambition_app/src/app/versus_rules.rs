@@ -90,23 +90,34 @@ pub enum MatchPhase {
 #[derive(Resource, Debug, Clone)]
 pub struct VersusMatch {
     pub rounds_won: BTreeMap<String, u8>,
+    /// Which round is being fought, from 1.
+    ///
+    /// NOT derived from the win totals. It was, and a DRAW scores for nobody —
+    /// so round two announced itself as round one after a double KO (GPT 5.6,
+    /// 2026-07-27). Rounds played and rounds won are different facts and the
+    /// scoreboard needs both.
+    pub round: u32,
     pub phase: MatchPhase,
 }
 
 impl Default for VersusMatch {
     fn default() -> Self {
-        Self {
-            rounds_won: BTreeMap::new(),
-            phase: MatchPhase::Fighting { announce_s: 0.0 },
-        }
+        Self::opening()
     }
 }
 
 impl VersusMatch {
     /// A fresh match with the round-one card up.
-    fn opening() -> Self {
+    ///
+    /// This IS `Default`. It was a separate constructor, and route entry reset
+    /// the match with `default()` — which announced nothing — so the documented
+    /// "ROUND 1 — FIGHT" card never appeared at the start of a match, only after
+    /// a later round reset (GPT 5.6, 2026-07-27). One constructor, so a caller
+    /// cannot pick the silent one by accident.
+    pub fn opening() -> Self {
         Self {
             rounds_won: BTreeMap::new(),
+            round: 1,
             phase: MatchPhase::Fighting {
                 announce_s: ROUND_ANNOUNCE_S,
             },
@@ -125,10 +136,6 @@ impl VersusMatch {
             .map(|(team, _)| team.as_str())
     }
 
-    /// How many rounds have been played, for the round-start card.
-    fn rounds_played(&self) -> u32 {
-        self.rounds_won.values().map(|wins| *wins as u32).sum()
-    }
 }
 
 /// The team a body fights for.
@@ -268,6 +275,15 @@ pub fn settle_versus_round(
                     remaining_s: KO_HOLD_S,
                 },
             };
+            // FREEZE ON THIS TICK, not the next one.
+            //
+            // This arm used to `return` and let the hold arm ask for the freeze
+            // when the system next ran — but this system is in `CombatSet::Settle`,
+            // so "next run" is a whole further tick of input, move triggering,
+            // playback, projectile materialization and damage at FULL SPEED after
+            // the round was already decided (GPT 5.6, 2026-07-27). A fighter could
+            // take a hit after losing.
+            request_freeze(&mut scale);
             return;
         }
         MatchPhase::Ko {
@@ -296,12 +312,7 @@ pub fn settle_versus_round(
         // Re-asked EVERY tick because a frame with no request leaves the target
         // untouched: absence of an opinion is not an opinion, and the systems
         // that ask for full pace every frame would otherwise thaw the hold.
-        scale.write(ambition::actors::time::time_control::ClockScaleRequest {
-            domain: ambition::time::ClockDomain::SimClock,
-            scale: 0.0,
-            requester: ambition::actors::time::time_control::ClockRequester::Scripted,
-            reason: "versus_ko_hold",
-        });
+        request_freeze(&mut scale);
         state.phase = if match_over {
             MatchPhase::Won {
                 winner: winner.expect("a won match has a winner"),
@@ -339,11 +350,32 @@ pub fn settle_versus_round(
     } else {
         VersusMatch {
             rounds_won: std::mem::take(&mut state.rounds_won),
+            // The round ADVANCES whether or not anybody scored. A draw scores
+            // for no team, so a counter derived from win totals repeats itself.
+            round: state.round + 1,
             phase: MatchPhase::Fighting {
                 announce_s: ROUND_ANNOUNCE_S,
             },
         }
     };
+}
+
+/// Ask the engine to stop the fight.
+///
+/// The clock SMOOTHER ramps the live scale toward this target rather than
+/// snapping it, and that is left alone deliberately: a KO decelerating into the
+/// card is the genre's own beat, it is the same primitive hitstop uses, and an
+/// instant stop is a feel decision this stage has not made. What was a defect is
+/// the tick this is first asked on — see the KO arm.
+fn request_freeze(
+    scale: &mut MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
+) {
+    scale.write(ambition::actors::time::time_control::ClockScaleRequest {
+        domain: ambition::time::ClockDomain::SimClock,
+        scale: 0.0,
+        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+        reason: "versus_ko_hold",
+    });
 }
 
 /// **Put the fighters back, and leave the last round behind with them.**
@@ -379,15 +411,19 @@ fn begin_round(
         let (at, facing) = seat_placement(seat.0, centre);
         let mut item = item;
         let mut clusters = item.as_clusters_mut();
-        // Through `transit_body`, the ONE transit authority (ADR 0024) — a bare
-        // position write is a pose the kernel never sees, so the fighter would
-        // arrive believing it is still standing where it was knocked down.
-        ae::movement::transit_body(
-            &mut model,
-            &mut clusters,
-            at,
-            ae::movement::TransitVelocity::Zero,
-        );
+        // The RESET authority, not the transit one.
+        //
+        // `transit_body` is right for a teleport and wrong for a round boundary:
+        // it documents that "axis maneuver state (coyote, buffers, dash timers)
+        // is deliberately KEPT — those are time facts, not place facts". True of
+        // a blink; false of a new round. A fighter opened round two holding a
+        // buffered maneuver, a live dash timer, or a shield/dodge state left over
+        // from the frame it was knocked out on (GPT 5.6, 2026-07-27).
+        //
+        // `reset_body_clusters` is the verb that means "this body starts again",
+        // the same one the sandbox reset uses, and it clears the whole
+        // movement/ability cluster set rather than the place-facts subset.
+        ae::reset_body_clusters(&mut model, &mut clusters, at);
         clusters.kinematics.facing = facing;
         commands
             .entity(entity)
@@ -506,7 +542,7 @@ pub fn publish_versus_hud(
             ANNOUNCE_HUD_SLOT,
             ambition::presentation::HudReadout::bare(format!(
                 "ROUND {}  —  FIGHT",
-                state.rounds_played() + 1
+                state.round
             )),
         ),
         MatchPhase::Fighting { .. } => readouts.clear_slot(ANNOUNCE_HUD_SLOT),

@@ -10,10 +10,30 @@ use ambition_sfx::PresentationSourceId;
 fn session_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
+    // The routing markers (`MovesetMelee` / `MovesetRanged`) are DERIVED from the
+    // live `ActorMoveset` by a system this plugin owns. Installing it here is not
+    // fixture padding: a projection test that asserts on routing while the
+    // deriver is absent is asserting on whatever the projection happened to write,
+    // which is exactly the arrangement that hid the `ActorMoveset` retraction bug.
+    app.add_plugins(crate::action_scheme::ActionSchemePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>();
     begin_session(&mut app, 1);
     app
+}
+
+/// Step the fixture until derived state has settled.
+///
+/// Two updates, not one. The shipped composition orders the projection, the
+/// persona derive, the equipment overlay and the marker reconcile inside one tick
+/// of `PlayerInputSet`; this fixture installs the plugins WITHOUT
+/// `configure_sandbox_sets`, so those sets carry no ordering and the reconcile
+/// can run before the projection's commands have applied. Settling is the honest
+/// fixture-shaped answer — asserting after one update would be asserting on
+/// Bevy's arbitrary intra-set order.
+fn settle(app: &mut App) {
+    app.update();
+    app.update();
 }
 
 /// Start a fresh gameplay session: a new scope, and a new audio authority whose
@@ -416,7 +436,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
             ..Default::default()
         })
         .id();
-    app.update();
+    settle(&mut app);
 
     assert!(
         app.world()
@@ -499,7 +519,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
         .world_mut()
         .spawn(ambition_characters::actor::WornCharacter::new("armed"))
         .id();
-    app.update();
+    settle(&mut app);
     assert!(
         app.world()
             .get::<crate::combat::moveset::ActorMoveset>(body)
@@ -507,24 +527,123 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
         "the armed form projects its moveset"
     );
 
+    assert!(
+        app.world()
+            .get::<crate::combat::moveset::MovesetMelee>(body)
+            .is_some(),
+        "a moveset authoring `attack` routes melee through the move timeline"
+    );
+
     app.world_mut()
         .entity_mut(body)
         .insert(ambition_characters::actor::WornCharacter::new("unarmed"));
-    app.update();
+    settle(&mut app);
 
+    // ⚠ NOT `is_none()`, which is what this asserted when it was written.
+    //
+    // `ActorMoveset` must SURVIVE the identity change, because
+    // `apply_worn_character_gameplay` takes it as a required query column: a body
+    // that loses the component stops matching the PERSONA DERIVE ENTIRELY and
+    // never gets a name, an action set or an identity kit again. Removing it
+    // looked like careful retraction and was silent, permanent damage (GPT 5.6,
+    // 2026-07-27). This fixture could not see it, because it installs
+    // `CharacterRuntimePlugin` alone and the persona derive is not in it — the
+    // exact shape of the trap.
+    //
+    // Replacing the VALUE on a swap belongs to the persona derive, which is the
+    // single writer for a worn body; that half is pinned in
+    // `wearing_a_quieter_character_replaces_the_previous_moveset` beside it, and
+    // the routing that follows the value is pinned by
+    // `routing_markers_are_derived_from_whatever_wrote_the_moveset`.
     assert!(
         app.world()
             .get::<crate::combat::moveset::ActorMoveset>(body)
-            .is_none(),
-        "the unarmed form authors no moveset, so the armed form's must be RETRACTED \
-         — an insert-only projection leaves the previous character's attack \
-         timelines on the body"
+            .is_some(),
+        "the component the persona derive requires must not be removed by a \
+         projection; the persona derive is the writer that replaces its VALUE"
     );
+    assert_eq!(
+        app.world()
+            .get::<super::ProjectedCharacterKit>(body)
+            .map(|kit| kit.0.as_str()),
+        Some("unarmed"),
+        "the projection must record the CURRENT identity, or the next swap \
+         retracts against the wrong definition"
+    );
+}
+
+/// **The routing markers follow the moveset, whoever wrote it.**
+///
+/// The catalog persona path replaces `ActorMoveset` wholesale on a kit swap and
+/// has never touched `MovesetMelee` / `MovesetRanged`, so before these became
+/// derived, a swap between two CATALOG characters left the previous one's
+/// routing attached — a case the prepared-registry projection could not fix
+/// because it never runs for a character it does not know.
+///
+/// Driven by writing the moveset directly, which is exactly what an unknown
+/// third writer would do.
+#[test]
+fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
+    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
+
+    fn contract(verb: &str) -> MovesetContract {
+        MovesetContract {
+            verbs: std::collections::BTreeMap::from([(verb.to_string(), "m".to_string())]),
+            moves: vec![MoveSpec {
+                id: "m".to_string(),
+                clip: ClipBinding {
+                    clip: "m".to_string(),
+                    fallbacks: vec![],
+                },
+                duration_s: 0.2,
+                events: vec![],
+                windows: vec![],
+                gates: MoveGates { grounded: None },
+                start_impulse: None,
+                smash_charge_mult: 1.0,
+            }],
+        }
+    }
+
+    let mut app = App::new();
+    app.add_systems(
+        bevy::app::Update,
+        crate::combat::moveset::reconcile_moveset_routing_markers,
+    );
+    let body = app
+        .world_mut()
+        .spawn(crate::combat::moveset::ActorMoveset(contract(
+            crate::combat::moveset::ATTACK_VERB,
+        )))
+        .id();
+    app.update();
+    assert!(app
+        .world()
+        .get::<crate::combat::moveset::MovesetMelee>(body)
+        .is_some());
+    assert!(app
+        .world()
+        .get::<ambition_characters::brain::MovesetRanged>(body)
+        .is_none());
+
+    // A swap to a ranged-only moveset must move the routing with it — both ways
+    // in one step, which is the case a one-directional "insert if present" misses.
+    *app.world_mut()
+        .get_mut::<crate::combat::moveset::ActorMoveset>(body)
+        .unwrap() =
+        crate::combat::moveset::ActorMoveset(contract(crate::combat::moveset::RANGED_VERB));
+    app.update();
     assert!(
         app.world()
             .get::<crate::combat::moveset::MovesetMelee>(body)
             .is_none(),
-        "and its routing marker with it: a stale `MovesetMelee` keeps diverting \
-         attacks into a move timeline this form does not have"
+        "melee routing outlived a moveset with no `attack` verb"
+    );
+    assert!(
+        app.world()
+            .get::<ambition_characters::brain::MovesetRanged>(body)
+            .is_some(),
+        "a moveset authoring `ranged` was not routed through the move timeline, so \
+         the shot falls back to the flat emitter and never samples live aim"
     );
 }

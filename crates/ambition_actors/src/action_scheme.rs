@@ -104,6 +104,12 @@ impl Plugin for ActionSchemePlugin {
             (
                 crate::equipment::reconcile_equipment_grants
                     .after(crate::schedule::PlayerInputSet::Persona),
+                // The routing markers follow whatever the moveset finally IS —
+                // after identity derived it and equipment overlaid its grants, so
+                // a ranged move granted by a row routes through the move timeline
+                // on the same tick it is granted.
+                crate::combat::moveset::reconcile_moveset_routing_markers
+                    .after(crate::equipment::reconcile_equipment_grants),
                 reconcile_action_schemes.after(crate::equipment::reconcile_equipment_grants),
             )
                 .in_set(SandboxSet::PlayerInput),

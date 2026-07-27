@@ -124,6 +124,64 @@ pub use prefabs::*;
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct MovesetMelee;
 
+/// **Keep the routing markers agreeing with the moveset they route into.**
+///
+/// `MovesetMelee` and [`MovesetRanged`](ambition_characters::brain::MovesetRanged)
+/// are not independent state — they are a projection of "does this moveset author
+/// an `attack` / `ranged` verb". They were nonetheless written by hand at three
+/// unrelated places (the actor cluster seed, the prepared-character projection)
+/// and by NOBODY on the catalog persona path, which replaces `ActorMoveset`
+/// wholesale on a kit swap and never touched them. The consequences are all
+/// silent (GPT 5.6, 2026-07-27):
+///
+/// * a stale `MovesetMelee` diverts an attack into a timeline the new moveset
+///   does not contain — the input is consumed and nothing happens;
+/// * a missing `MovesetRanged` on a form that DOES author a ranged move routes it
+///   back to the flat emitter, so the move's aim sampling never runs;
+/// * a swap to a form with no routed moves keeps both.
+///
+/// So they are derived here, from the one authority, whenever it changes. Deriving
+/// beats synchronizing: a third writer of `ActorMoveset` added tomorrow gets the
+/// markers right without knowing they exist.
+///
+/// Spawn is still seeded by `ActorClusterSeed::into_components`, which is correct
+/// and one tick earlier than this system could be — this reconciles CHANGES.
+pub fn reconcile_moveset_routing_markers(
+    mut commands: Commands,
+    bodies: Query<
+        (
+            Entity,
+            &ActorMoveset,
+            bevy::prelude::Has<MovesetMelee>,
+            bevy::prelude::Has<ambition_characters::brain::MovesetRanged>,
+        ),
+        bevy::prelude::Changed<ActorMoveset>,
+    >,
+) {
+    for (entity, moveset, has_melee_marker, has_ranged_marker) in &bodies {
+        let routes_melee = moveset.0.verbs.contains_key(ATTACK_VERB);
+        let routes_ranged = moveset.0.verbs.contains_key(RANGED_VERB);
+        if routes_melee != has_melee_marker {
+            if routes_melee {
+                commands.entity(entity).insert(MovesetMelee);
+            } else {
+                commands.entity(entity).remove::<MovesetMelee>();
+            }
+        }
+        if routes_ranged != has_ranged_marker {
+            if routes_ranged {
+                commands
+                    .entity(entity)
+                    .insert(ambition_characters::brain::MovesetRanged);
+            } else {
+                commands
+                    .entity(entity)
+                    .remove::<ambition_characters::brain::MovesetRanged>();
+            }
+        }
+    }
+}
+
 /// A timed move event fired by [`advance_move_playback`]. The move runtime
 /// stays content-free: it names the event; downstream consumers (the audio
 /// bridge, content techniques via the `Effect` vocabulary) resolve keys.

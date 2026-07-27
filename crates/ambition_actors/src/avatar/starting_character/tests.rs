@@ -929,4 +929,40 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
          that disagreed with the body's moveset is how a granted move gets erased \
          and how a revoked one cannot be taken back"
     );
+
+    // ── The other half of the identity swap ──────────────────────────────────
+    //
+    // Wearing a quieter character must REPLACE the moves, not merge with them.
+    // This is the claim the prepared-character projection used to make by
+    // removing `ActorMoveset` — which was worse than useless, because the removal
+    // took the body out of this very system's query and cost it its whole persona
+    // (GPT 5.6, 2026-07-27). Pinned HERE because this is the single writer for a
+    // worn body, and a guarantee belongs at the authority that provides it.
+    let mut registry = registry;
+    let unarmed = crate::character_runtime::prepare_character(
+        crate::character_runtime::CharacterDefinition::new("monk", "Monk", "demo"),
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    registry.insert_prepared(unarmed.prepared);
+    crate::avatar::apply_worn_character_overlay(
+        &catalog,
+        Some(&registry),
+        &mut name,
+        &mut action_set,
+        &mut moveset,
+        &mut identity,
+        "monk",
+        ambition_engine_core::AbilitySet::default(),
+    );
+    assert!(
+        !moveset.0.moves.iter().any(|m| m.id == "swat"),
+        "the previous character's attack timeline survived the swap; a form change \
+         that keeps the old moves is a body that can still throw a punch it no \
+         longer has"
+    );
+    assert!(
+        !identity.moveset.moves.iter().any(|m| m.id == "swat"),
+        "and the baseline kept it too, so the next equipment reconcile would put \
+         it straight back"
+    );
 }

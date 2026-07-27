@@ -323,14 +323,19 @@ pub fn project_prepared_character_definitions(
         // RETRACT what the previous definition put here, before projecting the new
         // one. Looked up by the recorded id, so the removal is exactly what this
         // system granted and never something the spawn seeded.
+        //
+        // ⚠ `ActorMoveset` is deliberately NOT retracted, and the first version of
+        // this did retract it (GPT 5.6, 2026-07-27). Removing it is worse than
+        // leaving a stale value: `apply_worn_character_gameplay` takes
+        // `&mut ActorMoveset` as a required query column, so a body without the
+        // component stops matching the PERSONA DERIVE ENTIRELY — losing its name,
+        // action set and identity kit too, permanently, not just its moves. And
+        // the retraction was unnecessary anyway: for a worn body the persona
+        // derive is the single writer and replaces the moveset wholesale on the
+        // same tick this runs. The routing markers that used to be removed here
+        // are derived from the live moveset by
+        // `reconcile_moveset_routing_markers`, so they follow whichever writer won.
         if let Some(previous) = projected.and_then(|p| registry.get(&p.0)) {
-            if previous.moveset.is_some() {
-                commands
-                    .entity(entity)
-                    .remove::<crate::combat::moveset::ActorMoveset>()
-                    .remove::<crate::combat::moveset::MovesetMelee>()
-                    .remove::<ambition_characters::brain::MovesetRanged>();
-            }
             if previous.hurtboxes.is_some() {
                 commands.entity(entity).remove::<super::AuthoredHurtboxes>();
             }
@@ -345,28 +350,13 @@ pub fn project_prepared_character_definitions(
             .entity(entity)
             .insert(ProjectedCharacterKit(prepared.id.clone()));
         if let Some(moveset) = prepared.moveset.clone() {
-            let has_attack = moveset
-                .verbs
-                .contains_key(crate::combat::moveset::ATTACK_VERB);
-            let has_ranged = moveset
-                .verbs
-                .contains_key(crate::combat::moveset::RANGED_VERB);
+            // The routing markers are NOT set here. They are derived from the live
+            // `ActorMoveset` by `reconcile_moveset_routing_markers` — deriving them
+            // is what makes them right for the catalog persona path too, which
+            // replaces the moveset and never knew the markers existed.
             commands
                 .entity(entity)
                 .insert(crate::combat::moveset::ActorMoveset(moveset));
-            // The same two markers `ActorClusterSeed::into_components` derives from
-            // an authored moveset, for the same reason: they are what route melee
-            // and ranged through the move timeline instead of the flat emission.
-            if has_attack {
-                commands
-                    .entity(entity)
-                    .insert(crate::combat::moveset::MovesetMelee);
-            }
-            if has_ranged {
-                commands
-                    .entity(entity)
-                    .insert(ambition_characters::brain::MovesetRanged);
-            }
         }
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
             commands.entity(entity).insert((

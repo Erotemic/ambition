@@ -339,6 +339,22 @@ pub trait AmbitionRollbackApp {
     where
         T: Component<Mutability = Mutable> + Clone;
 
+    /// Clone-snapshot a component holding a KEYED MAP of entity references,
+    /// probed with the key folded in.
+    ///
+    /// The map twin of [`Self::rollback_component_clone_entity_set`], and NOT
+    /// interchangeable with it: a set fold is commutative, so a map measured as
+    /// a set cannot see two keys exchange their targets. Use this whenever the
+    /// association between key and entity is itself the state.
+    fn rollback_component_clone_entity_map<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<(u64, bevy::prelude::Entity)>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone;
+
     /// Clone-snapshot with a projection the LOCALIZER measures and the GGRS
     /// aggregate does not.
     ///
@@ -710,6 +726,36 @@ impl AmbitionRollbackApp for App {
                 self,
                 crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
                     crate::rollback::census_entity_set::<T>(world, referenced)
+                }),
+            );
+        }
+        self
+    }
+
+    fn rollback_component_clone_entity_map<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<(u64, bevy::prelude::Entity)>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ComponentClone,
+                "bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_component_with_clone::<T>(self);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    crate::rollback::census_entity_map::<T>(world, referenced)
                 }),
             );
         }

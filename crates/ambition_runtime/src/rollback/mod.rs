@@ -754,12 +754,23 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_actors::features::BossConfig>(ENGINE, "boss.config")
     // G2b: a rig IS its slot→limb map, and the map is remapped on every load.
     // A presence count sees "one rig, still here" while the left hand hangs off
-    // the right shoulder. The projection folds the slot ORDER with each limb's
-    // identity, so a swap between two slots is a difference.
-    .rollback_component_clone_entity_set::<ambition_actors::features::LimbRig>(
+    // the right shoulder.
+    //
+    // The first repair projected `limbs.values()` into the entity-SET census and
+    // claimed the slot order came with it. It did not: that census folds targets
+    // with a commutative sum, so the two hands trading slots is the same multiset
+    // and the same digest — the probe was blind to the one failure the comment
+    // named (GPT 5.6, 2026-07-27). The MAP census folds each slot's discriminant
+    // against its limb's identity, which is what makes an exchange visible.
+    .rollback_component_clone_entity_map::<ambition_actors::features::LimbRig>(
         ENGINE,
         "limb.rig",
-        |rig| rig.limbs.values().copied().collect(),
+        |rig| {
+            rig.limbs
+                .iter()
+                .map(|(slot, limb)| (*slot as u64, *limb))
+                .collect()
+        },
     )
     .rollback_map_entities::<ambition_actors::features::LimbRig>(ENGINE, "map.limb_rig")
     // G2b: which HOST this limb belongs to. Remapped onto the wrong body, the

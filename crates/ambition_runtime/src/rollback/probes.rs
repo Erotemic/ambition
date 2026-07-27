@@ -512,6 +512,64 @@ where
     ComponentCensus { count, xor: sum }
 }
 
+/// **Census a component holding a KEYED MAP of entity references.**
+///
+/// [`census_entity_set`] is the wrong instrument for a map, and `LimbRig` was
+/// measured with it: the rig projected `limbs.values()` into a set, the set fold
+/// is a commutative SUM (correct for `HitboxHits`, whose victims genuinely have
+/// no order), and so
+///
+/// ```text
+/// hand_left → limb A          hand_left → limb B
+/// hand_right → limb B         hand_right → limb A
+/// ```
+///
+/// were the same multiset of targets and therefore the same digest. The slot
+/// association — the entire content of a map — was discarded before the probe
+/// ran, which is exactly the left-hand-on-the-right-shoulder restore the
+/// registration claimed to catch (GPT 5.6, 2026-07-27).
+///
+/// So the KEY is folded into each entry's hash, not merely its target: an entry
+/// digests `hash(key ++ target identity)`, and a swap changes both entries'
+/// bytes. Entries are still summed, which keeps the census independent of map
+/// iteration order, and the per-carrier digest is hashed with the carrier's own
+/// identity for the same reason [`census_entity_set`] does it.
+///
+/// The key is whatever stable `u64` the caller derives from its own key type —
+/// an enum discriminant, a hashed name. It only has to agree across the peers
+/// comparing checksums, which run the same binary, so a discriminant is enough.
+pub fn census_entity_map<T>(
+    world: &mut World,
+    referenced: fn(&T) -> Vec<(u64, Entity)>,
+) -> ComponentCensus
+where
+    T: Component,
+{
+    let rows: Vec<(Entity, Vec<(u64, Entity)>)> = {
+        let mut query = world.query::<(Entity, &T)>();
+        query
+            .iter(world)
+            .map(|(carrier, value)| (carrier, referenced(value)))
+            .collect()
+    };
+    let count = rows.len();
+    let mut sum: u64 = 0;
+    for (carrier, entries) in rows {
+        let mut digest: u64 = entries.len() as u64;
+        for (key, target) in entries {
+            let mut entry = [0u8; 16];
+            entry[..8].copy_from_slice(&key.to_le_bytes());
+            entry[8..].copy_from_slice(&stable_identity(world, target).to_le_bytes());
+            digest = digest.wrapping_add(super::checksum_bytes(&entry));
+        }
+        let mut pair = [0u8; 16];
+        pair[..8].copy_from_slice(&stable_identity(world, carrier).to_le_bytes());
+        pair[8..].copy_from_slice(&digest.to_le_bytes());
+        sum = sum.wrapping_add(super::checksum_bytes(&pair));
+    }
+    ComponentCensus { count, xor: sum }
+}
+
 /// **Census a RESOURCE holding entity references, through stable sim identity.**
 ///
 /// The resource twin of [`census_entity_set`]. A resource has no carrier entity
@@ -983,6 +1041,55 @@ mod tests {
         world.entity_mut(second).insert(Hits(vec![alpha]));
         let swapped = census_entity_set::<Hits>(&mut world, |hits| hits.0.clone());
         assert_ne!(correct.xor, swapped.xor);
+    }
+
+    #[derive(Component, Clone)]
+    struct Rig(Vec<(u64, Entity)>);
+
+    /// The `LimbRig` failure, in miniature: two SLOTS exchange their limbs. The
+    /// set census cannot see this — the targets are the same multiset and its
+    /// fold is a sum — which is why the map census exists and why this test
+    /// asserts both halves rather than only the one that passes.
+    #[test]
+    fn two_slots_exchanging_their_limbs_changes_the_map_census() {
+        let mut world = World::new();
+        let left = world.spawn(SimId::placement("limb_left")).id();
+        let right = world.spawn(SimId::placement("limb_right")).id();
+        let host = world
+            .spawn((SimId::placement("host"), Rig(vec![(0, left), (1, right)])))
+            .id();
+
+        let correct = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
+        let correct_as_set =
+            census_entity_set::<Rig>(&mut world, |rig| rig.0.iter().map(|(_, e)| *e).collect());
+        world.entity_mut(host).insert(Rig(vec![(0, right), (1, left)]));
+        let swapped = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
+        let swapped_as_set =
+            census_entity_set::<Rig>(&mut world, |rig| rig.0.iter().map(|(_, e)| *e).collect());
+
+        assert_ne!(correct.xor, swapped.xor, "the map census must see the swap");
+        assert_eq!(
+            correct_as_set.xor, swapped_as_set.xor,
+            "and the set census must NOT — that blindness is the whole reason \
+             this projection is a different helper, so if this ever starts \
+             failing the two can be merged"
+        );
+    }
+
+    /// A limb moving to a slot the rig did not have is not the same rig, even
+    /// though the same limbs are attached.
+    #[test]
+    fn rekeying_a_limb_changes_the_map_census() {
+        let mut world = World::new();
+        let limb = world.spawn(SimId::placement("limb")).id();
+        let host = world
+            .spawn((SimId::placement("host"), Rig(vec![(0, limb)])))
+            .id();
+
+        let at_zero = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
+        world.entity_mut(host).insert(Rig(vec![(1, limb)]));
+        let at_one = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
+        assert_ne!(at_zero.xor, at_one.xor);
     }
 
     /// A reference into nothing is distinguishable from a reference to an

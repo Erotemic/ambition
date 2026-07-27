@@ -244,7 +244,47 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
+    // The scoreboard. Three declared readouts; the engine never learns what a
+    // ROUND is — `publish_versus_hud` writes the words.
+    .with_hud(
+        ambition::presentation::HudDeclaration::new()
+            .slot(
+                ambition::presentation::HudSlotSpec::new(super::versus_rules::HEALTH_HUD_SLOT)
+                    .with_region(ambition::presentation::SurroundRegion::Top)
+                    .with_font_size(22.0)
+                    .with_color([1.0, 0.95, 0.9, 1.0]),
+            )
+            .slot(
+                ambition::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
+                    .with_region(ambition::presentation::SurroundRegion::Top)
+                    .with_font_size(16.0)
+                    .with_color([0.75, 0.8, 0.95, 1.0]),
+            )
+            // The KO / match card. Published only while a round is over, so it
+            // needs no hide path — an unpublished slot draws nothing.
+            .slot(
+                ambition::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
+                    .centered()
+                    .with_font_size(34.0)
+                    .with_color([1.0, 0.85, 0.3, 1.0]),
+            ),
+    )
     .install(app, versus_prepared_session_world);
+
+    app.init_resource::<super::versus_rules::VersusMatch>();
+    // `Update`, like the roster tracker and for the same reason: a rule that
+    // lives inside the session it rules over cannot run at the moment the
+    // session ends, and resetting the match on the way out is exactly that
+    // moment. The rules read engine facts and write engine verbs; nothing here
+    // needs the sim schedule's ordering.
+    app.add_systems(
+        Update,
+        (
+            super::versus_rules::run_versus_rules,
+            super::versus_rules::publish_versus_hud,
+        )
+            .chain(),
+    );
 
     // DELIBERATE SILENCE, declared. Preparation refuses an experience whose
     // provider registered no explicit audio fragment — a good refusal, and one

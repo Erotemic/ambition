@@ -199,6 +199,23 @@ fn faction_for(index: usize) -> crate::combat::components::ActorFaction {
     }
 }
 
+/// Which seat of the match this body is.
+///
+/// The roster's index, on the body. Match RULES need to name a fighter — whose
+/// health bar is on the left, who won the round, where to put them back — and
+/// every other way to identify one is a guess: `Brain::Player(slot)` misses the
+/// CPU seat, the worn character id collides in a mirror match, and entity order
+/// is not an order. Seating is the only place that knows, so seating says so.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MatchSeat(pub usize);
+
+/// Where seat `index` stands, given the stage centre. Public so a rules layer
+/// can put a fighter BACK between rounds without re-deriving the geometry and
+/// drifting from it.
+pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
+    seat_for(index, centre)
+}
+
 /// Marker: this roster has already been seated for this session.
 ///
 /// Seating is a one-shot per match. Without the latch the system would re-seat
@@ -230,6 +247,7 @@ pub fn seat_match_participants(
     mut seated: ResMut<MatchSeated>,
     mut player: Query<
         (
+            Entity,
             ambition_engine_core::BodyClusterQueryData,
             &mut crate::features::MotionModel,
             &ambition_characters::actor::WornCharacter,
@@ -289,6 +307,7 @@ pub fn seat_match_participants(
                     ambition_entity_catalog::placements::CharacterBrain::Passive,
                 ) {
                     commands.entity(body).insert((
+                        MatchSeat(index),
                         ambition_characters::brain::Brain::Player(slot),
                         crate::control::components::LocalPlayer,
                         crate::control::components::PlayerInputFrame::default(),
@@ -297,7 +316,7 @@ pub fn seat_match_participants(
                 }
                 continue;
             }
-            let Ok((clusters, mut model, worn)) = player.single_mut() else {
+            let Ok((body, clusters, mut model, worn)) = player.single_mut() else {
                 continue;
             };
             if worn.id() != character {
@@ -320,6 +339,7 @@ pub fn seat_match_participants(
                 ambition_engine_core::movement::TransitVelocity::Zero,
             );
             clusters.kinematics.facing = facing;
+            commands.entity(body).insert(MatchSeat(index));
             any = true;
             continue;
         }
@@ -327,7 +347,7 @@ pub fn seat_match_participants(
             continue;
         };
         let faction = faction_for(index);
-        if seat_character(
+        if let Some(body) = seat_character(
             &mut commands,
             &registry,
             &catalog,
@@ -337,9 +357,8 @@ pub fn seat_match_participants(
             facing,
             faction,
             ambition_entity_catalog::placements::CharacterBrain::Custom(profile.to_string()),
-        )
-        .is_some()
-        {
+        ) {
+            commands.entity(body).insert(MatchSeat(index));
             any = true;
         }
     }

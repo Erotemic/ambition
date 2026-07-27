@@ -59,7 +59,9 @@ pub use presentation::{
     project_prepared_character_definitions, provider_of_character,
     publish_body_presentation_sources, ProjectedCharacterKit,
 };
-pub use seating::{seat_character, seat_match_participants, MatchSeated};
+pub use seating::{
+    seat_character, seat_match_participants, seat_placement, MatchSeat, MatchSeated,
+};
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
     NormalizedEffort, RoomStagingPlan, StagesCharacters,

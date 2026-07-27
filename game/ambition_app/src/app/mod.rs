@@ -36,6 +36,7 @@ mod sim_systems;
 mod startup_loading;
 pub mod versus;
 pub mod versus_fighters;
+pub mod versus_rules;
 pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]

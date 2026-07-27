@@ -482,3 +482,122 @@ fn both_fighters_can_actually_hit_each_other() {
          resolved a volume against it."
     );
 }
+
+/// **A round can be lost, and a match can be won.** (L8)
+///
+/// Drives the rules through the resource rather than by landing a hundred real
+/// swings: the swing path is proven by
+/// `both_fighters_can_actually_hit_each_other`, and repeating it here would make
+/// this a slow test of the same thing. What is under test is the RULE — that
+/// zero health ends a round, that the round is counted to the other seat, that
+/// the fighters come back, and that two rounds take the match.
+#[test]
+fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ROUNDS_TO_WIN};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let seats = |app: &mut App| -> Vec<(usize, Entity)> {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut v: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        v.sort_by_key(|(seat, _)| *seat);
+        v
+    };
+    let all = seats(&mut app);
+    assert_eq!(
+        all.len(),
+        2,
+        "the fighters carry no MatchSeat, so the rules cannot tell who is who"
+    );
+    let seat_one = all[1].1;
+
+    // KO seat 1, twice. Seat 0 should take both rounds and the match.
+    for round in 1..=ROUNDS_TO_WIN {
+        // Move the fighter off its seat FIRST. Knocking out a fighter that
+        // never moved makes "it was returned to its seat" true for free, which
+        // is the assertion you write when you have not checked whether the
+        // reset does anything. Written directly because the point is to test
+        // the RESET, not to reproduce a walk.
+        let seat_x = app.world().get::<BodyKinematics>(seat_one).unwrap().pos.x;
+        app.world_mut()
+            .get_mut::<BodyKinematics>(seat_one)
+            .unwrap()
+            .pos
+            .x = seat_x - 220.0;
+        app.update();
+        let knocked_down_at = app.world().get::<BodyKinematics>(seat_one).unwrap().pos;
+        app.world_mut()
+            .get_mut::<BodyHealth>(seat_one)
+            .unwrap()
+            .health
+            .current = 0;
+        app.update();
+
+        let state = app.world().resource::<VersusMatch>();
+        assert_eq!(
+            state.rounds_won[0], round,
+            "a fighter hit zero health and the round was not counted to the \
+             other seat"
+        );
+
+        // Ride out the KO hold, then check the fighters came BACK: a versus
+        // stage whose second round starts with one fighter still at zero health
+        // is one round long.
+        for _ in 0..600 {
+            app.update();
+            if matches!(
+                app.world().resource::<VersusMatch>().phase,
+                MatchPhase::Fighting
+            ) {
+                break;
+            }
+        }
+        if round < ROUNDS_TO_WIN {
+            assert!(
+                app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
+                "the next round started with the knocked-out fighter still dead"
+            );
+            let back_at = app.world().get::<BodyKinematics>(seat_one).unwrap().pos;
+            assert!(
+                (back_at.x - seat_x).abs() < 1.0,
+                "the fighter was knocked out at x={:.1} and the next round \
+                 started with it at x={:.1} instead of its seat at x={seat_x:.1} \
+                 — the reset puts nobody back",
+                knocked_down_at.x,
+                back_at.x
+            );
+        }
+    }
+
+    // Two rounds took the match, and the match reset for the next one — a
+    // scoreboard that stays on 2-0 forever is a match nobody can play again.
+    let state = app.world().resource::<VersusMatch>();
+    assert_eq!(
+        state.rounds_won,
+        [0, 0],
+        "the match did not reset after it was won"
+    );
+    assert!(matches!(state.phase, MatchPhase::Fighting));
+}

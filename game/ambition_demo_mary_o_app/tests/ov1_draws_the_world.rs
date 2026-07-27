@@ -80,10 +80,18 @@ fn engine_owned_ui_node_count(app: &mut App) -> usize {
 }
 
 /// Nodes belonging to the HUD this demo declared.
+/// How many READOUTS the demo draws.
+///
+/// Counts `DeclaredHudSlot`, not `DeclaredHudRoot`. Both markers ride the nodes
+/// this pass owns, but they answer different questions: `DeclaredHudRoot` is the
+/// LIFETIME marker (the retire sweep keys on it, and a gauge bar carries it so
+/// it dies with its slot), while a slot is one declared readout. Counting roots
+/// made a demo that declared five readouts and published one gauge look like six
+/// — the gauge is presentation OF a readout, not another one.
 fn declared_hud_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudRoot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudSlot>>();
     query.iter(app.world()).count()
 }
 

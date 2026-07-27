@@ -167,7 +167,22 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // The provider installs Sanic's content definitions before the shared asset
     // catalog is assembled below.
     compose_sanic_shell(&mut app, ambition_demo_sanic::SANIC_LAUNCHER_ROUTE);
-    let sfx_bank_path = install_sanic_asset_resources(&mut app);
+    // The UMBRELLA install, not a copy of it (2026-07-27). See the twin comment
+    // in the Mary-O shell: these two demos ARE the regression test for the
+    // helper an external consumer now depends on.
+    //
+    // Sanic owns procedural/self-contained rooms and ships no `.ldtk` file, so
+    // no world manifest: a world-less catalog contributes no world rows and
+    // every other entry still lands.
+    app.add_plugins(
+        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
+            ambition_demo_sanic::SANIC_EXPERIENCE,
+        )
+        // Startup binding precedes activation, so the theme (and the skybridge
+        // parallax stack) comes from the authored world rather than a session
+        // root that does not exist yet.
+        .with_room(ambition_demo_sanic::sanic_session_world().metadata.0),
+    );
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
     // chain. No HUD, no menus, no dev stack — those are the GAME's.
@@ -182,55 +197,10 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // hosts select the device-free recording backend before this shared audio
     // composition is installed. Both paths therefore exercise the same
     // provider resolver, ownership, bank, and playback-evidence systems.
-    install_sanic_audio(&mut app, sfx_bank_path);
+    install_sanic_audio(&mut app);
     app
 }
 
-#[cfg(feature = "visible")]
-fn install_sanic_asset_resources(app: &mut App) -> Option<String> {
-    use bevy::prelude::IntoScheduleConfigs as _;
-
-    let config = ambition::sprite_sheet::game_assets::GameAssetConfig::from_args();
-    // The Sanic course is procedural, not LDtk-backed. Build the ordinary
-    // shared asset catalog without world-file rows instead of installing a fake
-    // process-global world manifest just to reach sprites and parallax art.
-    let music = app
-        .world()
-        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
-        .music_for(ambition_demo_sanic::SANIC_EXPERIENCE)
-        .expect("Sanic provider registered its App-local music catalog")
-        .clone();
-    let character_catalog = app
-        .world()
-        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
-        .clone();
-    let boss_catalog = app
-        .world()
-        .resource::<ambition::actors::boss_encounter::BossCatalog>()
-        .clone();
-    let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog(
-        &config,
-        &character_catalog,
-        &boss_catalog,
-        &music,
-        // This demo owns procedural/self-contained rooms and ships no `.ldtk`
-        // file: a world-less manifest contributes no world rows and every
-        // other catalog entry still lands.
-        &ambition::actors::ldtk_world::WorldManifest::default(),
-    );
-    let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
-
-    app.insert_resource(config);
-    app.insert_resource(catalog);
-    app.init_resource::<ambition::sprite_sheet::game_assets::GameAssets>();
-    app.add_systems(
-        Startup,
-        load_sanic_game_assets.before(ambition::presentation::PlatformerPresentationSetupSet),
-    );
-    sfx_bank_path
-}
-
-/// Load the same shared `GameAssets` resource consumed by Ambition's generic
 /// presentation plugin. This is the single path for Sanic art, block/entity art,
 /// and the room's skybridge parallax stack.
 #[cfg(feature = "visible")]
@@ -277,18 +247,12 @@ fn load_sanic_game_assets(
 /// The same selection, intent, director, SFX, and frontend-reset path is used by
 /// the multi-game host; only provider-authored resources differ here.
 #[cfg(feature = "visible")]
-fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
+fn install_sanic_audio(app: &mut App) {
     use bevy::prelude::IntoScheduleConfigs as _;
 
-    if let Some(path) = sfx_bank_path {
-        info!("sanic_demo: SFX bank path = {path}");
-        app.insert_resource(ambition::audio::SfxBankAssetPath::new(
-            ambition_demo_sanic::SANIC_EXPERIENCE,
-            path,
-        ));
-    } else {
-        warn!("sanic_demo: no SFX bank path resolved; milestone cues will be silent stubs");
-    }
+    // `SfxBankAssetPath` is published by `PlatformerAssetsPlugin` from the same
+    // catalog it builds — one resolution, not an app-local repeat that could
+    // name a different path.
 
     // Use the same engine-owned audio runtime as the multi-game host. The
     // standalone app contributes only its provider catalogs and resident asset

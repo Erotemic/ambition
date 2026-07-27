@@ -9,6 +9,7 @@
 #   - install Ubuntu/Debian host libraries and offline audio tools;
 #   - install Rust plus the developer Cargo utilities used by repo scripts;
 #   - install the profiling toolchain the repo's own scripts depend on;
+#   - arm the LLM resource-accounting git hook;
 #   - initialize every git submodule recursively;
 #   - create one Python virtualenv per active authoring tool;
 #   - install each tool from its own pyproject metadata;
@@ -21,6 +22,7 @@
 #   ./run_developer_setup.sh --skip-rust
 #   ./run_developer_setup.sh --no-profile
 #   ./run_developer_setup.sh --skip-submodules
+#   ./run_developer_setup.sh --skip-tally
 #   ./run_developer_setup.sh --skip-python
 #   ./run_developer_setup.sh --skip-assets
 #   ./run_developer_setup.sh --skip-cargo-check
@@ -40,6 +42,7 @@ skip_python=0
 skip_assets=0
 skip_cargo_check=0
 skip_profiling=0
+skip_tally=0
 
 # Tracy speaks a versioned wire protocol and REFUSES to connect to a client
 # built against a different version, so the server we build must match the
@@ -78,6 +81,7 @@ while [ "$#" -gt 0 ]; do
         --skip-python) skip_python=1 ;;
         --skip-assets) skip_assets=1 ;;
         --skip-cargo-check) skip_cargo_check=1 ;;
+        --skip-tally) skip_tally=1 ;;
         --no-profile) skip_profiling=1 ;;
         -h|--help) usage; exit 0 ;;
         *) fatal "unknown option: $1" ;;
@@ -383,6 +387,24 @@ ensure_profiling_tools() {
     fi
 }
 
+ensure_resource_tally() {
+    if [ "$skip_tally" -eq 1 ]; then
+        log "skipping LLM resource-accounting hook install"
+        return 0
+    fi
+    [ -e "$repo_root/.llm_resource_tally/tool" ] || return 0
+    have python3 || { warn "python3 not found; skipping resource-accounting hook install"; return 0; }
+
+    # Offline and idempotent (it only points core.hooksPath at the committed
+    # hook dir and refreshes the managed AGENTS.md block). Accounting is
+    # bookkeeping, not a runtime dependency, so a failure here must never
+    # block a checkout from becoming runnable.
+    log "arming the LLM resource-accounting git hook"
+    if ! python3 "$repo_root/.llm_resource_tally/tool" install; then
+        warn "resource-accounting hook install failed; continuing (run it by hand later)"
+    fi
+}
+
 ensure_submodules() {
     if [ "$skip_submodules" -eq 1 ]; then
         log "skipping git submodule setup"
@@ -395,12 +417,26 @@ ensure_submodules() {
     git submodule sync --recursive
     git submodule update --init --recursive
 
-    local key path
-    while read -r key path; do
+    # Verify against real gitlinks (index mode 160000), not `.gitmodules` entries.
+    # A `.gitmodules` block whose gitlink was dropped is a stale declaration that
+    # `git submodule update` correctly ignores; treating it as fatal bricks setup
+    # for every fresh clone. Only a gitlink git *should* have materialized is an error.
+    local path
+    while read -r path; do
         [ -n "$path" ] || continue
         [ -d "$repo_root/$path" ] || fatal "submodule path was not initialized: $path"
         if [ -z "$(find "$repo_root/$path" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
             fatal "submodule path is empty after update: $path"
+        fi
+    done < <(git -C "$repo_root" ls-files --stage | awk '$1 == "160000" { print substr($0, index($0, $4)) }')
+
+    # A declared submodule with no gitlink can never be initialized. Warn so the
+    # stale entry gets cleaned up, but do not block the rest of setup.
+    local declared
+    while read -r _ declared; do
+        [ -n "$declared" ] || continue
+        if ! git -C "$repo_root" ls-files --stage -- "$declared" | grep -q '^160000'; then
+            warn "stale .gitmodules entry with no gitlink (ignored): $declared"
         fi
     done < <(git config -f "$repo_root/.gitmodules" --get-regexp '^submodule\..*\.path$' || true)
 }
@@ -590,6 +626,7 @@ check_desktop_target() {
 install_system_packages
 ensure_rust
 ensure_profiling_tools
+ensure_resource_tally
 ensure_submodules
 ensure_python_tools
 regenerate_assets

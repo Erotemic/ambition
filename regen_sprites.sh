@@ -443,15 +443,19 @@ compute_fingerprint() {
 }
 
 all_outputs_present() {
+    # `expected_files` is the single source of truth shared with the
+    # postcondition (see its comment above) — including the portrait PNGs that
+    # actually ship. Hall portrait coverage is deliberately NOT consulted here:
+    # it asks about all 128 catalog rows, a dozen of which no render list
+    # produces, so `inspect_hall_portraits` always exits 1 and folding it in
+    # made this fast path unsatisfiable — every regen re-rendered every sheet.
     local rel
     for rel in "${expected_files[@]}"; do
         if [ ! -f "$sprites_dir/$rel" ]; then
             return 1
         fi
     done
-    "$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
-        --catalog "$character_catalog" --sprites-dir "$sprites_dir" \
-        --only-issues >/dev/null 2>&1
+    return 0
 }
 
 # --- Per-sheet cache ------------------------------------------------------
@@ -1017,10 +1021,17 @@ if [ "${#missing[@]}" -gt 0 ]; then
 fi
 echo "  ok: ${#expected_files[@]} expected files present"
 
+# Coverage is a REPORT, not a gate. `inspect_hall_portraits` exits 1 whenever any
+# catalog row lacks a portrait — useful for a `--check` caller, fatal here under
+# `set -euo pipefail`, which aborted the whole regen (and every phase after it)
+# over Hall rows that no render list produces. The postcondition above is the
+# gate for runtime-required files; this tells the author what else is missing.
 echo "==> Hall-of-Characters portrait coverage:"
-"$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
+if ! "$ldtk_python" -m ambition_ldtk_tools.inspect_hall_portraits \
     --catalog "$character_catalog" --sprites-dir "$sprites_dir" \
-    --only-issues 2>&1 | sed 's/^/  /'
+    --only-issues 2>&1 | sed 's/^/  /'; then
+    echo "  note: portrait coverage is incomplete (reported above); not fatal."
+fi
 
 echo "==> portrait review gallery:"
 run_renderer_python portrait-gallery -m ambition_sprite2d_renderer portrait-gallery \

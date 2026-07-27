@@ -23,6 +23,15 @@
     "https://archive.org/download/htkam/TKAM%28www.albinoblacksheep.com%29.swf",
     "https://archive.org/download/how-to-kill-a-mockingbird/how-to-kill-a-mockingbird.swf"
   ],
+  "authoring_description": "The Mockingbird Boss adapts the old How to Kill a Mockingbird Flash-animation creature, itself a violent literalization of the famous book title, into a giant mimic antagonist. In this game the bird steals songs, voices, fighting styles, and visible form while remaining one surprise behind the original; copying the surface without reaching the reason underneath is the central joke.",
+  "gameplay_description": "Use as a multipart aerial boss that observes and reproduces player or NPC actions. Its copied attacks should be recognizable but imperfectly timed, leaving a small novelty gap where the player can escape or counter. Song theft, voice mimicry, dive attacks, and stolen techniques all fit the character.",
+  "dialogue_hints": {
+    "barks": [
+      "I've learned every fighter in this hall by heart.",
+      "My version of you is always one surprise behind.",
+      "You can copy the form forever and never reach the why."
+    ]
+  },
   "rows": [
     {
       "animation": "rest",

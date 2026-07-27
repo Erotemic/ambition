@@ -55,7 +55,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_message::<ambition_actors::features::SpawnActorRequest>();
         app.add_systems(
             sim,
-            ambition_actors::features::apply_spawn_actor_requests.in_set(SandboxSet::Combat),
+            ambition_actors::features::apply_spawn_actor_requests.in_set(CombatSet::Materialize),
         );
         app.add_systems(
             sim,
@@ -102,6 +102,13 @@ impl Plugin for CombatSchedulePlugin {
                 // ONE trigger for every boss strike, retiring both `sync_boss_strike_hitboxes`
                 // and `dispatch_boss_special` (§A1 — the moveset is the boss's melee system).
                 ambition_actors::features::trigger_boss_attack_moves.run_if(gameplay_allowed),
+            )
+                .chain()
+                .in_set(CombatSet::Trigger),
+        );
+        app.add_systems(
+            sim,
+            (
                 // Data-driven move playback (Smash-model timelines, W9):
                 // advances each playing MoveSpec on its OWNER'S proper time,
                 // manages window-scoped hit volumes, fires MoveEventMessages.
@@ -142,6 +149,13 @@ impl Plugin for CombatSchedulePlugin {
                 // flips WHO owns the strike timing to the shared move runtime.
                 ambition_actors::features::project_boss_attack_state_from_move
                     .run_if(gameplay_allowed),
+            )
+                .chain()
+                .in_set(CombatSet::Playback),
+        );
+        app.add_systems(
+            sim,
+            (
                 // ── EFFECTS-stage consumers: drain this frame's messages ──
                 //
                 // EFFECTS-stage consumer: reads ActorActionMessage::Ranged —
@@ -195,6 +209,13 @@ impl Plugin for CombatSchedulePlugin {
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 crate::projectile_schedule::apply_player_spawn_projectile_messages,
+            )
+                .chain()
+                .in_set(CombatSet::Materialize),
+        );
+        app.add_systems(
+            sim,
+            (
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
@@ -245,10 +266,13 @@ impl Plugin for CombatSchedulePlugin {
                 // side; a dead mount releases its rider (gravity on,
                 // solo brain restored) and a dead rider clears the
                 // mount's MountSlot back-reference.
-                ambition_actors::features::enforce_mount_rider_link,
             )
                 .chain()
-                .in_set(SandboxSet::Combat),
+                .in_set(CombatSet::Resolve),
+        );
+        app.add_systems(
+            sim,
+            ambition_actors::features::enforce_mount_rider_link.in_set(CombatSet::Settle),
         );
 
         // Hand the frame's victim-side hits from the message channel to the
@@ -262,9 +286,10 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             ambition_actors::features::ecs::damage_apply::stage_player_victim_hit_events
                 .run_if(gameplay_allowed)
-                .after(ambition_actors::features::apply_feature_hit_events)
-                .before(ambition_actors::features::enforce_mount_rider_link)
-                .in_set(SandboxSet::Combat),
+                // The PHASE, not the two leaves it used to sit between: this
+                // reads the frame's resolved damage, which is what `Settle` is.
+                .in_set(CombatSet::Settle)
+                .before(ambition_actors::features::enforce_mount_rider_link),
         );
 
         // The FIFO's lifecycle guard: a room boundary voids staged hits from
@@ -290,22 +315,16 @@ impl Plugin for CombatSchedulePlugin {
         // `ContentFlavor` slots in after feature-hit resolution (so it
         // observes this frame's alive-flag transitions) and before the
         // mount/rider bookkeeping — the cut-rope block's former position.
+        // Both slots' PLACEMENT is `configure_sandbox_sets`' job now — the phase
+        // chain puts `ContentSpecials` inside `Materialize` and `ContentFlavor`
+        // between `Resolve` and `Settle`, which is exactly where the two
+        // leaf-named edges used to put them. What remains here is the one edge
+        // the phase order cannot express: a boss special must reach its content
+        // technique BEFORE the effect executors that drain its output, and both
+        // live in `Materialize`.
         app.configure_sets(
             sim,
-            (
-                CombatSet::ContentSpecials
-                    // After the enemy-action consumer — which now runs after
-                    // `dispatch_move_events`, so a boss move's `Effect{key}`
-                    // Special dispatched this frame reaches its content
-                    // technique THIS frame (same-frame doctrine, not next).
-                    .after(ambition_actors::features::spawn_enemy_projectiles_from_brain_actions)
-                    .before(ambition_vfx::apply_effects)
-                    .in_set(SandboxSet::Combat),
-                CombatSet::ContentFlavor
-                    .after(ambition_actors::features::apply_feature_hit_events)
-                    .before(ambition_actors::features::enforce_mount_rider_link)
-                    .in_set(SandboxSet::Combat),
-            ),
+            CombatSet::ContentSpecials.before(ambition_vfx::apply_effects),
         );
     }
 }

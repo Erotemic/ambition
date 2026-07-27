@@ -702,8 +702,8 @@ impl Plugin for CharacterRuntimePlugin {
                     // and `WorldPrep` both precede `Combat`), so this is the one
                     // slot where clocks and positions are simultaneously current.
                     .in_set(crate::schedule::SandboxSet::Combat)
-                    .after(crate::combat::moveset::advance_move_playback)
-                    .before(crate::combat::hitbox::apply_hitbox_damage),
+                    .after(crate::schedule::CombatSet::Playback)
+                    .before(crate::schedule::CombatSet::Resolve),
             )
             .add_systems(
                 sim,
@@ -722,7 +722,7 @@ impl Plugin for CharacterRuntimePlugin {
                 )
                     .chain()
                     .in_set(crate::schedule::SandboxSet::Combat)
-                    .before(crate::combat::moveset::advance_move_playback),
+                    .before(crate::schedule::CombatSet::Playback),
             )
             .add_systems(
                 sim,

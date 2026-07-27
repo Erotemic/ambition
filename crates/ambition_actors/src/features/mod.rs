@@ -61,8 +61,8 @@ pub use crate::combat::components;
 // over engine-owned water / ledge state and name no `crate::` type at all.
 pub mod ledge_grab;
 pub mod movement_fx;
-pub mod transform_beat;
 pub mod swim;
+pub mod transform_beat;
 pub use movement_fx::{
     advance_body_anim_overlays, arm_ground_contact_anim_overlay, arm_movement_anim_overlays,
     emit_movement_fx, handle_player_events,
@@ -245,11 +245,17 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
         sim,
         refresh_body_damageable_volumes
             .in_set(crate::schedule::SandboxSet::Combat)
-            // Authored silhouettes are resolved from sim clocks by the character
-            // runtime, which is pinned to the same window; publish after that, or
-            // a move's first active frame publishes the previous frame's volumes.
-            .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes)
-            .before(crate::combat::hitbox::apply_hitbox_damage),
+            // Victim geometry is published between the move clock and the damage
+            // pass: AFTER `Playback`, because a move's first active frame must not
+            // publish the previous frame's volumes, and BEFORE `Resolve`, because
+            // that is what reads them. Stated as PHASES — the leaf pair this used
+            // to name (`advance_move_playback` / `apply_hitbox_damage`) is the same
+            // constraint written in a way a caller cannot check.
+            .after(crate::schedule::CombatSet::Playback)
+            .before(crate::schedule::CombatSet::Resolve)
+            // The one intra-crate edge that is genuinely between two systems: the
+            // character runtime resolves the silhouette this reads.
+            .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes),
     );
 }
 

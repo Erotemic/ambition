@@ -17,7 +17,7 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer_primitives::lifecycle::simulation_authorized;
 use ambition_platformer_primitives::schedule::{
-    GameplaySimulationRoot, PlayerInputSet, SandboxSet, SimScheduleExt,
+    CombatSet, GameplaySimulationRoot, PlayerInputSet, SandboxSet, SimScheduleExt,
 };
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
@@ -114,6 +114,32 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+
+    // The phases INSIDE Combat, plus the two content slots between them. Same
+    // reasoning as `PlayerInputSet` above: this is the chain the combat schedule
+    // already had, and naming it turns "run once damage has resolved" from a leaf
+    // reference into a phase.
+    app.configure_sets(
+        sim,
+        (
+            CombatSet::Trigger,
+            CombatSet::Playback,
+            CombatSet::Materialize,
+            CombatSet::Resolve,
+            CombatSet::ContentFlavor,
+            CombatSet::Settle,
+        )
+            .chain()
+            .in_set(SandboxSet::Combat),
+    );
+    // `ContentSpecials` sits INSIDE `Materialize` rather than between phases: a
+    // boss special dispatched this frame must reach its content technique this
+    // frame, and the effect executors that drain its output are in the same
+    // phase. Nesting says that; an edge between phases would not.
+    app.configure_sets(
+        sim,
+        CombatSet::ContentSpecials.in_set(CombatSet::Materialize),
     );
 
     // Top-level chain. ResetProcessing joins the main chain (rather

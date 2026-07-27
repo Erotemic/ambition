@@ -212,20 +212,49 @@ pub struct SimulationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
-/// Content extension slots inside the [`SandboxSet::Combat`] chain.
+/// **The phases inside [`SandboxSet::Combat`], and the content slots between
+/// them.**
 ///
-/// The engine owns the generic combat spine (action consumers → effect
-/// executors → projectile step → hitbox resolution → bookkeeping); the
-/// *named* Ambition content that participates in combat hangs on these
-/// slots instead of being registered inline by the app. A content plugin
-/// adds its systems `.in_set(CombatSet::ContentSpecials)` (or
-/// `ContentFlavor`) and the app's combat schedule configures where
-/// each slot sits in the chain.
+/// The engine owns the combat spine — trigger, playback, materialize, resolve,
+/// settle — and named content hangs on [`Self::ContentSpecials`] /
+/// [`Self::ContentFlavor`] instead of being registered inline by the app.
+///
+/// The five engine phases were added 2026-07-27 for the same reason
+/// [`PlayerInputSet`] was: everything that needed to run at a point in this chain
+/// had to name a LEAF SYSTEM, which is what Task 6 rules out and what produced a
+/// `GgrsSchedule` cycle when a caller could not tell which SET a named leaf lived
+/// in. Naming the phases changed no order — this is the chain the runtime already
+/// had — but `.in_set(CombatSet::Resolve)` is a complete statement of intent and
+/// `.after(apply_feature_hit_events)` is a coupling to a name.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum CombatSet {
-    /// Per-boss special-attack Techniques (content-owned).
+    /// **Intent becomes a started move.** Cooldowns decay, an attack gesture
+    /// resolves to a verb, and a moveset move begins — for a player body and for
+    /// a boss alike.
+    Trigger,
+    /// **The move clock advances and its volumes open and close.** Strike volumes
+    /// are spawned and retired here, timed events fire, and the `BodyMelee`
+    /// read-model is projected back for every consumer that still reads it.
+    Playback,
+    /// **Declarations become entities.** Effects execute, projectiles spawn and
+    /// step, summons and programmatic actor spawns materialize. The phase that
+    /// exists because a thing must EXIST before it can hit anything — the reason
+    /// projectile presentation is stamped here rather than inherited later.
+    Materialize,
+    /// **Overlaps become damage.** Hitbox resolution, landed-hit marking, on-hit
+    /// techniques, hitbox retirement, feature-hit application.
+    Resolve,
+    /// **Post-damage bookkeeping.** Victim staging and mount/rider link
+    /// enforcement — everything that reads this tick's damage outcome rather than
+    /// producing it.
+    Settle,
+    /// Per-boss special-attack Techniques (content-owned). Sits inside
+    /// [`Self::Materialize`]: a special dispatched this frame reaches its content
+    /// technique THIS frame.
     ContentSpecials,
-    /// Post-damage encounter flavor (content-owned).
+    /// Post-damage encounter flavor (content-owned). Sits between
+    /// [`Self::Resolve`] and [`Self::Settle`], so it observes this frame's
+    /// alive-flag transitions before the bookkeeping runs.
     ContentFlavor,
 }
 

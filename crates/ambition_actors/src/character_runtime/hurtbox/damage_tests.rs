@@ -417,11 +417,17 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     app.add_systems(
         sim,
         (
-            ambition_combat::moveset::advance_move_playback,
-            apply_hitbox_damage,
-            capture_hits,
-        )
-            .in_set(crate::schedule::SandboxSet::Combat),
+            // The PHASES production puts these in, not the umbrella set. The
+            // system under test orders itself `.after(Playback).before(Resolve)`,
+            // so a fixture that drops its stand-ins into `Combat` directly leaves
+            // those edges constraining nothing and silently tests a different
+            // schedule than the one that ships.
+            ambition_combat::moveset::advance_move_playback
+                .in_set(crate::schedule::CombatSet::Playback),
+            (apply_hitbox_damage, capture_hits)
+                .chain()
+                .in_set(crate::schedule::CombatSet::Resolve),
+        ),
     );
     app.add_message::<HitEvent>();
     app.add_message::<VfxMessage>();

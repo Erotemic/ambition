@@ -26,9 +26,9 @@
 use bevy::prelude::*;
 
 use ambition_actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer_primitives::schedule::SandboxSet;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
+use ambition_platformer_primitives::schedule::{PlayerInputSet, SandboxSet};
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system
@@ -182,15 +182,37 @@ impl Plugin for PlayerSchedulePlugin {
                     ambition_actors::control::sync_local_player_input_frame,
                 )
                     .chain(),
-                // Canonical persona derive. Identity changes refresh the full
-                // persona; live BodyAbilities edits refresh only HostCode-derived
-                // kit state, preserving authored movement state. Keeping it in
-                // this chain gives deferred capability-marker commands an
-                // apply-deferred seam before the brain/effects consumers run.
-                ambition_actors::avatar::apply_worn_character_gameplay,
-                // Universal-brain seam: translate this frame's slot input into
-                // each controlled body's ActorControl frame.
-                ambition_actors::avatar::tick_player_brains,
+            )
+                .chain()
+                .in_set(PlayerInputSet::Device)
+                .after(ambition_dev_tools::DevEditApplySet),
+        );
+
+        // The rest of what used to be one long chain, now placed by PHASE.
+        //
+        // The systems and their order are unchanged; what changed is that each
+        // one states which phase it belongs to, so a caller elsewhere can order
+        // against the phase instead of against a name. `PlayerInputSet` carries
+        // the argument, including the schedule cycle the leaf-naming style cost
+        // on 2026-07-27.
+        app.add_systems(
+            sim,
+            // Canonical persona derive. Identity changes refresh the full
+            // persona; live BodyAbilities edits refresh only HostCode-derived
+            // kit state, preserving authored movement state. Its own phase gives
+            // deferred capability-marker commands an apply-deferred seam before
+            // the brain/effects consumers run.
+            ambition_actors::avatar::apply_worn_character_gameplay.in_set(PlayerInputSet::Persona),
+        );
+        app.add_systems(
+            sim,
+            // Universal-brain seam: translate this frame's slot input into
+            // each controlled body's ActorControl frame.
+            ambition_actors::avatar::tick_player_brains.in_set(PlayerInputSet::Brain),
+        );
+        app.add_systems(
+            sim,
+            (
                 // A body a scripted sequence is driving (a death beat, a
                 // flagpole slide, an act clear) stops answering input HERE —
                 // after the brain wrote the frame, before anything reads it.
@@ -208,16 +230,22 @@ impl Plugin for PlayerSchedulePlugin {
                 // the same kernel path a held guard does. After the gate (which
                 // keeps the persona's shield verb alive), before WorldPrep.
                 ambition_actors::avatar::sustain_bubble_shield,
+            )
+                .chain()
+                .in_set(PlayerInputSet::ControlGate),
+        );
+        app.add_systems(
+            sim,
+            (
                 // Body-mode policy (crouch / morph / climb) consumes the
                 // CONTROLLED body's freshly-produced ActorControl + its slot
-                // gestures, so it runs AFTER `tick_player_brains` and before
+                // gestures, so it runs AFTER the brain phase and before
                 // WorldPrep movement consumes the resize/mode change.
                 ambition_actors::body_mode::update_body_mode,
                 ambition_actors::avatar::sync_player_actor_poses,
             )
                 .chain()
-                .in_set(SandboxSet::PlayerInput)
-                .after(ambition_dev_tools::DevEditApplySet),
+                .in_set(PlayerInputSet::BodyMode),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST

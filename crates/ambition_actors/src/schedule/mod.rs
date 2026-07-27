@@ -12,7 +12,7 @@ mod input_systems;
 mod schedule;
 
 pub use ambition_platformer_primitives::schedule::{
-    BossSteerSlot, CombatSet, PresentationSetupSet, SandboxSet, SimulationSetupSet,
+    BossSteerSlot, CombatSet, PlayerInputSet, PresentationSetupSet, SandboxSet, SimulationSetupSet,
 };
 pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]

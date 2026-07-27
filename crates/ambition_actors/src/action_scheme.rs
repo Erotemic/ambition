@@ -88,8 +88,8 @@ pub struct ActionSchemePlugin;
 impl Plugin for ActionSchemePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Ordered AFTER the authority-mutation step (`apply_worn_character_gameplay`
-        // rewrites `ActionSet`/`ActorMoveset` on a kit swap), so this observation
+        // Ordered AFTER the persona PHASE (which rewrites `ActionSet`/`ActorMoveset`
+        // on a kit swap), so this observation
         // cache reflects the CURRENT tick's kit — not a one-tick-lagged view. It
         // is not on the drift-critical path (the gate and the prompt both re-derive
         // from the immediate authorities directly), but keeping the cache
@@ -103,7 +103,7 @@ impl Plugin for ActionSchemePlugin {
             sim,
             (
                 crate::equipment::reconcile_equipment_grants
-                    .after(crate::avatar::apply_worn_character_gameplay),
+                    .after(crate::schedule::PlayerInputSet::Persona),
                 reconcile_action_schemes.after(crate::equipment::reconcile_equipment_grants),
             )
                 .in_set(SandboxSet::PlayerInput),

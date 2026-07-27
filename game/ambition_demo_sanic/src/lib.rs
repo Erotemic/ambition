@@ -1002,7 +1002,10 @@ impl Plugin for SanicRulesPlugin {
                 sim,
                 sync_hosted_sanic_wallet_shield
                     .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-                    .after(ambition::actors::avatar::apply_worn_character_gameplay)
+                    // D7: the PHASE, not the leaf. A provider ordering against
+                    // `apply_worn_character_gameplay` is coupled to a name the
+                    // engine may rename or split; `Persona` is the contract.
+                    .after(ambition::platformer::schedule::PlayerInputSet::Persona)
                     .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         } else {
@@ -1010,7 +1013,10 @@ impl Plugin for SanicRulesPlugin {
                 sim,
                 sync_sanic_wallet_shield
                     .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-                    .after(ambition::actors::avatar::apply_worn_character_gameplay)
+                    // D7: the PHASE, not the leaf. A provider ordering against
+                    // `apply_worn_character_gameplay` is coupled to a name the
+                    // engine may rename or split; `Persona` is the contract.
+                    .after(ambition::platformer::schedule::PlayerInputSet::Persona)
                     .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         }

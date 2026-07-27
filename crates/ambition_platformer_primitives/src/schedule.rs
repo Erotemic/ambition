@@ -313,6 +313,52 @@ pub enum SandboxSet {
     Trace,
 }
 
+/// **The phases inside [`SandboxSet::PlayerInput`], as an orderable vocabulary.**
+///
+/// `PlayerInput` is one set containing a single long `.chain()`, and for a while
+/// that meant anything needing to run at a particular point in it had to name a
+/// LEAF SYSTEM — `.after(apply_worn_character_gameplay)`, `.before(..)` — which
+/// the engine roadmap's Task 6 explicitly rules out ("runtime orders semantic
+/// sets rather than naming leaf systems"). Two costs, both paid:
+///
+/// * A caller cannot tell which SET a named leaf lives in. On 2026-07-27 that
+///   produced a `GgrsSchedule` before/after cycle: a system was ordered
+///   `.in_set(Combat).before(apply_worn_character_gameplay)`, and that leaf turns
+///   out to live in `PlayerInput`, which precedes `Combat`. Nothing in the call
+///   site could have revealed it.
+/// * An external consumer ordering against a leaf is coupled to a name the engine
+///   is free to rename or split. Ordering against a phase is not.
+///
+/// The variants are the phases the chain already had; naming them changed no
+/// order. They are chained in [`SandboxSet::PlayerInput`], so
+/// `.in_set(PlayerInputSet::Persona)` is a complete statement of intent.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum PlayerInputSet {
+    /// This frame's device input reaches the slot model: timers, interaction
+    /// buffer, the controlled subject, `SlotControls`, the input-stream
+    /// recorder, and the per-body `PlayerInputFrame` mirror.
+    Device,
+    /// Content-declared character data lands on the body — a registered
+    /// `CharacterDefinition`'s moveset and silhouette — BEFORE the persona is
+    /// constructed from it. Its own phase because the dependency is real:
+    /// [`Self::Persona`] treats what this projects as its baseline.
+    CharacterProjection,
+    /// The canonical persona derive: action set, moveset and identity kit built
+    /// together, with equipment grants overlaid. The phase most external code
+    /// wants to order against, and the one that was hardest to name before.
+    Persona,
+    /// The universal-brain seam: this frame's slot input becomes each controlled
+    /// body's `ActorControl`.
+    Brain,
+    /// Everything that may VETO or rewrite the control frame the brain just
+    /// wrote — scripted blanking, worn-kit gating, a sustained shield. After the
+    /// brain, before anything reads the frame.
+    ControlGate,
+    /// Body-mode policy (crouch / morph / climb) and the actor pose sync, both
+    /// of which consume the finished control frame.
+    BodyMode,
+}
+
 /// Bevy run condition: returns `true` only in [`GameMode::Playing`].
 ///
 /// Use this to gate simulation systems that must not run while paused,

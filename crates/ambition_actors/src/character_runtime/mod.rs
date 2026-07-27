@@ -733,14 +733,14 @@ impl Plugin for CharacterRuntimePlugin {
                 // erased equipment-granted moves; the two agree now because
                 // `apply_worn_character_kit` consults the same registry.
                 //
-                // In `PlayerInput` because that is the set the persona construction
-                // lives in. Ordering it from `Combat` — which the move clock also
-                // runs in — closed a cycle through the set edges (`PlayerInput`
-                // precedes `Combat`), and no minimal-App test could see it: the
-                // cycle only exists once the player schedule is installed.
+                // Named as a PHASE, which is the whole point of D7. This used to
+                // read `.in_set(Combat).before(apply_worn_character_gameplay)` —
+                // and that leaf lives in `PlayerInput`, which PRECEDES `Combat`,
+                // so the edge closed a cycle through the set ordering and nothing
+                // at the call site could have revealed it. A phase name cannot
+                // make that mistake: the set says where it runs.
                 presentation::project_prepared_character_definitions
-                    .in_set(crate::schedule::SandboxSet::PlayerInput)
-                    .before(crate::avatar::apply_worn_character_gameplay),
+                    .in_set(crate::schedule::PlayerInputSet::CharacterProjection),
             )
             .add_systems(
                 Update,

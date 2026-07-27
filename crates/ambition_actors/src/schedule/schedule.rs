@@ -17,7 +17,7 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer_primitives::lifecycle::simulation_authorized;
 use ambition_platformer_primitives::schedule::{
-    GameplaySimulationRoot, SandboxSet, SimScheduleExt,
+    GameplaySimulationRoot, PlayerInputSet, SandboxSet, SimScheduleExt,
 };
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
@@ -96,6 +96,24 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::CoreSimulation),
+    );
+
+    // The phases INSIDE PlayerInput. Naming them changed no order — this is the
+    // chain `register_player_input_systems` already had — but it turns "run after
+    // the persona is built" from a leaf-system reference into a statement about a
+    // phase. See `PlayerInputSet` for why that distinction cost a schedule cycle.
+    app.configure_sets(
+        sim,
+        (
+            PlayerInputSet::Device,
+            PlayerInputSet::CharacterProjection,
+            PlayerInputSet::Persona,
+            PlayerInputSet::Brain,
+            PlayerInputSet::ControlGate,
+            PlayerInputSet::BodyMode,
+        )
+            .chain()
+            .in_set(SandboxSet::PlayerInput),
     );
 
     // Top-level chain. ResetProcessing joins the main chain (rather

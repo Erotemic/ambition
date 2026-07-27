@@ -363,13 +363,29 @@ pub fn advance_move_playback(
         Option<&ambition_sfx::BodyPresentationSource>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
+        // I4: the owner's rollback-stable identity, so the transient strike volume
+        // it opens can derive one. Without it every anonymous hitbox folded to the
+        // same constant in the entity-reference probes, and swapped owners were
+        // invisible. `None` (a bare test body) simply mints nothing.
+        Option<&ambition_platformer_primitives::sim_id::SimId>,
     )>,
     // Liveness oracle for the `live_boxes` cache. The cache is NOT the
     // authority — `(t, window)` is — so every cached slot is validated against
     // the world before it is believed. See the `(inside, Some(slot))` arm.
     live_strike_volumes: Query<(), With<StrikeVolume>>,
 ) {
-    for (owner, mut playback, faction, brain, config, worn, body_source, kin, scale) in &mut players
+    for (
+        owner,
+        mut playback,
+        faction,
+        brain,
+        config,
+        worn,
+        body_source,
+        kin,
+        scale,
+        owner_sim_id,
+    ) in &mut players
     {
         let strike_faction = crate::targeting::effective_faction(*faction, brain);
         let character_id = worn
@@ -492,7 +508,7 @@ pub fn advance_move_playback(
                     // smash lands harder than a tap. `1.0` (every non-charge move)
                     // leaves damage/knockback byte-identical — parity.
                     let charge_scale = pb.spec.charge_scale_at(t);
-                    for volume in &window.volumes {
+                    for (v_idx, volume) in window.volumes.iter().enumerate() {
                         // §7.1: a vfx-tagged (bladed) volume prefers the owner's
                         // AUTHORED manifest hit polygon for this move's clip —
                         // the box you author and see in `debug-hitboxes` IS the
@@ -626,6 +642,23 @@ pub fn advance_move_playback(
                                 window: w_idx,
                             },
                         ));
+                        // I4: a stable identity for the transient box, derived from
+                        // rollback state only (owner id, move, window, volume) so
+                        // the resim mints the same one. It is what the
+                        // entity-reference probes fold the CARRIER through; an
+                        // anonymous carrier makes a permutation among carriers
+                        // invisible, which is precisely the case those probes exist
+                        // for.
+                        if let Some(owner_sim_id) = owner_sim_id {
+                            ec.insert(
+                                ambition_platformer_primitives::sim_id::SimId::strike_volume(
+                                    owner_sim_id,
+                                    pb.spec.id.as_str(),
+                                    w_idx,
+                                    v_idx,
+                                ),
+                            );
+                        }
                         // Conditional on-hit technique (pogo, lifesteal, …): a
                         // volume authoring `on_hit` gets the sidecar the
                         // `dispatch_hitbox_on_hit` primitive reads (fable AJ1).

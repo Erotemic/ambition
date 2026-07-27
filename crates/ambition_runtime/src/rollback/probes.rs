@@ -460,6 +460,12 @@ where
 /// degrades to redirect-only for a bolt whose firer has no authored identity. Stated
 /// rather than assumed, because the whole point of `ProbeStrength` is that an
 /// instrument's reach should be written down and not inferred from its name.
+///
+/// Strike volumes USED to be the worst case here — `Hitbox`/`StrikeVolume`/
+/// `HitboxHits` all ride on them, and they spawned anonymous, so every one folded
+/// to the same constant and the pair projection collapsed for exactly the carriers
+/// it was added for. They now derive `SimId::strike_volume(owner, move, window,
+/// volume)` at spawn; a bare test body with no owner id still mints nothing.
 fn stable_identity(world: &World, entity: Entity) -> u64 {
     match world.get::<ambition_platformer_primitives::sim_id::SimId>(entity) {
         Some(id) => super::checksum_bytes(id.as_str().as_bytes()),

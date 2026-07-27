@@ -76,6 +76,24 @@ impl SimId {
         Self(format!("{}/{sequence}", spawner.0))
     }
 
+    /// A strike volume: the transient hitbox a move's active window opens.
+    ///
+    /// DERIVED, not sequenced — which is why it is not [`Self::spawned`]. A
+    /// counter would be wrong here: the box is opened and closed by window
+    /// membership, so the same volume of the same window of the same move
+    /// re-opens many times over a match and each re-open would mint a new number.
+    /// `(owner, move, window, volume)` determines it completely, and at most one
+    /// box per tuple is ever live, so the derived form is both stable and unique.
+    ///
+    /// Why it needs an id at all: these carry rollback state (`Hitbox`,
+    /// `StrikeVolume`, `HitboxHits`) whose probes project through the CARRIER's
+    /// identity. With no id every anonymous carrier folded to the same constant,
+    /// so two simultaneous hitboxes with SWAPPED owners hashed identically — the
+    /// exact permutation the pair projection was added to catch.
+    pub fn strike_volume(owner: &SimId, move_id: &str, window: usize, volume: usize) -> Self {
+        Self(format!("{}/strike/{move_id}/w{window}/v{volume}", owner.0))
+    }
+
     /// Rebuild an id from a snapshot blob's key.
     ///
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its

@@ -508,6 +508,31 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
                  hole `Rollback` was added to the population to close"
             );
         }
+        // I4 (GPT 5.6 review 5): being in the population is not enough. The
+        // entity-reference probes over `Hitbox`/`StrikeVolume`/`HitboxHits` fold
+        // each carrier through its `SimId`, and these spawned WITHOUT one — so
+        // every anonymous carrier contributed the same constant and two live
+        // hitboxes with swapped owners hashed identically. That is the exact
+        // permutation the pair projection was added to catch, defeated on the one
+        // family it was added for. Checked here rather than in a unit fixture
+        // because the claim is about the box the real move path opens.
+        let unidentified: Vec<Entity> = {
+            let world = sim.world_mut();
+            live.iter()
+                .copied()
+                .filter(|volume| {
+                    world
+                        .get::<ambition::platformer::sim_id::SimId>(*volume)
+                        .is_none()
+                })
+                .collect()
+        };
+        assert!(
+            unidentified.is_empty(),
+            "{} live strike volume(s) carry no `SimId`, so the entity-reference \
+             probes cannot tell them apart: {unidentified:?}",
+            unidentified.len(),
+        );
         swept_with_a_live_volume += 1;
         assert_components_accounted(&mut sim, "combat_calibration_lab (live strike volume)");
     }

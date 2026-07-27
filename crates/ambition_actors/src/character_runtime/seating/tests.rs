@@ -334,3 +334,111 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
          so `sync_local_player_input_frame` will never hand it its slot's input"
     );
 }
+
+/// **A 2v2: teammates cannot hit each other, opponents can.** (queue L17)
+///
+/// `MatchTeam` was landed with a unit test over the pure relation and nothing
+/// else, because every stage that seats a roster is 1v1 — so the property teams
+/// exist FOR was proven only in a function. This seats four fighters on two
+/// teams and asks the real damage relation about each pair.
+///
+/// It is also the first thing to seat more than two, which is what the seating
+/// spread and the per-seat retry were written to handle and had never been
+/// asked to do.
+#[test]
+fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
+    use crate::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+
+    let mut app = seating_app();
+    for id in ["alpha", "beta", "gamma", "delta"] {
+        app.register_character(CharacterDefinition::new(id, id, "arena"));
+    }
+    // Blue, BLUE, red, red — teams that DISAGREE with the factions.
+    //
+    // `faction_for` alternates Player/Enemy by seat index, so a blue-red-blue-red
+    // roster would have teams and factions saying the same thing and the test
+    // would pass without the team rule existing. (The meaningfulness assertion at
+    // the bottom caught exactly that on the first run.) Pairing adjacent seats
+    // instead makes every interesting case appear at once: teammates with
+    // DIFFERENT factions who must not hit each other, and opponents with the SAME
+    // faction who must.
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            cpu("alpha").on_team("blue"),
+            cpu("beta").on_team("blue"),
+            cpu("gamma").on_team("red"),
+            cpu("delta").on_team("red"),
+        ],
+    });
+    app.update();
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        Entity,
+        &MatchSeat,
+        &MatchTeam,
+        &crate::combat::components::ActorFaction,
+    )>();
+    let mut fighters: Vec<(
+        Entity,
+        usize,
+        String,
+        crate::combat::components::ActorFaction,
+    )> = q
+        .iter(world)
+        .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))
+        .collect();
+    fighters.sort_by_key(|(_, seat, ..)| *seat);
+    assert_eq!(
+        fighters.len(),
+        4,
+        "a four-participant roster seated {} bodies — seating has never been \
+         asked for more than two",
+        fighters.len()
+    );
+    assert_eq!(
+        fighters
+            .iter()
+            .map(|(_, _, team, _)| team.as_str())
+            .collect::<Vec<_>>(),
+        vec!["blue", "blue", "red", "red"],
+        "the declared teams did not reach the bodies"
+    );
+
+    let no_ff = FriendlyFire { enabled: false };
+    for (entity, seat, team, faction) in &fighters {
+        for (other_entity, other_seat, other_team, other_faction) in &fighters {
+            if entity == other_entity {
+                continue;
+            }
+            let lands = damage_lands_between(
+                *faction,
+                *other_faction,
+                Some(&MatchTeam::new(team.clone())),
+                Some(&MatchTeam::new(other_team.clone())),
+                no_ff,
+                None,
+                *other_entity,
+            );
+            assert_eq!(
+                lands,
+                team != other_team,
+                "seat {seat} ({team}) vs seat {other_seat} ({other_team}): \
+                 expected the hit to land only across teams"
+            );
+        }
+    }
+
+    // Both override directions really are present, or the loop above proves
+    // nothing the faction rule would not have decided by itself.
+    assert_ne!(
+        fighters[0].3, fighters[1].3,
+        "teammates must have DIFFERENT factions here, or 'they cannot hit each \
+         other' is just the faction rule"
+    );
+    assert_eq!(
+        fighters[0].3, fighters[2].3,
+        "opponents must share a faction here, or 'they can hit each other' is \
+         just the faction rule"
+    );
+}

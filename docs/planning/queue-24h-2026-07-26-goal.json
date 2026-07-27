@@ -168,6 +168,16 @@
       "name": "D8 the CONTACT scenario family is rewound and checksum-compared",
       "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_contact::contact_state_survives_real_rewind_and_resimulation 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
+    },
+    {
+      "name": "K3 a shrine records a checkpoint and the next session resumes there",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors shrine::tests::resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "K6 the SimId encoding is injective (two entities cannot share an identity)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer_primitives sim_id::tests::the_id_encoding_is_injective_over_adversarial_segments 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "timeout": 900
     }
   ]
 }

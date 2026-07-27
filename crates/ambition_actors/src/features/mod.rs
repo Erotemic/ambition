@@ -438,9 +438,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // The ONE movement phase for every non-boss sim body: actor bodies
                 // AND home/player bodies integrate here, through the same engine
                 // entry. (`player_body_tick` in `PlayerSimulation` is gone.)
-                integrate_sim_bodies,
+                //
+                // It carries `WorldPrepSet::Integrate` so a consumer — in this
+                // crate or in a game — can say "before bodies move" or "after they
+                // land" without naming this function.
+                integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
                 sync_actor_read_model,
-                apply_actor_contact_damage,
+                apply_actor_contact_damage.in_set(crate::schedule::WorldPrepSet::ContactDamage),
             )
                 .chain()
                 .after(select_actor_targets)
@@ -458,8 +462,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::character_sprites::sync_sprite_posed_bodies
-                .before(integrate_sim_bodies)
-                .in_set(crate::schedule::SandboxSet::WorldPrep),
+                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
         );
         // The body-orientation righting reflex: feet toward gravity — or, for a
         // riding momentum body, feet onto the ridden surface via the
@@ -474,8 +477,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 ambition_platformer_primitives::orientation::update_actor_roll,
             )
                 .chain()
-                .after(integrate_sim_bodies)
-                .in_set(crate::schedule::SandboxSet::WorldPrep),
+                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
         );
         // Settle decided feuds before targeting reads grudges: a body forgets a slain
         // foe (won't re-aggro if it revives) and a defeated body forgets its own feud
@@ -513,8 +515,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 .after(steer_mount_from_rider)
-                .before(integrate_sim_bodies)
-                .in_set(crate::schedule::SandboxSet::WorldPrep),
+                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
         );
         app.configure_sets(
             sim,

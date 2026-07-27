@@ -80,8 +80,8 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::TransitGuards
-                .in_set(SandboxSet::WorldPrep)
-                .before(ambition_actors::features::integrate_sim_bodies)
+                // The PHASE, not the movement system's name.
+                .in_set(ambition_platformer_primitives::schedule::WorldPrepSet::BeforeIntegrate)
                 .run_if(gameplay_allowed),
         );
 

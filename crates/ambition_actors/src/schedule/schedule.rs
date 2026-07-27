@@ -18,7 +18,7 @@ use bevy::prelude::*;
 use ambition_platformer_primitives::lifecycle::simulation_authorized;
 use ambition_platformer_primitives::schedule::{
     CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, SandboxSet,
-    SimScheduleExt,
+    SimScheduleExt, WorldPrepSet,
 };
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
@@ -115,6 +115,26 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+
+    // The movement anchor inside WorldPrep. Three placement sets around the one
+    // movement system, NOT a decomposition of the chain — see `WorldPrepSet` for
+    // why that restraint is deliberate.
+    app.configure_sets(
+        sim,
+        (
+            WorldPrepSet::BeforeIntegrate,
+            WorldPrepSet::Integrate,
+            WorldPrepSet::AfterIntegrate,
+        )
+            .chain()
+            .in_set(SandboxSet::WorldPrep),
+    );
+    // A LABEL, not a chain position: see `WorldPrepSet::ContactDamage` for why
+    // chaining it would add edges nobody chose.
+    app.configure_sets(
+        sim,
+        WorldPrepSet::ContactDamage.in_set(SandboxSet::WorldPrep),
     );
 
     // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the

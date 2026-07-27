@@ -1442,9 +1442,10 @@ impl Plugin for MaryORulesPlugin {
             ai_slop::bounce_squash_ai_slop,
         )
             .chain()
-            .after(ambition::actors::features::integrate_sim_bodies)
-            .before(ambition::actors::features::apply_actor_contact_damage)
-            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep);
+            // Both edges are PHASES now, which is the same statement without a
+            // game crate reaching for two engine function names.
+            .in_set(ambition::platformer::schedule::WorldPrepSet::AfterIntegrate)
+            .before(ambition::platformer::schedule::WorldPrepSet::ContactDamage);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
         // wearing the cap. The engine's `collect_world_items` (touch → equip) sits

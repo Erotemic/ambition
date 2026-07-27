@@ -388,6 +388,53 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
+/// **The movement anchor inside [`SandboxSet::WorldPrep`].**
+///
+/// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full
+/// decomposition of its set. `WorldPrep` is the biggest chain in the engine, its
+/// actor and boss sub-chains interleave through two anchors, and its own comments
+/// record a before/after CYCLE that panicked the app at startup in 2026-07-05.
+/// Splitting it wholesale is a large change with a startup-crash failure mode and
+/// almost no consumer-facing payoff — an audit of every `.before`/`.after` naming
+/// a `WorldPrep` system found exactly ONE leaf reached from another crate.
+///
+/// That one is worth naming, because it is the question every game asks: *does my
+/// system run before bodies move, or after they have landed?* Mary-O's stomp
+/// classifier asks it (a stomp is classified from RESOLVED positions) and so does
+/// the portal transit schedule.
+///
+/// These are placement sets around the existing anchor, not a restructuring:
+/// [`Self::Integrate`] contains the one movement system, and the two neighbours
+/// are where a consumer joins.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum WorldPrepSet {
+    /// **Before any non-boss body moves.** A system here still sees last frame's
+    /// resolved positions and can change what the movement phase will sweep — a
+    /// posed collision box, a routed limb intent, a portal carve.
+    BeforeIntegrate,
+    /// **The ONE movement phase** for every non-boss sim body: actor bodies and
+    /// the home/player body integrate through the same engine entry.
+    Integrate,
+    /// **After bodies have landed.** Positions and contacts are resolved, which is
+    /// what a contact classifier needs — classifying a stomp from pre-movement
+    /// positions is a stomp that reads the wrong frame.
+    AfterIntegrate,
+    /// **The shared body-contact damage pass**, as a boundary a consumer can order
+    /// against.
+    ///
+    /// Deliberately NOT chained after [`Self::AfterIntegrate`]. Chaining it would
+    /// add an ordering that does not exist today — everything in `AfterIntegrate`
+    /// would suddenly be required to precede contact damage — and a refactor that
+    /// silently adds edges is how a schedule acquires constraints nobody chose.
+    /// It is a label on an existing system, and a consumer that needs to run
+    /// before contact damage says so itself.
+    ///
+    /// Mary-O's stomp rules are the reason it exists: a stomp must resolve the
+    /// enemy (snake to shell, walker to dead) in time for this pass to skip it, or
+    /// the stomper is also hurt.
+    ContactDamage,
+}
+
 /// **The phases inside [`SandboxSet::PlayerSimulation`].**
 ///
 /// Third of the six `SandboxSet` phases to get named sub-sets (after

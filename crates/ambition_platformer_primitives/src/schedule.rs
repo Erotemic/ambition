@@ -388,6 +388,30 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
+/// **The phases inside [`SandboxSet::RoomTransition`].**
+///
+/// Same shape, and same reason, as [`PlayerSimulationSet`]: this set carried an
+/// ordering slot described in prose — *"the host's transition APPLY slots in
+/// between"* — with the two systems it slots between named as leaves from another
+/// crate. The engine fills that slot itself now (the readiness transaction and
+/// the authorized commit), which makes it more important to name and not less: a
+/// game replacing the transition policy needs somewhere to put it.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum RoomTransitionSet {
+    /// **Has a transition been requested?** Edge/door/walk detection publishes the
+    /// intent; nothing has moved yet.
+    Detect,
+    /// **The transaction: readiness, authorization, commit.** The slot the module
+    /// docs used to describe in a sentence. A game that replaces the transition
+    /// policy replaces what is here.
+    Apply,
+    /// **Per-room feature reset** over the unified actor cluster, once the
+    /// transition has committed. `ContentRoomResetSet` follows it, and generic
+    /// plugins (gravity, portal) order against that SET rather than against any
+    /// content system.
+    Reset,
+}
+
 /// **The movement anchor inside [`SandboxSet::WorldPrep`].**
 ///
 /// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full

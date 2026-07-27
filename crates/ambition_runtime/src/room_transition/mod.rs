@@ -36,7 +36,7 @@ mod prefetch;
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 pub use commit::{commit_ready_room_transition_system, RoomClock, RoomTransitionEffects};
 pub use loading::{
@@ -85,9 +85,8 @@ impl Plugin for RoomTransitionComposerPlugin {
                 commit_ready_room_transition_system,
             )
                 .chain()
-                .in_set(SandboxSet::RoomTransition)
-                .after(ambition_actors::rooms::detect_room_transition_system)
-                .before(ambition_actors::features::reset_ecs_room_features),
+                // THE transaction phase — detection has run, the reset has not.
+                .in_set(ambition_platformer_primitives::schedule::RoomTransitionSet::Apply),
         );
     }
 }

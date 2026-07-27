@@ -3,18 +3,21 @@
 //! system tears down per-room ECS state.
 //!
 //! The PREPARE + COMMIT steps — consuming the request, proving target
-//! readiness, loading room geometry, and spawning presentation — are the
-//! host/composition tier's job (the W1 composer): the Ambition app registers its
-//! readiness-transaction + authorized-commit chain
-//! `.after(detect_room_transition_system)
-//! .before(reset_ecs_room_features)` in `SandboxSet::RoomTransition`. A demo
-//! host registers its own composer in the same gap.
+//! readiness, loading room geometry, and spawning presentation — live in
+//! [`RoomTransitionSet::Apply`], the phase between detection and reset. The
+//! engine fills it today (`crate::room_transition`); a game replacing the
+//! transition policy replaces what is in that set.
+//!
+//! It used to be described here as a gap a host pins itself into with
+//! `.after(detect_room_transition_system).before(reset_ecs_room_features)` — two
+//! engine leaf names in a sentence a host had to trust. Naming the phase is the
+//! same arrangement with the trust removed.
 
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::gameplay_allowed;
-use ambition_platformer_primitives::schedule::SandboxSet;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer_primitives::schedule::{RoomTransitionSet, SandboxSet};
 
 /// Registers room-transition detection + the per-room feature reset, and
 /// anchors the content room-reset slot. Part of
@@ -27,13 +30,14 @@ impl Plugin for RoomTransitionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_actors::rooms::detect_room_transition_system.run_if(gameplay_allowed),
+                ambition_actors::rooms::detect_room_transition_system
+                    .run_if(gameplay_allowed)
+                    .in_set(RoomTransitionSet::Detect),
                 // One reset over the unified actor cluster (NPCs + enemies).
-                // The host's transition APPLY slots in between (module docs).
-                ambition_actors::features::reset_ecs_room_features,
-            )
-                .chain()
-                .in_set(SandboxSet::RoomTransition),
+                // `RoomTransitionSet::Apply` is the phase between them — a real
+                // slot now, where the module docs used to describe one.
+                ambition_actors::features::reset_ecs_room_features.in_set(RoomTransitionSet::Reset),
+            ),
         );
         // Anchor the content room-reset slot AFTER the engine's feature reset.
         // Content plugins register their reset systems in the slot; generic
@@ -43,7 +47,8 @@ impl Plugin for RoomTransitionSchedulePlugin {
             sim,
             ambition_actors::session::reset::ContentRoomResetSet
                 .in_set(SandboxSet::RoomTransition)
-                .after(ambition_actors::features::reset_ecs_room_features),
+                // The PHASE, not the reset system's name.
+                .after(RoomTransitionSet::Reset),
         );
     }
 }

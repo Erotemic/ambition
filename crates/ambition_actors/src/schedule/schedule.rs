@@ -17,8 +17,8 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer_primitives::lifecycle::simulation_authorized;
 use ambition_platformer_primitives::schedule::{
-    CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, SandboxSet,
-    SimScheduleExt, WorldPrepSet,
+    CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
+    SandboxSet, SimScheduleExt, WorldPrepSet,
 };
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
@@ -115,6 +115,19 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+
+    // The phases INSIDE RoomTransition. `Apply` is the transaction slot the
+    // module docs used to describe in prose.
+    app.configure_sets(
+        sim,
+        (
+            RoomTransitionSet::Detect,
+            RoomTransitionSet::Apply,
+            RoomTransitionSet::Reset,
+        )
+            .chain()
+            .in_set(SandboxSet::RoomTransition),
     );
 
     // The movement anchor inside WorldPrep. Three placement sets around the one

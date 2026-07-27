@@ -150,7 +150,6 @@ fn apply_load_commands(
 #[cfg(test)]
 mod composition_tests {
     use super::*;
-    use bevy::prelude::*;
 
     /// **Adding the load coordinator twice, in either order, must not crash.**
     ///

@@ -1109,3 +1109,97 @@ fn every_seated_fighter_has_something_on_screen() {
         );
     }
 }
+
+/// **Four controllers make it a 2v2.** (queue L19)
+///
+/// L17 proved a 2v2 works through seating; nothing a player could PICK offered
+/// one, and `SlotControls` slots 2 and 3 had never carried a real device.
+///
+/// This is also the arrangement teams were built for. With four human fighters
+/// `effective_faction` maps every one of them to `ActorFaction::Player`, so
+/// faction distinguishes nobody and `MatchTeam` is the only thing deciding who
+/// may hit whom — a 2v2 is not a bigger 1v1, it is the first arrangement where
+/// the relation is load-bearing.
+#[test]
+fn four_controllers_make_versus_a_two_versus_two() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+
+    let mut app = versus_app();
+    for _ in 0..4 {
+        app.world_mut().spawn(Gamepad::default());
+    }
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 4 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        Entity,
+        &MatchSeat,
+        &MatchTeam,
+        &ambition::actors::combat::components::ActorFaction,
+    )>();
+    let mut fighters: Vec<(
+        Entity,
+        usize,
+        String,
+        ambition::actors::combat::components::ActorFaction,
+    )> = q
+        .iter(world)
+        .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))
+        .collect();
+    fighters.sort_by_key(|(_, seat, ..)| *seat);
+    assert_eq!(
+        fighters.len(),
+        4,
+        "four controllers seated {} fighters — the stage still only offers a 1v1",
+        fighters.len()
+    );
+
+    // Partners stand on the same SIDE, which is what `seat_for`'s alternation
+    // means: evens left, odds right. A 2v2 whose partners start opposite each
+    // other is two 1v1s sharing a screen.
+    assert_eq!(
+        fighters
+            .iter()
+            .map(|(_, _, team, _)| team.as_str())
+            .collect::<Vec<_>>(),
+        vec!["blue", "red", "blue", "red"]
+    );
+
+    // And the relation actually decides. Every ordered pair.
+    let no_ff = FriendlyFire { enabled: false };
+    for (entity, seat, team, faction) in &fighters {
+        for (other, other_seat, other_team, other_faction) in &fighters {
+            if entity == other {
+                continue;
+            }
+            assert_eq!(
+                damage_lands_between(
+                    *faction,
+                    *other_faction,
+                    Some(&MatchTeam::new(team.clone())),
+                    Some(&MatchTeam::new(other_team.clone())),
+                    no_ff,
+                    None,
+                    *other,
+                ),
+                team != other_team,
+                "seat {seat} ({team}) vs seat {other_seat} ({other_team}): a hit \
+                 must land across teams and never within one"
+            );
+        }
+    }
+}

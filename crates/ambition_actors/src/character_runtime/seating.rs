@@ -424,6 +424,15 @@ pub fn seat_match_participants(
                 MatchSeat(index),
                 crate::combat::components::RulesetOwnsDeath,
             ));
+            // The TEAM, which this branch dropped when the death-ownership
+            // insert was added over it. A seat with no team is judged by FACTION
+            // alone, and `effective_faction` maps every player-brained body to
+            // `Player` — so in an all-human match the adopted seat 0 could not
+            // be hit by anybody, which is the 1v1 rigging bug again wearing a
+            // different hat. Found by the 2v2 test (2026-07-27).
+            if let Some(team) = team_tag.clone() {
+                commands.entity(body).insert(team);
+            }
             seated_count += 1;
             continue;
         }

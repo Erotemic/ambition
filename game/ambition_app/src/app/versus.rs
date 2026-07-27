@@ -133,25 +133,47 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// must not silently hand player two's fighter to the AI, and a pad plugged in
 /// mid-match must not spawn a third body into a running fight; both are
 /// mid-match roster edits, which is a rule change, and this stage has no rules.
+/// Up to four seats: 1v1 with two controllers, 2v2 with four.
+///
+/// The seat count follows the controllers because that is the least ceremonious
+/// honest signal — four pads is four people, and a lobby screen asking how many
+/// players there are would stand between a stranger and the thing they came to
+/// see.
+///
+/// TEAMS FOLLOW SIDES. `seat_for` alternates left/right by index, so evens stand
+/// together and odds stand together; pairing the teams the same way puts
+/// partners on the same side of the arena rather than opposite each other.
+///
+/// It is also the case teams were built for. With four HUMAN fighters,
+/// `effective_faction` maps every one of them to `ActorFaction::Player` — so
+/// faction distinguishes nobody and `MatchTeam` is the only thing that decides
+/// who may hit whom. A 2v2 is not a bigger 1v1; it is the first arrangement
+/// where the relation is load-bearing.
 pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
-    let opponent = if local_players > 1 {
-        ControllerBinding::Human { device_slot: 1 }
-    } else {
-        ControllerBinding::Cpu {
-            brain_profile: Some("medium_striker".into()),
-        }
-    };
-    MatchParticipantRoster {
-        participants: vec![
-            MatchParticipant::new(FIGHTERS[0])
-                .driven_by(ControllerBinding::Human { device_slot: 0 })
-                .on_team("blue"),
-            MatchParticipant::new(FIGHTERS[1])
-                .driven_by(opponent)
-                .on_team("red"),
-        ],
-    }
+    // Two seats minimum (there is always an opponent, human or not) and four
+    // maximum (the arena is one screen wide, and `SlotControls` holds four).
+    let seats = local_players.clamp(2, MAX_VERSUS_SEATS);
+    let participants = (0..seats)
+        .map(|seat| {
+            let controller = if seat < local_players {
+                ControllerBinding::Human {
+                    device_slot: seat as u8,
+                }
+            } else {
+                ControllerBinding::Cpu {
+                    brain_profile: Some("medium_striker".into()),
+                }
+            };
+            MatchParticipant::new(FIGHTERS[seat % FIGHTERS.len()])
+                .driven_by(controller)
+                .on_team(if seat % 2 == 0 { "blue" } else { "red" })
+        })
+        .collect();
+    MatchParticipantRoster { participants }
 }
+
+/// One screen, four fighters, four `SlotControls` slots.
+pub const MAX_VERSUS_SEATS: usize = 4;
 
 /// Install the roster while the versus route is active, and take it away when it
 /// is not.

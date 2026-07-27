@@ -34,7 +34,7 @@ pub fn spawn_dynamic_feature_visuals(
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    existing: Query<&FeatureVisual>,
+    existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>)>,
     dynamic: Res<DynamicFeatureViews>,
 ) {
     let Some(session_scope) =
@@ -42,11 +42,30 @@ pub fn spawn_dynamic_feature_visuals(
     else {
         return;
     };
-    let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
+    // A DIAGNOSTIC placeholder does not count as a claim. If the floor drew a
+    // magenta rectangle for an id on an earlier frame — because the sim
+    // published the view before this family's own preconditions were ready —
+    // treating that as "already drawn" would make the diagnosis permanent and
+    // the real sprite unreachable for the lifetime of the feature.
+    let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut placeholders: std::collections::HashMap<&str, Entity> =
+        std::collections::HashMap::new();
+    for (entity, visual, is_placeholder) in &existing {
+        if is_placeholder {
+            placeholders.insert(visual.id.as_str(), entity);
+        } else {
+            known.insert(visual.id.as_str());
+        }
+    }
     let assets_ref = assets.as_deref();
     for fact in &dynamic.0 {
         if known.contains(fact.id.as_str()) {
             continue;
+        }
+        // The real thing is arriving: retire the stand-in in the same flush, so
+        // the frame never shows both.
+        if let Some(placeholder) = placeholders.get(fact.id.as_str()) {
+            commands.entity(*placeholder).try_despawn();
         }
         let render = BVec2::new(fact.size.x, fact.size.y);
         let fallback = feature_color(fact.visual_kind, fact.fighting, false);
@@ -166,6 +185,13 @@ pub fn despawn_dead_dynamic_feature_visuals(
 ///
 /// Runs AFTER every family's own spawn, and skips any id that already has a
 /// visual, so it can only ever fill a genuine gap.
+///
+/// A stand-in it draws is MARKED ([`UnclaimedBodyPlaceholder`]) and is not a
+/// claim on the id: `spawn_dynamic_feature_visuals` ignores it when deciding
+/// what still needs drawing and retires it when the real visual arrives. Without
+/// that, a placeholder drawn on a frame where a family was not yet ready would
+/// lock the feature into magenta forever — the diagnosis outliving the bug it
+/// diagnosed (GPT 5.6, 2026-07-27).
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
@@ -209,10 +235,127 @@ pub fn draw_unclaimed_feature_views(
                 FeatureVisual { id: id.to_string() },
                 RoomVisual,
                 DynamicFeatureVisual,
+                UnclaimedBodyPlaceholder,
             ),
         );
     }
 }
 
+/// This visual is the FLOOR's stand-in, not a render family's picture of the
+/// feature. See [`draw_unclaimed_feature_views`].
+#[derive(Component)]
+pub struct UnclaimedBodyPlaceholder;
+
 /// Magenta, because nobody ships magenta on purpose.
 const UNCLAIMED_BODY_COLOR: Color = Color::srgba(1.0, 0.0, 0.85, 0.85);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::lifecycle::SessionRoot;
+    use ambition_sim_view::DynamicFeatureFact;
+
+    fn app_with_a_room() -> App {
+        let mut app = App::new();
+        app.init_resource::<DynamicFeatureViews>();
+        // A real session, so the spawn path takes its scoped arm rather than the
+        // unscoped fixture arm — the placeholder swap has to work where it ships.
+        let mut active = ActiveSessionScope::default();
+        let scope = active.begin();
+        app.insert_resource(active);
+        app.world_mut().spawn((
+            SessionRoot(scope),
+            ambition_engine_core::RoomGeometry(ambition_engine_core::World::new(
+                "probe",
+                ambition_engine_core::Vec2::new(320.0, 180.0),
+                ambition_engine_core::Vec2::new(40.0, 40.0),
+                Vec::new(),
+            )),
+        ));
+        app
+    }
+
+    fn a_fact(id: &str) -> DynamicFeatureFact {
+        DynamicFeatureFact {
+            id: id.to_string(),
+            label: id.to_string(),
+            family: "probe",
+            pos: ambition_engine_core::Vec2::new(10.0, 10.0),
+            size: ambition_engine_core::Vec2::new(16.0, 24.0),
+            visual_kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind::Actor,
+            fighting: false,
+            sprite_key: None,
+            prop_sheet: None,
+        }
+    }
+
+    /// **A diagnosis must not outlive the bug it diagnosed.**
+    ///
+    /// The floor spawns a `FeatureVisual`, and the family spawner skips any id
+    /// that already has one — so a stand-in drawn on a frame where a family was
+    /// not yet ready would make that family unreachable for the rest of the
+    /// feature's life. The magenta box would then be permanent and would look
+    /// exactly like the render bug it exists to report.
+    #[test]
+    fn the_real_visual_replaces_the_unclaimed_stand_in() {
+        let mut app = app_with_a_room();
+        // The floor got there first.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "late_arrival".into(),
+            },
+            DynamicFeatureVisual,
+            UnclaimedBodyPlaceholder,
+        ));
+        app.world_mut()
+            .resource_mut::<DynamicFeatureViews>()
+            .0
+            .push(a_fact("late_arrival"));
+
+        app.add_systems(Update, spawn_dynamic_feature_visuals);
+        app.update();
+
+        let world = app.world_mut();
+        let mut visuals = world.query::<(&FeatureVisual, Has<UnclaimedBodyPlaceholder>)>();
+        let rows: Vec<bool> = visuals
+            .iter(world)
+            .filter(|(v, _)| v.id == "late_arrival")
+            .map(|(_, placeholder)| placeholder)
+            .collect();
+        assert_eq!(
+            rows,
+            vec![false],
+            "expected exactly one visual for the id and for it to be the REAL \
+             one; got {rows:?} (true = the magenta stand-in). A stand-in that \
+             survives the family's own spawn is a permanent misdiagnosis, and \
+             two visuals for one id is a double draw."
+        );
+    }
+
+    /// And the ordinary case still holds: a family that has already drawn an id
+    /// is not asked to draw it twice.
+    #[test]
+    fn a_real_visual_is_not_respawned() {
+        let mut app = app_with_a_room();
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "already_drawn".into(),
+            },
+            DynamicFeatureVisual,
+        ));
+        app.world_mut()
+            .resource_mut::<DynamicFeatureViews>()
+            .0
+            .push(a_fact("already_drawn"));
+
+        app.add_systems(Update, spawn_dynamic_feature_visuals);
+        app.update();
+
+        let world = app.world_mut();
+        let mut visuals = world.query::<&FeatureVisual>();
+        assert_eq!(
+            visuals.iter(world).filter(|v| v.id == "already_drawn").count(),
+            1
+        );
+    }
+}

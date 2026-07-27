@@ -34,7 +34,7 @@ use ambition_engine_core::AabbExt;
 use super::components::ActorAggression;
 use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
-use super::targeting::{damage_lands, effective_faction};
+use super::targeting::effective_faction;
 use super::util::midpoint;
 use crate::actor_faction_from_hit_side;
 use ambition_time::WorldTime;

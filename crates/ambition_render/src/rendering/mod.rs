@@ -302,20 +302,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // (E4 slice 19: `FeatureViewSyncSchedulePlugin` owns the resource and
         // the overlay-advance + rebuild pair, in the FeatureViewSync tail this
         // chain is ordered after) — presentation is a pure consumer.
-        // The FLOOR: a body the sim published a view for that no family claimed
-        // gets a marked rectangle rather than nothing at all.
-        //
-        // Registered OUTSIDE the big chain deliberately. Inserting it into that
-        // chain adds a command-flush boundary, and doing so surfaced a
-        // pre-existing despawn/insert race in the worn-character binder — a
-        // system that spawns nothing in the failing scenario was enough to break
-        // it. Perturbing an ordering hazard is not the same as owning it, and
-        // this system has no business deciding when the chain flushes. (The race
-        // itself is written down as its own row.)
-        app.add_systems(
-            Update,
-            features::draw_unclaimed_feature_views.after(features::spawn_dynamic_feature_visuals),
-        );
         app.add_systems(
             Update,
             (
@@ -324,10 +310,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // ones whose sim feature is gone (an expired loot drop) so a
                 // room doesn't accumulate invisible sprites.
                 features::spawn_dynamic_feature_visuals,
-                // The FLOOR, after every family has had its chance: a body the
-                // sim published a view for that nothing claimed gets a marked
-                // rectangle rather than nothing at all.
-                features::draw_unclaimed_feature_views,
                 features::despawn_dead_dynamic_feature_visuals,
                 // The reusable selected-character binder: install (and rebind) the
                 // worn character's sheet/animator/anchor from the canonical
@@ -377,6 +359,20 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Provider-authored over-hand item sprites consume the generic
                 // wielded-item read model and App-local visual catalog.
                 wielded_item_visuals::sync_wielded_item_visuals,
+                // The FLOOR, and it is LAST because that is the only position in
+                // which its comment is true: a body the sim published a view for
+                // that no family claimed gets a marked rectangle rather than
+                // nothing at all.
+                //
+                // It sat second in this chain — before the worn-character
+                // binder, the player fallback, the sprite upgrades and the boss
+                // pass — while claiming to run "after every family", and it was
+                // ALSO registered a second time outside the chain, ungated by
+                // `session_presentation_is_ready` (GPT 5.6, 2026-07-27). Two
+                // copies of a spawner is one copy too many, and the ungated one
+                // could draw a stand-in before the intended family was even
+                // allowed to run.
+                features::draw_unclaimed_feature_views,
             )
                 .chain()
                 .in_set(

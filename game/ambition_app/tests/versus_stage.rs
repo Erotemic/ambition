@@ -569,9 +569,9 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 
         let state = app.world().resource::<VersusMatch>();
         assert_eq!(
-            state.rounds_won[0], round,
+            state.wins("blue"), round,
             "a fighter hit zero health and the round was not counted to the \
-             other seat"
+             other TEAM. Seat 1 is red, so blue takes the round."
         );
 
         // Ride out the KO hold, then check the fighters came BACK: a versus
@@ -606,10 +606,10 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     // Two rounds took the match, and the match reset for the next one — a
     // scoreboard that stays on 2-0 forever is a match nobody can play again.
     let state = app.world().resource::<VersusMatch>();
-    assert_eq!(
-        state.rounds_won,
-        [0, 0],
-        "the match did not reset after it was won"
+    assert!(
+        state.rounds_won.is_empty(),
+        "the match did not reset after it was won: {:?}",
+        state.rounds_won
     );
     assert!(matches!(state.phase, MatchPhase::Fighting { .. }));
 }
@@ -761,8 +761,8 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
 
     let state = app.world().resource::<VersusMatch>();
     assert_eq!(
-        state.rounds_won[1], 1,
-        "seat 0 hit zero health and seat 1 was not awarded the round. The \
+        state.wins("red"), 1,
+        "seat 0 hit zero health and the red team was not awarded the round. The \
          exploration respawn healed it before the rules could look, so seat 0 \
          cannot lose and the match is rigged."
     );
@@ -826,7 +826,7 @@ fn returning_to_versus_starts_a_fresh_match() {
         .current = 0;
     app.update();
     assert_eq!(
-        app.world().resource::<VersusMatch>().rounds_won[0],
+        app.world().resource::<VersusMatch>().wins("blue"),
         1,
         "the fixture never won a round, so leaving proves nothing"
     );
@@ -884,10 +884,10 @@ fn returning_to_versus_starts_a_fresh_match() {
     }
 
     let state = app.world().resource::<VersusMatch>();
-    assert_eq!(
-        state.rounds_won,
-        [0, 0],
-        "walking back into Versus resumed the previous match's score"
+    assert!(
+        state.rounds_won.is_empty(),
+        "walking back into Versus resumed the previous match's score: {:?}",
+        state.rounds_won
     );
     assert!(
         matches!(state.phase, MatchPhase::Fighting { .. }),
@@ -972,6 +972,38 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
          surviving fighter is still playing while the round is over",
         scale(&app)
     );
+
+    // ...AND THE FREEZE ENDS. This test asserted only the freeze, which was the
+    // half that worked; the release could not work at all (GPT 5.6,
+    // 2026-07-27). The hold wrote a scale-0 request and then a scale-1 request
+    // in the SAME frame, and the clock reducer keeps the strongest slow by
+    // `min` — deliberately, so ordering cannot decide a freeze — so the release
+    // resolved to 0 every time. The next round began under a clock that only
+    // recovered because an unrelated system asks for full pace every frame, and
+    // then only by RAMPING: seconds of slow motion at the start of round two.
+    let mut thawed = false;
+    for _ in 0..900 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ) {
+            thawed = true;
+            break;
+        }
+    }
+    assert!(thawed, "the KO hold never ended");
+    // Two ticks for the request to reach the clock, not the forty the ramp
+    // above needed. `ClockResetRequest` SNAPS — that is what distinguishes a
+    // round starting at full speed from one sliding up to it.
+    app.update();
+    app.update();
+    assert!(
+        scale(&app) > 0.99,
+        "the next round started at clock scale {} — the KO freeze is still \
+         wearing off while both fighters are supposed to be playing",
+        scale(&app)
+    );
 }
 
 /// **The health readout is a GAUGE, and it tracks damage.** (queue L18)
@@ -987,7 +1019,8 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{HEALTH_HUD_SLOT_LEFT, HEALTH_HUD_SLOT_RIGHT};
+    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
+    let (seat_0_slot, seat_1_slot) = (HEALTH_HUD_SLOTS[0], HEALTH_HUD_SLOTS[1]);
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1012,12 +1045,12 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
             .and_then(|readout| readout.fill)
     };
     assert_eq!(
-        fill(&app, HEALTH_HUD_SLOT_LEFT),
+        fill(&app, seat_0_slot),
         Some(1.0),
         "the left fighter's health readout published no gauge, so the HUD can \
          only draw a number"
     );
-    assert_eq!(fill(&app, HEALTH_HUD_SLOT_RIGHT), Some(1.0));
+    assert_eq!(fill(&app, seat_1_slot), Some(1.0));
 
     // Hurt seat 1 and watch its bar, and only its bar, move.
     let seat_one = {
@@ -1035,13 +1068,13 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     }
     app.update();
 
-    let hurt = fill(&app, HEALTH_HUD_SLOT_RIGHT).expect("the gauge is still published");
+    let hurt = fill(&app, seat_1_slot).expect("the gauge is still published");
     assert!(
         hurt > 0.0 && hurt < 0.5,
         "the hurt fighter's gauge reads {hurt}, which does not follow its health"
     );
     assert_eq!(
-        fill(&app, HEALTH_HUD_SLOT_LEFT),
+        fill(&app, seat_0_slot),
         Some(1.0),
         "hurting one fighter moved the other's bar"
     );
@@ -1295,4 +1328,207 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
             app.update();
         }
     }
+}
+
+/// **A 2v2 scoreboard shows four fighters, and the round goes to the other
+/// TEAM.** (GPT 5.6, 2026-07-27)
+///
+/// Two defects met here, and neither is visible in a 1v1.
+///
+/// The scoring rule was `1 - loser.min(1)` — "the other index", which is the
+/// other SIDE only when there are exactly two bodies. Seat 2 is on blue, so blue
+/// going down clamped to 1 and awarded the round to index 0: blue. A fighter's
+/// defeat scored for its own team.
+///
+/// The HUD declared two health slots and wrote every seat above zero into the
+/// right-hand one, so seats 1, 2 and 3 overwrote each other and a four-player
+/// match showed two bars — one of them displaying whichever body the query
+/// happened to reach last, which is worse than showing nothing because it looks
+/// like information.
+#[test]
+fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{VersusMatch, HEALTH_HUD_SLOTS};
+
+    let mut app = versus_app();
+    for _ in 0..4 {
+        app.world_mut().spawn(Gamepad::default());
+    }
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 4 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // FOUR gauges, four distinct fills. Reading the fills rather than the slot
+    // count is the point: two slots would have left two of these `None`.
+    let gauges: Vec<Option<f32>> = HEALTH_HUD_SLOTS
+        .iter()
+        .map(|slot| {
+            app.world()
+                .resource::<ambition::presentation::HudReadouts>()
+                .get(&ambition::presentation::HudSlotId::from(*slot))
+                .and_then(|readout| readout.fill)
+        })
+        .collect();
+    assert_eq!(
+        gauges,
+        vec![Some(1.0), Some(1.0), Some(1.0), Some(1.0)],
+        "four fighters are seated and the HUD published {} gauges — a fighter \
+         with no bar cannot tell how close to losing they are",
+        gauges.iter().filter(|fill| fill.is_some()).count()
+    );
+
+    // Now wipe out BLUE — seats 0 and 2 — and watch who is credited.
+    let blue: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .filter(|(_, seat)| seat.0 % 2 == 0)
+            .map(|(entity, _)| entity)
+            .collect()
+    };
+    assert_eq!(blue.len(), 2, "the blue team is not a pair");
+    for fighter in &blue {
+        app.world_mut()
+            .get_mut::<BodyHealth>(*fighter)
+            .unwrap()
+            .health
+            .current = 0;
+    }
+    app.update();
+    app.update();
+
+    let state = app.world().resource::<VersusMatch>();
+    assert_eq!(
+        state.wins("red"),
+        1,
+        "blue was wiped out and red was not awarded the round (score: {:?}). \
+         Seat 2 is a blue fighter, and the old rule mapped its defeat back onto \
+         index 0 — so blue scored for knocking itself out.",
+        state.rounds_won
+    );
+    assert_eq!(
+        state.wins("blue"),
+        0,
+        "the losing team scored: {:?}",
+        state.rounds_won
+    );
+}
+
+/// **The last round's attacks do not follow the fighters into the next one.**
+/// (GPT 5.6, 2026-07-27)
+///
+/// A KO hold FREEZES the world; it does not empty it. The reset restored health,
+/// position, velocity and facing — the visible half — and left everything else
+/// exactly where the KO caught it. A projectile crossing the stage, a smash
+/// mid-swing and the strike volume it had spawned were all still there when the
+/// clock resumed, and they resume INTO round two: a fighter can be hit before
+/// they have had a single frame in which to move.
+#[test]
+fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition::combat::moveset::MovePlayback;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let (seat_zero, seat_one) = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(Entity, usize)> =
+            q.iter(world).map(|(e, seat)| (e, seat.0)).collect();
+        rows.sort_by_key(|(_, seat)| *seat);
+        (rows[0].0, rows[1].0)
+    };
+
+    // The survivor is mid-smash when the KO lands, and a shot is in the air.
+    let smash = ambition_app::app::versus_fighters::duelist_moveset(
+        ambition_app::app::versus_fighters::DuelistNumbers {
+            jab_damage: 2,
+            smash_damage: 9,
+            reach_px: 40.0,
+            smash_windup_s: 0.25,
+        },
+    )
+    .move_by_id("smash_forward")
+    .expect("the archetype has a smash")
+    .clone();
+    app.world_mut()
+        .entity_mut(seat_zero)
+        .insert(MovePlayback::new(smash, 1.0));
+    let shot = app
+        .world_mut()
+        .spawn(ambition::projectiles::LiveProjectile)
+        .id();
+
+    app.world_mut()
+        .get_mut::<BodyHealth>(seat_one)
+        .unwrap()
+        .health
+        .current = 0;
+    for _ in 0..6 {
+        app.update();
+    }
+    assert!(
+        matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Ko { .. }
+        ),
+        "the fixture never reached the KO hold, so nothing below is about a \
+         round boundary"
+    );
+
+    for _ in 0..900 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ) {
+            break;
+        }
+    }
+    assert!(
+        matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ),
+        "the KO hold never ended"
+    );
+
+    assert!(
+        app.world().get::<MovePlayback>(seat_zero).is_none(),
+        "round two began with a fighter still swinging round one's smash — the \
+         KO froze the move, it did not end it"
+    );
+    assert!(
+        app.world().get_entity(shot).is_err(),
+        "a projectile from the previous round is still in the air at the start \
+         of this one, and the fighter it is about to hit has not moved yet"
+    );
 }

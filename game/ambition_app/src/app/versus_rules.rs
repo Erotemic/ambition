@@ -15,27 +15,45 @@
 //! it means a genre was copied. What is here is the minimum under which the
 //! sentence "I won" is true.
 //!
+//! ## The scoring unit is a TEAM
+//!
+//! Not a seat. The first version scored `1 - loser.min(1)`, which reads as "the
+//! other one" and is only "the other one" when there are exactly two bodies. The
+//! stage seats up to four, so seat 2 (blue) going down awarded the round to
+//! index 0 — blue — and a fighter's defeat scored for its own side (GPT 5.6,
+//! 2026-07-27). A 2v2 is not a bigger 1v1; the relation between fighters is a
+//! TEAM, it is declared on the roster and carried by the body, and the rules
+//! read it rather than re-deriving it from an index.
+//!
+//! A team loses the round when every one of its members is down, which
+//! degenerates to the obvious thing at 1v1 and is the real rule at 2v2. Both
+//! sides falling in the same tick is a DRAW: nobody scores, the round still
+//! ends, and one branch buys a case a fighting game genuinely has.
+//!
 //! ## Why the rules live in the app and not the engine
 //!
 //! A round is not a simulation primitive. Health, damage, bodies and seats are;
 //! "best of three" is a statement about a particular game, and an engine that
 //! knew about it would be a fighting-game engine rather than an engine a fighting
 //! game can be built on. Everything below reads engine facts (`MatchSeat`,
-//! `BodyHealth`) and writes engine verbs (`transit_body`), and no engine crate
-//! knows it exists.
+//! `MatchTeam`, `BodyHealth`) and writes engine verbs (`transit_body`,
+//! `ClockResetRequest`), and no engine crate knows it exists.
+
+use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
 use ambition::actors::character_runtime::{seat_placement, MatchSeat};
-use ambition::characters::actor::BodyHealth;
+use ambition::characters::actor::{BodyCombat, BodyHealth};
+use ambition::combat::targeting::MatchTeam;
 use ambition::engine_core as ae;
 
 /// Round wins needed to take the match. Best of three.
 pub const ROUNDS_TO_WIN: u8 = 2;
 
-/// How long the KO is held before the next round starts, in seconds of game
-/// time. Long enough to see what happened and short enough that nobody reaches
-/// for the controller thinking it froze.
+/// How long the KO is held before the next round starts, in seconds. Long
+/// enough to see what happened and short enough that nobody reaches for the
+/// controller thinking it froze.
 const KO_HOLD_S: f32 = 2.0;
 
 /// How long the match-over card stays up before the match resets.
@@ -45,7 +63,7 @@ const MATCH_HOLD_S: f32 = 4.0;
 /// telling the player the freeze ended, and it is over before it is in the way.
 const ROUND_ANNOUNCE_S: f32 = 1.2;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {
     /// The round is live.
     ///
@@ -54,223 +72,316 @@ pub enum MatchPhase {
     /// would make every round begin with a stutter, and a player who can move
     /// while the card fades learns the round started without being told twice.
     Fighting { announce_s: f32 },
-    /// Somebody was knocked out; `seat` won the round.
-    Ko { seat: usize, remaining_s: f32 },
-    /// `seat` took the match.
-    Won { seat: usize, remaining_s: f32 },
+    /// A round ended. `winner` is the team that took it, or `None` for a double
+    /// KO.
+    Ko {
+        winner: Option<String>,
+        remaining_s: f32,
+    },
+    /// `winner` took the match.
+    Won { winner: String, remaining_s: f32 },
 }
 
-/// The match scoreboard.
+/// The match scoreboard, keyed by TEAM.
 ///
-/// Rounds are indexed by SEAT, not by player, because a seat is what the roster
-/// declares and what a body carries — "player two" is a thing about controllers
-/// and stops being well-defined the moment seat 1 is a CPU.
+/// A `BTreeMap` rather than an array: teams are declared by the roster as names,
+/// the number of them is whatever the roster says, and iteration order has to be
+/// the same on every machine — this is rollback state.
 #[derive(Resource, Debug, Clone)]
 pub struct VersusMatch {
-    pub rounds_won: [u8; 2],
+    pub rounds_won: BTreeMap<String, u8>,
     pub phase: MatchPhase,
-    /// The presentation half has finished holding the card and the AUTHORITATIVE
-    /// half should start the next round on its next tick.
-    ///
-    /// The one bit that crosses between the two systems, and it crosses in the
-    /// safe direction: the render clock decides WHEN a beat is over, the sim
-    /// clock decides what happens because of it.
-    pub reset_pending: bool,
 }
 
 impl Default for VersusMatch {
     fn default() -> Self {
         Self {
-            rounds_won: [0, 0],
+            rounds_won: BTreeMap::new(),
             phase: MatchPhase::Fighting { announce_s: 0.0 },
-            reset_pending: false,
         }
     }
 }
 
 impl VersusMatch {
-    /// The seat that has taken the match, if any.
-    pub fn winner(&self) -> Option<usize> {
+    /// A fresh match with the round-one card up.
+    fn opening() -> Self {
+        Self {
+            rounds_won: BTreeMap::new(),
+            phase: MatchPhase::Fighting {
+                announce_s: ROUND_ANNOUNCE_S,
+            },
+        }
+    }
+
+    pub fn wins(&self, team: &str) -> u8 {
+        self.rounds_won.get(team).copied().unwrap_or(0)
+    }
+
+    /// The team that has taken the match, if any.
+    pub fn winner(&self) -> Option<&str> {
         self.rounds_won
             .iter()
-            .position(|wins| *wins >= ROUNDS_TO_WIN)
+            .find(|(_, wins)| **wins >= ROUNDS_TO_WIN)
+            .map(|(team, _)| team.as_str())
+    }
+
+    /// How many rounds have been played, for the round-start card.
+    fn rounds_played(&self) -> u32 {
+        self.rounds_won.values().map(|wins| *wins as u32).sum()
     }
 }
 
-/// **The authoritative half: who lost, who scored, and putting them back.**
+/// The team a body fights for.
 ///
-/// Runs on the SIM schedule, because every fact it reads and every value it
-/// writes is simulation state — a fighter's health, a body's position and
-/// velocity, the score. The earlier version ran in `Update` under a comment
-/// claiming "nothing here needs the sim schedule's ordering", which was simply
-/// false: it teleported bodies between simulation boundaries and counted rounds
-/// off the render clock (GPT 5.6, 2026-07-27).
+/// A seated fighter always has a `MatchTeam` — the roster declares one — so the
+/// fallback is for a body seated without one, and it makes that body its own
+/// team. That is the honest reading of "no declared ally": a free-for-all, which
+/// scores correctly, rather than everyone silently sharing a side.
+fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
+    team.map(|team| team.0.clone())
+        .unwrap_or_else(|| format!("seat {}", seat + 1))
+}
+
+/// Who, if anyone, took the round.
+enum RoundResult {
+    Winner(String),
+    Draw,
+}
+
+/// **A team is out when every one of its members is down.**
 ///
-/// The KO HOLD is not here. Holding a card is a presentation beat, and it is
-/// counted by [`advance_versus_hold`] on the render clock — deliberately, since
-/// the hold zeroes the sim clock and a hold counted on that clock would never
-/// end. The two meet at one bit: `reset_pending`.
+/// Returns `None` while the round is still live — including the three-team case
+/// where one side has been wiped out and two are still fighting, which is a
+/// round that continues rather than a round somebody won.
+fn round_result<'a>(
+    rows: impl Iterator<Item = (usize, Option<&'a MatchTeam>, i32)>,
+) -> Option<RoundResult> {
+    let mut standing: BTreeMap<String, bool> = BTreeMap::new();
+    for (seat, team, health) in rows {
+        let alive = standing.entry(team_of(seat, team)).or_insert(false);
+        *alive |= health > 0;
+    }
+    // One team is not a match. Without this the sole team is "wiped out" the
+    // instant it falls and the stage scores a round against nobody.
+    if standing.len() < 2 {
+        return None;
+    }
+    let survivors: Vec<&String> = standing
+        .iter()
+        .filter(|(_, alive)| **alive)
+        .map(|(team, _)| team)
+        .collect();
+    match survivors.len() {
+        0 => Some(RoundResult::Draw),
+        1 => Some(RoundResult::Winner(survivors[0].clone())),
+        _ => None,
+    }
+}
+
+type FighterQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static MatchSeat,
+        Option<&'static MatchTeam>,
+        &'static mut BodyHealth,
+        ae::BodyClusterQueryData,
+        &'static mut ambition::actors::features::MotionModel,
+    ),
+>;
+
+/// **The whole ruleset, on the sim schedule.**
+///
+/// It used to be two systems: this one on the sim clock and a presentation half
+/// in `Update` that held the KO card. That split was wrong in two directions at
+/// once (GPT 5.6, 2026-07-27).
+///
+/// * The `Update` half MUTATED `VersusMatch`, which is rollback-registered
+///   simulation state. A resimulation replays sim steps, not render frames with
+///   their original durations, so the restored score and phase depended on
+///   presentation history that resimulation does not have. Calling one half
+///   "presentation" does not make the resource it writes presentational.
+/// * The freeze and its release were emitted in the same frame, both as
+///   `ClockScaleRequest`. The clock reducer resolves competing scale requests by
+///   `min` — deliberately, so the strongest slow wins regardless of order — so a
+///   0.0 and a 1.0 in one frame resolve to 0.0 and the release was a no-op. The
+///   clock recovered only because an unrelated system asks for full pace every
+///   frame, and then by RAMPING, so round two opened in slow motion.
+///
+/// So there is one system, and the hold is counted on `WorldTime::wall_dt` —
+/// unscaled, because the hold is the thing that zeroed the scaled clock and a
+/// hold counted on that clock would never end. Under a fixed-tick host that is
+/// the fixed timestep, so the countdown is as deterministic as anything else in
+/// the sim.
+#[allow(clippy::too_many_arguments)]
 pub fn settle_versus_round(
+    time: Res<ambition::time::WorldTime>,
     roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
     geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
     mut state: ResMut<VersusMatch>,
-    mut fighters: Query<(
-        &MatchSeat,
-        &mut BodyHealth,
-        ae::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
-    )>,
+    mut commands: Commands,
+    projectiles: Query<Entity, With<ambition::projectiles::LiveProjectile>>,
+    mut fighters: FighterQuery,
+    mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
+    mut scale: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
+    mut snap: MessageWriter<ambition::actors::time::time_control::ClockResetRequest>,
 ) {
     // No roster means no match. The stage's own teardown removes it, so this
     // needs no second opinion about whether versus is running.
     let (Some(_roster), Some(geometry)) = (roster, geometry) else {
         return;
     };
+    let dt = time.wall_dt();
 
-    if state.reset_pending {
-        state.reset_pending = false;
-        reset_fighters(&geometry, &mut fighters);
-        if state.winner().is_some() {
-            // The match was won and its card has been shown: start over.
-            *state = VersusMatch::default();
-            return;
-        }
-        state.phase = MatchPhase::Fighting {
-            announce_s: ROUND_ANNOUNCE_S,
-        };
-        return;
-    }
-    if !matches!(state.phase, MatchPhase::Fighting { .. }) {
-        return;
-    }
-
-    // A fighter at zero health loses the round. Read health rather than any "is
-    // dead" marker: health is the fact, and a marker is a downstream opinion
-    // about it that a versus stage does not install.
-    let Some(loser) = fighters
-        .iter()
-        .find(|(_, health, _, _)| health.current() <= 0)
-        .map(|(seat, ..)| seat.0)
-    else {
-        return;
-    };
-    let winner = 1 - loser.min(1);
-    if let Some(wins) = state.rounds_won.get_mut(winner) {
-        *wins += 1;
-    }
-    state.phase = if state.winner().is_some() {
-        MatchPhase::Won {
-            seat: winner,
-            remaining_s: MATCH_HOLD_S,
-        }
-    } else {
-        MatchPhase::Ko {
-            seat: winner,
-            remaining_s: KO_HOLD_S,
-        }
-    };
-}
-
-/// **The presentation half: hold the card, and freeze the fight while it is up.**
-///
-/// Render clock on purpose — see [`settle_versus_round`]. This writes no
-/// simulation state: it counts a timer, asks the engine to scale the sim clock,
-/// and raises the one bit that tells the authoritative half a beat has ended.
-pub fn advance_versus_hold(
-    time: Res<Time>,
-    roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
-    mut state: ResMut<VersusMatch>,
-    mut clock: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
-) {
-    if roster.is_none() {
-        return;
-    }
-    let dt = time.delta_secs();
-    let (seat, remaining) = match state.phase {
+    let (winner, remaining_s) = match state.phase.clone() {
         MatchPhase::Fighting { announce_s } => {
-            // Count the round-start card down. No freeze: the fight is live
-            // under it.
             if announce_s > 0.0 {
                 state.phase = MatchPhase::Fighting {
                     announce_s: (announce_s - dt).max(0.0),
                 };
             }
+            // Read health rather than any "is dead" marker: health is the fact,
+            // and a marker is a downstream opinion about it that a versus stage
+            // does not install.
+            let Some(result) = round_result(
+                fighters
+                    .iter()
+                    .map(|(_, seat, team, health, ..)| (seat.0, team, health.current())),
+            ) else {
+                return;
+            };
+            let winner = match result {
+                RoundResult::Winner(team) => {
+                    *state.rounds_won.entry(team.clone()).or_insert(0) += 1;
+                    Some(team)
+                }
+                RoundResult::Draw => None,
+            };
+            state.phase = match state.winner() {
+                Some(champion) => MatchPhase::Won {
+                    winner: champion.to_string(),
+                    remaining_s: MATCH_HOLD_S,
+                },
+                None => MatchPhase::Ko {
+                    winner,
+                    remaining_s: KO_HOLD_S,
+                },
+            };
             return;
         }
-        MatchPhase::Ko { seat, remaining_s } | MatchPhase::Won { seat, remaining_s } => {
-            (seat, remaining_s - dt)
-        }
+        MatchPhase::Ko {
+            winner,
+            remaining_s,
+        } => (winner, remaining_s),
+        MatchPhase::Won {
+            winner,
+            remaining_s,
+        } => (Some(winner), remaining_s),
     };
 
-    // FREEZE the fight for the duration of the card.
-    //
-    // Without this the surviving fighter keeps taking input, the CPU keeps
-    // steering, attacks keep resolving and projectiles keep flying across the
-    // round boundary — the card is shown over a fight that never stopped.
-    // `ClockScaleRequest` at scale 0 is the engine's own primitive for exactly
-    // this (its docstring names cutscene pause and boss freeze), so a hold stops
-    // the whole simulation rather than this module trying to name and silence
-    // every system that could still act.
-    clock.write(ambition::actors::time::time_control::ClockScaleRequest {
-        domain: ambition::time::ClockDomain::SimClock,
-        scale: 0.0,
-        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
-        reason: "versus_ko_hold",
-    });
-
+    let match_over = matches!(state.phase, MatchPhase::Won { .. });
+    let remaining = remaining_s - dt;
     if remaining > 0.0 {
-        state.phase = match state.phase {
-            MatchPhase::Won { .. } => MatchPhase::Won {
-                seat,
+        // FREEZE the fight for the duration of the card.
+        //
+        // Without this the surviving fighter keeps taking input, the CPU keeps
+        // steering, attacks keep resolving and projectiles keep flying across
+        // the round boundary — the card is shown over a fight that never
+        // stopped. `ClockScaleRequest` at scale 0 is the engine's own primitive
+        // for exactly this (its docstring names cutscene pause and boss freeze),
+        // so a hold stops the whole simulation rather than this module trying to
+        // name and silence every system that could still act.
+        //
+        // Re-asked EVERY tick because a frame with no request leaves the target
+        // untouched: absence of an opinion is not an opinion, and the systems
+        // that ask for full pace every frame would otherwise thaw the hold.
+        scale.write(ambition::actors::time::time_control::ClockScaleRequest {
+            domain: ambition::time::ClockDomain::SimClock,
+            scale: 0.0,
+            requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+            reason: "versus_ko_hold",
+        });
+        state.phase = if match_over {
+            MatchPhase::Won {
+                winner: winner.expect("a won match has a winner"),
                 remaining_s: remaining,
-            },
-            _ => MatchPhase::Ko {
-                seat,
+            }
+        } else {
+            MatchPhase::Ko {
+                winner,
                 remaining_s: remaining,
-            },
+            }
         };
         return;
     }
-    state.reset_pending = true;
-    release_freeze(&mut clock);
+
+    // The hold is over. A RESET rather than a scale request: reset/respawn
+    // semantics snap the clock instead of ramping it, which is what the end of a
+    // KO hold wants — the next round starts at full speed, not sliding up to it
+    // over the following second. A scale request cannot do this job at all,
+    // because `min` keeps the strongest slow and the freeze is still in force.
+    snap.write(
+        ambition::actors::time::time_control::ClockResetRequest::sim_clock(
+            ambition::actors::time::time_control::ClockRequester::Scripted,
+            "versus_round_start",
+        ),
+    );
+    begin_round(
+        &geometry,
+        &mut fighters,
+        &mut reactions,
+        &mut commands,
+        &projectiles,
+    );
+    *state = if match_over {
+        VersusMatch::opening()
+    } else {
+        VersusMatch {
+            rounds_won: std::mem::take(&mut state.rounds_won),
+            phase: MatchPhase::Fighting {
+                announce_s: ROUND_ANNOUNCE_S,
+            },
+        }
+    };
 }
 
-/// Hand the clock back at full pace.
+/// **Put the fighters back, and leave the last round behind with them.**
 ///
-/// A reset rather than a scale request: reset/respawn semantics SNAP the clock
-/// instead of ramping it, which is what the end of a KO hold wants — the next
-/// round starts at full speed, not sliding up to it over the following second.
-fn release_freeze(
-    clock: &mut MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
-) {
-    clock.write(ambition::actors::time::time_control::ClockScaleRequest {
-        domain: ambition::time::ClockDomain::SimClock,
-        scale: 1.0,
-        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
-        reason: "versus_round_start",
-    });
-}
-
-/// Put both fighters back on full health at their seats.
+/// Health, position, velocity and facing were the whole of the old reset, and
+/// they are the half that is visible. The other half is that a KO pause FREEZES
+/// the world rather than emptying it: the smash that was mid-swing, the box it
+/// had spawned, the shot crossing the stage and the hitstun on the fighter who
+/// ate it are all still there, and they resume into round two — which can kill a
+/// fighter who has not yet been given a chance to move (GPT 5.6, 2026-07-27).
 ///
-/// Through `transit_body`, the ONE transit authority (ADR 0024) — a bare
-/// position write is a pose the kernel never sees, so the fighter would arrive
-/// believing it is still standing where it was knocked down.
-fn reset_fighters(
+/// Removing `MovePlayback` is what retires the strike volumes: their existence
+/// is DERIVED from `(owner's playback t, window)` and
+/// `retire_orphaned_strike_volumes` enforces that derivation against the world
+/// every frame, so an owner with no playback has no boxes. This deliberately
+/// does not despawn them itself — a second authority over a volume's lifetime is
+/// how the two come to disagree.
+fn begin_round(
     geometry: &ae::RoomGeometry,
-    fighters: &mut Query<(
-        &MatchSeat,
-        &mut BodyHealth,
-        ae::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
-    )>,
+    fighters: &mut FighterQuery,
+    reactions: &mut Query<&mut BodyCombat, With<MatchSeat>>,
+    commands: &mut Commands,
+    projectiles: &Query<Entity, With<ambition::projectiles::LiveProjectile>>,
 ) {
+    // Nothing in flight crosses the round boundary. `try_despawn` because a
+    // projectile that expired on its own this tick is already gone.
+    for shot in projectiles {
+        commands.entity(shot).try_despawn();
+    }
     let centre = geometry.0.spawn;
-    for (seat, mut health, item, mut model) in fighters.iter_mut() {
+    for (entity, seat, _, mut health, item, mut model) in fighters.iter_mut() {
         health.health.current = health.health.max;
         let (at, facing) = seat_placement(seat.0, centre);
         let mut item = item;
         let mut clusters = item.as_clusters_mut();
+        // Through `transit_body`, the ONE transit authority (ADR 0024) — a bare
+        // position write is a pose the kernel never sees, so the fighter would
+        // arrive believing it is still standing where it was knocked down.
         ae::movement::transit_body(
             &mut model,
             &mut clusters,
@@ -278,34 +389,44 @@ fn reset_fighters(
             ae::movement::TransitVelocity::Zero,
         );
         clusters.kinematics.facing = facing;
+        commands
+            .entity(entity)
+            .try_remove::<ambition::combat::moveset::MovePlayback>();
+    }
+    // Hitstun, recoil lock, i-frames and the damage blink are all round-scoped
+    // reactions to a fight that is over.
+    for mut combat in reactions.iter_mut() {
+        combat.reset();
     }
 }
 
-/// Slot ids for the versus readouts.
+/// Slot ids for the versus readouts — one health slot PER SEAT.
 ///
-/// One health slot PER FIGHTER rather than one line for both: a gauge is a
-/// per-body fact, and two bars in one slot would be one bar showing something
-/// meaningless.
-pub const HEALTH_HUD_SLOT_LEFT: &str = "versus_health_left";
-pub const HEALTH_HUD_SLOT_RIGHT: &str = "versus_health_right";
+/// A gauge is a per-body fact. The first version declared two slots and wrote
+/// every seat above zero into the right-hand one, so in a four-player match
+/// seats 1, 2 and 3 overwrote each other and exactly two fighters were visible
+/// (GPT 5.6, 2026-07-27) — one bar showing whichever body the query reached
+/// last, which is worse than no bar because it looks like information.
+pub const HEALTH_HUD_SLOTS: [&str; 4] = [
+    "versus_health_seat_1",
+    "versus_health_seat_2",
+    "versus_health_seat_3",
+    "versus_health_seat_4",
+];
 pub const ROUNDS_HUD_SLOT: &str = "versus_rounds";
 pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 
 /// Publish the scoreboard.
-///
-/// Text, not bars. A health BAR is the right presentation and it is a renderer
-/// feature the declared HUD seam does not have; shipping numbers now means the
-/// rules are visible today, and the bar is a presentation change that will not
-/// touch a line of the rules when it lands.
 pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
     roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
-    fighters: Query<(&MatchSeat, &BodyHealth, &Name)>,
+    fighters: Query<(&MatchSeat, Option<&MatchTeam>, &BodyHealth, &Name)>,
     mut readouts: ResMut<ambition::presentation::HudReadouts>,
 ) {
     let (Some(state), Some(_roster)) = (state, roster) else {
-        readouts.clear_slot(HEALTH_HUD_SLOT_LEFT);
-        readouts.clear_slot(HEALTH_HUD_SLOT_RIGHT);
+        for slot in HEALTH_HUD_SLOTS {
+            readouts.clear_slot(slot);
+        }
         readouts.clear_slot(ROUNDS_HUD_SLOT);
         readouts.clear_slot(ANNOUNCE_HUD_SLOT);
         return;
@@ -313,11 +434,12 @@ pub fn publish_versus_hud(
 
     // Sorted by seat, so the left name is always the left fighter. Query order
     // is not an order, and a scoreboard whose sides swap is worse than none.
-    let mut rows: Vec<(usize, String, i32, i32)> = fighters
+    let mut rows: Vec<(usize, String, String, i32, i32)> = fighters
         .iter()
-        .map(|(seat, health, name)| {
+        .map(|(seat, team, health, name)| {
             (
                 seat.0,
+                team_of(seat.0, team),
                 name.as_str().to_string(),
                 health.current(),
                 health.health.max,
@@ -330,15 +452,14 @@ pub fn publish_versus_hud(
     // glance mid-fight — "am I nearly dead" — and the number is what they read
     // when they want to know exactly. The declared HUD had no bar at all until
     // this stage needed one (L18).
-    for (index, (seat, name, hp, max)) in rows.iter().enumerate() {
-        let slot = if *seat == 0 {
-            HEALTH_HUD_SLOT_LEFT
-        } else {
-            HEALTH_HUD_SLOT_RIGHT
+    let mut written = [false; HEALTH_HUD_SLOTS.len()];
+    for (seat, _, name, hp, max) in &rows {
+        let Some(slot) = HEALTH_HUD_SLOTS.get(*seat) else {
+            continue;
         };
-        let _ = index;
+        written[*seat] = true;
         readouts.set(
-            slot,
+            *slot,
             ambition::presentation::HudReadout::gauge(
                 name.clone(),
                 format!("{hp}/{max}"),
@@ -350,39 +471,145 @@ pub fn publish_versus_hud(
             ),
         );
     }
+    // A 1v1 declares four slots and fills two. An unwritten slot must be
+    // CLEARED, not left holding the previous match's fourth fighter.
+    for (index, slot) in HEALTH_HUD_SLOTS.iter().enumerate() {
+        if !written[index] {
+            readouts.clear_slot(*slot);
+        }
+    }
+
+    // The scoreboard names TEAMS, in the order the seats introduce them, so the
+    // left-hand team is the one the left-hand fighter belongs to.
+    let mut teams: Vec<&String> = Vec::new();
+    for (_, team, ..) in &rows {
+        if !teams.contains(&team) {
+            teams.push(team);
+        }
+    }
+    let score = teams
+        .iter()
+        .map(|team| format!("{team} {}", state.wins(team)))
+        .collect::<Vec<_>>()
+        .join("  -  ");
     readouts.set(
         ROUNDS_HUD_SLOT,
-        ambition::presentation::HudReadout::bare(format!(
-            "ROUNDS  {} - {}   (first to {ROUNDS_TO_WIN})",
-            state.rounds_won[0], state.rounds_won[1]
-        )),
+        ambition::presentation::HudReadout::bare(if score.is_empty() {
+            String::new()
+        } else {
+            format!("ROUNDS  {score}   (first to {ROUNDS_TO_WIN})")
+        }),
     );
 
-    let seat_name = |seat: usize| -> String {
-        rows.iter()
-            .find(|(s, ..)| *s == seat)
-            .map(|(_, name, ..)| name.clone())
-            .unwrap_or_else(|| format!("SEAT {}", seat + 1))
-    };
-    match state.phase {
-        MatchPhase::Fighting { announce_s } if announce_s > 0.0 => readouts.set(
+    match &state.phase {
+        MatchPhase::Fighting { announce_s } if *announce_s > 0.0 => readouts.set(
             ANNOUNCE_HUD_SLOT,
             ambition::presentation::HudReadout::bare(format!(
                 "ROUND {}  —  FIGHT",
-                state.rounds_won[0] + state.rounds_won[1] + 1
+                state.rounds_played() + 1
             )),
         ),
         MatchPhase::Fighting { .. } => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
-        MatchPhase::Ko { seat, .. } => readouts.set(
+        MatchPhase::Ko { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(format!(
-                "K.O.  {} wins the round",
-                seat_name(seat)
-            )),
+            ambition::presentation::HudReadout::bare(match winner {
+                Some(team) => format!("K.O.  {team} wins the round"),
+                None => "DOUBLE K.O.  —  the round is a draw".to_string(),
+            }),
         ),
-        MatchPhase::Won { seat, .. } => readouts.set(
+        MatchPhase::Won { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(format!("{} WINS THE MATCH", seat_name(seat))),
+            ambition::presentation::HudReadout::bare(format!("{winner} WINS THE MATCH")),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn team(name: &str) -> MatchTeam {
+        MatchTeam::new(name)
+    }
+
+    /// **A fighter's defeat must never score for its own side.**
+    ///
+    /// The old rule was `1 - loser.min(1)`: "the other index", which is only the
+    /// other side when there are exactly two bodies. Seat 2 is on blue, so blue
+    /// going down mapped to `loser.min(1) == 1` and awarded the round to index
+    /// 0 — blue again.
+    #[test]
+    fn a_seat_above_the_first_two_scores_for_the_other_team() {
+        let blue = team("blue");
+        let red = team("red");
+        let result = round_result(
+            [
+                (0, Some(&blue), 0),
+                (1, Some(&red), 40),
+                (2, Some(&blue), 0),
+                (3, Some(&red), 12),
+            ]
+            .into_iter(),
+        );
+        assert!(
+            matches!(&result, Some(RoundResult::Winner(team)) if team == "red"),
+            "blue was wiped out, so red takes the round"
+        );
+    }
+
+    /// A team is out only when EVERY member is down — one partner standing is a
+    /// round that continues.
+    #[test]
+    fn a_team_survives_while_one_partner_stands() {
+        let blue = team("blue");
+        let red = team("red");
+        assert!(round_result(
+            [
+                (0, Some(&blue), 0),
+                (1, Some(&red), 40),
+                (2, Some(&blue), 7),
+                (3, Some(&red), 12),
+            ]
+            .into_iter()
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn both_sides_falling_together_is_a_draw() {
+        let blue = team("blue");
+        let red = team("red");
+        assert!(matches!(
+            round_result([(0, Some(&blue), 0), (1, Some(&red), 0)].into_iter()),
+            Some(RoundResult::Draw)
+        ));
+    }
+
+    /// One team is not a match. Without the guard the sole team is "wiped out"
+    /// the moment it falls and the stage scores a round against nobody.
+    #[test]
+    fn a_single_team_never_wins_a_round() {
+        let blue = team("blue");
+        assert!(round_result([(0, Some(&blue), 0), (1, Some(&blue), 0)].into_iter()).is_none());
+    }
+
+    /// A body seated with no declared team is its own team — a free-for-all,
+    /// which scores, rather than everyone silently sharing a side, which cannot.
+    #[test]
+    fn teamless_seats_are_their_own_sides() {
+        assert!(matches!(
+            round_result([(0, None, 0), (1, None, 55)].into_iter()),
+            Some(RoundResult::Winner(team)) if team == "seat 2"
+        ));
+    }
+
+    #[test]
+    fn the_match_is_won_at_two_rounds() {
+        let mut state = VersusMatch::default();
+        assert_eq!(state.winner(), None);
+        state.rounds_won.insert("red".into(), 1);
+        assert_eq!(state.winner(), None);
+        state.rounds_won.insert("red".into(), ROUNDS_TO_WIN);
+        assert_eq!(state.winner(), Some("red"));
     }
 }

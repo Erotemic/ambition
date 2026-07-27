@@ -272,44 +272,48 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
-    // The scoreboard. Four declared readouts; the engine never learns what a
-    // ROUND is — `publish_versus_hud` writes the words.
-    .with_hud(
-        ambition::presentation::HudDeclaration::new()
-            .slot(
-                ambition::presentation::HudSlotSpec::new(super::versus_rules::HEALTH_HUD_SLOT_LEFT)
+    // The scoreboard. One health gauge PER SEAT plus two text readouts; the
+    // engine never learns what a ROUND is — `publish_versus_hud` writes the
+    // words.
+    //
+    // Four gauges are declared and a 1v1 fills two, because a HUD declaration is
+    // a statement about the STAGE and the stage seats four. Declaring two and
+    // making the third fighter share one is what the first version did.
+    .with_hud({
+        let mut hud = ambition::presentation::HudDeclaration::new();
+        for (seat, slot) in super::versus_rules::HEALTH_HUD_SLOTS.iter().enumerate() {
+            hud = hud.slot(
+                ambition::presentation::HudSlotSpec::new(*slot)
                     .with_region(ambition::presentation::SurroundRegion::Top)
                     .with_font_size(22.0)
-                    // The gauge's full extent is the slot's declared minimum width,
-                    // so a stage sizes its bar by saying how much room it wants
-                    // rather than by knowing anything about the renderer.
-                    .with_min_px(ambition::engine_core::Vec2::new(240.0, 30.0))
-                    .with_color([0.55, 0.85, 1.0, 1.0]),
-            )
-            .slot(
-                ambition::presentation::HudSlotSpec::new(
-                    super::versus_rules::HEALTH_HUD_SLOT_RIGHT,
-                )
+                    // The gauge's full extent is the slot's declared minimum
+                    // width, so a stage sizes its bar by saying how much room it
+                    // wants rather than by knowing anything about the renderer.
+                    .with_min_px(ambition::engine_core::Vec2::new(220.0, 30.0))
+                    // Coloured by SIDE, matching the roster's seat-parity teams,
+                    // so a partner's bar reads as a partner's at a glance.
+                    .with_color(if seat % 2 == 0 {
+                        [0.55, 0.85, 1.0, 1.0]
+                    } else {
+                        [1.0, 0.6, 0.55, 1.0]
+                    }),
+            );
+        }
+        hud.slot(
+            ambition::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
                 .with_region(ambition::presentation::SurroundRegion::Top)
-                .with_font_size(22.0)
-                .with_min_px(ambition::engine_core::Vec2::new(240.0, 30.0))
-                .with_color([1.0, 0.6, 0.55, 1.0]),
-            )
-            .slot(
-                ambition::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
-                    .with_region(ambition::presentation::SurroundRegion::Top)
-                    .with_font_size(16.0)
-                    .with_color([0.75, 0.8, 0.95, 1.0]),
-            )
-            // The KO / match card. Published only while a round is over, so it
-            // needs no hide path — an unpublished slot draws nothing.
-            .slot(
-                ambition::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
-                    .centered()
-                    .with_font_size(34.0)
-                    .with_color([1.0, 0.85, 0.3, 1.0]),
-            ),
-    )
+                .with_font_size(16.0)
+                .with_color([0.75, 0.8, 0.95, 1.0]),
+        )
+        // The KO / match card. Published only while a round is over, so it
+        // needs no hide path — an unpublished slot draws nothing.
+        .slot(
+            ambition::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
+                .centered()
+                .with_font_size(34.0)
+                .with_color([1.0, 0.85, 0.3, 1.0]),
+        )
+    })
     .install(app, versus_prepared_session_world);
 
     app.init_resource::<super::versus_rules::VersusMatch>();
@@ -323,10 +327,16 @@ pub fn compose_versus_experience(app: &mut App) {
         );
     }
 
-    // The AUTHORITATIVE half on the sim schedule, after damage has resolved —
-    // it reads this tick's health outcome and writes body position. `Settle` is
-    // the phase for exactly that: "everything that reads this tick's damage
-    // outcome rather than producing it".
+    // The RULES on the sim schedule, after damage has resolved — they read this
+    // tick's health outcome and write body position. `Settle` is the phase for
+    // exactly that: "everything that reads this tick's damage outcome rather
+    // than producing it".
+    //
+    // ALL of them. There was a second system in `Update` holding the KO card on
+    // the render clock, and it mutated `VersusMatch` — which is rollback state,
+    // so the restored score depended on presentation-frame history that
+    // resimulation does not replay. Calling a system "the presentation half"
+    // does not make the resource it writes presentational.
     {
         use ambition::platformer::schedule::{CombatSet, SimScheduleExt};
         let sim = app.sim_schedule();
@@ -336,17 +346,9 @@ pub fn compose_versus_experience(app: &mut App) {
         );
     }
 
-    // The PRESENTATION half in `Update`, on the render clock. It holds the KO
-    // card and asks the engine to freeze the sim while it is up; counting that
-    // hold on the clock it just zeroed would hold forever.
-    app.add_systems(
-        Update,
-        (
-            super::versus_rules::advance_versus_hold,
-            super::versus_rules::publish_versus_hud,
-        )
-            .chain(),
-    );
+    // Publishing the scoreboard IS presentation: it reads `VersusMatch` and
+    // writes HUD text, and it writes nothing the simulation reads back.
+    app.add_systems(Update, super::versus_rules::publish_versus_hud);
 
     // DELIBERATE SILENCE, declared. Preparation refuses an experience whose
     // provider registered no explicit audio fragment — a good refusal, and one

@@ -1537,3 +1537,56 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         .count();
     assert_eq!(plays, 1, "the peaceful victim emits exactly one hit sound");
 }
+
+/// **A body that left the world does not come back where it fell.**
+///
+/// `RespawnPolicy::InPlace` respawns a body AT ITS CURRENT POSITION. That
+/// position is the whole precondition of the policy, and leaving the world is
+/// exactly what destroys it: the body is outside the room, so an in-place
+/// respawn puts it straight back where the blast gate is waiting. It dies again
+/// on the next tick, respawns again, and the room acquires a body whose entire
+/// behaviour is dying — each death arming a hitstop, which is a global clock
+/// beat, so the cost is paid by every other body in the room.
+///
+/// The `sandbag_finite` archetype is the one that authors `InPlace(0.85)`, so
+/// it is the subject: the ONE archetype for which "gone" and "authored policy"
+/// actually disagree.
+#[test]
+fn leaving_the_world_outranks_an_authored_in_place_respawn() {
+    use super::actor_hit::{kill_disposition, KillDisposition};
+    use ambition_entity_catalog::placements::RespawnPolicy;
+
+    let sandbag = crate::features::enemies::test_spec("sandbag_finite")
+        .tuning()
+        .respawn;
+    assert_eq!(
+        sandbag,
+        RespawnPolicy::InPlace(0.85),
+        "fixture: this test is only meaningful for an archetype that DOES \
+         respawn in place; if the sandbag stopped doing so, the two arms below \
+         agree by accident and prove nothing"
+    );
+
+    assert_eq!(
+        kill_disposition(&HitSource::EnemyAttack, sandbag),
+        KillDisposition::RespawnInPlace(0.85),
+        "an ordinary kill still honours the authored respawn policy"
+    );
+    assert_eq!(
+        kill_disposition(&HitSource::LeftTheWorld, sandbag),
+        KillDisposition::GoneFromTheWorld,
+        "the blast zone outranks the policy: there is no 'in place' out there"
+    );
+
+    // And a body that stays dead is defeated rather than gone, so the
+    // exploration economy still pays out for an ordinary kill.
+    assert_eq!(
+        kill_disposition(&HitSource::EnemyAttack, RespawnPolicy::DeadStaysDead),
+        KillDisposition::Defeated
+    );
+    assert_eq!(
+        kill_disposition(&HitSource::LeftTheWorld, RespawnPolicy::DeadStaysDead),
+        KillDisposition::GoneFromTheWorld,
+        "gone is gone whatever the policy says — no coin dropped into the void"
+    );
+}

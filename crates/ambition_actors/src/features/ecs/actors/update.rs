@@ -754,7 +754,14 @@ pub(crate) fn integrate_actor_body(
     // the whole existing death pipeline unchanged — `RulesetOwnsDeath`, the
     // authored respawn policy, the banner, the death cue, and an
     // `ActorDiedMessage` carrying `HitSource::LeftTheWorld`.
-    if move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
+    //
+    // Gated on ALIVE, because the gate is a position test and re-fires every
+    // tick the body is past the margin. A corpse that has not been cleaned up
+    // yet is still out there, so without this every dead body outside the world
+    // writes a lethal hit once per frame, forever — the damage pass ignores
+    // them all (it refuses hits on the dead), which makes it a silent per-frame
+    // cost rather than a visible bug, which is worse.
+    if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
         hit_events.write(HitEvent {
             strike_sfx: None,
             volume: em.aabb().into(),

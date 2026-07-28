@@ -28,6 +28,55 @@ use super::*;
 /// reads as a knock, not a launch.
 const CLING_DETACH_POP_SPEED: f32 = 180.0;
 
+/// What a kill does to the dead body's own lifecycle.
+///
+/// A decision, extracted so it can be stated and tested rather than inferred
+/// from the order of an `if`-chain.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum KillDisposition {
+    /// The authored `RespawnPolicy::InPlace` arm: this body comes back where it
+    /// fell, after this many seconds.
+    RespawnInPlace(f32),
+    /// Defeated in the world: the exploration economy pays out (bounty coin,
+    /// heart, death explosion, split offspring) and the body stays down.
+    Defeated,
+    /// Gone. The body left the world, and there is no "in place" for it to come
+    /// back to — its position is OUTSIDE the room, so an in-place respawn would
+    /// put it straight back where the blast gate is waiting. It would die again
+    /// on the next tick, respawn again, and the room would acquire a body whose
+    /// whole behaviour is dying, each death arming a hitstop, which is a global
+    /// clock beat paid by every other body in the room.
+    ///
+    /// An enemy that walks into a pit is simply gone, which is what the genre
+    /// has always done with them.
+    GoneFromTheWorld,
+}
+
+impl KillDisposition {
+    pub(crate) fn is_gone(self) -> bool {
+        matches!(self, Self::GoneFromTheWorld)
+    }
+}
+
+/// Decide [`KillDisposition`] from what killed the body and what its archetype
+/// authored. Leaving the world OUTRANKS the authored respawn policy, because
+/// the policy's own precondition — that there is somewhere to come back to —
+/// is exactly what leaving the world destroys.
+pub(crate) fn kill_disposition(
+    source: &HitSource,
+    respawn: ambition_entity_catalog::placements::RespawnPolicy,
+) -> KillDisposition {
+    if matches!(source, HitSource::LeftTheWorld) {
+        return KillDisposition::GoneFromTheWorld;
+    }
+    match respawn {
+        ambition_entity_catalog::placements::RespawnPolicy::InPlace(seconds) => {
+            KillDisposition::RespawnInPlace(seconds)
+        }
+        _ => KillDisposition::Defeated,
+    }
+}
+
 /// Apply one landed attacker-side hit to a single actor and emit its per-actor
 /// feedback. A PEACEFUL actor accumulates strikes + barks and emits a
 /// retaliation `ActorStimulus` (the flip to hostile lands later via
@@ -211,7 +260,8 @@ pub(crate) fn apply_actor_hit(
         // world does"; filtering the world's own kill through the meter's
         // policy would leave such a body immortal, which is exactly why nothing
         // in production had ever selected `Unbounded`.
-        let killed = matches!(event.source, HitSource::LeftTheWorld)
+        let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
+        let killed = left_the_world
             || (matches!(
                 resolution,
                 crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
@@ -365,11 +415,17 @@ pub(crate) fn apply_actor_hit(
             // Those are an exploration economy. An arena has no economy, and a
             // round that funds the player's wallet and detonates the loser is
             // not a round (GPT 5.6, 2026-07-27).
+        } else if killed && left_the_world {
+            // GONE — see [`kill_disposition`]. No respawn timer, and no
+            // exploration payout either: a bounty coin, a heart, or a death
+            // explosion dropped at this corpse would land in the void, somewhere
+            // no player can ever walk to.
+            banner.show(format!("{} fell out of the world", em.config.name), 2.2);
         } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
             // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
-            if let ambition_entity_catalog::placements::RespawnPolicy::InPlace(respawn_s) =
-                em.config.tuning.respawn
+            if let KillDisposition::RespawnInPlace(respawn_s) =
+                kill_disposition(&event.source, em.config.tuning.respawn)
             {
                 em.status.respawn_timer = respawn_s;
                 banner.show(format!("{} dropped; respawning", em.config.name), 2.6);

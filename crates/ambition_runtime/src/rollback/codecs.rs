@@ -330,6 +330,11 @@ snapshot_pod!(bc::BodyLifetime {
     time_alive: f32,
     resets: u32,
     max_speed: f32,
+    // The pending-announcement flag is SNAPSHOT state, not bookkeeping to drop:
+    // a rewind into the tick between a reset and its `BodyRestarted` trigger
+    // must replay the announcement, or the resimulation clears provider state
+    // the original run cleared and the two diverge.
+    restart_pending: bool,
 });
 snapshot_pod!(bc::BodyActionBuffer {
     attack: f32,

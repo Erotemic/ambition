@@ -467,17 +467,17 @@ fn begin_round(
             // The controls come back HERE and only here — the round is live
             // again, so the beat that suspended them is over.
             .try_remove::<ambition::characters::brain::ScriptedControl>();
-        // And the half of the reset this module cannot perform itself.
+        // The half of the reset this module cannot perform itself — a ball-dash
+        // charge, a rolling form, a spark cadence — is announced by the ENGINE,
+        // not from here. `reset_body_clusters` raises the pending flag and
+        // `announce_body_restarts` triggers `ae::BodyRestarted` at the front of
+        // the next tick, so every provider hears about this round boundary the
+        // same way it hears about a death respawn.
         //
-        // `reset_body_clusters` clears every cluster the ENGINE owns. It cannot
-        // clear what a character PROVIDER attached — a ball-dash charge, a
-        // rolling form, a spark cadence — because a ruleset knows neither the
-        // types nor what resetting them means, and this stage exists precisely
-        // to seat fighters from providers it does not know (GPT 5.6,
-        // 2026-07-27). `BodyRestarted` is the announcement; each provider
-        // answers for its own state through an observer, and a body carrying no
-        // provider state costs nothing.
-        commands.trigger(ae::BodyRestarted { entity });
+        // This module used to trigger it by hand, which worked and was exactly
+        // the wrong shape: seven other production resets did NOT, so ordinary
+        // play still leaked provider state and only the versus stage did not
+        // (GPT 5.6, 2026-07-28).
     }
     // Hitstun, recoil lock, i-frames and the damage blink are all round-scoped
     // reactions to a fight that is over.

@@ -54,7 +54,8 @@ pub mod world;
 pub use abilities::{AbilityGrant, AbilitySet};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
-    refresh_movement_resources_clusters, reset_body_clusters, AbilityBase, AuthoredMovementTuning,
+    announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,
+    AuthoredMovementTuning,
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyClusterQueryData,
     BodyClusterQueryDataItem, BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,

@@ -367,6 +367,21 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
+        // "This body starts again", announced to whoever authored it.
+        //
+        // At the FRONT of the tick on purpose. A body can be reset in almost any
+        // phase — a death in `PlayerSimulation`, a room arrival, a sandbox reset
+        // in `ResetProcessing`, a versus round in `Combat` — and by an app or a
+        // provider the engine has never heard of. Announcing here means every
+        // one of those is delivered before anything acts on that body again,
+        // whichever phase performed it and whether or not it ran on this
+        // schedule at all.
+        app.add_systems(
+            sim,
+            ae::announce_body_restarts
+                .in_set(crate::schedule::SandboxSet::WorldPrep)
+                .before(rebuild_feature_ecs_world_overlay),
+        );
         // Advance the accumulating sim clock before any actor brain reads its
         // perception snapshot, so reaction-latency lookback is live. Registered
         // separately (not in the chain above) only because that tuple is already

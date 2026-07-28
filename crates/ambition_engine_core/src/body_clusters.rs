@@ -448,14 +448,47 @@ impl BodyShieldState {
 /// });
 /// ```
 ///
-/// This is deliberately NOT triggered from inside [`reset_body_clusters`]: that
-/// function takes borrowed cluster data and no `Commands`, and giving it world
-/// access to gain a trigger would push every caller through a different seam.
-/// The caller that decides a body restarts is the caller that says so.
+/// ## Every reset, not just the polite ones
+///
+/// This shipped as a versus-only event: `begin_round` triggered it by hand and
+/// the seven other production callers of [`reset_body_clusters`] — death
+/// respawn, safe respawn, room arrival, sandbox reset, lifecycle commit — did
+/// not, so ordinary play recreated exactly the leak the event was added to
+/// close. Sanic could respawn holding a ball-dash charge; the observers existed
+/// and nothing invoked them (GPT 5.6, 2026-07-28).
+///
+/// A doc comment cannot make seven call sites remember. So the announcement is
+/// DERIVED: [`reset_body_clusters`] raises [`BodyLifetime::restart_pending`] on
+/// state it already owns, and [`announce_body_restarts`] turns that into this
+/// trigger once per tick. A caller that has never heard of this type announces
+/// correctly, and a caller added next year does too.
 #[derive(bevy_ecs::event::EntityEvent, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyRestarted {
     /// The body starting again.
     pub entity: bevy_ecs::entity::Entity,
+}
+
+/// Turn every pending restart into a [`BodyRestarted`] trigger, once.
+///
+/// Registered at the FRONT of the sim tick, so a reset performed anywhere —
+/// mid-tick in a combat phase, or outside the sim schedule entirely by a room
+/// load — is announced before any system acts on that body again. The flag is
+/// cleared here and nowhere else, so the announcement happens exactly once per
+/// reset however many phases the reset passed through.
+///
+/// Ordinary `Commands`, so the observers run at the next command flush rather
+/// than reentrantly inside this query.
+pub fn announce_body_restarts(
+    mut commands: bevy_ecs::system::Commands,
+    mut bodies: bevy_ecs::system::Query<(bevy_ecs::entity::Entity, &mut BodyLifetime)>,
+) {
+    for (entity, mut lifetime) in &mut bodies {
+        if !lifetime.restart_pending {
+            continue;
+        }
+        lifetime.restart_pending = false;
+        commands.trigger(BodyRestarted { entity });
+    }
 }
 
 /// Reset a live player back to spawn while preserving the
@@ -528,6 +561,14 @@ pub fn reset_body_clusters(
     *clusters.action_buffer = BodyActionBuffer::default();
     *clusters.lifetime = BodyLifetime {
         resets: new_resets,
+        // The announcement is DERIVED from the reset, not asked of the caller.
+        // Seven production call sites reset a body — death, safe respawn, room
+        // arrival, sandbox reset, lifecycle commit, a versus round — and exactly
+        // one of them remembered to tell the providers, which is the natural
+        // outcome of a contract that lives in a doc comment (GPT 5.6,
+        // 2026-07-28). A flag on state this function already owns cannot be
+        // forgotten by a caller that does not know it exists.
+        restart_pending: true,
         ..Default::default()
     };
     clusters.combo_trace.combo.clear();
@@ -617,6 +658,14 @@ pub struct BodyLifetime {
     pub time_alive: f32,
     pub resets: u32,
     pub max_speed: f32,
+    /// This body was reset and the providers have not been told yet.
+    ///
+    /// Set by [`reset_body_clusters`], cleared by [`announce_body_restarts`],
+    /// which turns it into a [`BodyRestarted`] trigger. It rides here rather
+    /// than in a component of its own because this one is already snapshotted
+    /// and restored: a resimulation that replays the reset replays the
+    /// announcement with it, which a separate unregistered marker could not do.
+    pub restart_pending: bool,
 }
 
 /// Symbolic operation trace ("J o D o D"), preserved across the
@@ -869,5 +918,61 @@ mod reset_tests {
 
         assert_eq!(scratch.kinematics.size, default);
         assert_eq!(scratch.base_size.base_size, default);
+    }
+
+    /// **Any reset announces itself.** The seven production callers of
+    /// `reset_body_clusters` do not know `BodyRestarted` exists, and must not
+    /// have to: the flag is raised by the reset, not by the caller.
+    #[test]
+    fn resetting_a_body_leaves_a_restart_to_announce() {
+        let mut scratch = BodyClusterScratch::new_with_abilities(
+            Vec2::ZERO,
+            crate::abilities::AbilitySet::default(),
+        );
+        assert!(!scratch.lifetime.restart_pending);
+        let (model, mut clusters) = scratch.parts();
+        reset_body_clusters(model, &mut clusters, Vec2::new(10.0, 20.0));
+        assert!(scratch.lifetime.restart_pending);
+    }
+
+    /// ...and the pending flag becomes exactly one trigger, then stops.
+    #[test]
+    fn a_pending_restart_is_announced_once() {
+        use bevy_ecs::prelude::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let mut world = World::new();
+        let seen = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&seen);
+        world.add_observer(move |_: On<BodyRestarted>| {
+            counter.fetch_add(1, Ordering::Relaxed);
+        });
+        let body = world
+            .spawn(BodyLifetime {
+                restart_pending: true,
+                ..Default::default()
+            })
+            .id();
+        // A second body with nothing pending: the announcement is per-body, and
+        // a sweep that told every body it had restarted would be worse than one
+        // that told nobody.
+        world.spawn(BodyLifetime::default());
+
+        let mut system = bevy_ecs::system::IntoSystem::into_system(announce_body_restarts);
+        system.initialize(&mut world);
+        system.run((), &mut world).expect("the announcer runs");
+        world.flush();
+        assert_eq!(seen.load(Ordering::Relaxed), 1);
+        assert!(!world.get::<BodyLifetime>(body).unwrap().restart_pending);
+
+        system.run((), &mut world).expect("the announcer runs");
+        world.flush();
+        assert_eq!(
+            seen.load(Ordering::Relaxed),
+            1,
+            "the flag was not cleared, so every later tick re-announces a \
+             restart that already happened"
+        );
     }
 }

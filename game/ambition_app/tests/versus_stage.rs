@@ -1209,6 +1209,16 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
         app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
         "the round never restarted, so nothing here is under test"
     );
+    // ONE tick, and the reason is the shape of the seam rather than a fudge.
+    //
+    // The reset happens in `CombatSet::Settle`, and the engine announces
+    // restarts at the FRONT of the sim tick (`announce_body_restarts` in
+    // `WorldPrep`) — so the trigger lands at the top of the following tick,
+    // before `PlayerInput`, which is where provider systems read their own
+    // state. The guarantee is "cleared before the provider acts again", not
+    // "cleared in the same phase that reset the body", and this is what that
+    // costs to observe from outside.
+    app.update();
     assert_eq!(
         app.world().get::<ProviderCharge>(seat_one).unwrap().0,
         0.0,

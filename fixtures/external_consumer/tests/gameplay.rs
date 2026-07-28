@@ -412,3 +412,101 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
         "the spec came from somewhere other than the authored sheet"
     );
 }
+
+/// **The art this crate owns is a real image, and the engine reaches it.**
+/// (queue T2, the half U1 left open)
+///
+/// U1 made a consumer able to ADDRESS its art (`game://sprites/outlander.png`
+/// survives catalog assembly) and DESCRIBE it (`register_character_sheet_ron`).
+/// Neither of those decodes a byte, so "a consumer's character renders from
+/// consumer-owned art" stayed a statement about plumbing — and this repo does
+/// not commit binary art, so the obvious proof was unavailable.
+///
+/// `build.rs` generates it instead: eighty lines of `std` writing a genuine PNG
+/// into this crate's own asset tree. That closes the loop without committing a
+/// byte, and it exercises the same path a third party's real art takes.
+///
+/// Asserted here: the file exists, it is a PNG whose IHDR says 32×48, and those
+/// are the SAME dimensions the sheet RON declares — because two numbers written
+/// in two places is how art and metadata drift apart in the first place.
+#[test]
+fn the_consumers_own_art_is_a_real_png_matching_the_sheet_it_authored() {
+    let png = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander.png");
+    let bytes = std::fs::read(&png).unwrap_or_else(|error| {
+        panic!("build.rs did not generate {}: {error}", png.display())
+    });
+
+    assert_eq!(
+        &bytes[..8],
+        &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A],
+        "the generated file is not a PNG — a file named .png is not art"
+    );
+    // IHDR width/height live at bytes 16..24, immediately after the signature,
+    // the length field and the chunk type.
+    let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+    let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+
+    // The sheet this crate authored, parsed rather than repeated: if the RON
+    // says 32×48 and the image is 64×64, the character draws a crop of itself
+    // and nothing in the engine can tell.
+    let sheet = outlander::OUTLANDER_SHEET_RON;
+    let declared_w: u32 = sheet
+        .split("frame_width:")
+        .nth(1)
+        .and_then(|rest| rest.split(',').next())
+        .and_then(|value| value.trim().parse().ok())
+        .expect("the authored sheet declares a frame width");
+    let declared_h: u32 = sheet
+        .split("frame_height:")
+        .nth(1)
+        .and_then(|rest| rest.split(',').next())
+        .and_then(|value| value.trim().parse().ok())
+        .expect("the authored sheet declares a frame height");
+
+    assert_eq!(
+        (width, height),
+        (declared_w, declared_h),
+        "the generated image and the authored sheet disagree about the frame — \
+         the character would draw a crop of itself, and no engine check could \
+         see it"
+    );
+}
+
+/// **And the engine's own asset source reads it**, through the consumer's
+/// `game://` scheme rather than a filesystem path this test invented.
+///
+/// The sibling reader test proves a marker TEXT file resolves. This proves the
+/// thing a character actually loads — the image its catalog row names — comes
+/// out of the consumer's tree. Together with
+/// `a_consumer_authors_the_sheet_its_own_character_renders_from`, the chain is
+/// complete: named, described, and present.
+#[test]
+fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    outlander::register_outlander_asset_source(&mut app);
+    app.add_plugins(bevy::asset::AssetPlugin {
+        file_path: ambition::asset_manager::actors_desktop_asset_root(),
+        ..Default::default()
+    });
+
+    // Through the real `AssetServer`, like its sibling test: a hand-built
+    // reader would only prove this test can construct one.
+    let server = app.world().resource::<AssetServer>();
+    let source = server
+        .get_source(bevy::asset::io::AssetSourceId::from("game"))
+        .expect("the consumer registered a `game://` source");
+    let reader = source.reader();
+    let read = |path: &str| -> bool {
+        bevy::tasks::block_on(async { reader.read(std::path::Path::new(path)).await.is_ok() })
+    };
+
+    assert!(
+        read("sprites/outlander.png"),
+        "the consumer's own generated sprite did not resolve through its own \
+         asset source — the catalog row names `game://sprites/outlander.png`, so \
+         this is the exact path a character load takes"
+    );
+}

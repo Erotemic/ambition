@@ -141,7 +141,28 @@ pub struct RoomMetadata {
     /// Authored as the LDtk level string field `mode`; merged first-`Some`-wins
     /// across an active area's member levels, like every other string field
     /// here.
+    ///
+    /// That sentence was aspirational until 2026-07-28: the reader existed, but
+    /// no project DECLARED the field, so every LDtk room composed with
+    /// `mode: None` and all five modes in the repo were assigned in Rust. The
+    /// def is now registered in every `.ldtk` project, so an LDtk-authored room
+    /// can join its own demo's ruleset.
     pub mode: Option<String>,
+    /// How far past this room's bounds, along the fall direction, a body may
+    /// drift before the world declares it gone
+    /// ([`World::blast_margin`](ambition_engine_core::World::blast_margin)).
+    ///
+    /// A platformer's pit depth and a platform fighter's blast zone are the
+    /// same number, and it belongs to the room. `None` takes the engine
+    /// default, which is what every room got when the number was a literal
+    /// inside the movement kernel — a stage could not disagree with it, which
+    /// is why a fighting stage could not be authored at all.
+    ///
+    /// Authored as the LDtk level integer field `blast_margin`, in whole
+    /// pixels, merged first-`Some`-wins like every other field here. Integer
+    /// because `RoomMetadata` is `Eq` and a distance in pixels has no business
+    /// being fractional; the composer widens it for the engine.
+    pub blast_margin: Option<i32>,
 }
 
 impl RoomMetadata {
@@ -154,6 +175,7 @@ impl RoomMetadata {
             && self.nameplate_policy.is_empty()
             && !self.gallery
             && self.mode.is_none()
+            && self.blast_margin.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -174,6 +196,9 @@ impl RoomMetadata {
         }
         if self.mode.is_none() {
             self.mode = other.mode;
+        }
+        if self.blast_margin.is_none() {
+            self.blast_margin = other.blast_margin;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

@@ -291,7 +291,16 @@ impl LdtkProject {
             )
             .with_water_regions(water_regions)
             .with_climbable_regions(climbable_regions)
-            .with_chains(chains),
+            .with_chains(chains)
+            // The room's own blast margin, authored on the level. Absent, the
+            // engine default stands — which is what every room had when the
+            // number was a literal inside the movement kernel.
+            .with_blast_margin(
+                metadata
+                    .blast_margin
+                    .map(|px| px as f32)
+                    .unwrap_or(ae::World::DEFAULT_BLAST_MARGIN),
+            ),
             loading_zones,
             metadata,
             camera_zones,
@@ -793,6 +802,102 @@ mod tests {
                 }],
             }],
         }
+    }
+
+    /// A level field the same synthetic project can carry, so the round-trip
+    /// under test is level metadata rather than an entity.
+    fn level_field(name: &str, value: Value) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.to_string(),
+            value,
+            real_editor_values: vec![],
+        }
+    }
+
+    /// **A stage authors where it ends.**
+    ///
+    /// `World::blast_margin` was a `200.0` literal inside the movement kernel —
+    /// duplicated across two copies of the out-of-bounds gate — so no room could
+    /// disagree with it, which made a platform fighter's blast zone (a per-stage
+    /// number that IS the loss condition of the genre) unauthorable. Rust rooms
+    /// gained `with_blast_margin`; this is the LDtk half, because "missing a
+    /// concept means ADD IT TO LDTK" and a number only Rust can set is not
+    /// authored, it is hard-coded somewhere newer.
+    #[test]
+    fn a_level_authors_its_own_blast_margin() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("blast_margin", Value::Number(64.into())));
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes");
+        assert_eq!(
+            room_set.rooms[0].world.blast_margin, 64.0,
+            "the level authored a 64px blast margin and the composed world did \
+             not take it — the field is declared, read, and dropped"
+        );
+        assert_eq!(
+            room_set.rooms[0].metadata.blast_margin,
+            Some(64),
+            "the metadata channel must carry it too; the world is downstream of it"
+        );
+    }
+
+    /// A level that says nothing keeps the behaviour it had before the field
+    /// existed. The whole migration is worthless if adding an authoring channel
+    /// silently re-tunes every room that never used it.
+    #[test]
+    fn a_level_that_authors_no_margin_keeps_the_engine_default() {
+        let room_set = synthetic_level(Vec::new())
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes");
+        assert_eq!(
+            room_set.rooms[0].world.blast_margin,
+            ae::World::DEFAULT_BLAST_MARGIN
+        );
+        assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
+    }
+
+    /// A negative margin would put the kill line INSIDE the room, so every body
+    /// would be out of bounds standing on the floor. Rejected at the reader,
+    /// not clamped, because a clamp turns an authoring mistake into a room that
+    /// merely behaves oddly.
+    #[test]
+    fn a_negative_blast_margin_is_refused_rather_than_clamped() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("blast_margin", Value::Number((-32).into())));
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes");
+        assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
+        assert_eq!(
+            room_set.rooms[0].world.blast_margin,
+            ae::World::DEFAULT_BLAST_MARGIN
+        );
+    }
+
+    /// **A level can declare its game mode.** `RoomMetadata::mode` documented
+    /// itself as "authored as the LDtk level string field `mode`" while no
+    /// project declared the field and no level set it — every mode in the repo
+    /// is assigned in Rust. The doc was describing a channel that did not
+    /// exist; this is the channel.
+    #[test]
+    fn a_level_authors_its_own_game_mode() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("mode", Value::String("sanic".into())));
+        let room_set = project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes");
+        assert_eq!(
+            room_set.rooms[0].metadata.mode.as_deref(),
+            Some("sanic"),
+            "a level that declares its mode must reach the rules gate that reads it"
+        );
     }
 
     /// [W-b] / F9.2 arc exit: a `DamageVolume` emits a single `PlacementRecord`

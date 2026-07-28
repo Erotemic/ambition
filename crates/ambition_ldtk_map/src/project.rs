@@ -141,6 +141,11 @@ impl LdtkLevel {
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
             mode: take("mode"),
+            // A margin of zero is meaningful — "you are out the instant you
+            // cross my edge" is a legitimate stage — so only NEGATIVE values
+            // are rejected, and they are rejected rather than clamped: a
+            // negative blast margin would put the kill line INSIDE the room.
+            blast_margin: self.field_i32("blast_margin").filter(|px| *px >= 0),
         }
     }
 

@@ -462,6 +462,14 @@ OPTIONAL_LEVEL_FIELDS = (
     "nameplate_full_opacity_count",
     "nameplate_fade_out_count",
     "gallery",
+    # The room's game MODE. Read by `RoomMetadata::mode` since the hosted-demo
+    # split, and missing from this list the whole time — so a spec could not
+    # author the field the engine was already reading.
+    "mode",
+    # How far past the room a body may drift before the world declares it gone.
+    # A platformer's pit depth and a platform fighter's blast zone are the same
+    # number, in whole pixels.
+    "blast_margin",
 )
 
 

@@ -407,11 +407,27 @@ pub fn populate_secondary_slot_controls(
 /// Slot 0 is skipped — it is the primary seat, it already drains
 /// `ControlFrameLatch`, and latching it twice would hold one press across two
 /// ticks.
+///
+/// ⚠ **Not during a REPLAY pass.** Under a rollback host the sim schedule is the
+/// GGRS schedule, and a resimulated tick re-runs it. Draining a latch there
+/// would CONSUME fresh device input on a frame that is supposed to be replaying
+/// history — the second drain finds it empty and the seat goes neutral on the
+/// replayed tick but not the original, which is a desync the sim itself
+/// manufactures.
+///
+/// The primary seat has no equivalent hazard because GGRS overwrites
+/// `ControlFrame` from the session's confirmed inputs after it drains; seats 1-3
+/// are not in the session at all (queue Y1), so for them the drain IS the value
+/// and it has to be guarded instead.
 #[cfg(feature = "input")]
 pub fn publish_latched_slot_controls(
+    replay: Option<Res<ambition_platformer_primitives::schedule::SimulationReplayState>>,
     mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
 ) {
+    if replay.is_some_and(|replay| replay.replaying_history) {
+        return;
+    }
     for slot in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
         let slot = ambition_characters::brain::PlayerSlot(slot as u8);
         slots.set(slot, latches.take(slot));

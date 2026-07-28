@@ -14,6 +14,9 @@ use ambition::menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
+// The cube renderer's own vocabulary. Everything that touches it is gated with
+// it — see the module doc and `menu/mod.rs`.
+#[cfg(feature = "kaleidoscope_menu")]
 use ambition_menu_kaleidoscope::{
     rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
     KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
@@ -136,6 +139,7 @@ fn kaleidoscope_menu_visible(
 /// This avoids the original closed-menu churn (camera/ring/picking/fade systems
 /// running every frame just because Cube is the selected backend) without cutting
 /// off the close animation — including the close triggered by SWITCHING backends.
+#[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
@@ -190,6 +194,7 @@ pub(crate) struct KaleidoscopeScrim;
 ///
 /// This compatibility wrapper also installs the shared menu resources, which keeps
 /// older tests/fixtures that call `install_kaleidoscope_menu` directly working.
+#[cfg(feature = "kaleidoscope_menu")]
 pub fn install_kaleidoscope_menu(app: &mut App) {
     install_unified_menu_shared(app);
     install_kaleidoscope_menu_backend(app);
@@ -200,6 +205,7 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
 /// the scrim (not a camera clear) supplies text contrast. Suspending the world
 /// camera instead and self-clearing was tried (2026-07-20) and rejected — it reads
 /// as "the 2d camera turned off" and breaks the pause-overlay identity.
+#[cfg(feature = "kaleidoscope_menu")]
 fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
     KaleidoscopeMenuConfig {
         draw_nav_arrows: false,
@@ -211,6 +217,7 @@ fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
 
 /// Install only the optional 3D cube backend. The caller must install
 /// [`install_unified_menu_shared`] first.
+#[cfg(feature = "kaleidoscope_menu")]
 pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     // The game uses Bevy picking on the cube controls AND draws its own real L/R
     // edge buttons (see `menu::model::add_edge_buttons`), so it inserts its own
@@ -706,7 +713,12 @@ fn radio_snapshot_from(
 mod dev_toggles;
 use dev_toggles::*;
 
+// Cube-only: the readability dim-scrim exists because the cube renders as a
+// transparent overlay over the live world. There is no cube without the feature
+// and so nothing to dim.
+#[cfg(feature = "kaleidoscope_menu")]
 mod scrim;
+#[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use scrim::*;
 
 /// Directional focus navigation for the cube (keyboard / gamepad), porting the
@@ -1554,7 +1566,10 @@ pub(crate) fn focus_for_action(
     }
 }
 
+// Cube-only: picking on the cube's 3D controls.
+#[cfg(feature = "kaleidoscope_menu")]
 mod pointer;
+#[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use pointer::*;
 
 /// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
@@ -1774,6 +1789,7 @@ fn cycle_dev_gravity(
 /// camera, the order-9 front HUD, portal/offscreen captures — keeps its own
 /// routing untouched, so the live world stays visible under the transparent cube
 /// overlay and comes back the instant the fold clears.
+#[cfg(feature = "kaleidoscope_menu")]
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
@@ -1836,6 +1852,7 @@ fn gate_kaleidoscope_menu(
 /// A control's focus identity is the inverse of [`focus_for_action`], so the cursor
 /// (keyboard OR pointer) and the highlighted control always agree — keyboard select
 /// keeps working identically.
+#[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_focus_visuals(
     cursor: Res<KaleidoscopeCursor>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
@@ -1933,5 +1950,6 @@ mod scroll;
 pub(crate) use cache::*;
 pub(crate) use scroll::*;
 
-#[cfg(test)]
+// The cube's own tests, which build the Lunex plugin stack.
+#[cfg(all(test, feature = "kaleidoscope_menu"))]
 mod lunex_kaleidoscope_app_tests;

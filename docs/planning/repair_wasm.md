@@ -2,7 +2,52 @@ Repair Ambition’s supported WASM builds.
 
 Repository root: use the current Ambition checkout. Read the root `AGENTS.md` and any nearer `AGENTS.md` files before editing.
 
-## Progress (2026-07-24)
+## DONE (2026-07-28)
+
+**Both check commands below now compile.** Verified:
+
+```
+cargo check -p ambition_app --lib --target wasm32-unknown-unknown \
+    --no-default-features --features web              # 0 errors
+cargo check -p ambition_app --lib --target wasm32-unknown-unknown \
+    --no-default-features --features web_served_assets # 0 errors
+cargo check --workspace --all-targets                 # native, 0 errors
+cargo test -p ambition_app --lib                      # 155 passed
+```
+
+### The remaining §1 was not the refactor it looked like
+
+The 2026-07-24 note read the last four errors as "move the shared substrate out
+of a 1937-line file", and called it the delicate part. Measuring first changed
+the answer: **of that file's ~1900 lines, NINETEEN mention `bevy_lunex`**, and
+they sit in five tight clusters. The module was gated on `kaleidoscope_menu`
+because of what it is CALLED, not because of what it depends on.
+
+So the fix is the inverse of the plan. `menu::kaleidoscope_app` is compiled
+ALWAYS; the cube parts are gated item by item inside it:
+
+* the `ambition_menu_kaleidoscope` import;
+* `kaleidoscope_render_needed`, `game_kaleidoscope_config`,
+  `install_kaleidoscope_menu_backend`, `install_kaleidoscope_menu`,
+  `gate_kaleidoscope_menu`, `kaleidoscope_sync_focus_visuals`;
+* the `scrim` and `pointer` child modules — the dim-scrim exists because the cube
+  renders as a transparent overlay over the live world, and picking is on the
+  cube's 3D controls, so neither has meaning without one;
+* the cube's own test module.
+
+`app/plugins.rs`'s call site needed the same distinction the whole bug was made
+of: `KALEIDOSCOPE_MENU_BACKEND_ENABLED` is the runtime SELECTION (a build may
+compile the cube and still boot on the grid), and the cfg is whether there is a
+cube to select at all. Conflating them is why a web build failed to compile the
+FLAT menu, which has nothing to do with Lunex.
+
+⚠ **What this does NOT do.** It makes the web build COMPILE. Nobody has run it
+in a browser, no wasm crate is exercised by the suite, and `web` omits
+`basic_shell_presentation` — so the universal pause/settings menu (including the
+title-screen audio rows landed the same day) is absent there. That is the honest
+state, and it is what queue D12 has to decide about.
+
+## Progress (2026-07-24), kept for the trail
 
 Re-ran the check command below: the web `--lib` build was down to **9 errors**,
 now **4**. The contained failures are FIXED (native build stays green,

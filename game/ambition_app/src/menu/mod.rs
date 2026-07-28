@@ -8,11 +8,18 @@ pub mod dispatch;
 pub mod effects;
 #[cfg(feature = "bevy_ui_menu")]
 pub mod grid_backend;
-// Gated with the crate it wraps: the bevy_lunex cube renderer (and its
-// bevy_rich_text3d/cosmic-text stack) is only compiled when the feature that
-// can actually reach it is on — a headless or CI build has no business paying
-// for a 3D UI toolkit.
-#[cfg(feature = "kaleidoscope_menu")]
+// **Always compiled, despite the name.** (repair_wasm §1)
+//
+// This module was gated on `kaleidoscope_menu` because of what it is CALLED,
+// and the gate was wrong: of its ~1900 lines, nineteen mention `bevy_lunex`.
+// Everything else is the backend-neutral menu host — the cursor, the system-menu
+// navigation, item actions, page building — which `dispatch.rs` and the bevy_ui
+// `grid_backend.rs` import unconditionally because they genuinely need it. So a
+// build without the cube (the web persona) failed to compile the FLAT menu, which
+// has nothing to do with Lunex.
+//
+// The cube renderer itself is still gated, item by item, inside the module. A
+// headless or web build pays for no 3D UI toolkit; it just gets to have a menu.
 pub mod kaleidoscope_app;
 pub mod model;
 pub(crate) mod quality_confirm;

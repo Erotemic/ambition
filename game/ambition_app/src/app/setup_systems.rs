@@ -24,6 +24,10 @@ use super::scene_setup;
 #[derive(SystemParam)]
 pub(crate) struct PresentationCatalogs<'w> {
     characters: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    /// Provider-authored sheets (U1). Grouped with the catalogs because it is
+    /// the same question — what did this app's providers declare — asked about
+    /// art instead of identity.
+    sheets: Res<'w, ambition::actors::character_sprites::AuthoredSheets>,
     bosses: Res<'w, ambition::actors::boss_encounter::BossCatalog>,
     assets: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
 }
@@ -58,6 +62,7 @@ pub(super) fn setup_simulation_system(
         ambition::actors::avatar::StartingCharacter,
     >,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition::actors::character_sprites::AuthoredSheets>,
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     construction: RoomConstructionAuthorities,
@@ -74,6 +79,7 @@ pub(super) fn setup_simulation_system(
             tuning: &active_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            authored_sheets: &authored_sheets,
             character_roster: &character_roster,
             placement_lowering: &construction.placement_lowering,
             content_staging: &construction.content_staging,
@@ -129,6 +135,7 @@ pub(crate) fn setup_presentation_system(
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
+        &catalogs.sheets,
         &catalogs.bosses,
         &catalogs.assets,
         &asset_server,
@@ -244,6 +251,7 @@ pub(crate) fn setup_host_presentation_system(
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
                     &asset_config.sprite_folder,
+                    &catalogs.sheets,
                     &catalogs.characters,
                 );
             },
@@ -256,6 +264,7 @@ pub(crate) fn setup_host_presentation_system(
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
+        &catalogs.sheets,
         &catalogs.bosses,
         asset_catalog,
         &asset_server,
@@ -352,6 +361,7 @@ pub(crate) fn setup_host_presentation_system(
                 ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                     manifest,
                     &asset_config.sprite_folder,
+                    &catalogs.sheets,
                     &catalogs.characters,
                 );
             },
@@ -363,6 +373,7 @@ pub(crate) fn setup_host_presentation_system(
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
+        &catalogs.sheets,
         &catalogs.bosses,
         asset_catalog,
         &asset_server,
@@ -405,6 +416,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     *game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
+        &catalogs.sheets,
         &catalogs.bosses,
         &catalogs.assets,
         &asset_server,
@@ -429,6 +441,7 @@ pub(crate) fn setup_presentation_system(
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
+        &catalogs.sheets,
         &catalogs.bosses,
         &catalogs.assets,
         &asset_server,

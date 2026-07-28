@@ -200,6 +200,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     game_assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_actors::character_sprites::AuthoredSheets>,
 ) {
     if installed.0 {
         return;
@@ -217,7 +218,7 @@ pub(crate) fn load_intro_npc_sprites_system(
         installed.0 = true;
         return;
     }
-    for (name, filename, spec) in intro_npc_sprite_rows(&character_catalog) {
+    for (name, filename, spec) in intro_npc_sprite_rows(&authored_sheets, &character_catalog) {
         if game_assets.characters.sheet(name).is_some() {
             continue;
         }

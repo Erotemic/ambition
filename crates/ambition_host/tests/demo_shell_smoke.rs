@@ -129,6 +129,9 @@ fn fixture_setup(
             tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            // A smoke fixture authors no sheets; empty is the honest value and
+            // resolves exactly as this test did before U1.
+            authored_sheets: &Default::default(),
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,

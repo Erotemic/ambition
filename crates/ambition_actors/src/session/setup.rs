@@ -51,6 +51,9 @@ pub struct SimulationSetup<'a> {
     pub starting_character: &'a crate::avatar::StartingCharacter,
     /// App-local assembled character definitions used by spawn and re-wear.
     pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
+    /// App-local sheets this session's providers authored (U1). Sized bodies
+    /// come from sheets, so setup needs it wherever it needs the catalog.
+    pub authored_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     /// App-local hostile archetype definitions used by authored room lowering.
     pub character_roster: &'a crate::features::CharacterRoster,
     /// The installed App-local placement-lowering authority. Setup lowers the
@@ -104,6 +107,7 @@ pub fn simulation_world(
         tuning,
         starting_character,
         character_catalog,
+        authored_sheets,
         character_roster,
         placement_lowering,
         content_staging,
@@ -147,6 +151,7 @@ pub fn simulation_world(
         placement_lowering,
         content_staging,
         character_catalog,
+        authored_sheets,
         character_roster,
         boss_catalog,
         session_scope,

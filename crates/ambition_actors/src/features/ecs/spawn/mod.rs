@@ -175,6 +175,7 @@ impl RoomFeatureConstructionPlan {
         registry: &crate::world::placements::PlacementLoweringRegistry,
         content_staging: &RoomContentStagingRegistry,
         catalog: &CharacterCatalog,
+        sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         roster: &CharacterRoster,
         boss_catalog: &BossCatalog,
         construction: ActorConstructionContext<'_>,
@@ -306,7 +307,7 @@ impl RoomFeatureConstructionPlan {
             .collect();
 
         let placement_context =
-            crate::world::placements::ActorPlacementContext::new(catalog, roster);
+            crate::world::placements::ActorPlacementContext::new(catalog, sheets, roster);
         Ok(Self {
             room: room.clone(),
             construction_services: crate::construction::ActorConstructionServices {
@@ -495,6 +496,7 @@ pub fn spawn_room_feature_entities_from_plan(
 pub fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
@@ -506,6 +508,7 @@ pub fn spawn_encounter_mob(
     super::spawn_actors::spawn_encounter_mob(
         commands,
         catalog,
+        authored_sheets,
         roster,
         session_scope,
         encounter_id,

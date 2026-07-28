@@ -304,6 +304,9 @@ pub fn begin_room_transition_load_system(
         Res<ambition_actors::features::CharacterRoster>,
         Res<ambition_actors::boss_encounter::BossCatalog>,
         Res<ambition_actors::construction::ActorConstructionRegistry>,
+        // Provider-authored sheets (U1 stage B): room construction sizes bodies
+        // from their sheets, so a transition needs it beside the catalog.
+        Res<ambition_actors::character_sprites::AuthoredSheets>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -571,6 +574,7 @@ pub fn begin_room_transition_load_system(
                 &construction_services.0,
                 &construction_services.1,
                 &construction_services.2,
+                &construction_services.6,
                 &construction_services.3,
                 &construction_services.4,
                 session_scope,

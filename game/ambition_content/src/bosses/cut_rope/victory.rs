@@ -16,6 +16,7 @@ pub fn spawn_cut_rope_victory_npc(
     room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_actors::character_sprites::AuthoredSheets>,
     character_roster: Res<ambition_actors::features::CharacterRoster>,
     mut released: MessageReader<ambition_actors::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
@@ -61,6 +62,7 @@ pub fn spawn_cut_rope_victory_npc(
     spawn_victory_npc_entity(
         &mut commands,
         &character_catalog,
+        &authored_sheets,
         &character_roster,
         spawn_pos,
     );
@@ -73,6 +75,7 @@ fn victory_npc_size() -> ae::Vec2 {
 fn spawn_victory_npc_entity(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
     character_roster: &ambition_actors::features::CharacterRoster,
     pos: ae::Vec2,
 ) -> Entity {
@@ -95,6 +98,7 @@ fn spawn_victory_npc_entity(
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
     let (mut seed, _render) = ambition_actors::features::ActorClusterSeed::new_peaceful_npc_in(
+        authored_sheets,
         character_catalog,
         character_roster,
         CUT_ROPE_VICTORY_NPC_ID,

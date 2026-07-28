@@ -92,6 +92,10 @@ impl FeatureHitWriters<'_, '_> {
 #[derive(SystemParam)]
 pub struct FeatureHitCatalogs<'w> {
     pub characters: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    /// Provider-authored sheets (U1 stage B): a split offspring sizes its body
+    /// from its sheet like anything else, so the damage path carries it beside
+    /// the catalog it already carries.
+    pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     pub hostile_archetypes: Res<'w, crate::features::CharacterRoster>,
     pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
 }
@@ -390,6 +394,7 @@ pub fn apply_feature_hit_events(
             if apply_actor_hit(
                 &event,
                 catalog,
+                &catalogs.sheets,
                 &catalogs.hostile_archetypes,
                 actor_entity,
                 *disposition,

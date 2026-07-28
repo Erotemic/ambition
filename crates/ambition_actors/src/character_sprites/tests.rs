@@ -15,7 +15,7 @@ fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCat
 fn sheet_for_character_id(
     character_id: &str,
 ) -> Option<ambition_sprite_sheet::character::sheets::CharacterSheetSpec> {
-    sheet_for_character_id_in(&test_catalog(), character_id)
+    sheet_for_character_id_in(&Default::default(), &test_catalog(), character_id)
 }
 
 /// Data-path stand-in for the deleted `ROBOT_SHEET` static.

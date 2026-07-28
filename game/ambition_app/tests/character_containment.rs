@@ -64,6 +64,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         // probe falls back to the engine default rather than inventing a size,
         // and the count below keeps that from quietly becoming everybody.
         let body = ambition::actors::character_sprites::sprite_body_collision_for_character_id_in(
+            &Default::default(),
             catalog,
             id,
             Vec2::new(28.0, 44.0),

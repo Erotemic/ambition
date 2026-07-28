@@ -427,6 +427,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
     app.add_plugins(CharacterRuntimePlugin);
     // A catalog with NO characters in it: the only declaration is the registration.
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
     app.register_character(
         crate::character_runtime::definition::CharacterDefinition::new(

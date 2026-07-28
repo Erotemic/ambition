@@ -107,6 +107,7 @@ fn telegraph_boss_app() -> (App, Entity) {
 
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     {

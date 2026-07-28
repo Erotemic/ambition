@@ -35,12 +35,13 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,
                 &config.sprite_folder,
+                &Default::default(),
                 &character_catalog,
             );
         },
     );
 
-    for (name, filename, _spec) in intro_npc_sprite_rows(&character_catalog) {
+    for (name, filename, _spec) in intro_npc_sprite_rows(&Default::default(), &character_catalog) {
         let id = intro_npc_asset_id(name);
         let resolved = catalog.resolve(&id).unwrap_or_else(|err| {
             panic!("intro NPC `{name}` (id {id}) missing from catalog: {err}")

@@ -86,6 +86,7 @@ fn prepare(
         &Default::default(),
         staging,
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &Default::default(),
         &crate::features::enemies::test_roster(),
         &crate::boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(recipes, ae::ContentEpoch(4)),
@@ -623,6 +624,7 @@ fn summon_world() -> World {
     let mut world = World::new();
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    world.init_resource::<crate::character_sprites::AuthoredSheets>();
     world.insert_resource(crate::features::enemies::test_roster());
     world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
@@ -876,10 +878,12 @@ fn every_parameter_variant_constructs_its_root() {
 
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    world.init_resource::<crate::character_sprites::AuthoredSheets>();
     world.insert_resource(crate::features::enemies::test_roster());
     let services = ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &Default::default(),
             &crate::features::enemies::test_roster(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
@@ -1253,6 +1257,7 @@ fn test_services() -> ActorConstructionServices {
     ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &Default::default(),
             &crate::features::enemies::test_roster(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
@@ -2187,6 +2192,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
         crate::features::ecs::spawn_runtime_minion(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "runaway",
@@ -2219,6 +2225,7 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
         crate::features::spawn_encounter_mob(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "enc",
@@ -2933,6 +2940,7 @@ fn prepare_with_placements(
         &placement_registry(),
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &Default::default(),
         &crate::features::enemies::test_roster(),
         &crate::boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4)),

@@ -131,6 +131,9 @@ pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
+    authored_sheets: bevy::prelude::Res<
+        ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    >,
     character_roster: bevy::prelude::Res<CharacterRoster>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -153,6 +156,7 @@ pub fn apply_spawn_actor_requests(
         let Some(entity) = spawn_staged_actor(
             &mut commands,
             &character_catalog,
+            &authored_sheets,
             &character_roster,
             &boss_catalog,
             session_scope,
@@ -181,6 +185,7 @@ pub fn apply_spawn_actor_requests(
 pub(crate) fn spawn_staged_actor(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &CharacterRoster,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
@@ -203,6 +208,7 @@ pub(crate) fn spawn_staged_actor(
     spawn_staged_actor_into(
         commands,
         character_catalog,
+        authored_sheets,
         character_roster,
         boss_catalog,
         session_scope,
@@ -217,6 +223,7 @@ pub(crate) fn spawn_staged_actor(
 pub(crate) fn spawn_staged_actor_into(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &CharacterRoster,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
@@ -260,6 +267,7 @@ pub(crate) fn spawn_staged_actor_into(
             spawn_enemy_with_faction_into(
                 commands,
                 character_catalog,
+                authored_sheets,
                 character_roster,
                 session_scope,
                 root,
@@ -512,6 +520,7 @@ impl NpcActorSpawnPlan {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn peaceful(
         catalog: &CharacterCatalog,
+        authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         roster: &CharacterRoster,
         entity_name: impl Into<String>,
         feature_aabb: CenteredAabb,
@@ -546,6 +555,7 @@ impl NpcActorSpawnPlan {
         let hostile_spec = super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+            authored_sheets,
             catalog,
             roster,
             id.clone(),
@@ -1092,6 +1102,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
@@ -1111,6 +1122,7 @@ pub(crate) fn spawn_runtime_minion(
     spawn_runtime_minion_into(
         commands,
         catalog,
+        authored_sheets,
         roster,
         session_scope,
         root,
@@ -1131,6 +1143,7 @@ pub(crate) fn spawn_runtime_minion(
 pub(crate) fn spawn_runtime_minion_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
@@ -1149,6 +1162,7 @@ pub(crate) fn spawn_runtime_minion_into(
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        authored_sheets,
         catalog,
         roster,
         id.clone(),
@@ -1179,6 +1193,7 @@ pub(crate) fn spawn_runtime_minion_into(
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
     if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+        authored_sheets,
         catalog,
         &name,
         aabb.half_size() * 2.0,
@@ -1203,6 +1218,7 @@ pub(crate) fn spawn_runtime_minion_into(
 pub(crate) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -1212,6 +1228,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
 ) {
     let spec = roster.spec_for_brain(&authored.payload);
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        authored_sheets,
         catalog,
         roster,
         authored.id.clone(),
@@ -1223,6 +1240,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     spawn_solo_enemy_into(
         commands,
         catalog,
+        authored_sheets,
         session_scope,
         root,
         enemy,
@@ -1244,6 +1262,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
 pub(crate) fn populate_giant_host_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -1254,6 +1273,7 @@ pub(crate) fn populate_giant_host_into(
     spawn_enemy_with_faction_into(
         commands,
         catalog,
+        authored_sheets,
         roster,
         session_scope,
         root,
@@ -1274,12 +1294,14 @@ pub(crate) fn populate_giant_host_into(
 pub(crate) fn populate_giant_hand_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
 ) {
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        authored_sheets,
         catalog,
         roster,
         authored.id.clone(),
@@ -1291,6 +1313,7 @@ pub(crate) fn populate_giant_hand_into(
     spawn_solo_enemy_into(
         commands,
         catalog,
+        authored_sheets,
         session_scope,
         root,
         enemy,
@@ -1452,6 +1475,7 @@ fn attach_mount_role(
 pub(super) fn spawn_solo_enemy_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     enemy: super::actor_clusters::ActorClusterSeed,
@@ -1473,6 +1497,7 @@ pub(super) fn spawn_solo_enemy_into(
     // the sprite draws at the authored scale and matches the body the per-frame
     // `CenteredAabb` sync derives from the sprite-sized collision.
     if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+        authored_sheets,
         catalog,
         &authored.name,
         authored.aabb.half_size() * 2.0,
@@ -1517,6 +1542,7 @@ fn npc_display_label(
 pub(crate) fn spawn_interactable_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -1541,6 +1567,7 @@ pub(crate) fn spawn_interactable_into(
         let label = npc_display_label(catalog, interactable, &authored.name);
         NpcActorSpawnPlan::peaceful(
             catalog,
+            authored_sheets,
             roster,
             format!("Feature actor npc: {label}"),
             feature_aabb,
@@ -1589,6 +1616,7 @@ pub(crate) fn spawn_interactable_into(
 pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
@@ -1600,6 +1628,7 @@ pub(super) fn spawn_encounter_mob(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        authored_sheets,
         catalog,
         roster,
         id.clone(),
@@ -1627,7 +1656,12 @@ pub(super) fn spawn_encounter_mob(
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
     if let Some(rs) =
-        super::actor_clusters::sprite_render_size_for_name_in(catalog, &id, size * 0.5 * 2.0)
+        super::actor_clusters::sprite_render_size_for_name_in(
+            authored_sheets,
+            catalog,
+            &id,
+            size * 0.5 * 2.0,
+        )
     {
         commands
             .entity(entity)
@@ -1683,6 +1717,9 @@ pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
+    authored_sheets: bevy::prelude::Res<
+        ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    >,
     character_roster: bevy::prelude::Res<CharacterRoster>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
@@ -1774,6 +1811,7 @@ pub fn apply_summon_effects(
     let services = crate::construction::ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &character_catalog,
+            &authored_sheets,
             &character_roster,
         ),
         boss_catalog: boss_catalog.clone(),
@@ -1923,6 +1961,7 @@ mod runtime_giant_refusal_tests {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         app.init_resource::<crate::boss_encounter::BossCatalog>();
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();

@@ -45,6 +45,7 @@ pub fn fire_puppy_slug_gun_system(
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: Res<crate::features::CharacterRoster>,
     players: Query<(
         &ActorControl,
@@ -80,6 +81,7 @@ pub fn fire_puppy_slug_gun_system(
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
         &character_catalog,
+        &authored_sheets,
         &character_roster,
         session_scope,
         format!("puppy_slug_ally_{}", *next_id),
@@ -125,6 +127,10 @@ mod tests {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        // Summoned bodies size themselves from their sheets (U1 stage B); a
+        // fixture authors none, and empty resolves as it always did.
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }

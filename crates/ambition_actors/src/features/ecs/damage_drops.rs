@@ -103,6 +103,7 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 pub(super) fn spawn_split_offspring(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &crate::features::CharacterRoster,
     session_scope: SessionSpawnScope,
     parent_id: &str,
@@ -112,6 +113,7 @@ pub(super) fn spawn_split_offspring(
         crate::features::spawn_runtime_minion(
             commands,
             character_catalog,
+            authored_sheets,
             character_roster,
             session_scope,
             format!("{parent_id}:split{i}"),

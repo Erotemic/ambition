@@ -401,6 +401,7 @@ fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2
 /// peaceful (symmetry room) or hostile (duel). `ldtk_fallback` only seeds the
 /// collision fallback inside the resolver; the render size comes from the sheet.
 pub fn sprite_render_size_for_name_in(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     name: &str,
     ldtk_fallback: ae::Vec2,
@@ -409,6 +410,7 @@ pub fn sprite_render_size_for_name_in(
         .id_for_display_name(name)
         .and_then(|cid| {
             crate::character_sprites::sprite_body_collision_for_character_id_in(
+                authored,
                 catalog,
                 cid,
                 ldtk_fallback,
@@ -448,6 +450,7 @@ impl ActorClusterSeed {
     /// caller's App-local catalog. Content-free tests pass an explicit empty
     /// catalog, so production construction never has a hidden fallback.
     pub fn new_in(
+        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         roster: &CharacterRoster,
         id: impl Into<String>,
@@ -484,7 +487,7 @@ impl ActorClusterSeed {
         let ldtk_size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
         let sprite_body = sprite_character_id.as_deref().and_then(|cid| {
             crate::character_sprites::sprite_body_collision_for_character_id_in(
-                catalog, cid, ldtk_size,
+                authored, catalog, cid, ldtk_size,
             )
         });
         let size = sprite_body.map_or(ldtk_size, |b| b.collision);
@@ -541,6 +544,7 @@ impl ActorClusterSeed {
     /// `CharacterArchetypeSpec`. Returns the seed plus the optional sprite render size
     /// Build a peaceful actor from the caller's App-local character catalog.
     pub fn new_peaceful_npc_in(
+        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         roster: &CharacterRoster,
         id: impl Into<String>,
@@ -592,6 +596,7 @@ impl ActorClusterSeed {
         let ldtk_collision = aabb.half_size() * 2.0;
         let body = character_id.and_then(|cid| {
             crate::character_sprites::sprite_body_collision_for_character_id_in(
+                authored,
                 catalog,
                 cid,
                 ldtk_collision,
@@ -809,6 +814,7 @@ impl ActorClusterSeed {
         paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
         Self::new_in(
+            &Default::default(),
             &CharacterCatalog::empty(),
             &super::super::enemies::test_roster(),
             id,
@@ -828,6 +834,9 @@ impl ActorClusterSeed {
         paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
         Self::new_peaceful_npc_in(
+            // A content-free constructor has no providers, so no authored
+            // sheets — the empty registry is the honest value, not a stand-in.
+            &Default::default(),
             &CharacterCatalog::empty(),
             &super::super::enemies::test_roster(),
             id,

@@ -438,6 +438,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
         ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled(),
     );
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
         time.scaled_dt = 1.0 / 60.0;

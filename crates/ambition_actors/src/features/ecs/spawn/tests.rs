@@ -91,6 +91,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &registry,
         &Default::default(),
         &catalog,
+        &Default::default(),
         &roster,
         &boss_catalog,
         crate::features::ActorConstructionContext::new(
@@ -128,6 +129,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,
@@ -139,6 +141,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
             spawn_encounter_mob(
                 &mut commands,
                 &catalog,
+                &Default::default(),
                 &roster,
                 ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
@@ -259,6 +262,7 @@ fn boss_spawn_attaches_brain_components() {
 fn encounter_mob_spawns_with_brain_components() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,
@@ -270,6 +274,7 @@ fn encounter_mob_spawns_with_brain_components() {
             spawn_encounter_mob(
                 &mut commands,
                 &catalog,
+                &Default::default(),
                 &roster,
                 ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
@@ -534,6 +539,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             super::super::spawn_actors::spawn_interactable_into(
                 &mut commands,
                 &catalog,
+                &Default::default(),
                 &roster,
                 SessionSpawnScope::UNSCOPED,
                 root,

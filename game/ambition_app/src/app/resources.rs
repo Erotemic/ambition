@@ -107,6 +107,14 @@ pub fn init_sandbox_resources(app: &mut App) {
         .world()
         .resource::<ambition::actors::boss_encounter::BossCatalog>()
         .clone();
+    // Provider-authored sheets (U1). Cloned like the catalogs above; empty is
+    // the ordinary state for an app whose providers author none, and the intro
+    // sprite rows resolve exactly as before when it is.
+    let authored_sheets = app
+        .world()
+        .get_resource::<ambition::actors::character_sprites::AuthoredSheets>()
+        .cloned()
+        .unwrap_or_default();
 
     // Build the singleton SandboxAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
@@ -128,6 +136,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,
                 &asset_config.sprite_folder,
+                &authored_sheets,
                 &character_catalog,
             );
         },

@@ -124,7 +124,17 @@ pub fn manifest_attack_hitbox_world(
 /// no sheet spec. The baked manifest registry remains the only immutable
 /// process-wide cache; catalog-dependent sheet selection is never cached.
 fn player_render_size(catalog: &CharacterCatalog, collision: ae::Vec2) -> Option<ae::Vec2> {
-    let spec = super::assets::sheet_for_character_id_in(catalog, PLAYER_CHARACTER_ID)?;
+    // STAGE C, stated rather than silently skipped: attack VOLUMES resolve
+    // through a fn-pointer seam in `ambition_combat`, which has no business
+    // learning a sprite-sheet type — so provider-authored sheets do not reach
+    // this path yet and the empty registry is what that means. The polygons
+    // themselves come from `file_root_registry()`, a second baked index with the
+    // same gap, so consumer attack volumes are one problem, not two half ones.
+    let spec = super::assets::sheet_for_character_id_in(
+        &Default::default(),
+        catalog,
+        PLAYER_CHARACTER_ID,
+    )?;
     Some(sheets::player_placeholder_render_size(&spec, collision))
 }
 
@@ -157,7 +167,14 @@ pub fn authored_attack_volume_resolver(
             gravity_dir,
         ),
         None => {
-            player_attack_hitbox_world(catalog, animation, body_pos, collision, facing, gravity_dir)
+            player_attack_hitbox_world(
+                catalog,
+                animation,
+                body_pos,
+                collision,
+                facing,
+                gravity_dir,
+            )
         }
     }
 }
@@ -221,7 +238,12 @@ pub fn actor_attack_hitbox_world(
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
     let render_size =
-        super::assets::sprite_body_collision_for_character_id_in(catalog, character_id, collision)
+        super::assets::sprite_body_collision_for_character_id_in(
+            &Default::default(),
+            catalog,
+            character_id,
+            collision,
+        )
             .map(|b| b.render_size)
             .unwrap_or(collision);
     manifest_attack_hitbox_world(

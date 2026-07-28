@@ -597,6 +597,7 @@ fn construct_staged_actor(
     crate::features::spawn_staged_actor_into(
         ctx.commands,
         &ctx.services.context.characters,
+        &ctx.services.context.sheets,
         &ctx.services.context.roster,
         &ctx.services.boss_catalog,
         ctx.session,
@@ -616,6 +617,7 @@ fn construct_summoned_minion(
     crate::features::spawn_runtime_minion_into(
         ctx.commands,
         &ctx.services.context.characters,
+        &ctx.services.context.sheets,
         &ctx.services.context.roster,
         ctx.session,
         root.entity(),
@@ -646,6 +648,7 @@ fn construct_giant_host(
     crate::features::populate_giant_host_into(
         ctx.commands,
         &ctx.services.context.characters,
+        &ctx.services.context.sheets,
         &ctx.services.context.roster,
         ctx.session,
         root.entity(),
@@ -666,6 +669,7 @@ fn construct_giant_hand(
     crate::features::populate_giant_hand_into(
         ctx.commands,
         &ctx.services.context.characters,
+        &ctx.services.context.sheets,
         &ctx.services.context.roster,
         ctx.session,
         root.entity(),
@@ -684,6 +688,7 @@ fn construct_authored_enemy(
     crate::features::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
+        &ctx.services.context.sheets,
         &ctx.services.context.roster,
         ctx.session,
         root.entity(),

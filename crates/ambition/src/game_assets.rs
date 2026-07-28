@@ -200,6 +200,7 @@ impl Plugin for PlatformerAssetsPlugin {
 fn bind_game_assets(
     config: Res<GameAssetConfig>,
     character_catalog: Res<CharacterCatalog>,
+    authored_sheets: Res<ambition_actors::character_sprites::AuthoredSheets>,
     boss_catalog: Res<BossCatalog>,
     catalog: Res<SandboxAssetCatalog>,
     room: Res<AssetBindRoom>,
@@ -211,6 +212,7 @@ fn bind_game_assets(
     *game_assets = ambition_actors::assets::game_assets::load_game_assets(
         &config,
         &character_catalog,
+        &authored_sheets,
         &boss_catalog,
         &catalog,
         &asset_server,

@@ -65,6 +65,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -138,6 +139,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app);
@@ -201,6 +203,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         let mut settings = ambition_persistence::settings::UserSettings::default();
         settings.gameplay.player_damage_multiplier = multiplier;
         app.insert_resource(settings);
@@ -261,6 +264,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -307,6 +311,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -364,6 +369,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -532,6 +538,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         register_hit_pipeline_messages(&mut app);
         app.init_resource::<CapturedBubbles>();
         app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
@@ -579,6 +586,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -629,6 +637,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -744,6 +753,7 @@ fn player_slash_shatters_a_breakable() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -975,6 +985,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.add_systems(
         Update,
         |mut c: Commands,
@@ -985,6 +996,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
             spawn_split_offspring(
                 &mut c,
                 &catalog,
+                &Default::default(),
                 &roster,
                 ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
@@ -1098,6 +1110,7 @@ fn shield_test_app() -> App {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
     app
@@ -1296,6 +1309,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
@@ -1362,6 +1376,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(
         Update,
@@ -1442,6 +1457,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
         let mut banter = crate::features::banter::CombatBanterRegistry::default();
         banter.set_hit_barks("Kernel Guide", vec!["ow!", "argh!", "stop!"]);
         app.insert_resource(banter);
@@ -1493,6 +1509,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 

@@ -166,6 +166,7 @@ fn min_app() -> App {
     );
     app.insert_resource(crate::features::GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::character_sprites::AuthoredSheets>();
     app.insert_resource(crate::features::CharacterRoster::default());
     // Explicit content-free boss authority: the reset processor reads
     // `Res<BossCatalog>` (required, not optional) to rebuild encounter state.

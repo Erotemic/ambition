@@ -81,6 +81,9 @@ pub fn seat_character(
     session_scope: ambition_platformer_primitives::lifecycle::SessionSpawnScope,
     registry: &PreparedCharacterRegistry,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    // Provider-authored sheets (U1 stage B): a seated fighter's collision box is
+    // derived from its sheet, so a consumer's character must reach its own.
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &crate::features::CharacterRoster,
     character_id: &str,
     at: Vec2,
@@ -94,6 +97,7 @@ pub fn seat_character(
     // hidden catalog fallback, and a seated fighter resolves its sprite identity
     // from the SAME App-local catalog every other spawn path uses.
     let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
+        authored_sheets,
         catalog,
         roster,
         character_id.to_string(),
@@ -275,6 +279,9 @@ pub fn seat_match_participants(
     // with no catalog must be NAMED by the capability audit, not silently seat
     // fighters that resolve their sprite identity against nothing.
     catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    // Same authority class as the catalog, and required for the same reason
+    // (U1 stage B): a seated fighter sizes its body from its sheet.
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     archetypes: Res<crate::features::CharacterRoster>,
     geometry: Option<
         ambition_platformer_primitives::lifecycle::SessionWorldRef<
@@ -362,6 +369,7 @@ pub fn seat_match_participants(
                     session_scope,
                     &registry,
                     &catalog,
+                    &authored_sheets,
                     &archetypes,
                     character,
                     at,
@@ -445,6 +453,7 @@ pub fn seat_match_participants(
             session_scope,
             &registry,
             &catalog,
+            &authored_sheets,
             &archetypes,
             character,
             at,

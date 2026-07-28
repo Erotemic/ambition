@@ -873,6 +873,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &placement_lowering,
                 &content_staging,
                 &character_catalog,
+                &authored_sheets,
                 &character_roster,
                 &boss_catalog,
                 spawn_scope,

@@ -1231,6 +1231,7 @@ fn mary_o_setup(
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
     >,
+    authored_sheets: bevy::prelude::Res<ambition::actors::character_sprites::AuthoredSheets>,
     character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -1254,6 +1255,7 @@ fn mary_o_setup(
             tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            authored_sheets: &authored_sheets,
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
@@ -1904,7 +1906,7 @@ mod tests {
             .expect("Solid Snake is a catalog row");
         assert_eq!(snake.display_name, snake::SNAKE_DISPLAY_NAME);
         assert!(
-            ambition::actors::character_sprites::sheet_for_character_id_in(catalog, "solid_snake")
+            ambition::actors::character_sprites::sheet_for_character_id_in(&Default::default(), catalog, "solid_snake")
                 .is_some(),
             "a sheet spec resolves for solid_snake — else it is skipped and renders as a goblin"
         );
@@ -1913,7 +1915,7 @@ mod tests {
         let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
         assert_eq!(ai_slop_row.display_name, ai_slop::AI_SLOP_DISPLAY_NAME);
         assert!(
-            ambition::actors::character_sprites::sheet_for_character_id_in(catalog, "ai_slop")
+            ambition::actors::character_sprites::sheet_for_character_id_in(&Default::default(), catalog, "ai_slop")
                 .is_some(),
             "a sheet spec resolves for ai_slop — else it is skipped and renders as a goblin"
         );

@@ -135,6 +135,7 @@ pub fn drive_wave_encounters(
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         Res<crate::features::CharacterRoster>,
     ),
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     encounter_mobs: Query<(
         Entity,
         &crate::features::EncounterMob,
@@ -303,6 +304,7 @@ pub fn drive_wave_encounters(
         crate::features::spawn_encounter_mob(
             &mut commands,
             &session_content.1,
+            &authored_sheets,
             &session_content.2,
             session_scope,
             active_area.clone(),

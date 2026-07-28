@@ -139,6 +139,15 @@ impl RoomConstructionPlan {
             .get_resource::<features::RoomContentStagingRegistry>()
             .cloned()
             .unwrap_or_default();
+        // Absent means "no provider authored a sheet", which is the ordinary
+        // state for every app that ships only engine characters — NOT a missing
+        // service. `CharacterRuntimePlugin` installs it in production; the
+        // default here is what keeps a minimal test world buildable, and an
+        // empty registry resolves exactly as this code did before U1.
+        let authored_sheets = world
+            .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
+            .cloned()
+            .unwrap_or_default();
         Self::prepare_from_parts(
             rooms,
             target_index,
@@ -149,6 +158,7 @@ impl RoomConstructionPlan {
             world
                 .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
                 .ok_or(missing("CharacterCatalog"))?,
+            &authored_sheets,
             world
                 .get_resource::<features::CharacterRoster>()
                 .ok_or(missing("CharacterRoster"))?,
@@ -179,6 +189,7 @@ impl RoomConstructionPlan {
         placement_lowering: &PlacementLoweringRegistry,
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+        authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
@@ -195,6 +206,7 @@ impl RoomConstructionPlan {
             placement_lowering,
             content_staging,
             character_catalog,
+            authored_sheets,
             character_roster,
             boss_catalog,
             session_scope,
@@ -211,6 +223,7 @@ impl RoomConstructionPlan {
         placement_lowering: &PlacementLoweringRegistry,
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+        authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
@@ -221,6 +234,7 @@ impl RoomConstructionPlan {
             placement_lowering,
             content_staging,
             character_catalog,
+            authored_sheets,
             character_roster,
             boss_catalog,
             construction,
@@ -520,6 +534,7 @@ mod tests {
             &PlacementLoweringRegistry::default(),
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
             &features::CharacterRoster::default(),
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
@@ -552,6 +567,7 @@ mod tests {
             &PlacementLoweringRegistry::default(),
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
             roster,
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
@@ -827,6 +843,7 @@ mod tests {
             &PlacementLoweringRegistry::default(),
             &staging,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
             &crate::features::enemies::test_roster(),
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,

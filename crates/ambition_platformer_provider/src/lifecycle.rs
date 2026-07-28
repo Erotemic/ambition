@@ -1056,6 +1056,9 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     tuning: Res<'w, ambition_engine_core::ActiveMovementTuning>,
     asset_server: Res<'w, AssetServer>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    /// Provider-authored sheets (U1): activation sizes each seated body
+    /// from its sheet, so the builder needs it beside the catalog.
+    authored_sheets: Res<'w, ambition_actors::character_sprites::AuthoredSheets>,
     character_roster: Res<'w, ambition_actors::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_actors::boss_encounter::BossCatalog>,
     placement_lowering: Res<'w, ambition_actors::world::placements::PlacementLoweringRegistry>,
@@ -1101,6 +1104,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 tuning: &self.tuning,
                 starting_character: &live_world.starting_character,
                 character_catalog: &self.character_catalog,
+                authored_sheets: &self.authored_sheets,
                 character_roster: &self.character_roster,
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,

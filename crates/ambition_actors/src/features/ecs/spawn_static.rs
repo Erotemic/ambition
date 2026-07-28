@@ -295,6 +295,7 @@ pub(crate) fn lower_interactable_placement(
     super::spawn_actors::spawn_interactable_into(
         ctx.commands,
         &ctx.context.characters,
+        &ctx.context.sheets,
         &ctx.context.roster,
         ctx.session_scope,
         ctx.root,

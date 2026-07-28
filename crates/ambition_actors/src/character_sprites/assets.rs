@@ -60,6 +60,7 @@ pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 /// because the renderer hasn't been run for that target; the actor
 /// then renders the colored-rectangle placeholder.
 fn sheet_for_character_id_from_data(
+    authored: &sheets::AuthoredSheets,
     catalog: &CharacterCatalogData,
     character_id: &str,
 ) -> Option<CharacterSheetSpec> {
@@ -75,7 +76,8 @@ fn sheet_for_character_id_from_data(
                     )
                 })
                 .unwrap_or_default();
-            if let Some(spec) = sheets::try_load_spec_for_target(target, &tuning) {
+            if let Some(spec) = sheets::try_load_spec_for_target_authored(authored, target, &tuning)
+            {
                 return Some(spec);
             }
         }
@@ -140,7 +142,7 @@ pub fn sheet_for_declared_character(
     let Some(target) = registered_target.or(catalog_target) else {
         // Neither names a target: fall back to the manifest-by-id lookup, which is
         // how most catalog characters have always resolved.
-        return sheet_for_character_id_in(character_catalog, character_id);
+        return sheet_for_character_id_in(authored, character_catalog, character_id);
     };
     let tuning = character_variant_tuning(character_catalog, character_id)
         .map(|(_, tuning)| tuning)
@@ -151,10 +153,11 @@ pub fn sheet_for_declared_character(
 
 /// Resolve a sheet from the caller's assembled App-local catalog.
 pub fn sheet_for_character_id_in(
+    authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     character_id: &str,
 ) -> Option<CharacterSheetSpec> {
-    sheet_for_character_id_from_data(character_catalog.data(), character_id)
+    sheet_for_character_id_from_data(authored, character_catalog.data(), character_id)
 }
 
 /// The manifest target + resolution-independent tuning for a catalog `cid`,
@@ -234,13 +237,14 @@ fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
 /// back to LDtk" rule (matching the boss `body_metrics` pipeline, generalized
 /// to ordinary catalog characters).
 fn sprite_body_collision_for_character_id_from_data(
+    authored: &sheets::AuthoredSheets,
     catalog: &CharacterCatalogData,
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
     let entry = catalog.characters.get(character_id)?;
     let target = entry.manifest_target()?;
-    let spec = sheet_for_character_id_from_data(catalog, character_id)?;
+    let spec = sheet_for_character_id_from_data(authored, catalog, character_id)?;
     let record = sheets::record_for_target(target)?;
     let metrics = record.body_metrics.as_ref()?;
     let (body_w, body_h) = body_pixel_extent(metrics)?;
@@ -261,11 +265,16 @@ fn sprite_body_collision_for_character_id_from_data(
 
 /// Derive sprite-body collision from the caller's App-local catalog.
 pub fn sprite_body_collision_for_character_id_in(
+    // U1 stage B: a body's collision box is DERIVED from its sheet, so a
+    // consumer-authored sheet has to reach this or a third party's character
+    // renders from its own art and collides with the engine's default box.
+    authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
     sprite_body_collision_for_character_id_from_data(
+        authored,
         character_catalog.data(),
         character_id,
         ldtk_collision,
@@ -416,6 +425,7 @@ pub fn materialize_declared_character_sprite(
 /// in the signature: this is still where a caller proves it HAS an asset pipeline,
 /// and dropping them would silently make the art-free path look identical.
 pub fn load_character_sprites_in(
+    authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     _asset_catalog: &SandboxAssetCatalog,
     _asset_server: &AssetServer,
@@ -428,7 +438,7 @@ pub fn load_character_sprites_in(
     let mut skipped_no_spec: Vec<&str> = Vec::new();
     for (cid, entry) in character_catalog.iter() {
         total += 1;
-        if sheet_for_character_id_in(character_catalog, cid).is_none() {
+        if sheet_for_character_id_in(authored, character_catalog, cid).is_none() {
             // Neither a hardcoded const nor a manifest in `assets/sprites/`
             // exists for this id — nothing to declare. The character draws the
             // marked placeholder until its sprite is published.
@@ -850,14 +860,14 @@ mod sprite_body_collision_tests {
         let ldtk = ae::Vec2::new(40.0, 60.0);
         let catalog = crate::character_roster::catalog();
         let Some((cid, derived)) = catalog.iter().find_map(|(cid, _)| {
-            sprite_body_collision_for_character_id_in(&catalog, cid, ldtk)
+            sprite_body_collision_for_character_id_in(&Default::default(), &catalog, cid, ldtk)
                 .map(|derived| (cid, derived))
         }) else {
             return; // no baked sheet with metrics available
         };
         let entry = catalog.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
-        let spec = sheet_for_character_id_in(&catalog, cid).unwrap();
+        let spec = sheet_for_character_id_in(&Default::default(), &catalog, cid).unwrap();
         let record = sheets::record_for_target(target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
         let (body_w, body_h) = body_pixel_extent(metrics).unwrap();

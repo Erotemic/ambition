@@ -432,6 +432,10 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         )),
     );
     app.insert_resource(CharacterCatalog::empty());
+    // The damage path sizes split offspring from their sheets (U1 stage B), so
+    // the authored registry is required authority here too. This fixture
+    // authors none.
+    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -474,6 +478,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         spawn_encounter_mob(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_spark_range",
@@ -585,6 +590,10 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         )),
     );
     app.insert_resource(CharacterCatalog::empty());
+    // The damage path sizes split offspring from their sheets (U1 stage B), so
+    // the authored registry is required authority here too. This fixture
+    // authors none.
+    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -616,6 +625,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         spawn_encounter_mob(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_stomp_range",
@@ -712,6 +722,10 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         )),
     );
     app.insert_resource(CharacterCatalog::empty());
+    // The damage path sizes split offspring from their sheets (U1 stage B), so
+    // the authored registry is required authority here too. This fixture
+    // authors none.
+    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -745,6 +759,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         spawn_encounter_mob(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_shell_range",
@@ -837,6 +852,10 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         )),
     );
     app.insert_resource(CharacterCatalog::empty());
+    // The damage path sizes split offspring from their sheets (U1 stage B), so
+    // the authored registry is required authority here too. This fixture
+    // authors none.
+    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -867,6 +886,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         spawn_encounter_mob(
             &mut commands,
             &catalog,
+            &Default::default(),
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_corpse_range",

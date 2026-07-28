@@ -20,6 +20,10 @@ use ambition_persistence::settings::VisualQualityBudget;
 pub fn load_game_assets(
     config: &GameAssetConfig,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    // Provider-authored sheets (U1). Beside the catalog because it is the same
+    // kind of authority — what this app's providers declared — and a character
+    // whose sheet came from one needs the other to size its body.
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
@@ -33,6 +37,7 @@ pub fn load_game_assets(
     }
 
     let characters = character_sprites::load_character_sprites_in(
+        authored_sheets,
         character_catalog,
         catalog,
         asset_server,

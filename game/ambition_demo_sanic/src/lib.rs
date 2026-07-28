@@ -839,6 +839,7 @@ fn sanic_setup(
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
     >,
+    authored_sheets: bevy::prelude::Res<ambition::actors::character_sprites::AuthoredSheets>,
     character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -862,6 +863,7 @@ fn sanic_setup(
             tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            authored_sheets: &authored_sheets,
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,

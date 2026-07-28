@@ -131,7 +131,11 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
     // Both forms wear the same parrot sheet (the friendly form binds it by
     // character_id; the sheet must actually resolve).
     assert!(
-        crate::character_sprites::sheet_for_character_id_in(&catalog, "stochastic_parrot")
+        crate::character_sprites::sheet_for_character_id_in(
+            &Default::default(),
+            &catalog,
+            "stochastic_parrot"
+        )
             .is_some(),
         "the parrot catalog row must resolve a sprite sheet",
     );

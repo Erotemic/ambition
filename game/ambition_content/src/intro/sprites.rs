@@ -35,6 +35,7 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
 /// intro's own tuning (Stage 20 / B3: the named `*_SHEET` statics in
 /// the machinery lib are gone; story content owns its named sheets).
 pub fn intro_npc_sprite_rows(
+    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
     character_catalog: &CharacterCatalog,
 ) -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
     let t = &INTRO_NPC_TUNING;
@@ -58,7 +59,7 @@ pub fn intro_npc_sprite_rows(
         (
             "Gate Janitor",
             "kernel_guide_spritesheet.png",
-            sheet_for_character_id_in(character_catalog, "npc_kernel_guide"),
+            sheet_for_character_id_in(authored_sheets, character_catalog, "npc_kernel_guide"),
         ),
         // Erdish: pre-registered for later LDtk authoring.
         ("Erdish", "erdish_spritesheet.png", intro_sheet("erdish", t)),
@@ -67,18 +68,18 @@ pub fn intro_npc_sprite_rows(
         (
             "Lab Raider",
             "goblin_spritesheet.png",
-            sheet_for_character_id_in(character_catalog, "goblin"),
+            sheet_for_character_id_in(authored_sheets, character_catalog, "goblin"),
         ),
         (
             "Salvage Guard",
             "goblin_spritesheet.png",
-            sheet_for_character_id_in(character_catalog, "goblin"),
+            sheet_for_character_id_in(authored_sheets, character_catalog, "goblin"),
         ),
         // Manifest clerk: architect sheet reads as "person at a podium".
         (
             "Manifest Clerk",
             "architect_spritesheet.png",
-            sheet_for_character_id_in(character_catalog, "npc_architect"),
+            sheet_for_character_id_in(authored_sheets, character_catalog, "npc_architect"),
         ),
         // News board: wall-mounted bulletin board rendered through the
         // NpcSpawn path.
@@ -264,9 +265,10 @@ use ambition_asset_manager::{
 pub fn extend_with_intro_sprite_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
+    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
     character_catalog: &CharacterCatalog,
 ) {
-    for (name, filename, _spec) in intro_npc_sprite_rows(character_catalog) {
+    for (name, filename, _spec) in intro_npc_sprite_rows(authored_sheets, character_catalog) {
         let id = intro_npc_asset_id(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(

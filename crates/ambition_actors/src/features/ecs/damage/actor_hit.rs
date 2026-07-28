@@ -42,6 +42,7 @@ const CLING_DETACH_POP_SPEED: f32 = 180.0;
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &crate::features::CharacterRoster,
     actor_entity: Entity,
     disposition: ActorDisposition,
@@ -398,6 +399,7 @@ pub(crate) fn apply_actor_hit(
                     spawn_split_offspring(
                         &mut writers.commands,
                         catalog,
+                        authored_sheets,
                         roster,
                         session_scope,
                         &em.config.id,

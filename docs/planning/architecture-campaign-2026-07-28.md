@@ -150,6 +150,81 @@ assume it is greenfield either.
 
 ---
 
+## Campaign 1 closeout — the reassessment the review asks for (2026-07-28)
+
+> *"Stop after Campaign 1 and reassess the repository before beginning rollback
+> relocation."*
+
+**Every X row is resolved**: done, deferred with a written argument, or reframed
+because the step as written did not match the tree. The table below is the state;
+the paragraphs after it are the reassessment.
+
+**Done:** X1 (inventory + baseline), X4 (cast generation), X5/X6/X7 (action-set
+precedence, moveset from the winner, ranged-payload coherence), X8 (player
+construction, proven rather than assumed), X11 (equipment overlay under an
+identity swap), X15 (docs), plus R-a's successor slice (motion model), plus G4
+(dependency-edge contracts).
+
+**Reframed — the step as written did not match the tree:**
+
+| row | as written | what it actually was |
+|---|---|---|
+| **X2** | define `ResolvedCharacterIdentity` | ⛔ it exists as `PreparedCharacterDefinition`; building it would ADD the seventh authority |
+| **X12** | delete runtime arbitration | arbitration is many places deciding; four NAMED resolvers, one caller each, is not that — the content is a guard against a fifth |
+| **X13** | confine the legacy catalog to preparation | conflates the KIT authority with names and art, which are legitimately the catalog's |
+| **X3** | resolve at preparation, not wear time | would bake the value against ONE catalog, manufacturing the staleness X4 was added to detect |
+
+**Metric:** 5 of 7 precedence-resolver sites resolved; both remainders were
+deliberately deferred, not missed. Raw reference counts went UP, which is what a
+migration does in the middle — see the inventory's note.
+
+### What the campaign got right, and it is the important part
+
+The one-line thesis held everywhere it was applied: *introduce one authority,
+migrate all production consumers, delete the displaced authority, guard the
+absence.* **The step that keeps getting skipped is "ALL production consumers."**
+It was skipped twice today by me, in the same shape both times:
+
+* the action set was wired into the worn path and not the seated one, and the two
+  arena duelists — its first production callers — HID it, because their authored
+  set is empty and the placeholder happened to equal it;
+* the motion model was then wired into both paths in one commit, specifically
+  because the diagnosis of the first was two commits old.
+
+**A first production caller whose authored value equals the default proves the
+wiring runs, not that it arrives.** That is the transferable lesson and it
+belongs in front of Campaign 2, where the equivalent will be a domain whose
+rollback registrations happen to be identical before and after the move.
+
+### Reassessment: do NOT start Campaign 2 yet
+
+Two reasons, one of them the review's own.
+
+1. **The review's:** the rollback registry is the most load-bearing thing in this
+   repo. Its own R3 requires the schema fingerprint to be unchanged through each
+   domain's migration — a bisect-critical property — and it should not be moved
+   while anything else is in flight.
+2. **Mine, and it is a precondition:** Campaign 2's completion criterion is
+   "rollback schema remains behaviourally unchanged through migration". There is
+   no fingerprint comparison harness that a reviewer can run today; the
+   fingerprint exists (`lifecycle::tests` moves it on a schema change) but
+   nothing captures a BEFORE and asserts an AFTER across a refactor. Building
+   that is the first slice of Campaign 2, before any registration moves — the
+   same "measure first" that made X1, X12 and D17 come out differently than
+   planned.
+
+### What to do instead, in priority order
+
+* **Campaign 3 Part B first, and CHECK before building** (R-f). It is
+  independent of rollback relocation, and the tree already has a shared
+  body-restart path — `reset_body_clusters` raises a pending flag and one engine
+  system announces it. The review assumes greenfield; it is not.
+* **Campaign 5's second consumer.** The conformance harness needs a NONCOMBAT
+  provider and a first-party one beside Outlander, or it encodes one fixture's
+  assumptions. That is a real gap and it does not touch rollback.
+* **The measurements the facade work is blocked on.** They are cheap, nobody has
+  taken them, and they decide a question that is currently argued from intuition.
+
 ## Concrete task list
 
 Campaign 1 only. Rows are executable; each maps to the review's numbered step.

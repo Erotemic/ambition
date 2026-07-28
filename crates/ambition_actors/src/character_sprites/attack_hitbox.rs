@@ -123,18 +123,12 @@ pub fn manifest_attack_hitbox_world(
 /// App-local catalog the same way the renderer does. `None` if the player has
 /// no sheet spec. The baked manifest registry remains the only immutable
 /// process-wide cache; catalog-dependent sheet selection is never cached.
-fn player_render_size(catalog: &CharacterCatalog, collision: ae::Vec2) -> Option<ae::Vec2> {
-    // STAGE C, stated rather than silently skipped: attack VOLUMES resolve
-    // through a fn-pointer seam in `ambition_combat`, which has no business
-    // learning a sprite-sheet type — so provider-authored sheets do not reach
-    // this path yet and the empty registry is what that means. The polygons
-    // themselves come from `file_root_registry()`, a second baked index with the
-    // same gap, so consumer attack volumes are one problem, not two half ones.
-    let spec = super::assets::sheet_for_character_id_in(
-        &Default::default(),
-        catalog,
-        PLAYER_CHARACTER_ID,
-    )?;
+fn player_render_size(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    catalog: &CharacterCatalog,
+    collision: ae::Vec2,
+) -> Option<ae::Vec2> {
+    let spec = super::assets::sheet_for_character_id_in(authored, catalog, PLAYER_CHARACTER_ID)?;
     Some(sheets::player_placeholder_render_size(&spec, collision))
 }
 
@@ -148,6 +142,9 @@ fn player_render_size(catalog: &CharacterCatalog, collision: ae::Vec2) -> Option
 /// `CharacterCatalog` as spawning and rendering without naming this module.
 /// `None` cid selects the player manifest root.
 pub fn authored_attack_volume_resolver(
+    // U1 stage C: provider-authored sheets, captured by the composition root
+    // into the resolver closure. Combat calls this without naming the type.
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     sprite_character_id: Option<&str>,
     animation: &str,
@@ -158,6 +155,7 @@ pub fn authored_attack_volume_resolver(
 ) -> Option<ae::CombatVolume> {
     match sprite_character_id {
         Some(cid) => actor_attack_hitbox_world(
+            authored,
             catalog,
             cid,
             animation,
@@ -168,6 +166,7 @@ pub fn authored_attack_volume_resolver(
         ),
         None => {
             player_attack_hitbox_world(
+                authored,
                 catalog,
                 animation,
                 body_pos,
@@ -189,6 +188,7 @@ const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 
 /// authored melee box drives its attack.
 pub fn player_attack_hitbox_world(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     animation: &str,
     body_pos: ae::Vec2,
@@ -196,10 +196,16 @@ pub fn player_attack_hitbox_world(
     facing: f32,
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
-    let record = file_root_registry().get(PLAYER_FILE_ROOT)?;
+    // Authored first, baked second — the same order every other sheet lookup
+    // uses since U1, so a provider that authored its protagonist's sheet gets
+    // its own attack bboxes instead of the engine player's.
+    let record = authored
+        .get(PLAYER_FILE_ROOT)
+        .or_else(|| file_root_registry().get(PLAYER_FILE_ROOT))?;
     // Enlarge the hitbox by scaling the render size the poly/bbox offsets derive
     // from — grows reach + size about the feet anchor, player-only.
-    let render_size = player_render_size(catalog, collision)? * PLAYER_ATTACK_HITBOX_SCALE;
+    let render_size =
+        player_render_size(authored, catalog, collision)? * PLAYER_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_world(
         record,
         animation,
@@ -225,6 +231,7 @@ pub fn player_attack_hitbox_world(
 /// the player uses, so an enemy with an authored blade swings the box you see
 /// in `debug-hitboxes`, not a divergent hardcoded rectangle.
 pub fn actor_attack_hitbox_world(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     character_id: &str,
     animation: &str,
@@ -234,12 +241,14 @@ pub fn actor_attack_hitbox_world(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let file_root = catalog.get(character_id)?.manifest_target()?;
-    let record = file_root_registry().get(file_root)?;
+    let record = authored
+        .get(file_root)
+        .or_else(|| file_root_registry().get(file_root))?;
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
     let render_size =
         super::assets::sprite_body_collision_for_character_id_in(
-            &Default::default(),
+            authored,
             catalog,
             character_id,
             collision,

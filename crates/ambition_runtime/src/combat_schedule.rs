@@ -32,9 +32,20 @@ impl Plugin for CombatSchedulePlugin {
         // App-local bridge from combat to sprite metadata. Every strike resolves
         // against the same CharacterCatalog resource as spawning and rendering;
         // separate Apps may compose different provider sets safely.
-        app.insert_resource(
-            ambition_actors::combat::authored_volumes::AuthoredAttackVolumeResolver::new(
-                ambition_actors::character_sprites::authored_attack_volume_resolver,
+        //
+        // The resolver CARRIES the provider-authored sheets (U1 stage C). Combat
+        // may not name that type — its own module doc says the query shape is
+        // combat's and the metadata is not — and this crate links both, so this
+        // is the seam where the two meet. `refresh_authored_volume_resolver`
+        // below keeps the captured copy current.
+        app.init_resource::<ambition_actors::character_sprites::AuthoredSheets>();
+        app.insert_resource(authored_volume_resolver_for(&Default::default()));
+        app.add_systems(
+            bevy::app::Update,
+            refresh_authored_volume_resolver.run_if(
+                bevy::ecs::schedule::common_conditions::resource_changed::<
+                    ambition_actors::character_sprites::AuthoredSheets,
+                >,
             ),
         );
         // The effect seam: techniques (the shockwave gauntlet, the boss
@@ -373,4 +384,46 @@ mod tests {
             );
         }
     }
+}
+
+
+/// A resolver closure that carries a snapshot of the authored sheets.
+///
+/// Cloned rather than borrowed because the resolver outlives any system that
+/// could lend it a reference — it is a `Resource` combat reads whenever a strike
+/// resolves. Registration happens at plugin build, so the clone is paid once per
+/// change and never per hit.
+fn authored_volume_resolver_for(
+    sheets: &ambition_actors::character_sprites::AuthoredSheets,
+) -> ambition_actors::combat::authored_volumes::AuthoredAttackVolumeResolver {
+    let sheets = sheets.clone();
+    ambition_actors::combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
+        move |catalog, sprite_character_id, animation, body_pos, collision, facing, gravity_dir| {
+            ambition_actors::character_sprites::authored_attack_volume_resolver(
+                &sheets,
+                catalog,
+                sprite_character_id,
+                animation,
+                body_pos,
+                collision,
+                facing,
+                gravity_dir,
+            )
+        },
+    )
+}
+
+/// Rebuild the resolver when a provider registers a sheet.
+///
+/// Without this the captured snapshot would be whatever existed at plugin-build
+/// time, which is the ordering trap the whole `AuthoredSheets` design avoids
+/// elsewhere: a provider added later would resolve volumes from the engine's
+/// baked table while resolving everything else from its own sheet.
+fn refresh_authored_volume_resolver(
+    sheets: bevy::prelude::Res<ambition_actors::character_sprites::AuthoredSheets>,
+    mut resolver: bevy::prelude::ResMut<
+        ambition_actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    >,
+) {
+    *resolver = authored_volume_resolver_for(&sheets);
 }

@@ -25,19 +25,73 @@ pub type AuthoredAttackVolumeFn = fn(
 ) -> Option<ae::CombatVolume>;
 
 /// App-local bridge from combat to the linked sprite-metadata implementation.
-#[derive(Resource, Clone, Copy)]
+///
+/// ## Why a CLOSURE and not a function pointer (queue U1 stage C)
+///
+/// It was a bare `fn`, which is exactly as much as combat needs to know — and
+/// exactly one thing too few. Provider-authored sheets (`AuthoredSheets`) are a
+/// second source of the metadata this resolver reads, and a function pointer
+/// can carry no state, so the only way to reach them was to widen the signature
+/// with a type from `ambition_sprite_sheet`. That would make the combat crate
+/// name sprite metadata, which the module docs above say it must not, and they
+/// are right: the query shape is combat's, the metadata is not.
+///
+/// A boxed closure moves the problem to where it belongs. The composition root
+/// — which links both crates and therefore may name both — builds a resolver
+/// that CAPTURES the authored sheets, and combat calls something it cannot see
+/// inside. `Arc` because the resource is cloned into fixtures and must stay
+/// `Send + Sync`; rebuilt on change, so a provider registering a sheet after
+/// composition is not invisible.
+#[derive(Resource, Clone)]
 pub struct AuthoredAttackVolumeResolver {
-    resolve: AuthoredAttackVolumeFn,
+    resolve: std::sync::Arc<
+        dyn Fn(
+                &CharacterCatalog,
+                Option<&str>,
+                &str,
+                ae::Vec2,
+                ae::Vec2,
+                f32,
+                ae::Vec2,
+            ) -> Option<ae::CombatVolume>
+            + Send
+            + Sync,
+    >,
 }
 
 impl AuthoredAttackVolumeResolver {
-    pub const fn new(resolve: AuthoredAttackVolumeFn) -> Self {
-        Self { resolve }
+    /// A resolver that is a plain function — the shape every fixture uses, and
+    /// the one that needs no captured content.
+    pub fn new(resolve: AuthoredAttackVolumeFn) -> Self {
+        Self {
+            resolve: std::sync::Arc::new(resolve),
+        }
+    }
+
+    /// A resolver that CARRIES content: the composition root captures whatever
+    /// registries the implementation needs, and combat stays unable to name them.
+    pub fn from_closure(
+        resolve: impl Fn(
+                &CharacterCatalog,
+                Option<&str>,
+                &str,
+                ae::Vec2,
+                ae::Vec2,
+                f32,
+                ae::Vec2,
+            ) -> Option<ae::CombatVolume>
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
+        Self {
+            resolve: std::sync::Arc::new(resolve),
+        }
     }
 
     /// A content-free resolver for narrow combat fixtures. Production runtime
     /// composition replaces this with the actor sprite resolver.
-    pub const fn disabled() -> Self {
+    pub fn disabled() -> Self {
         Self::new(no_authored_attack_volume)
     }
 

@@ -76,6 +76,24 @@ cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png
 
 So an agent CAN spot-check visuals the same way it spot-checks simulation, and
 "always draw blind" work should produce an image rather than assert it cannot.
+
+⚠ **It captures ROOMS, not ROUTES (found 2026-07-28 by trying).** The first
+argument is a room id resolved inside the sandbox composition, so asking it for
+`versus_arena` — a shell-route experience with its own prepared session — quietly
+captures the default sandbox room instead. There is no error; the PNG just shows
+somewhere else, which is the worst possible failure for a verification tool.
+
+**The consequence is the one that matters for "a stranger can run it and see it":
+the surfaces a stranger sees FIRST cannot be captured at all.** The launcher, the
+startup cards, the versus stage and its HUD are all routes. A day of work on the
+title screen's text sizes, its hover, the round-start countdown card and the
+per-seat health gauges produced no image, and the honest reason is not "headless
+cannot see UI" — `--include-ui` works — it is that this tool cannot reach a route.
+
+The fix is a `--route <SHELL_ROUTE_ID>` mode that composes the shell host
+(`build_visible_app(NoWindow, ..)`, which every rendered test already uses),
+settles to the route, and hands the same offscreen target to the same readback.
+The readback half is done and route-agnostic; only the app build differs.
 The sibling capture is `ambition_actors/examples/render_room_geometry.rs capture`
 (geometry only, no render stack).
 

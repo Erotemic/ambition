@@ -98,6 +98,10 @@ struct StartupAssetInputs<'w, 's> {
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states: ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>,
+    /// Sheets this app's providers authored (queue U1) — the other real source
+    /// of sheet metadata, and the only one a game outside this workspace can
+    /// write to.
+    authored_sheets: Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
     /// Registered character definitions: a real source of sheets, since a
     /// character may be declared only through `register_character`.
     prepared_characters:
@@ -384,6 +388,7 @@ fn build_startup_manifest(
             .prepared_characters
             .as_deref()
             .unwrap_or(&Default::default()),
+        &inputs.authored_sheets,
     );
     let room_manifest = build_loaded_room_asset_manifest(room, &staged_names, &inputs.game_assets);
 

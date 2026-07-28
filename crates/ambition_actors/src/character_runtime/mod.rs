@@ -430,6 +430,10 @@ pub fn materialize_character_demand(
     states: &mut CharacterLoadStates,
     sprites: &mut CharacterSpriteAssets,
     character_catalog: &CharacterCatalog,
+    // Sheets this app's PROVIDERS authored (queue U1). A source of sheet
+    // metadata that is not the engine's baked table, which is what lets a game
+    // outside this workspace ship a character of its own.
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // The registered definitions. A character may be declared HERE and nowhere
     // else — that is the point of the single seam — so this is a real source of
     // sheets, not decoration.
@@ -457,6 +461,7 @@ pub fn materialize_character_demand(
         }
         let ready = crate::character_sprites::materialize_declared_character_sprite(
             sprites,
+            authored_sheets,
             character_catalog,
             asset_catalog,
             asset_server,
@@ -591,6 +596,12 @@ pub fn materialize_demanded_character_sheets(
     // resource existing instead, and a composition that reaches staging without
     // one is NAMED by the capability audit rather than quietly doing nothing.
     character_catalog: Res<CharacterCatalog>,
+    // Sheets this app's providers authored. REQUIRED like the catalog and for
+    // the same reason: it is authority, and `Option<Res<..>>` on authority is
+    // how a missing registration turns into a silent placeholder instead of a
+    // loud one. `SheetRegistryPlugin` initialises it, and the engine's own
+    // characters resolve identically when it is empty.
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // Registered definitions are a real source of sheets (see
     // `sheet_for_declared_character`). `Option` because a composition may have no
     // registered characters at all, which is not an error.
@@ -649,6 +660,7 @@ pub fn materialize_demanded_character_sheets(
         &mut states,
         &mut assets.characters,
         &character_catalog,
+        &authored_sheets,
         registry.as_deref().unwrap_or(&fallback_registry),
         &asset_catalog,
         &asset_server,
@@ -669,6 +681,14 @@ impl Plugin for CharacterRuntimePlugin {
         let sim = app.sim_schedule();
         app.init_resource::<CharacterLoadDemand>()
             .init_resource::<CharacterLoadStates>()
+            // The provider-authored sheet registry (U1). Initialised HERE, by
+            // the plugin that owns the decode, for the same reason this plugin
+            // is added unconditionally: a required resource that only some
+            // composition installs is a system that silently stops running, and
+            // `materialize_demanded_character_sheets` failing its parameter
+            // validation is exactly that failure wearing a panic. Empty is the
+            // correct state for an app whose providers author no sheets.
+            .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .init_resource::<CharacterMaterializationService>()
             .add_systems(
                 // **The SIM schedule, not `Update`.** (§4.11)

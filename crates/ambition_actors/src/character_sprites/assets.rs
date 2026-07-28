@@ -114,6 +114,11 @@ fn sheet_for_character_id_from_data(
 ///   declarations of the same character exist and one of them is stale — exactly
 ///   the drift the single-registration seam is meant to end.
 pub fn sheet_for_declared_character(
+    // Sheets a PROVIDER authored (queue U1), consulted before the engine's
+    // baked cache. Threaded rather than reached for globally: two Apps in one
+    // process must not share one game's art declarations, which is the bug the
+    // baked index would have if it were writable.
+    authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     registered_target: Option<&str>,
     character_id: &str,
@@ -140,7 +145,7 @@ pub fn sheet_for_declared_character(
     let tuning = character_variant_tuning(character_catalog, character_id)
         .map(|(_, tuning)| tuning)
         .unwrap_or_default();
-    sheets::try_load_spec_for_target(target, &tuning)
+    sheets::try_load_spec_for_target_authored(authored, target, &tuning)
         .or_else(|| sheets::try_load_spec_for_character_id(character_id))
 }
 
@@ -349,6 +354,7 @@ fn sprite_texture_scale(
 /// characters silently render as rectangles.
 pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
+    authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     asset_catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
@@ -367,7 +373,8 @@ pub fn materialize_declared_character_sprite(
         } => character_id.to_string(),
         ambition_sprite_sheet::character::CharacterSheetState::Unknown => return false,
     };
-    let Some(sheet_spec) = sheet_for_declared_character(character_catalog, registered_target, &cid)
+    let Some(sheet_spec) =
+        sheet_for_declared_character(authored, character_catalog, registered_target, &cid)
     else {
         return false;
     };

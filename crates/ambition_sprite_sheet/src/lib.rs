@@ -591,12 +591,48 @@ pub struct SheetRegistryPlugin;
 impl Plugin for SheetRegistryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SheetRegistry>()
+            // The provider-authored half (U1). Initialised here so a provider
+            // can register its sheets in ANY plugin-build order, and never
+            // repopulated from the baked table: authored records are content,
+            // not cache, and a Startup system that rebuilt them would erase
+            // whatever a consumer declared before the app first ran.
+            .init_resource::<crate::character::sheets::AuthoredSheets>()
             .add_systems(Startup, init_sheet_registry);
     }
 }
 
 fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
     *registry = baked_sheet_registry();
+}
+
+/// Register a sheet a PROVIDER authored, keyed by the file root a catalog row
+/// names (`manifest: "outlander_spritesheet.ron"` is file root `outlander`).
+///
+/// The character-catalog seam's twin: a provider says who its characters are
+/// through `CharacterCatalogFragment`, and says what their sheets look like
+/// through this. Before it existed, the second half was only expressible by
+/// putting a RON in the ENGINE's asset tree and rebuilding the engine — which a
+/// third party cannot do (queue U1).
+pub trait AuthoredSheetAppExt {
+    /// Panics on malformed RON, deliberately and with the file root in the
+    /// message: a provider registering a broken sheet at plugin-build time has
+    /// shipped a broken character, and discovering that as a placeholder
+    /// rectangle three screens later is how the whole class of art bug hides.
+    fn register_character_sheet_ron(&mut self, file_root: &str, ron: &str) -> &mut Self;
+}
+
+impl AuthoredSheetAppExt for App {
+    fn register_character_sheet_ron(&mut self, file_root: &str, ron: &str) -> &mut Self {
+        self.init_resource::<crate::character::sheets::AuthoredSheets>();
+        let mut authored = self
+            .world_mut()
+            .resource_mut::<crate::character::sheets::AuthoredSheets>();
+        match authored.insert_ron(file_root, ron) {
+            Ok(_) => {}
+            Err(message) => panic!("{message}"),
+        }
+        self
+    }
 }
 
 #[cfg(test)]

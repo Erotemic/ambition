@@ -348,3 +348,67 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         "the diagnostic does not mention the provider id at all: {anonymous}"
     );
 }
+
+/// **A third party can say what its own character LOOKS LIKE.** (queue U1)
+///
+/// Owning the art was two gaps, not one. The first was addressing — a catalog
+/// path was reduced to a basename and rebuilt under the engine's sprite folder,
+/// so `game://sprites/outlander.png` became `sprites/game://sprites/outlander.png`.
+/// The second is this one, and it was the larger: sheet METADATA — frame size,
+/// rows, where the body sits — was read only from a table baked at build time
+/// from `crates/ambition_actors/assets/sprites`. `manifest_target()` does not
+/// return a path; it strips `_spritesheet.ron` and returns a NAME to look up in
+/// that table. So a consumer could ship any art it liked and its character still
+/// resolved no spec and drew the placeholder rectangle.
+///
+/// This asserts the seam from where it matters: an App composed exactly as
+/// `compose_outlander_shell` composes it, asking the ENGINE's own resolution
+/// function for a character the ENGINE has never heard of, and getting back the
+/// frame size this crate authored.
+#[test]
+fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
+    use ambition::sprite_sheet::character::sheets::AuthoredSheets;
+    use ambition::sprite_sheet::AuthoredSheetAppExt;
+    use bevy::prelude::App;
+
+    let mut app = App::new();
+    app.register_character_sheet_ron("outlander", outlander::OUTLANDER_SHEET_RON);
+
+    let authored = app.world().resource::<AuthoredSheets>();
+    let record = authored
+        .get("outlander")
+        .expect("the sheet this crate authored is registered under the target its catalog names");
+    assert_eq!(
+        (record.frame_width, record.frame_height),
+        (32, 48),
+        "the registry returned somebody else's sheet"
+    );
+    assert_eq!(
+        record.image, "game://sprites/outlander.png",
+        "the record's image path lost its source, which is the OTHER half of \
+         owning your art and would put the engine's tree back in charge"
+    );
+
+    // And the engine's own resolution path finds it — the assertion that
+    // distinguishes "a registry accepted my RON" from "my character resolves".
+    let catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
+        ambition::characters::actor::character_catalog::parse_catalog(
+            outlander::outlander_catalog_ron(),
+        ),
+    );
+    let spec = ambition::actors::character_sprites::sheet_for_declared_character(
+        authored,
+        &catalog,
+        None,
+        outlander::OUTLANDER_CHARACTER_ID,
+    )
+    .expect(
+        "the engine resolved no sheet for a character whose provider authored one — \
+         a consumer can address its art and still cannot describe it",
+    );
+    assert_eq!(
+        (spec.frame_width, spec.frame_height),
+        (32, 48),
+        "the spec came from somewhere other than the authored sheet"
+    );
+}

@@ -795,6 +795,14 @@ impl CharacterRosterFragment {
         self.fallback_brain_id.as_deref()
     }
 
+    /// Where this fragment's RON came from, when the provider said
+    /// ([`Self::from_ron_at`]). Read by hosts that report authoring failures
+    /// after assembly, when the fragment itself is the only thing left holding
+    /// the answer.
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_deref()
+    }
+
     fn validate(&self) -> Result<(), CharacterRosterAssemblyError> {
         if self.provider_id.trim().is_empty() {
             return Err(CharacterRosterAssemblyError::EmptyProviderId);

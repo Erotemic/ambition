@@ -144,6 +144,98 @@ impl SheetTuning {
     }
 }
 
+/// **Sheet records a PROVIDER authored, App-local.** (queue U1)
+///
+/// The baked index below is an immutable asset CACHE, and its doc comment says
+/// so — "not a content registry, so it has no `install_*` seam". That was true
+/// of its job and false of its position: it was the only source of sheet
+/// metadata in the process, so a third party outside this workspace could
+/// address its own PNG and had no way to describe what was in it. Its character
+/// resolved no spec and drew the placeholder rectangle, whatever art it shipped
+/// (GPT 5.6 review chased the addressing; this is what the addressing led to).
+///
+/// So the content registry is a separate, ordinary resource. A provider fills it
+/// from its own RON at plugin-build time, exactly as it registers a character
+/// catalog fragment, and the engine's baked sheets stay a cache that nothing has
+/// to mutate. Being a RESOURCE rather than a second global is the point: two
+/// Apps in one process (which is every test run in this repo) do not share it.
+///
+/// Consumer records take precedence over baked ones with the same target, and a
+/// collision is logged rather than resolved silently — the same rule
+/// `sheet_for_declared_character` already applies when two declarations of one
+/// character disagree.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct AuthoredSheets {
+    by_target: std::collections::BTreeMap<String, SheetRecord>,
+}
+
+impl AuthoredSheets {
+    /// Parse one sheet RON and index every record it declares.
+    ///
+    /// `file_root` is the name a catalog row's `manifest` field reduces to —
+    /// `manifest: "outlander_spritesheet.ron"` is target `outlander` — and it
+    /// keys single-record files for exactly the reason the baked index does:
+    /// a file's own name is what the catalog can name.
+    ///
+    /// Returns how many records were indexed, or the parse error verbatim; a
+    /// provider registering a broken sheet gets told which file and why.
+    pub fn insert_ron(&mut self, file_root: &str, ron: &str) -> Result<usize, String> {
+        let records: Vec<SheetRecord> = ron::from_str(ron).map_err(|error| {
+            format!("authored sheet '{file_root}' is malformed RON: {error}")
+        })?;
+        if records.is_empty() {
+            return Err(format!("authored sheet '{file_root}' declares no records"));
+        }
+        let single = records.len() == 1;
+        let mut indexed = 0usize;
+        for mut record in records {
+            if single {
+                record.target = file_root.to_owned();
+            }
+            self.by_target.insert(record.target.clone(), record);
+            indexed += 1;
+        }
+        Ok(indexed)
+    }
+
+    pub fn get(&self, target: &str) -> Option<&SheetRecord> {
+        self.by_target.get(target)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_target.is_empty()
+    }
+
+    pub fn targets(&self) -> impl Iterator<Item = &str> {
+        self.by_target.keys().map(String::as_str)
+    }
+}
+
+/// A spec for `target` from the AUTHORED registry first, the baked cache second.
+///
+/// The order is the whole point: a provider that authored a sheet gets its own,
+/// and everything else resolves exactly as it always did — engine characters
+/// take the identical path they took before this existed, which is what makes
+/// this safe to put in front of every lookup.
+pub fn try_load_spec_for_target_authored(
+    authored: &AuthoredSheets,
+    target: &str,
+    tuning: &SheetTuning,
+) -> Option<CharacterSheetSpec> {
+    if let Some(record) = authored.get(target) {
+        let spec = spec_from_record(record, tuning);
+        if spec.maps(CharacterAnim::Idle) {
+            return Some(spec);
+        }
+        tracing::warn!(
+            target: "ambition::character_sprites",
+            "authored sheet '{target}' has no Idle row; falling back to the baked \
+             index (placeholder rectangle if there is none)",
+        );
+    }
+    try_load_spec_for_target(target, tuning)
+}
+
 /// Process-wide index of every baked `SheetRecord`. Single-record files key
 /// by filename root to avoid archetype-target collisions; multi-record packed
 /// PNGs key each record by its own target.

@@ -71,9 +71,21 @@ pub const OUTLANDER_ENEMY_BRAIN_KEY: &str = "outlander_sentry";
 pub const OUTLANDER_SENTRY_ID: &str = "outlander_sentry_0";
 
 // ── §character ──────────────────────────────────────────────────────────────
-// Reuses an engine-shipped spritesheet on purpose: consumer-owned art has no
-// home under the current asset-root convention (leak #3). The catalog fragment
-// itself — presets, body, kit — is authored here.
+// LEAK #3 CLOSED, both halves (2026-07-28). This used to read "reuses an
+// engine-shipped spritesheet on purpose: consumer-owned art has no home" — and
+// that was two separate gaps wearing one sentence. The ADDRESS half was the
+// asset source plus a catalog pipeline that reduced every path to a basename
+// under the engine's sprite folder; the DESCRIPTION half was sheet metadata
+// living only in a table baked from the engine's own tree. Both are seams now:
+// `game://` survives catalog assembly, and `register_character_sheet_ron`
+// registers what the art looks like. The row below is what a third party writes.
+/// The catalog this crate authors, exposed so a test can assemble it exactly as
+/// the shell does rather than paraphrasing it — a fixture that proves a claim
+/// about a paraphrase proves nothing about the game.
+pub fn outlander_catalog_ron() -> &'static str {
+    OUTLANDER_CATALOG_RON
+}
+
 const OUTLANDER_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
@@ -87,8 +99,8 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
     characters: {
         "outlander_wanderer": (
             display_name: "Outlander",
-            spritesheet: "sprites/mary_o_spritesheet.png",
-            manifest: "sprites/mary_o_spritesheet.ron",
+            spritesheet: "game://sprites/outlander.png",
+            manifest: "outlander_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -99,6 +111,40 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
         ),
     },
 )"#;
+
+/// **The sheet Outlander authors for its own character.** (queue U1)
+///
+/// A catalog row says a character exists and names a sheet TARGET; this says
+/// what that sheet looks like — frame size, rows, where the body sits. Until
+/// 2026-07-28 the second half was expressible only by putting a RON in the
+/// ENGINE's asset tree and rebuilding the engine, which a third party cannot
+/// do: `manifest_target()` strips `_spritesheet.ron` to a name and that name was
+/// looked up in a table baked from `crates/ambition_actors/assets/sprites`. A
+/// consumer could address its own PNG and had no way to describe it, so its
+/// character drew the placeholder rectangle whatever art it shipped.
+///
+/// One `idle` row, because the resolution rule is "a spec that maps Idle" and a
+/// fixture should author the minimum that makes the claim true rather than a
+/// convincing-looking sheet nobody reads.
+pub const OUTLANDER_SHEET_RON: &str = r#"[
+(
+    target: "outlander",
+    image: "game://sprites/outlander.png",
+    label_width: 0,
+    frame_width: 32,
+    frame_height: 48,
+    rows: [
+    (
+        animation: "idle",
+        row_index: 0,
+        frame_count: 1,
+        duration_ms: 200,
+        duration_secs: 0.2,
+        rects: [ (x: 0, y: 0, w: 32, h: 48) ],
+    ),
+    ],
+),
+]"#;
 
 // ── §enemy (archetype half) ─────────────────────────────────────────────────
 const OUTLANDER_ROSTER_RON: &str = r#"{
@@ -190,6 +236,14 @@ pub fn install_outlander_content(app: &mut App) {
         )
         .expect("Outlander character catalog should be valid"),
     );
+    // The sheet half of authoring a character. Same shape as the catalog
+    // fragment above and deliberately so: a provider says WHO its characters are
+    // and WHAT THEY LOOK LIKE through two registrations, neither of which
+    // requires touching the engine's asset tree (queue U1).
+    {
+        use ambition::sprite_sheet::AuthoredSheetAppExt;
+        app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
+    }
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_ROSTER_RON",

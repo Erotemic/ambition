@@ -118,6 +118,11 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// registered-only fighter reaches the reveal barrier as a placeholder.
     pub(crate) prepared_characters:
         Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
+    /// Sheets this app's providers authored (queue U1) — the other place a
+    /// character's sheet can be named, and the only one reachable from outside
+    /// this workspace.
+    pub(crate) authored_sheets:
+        Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -204,6 +209,9 @@ pub(crate) fn demand_room_character_sheets(
     quality: &ResolvedVisualQuality,
     states: &mut ambition::actors::character_runtime::CharacterLoadStates,
     registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
+    // The provider-authored sheets (queue U1) — passed for the same reason the
+    // catalog is: this host names what a room stages, and the ENGINE decodes it.
+    authored_sheets: &ambition::sprite_sheet::character::sheets::AuthoredSheets,
 ) {
     let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
     for placement in &room.placements {
@@ -235,6 +243,7 @@ pub(crate) fn demand_room_character_sheets(
         states,
         &mut assets.characters,
         character_catalog,
+        authored_sheets,
         registry,
         catalog,
         asset_server,
@@ -342,6 +351,7 @@ pub(crate) fn build_room_asset_manifest(
     quality: &ResolvedVisualQuality,
     states: &mut ambition::actors::character_runtime::CharacterLoadStates,
     registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
+    authored_sheets: &ambition::sprite_sheet::character::sheets::AuthoredSheets,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
         assets,
@@ -361,6 +371,7 @@ pub(crate) fn build_room_asset_manifest(
         quality,
         states,
         registry,
+        authored_sheets,
     );
 
     build_loaded_room_asset_manifest(room, staged_actor_names, assets)
@@ -619,6 +630,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         quality,
         character_load_states,
         &prepared_characters,
+        &context.authored_sheets,
     );
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -788,11 +800,12 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     mut assets: ResMut<GameAssets>,
     catalog: Res<SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
-    (mut layouts, mut character_load_states, prepared_characters): (
+    (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition::actors::character_runtime::CharacterLoadStates>,
         Option<Res<ambition::actors::character_runtime::PreparedCharacterRegistry>>,
+        Res<ambition::sprite_sheet::character::sheets::AuthoredSheets>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
@@ -902,6 +915,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &quality,
             &mut character_load_states,
             prepared_characters.as_deref().unwrap_or(&empty_registry),
+            &authored_sheets,
         );
         let replace = refresh_manifests
             || cache.entries.get(&room.id).map_or(true, |entry| {

@@ -75,6 +75,34 @@ authorities can disagree.
 **Baseline: 7 sites, 3 resolved.** Campaign 1 is complete when this table has one
 row — preparation — and the rest is consumption.
 
+### Re-measured the same day, after X8–X11
+
+| site | status |
+|---|---|
+| `apply_worn_character_kit` — action set | ✔ |
+| `apply_worn_character_kit` — moveset | ✔ |
+| `apply_worn_character_kit` — `wears_host_code_kit` | ✔ |
+| seating — action set | ✔ via `project_prepared_character_definitions` (X9) |
+| `presentation.rs` — provider/source | open (X12) |
+| motion model / movement tuning | open (X2's successor slice, R-a) |
+| identity baseline residue | ✔ — `IdentityKit` is the baseline and equipment overlays it (X11) |
+
+**5 of 7 resolved.** The two open ones are the two the campaign deliberately
+deferred, which is the honest reading: nothing was left half-done, and what
+remains was scheduled rather than forgotten.
+
+⚠ **the raw counts went UP, and that is not a regression.** `CharacterCatalog`
+349 → 355 and `ActionSet` 276 → 286. Both are the new projection, the new
+precedence branch, and their tests — code that RESOLVES an authority reads it
+more, not less, right up until the displaced one is deleted. This is exactly why
+the campaign's metric is the resolver table and not the reference count: a count
+falls at the END of a migration and rises through the middle of it, so a campaign
+judged on the count would look like it was failing while it worked.
+
+**Method for the after-number: identical commands.** Re-run the `git grep`
+pipeline at the top of this file. A different exclusion pattern silently makes
+any campaign look successful.
+
 ⚠ **`seating.rs` is the interesting one and it is not a simple migration.** It
 writes an empty `ActionSet` deliberately, with a comment saying the real kit
 arrives from `apply_worn_character_gameplay` — "the ONE writer for a worn body's

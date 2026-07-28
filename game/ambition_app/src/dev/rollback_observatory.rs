@@ -329,7 +329,9 @@ fn maintain_local_ggrs_session(world: &mut World) {
     let session_settings = SyncTestSettings {
         check_distance: requested_mode.check_distance(settings),
         max_prediction_window: settings.max_prediction_window,
-    };
+    
+            ..Default::default()
+        };
     match rollback::start_sync_test_session(world, session_settings) {
         Ok(()) => {
             if requested_mode == OwnedSessionMode::Proof {
@@ -517,6 +519,8 @@ fn finish_completed_proof_pulse(world: &mut World) {
         SyncTestSettings {
             check_distance: OwnedSessionMode::Baseline.check_distance(settings),
             max_prediction_window: settings.max_prediction_window,
+        
+            ..Default::default()
         },
     ) {
         Ok(()) => {

@@ -27,6 +27,33 @@ enum AmbitionReadInputsSet {
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingLocalInput(pub ControlFrame);
 
+/// The SECONDARY seats' pending input, one per slot. (queue Y1)
+///
+/// [`PendingLocalInput`] is seat zero's and predates local multiplayer. When the
+/// session carries more than one player, every handle needs its own stream —
+/// publishing seat zero's frame to all of them (which is what
+/// `publish_local_inputs` did, because there was only ever one) would make four
+/// pads move one fighter and checksum-compare a lie.
+///
+/// Slot 0 is intentionally absent: it is `PendingLocalInput`, and two homes for
+/// one seat is how the two would come to disagree.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct PendingSeatInputs {
+    seats: [ControlFrame; ambition_characters::brain::SlotControls::MAX_SLOTS],
+}
+
+impl PendingSeatInputs {
+    pub fn get(&self, handle: usize) -> ControlFrame {
+        self.seats.get(handle).copied().unwrap_or_default()
+    }
+
+    pub fn set(&mut self, handle: usize, frame: ControlFrame) {
+        if let Some(seat) = self.seats.get_mut(handle) {
+            *seat = frame;
+        }
+    }
+}
+
 /// Counts actual GGRS operations. It is intentionally outside rollback state so
 /// tests can prove that a single harness step performed load/resimulation work.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -68,6 +95,32 @@ pub struct RollbackSessionContract {
 pub struct SyncTestSettings {
     pub check_distance: usize,
     pub max_prediction_window: usize,
+    /// How many players the session carries. (queue Y1)
+    ///
+    /// One until 2026-07-28, which was invisible while the game was one-player
+    /// and became a coverage gap the week C4 shipped a 2–4 player couch versus
+    /// mode: the rollback oracle proved determinism for ONE input stream while
+    /// the game seated four. A desync in seat two's input handling had nowhere
+    /// to show up.
+    ///
+    /// Every player is `PlayerType::Local` — a sync test has no remote peer by
+    /// definition. What it buys is not networking, it is that N input streams go
+    /// through save/rewind/resimulate and are checksum-compared, which is the
+    /// precondition for any of them being remote later.
+    pub players: usize,
+}
+
+impl SyncTestSettings {
+    /// The player count clamped to what the session can actually build: at
+    /// least one, at most the controller slots the game supports.
+    ///
+    /// Clamped rather than asserted because this is settings data that reaches
+    /// the builder from a dev tool and a harness option, and a session that
+    /// refuses to start is worse than one that starts with a sane count.
+    pub fn player_count(&self) -> usize {
+        self.players
+            .clamp(1, ambition_characters::brain::SlotControls::MAX_SLOTS)
+    }
 }
 
 /// Who owns the currently installed GGRS session.
@@ -86,6 +139,10 @@ impl Default for SyncTestSettings {
         Self {
             check_distance: 7,
             max_prediction_window: 12,
+            // ONE by default, which is what every existing caller means and what
+            // the shipped host still installs. A multi-seat session is opt-in
+            // until something drives more than one stream.
+            players: 1,
         }
     }
 }
@@ -114,13 +171,16 @@ pub fn start_sync_test_session(
 pub fn build_sync_test_session(
     settings: SyncTestSettings,
 ) -> Result<AmbitionGgrsSession, ggrs::GgrsError> {
-    let session = SessionBuilder::<AmbitionGgrsConfig>::new()
-        .with_num_players(1)?
+    let players = settings.player_count();
+    let mut builder = SessionBuilder::<AmbitionGgrsConfig>::new()
+        .with_num_players(players)?
         .with_fps(crate::SIM_TICK_HZ as usize)?
         .with_max_prediction_window(settings.max_prediction_window)
-        .with_check_distance(settings.check_distance)
-        .add_player(PlayerType::Local, 0)?
-        .start_synctest_session()?;
+        .with_check_distance(settings.check_distance);
+    for handle in 0..players {
+        builder = builder.add_player(PlayerType::Local, handle)?;
+    }
+    let session = builder.start_synctest_session()?;
     Ok(AmbitionGgrsSession::SyncTest(session))
 }
 
@@ -184,6 +244,7 @@ pub fn install_rebased_sync_test_session(
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
     world.insert_resource(PendingLocalInput::default());
+    world.insert_resource(PendingSeatInputs::default());
     if world.contains_resource::<ControlFrameLatch>() {
         world.insert_resource(ControlFrameLatch::default());
     }
@@ -311,6 +372,9 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
         latch.accumulate(frame);
         return;
     }
+    if let Some(mut seats) = world.get_resource_mut::<PendingSeatInputs>() {
+        *seats = PendingSeatInputs::default();
+    }
     if let Some(mut pending) = world.get_resource_mut::<PendingLocalInput>() {
         pending.0 = frame;
         return;
@@ -327,6 +391,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     crate::external_effects::quarantine_presentation_effects(app, LoadWorld);
 
     app.init_resource::<PendingLocalInput>()
+        .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer_primitives::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
         .init_resource::<RollbackSessionStatus>()
@@ -398,29 +463,82 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 fn capture_latched_local_input(
     latch: Option<ResMut<ControlFrameLatch>>,
     mut pending: ResMut<PendingLocalInput>,
+    // The SECONDARY seats' half (queue Y1), drained on the same edge and for the
+    // same reason: several rendered frames may pass before GGRS asks, and a
+    // later level-only sample would overwrite a short press before the session
+    // observed it. Optional because a composition with one seat installs
+    // neither.
+    seat_latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+    mut seats: Option<ResMut<PendingSeatInputs>>,
 ) {
     if let Some(mut latch) = latch {
         pending.0 = latch.take();
     }
+    if let (Some(mut seat_latches), Some(seats)) = (seat_latches, seats.as_deref_mut()) {
+        for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
+            let slot = ambition_characters::brain::PlayerSlot(handle as u8);
+            seats.set(handle, seat_latches.take(slot));
+        }
+    }
 }
 
+/// Hand GGRS one frame PER LOCAL HANDLE. (queue Y1)
+///
+/// This used to insert `pending.0` for every handle, which was correct while
+/// there was exactly one and silently wrong the moment there were two: four pads
+/// would drive one input stream and the sync test would checksum-compare a
+/// simulation nobody was playing.
+///
+/// Handle 0 is [`PendingLocalInput`] — seat zero's, latched by the device layer
+/// and drained when GGRS asks. Handles 1.. are [`PendingSeatInputs`], which is
+/// absent in a composition with no secondary seats and reads neutral, exactly as
+/// a pad nobody plugged in should.
 fn publish_local_inputs(
     pending: Res<PendingLocalInput>,
+    seats: Option<Res<PendingSeatInputs>>,
     local_players: Res<LocalPlayers>,
     mut commands: Commands,
 ) {
     let mut inputs = bevy::platform::collections::HashMap::default();
     for &handle in &local_players.0 {
-        inputs.insert(handle, pending.0);
+        let frame = if handle == 0 {
+            pending.0
+        } else {
+            seats.as_deref().map(|seats| seats.get(handle)).unwrap_or_default()
+        };
+        inputs.insert(handle, frame);
     }
     commands.insert_resource(LocalInputs::<AmbitionGgrsConfig>(inputs));
 }
 
+/// Publish the session's confirmed inputs into what the simulation reads.
+///
+/// Handle 0 becomes [`ControlFrame`], the primary seat's. Handles 1.. become
+/// `SlotControls[handle]`, which is where `tick_player_brains` already looks for
+/// a secondary seat — so a rewind replays every seat's input, not just the
+/// first (queue Y1).
+///
+/// ⚠ this is what puts seats 1.. INSIDE rollback. Before it they were written
+/// on the feel clock by the host's own input path and GGRS never saw them: a
+/// resimulated frame replayed seat zero faithfully and gave every other seat
+/// whatever the device happened to be doing at replay time.
 fn publish_ggrs_input(
     inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
     mut control: ResMut<ControlFrame>,
+    mut slots: Option<ResMut<ambition_characters::brain::SlotControls>>,
 ) {
-    *control = inputs.first().map(|(input, _)| *input).unwrap_or_default();
+    for (handle, (input, _)) in inputs.iter().enumerate() {
+        if handle == 0 {
+            *control = *input;
+            continue;
+        }
+        if let Some(slots) = slots.as_deref_mut() {
+            slots.set(ambition_characters::brain::PlayerSlot(handle as u8), *input);
+        }
+    }
+    if inputs.is_empty() {
+        *control = ControlFrame::default();
+    }
 }
 
 /// Publish the FACT "this frame number has been simulated before".
@@ -671,7 +789,9 @@ mod tests {
             SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-            },
+            
+            ..Default::default()
+        },
         )
         .expect("a one-player baseline SyncTest session is valid");
 
@@ -681,7 +801,9 @@ mod tests {
             RollbackSessionOwnership::LocalSyncTest(SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-            })
+            
+            ..Default::default()
+        })
         );
         assert_eq!(
             world.resource::<Time<GgrsTime>>().elapsed(),
@@ -703,6 +825,8 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
+        
+            ..Default::default()
         };
 
         // Build with NO world in scope at all — the fallible step is pure.
@@ -745,6 +869,8 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
+        
+            ..Default::default()
         };
 
         start_sync_test_session(&mut world, settings).expect("first session starts");
@@ -952,5 +1078,129 @@ mod replay_pass_tests {
         }
 
         assert!(world.resource::<SimulationReplayState>().replaying_history);
+    }
+}
+
+#[cfg(test)]
+mod multi_seat_input_tests {
+    use super::*;
+    use ambition_characters::brain::{PlayerSlot, SlotControls};
+    use bevy::prelude::*;
+
+    fn frame_with_axis(axis_x: f32) -> ControlFrame {
+        ControlFrame {
+            axis_x,
+            ..ControlFrame::default()
+        }
+    }
+
+    /// **Every local handle gets its OWN frame.** (queue Y1)
+    ///
+    /// `publish_local_inputs` inserted `pending.0` for every handle, which was
+    /// correct while there was exactly one and silently wrong the moment there
+    /// were two: four pads would drive one input stream and the sync test would
+    /// checksum-compare a simulation nobody was playing.
+    #[test]
+    fn each_local_handle_submits_its_own_input_stream() {
+        let mut app = App::new();
+        app.insert_resource(PendingLocalInput(frame_with_axis(1.0)));
+        let mut seats = PendingSeatInputs::default();
+        seats.set(1, frame_with_axis(-1.0));
+        app.insert_resource(seats);
+        app.insert_resource(LocalPlayers(vec![0, 1]));
+        app.add_systems(Update, publish_local_inputs);
+        app.update();
+
+        let inputs = app.world().resource::<LocalInputs<AmbitionGgrsConfig>>();
+        assert_eq!(
+            inputs.0.get(&0).map(|frame| frame.axis_x),
+            Some(1.0),
+            "handle 0 must carry the PRIMARY seat's pending input"
+        );
+        assert_eq!(
+            inputs.0.get(&1).map(|frame| frame.axis_x),
+            Some(-1.0),
+            "handle 1 was handed seat zero's frame — two pads, one input stream, \
+             and a checksum comparison of a game nobody is playing"
+        );
+    }
+
+    /// A composition with no secondary seats reads NEUTRAL for them rather than
+    /// inheriting seat zero — a pad nobody plugged in is not a pad holding left.
+    #[test]
+    fn a_handle_with_no_seat_input_is_neutral_not_a_copy_of_seat_zero() {
+        let mut app = App::new();
+        app.insert_resource(PendingLocalInput(frame_with_axis(1.0)));
+        app.insert_resource(LocalPlayers(vec![0, 1]));
+        app.add_systems(Update, publish_local_inputs);
+        app.update();
+
+        let inputs = app.world().resource::<LocalInputs<AmbitionGgrsConfig>>();
+        assert_eq!(inputs.0.get(&1).map(|frame| frame.axis_x), Some(0.0));
+    }
+
+    /// **The player count is what the session builds with**, clamped to the
+    /// slots the game supports rather than asserted: this is settings data
+    /// reaching the builder from a dev tool and a harness option, and a session
+    /// that refuses to start is worse than one that starts with a sane count.
+    #[test]
+    fn the_player_count_is_clamped_into_what_a_session_can_hold() {
+        let one = SyncTestSettings::default();
+        assert_eq!(one.player_count(), 1, "the default is still one seat");
+
+        let zero = SyncTestSettings {
+            players: 0,
+            ..SyncTestSettings::default()
+        };
+        assert_eq!(zero.player_count(), 1, "a session needs at least one player");
+
+        let too_many = SyncTestSettings {
+            players: 99,
+            ..SyncTestSettings::default()
+        };
+        assert_eq!(too_many.player_count(), SlotControls::MAX_SLOTS);
+    }
+
+    /// A two-player session actually builds. The builder loops `add_player`, and
+    /// GGRS rejects a handle count that disagrees with `with_num_players`, so
+    /// this is the check that the loop and the count cannot drift apart.
+    #[test]
+    fn a_two_player_sync_test_session_builds() {
+        let settings = SyncTestSettings {
+            players: 2,
+            ..SyncTestSettings::default()
+        };
+        build_sync_test_session(settings).expect("a two-seat sync test session builds");
+    }
+
+    /// Seats 1.. land in `SlotControls`, which is where `tick_player_brains`
+    /// already looks — so a rewind replays every seat's input rather than only
+    /// the first.
+    #[test]
+    fn confirmed_inputs_reach_the_primary_frame_and_the_secondary_slots() {
+        let mut slots = SlotControls::default();
+        let mut control = ControlFrame::default();
+
+        // Stand in for `PlayerInputs`' iteration order: handle, frame.
+        for (handle, frame) in [(0usize, frame_with_axis(1.0)), (1, frame_with_axis(-1.0))] {
+            if handle == 0 {
+                control = frame;
+            } else {
+                slots.set(PlayerSlot(handle as u8), frame);
+            }
+        }
+
+        assert_eq!(control.axis_x, 1.0, "handle 0 is the primary seat's frame");
+        assert_eq!(
+            slots.get(PlayerSlot(1)).axis_x,
+            -1.0,
+            "handle 1 must reach the slot its brain reads"
+        );
+        assert_eq!(
+            slots.get(PlayerSlot(0)).axis_x,
+            0.0,
+            "slot 0 is NOT written here — the primary seat is `ControlFrame`, and \
+             two homes for one seat is how the two come to disagree"
+        );
     }
 }

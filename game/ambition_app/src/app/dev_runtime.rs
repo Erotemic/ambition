@@ -87,6 +87,8 @@ fn local_ggrs_restart_policy(
             Ok(Some(ambition::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: settings.max_prediction_window,
+            
+                ..Default::default()
             }))
         }
         None => Ok(None),
@@ -547,6 +549,8 @@ mod hot_reload_session_tests {
             SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
+            
+                ..Default::default()
             },
         )))
         .expect("local developer sessions may be rebased")

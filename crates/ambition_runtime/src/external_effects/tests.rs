@@ -215,7 +215,9 @@ fn a_real_stop_restart_cannot_release_the_previous_sessions_pending_intents() {
     let settings = crate::rollback::SyncTestSettings {
         check_distance: 0,
         max_prediction_window: 8,
-    };
+    
+            ..Default::default()
+        };
 
     crate::rollback::start_sync_test_session(&mut host.world, settings)
         .expect("first sync-test session starts");

@@ -81,7 +81,9 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         ambition::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-        },
+        
+                ..Default::default()
+            },
     )
     .expect("the demo composition starts a GGRS sync-test session");
 

@@ -14,7 +14,8 @@ use ambition_menu::render::bevy_ui::{
     BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{
-    AmbitionMenuControl, MenuActionActivated, MenuColor, MenuControlKind, MenuFocusKey,
+    AmbitionMenuControl, MenuActionActivated, MenuActionPreviewed, MenuColor, MenuControlKind,
+    MenuFocusKey,
     MenuPageModel, MenuRect, MenuTextAlign,
 };
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
@@ -171,9 +172,32 @@ fn publish_shell_ui_cues(
 fn basic_shell_pointer(
     launcher: Res<ShellLauncherState>,
     mut activated: MessageReader<MenuActionActivated<BasicLauncherAction>>,
+    mut previewed: MessageReader<MenuActionPreviewed<BasicLauncherAction>>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sfx: SfxWriter,
 ) {
+    // HOVER moves the cursor. Jon, on the title screen: "mouse over the icons in
+    // the game select title screen does nothing." It did nothing because the
+    // renderer only ever translated `Pressed` — `MenuActionPreviewed` existed,
+    // documented as the hover message, with no emitter and no reader.
+    //
+    // Hovering is not choosing, so this is `Focus` rather than `Activate`: a
+    // launcher that started a game because the pointer crossed a row on its way
+    // somewhere else would be unusable. It lands in the SAME cursor the keyboard
+    // moves, so hover-then-Enter does what it looks like it will.
+    for preview in previewed.read() {
+        if !launcher.active {
+            continue;
+        }
+        launcher_commands.write(ShellLauncherCommand::Focus(preview.action.0));
+        // The same cue the cursor makes when a key moves it. A row that
+        // highlights silently under the mouse and clicks under the keyboard is
+        // two different menus.
+        sfx.write(SfxMessage::Play {
+            id: ids::UI_MENU_MOVE,
+            pos: Vec2::ZERO,
+        });
+    }
     for activation in activated.read() {
         if !launcher.active {
             continue;
@@ -443,10 +467,20 @@ fn spawn_launcher_menu(
         presentation.title.clone(),
         MenuColor::rgba(0.015, 0.020, 0.055, 0.98),
     );
+    // ⚠ `MenuNode::Text`'s third argument is a FONT SIZE IN PIXELS, not a
+    // percentage. `x`/`y` beside it ARE percentages, and these three calls were
+    // authored as though `size` were one too — so the game-select screen drew
+    // its title at FIVE PIXELS and its footer at under three. That is the whole
+    // of Jon's "the 'ambition' and whatever text is at the bottom is WAY too
+    // small", and it was never a taste question; the units disagreed.
+    //
+    // The values below are pixels at the reference resolution and are sized
+    // against each other: a title that reads as a title, a footer that reads as
+    // small print rather than as damage.
     page.text(
         50.0,
         8.0,
-        5.2,
+        44.0,
         presentation.title.clone(),
         MenuTextAlign::Center,
         MenuColor::WHITE,
@@ -455,7 +489,7 @@ fn spawn_launcher_menu(
         page.text(
             50.0,
             48.0,
-            3.6,
+            26.0,
             presentation.empty_message.clone(),
             MenuTextAlign::Center,
             MenuColor::WHITE,
@@ -466,7 +500,18 @@ fn spawn_launcher_menu(
         // The navigation cursor addresses only available entries, so map that
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
-        let row_height = (60.0 / (catalog.entries.len() + exit_rows).max(1) as f32).min(12.0);
+        // TOUCH-SIZED rows. Jon: "Buttons need to be bigger and touch
+        // optimized." The cap was 12% of the screen height and the width 68%,
+        // which is a comfortable mouse target and a poor thumb one — a phone
+        // holds the device in the hand that has to reach the row.
+        //
+        // The cap only binds when there are FEW experiences, which is the case
+        // that was too small: three games shared a budget sized for eight. With
+        // many rows the divisor still wins and nothing overflows, so this makes
+        // the common launcher bigger without making a full one break.
+        let row_height = (66.0 / (catalog.entries.len() + exit_rows).max(1) as f32).min(16.0);
+        let row_left = 12.0;
+        let row_width = 76.0;
         let mut available_index = 0usize;
         for (index, entry) in catalog.entries.iter().enumerate() {
             let (kind, action, detail, selected) = if entry.available {
@@ -496,9 +541,9 @@ fn spawn_launcher_menu(
             };
             page.control(
                 MenuRect::new(
-                    16.0,
+                    row_left,
                     18.0 + index as f32 * (row_height + 1.5),
-                    68.0,
+                    row_width,
                     row_height,
                 ),
                 kind,
@@ -515,9 +560,9 @@ fn spawn_launcher_menu(
         if let Some(exit_label) = &presentation.exit_label {
             page.control(
                 MenuRect::new(
-                    16.0,
+                    row_left,
                     18.0 + catalog.entries.len() as f32 * (row_height + 1.5),
-                    68.0,
+                    row_width,
                     row_height,
                 ),
                 MenuControlKind::Action,
@@ -531,10 +576,13 @@ fn spawn_launcher_menu(
             );
         }
         if !presentation.footer.is_empty() {
+            // A footer stays smaller than the rows — it is not supposed to
+            // compete with them — but 2.6 PIXELS was not small print, it was
+            // invisible. See the units note on the title above.
             page.text(
                 50.0,
                 92.0,
-                2.6,
+                18.0,
                 presentation.footer.clone(),
                 MenuTextAlign::Center,
                 MenuColor::WHITE,
@@ -542,7 +590,14 @@ fn spawn_launcher_menu(
         }
     }
 
-    let tabs = [BevyUiMenuTabSpec::new(BasicLauncherPage::Home, "Play")];
+    // Jon: "'Play' needs to be 'Choose Game'." This tab heads the game-SELECT
+    // screen, where nothing is being played yet — the verb belongs on the
+    // confirm button (which still says "Play" on an experience row), and the
+    // heading should say what the screen is for.
+    let tabs = [BevyUiMenuTabSpec::new(
+        BasicLauncherPage::Home,
+        "Choose Game",
+    )];
     let view = BevyUiMenuView::<BasicLauncherPage, BasicLauncherAction> {
         tabs: &tabs,
         active_tab: 0,
@@ -941,5 +996,98 @@ mod semantic_input_tests {
                 .is_none(),
             "the retired card retracted its cue"
         );
+    }
+}
+
+#[cfg(test)]
+mod pointer_hover_tests {
+    use super::*;
+    use crate::{ShellLauncherCommand, ShellLauncherState};
+    use bevy::prelude::{App, Messages, Update};
+
+    fn app_with_pointer(active: bool) -> App {
+        let mut app = App::new();
+        app.add_message::<ShellLauncherCommand>();
+        app.add_message::<MenuActionActivated<BasicLauncherAction>>();
+        app.add_message::<MenuActionPreviewed<BasicLauncherAction>>();
+        app.add_message::<OwnedSfxMessage>();
+        app.init_resource::<ambition_sfx::SfxEmissionContext>();
+        app.world_mut()
+            .resource_mut::<ambition_sfx::SfxEmissionContext>()
+            .set(ambition_sfx::AudioContextOwner::Frontend(9), "shell.test");
+        app.init_resource::<ShellLauncherState>();
+        app.add_systems(Update, basic_shell_pointer);
+        app.world_mut().resource_mut::<ShellLauncherState>().active = active;
+        app
+    }
+
+    fn drained(app: &mut App) -> Vec<ShellLauncherCommand> {
+        app.world_mut()
+            .resource_mut::<Messages<ShellLauncherCommand>>()
+            .drain()
+            .collect()
+    }
+
+    /// **Jon: "mouse over the icons in the game select title screen does
+    /// nothing."**
+    ///
+    /// It did nothing because the renderer translated only `Interaction::Pressed`.
+    /// `MenuActionPreviewed` was defined, documented as the hover message, and had
+    /// no emitter and no reader anywhere in the tree — a vocabulary with no
+    /// customer, which reads as a feature right up until somebody moves a mouse.
+    #[test]
+    fn hovering_a_launcher_row_moves_the_cursor_to_it() {
+        let mut app = app_with_pointer(true);
+        app.world_mut()
+            .write_message(MenuActionPreviewed { action: BasicLauncherAction(2) });
+        app.update();
+        assert_eq!(
+            drained(&mut app),
+            vec![ShellLauncherCommand::Focus(2)],
+            "hovering a row published nothing, so the highlight stays wherever the \
+             keyboard last left it and the pointer is decoration"
+        );
+    }
+
+    /// Hovering is not choosing. A launcher that started a game because the
+    /// pointer crossed a row on its way somewhere else would be unusable, and
+    /// that is why hover is a separate command rather than a flag on activation.
+    #[test]
+    fn hovering_a_launcher_row_does_not_launch_it() {
+        let mut app = app_with_pointer(true);
+        app.world_mut()
+            .write_message(MenuActionPreviewed { action: BasicLauncherAction(1) });
+        app.update();
+        let commands = drained(&mut app);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, ShellLauncherCommand::Activate(_))),
+            "a hover launched a game: {commands:?}"
+        );
+    }
+
+    /// A press still launches — the point is to ADD hover, not to replace the
+    /// click with it.
+    #[test]
+    fn pressing_a_launcher_row_still_activates_it() {
+        let mut app = app_with_pointer(true);
+        app.world_mut()
+            .write_message(MenuActionActivated { action: BasicLauncherAction(1) });
+        app.update();
+        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(1)]);
+    }
+
+    /// The launcher is not the only surface on screen. A hover arriving while a
+    /// startup card is up must not move a cursor nobody can see.
+    #[test]
+    fn a_hover_while_the_launcher_is_inactive_is_ignored() {
+        let mut app = app_with_pointer(false);
+        app.world_mut()
+            .write_message(MenuActionPreviewed { action: BasicLauncherAction(2) });
+        app.world_mut()
+            .write_message(MenuActionActivated { action: BasicLauncherAction(2) });
+        app.update();
+        assert!(drained(&mut app).is_empty());
     }
 }

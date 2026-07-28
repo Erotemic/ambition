@@ -77,4 +77,13 @@ pub enum ShellLauncherCommand {
     /// Pointer/touch rows carry this index directly, so they do not have to
     /// synthesize a sequence of Previous/Next commands before confirmation.
     Activate(usize),
+    /// Move the cursor to one row WITHOUT launching it.
+    ///
+    /// What a mouse hover means. It is deliberately a separate command from
+    /// [`Self::Activate`] rather than a flag on it: pointing at a thing and
+    /// choosing it are different acts, and a launcher that started a game
+    /// because the pointer crossed a row on its way somewhere else would be
+    /// unusable. Keyboard `Previous`/`Next` and this land in the same cursor,
+    /// so hovering then pressing Enter does what it looks like it will.
+    Focus(usize),
 }

@@ -527,6 +527,14 @@ fn process_launcher_commands(
                     shell.write(ShellCommand::GoTo(entry.route_id.clone()));
                 }
             }
+            ShellLauncherCommand::Focus(index) => {
+                // Clamped, not ignored: the row count can shrink between the
+                // frame a pointer hovered and the frame this runs (an
+                // experience becoming unavailable), and a hover that lands out
+                // of range should settle on the last row rather than leave the
+                // cursor somewhere the pointer is not.
+                state.selected = (*index).min(selectable - 1);
+            }
             ShellLauncherCommand::Activate(index) => {
                 let selected = (*index).min(selectable - 1);
                 state.selected = selected;

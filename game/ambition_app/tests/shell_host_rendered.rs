@@ -654,3 +654,88 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
          which is the same thing as never reaching playback",
     );
 }
+
+/// **What a stranger reads on the first screen.** (Jon's observations, 2026-07-28)
+///
+/// Three of Jon's title-screen notes are about words and sizes, and all three
+/// are only checkable against the REAL composed launcher — a unit test over the
+/// page model would pass while the shell rendered something else entirely:
+///
+/// * *"'Play' needs to be 'Choose Game'."* The tab heads a game-SELECT screen
+///   where nothing is being played yet. The verb still belongs on the confirm
+///   button, which still says "Play" over an experience row.
+/// * *"the 'ambition' and whatever text is at the bottom is WAY too small."*
+/// * *"Buttons need to be bigger and touch optimized."*
+///
+/// This asserts the words and the RELATIVE sizes rather than exact pixel values.
+/// Pinning "the footer is 3.8" would make a design tweak a test failure while
+/// still passing if somebody made the rows tiny too; what matters is that the
+/// footer is legible next to the thing it sits under.
+#[test]
+fn the_title_screen_says_choose_game_and_is_readable() {
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let mut texts = app.world_mut().query::<(&Text, &TextFont)>();
+    let rendered: Vec<(String, f32)> = texts
+        .iter(app.world())
+        .map(|(text, font)| (text.0.clone(), font.font_size))
+        .collect();
+    assert!(
+        !rendered.is_empty(),
+        "the launcher rendered no text at all, so nothing below is about the \
+         title screen"
+    );
+
+    assert!(
+        rendered.iter().any(|(label, _)| label == "Choose Game"),
+        "the game-select screen still heads itself with a verb: {:?}",
+        rendered.iter().map(|(l, _)| l).collect::<Vec<_>>()
+    );
+    assert!(
+        !rendered.iter().any(|(label, _)| label == "Play"),
+        "'Play' is still on the select screen; it belongs on the confirm button"
+    );
+
+    // Assert the LAUNCHER's own three text roles by name, not a global min/max
+    // over every text node. The first version of this test did the latter and
+    // was measuring the wrong population: the touch-control overlay ("Dash",
+    // "Blink") and the FPS readout are legitimately small and are not what Jon
+    // was reading.
+    let size_of = |wanted: &str| -> f32 {
+        rendered
+            .iter()
+            .find(|(label, _)| label == wanted)
+            .map(|(_, size)| *size)
+            .unwrap_or_else(|| panic!("{wanted:?} is not on the title screen: {rendered:?}"))
+    };
+
+    // The title. It was FIVE PIXELS, because `MenuNode::Text`'s size argument is
+    // a font size in pixels while the `x`/`y` beside it are percentages, and the
+    // launcher authored all three as percentages.
+    let title = size_of("Ambition");
+    assert!(
+        title >= 32.0,
+        "the title renders at {title:.1}px — this is the units bug, not a taste \
+         question"
+    );
+
+    // The footer. Jon: "the text at the bottom is WAY too small." It was 2.6px.
+    let footer = rendered
+        .iter()
+        .find(|(label, _)| label.contains("Enter launches"))
+        .map(|(_, size)| *size)
+        .expect("the launcher footer is not on screen");
+    assert!(
+        footer >= 14.0,
+        "the footer renders at {footer:.1}px, which is small print in the sense \
+         of being unreadable rather than in the sense of being a footer"
+    );
+
+    // And it stays SUBORDINATE. A footer as big as the title is a different
+    // design bug, and "make everything huge" is not the fix being asserted.
+    assert!(
+        footer < title,
+        "the footer ({footer:.1}px) is no smaller than the title ({title:.1}px)"
+    );
+}

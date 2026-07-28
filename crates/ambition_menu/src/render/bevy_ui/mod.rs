@@ -564,6 +564,50 @@ fn publish_bevy_ui_menu_actions<Action>(
     }
 }
 
+/// Translate HOVER into the neutral preview message.
+///
+/// `MenuActionPreviewed` has existed on this crate since the menu seam was
+/// built, documented as "a host-defined action is currently hovered or focused",
+/// and until 2026-07-28 NOTHING WROTE IT and nothing read it. The visible
+/// consequence was the one Jon reported: moving the mouse over the game-select
+/// rows on the title screen did nothing at all, because the only interaction the
+/// renderer translated was `Pressed`. A vocabulary with no emitter is not a
+/// seam, it is a plan.
+///
+/// Hover is a PREVIEW, deliberately distinct from activation: it says which row
+/// the pointer is over and leaves what that means to the host. The launcher
+/// moves its selection cursor; a host that wanted a tooltip instead is not
+/// arguing with this system about it.
+///
+/// Only the FIRST hovered row is published. Overlapping pickable rows are a
+/// layout bug rather than a state the host should have to arbitrate, and
+/// publishing both would make the cursor depend on query order — which is not
+/// an order.
+fn publish_bevy_ui_menu_previews<Action>(
+    rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    mut previewed: MessageWriter<crate::MenuActionPreviewed<Action>>,
+    mut last: Local<Option<String>>,
+) where
+    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
+{
+    let hovered = rows
+        .iter()
+        .find(|(interaction, _)| **interaction == Interaction::Hovered)
+        .and_then(|(_, control)| control.action.clone());
+
+    // Edge-triggered. A pointer resting on a row holds `Hovered` every frame,
+    // and a message per frame would turn "the mouse is here" into a stream the
+    // host has to debounce — the same shape as the press latch above.
+    let key = hovered.as_ref().map(|action| format!("{action:?}"));
+    if key == *last {
+        return;
+    }
+    *last = key;
+    if let Some(action) = hovered {
+        previewed.write(crate::MenuActionPreviewed { action });
+    }
+}
+
 /// Translate flat-menu tab button presses into a renderer-neutral tab message.
 fn publish_bevy_ui_menu_tabs(
     tabs: Query<(&Interaction, &BevyUiMenuTab), With<Button>>,
@@ -594,12 +638,17 @@ fn publish_bevy_ui_menu_tabs(
 /// distinct ECS component type.
 pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
 where
-    Action: Clone + Send + Sync + 'static,
+    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
 {
     app.add_message::<crate::MenuActionActivated<Action>>()
+        .add_message::<crate::MenuActionPreviewed<Action>>()
         .add_systems(
             Update,
-            publish_bevy_ui_menu_actions::<Action>.in_set(BevyUiMenuInteractionSet),
+            (
+                publish_bevy_ui_menu_actions::<Action>,
+                publish_bevy_ui_menu_previews::<Action>,
+            )
+                .in_set(BevyUiMenuInteractionSet),
         );
 }
 

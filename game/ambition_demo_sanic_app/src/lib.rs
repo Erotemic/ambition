@@ -194,6 +194,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 fn load_sanic_game_assets(
     config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition::actors::character_sprites::AuthoredSheets>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
@@ -209,6 +210,7 @@ fn load_sanic_game_assets(
     *game_assets = ambition::actors::assets::game_assets::load_game_assets(
         &config,
         &character_catalog,
+        &authored_sheets,
         &boss_catalog,
         &catalog,
         &asset_server,

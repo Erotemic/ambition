@@ -86,9 +86,8 @@ Some hash iteration genuinely cannot be observed: a pass whose steps write only
 their own key, or an index that is derived state, excluded from the snapshot and
 read only by presentation. Mark those `AMBITION_REVIEW(determinism)` on the line
 or at the head of the comment block above it, saying *why the order cannot be
-observed*. The marker is grep-able, and
-`reviewed_determinism_exceptions_are_listed` prints the whole set, so an auditor
-reads every such claim at once.
+observed*. The marker is grep-able, and the scanner reports the whole
+reviewed set, so an auditor reads every such claim at once.
 
 ## Consequences
 
@@ -131,15 +130,28 @@ Writing sim code (`ambition_engine_core`, `platformer_primitives`, `time`,
 - **Never reach for a global RNG.** Sim randomness is a seeded,
   snapshot-registered resource.
 
-`ambition_runtime/tests/determinism_lints.rs` enforces all four with an explicit
-allowlist and a failure message naming the file, the line, and the fix. When an
-occurrence genuinely cannot affect sim order, mark the line (or the comment block
-above it) `AMBITION_REVIEW(determinism)` and say why;
-`reviewed_determinism_exceptions_are_listed` prints the whole set for audit.
+The `engine.determinism` / `game.determinism` policy enforces all four with an
+explicit allowlist and a failure message naming the file, the line, and the fix
+([`src/custom/determinism.rs`](../../tests/ambition_workspace_policy/src/custom/determinism.rs),
+config [`policies/determinism.toml`](../../tests/ambition_workspace_policy/policies/determinism.toml)).
+When an occurrence genuinely cannot affect sim order, mark the line (or the
+comment block above it) `AMBITION_REVIEW(determinism)` and say why; the scanner
+reports the reviewed set so an auditor reads every such claim at once.
 
-**The same file family now holds a second invariant.**
-`ambition_runtime/tests/control_frame_lint.rs` (refactor-chain R5) pins who may
-hold the global `ControlFrame` — one player's device frame, so a sim system that
-reads it is silently slot-0-only. Both lints are greps with justified allowlists,
-both are poison-tested, and both exist because a measured "this is already true"
-is not an invariant until something can make it fail.
+**The same policy package now holds a second invariant.** The `control_frame`
+policy ([`policies/control_frame.toml`](../../tests/ambition_workspace_policy/policies/control_frame.toml))
+pins who may hold the global `ControlFrame` — one player's device frame, so a sim
+system that reads it is silently slot-0-only. Both are source scans with
+justified allowlists, both are poison-tested, and both exist because a measured
+"this is already true" is not an invariant until something can make it fail.
+
+⚠ **This paragraph cited the retired ambition_runtime/tests/determinism_lints.rs
+and ambition_runtime/tests/control_frame_lint.rs for eighteen days after both
+moved into the policy package (2026-07-10 → found 2026-07-28).** Those two names
+are deliberately UNBACKTICKED: a backticked name is a claim that it exists, and
+naming a dead file to say it is dead is prose. The section
+above had been corrected and this one had not, which is the ordinary way a
+document rots: somebody fixes the place they were reading. It was found by a
+guard that binds each citation to the CLAUSE it supports rather than pooling
+them per row — under the pooled rule the corrected paragraph vouched for this
+one.

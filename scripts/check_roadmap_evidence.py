@@ -25,6 +25,12 @@ check reduced to "does this document still contain its own text?" It would have
 passed a row whose implementation had been deleted entirely. That is the exact
 failure this file exists to catch, committed inside the catcher.
 
+A BACKTICKED name is a CLAIM THAT IT EXISTS. That is the whole authoring rule,
+and it is what lets a correction paragraph name a retired file without the guard
+calling it rot: write the dead name as plain prose. The alternative — teaching
+this script to read "used to", "retired", "no longer" — is prose interpretation,
+which is the failure mode the top of this file is about.
+
 What it deliberately does NOT do is judge whether the test proves the claim.
 That is a human question and pretending otherwise would be the same
 overclaiming this exists to catch. It only reports rows whose evidence has
@@ -258,14 +264,45 @@ def identifier_exists(name: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
+def tracked_basenames() -> dict[str, list[str]]:
+    """Every tracked file, indexed by basename. One `git ls-files`, cached."""
+    global _TRACKED
+    if _TRACKED is None:
+        result = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "ls-files"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        index: dict[str, list[str]] = {}
+        for line in result.stdout.splitlines():
+            index.setdefault(Path(line).name, []).append(line)
+        _TRACKED = index
+    return _TRACKED
+
+
+_TRACKED: dict[str, list[str]] | None = None
+
+
 def path_exists(candidate: str, document: Path) -> bool:
     """A cited path is checked AS a path — a file, not a string that occurs.
 
     Resolved against the DOCUMENT as well as the repo root: a planning page
     links to its siblings relatively (`engine/encounter-orchestration.md`), and
     resolving those only from the root reports a live document as deleted.
+
+    A BARE FILENAME resolves against the tracked tree. Prose cites `save_data.rs`
+    and `run_tests.py` the way a person says them, and both exist —
+    `crates/ambition_persistence/src/save_data.rs`, `scripts/run_tests.py` — but
+    neither is at the repo root, so the first two checks called them deleted. The
+    row-level rule hid it (some other citation always survived); the clause rule
+    surfaced it as four confident false positives on its first run, which is the
+    good outcome of a stricter check and the reason to run one before trusting it
+    (2026-07-28).
     """
-    return (REPO_ROOT / candidate).exists() or (document.parent / candidate).exists()
+    if (REPO_ROOT / candidate).exists() or (document.parent / candidate).exists():
+        return True
+    return bool(tracked_basenames().get(Path(candidate).name))
 
 
 def main() -> int:
@@ -395,6 +432,48 @@ def main() -> int:
             problems.append(
                 f"{label}: claims done and every implementation citation is gone "
                 f"from the source: {', '.join(missing)}"
+            )
+            continue
+
+        # PER-CLAUSE, because a row is not one claim.
+        #
+        # Pooling every citation in a row means one surviving reference keeps the
+        # whole thing green: a completed row can describe four things, have the
+        # implementation behind three of them deleted, and still pass because the
+        # fourth is intact. That is not a hypothetical — it is what "all
+        # citations gone" literally permits, and it was recorded as the known
+        # residue when the row-level rule landed.
+        #
+        # A PARAGRAPH is the clause unit. It is the unit these documents already
+        # use — a status sentence, then a paragraph per thing done — and it needs
+        # no new authoring convention, which is the test of whether a checker
+        # belongs in a repo or is asking the repo to change shape for it.
+        #
+        # Only paragraphs that cite implementation at all are judged: prose
+        # paragraphs are how a row explains itself, and demanding a citation per
+        # sentence would push authors toward citing something rather than saying
+        # something.
+        for clause in body.split("\n\n"):
+            clause_paths = {
+                name for name in PATH_RE.findall(clause) if not name.endswith(".md")
+            }
+            clause_idents = set(IDENT_RE.findall(clause)) - set(PATH_RE.findall(clause))
+            clause_cited = clause_paths | clause_idents
+            if not clause_cited:
+                continue
+            surviving = [
+                name
+                for name in clause_paths
+                if path_exists(name, Path(args.document))
+            ] + [name for name in clause_idents if identifier_exists(name)]
+            if surviving:
+                continue
+            headline = " ".join(clause.split())[:70]
+            problems.append(
+                f"{label}: one clause's evidence is entirely gone — "
+                f"\"{headline}…\" cites only {', '.join(sorted(clause_cited))}, "
+                "and none of it is in the source any more. The row survives on "
+                "another clause's citations."
             )
 
     print(f"checked {checked} row(s) claiming the work is done")

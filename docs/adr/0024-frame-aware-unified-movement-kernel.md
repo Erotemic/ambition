@@ -232,9 +232,15 @@ is human, AI, possession, clone, replay, or RL.
   impulses/accelerations accumulated before the one kernel call.
 - Body-mode changes alter shared body shape/mode through an explicit transition;
   collision reconciliation happens inside the kernel.
-- Authored path/route steering produces typed intent or is an explicit
-  `ScriptedKinematic` policy if it directly owns pose. No path system may remain
-  an unclassified pose writer.
+- Authored path/route steering produces typed intent or is an explicit typed
+  kinematic policy if it directly owns pose — `KinematicPath` / `ActorMotionPath`
+  today. No path system may remain an unclassified pose writer.
+  ⚠ this clause named a `ScriptedKinematic` policy until 2026-07-28. No such type
+  ever shipped: the design sentence was written with a placeholder name and the
+  implementation landed under another one, so the rule read as satisfied by
+  something that did not exist. Found by binding each citation to its own clause
+  — the row's other paragraphs cite live types, and under a per-ROW rule they
+  vouched for this one.
 
 Any system that writes integrated-body position or velocity must either be the
 kernel, initialize/restore shared state outside a movement tick, or be documented

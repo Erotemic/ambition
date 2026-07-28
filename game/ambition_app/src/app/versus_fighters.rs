@@ -29,7 +29,10 @@
 //! to `idle` on a sheet with no attack row — visibly plain, honestly plain, and
 //! not a placeholder pretending to be art.
 
-use ambition::actors::character_runtime::CharacterDefinition;
+use ambition::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
+use ambition::entity_catalog::{
+    HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
+};
 use ambition::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition::entity_catalog::{MoveGates, MovesetContract};
 
@@ -121,11 +124,81 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
     MovesetContract { verbs, moves }
 }
 
+/// **What a fighter is HITTABLE through, and when it changes.** (queue C2)
+///
+/// The `HurtboxDoc` seam has existed since A7 and no character authored one, so
+/// every body in the game was damageable through a box derived from its sprite —
+/// which is a reasonable default and says nothing about what a fighter is doing.
+/// The versus duelists are where that stops being acceptable: a fighting game
+/// whose smash costs nothing to whiff is a game where you always smash.
+///
+/// Three rules, and each is a decision rather than a number:
+///
+/// * **Standing** is a torso — narrower than the sprite quad, because a swing
+///   that clips the empty air beside a fighter should miss. The old
+///   sprite-derived box made every character as wide as its widest frame.
+/// * **Hitstun** is BIGGER. A fighter already being hit is easier to keep
+///   hitting, which is what makes a combo a combo instead of a coincidence.
+/// * **A committed smash EXTENDS it** for the length of the move. This is the
+///   whole point of a per-move timeline: the fighter leans in, and the reach
+///   that makes the smash dangerous is also what makes whiffing it punishable.
+///   Jab and the tilts do not extend — they are the safe options, and they are
+///   safe because they leave the silhouette alone.
+///
+/// Sized against the 30×48 collision box the arena's fighters carry, so these
+/// are body-relative numbers rather than sprite-relative ones: the doc is a
+/// statement about the FIGHTER, and it stays true if somebody redraws the art.
+fn duelist_hurtboxes(numbers: DuelistNumbers) -> HurtboxDoc {
+    let torso = |half_w: f32, half_h: f32, offset_x: f32| HurtboxTimeline {
+        keyframes: vec![HurtboxKeyframe {
+            at_s: 0.0,
+            volumes: vec![HurtboxVolume {
+                shape: VolumeShape::Rect {
+                    offset: (offset_x, 0.0),
+                    half_extents: (half_w, half_h),
+                },
+            }],
+        }],
+    };
+    // The smash leans a fighter forward by a fraction of its own reach, so the
+    // long guard commits further than the close guard — the same knob that makes
+    // its smash dangerous makes its whiff worse, which is the trade the two
+    // archetypes exist to express.
+    let lean = numbers.reach_px * 0.18;
+    HurtboxDoc {
+        default: Some(torso(11.0, 22.0, 0.0)),
+        poses: std::collections::BTreeMap::from([(
+            POSE_HITSTUN.to_string(),
+            torso(13.0, 24.0, 0.0),
+        )]),
+        moves: std::collections::BTreeMap::from([(
+            "smash_forward".to_string(),
+            torso(11.0 + lean * 0.5, 22.0, lean * 0.5),
+        )]),
+    }
+}
+
 /// The arena's two fighters, in roster order.
 ///
 /// One from each side of the crossover the versus stage was built to show: the
 /// stage's whole reason for living in the app rather than a provider is that it
 /// is the only composition where more than one cast exists.
+/// The two archetypes' numbers, named once. The moveset and the hurtbox doc are
+/// both derived from them, so a fighter cannot swing with one character's reach
+/// and lean with another's.
+pub const LONG_GUARD: DuelistNumbers = DuelistNumbers {
+    jab_damage: 2,
+    smash_damage: 9,
+    reach_px: 46.0,
+    smash_windup_s: 0.26,
+};
+pub const CLOSE_GUARD: DuelistNumbers = DuelistNumbers {
+    jab_damage: 3,
+    smash_damage: 7,
+    reach_px: 32.0,
+    smash_windup_s: 0.17,
+};
+
 pub fn duelists() -> [CharacterDefinition; 2] {
     [
         // A reach fighter. Longer swings, a slower smash — wins by keeping the
@@ -138,12 +211,8 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             // rather than a coin flip — one exchange deciding the match is not a
             // fighting game, it is a duel of who pressed first.
             .with_health(60, 1.0)
-            .with_moveset(duelist_moveset(DuelistNumbers {
-                jab_damage: 2,
-                smash_damage: 9,
-                reach_px: 46.0,
-                smash_windup_s: 0.26,
-            })),
+            .with_moveset(duelist_moveset(LONG_GUARD))
+            .with_hurtboxes(duelist_hurtboxes(LONG_GUARD)),
         // A rushdown fighter. Shorter reach, a faster smash — has to get inside
         // to do anything, and is rewarded for being there.
         CharacterDefinition::new("arena_duelist_close", "Close Guard", VERSUS_PROVIDER)
@@ -151,12 +220,8 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             // Slightly frailer than the long guard, to pay for getting to swing
             // faster. Same round length, different price.
             .with_health(52, 0.9)
-            .with_moveset(duelist_moveset(DuelistNumbers {
-                jab_damage: 3,
-                smash_damage: 7,
-                reach_px: 32.0,
-                smash_windup_s: 0.17,
-            })),
+            .with_moveset(duelist_moveset(CLOSE_GUARD))
+            .with_hurtboxes(duelist_hurtboxes(CLOSE_GUARD)),
     ]
 }
 

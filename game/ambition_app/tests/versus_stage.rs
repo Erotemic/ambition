@@ -2023,3 +2023,115 @@ fn the_round_counter_counts_rounds_and_not_wins() {
         state.round
     );
 }
+
+/// **A fighter is hittable through what its AUTHOR said, and a committed smash
+/// changes it.** (queue C2)
+///
+/// The `HurtboxDoc` seam landed with A7 and no character had ever authored one,
+/// so every body in the game — including both arena fighters — was damageable
+/// through a box derived from its sprite. That is a reasonable default and says
+/// nothing about what a fighter is doing: a smash that costs nothing to whiff is
+/// a game where you always smash.
+///
+/// This asserts the two halves that make the seam real from a stage a stranger
+/// plays: the seated fighter carries its provider's document at all (not the
+/// sprite fallback), and the resolved volume CHANGES when the smash is out —
+/// wider and leaning forward, which is what makes committing punishable.
+#[test]
+fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
+    use ambition::actors::character_runtime::{
+        AuthoredHurtboxes, HurtboxSelection, ResolvedHurtboxes,
+    };
+    use ambition::actors::character_runtime::MatchSeat;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let seat_zero = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+
+    // The document reached the body. Without this the next assertion could pass
+    // on the sprite-derived fallback and prove nothing about authoring.
+    assert!(
+        app.world().get::<AuthoredHurtboxes>(seat_zero).is_some(),
+        "the seated fighter carries no authored hurtbox document, so it is still \
+         damageable through a box derived from its art"
+    );
+
+    let standing = app
+        .world()
+        .get::<ResolvedHurtboxes>(seat_zero)
+        .expect("hurtboxes resolve every tick")
+        .clone();
+    assert_ne!(
+        standing.source,
+        HurtboxSelection::Unauthored,
+        "the resolver fell back to the sprite box for a character that authored \
+         volumes — the document is being ignored"
+    );
+    let half_width = |resolved: &ResolvedHurtboxes| -> f32 {
+        match resolved.volumes.first().map(|volume| &volume.shape) {
+            Some(ambition::entity_catalog::VolumeShape::Rect { half_extents, .. }) => {
+                half_extents.0
+            }
+            other => panic!("expected an authored rect hurtbox, got {other:?}"),
+        }
+    };
+    let standing_half = half_width(&standing);
+
+    // Now force the smash and let its move clock run. The move id is the
+    // duelists' own (`smash_forward`), so this is the authored override rather
+    // than a pose profile.
+    let smash = ambition::combat::moveset::MovePlayback::new(
+        ambition_app::app::versus_fighters::duelist_moveset(
+            ambition_app::app::versus_fighters::LONG_GUARD,
+        )
+        .moves
+        .iter()
+        .find(|spec| spec.id == "smash_forward")
+        .expect("the duelists author a forward smash")
+        .clone(),
+        1.0,
+    );
+    app.world_mut().entity_mut(seat_zero).insert(smash);
+    app.update();
+
+    let committed = app
+        .world()
+        .get::<ResolvedHurtboxes>(seat_zero)
+        .expect("hurtboxes resolve every tick")
+        .clone();
+    assert_eq!(
+        committed.source,
+        HurtboxSelection::MoveOverride,
+        "the smash is out and the resolver is still using {:?} — the per-move \
+         timeline is the whole reason a hurtbox document has one",
+        committed.source
+    );
+    assert!(
+        half_width(&committed) > standing_half,
+        "the committed smash did not widen the fighter's hurtbox ({} vs {}), so \
+         whiffing it costs nothing and the safe option is never worth taking",
+        half_width(&committed),
+        standing_half
+    );
+}

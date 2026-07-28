@@ -30,6 +30,7 @@ mod character_containment;
 mod collision_invariant_oracle;
 mod crouch_stability;
 mod dash_stability;
+mod declared_art_resolves;
 mod desync_canary;
 mod dive_drill_reachability;
 mod duel_arena;

@@ -172,6 +172,17 @@ impl ProjectileVisualCatalog {
         self.arts.get(id)
     }
 
+    /// Every registered `(id, art)`, in id order.
+    ///
+    /// Read-only, and here so a WHOLE-REGISTRY check is expressible: `resolve`
+    /// falls back to the generic shot for an unregistered id, which is right at
+    /// runtime and means a declared image that names no file is indistinguishable
+    /// from a shot nobody skinned. A test can tell them apart only if it can
+    /// enumerate what was declared (declared-id resolution checks, 2026-07-28).
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &ProjectileArt)> {
+        self.arts.iter().map(|(id, art)| (id.as_str(), art))
+    }
+
     /// Resolve `id` → art, falling back to the generic hostile shot when the id
     /// is unregistered (or empty). Returns an owned art so callers needn't hold
     /// the resource borrow across the frame. Clones the record — use the

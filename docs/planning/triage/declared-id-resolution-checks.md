@@ -1,9 +1,36 @@
 # Declared-id resolution checks — catch the silent binding, not at boot
 
-> **State:** TRIAGE — LOW PRIORITY, opened 2026-07-25. Shape agreed, not
-> scheduled. Jon ruled out the obvious answer (a boot-time validation pass) on
+> **State:** ◐ **OPTION 2 LANDED 2026-07-28** — the gate exists for two of the
+> four registries. Opened 2026-07-25 as TRIAGE/LOW PRIORITY with the shape
+> agreed. Jon ruled out the obvious answer (a boot-time validation pass) on
 > startup cost; the options below are the alternatives that cost the shipped
 > binary nothing.
+>
+> **What shipped:** `game/ambition_app/tests/declared_art_resolves.rs`, asserting
+> against the composed SHIPPED host rather than a fixture — a provider that
+> declares art nobody generated is exactly the case, and only the real
+> composition knows which providers are in the build.
+>
+> * `every_declared_world_item_art_path_names_a_file_that_exists` — the row from
+>   the table below, now a gate. RED-probed by declaring a bogus entry on the
+>   Mary-O provider; it names the id, the path, and what the symptom looks like.
+> * `every_declared_projectile_image_names_a_file_that_exists` — same question
+>   where the miss behaviour is even MORE forgiving:
+>   `ProjectileVisualCatalog::resolve` falls back to the generic hostile shot, so
+>   a declared image naming no file is indistinguishable from a bolt nobody
+>   skinned. Needed a read-only `iter()` on the catalog: a whole-registry check is
+>   not expressible against a resolver that answers every id.
+>
+> ⚠ **`is_empty()` is asserted for world items and NOT for projectiles**, and the
+> difference is a judgement rather than an oversight. The shipped host definitely
+> declares world-item art, so an empty list there means the test is checking
+> nothing; a build whose every shot is tinted or sheet-backed legitimately
+> declares no `Image` source, so that one reports and returns.
+>
+> **Still owed from option 2:** provider audio-fragment track ids and catalog
+> `manifest` targets. **Option 1** (`error_once!` at the ~6 bare-`?` miss sites)
+> is untouched and is what covers ids composed at RUNTIME, which no static check
+> can see — the Sanic scattered-rings row is that case.
 
 ## The failure this is about
 

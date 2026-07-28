@@ -1222,7 +1222,10 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
 
     app.update();
 
-    let live = app.world().get::<ActionSet>(body).expect("the body kept its kit");
+    let live = app
+        .world()
+        .get::<ActionSet>(body)
+        .expect("the body kept its kit");
     assert_eq!(
         live, &authored,
         "the spawned player never received its character's authored action set — \
@@ -1237,5 +1240,45 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
         &baseline.action_set, &authored,
         "the live kit is right and the BASELINE is not, so the next equipment \
          reconcile re-derives from the wrong thing and takes it away again"
+    );
+}
+
+/// The worn half of the same claim: a player wearing a character that authored
+/// its motion model gets that model, not the catalog row's.
+///
+/// Both halves land together on purpose. The action set was wired into the worn
+/// path alone and seated fighters went without it for a day (X9); doing the
+/// third leg of the kit the same way would have been repeating a mistake whose
+/// diagnosis is two commits old.
+#[test]
+fn a_definition_authored_motion_model_beats_the_catalog_row() {
+    use ambition_engine_core::{MomentumParams, MotionModelSpec};
+
+    let catalog = test_catalog();
+    let momentum = MotionModelSpec::SurfaceMomentum(MomentumParams {
+        ground_accel: 1234.0,
+        ..Default::default()
+    });
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("mary_o", "Mary-O", "demo")
+            .with_motion_model(momentum),
+    );
+
+    let resolved =
+        crate::avatar::motion_model_spec_for_character(Some(&registry), &catalog, "mary_o");
+    assert_eq!(
+        resolved, momentum,
+        "the catalog row won over the definition's authored motion model"
+    );
+
+    // And a character that authored NOTHING still inherits its row — the
+    // migration path, and the half that keeps this safe to put in front of
+    // every character at once.
+    let untouched =
+        crate::avatar::motion_model_spec_for_character(Some(&registry), &catalog, "sanic");
+    assert_eq!(
+        untouched,
+        crate::avatar::motion_model_spec_for_character_id(&catalog, "sanic"),
+        "an unauthored character stopped inheriting its catalog row"
     );
 }

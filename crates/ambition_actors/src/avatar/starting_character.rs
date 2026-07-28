@@ -92,12 +92,38 @@ impl StartingCharacter {
 // `AbilitySet`); the DEFAULT is that the row's authored kit wins — being the
 // content default no longer implies "keep the host's hardcoded kit" (2026-07-11).
 
-/// Resolve the state-free movement policy authored by a character identity.
+/// The movement policy for `character_id`, DEFINITION first, catalog second.
+///
+/// The action set's precedence rule applied to the third leg of the kit: a
+/// character that authored how it moves outranks the row that guessed. `None` on
+/// the definition means the author said nothing and the catalog stands, which is
+/// every character that has not authored one (campaign R-a, landed 2026-07-28).
+///
+/// A separate function rather than a parameter on the catalog-only one because
+/// three call sites legitimately have no registry — a from-scratch bundle
+/// predates the world, and two tests build a catalog alone — and threading an
+/// `Option<&Registry>` through them would make "there is no registry here" and
+/// "the registry had nothing" the same call.
+pub fn motion_model_spec_for_character(
+    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    catalog: &CharacterCatalog,
+    character_id: &str,
+) -> ambition_engine_core::MotionModelSpec {
+    registry
+        .and_then(|registry| registry.get(character_id))
+        .and_then(|prepared| prepared.motion_model)
+        .unwrap_or_else(|| motion_model_spec_for_character_id(catalog, character_id))
+}
+
+/// Resolve the state-free movement policy a CATALOG ROW authors.
 ///
 /// The active experience owns the character catalog. Movement identity must be
 /// resolved from that App-local catalog rather than from Ambition's built-in
 /// roster, so standalone experiences such as Sanic can author their own policy
 /// without process-global registration.
+///
+/// Prefer [`motion_model_spec_for_character`] wherever a registry is in hand: a
+/// definition that authored a motion model outranks the row.
 pub fn motion_model_spec_for_character_id(
     catalog: &CharacterCatalog,
     character_id: &str,
@@ -138,13 +164,14 @@ pub fn apply_worn_motion_model(
 /// a cross-model transition preserves every shared body fact and initializes
 /// ONLY destination-private state — through the one kernel transition seam.
 fn sync_worn_motion_model_preserving_state(
+    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     catalog: &CharacterCatalog,
     character_id: &str,
     current: &mut MotionModel,
 ) {
     ambition_engine_core::switch_motion_model(
         current,
-        motion_model_spec_for_character_id(catalog, character_id),
+        motion_model_spec_for_character(registry, catalog, character_id),
     );
 }
 
@@ -443,7 +470,12 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model);
+            sync_worn_motion_model_preserving_state(
+                registry.as_deref(),
+                &catalog,
+                id,
+                &mut motion_model,
+            );
 
             // Per-character axis FEEL rides a marker component: presence means
             // "this body's tuning is authored, not the shared F3 dev tuning".

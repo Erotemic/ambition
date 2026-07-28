@@ -200,6 +200,18 @@ pub struct CharacterDefinition {
     /// exist — and it makes a ranged move depend on a projectile specification
     /// from a different authority entirely (GPT 5.6, 2026-07-28).
     pub action_set: Option<ambition_characters::brain::ActionSet>,
+    /// How this character MOVES — the state-free movement policy.
+    ///
+    /// The third leg of an identity's kit, beside the action set and the moveset,
+    /// and the last one that was still exclusively the catalog's. A provider
+    /// authoring a character that runs on momentum rather than swept axes had to
+    /// say so in a catalog row even when it authored everything else on the
+    /// definition (queue C3 / campaign R-a, deferred from the first slice
+    /// deliberately and landed 2026-07-28).
+    ///
+    /// `None` means the catalog row stands, which is every character that has not
+    /// authored one.
+    pub motion_model: Option<ambition_engine_core::MotionModelSpec>,
 }
 
 impl CharacterDefinition {
@@ -220,6 +232,7 @@ impl CharacterDefinition {
             vitals: Vitals::default(),
             moveset: None,
             action_set: None,
+            motion_model: None,
         }
     }
 
@@ -234,6 +247,12 @@ impl CharacterDefinition {
     /// character reaches for nothing" — and is preserved as such. See the field.
     pub fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
         self.action_set = Some(action_set);
+        self
+    }
+
+    /// Author how this character moves, outranking the catalog row.
+    pub fn with_motion_model(mut self, spec: ambition_engine_core::MotionModelSpec) -> Self {
+        self.motion_model = Some(spec);
         self
     }
 
@@ -270,6 +289,9 @@ pub struct PreparedCharacterDefinition {
     /// `None` and `Some(empty)` mean different things all the way to the body —
     /// see [`CharacterDefinition::action_set`].
     pub action_set: Option<ambition_characters::brain::ActionSet>,
+    /// The authored movement policy, carried through preparation unchanged.
+    /// `None` leaves the catalog row in charge.
+    pub motion_model: Option<ambition_engine_core::MotionModelSpec>,
     /// DERIVED (§4.6): every cue this character can emit, read off its moves.
     /// Sorted, so two peers assemble byte-identical inventories.
     cue_dependencies: BTreeSet<String>,
@@ -663,6 +685,7 @@ pub fn prepare_character(
         vitals: definition.vitals,
         moveset: definition.moveset,
         action_set: definition.action_set,
+        motion_model: definition.motion_model,
         cue_dependencies,
         vfx_dependencies,
         checked: bindings.checked(),

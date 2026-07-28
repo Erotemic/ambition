@@ -503,3 +503,50 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
          not the one its definition authored — its brain will never press ranged"
     );
 }
+
+/// **A seated fighter moves the way its DEFINITION says.** (campaign R-a)
+///
+/// The third leg of the kit, and wired into BOTH paths in one commit — because
+/// the action set was wired into the worn path alone and a seated fighter went
+/// without it until somebody pulled the thread (X9). A character whose
+/// definition says "momentum" and whose catalog row says nothing should not move
+/// like a swept-axis walker because it happens to be seated rather than worn.
+///
+/// Applied through `switch_motion_model`, so this also pins the ADR 0024 rule:
+/// the component is transitioned, never replaced.
+#[test]
+fn a_seated_fighter_moves_by_its_definitions_motion_model() {
+    use ambition_engine_core::MotionModelSpec;
+
+    let mut app = seating_app();
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+
+    let momentum = MotionModelSpec::SurfaceMomentum(ambition_engine_core::MomentumParams {
+        ground_accel: 900.0,
+        top_speed: 1200.0,
+        jump_speed: 700.0,
+        ..Default::default()
+    });
+    app.register_character(
+        CharacterDefinition::new("roller", "Roller", "demo").with_motion_model(momentum),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("roller")],
+    });
+    app.update();
+    app.update();
+
+    let world = app.world_mut();
+    let mut seated = world.query::<(&MatchSeat, &crate::features::MotionModel)>();
+    let models: Vec<_> = seated.iter(world).map(|(_, model)| model.clone()).collect();
+    assert_eq!(models.len(), 1, "the roster seated no fighter");
+    assert!(
+        matches!(models[0], crate::features::MotionModel::SurfaceMomentum(_)),
+        "the seated fighter kept the catalog's swept-axis model instead of the \
+         momentum one its definition authored: {:?}",
+        models[0]
+    );
+}

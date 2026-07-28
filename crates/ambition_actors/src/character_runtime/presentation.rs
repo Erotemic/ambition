@@ -385,9 +385,28 @@ pub fn project_prepared_character_definitions(
         // `Some(empty)` is an authored decision and is projected as one — the same
         // distinction `apply_worn_character_kit` makes, for the same reason.
         if let Some(action_set) = prepared.action_set.clone() {
-            let combat_kit =
-                crate::combat::components::CombatKit::from_action_set(&action_set);
+            let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
             commands.entity(entity).insert((action_set, combat_kit));
+        }
+        // **The MOTION MODEL, on the same path and for the X9 reason.**
+        //
+        // The worn-player path resolves this in `apply_worn_character_kit`;
+        // wiring only that one is exactly the mistake the action set made — a
+        // seated fighter would move by its catalog row while a worn player moved
+        // by its definition, for the same character.
+        //
+        // Applied through `switch_motion_model` rather than by inserting a fresh
+        // `MotionModel`: a cross-model change must preserve every shared body
+        // fact and initialize only the DESTINATION solver's private state
+        // (ADR 0024). Replacing the component wholesale would reset a momentum
+        // rider to Airborne mid-stride.
+        if let Some(spec) = prepared.motion_model {
+            commands.queue(move |world: &mut World| {
+                let Some(mut model) = world.get_mut::<crate::features::MotionModel>(entity) else {
+                    return;
+                };
+                ambition_engine_core::switch_motion_model(&mut model, spec);
+            });
         }
     }
 }

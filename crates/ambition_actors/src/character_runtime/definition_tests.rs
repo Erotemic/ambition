@@ -364,6 +364,10 @@ fn a_definition_carries_no_controller_binding() {
         // get the identical action set — which is exactly why it belongs on the
         // definition and `default_brain` does not.
         action_set: _,
+        // Also a capability, and the same §4.7 reasoning: how a body MOVES is a
+        // fact about the body, not about who is steering it. A human and a CPU
+        // wearing this character move identically.
+        motion_model: _,
     } = def;
 }
 
@@ -659,9 +663,7 @@ fn the_cast_generation_advances_on_every_published_change() {
     let mut registry = PreparedCharacterRegistry::default();
     let opening = registry.generation();
 
-    registry.insert_prepared(
-        prepare_character(mary_o(), &CharacterBindings::default()).prepared,
-    );
+    registry.insert_prepared(prepare_character(mary_o(), &CharacterBindings::default()).prepared);
     let after_first = registry.generation();
     assert!(
         after_first > opening,

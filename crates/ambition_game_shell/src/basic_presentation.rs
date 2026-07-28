@@ -467,20 +467,14 @@ fn spawn_launcher_menu(
         presentation.title.clone(),
         MenuColor::rgba(0.015, 0.020, 0.055, 0.98),
     );
-    // ⚠ `MenuNode::Text`'s third argument is a FONT SIZE IN PIXELS, not a
-    // percentage. `x`/`y` beside it ARE percentages, and these three calls were
-    // authored as though `size` were one too — so the game-select screen drew
-    // its title at FIVE PIXELS and its footer at under three. That is the whole
-    // of Jon's "the 'ambition' and whatever text is at the bottom is WAY too
-    // small", and it was never a taste question; the units disagreed.
-    //
-    // The values below are pixels at the reference resolution and are sized
-    // against each other: a title that reads as a title, a footer that reads as
-    // small print rather than as damage.
+    // Sizes are PERCENTAGES OF VIEWPORT HEIGHT, like the `x`/`y` beside them —
+    // see `MenuTextHeightFraction`. These three were always authored that way
+    // and were always right; the `bevy_ui` backend was reading them as pixels
+    // and drawing this title FIVE PIXELS tall.
     page.text(
         50.0,
         8.0,
-        44.0,
+        5.6,
         presentation.title.clone(),
         MenuTextAlign::Center,
         MenuColor::WHITE,
@@ -489,7 +483,7 @@ fn spawn_launcher_menu(
         page.text(
             50.0,
             48.0,
-            26.0,
+            3.6,
             presentation.empty_message.clone(),
             MenuTextAlign::Center,
             MenuColor::WHITE,
@@ -576,13 +570,14 @@ fn spawn_launcher_menu(
             );
         }
         if !presentation.footer.is_empty() {
-            // A footer stays smaller than the rows — it is not supposed to
-            // compete with them — but 2.6 PIXELS was not small print, it was
-            // invisible. See the units note on the title above.
+            // A footer stays smaller than the rows; it is not supposed to
+            // compete with them. Nudged up from 2.6 because at 1080p that was
+            // 28px against 20px row labels, which read as competing rather than
+            // as subordinate once the units were fixed.
             page.text(
                 50.0,
                 92.0,
-                18.0,
+                2.2,
                 presentation.footer.clone(),
                 MenuTextAlign::Center,
                 MenuColor::WHITE,

@@ -710,9 +710,14 @@ fn the_title_screen_says_choose_game_and_is_readable() {
             .unwrap_or_else(|| panic!("{wanted:?} is not on the title screen: {rendered:?}"))
     };
 
-    // The title. It was FIVE PIXELS, because `MenuNode::Text`'s size argument is
-    // a font size in pixels while the `x`/`y` beside it are percentages, and the
-    // launcher authored all three as percentages.
+    // The title. It rendered at FIVE PIXELS, and the cause was not the launcher:
+    // `MenuNode::Text`'s size had no documented unit and the two renderer
+    // backends read it as two different things. The kaleidoscope passed it to
+    // Lunex's `Rh` (percent of height); `bevy_ui` assigned it to
+    // `TextFont::font_size` (pixels). Every call site in the tree was authored
+    // as a percentage, so every heading the flat renderer drew was two to five
+    // pixels tall. `MenuTextHeightFraction` makes the percentage the meaning and
+    // `resolve_menu_text_size` converts it against the live window.
     let title = size_of("Ambition");
     assert!(
         title >= 32.0,

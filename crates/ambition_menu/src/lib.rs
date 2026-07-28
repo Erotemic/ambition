@@ -623,6 +623,89 @@ pub struct MenuDynamicText {
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct MenuDynamicTextContent(pub String);
 
+/// **A menu text node's size, as a PERCENTAGE OF VIEWPORT HEIGHT.**
+///
+/// [`MenuNode::Text`]'s `size` field never had a documented unit, and the two
+/// renderer backends read it as two different things. The kaleidoscope backend
+/// has always passed it to `UiTextSize::from(Rh(size))` — Lunex's
+/// relative-to-height — so every call site in the tree was authored as a
+/// percentage: a `5.2` title, a `2.6` footer. The `bevy_ui` backend assigned the
+/// same number straight to `TextFont::font_size`, which is PIXELS.
+///
+/// So every heading and footer the flat renderer drew was between two and five
+/// pixels tall. Jon reported it as "the 'ambition' and whatever text is at the
+/// bottom is WAY too small" on the title screen, and it was never a taste
+/// question or a launcher bug — it was one field with two meanings, and the
+/// launcher just happened to be where somebody looked (2026-07-28).
+///
+/// Percentage is the meaning that stays. `x` and `y` beside it are already
+/// percentages in both backends, every call site was written that way, and a
+/// pixel font size is the one choice that cannot survive a resolution change.
+///
+/// The `bevy_ui` backend cannot express this natively — Bevy's `font_size` is
+/// pixels, full stop — so it carries this component and
+/// [`resolve_menu_text_size`] converts against the live window each frame.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct MenuTextHeightFraction(pub f32);
+
+/// The viewport height a menu is authored against when no window can be read.
+///
+/// Headless tests and any composition without a primary window land here. 1080
+/// because that is the resolution the existing sizes were eyeballed at, so this
+/// constant is what makes the historical numbers mean what their authors
+/// intended rather than merely something.
+pub const MENU_REFERENCE_VIEWPORT_HEIGHT: f32 = 1080.0;
+
+#[cfg(test)]
+mod text_scale_tests {
+    use super::*;
+
+    /// The historical sizes must mean what their authors intended.
+    ///
+    /// Every call site in the tree was authored against the kaleidoscope's
+    /// `Rh(size)` — percent of height — and 1080 is the resolution they were
+    /// eyeballed at. A launcher title of `5.6` is a 60px title and a `2.2`
+    /// footer is 24px; read as pixels, which is what the flat renderer did, they
+    /// were 5.6px and 2.2px.
+    #[test]
+    fn the_authored_percentages_resolve_to_legible_pixels() {
+        assert_eq!(MenuTextHeightFraction(5.6).reference_pixels().round(), 60.0);
+        assert_eq!(MenuTextHeightFraction(2.2).reference_pixels().round(), 24.0);
+    }
+
+    /// The whole point of choosing percent over pixels: a menu authored once
+    /// reads the same on a phone and on a desk.
+    #[test]
+    fn the_same_fraction_scales_with_the_viewport() {
+        let title = MenuTextHeightFraction(5.6);
+        assert!(title.pixels_at(2160.0) > title.pixels_at(1080.0));
+        assert_eq!(title.pixels_at(2160.0), title.pixels_at(1080.0) * 2.0);
+    }
+
+    /// A zero-size font is an invisible node that still occupies layout, which
+    /// is harder to diagnose than a tiny one.
+    #[test]
+    fn a_degenerate_size_floors_at_one_pixel() {
+        assert_eq!(MenuTextHeightFraction(0.0).pixels_at(1080.0), 1.0);
+        assert_eq!(MenuTextHeightFraction(5.0).pixels_at(0.0), 1.0);
+    }
+}
+
+impl MenuTextHeightFraction {
+    /// This fraction as pixels at [`MENU_REFERENCE_VIEWPORT_HEIGHT`].
+    pub fn reference_pixels(self) -> f32 {
+        self.pixels_at(MENU_REFERENCE_VIEWPORT_HEIGHT)
+    }
+
+    /// This fraction as pixels against `viewport_height`.
+    ///
+    /// Floored at 1px: a zero-size font is an invisible node that still occupies
+    /// layout, which is harder to diagnose than a tiny one.
+    pub fn pixels_at(self, viewport_height: f32) -> f32 {
+        (self.0 / 100.0 * viewport_height).max(1.0)
+    }
+}
+
 /// ECS metadata for a scrollable viewport.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MenuScrollPane {

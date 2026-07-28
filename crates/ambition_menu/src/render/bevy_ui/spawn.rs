@@ -51,9 +51,10 @@ pub(super) fn spawn_node<Action>(
                 Text::new(text.clone()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: *size,
+                    font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
                     ..default()
                 },
+                crate::MenuTextHeightFraction(*size),
                 TextLayout::new_with_justify(to_justify(*align)),
                 ZIndex(LAYER_TEXT),
                 Name::new("text"),
@@ -79,9 +80,10 @@ pub(super) fn spawn_node<Action>(
                 Text::new(String::new()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    font_size: *size,
+                    font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
                     ..default()
                 },
+                crate::MenuTextHeightFraction(*size),
                 TextLayout::new_with_justify(to_justify(*align)),
                 crate::MenuDynamicText { slot: *slot },
                 crate::MenuDynamicTextContent(String::new()),

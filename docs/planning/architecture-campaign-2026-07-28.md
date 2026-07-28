@@ -139,6 +139,44 @@ A campaign row that says "delete runtime arbitration" without this distinction
 would delete a correct derivation along with the incorrect ones. X12 is amended
 accordingly.
 
+### R-f′. Campaign 3 Part B — CHECKED 2026-07-28, and the tree is AHEAD of the plan
+
+The check R-f asked for, done before building anything.
+
+**The review's proposal:** a `BodyLifecycleTransition` carrying body, reason, and
+old/new generation, with *"every semantic restart path must emit the transition
+from one shared engine helper."*
+
+**What exists:** `BodyRestarted`, and its announcement is **DERIVED rather than
+emitted**. `reset_body_clusters` raises `BodyLifetime::restart_pending` on state
+it already owns, and one engine system turns that into the trigger once per tick.
+That is strictly stronger than the proposal: "every path must emit" relies on
+every caller remembering, and this repo has the scar — the event existed, seven
+production resets did not send it, and Sanic could respawn holding a ball-dash
+charge while the provider observers sat there with nothing invoking them. A
+caller that has never heard of the type announces correctly, and so does one
+added next year.
+
+**The two fields the proposal adds, assessed against customers rather than
+against tidiness:**
+
+* **generation** — already exists as `BodyLifetime::resets`, incremented by the
+  same reset. Not carried ON the event, and nothing has asked for it there.
+* **reason** — has **no consumer**. Three observers exist (Sanic's ball dash,
+  Mary-O's movement, and a versus test standing in for a provider) and not one of
+  them would branch on it. Adding it would repeat exactly the mistake A4 and A13
+  were both about: a vocabulary with no customer reads as a feature until
+  somebody looks.
+
+⚠ If a reason is ever added it must be a **required parameter of
+`reset_body_clusters`**, not a field on the event. The compiler can enforce an
+argument; it cannot enforce remembering to populate a field, and the derived
+design exists precisely because remembering failed.
+
+**Verdict: ⊘ do not build.** The trigger is a provider that genuinely wants to
+clear differently for a round restart than for a death — a real distinction, and
+one nobody has needed yet.
+
 ### R-f. Campaign 3 Part B is closer to done than the review assumes
 
 `BodyLifecycleTransition` describes something this tree partly has: the versus

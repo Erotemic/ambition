@@ -127,10 +127,42 @@ different consumers, and the only thing they share is the word "character".
 
 **The revised criterion: every remaining resolver is NAMED, has a documented
 precedence rule, is reachable from one file, and is pinned by an absence
-contract that a fifth one would break.** By that reading Campaign 1 is complete
-except for the motion-model/movement-tuning slice deferred under R-a — and a
-future reader chasing "one row" would be chasing a target this campaign
-deliberately walked away from.
+contract that a fifth one would break.** A future reader chasing "one row"
+would be chasing a target this campaign deliberately walked away from.
+
+### And the R-a deferral is obsolete too — 7 of 7
+
+R-a deferred motion tuning out of slice one because folding it into a
+`ResolvedCharacterIdentity` struct would have made the first commit touch the
+movement solver. X2 then redirected: no struct was built. What landed instead
+was `CharacterDefinition` gaining `motion_model` and `movement_tuning`, and two
+resolvers that read DEFINITION first and the catalog second —
+`motion_model_spec_for_character` and `movement_tuning_for_character`, each with
+its precedence rule in its doc comment, each with exactly one production caller,
+and each now pinned by a contract.
+
+So the reason for the deferral evaporated without anyone striking the row:
+
+| site | status |
+|---|---|
+| `apply_worn_character_kit` — action set | ✔ |
+| `apply_worn_character_kit` — moveset | ✔ |
+| `apply_worn_character_kit` — `wears_host_code_kit` | ✔ |
+| seating — action set | ✔ via the projection (X9) |
+| `presentation.rs` — provider/source | ✔ by CONFINEMENT (X12 reframed) |
+| motion model / movement tuning | ✔ definition-first, contract-pinned |
+| identity baseline residue | ✔ `IdentityKit` + equipment overlay (X11) |
+
+**7 of 7.** Campaign 1's remaining content is the GUARD, not more relocation:
+four named resolvers, one caller each, four contracts. What is genuinely still
+open is `presentation.rs` reading `PreparedCharacterRegistry` every tick, which
+is legitimate consumption rather than arbitration, and the three C3.7 contracts
+that assert a property the tree will only have after Campaign 2.
+
+⚠ Stated as a conclusion drawn from reading the resolvers, not as a claim that
+nothing else remains. The reference counts are still RISING (357 / 287), and
+they fall only when the displaced authority is deleted — which is Campaign 2's
+business, not this one's.
 
 ⚠ **the raw counts went UP, and that is not a regression.** `CharacterCatalog`
 349 → 355 and `ActionSet` 276 → 286. Both are the new projection, the new

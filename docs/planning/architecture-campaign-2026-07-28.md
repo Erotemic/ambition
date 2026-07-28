@@ -33,6 +33,14 @@ review could not see from outside.
 
 ### R-a. `ResolvedCharacterIdentity` should not carry `motion_model` in slice one
 
+> ✔ **SUPERSEDED 2026-07-28, and by X2 rather than by doing it.** No struct was
+> built, so "slice one touches the solver" never applied. `CharacterDefinition`
+> carries `motion_model` and `movement_tuning`, and both resolve
+> definition-first through named one-caller resolvers. The inventory is 7 of 7.
+> Left below because the REASONING is still the right reasoning for the next
+> campaign that wants to fold a solver-cadence field into an identity.
+
+
 The review's target struct lists `motion_model: MotionModelSpec`. In this tree
 movement tuning is `CharacterCatalog`'s and is read by the movement solver on a
 different cadence than identity — folding it in on the first slice means the

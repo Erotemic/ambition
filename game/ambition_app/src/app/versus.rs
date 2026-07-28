@@ -305,8 +305,16 @@ pub fn compose_versus_experience(app: &mut App) {
                 .with_font_size(16.0)
                 .with_color([0.75, 0.8, 0.95, 1.0]),
         )
-        // The KO / match card. Published only while a round is over, so it
-        // needs no hide path — an unpublished slot draws nothing.
+        // The announce line: the round-start COUNTDOWN ("ROUND 2", then "FIGHT")
+        // and the KO / match card. One slot for both because they are the same
+        // thing — the words the stage says between exchanges — and a second slot
+        // would let them overlap.
+        //
+        // ⚠ this said "published only while a round is over, so it needs no hide
+        // path". True until the countdown landed (2026-07-28) and false after:
+        // the count publishes every tick of a LIVE-adjacent phase, so
+        // `publish_versus_hud` clears the slot explicitly on `Fighting`. Without
+        // that the word FIGHT would sit over the whole round.
         .slot(
             ambition::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
                 .centered()

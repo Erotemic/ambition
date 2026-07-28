@@ -205,10 +205,17 @@ pub(crate) fn apply_actor_hit(
         // Computed HERE, before the bark, so a LETHAL hit does not also speak a
         // hit line: a dying body presents its death (the Death SFX + burst +
         // debris below), not an "ow!" (Jon 2026-07-22: dead things don't bark).
-        let killed = matches!(
-            resolution,
-            crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
-        ) && em.config.tuning.death_policy.kills_at_max();
+        //
+        // The blast zone is the OTHER half of that sentence, and it kills
+        // whatever it catches. `Unbounded` says "the meter never kills me, the
+        // world does"; filtering the world's own kill through the meter's
+        // policy would leave such a body immortal, which is exactly why nothing
+        // in production had ever selected `Unbounded`.
+        let killed = matches!(event.source, HitSource::LeftTheWorld)
+            || (matches!(
+                resolution,
+                crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
+            ) && em.config.tuning.death_policy.kills_at_max());
         if should_bark && !killed {
             // Catalog-first: the actor seed carries the stable authored
             // character id through spawn. Display names remain presentation and

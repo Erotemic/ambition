@@ -59,36 +59,57 @@ pub const VERSUS_ROOM_ID: &str = "versus_arena";
 /// both sheets exist.
 const FIGHTERS: [&str; 2] = ["arena_duelist_long", "arena_duelist_close"];
 
-/// A flat arena with walls. Nothing else: the stage exists so two bodies have
-/// somewhere to stand and something to be stopped by, and every feature it does
-/// not have is one that cannot be blamed when a fight looks wrong.
+/// A stage with EDGES. The first version was a closed box — a floor and two
+/// walls — which is a room, not a stage: a fighter could be pushed to the wall
+/// and no further, so the only way to lose was to run out of health, and the
+/// verb the whole genre is built on (put them somewhere there is no floor) had
+/// nowhere to happen.
+///
+/// So: a main platform floating in open space, two side platforms to recover
+/// onto, no walls, and a blast margin the stage authors itself. Past that
+/// margin the engine's out-of-bounds gate reports
+/// `ResetCause::LeftTheWorld` — a lethal hit against exactly that fighter,
+/// which zeroes their health, which is the condition `round_result` already
+/// scores. A knock-off ends a round through the rule that was already there.
+///
+/// The margin is deliberately generous relative to the drop: a fighter has the
+/// whole 140px below the platform plus 96px past the world before they are
+/// gone, which is long enough to see the mistake and long enough to jump back
+/// from. A tight blast zone turns every trade near the edge into a coin flip.
 fn versus_arena() -> RoomSpec {
     let size = ae::Vec2::new(960.0, 540.0);
-    let floor_top = 460.0;
+    let platform_top = 400.0;
+    // Seating spreads fighters up to ±144px about the centre, so a 480-wide
+    // main platform holds a full four-seat 2v2 with room either side.
+    let main_half_width = 240.0;
     let world = ae::World::new(
         "Versus Arena",
         size,
-        // Spawn at the centre of the floor: seating places fighters symmetrically
-        // about this point, so it IS the middle of the stage.
-        ae::Vec2::new(size.x * 0.5, floor_top - 24.0),
+        // Spawn at the centre of the main platform: seating places fighters
+        // symmetrically about this point, so it IS the middle of the stage.
+        ae::Vec2::new(size.x * 0.5, platform_top - 24.0),
         vec![
             ae::Block::solid(
-                "arena_floor",
-                ae::Vec2::new(0.0, floor_top),
-                ae::Vec2::new(size.x, size.y - floor_top),
+                "arena_platform_main",
+                ae::Vec2::new(size.x * 0.5 - main_half_width, platform_top),
+                ae::Vec2::new(main_half_width * 2.0, 40.0),
+            ),
+            // Recovery ledges. Solid rather than one-way: a fighter thrown out
+            // sideways needs something to catch, and a platform they can fall
+            // straight back through is not a second chance.
+            ae::Block::solid(
+                "arena_platform_left",
+                ae::Vec2::new(96.0, platform_top - 96.0),
+                ae::Vec2::new(128.0, 20.0),
             ),
             ae::Block::solid(
-                "arena_wall_left",
-                ae::Vec2::ZERO,
-                ae::Vec2::new(16.0, size.y),
-            ),
-            ae::Block::solid(
-                "arena_wall_right",
-                ae::Vec2::new(size.x - 16.0, 0.0),
-                ae::Vec2::new(16.0, size.y),
+                "arena_platform_right",
+                ae::Vec2::new(size.x - 224.0, platform_top - 96.0),
+                ae::Vec2::new(128.0, 20.0),
             ),
         ],
-    );
+    )
+    .with_blast_margin(96.0);
     let mut room = RoomSpec::new(VERSUS_ROOM_ID, world);
     room.metadata.mode = Some(VERSUS_EXPERIENCE.to_owned());
     room

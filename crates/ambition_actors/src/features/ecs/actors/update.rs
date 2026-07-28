@@ -741,6 +741,37 @@ pub(crate) fn integrate_actor_body(
         });
         frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     }
+    // THE BLAST ZONE. The kernel's gate flags a body that left the world, and
+    // for an actor that flag was read for presentation and then dropped on the
+    // floor — so an enemy that walked into a pit, or a fighter knocked off a
+    // stage, fell FOREVER: still alive, still ticked, still accelerating, still
+    // in every broadcast loop, with nothing anywhere to end it. Actors are never
+    // teleported to the player spawn, and the comment promising that "the
+    // actor's damage / OOB systems own that" named systems that do not exist.
+    //
+    // The fix rides the channel the shark-crash above already uses: a
+    // world-caused death is a lethal hit whose attacker is nobody. That buys
+    // the whole existing death pipeline unchanged — `RulesetOwnsDeath`, the
+    // authored respawn policy, the banner, the death cue, and an
+    // `ActorDiedMessage` carrying `HitSource::LeftTheWorld`.
+    if move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
+        hit_events.write(HitEvent {
+            strike_sfx: None,
+            volume: em.aabb().into(),
+            damage: em.health.current().max(1),
+            source: HitSource::LeftTheWorld,
+            // Nobody. Crediting the last attacker for a knock-off is a RULES
+            // question a platform fighter answers with its own hitlag memory,
+            // and this seam must not pre-empt it by guessing.
+            attacker: None,
+            // This body, resolved: the blast zone caught exactly one body, and
+            // a broadcast over its AABB would also catch whoever chased it out.
+            target: HitTarget::Actor(actor_entity),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+    }
     // Movement presentation for the body's frame: jump/dash/dodge/wall-jump/ledge/
     // shield/blink SFX+VFX + landing dust, through the SAME body-generic emitter
     // the player tick uses — so an AI fighter that dashes or wall-jumps produces

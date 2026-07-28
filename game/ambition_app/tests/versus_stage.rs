@@ -2248,3 +2248,92 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
          the controls were taken away and never given back"
     );
 }
+
+/// **A fighter knocked off the stage loses the round.**
+///
+/// The verb the whole genre is built on, and until now it could not happen at
+/// all. Two independent reasons, both of which had to be fixed:
+///
+/// The stage was a closed box — floor plus two walls — so there was nowhere to
+/// be knocked to. And the movement kernel's out-of-bounds gate, which every
+/// motion policy publishes through, flagged a body that had left the world and
+/// then dropped the flag for actors: their frame events were read for
+/// presentation and discarded. Three separate doc comments promised that "the
+/// blast-zone / OOB / fell-out gate the engine already owns" owned this death.
+/// Nothing did, so a fighter knocked off the stage fell forever — alive, ticked,
+/// accelerating, and still counted as standing by the round rule.
+///
+/// Seat 1 deliberately: seat 0 is an adopted `PlayerEntity` with its own reset
+/// publisher, and seat 1 is the ACTOR path — the one that had no out-of-bounds
+/// handling whatsoever, and the one every additional fighter uses.
+#[test]
+fn a_fighter_knocked_off_the_stage_loses_the_round() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
+
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the stage seats an opponent")
+    };
+    assert!(
+        app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
+        "seat 1 is already down before the round started; this measures nothing"
+    );
+
+    // Throw it off. Not a teleport past the margin — a real LAUNCH, straight
+    // down at speed, so the fall is the thing under test and the gate has to
+    // catch a body that arrived under its own physics. The stage's blast margin
+    // is 96px past a 540px-tall world, so this has real distance to cover.
+    {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(seat_one).unwrap();
+        kin.pos.x = 60.0; // clear of the main platform, over open air
+        kin.vel = ambition::engine_core::Vec2::new(0.0, 900.0);
+    }
+
+    let mut fell_out = false;
+    for _ in 0..240 {
+        app.update();
+        if app.world().get::<BodyHealth>(seat_one).unwrap().current() <= 0 {
+            fell_out = true;
+            break;
+        }
+    }
+    let resting = app.world().get::<BodyKinematics>(seat_one).unwrap().pos;
+    assert!(
+        fell_out,
+        "seat 1 was launched into open air below the stage and is still standing \
+         after four seconds, at {resting:?} — it is falling forever, which is what \
+         an out-of-bounds gate nobody reads looks like from the outside"
+    );
+
+    // And the round rule, which already scored on health, scores this.
+    let state = app.world().resource::<VersusMatch>();
+    assert!(
+        state.wins("blue") >= 1,
+        "seat 1 fell out of the world and the blue team was not awarded the \
+         round: the KO reached the body but not the rules"
+    );
+}

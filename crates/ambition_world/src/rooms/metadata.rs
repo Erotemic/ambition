@@ -163,6 +163,18 @@ pub struct RoomMetadata {
     /// because `RoomMetadata` is `Eq` and a distance in pixels has no business
     /// being fractional; the composer widens it for the engine.
     pub blast_margin: Option<i32>,
+    /// The SIDE blast zone, in whole pixels. `None` — the default — means the
+    /// sides are not a blast zone: walking off the left edge of a corridor is a
+    /// room transition, not a death. A fighting stage authors a number; a
+    /// platformer room never does.
+    ///
+    /// Authored as the LDtk level integer field `side_blast_margin`.
+    pub side_blast_margin: Option<i32>,
+    /// The CEILING blast zone (against the fall direction), in whole pixels.
+    /// `None` (the default) lets a body rise forever.
+    ///
+    /// Authored as the LDtk level integer field `ceiling_blast_margin`.
+    pub ceiling_blast_margin: Option<i32>,
 }
 
 impl RoomMetadata {
@@ -176,6 +188,8 @@ impl RoomMetadata {
             && !self.gallery
             && self.mode.is_none()
             && self.blast_margin.is_none()
+            && self.side_blast_margin.is_none()
+            && self.ceiling_blast_margin.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -199,6 +213,12 @@ impl RoomMetadata {
         }
         if self.blast_margin.is_none() {
             self.blast_margin = other.blast_margin;
+        }
+        if self.side_blast_margin.is_none() {
+            self.side_blast_margin = other.side_blast_margin;
+        }
+        if self.ceiling_blast_margin.is_none() {
+            self.ceiling_blast_margin = other.ceiling_blast_margin;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

@@ -838,6 +838,24 @@ pub struct World {
     /// could disagree with it and no fighting stage could be built on it.
     #[serde(default = "World::default_blast_margin")]
     pub blast_margin: f32,
+    /// How far past `size`, measured along the SIDE axis, a body may drift
+    /// before the world declares it gone. `None` — the default — means the
+    /// sides are not a blast zone at all.
+    ///
+    /// Opt-in because the two genres this engine serves disagree completely
+    /// about what a side edge MEANS. A platformer walking off the left edge of
+    /// a room is transitioning to the next room, and killing there would break
+    /// every corridor in the game. A platform fighter thrown off the left edge
+    /// has lost a stock — and that is where a platform fighter loses MOST of
+    /// them, which is why a fall-direction-only blast zone is not a blast zone.
+    #[serde(default)]
+    pub side_blast_margin: Option<f32>,
+    /// How far past `size` AGAINST the fall direction a body may drift before
+    /// the world declares it gone — the ceiling blast zone, the one a strong
+    /// upward launch scores on. `None` (the default) means a body can rise
+    /// forever, which is correct for a platformer with tall rooms.
+    #[serde(default)]
+    pub ceiling_blast_margin: Option<f32>,
 }
 
 /// First collision along a swept body path.
@@ -956,6 +974,8 @@ impl World {
             climbable_regions: Vec::new(),
             chains: Vec::new(),
             blast_margin: Self::DEFAULT_BLAST_MARGIN,
+            side_blast_margin: None,
+            ceiling_blast_margin: None,
         }
     }
 
@@ -976,6 +996,28 @@ impl World {
     /// — a platform fighter's blast zone is exactly this number, authored small.
     pub fn with_blast_margin(mut self, blast_margin: f32) -> Self {
         self.blast_margin = blast_margin;
+        self
+    }
+
+    /// Builder-style setter for the SIDE blast zone. Opting in says "leaving me
+    /// sideways is losing", which is a fighting stage's statement and never a
+    /// platformer corridor's.
+    pub fn with_side_blast_margin(mut self, margin: f32) -> Self {
+        self.side_blast_margin = Some(margin);
+        self
+    }
+
+    /// Builder-style setter for the CEILING blast zone.
+    pub fn with_ceiling_blast_margin(mut self, margin: f32) -> Self {
+        self.ceiling_blast_margin = Some(margin);
+        self
+    }
+
+    /// Both opt-in blast zones at once, as `Option`s, for a lowering pass that
+    /// has an authored value or nothing and should not have to branch twice.
+    pub fn with_optional_blast_zones(mut self, side: Option<f32>, ceiling: Option<f32>) -> Self {
+        self.side_blast_margin = side;
+        self.ceiling_blast_margin = ceiling;
         self
     }
 

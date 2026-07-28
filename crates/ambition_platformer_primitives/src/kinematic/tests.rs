@@ -117,6 +117,8 @@ fn world_with(blocks: Vec<Block>) -> World {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     }
 }
 
@@ -156,6 +158,8 @@ fn deeply_embedded_body_is_not_pushout_teleported() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let start = Vec2::new(400.0, 300.0);
     let mut body = KinematicBody::new(start, Vec2::new(100.0, 100.0));

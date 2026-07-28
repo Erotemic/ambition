@@ -158,6 +158,8 @@ fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: ae::World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let from = Vec2::new(200.0, 100.0);

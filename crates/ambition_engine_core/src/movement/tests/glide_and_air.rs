@@ -28,6 +28,8 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
@@ -76,6 +78,8 @@ fn sideways_gravity_pulls_the_player_along_x() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 300.0));
@@ -127,6 +131,8 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
@@ -238,6 +244,8 @@ fn one_way_platform_works_under_flipped_gravity() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 400.0));
@@ -525,6 +533,8 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let terminal = 400.0;
@@ -587,6 +597,8 @@ fn the_player_rides_a_horizontally_moving_platform() {
         climbable_regions: Vec::new(),
         chains: Vec::new(),
         blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));

@@ -146,6 +146,8 @@ impl LdtkLevel {
             // are rejected, and they are rejected rather than clamped: a
             // negative blast margin would put the kill line INSIDE the room.
             blast_margin: self.field_i32("blast_margin").filter(|px| *px >= 0),
+            side_blast_margin: self.field_i32("side_blast_margin").filter(|px| *px >= 0),
+            ceiling_blast_margin: self.field_i32("ceiling_blast_margin").filter(|px| *px >= 0),
         }
     }
 

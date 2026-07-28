@@ -590,7 +590,8 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 
         let state = app.world().resource::<VersusMatch>();
         assert_eq!(
-            state.wins("blue"), round,
+            state.wins("blue"),
+            round,
             "a fighter hit zero health and the round was not counted to the \
              other TEAM. Seat 1 is red, so blue takes the round."
         );
@@ -638,10 +639,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     // reset rather than continued.
     assert_eq!(state.round, 1, "a fresh match starts at round one");
     assert!(
-        !matches!(
-            state.phase,
-            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
-        ),
+        !matches!(state.phase, MatchPhase::Ko { .. } | MatchPhase::Won { .. }),
         "the match stayed on its own victory card instead of restarting: {:?}",
         state.phase
     );
@@ -789,7 +787,8 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
 
     let state = app.world().resource::<VersusMatch>();
     assert_eq!(
-        state.wins("red"), 1,
+        state.wins("red"),
+        1,
         "seat 0 hit zero health and the red team was not awarded the round. The \
          exploration respawn healed it before the rules could look, so seat 0 \
          cannot lose and the match is rigged."
@@ -919,10 +918,7 @@ fn returning_to_versus_starts_a_fresh_match() {
     // that would be pinning the helper rather than the claim: what the previous
     // match must not leave behind is a HOLD.
     assert!(
-        !matches!(
-            state.phase,
-            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
-        ),
+        !matches!(state.phase, MatchPhase::Ko { .. } | MatchPhase::Won { .. }),
         "the new match started mid-KO, inheriting the old one's hold: {:?}",
         state.phase
     );
@@ -1699,8 +1695,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     let (seat_zero, seat_one) = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
-        let mut rows: Vec<(Entity, usize)> =
-            q.iter(world).map(|(e, seat)| (e, seat.0)).collect();
+        let mut rows: Vec<(Entity, usize)> = q.iter(world).map(|(e, seat)| (e, seat.0)).collect();
         rows.sort_by_key(|(_, seat)| *seat);
         (rows[0].0, rows[1].0)
     };
@@ -2050,10 +2045,10 @@ fn the_round_counter_counts_rounds_and_not_wins() {
 /// wider and leaning forward, which is what makes committing punishable.
 #[test]
 fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
+    use ambition::actors::character_runtime::MatchSeat;
     use ambition::actors::character_runtime::{
         AuthoredHurtboxes, HurtboxSelection, ResolvedHurtboxes,
     };
-    use ambition::actors::character_runtime::MatchSeat;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2334,6 +2329,100 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
     assert!(
         state.wins("blue") >= 1,
         "seat 1 fell out of the world and the blue team was not awarded the \
+         round: the KO reached the body but not the rules"
+    );
+}
+
+/// **Thrown off the SIDE is a loss, not a suggestion.**
+///
+/// The out-of-bounds gate measured distance past the world along the fall
+/// direction only, so a fighter launched horizontally off the stage died only
+/// once their arc happened to carry them below it — which reads as the throw
+/// not having worked, and which is where a platform fighter actually loses most
+/// of its stocks.
+///
+/// The sides are opt-in engine-wide (a platformer walking off the left edge of
+/// a corridor is a room transition, not a death), so this also pins that THIS
+/// stage opted in.
+#[test]
+fn a_fighter_thrown_off_the_side_loses_the_round() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
+
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the stage seats an opponent")
+    };
+    assert!(app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0);
+
+    // Parked 180px past the right edge of a 960px stage — beyond the 160px side
+    // margin — and HIGH INSIDE the world vertically, at rest.
+    //
+    // The vertical placement is the whole test. A first version threw the body
+    // sideways at speed and waited three seconds; it passed with the side zone
+    // DISARMED, because gravity carried the body out through the FLOOR long
+    // before the window closed and the fall margin scored it. The red probe
+    // caught that, which is the only reason this comment exists.
+    //
+    // From y=300, reaching the floor blast line (540 + 96) takes ~0.68s, or
+    // about 41 ticks. The budget below is 10. Gravity cannot reach the answer
+    // inside it, so a death here is the SIDE zone or it is nothing.
+    {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(seat_one).unwrap();
+        kin.pos = ambition::engine_core::Vec2::new(1140.0, 300.0);
+        kin.vel = ambition::engine_core::Vec2::ZERO;
+    }
+
+    let mut died = false;
+    for _ in 0..10 {
+        app.update();
+        if app.world().get::<BodyHealth>(seat_one).unwrap().current() <= 0 {
+            died = true;
+            break;
+        }
+    }
+    let resting = app.world().get::<BodyKinematics>(seat_one).unwrap().pos;
+    assert!(
+        died,
+        "seat 1 sat 180px off the right of a 960px-wide stage and was still \
+         standing ten ticks later, at {resting:?}. The side blast zone is not \
+         armed, so the only way to score a knock-off is to hope the victim's \
+         arc eventually drops them below the stage."
+    );
+    assert!(
+        resting.y < 540.0,
+        "the body died at {resting:?}, already below the world — that is the \
+         FLOOR blast zone answering, and this case is supposed to be unable to \
+         reach it"
+    );
+
+    let state = app.world().resource::<VersusMatch>();
+    assert!(
+        state.wins("blue") >= 1,
+        "seat 1 left the stage sideways and the blue team was not awarded the \
          round: the KO reached the body but not the rules"
     );
 }

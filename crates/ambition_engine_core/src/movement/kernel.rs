@@ -312,10 +312,31 @@ pub(crate) fn apply_world_hazard_gate(
         pos.x.clamp(0.0, world.size.x),
         pos.y.clamp(0.0, world.size.y),
     );
+    // How far outside the world this body is, resolved in ITS OWN frame, so
+    // "below" means "past the edge gravity pulls toward" under any gravity.
+    let outside = pos - clamped;
+    let past_fall = outside.dot(frame.down());
+    let past_side = outside.dot(frame.side()).abs();
+
+    // The fall direction always kills — that is a pit, and every room has one
+    // whether or not it wanted one. The other two are OPT-IN, because they mean
+    // opposite things in the two genres this engine has to serve: a platformer
+    // walking off the left edge of a room is a ROOM TRANSITION, and killing
+    // there would break every corridor in the game, while a platform fighter
+    // thrown off the left edge has lost a stock. `None` is "this direction is
+    // not a blast zone", and it is the default.
+    let left_the_world = past_fall > world.blast_margin
+        || world
+            .side_blast_margin
+            .is_some_and(|margin| past_side > margin)
+        || world
+            .ceiling_blast_margin
+            .is_some_and(|margin| -past_fall > margin);
+
     // Order matters, and it is a design statement: a body that is BOTH past
     // the blast margin and overlapping a hazard left the world. The void is
     // further out than any authored volume, so it is the later, larger fact.
-    if (pos - clamped).dot(frame.down()) > world.blast_margin {
+    if left_the_world {
         events.reset = events.reset.or(Some(ResetCause::LeftTheWorld));
     } else if touching_hazard_aabb(world, clusters.kinematics.aabb()) {
         events.reset = events.reset.or(Some(ResetCause::Hazard));

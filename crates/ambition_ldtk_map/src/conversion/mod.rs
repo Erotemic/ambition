@@ -300,6 +300,10 @@ impl LdtkProject {
                     .blast_margin
                     .map(|px| px as f32)
                     .unwrap_or(ae::World::DEFAULT_BLAST_MARGIN),
+            )
+            .with_optional_blast_zones(
+                metadata.side_blast_margin.map(|px| px as f32),
+                metadata.ceiling_blast_margin.map(|px| px as f32),
             ),
             loading_zones,
             metadata,
@@ -877,6 +881,45 @@ mod tests {
             room_set.rooms[0].world.blast_margin,
             ae::World::DEFAULT_BLAST_MARGIN
         );
+    }
+
+    /// **A stage can declare that its SIDES are a blast zone, and a corridor
+    /// can decline.** The fall direction always kills — every room has a pit
+    /// whether it wanted one or not — but the sides mean opposite things in
+    /// the two genres this engine serves, so they are `Option` and absent by
+    /// default.
+    #[test]
+    fn a_level_authors_its_optional_blast_zones() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("side_blast_margin", Value::Number(48.into())));
+        project.levels[0].field_instances.push(level_field(
+            "ceiling_blast_margin",
+            Value::Number(96.into()),
+        ));
+        let room = &project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes")
+            .rooms[0];
+        assert_eq!(room.world.side_blast_margin, Some(48.0));
+        assert_eq!(room.world.ceiling_blast_margin, Some(96.0));
+        assert_eq!(room.metadata.side_blast_margin, Some(48));
+        assert_eq!(room.metadata.ceiling_blast_margin, Some(96));
+    }
+
+    /// A room that says nothing has NO side or ceiling blast zone. This is the
+    /// case that protects every existing corridor in the game: if absent meant
+    /// "some default distance", walking off the left edge of a room would start
+    /// killing players the moment this field shipped.
+    #[test]
+    fn a_level_that_declines_the_optional_zones_has_none() {
+        let room = &synthetic_level(Vec::new())
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes")
+            .rooms[0];
+        assert_eq!(room.world.side_blast_margin, None);
+        assert_eq!(room.world.ceiling_blast_margin, None);
     }
 
     /// **A level can declare its game mode.** `RoomMetadata::mode` documented

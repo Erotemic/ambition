@@ -23,7 +23,7 @@ stretch). Percent-style damage display. A character select screen.
 | [the movement kernel] | BOTH movers in one arena — that's the whole point (robot/mary-o/goblin on axis-swept; sanic on surface-momentum) | landed |
 | [the actor vocabulary] | fighter-brain CPU profiles L1–L9 | FB1–FB4 |
 | [device→intent] | N controllers → N slots, join flow binding | N1.1 |
-| [the space IR] + [the LDtk backend] | stages as the demo's own `.ldtk`; blast zones = the world-AABB OOB event | **landed 2026-07-28, and it was not before.** This row said "landed" while the OOB event did not exist as anything consumable: the kernel gate computed `fell_out` and merged it into an anonymous `hazard` bool, and for ACTORS it dropped the flag entirely — a body knocked off a stage fell forever. Now `ResetCause::LeftTheWorld` + `HitSource::LeftTheWorld`, a per-stage `World::blast_margin` authorable as an LDtk level field, and a lethal hit that kills regardless of `kills_at_max`. **Fall direction only** — side and ceiling blast zones are still missing (queue F0f), and a platform fighter loses most stocks off the side. |
+| [the space IR] + [the LDtk backend] | stages as the demo's own `.ldtk`; blast zones = the world-AABB OOB event | **landed 2026-07-28, and it was not before.** This row said "landed" while the OOB event did not exist as anything consumable: the kernel gate computed `fell_out` and merged it into an anonymous `hazard` bool, and for ACTORS it dropped the flag entirely — a body knocked off a stage fell forever. Now `ResetCause::LeftTheWorld` + `HitSource::LeftTheWorld`, a per-stage `World::blast_margin` authorable as an LDtk level field, and a lethal hit that kills regardless of `kills_at_max`. All three directions: the fall margin always kills (every room has a pit whether it wanted one or not), while the SIDE and CEILING margins are `Option` and absent by default — a platformer walking off the left edge of a corridor is a room transition, a platform fighter thrown off it has lost a stock, and the same engine has to serve both. Measured in the body's frame, so "ceiling" means "the way you do not fall" under any gravity. |
 | [the observation boundary] | damage-meter + facts read for the percent HUD (the sim never knows "percent" exists) | E4 |
 | [the authoring spine] + [the sprite-geometry authority] | roster rows, movesets, sheets | landed |
 
@@ -64,7 +64,12 @@ a named core branch.
    Ambition chrome; a demo select screen is demo UI).
 5. **Stages**: 2 arenas in `ssb_stages.ldtk` — a flat+platforms classic
    and one with a moving platform; blast-zone margins authored as level
-   fields; ledges are the engine's ledge-grab vocabulary.
+   fields — the fields exist and are registered in every project as of
+   2026-07-28: `blast_margin` (the fall direction, always live) plus the
+   opt-in `side_blast_margin` and `ceiling_blast_margin`, all in whole
+   pixels, all refusing negatives rather than clamping them. No shipped
+   level sets any of them yet, so this demo would be their first real
+   customer (queue F0m); ledges are the engine's ledge-grab vocabulary.
 6. **The join flow**: press-start-to-join binding UI over N1.1's binding
    resource (slot ↔ device); default = slot 1 human, others CPU.
 

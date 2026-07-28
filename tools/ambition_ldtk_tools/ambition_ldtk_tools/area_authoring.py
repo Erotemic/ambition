@@ -470,6 +470,11 @@ OPTIONAL_LEVEL_FIELDS = (
     # A platformer's pit depth and a platform fighter's blast zone are the same
     # number, in whole pixels.
     "blast_margin",
+    # The two OPT-IN blast zones. Unset means that direction is not a blast
+    # zone at all, which is what every platformer room wants and no fighting
+    # stage does.
+    "side_blast_margin",
+    "ceiling_blast_margin",
 )
 
 

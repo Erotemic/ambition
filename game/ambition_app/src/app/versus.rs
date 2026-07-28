@@ -72,10 +72,12 @@ const FIGHTERS: [&str; 2] = ["arena_duelist_long", "arena_duelist_close"];
 /// which zeroes their health, which is the condition `round_result` already
 /// scores. A knock-off ends a round through the rule that was already there.
 ///
-/// The margin is deliberately generous relative to the drop: a fighter has the
+/// The margins are deliberately generous relative to the drop: a fighter has the
 /// whole 140px below the platform plus 96px past the world before they are
 /// gone, which is long enough to see the mistake and long enough to jump back
 /// from. A tight blast zone turns every trade near the edge into a coin flip.
+/// No CEILING zone: nothing in the current moveset launches hard enough upward
+/// for one to be anything but a surprise.
 fn versus_arena() -> RoomSpec {
     let size = ae::Vec2::new(960.0, 540.0);
     let platform_top = 400.0;
@@ -109,7 +111,15 @@ fn versus_arena() -> RoomSpec {
             ),
         ],
     )
-    .with_blast_margin(96.0);
+    .with_blast_margin(96.0)
+    // The SIDE blast zone, which is where a platform fighter actually loses
+    // most of its stocks. Without it a fighter thrown off the left edge only
+    // dies once its arc happens to carry it below the stage, which reads as the
+    // throw not having worked. 160px is deliberately looser than the 96px
+    // floor: you are given further to recover from a horizontal launch than
+    // from a straight drop, because a horizontal launch is the one you can act
+    // on.
+    .with_side_blast_margin(160.0);
     let mut room = RoomSpec::new(VERSUS_ROOM_ID, world);
     room.metadata.mode = Some(VERSUS_EXPERIENCE.to_owned());
     room

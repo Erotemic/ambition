@@ -235,6 +235,8 @@ fn active_metadata_returns_active_room_metadata() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -246,6 +248,8 @@ fn active_metadata_returns_active_room_metadata() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let mut set = RoomSet::from_parts(
         "first",
@@ -276,6 +280,8 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
             gallery: false,
             mode: None,
             blast_margin: None,
+            side_blast_margin: None,
+            ceiling_blast_margin: None,
         }),
     );
     ambition_platformer_primitives::lifecycle::insert_session_world_component(
@@ -325,6 +331,8 @@ fn sync_active_room_metadata_publishes_active_value() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let m_lab = RoomMetadata {
         biome: Some("lab".into()),
@@ -336,6 +344,8 @@ fn sync_active_room_metadata_publishes_active_value() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let set = RoomSet::from_parts(
         "hub",
@@ -399,6 +409,8 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     assert!(!m.is_empty());
 
@@ -427,6 +439,8 @@ fn room_metadata_merge_preserves_existing_values() {
         gallery: false,
         mode: None,
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -441,6 +455,8 @@ fn room_metadata_merge_preserves_existing_values() {
         gallery: true,              // takes effect — a.gallery was false (merge ORs)
         mode: Some("sanic".into()), // takes effect — a.mode was None
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"));
@@ -461,11 +477,15 @@ fn room_metadata_merge_preserves_existing_values() {
     let mut a = RoomMetadata {
         mode: Some("sanic".into()),
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         ..Default::default()
     };
     a.merge(RoomMetadata {
         mode: Some("CONFLICT".into()),
         blast_margin: None,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
         ..Default::default()
     });
     assert_eq!(a.mode.as_deref(), Some("sanic"));

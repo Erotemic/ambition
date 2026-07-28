@@ -16,6 +16,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter};
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
+use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// Push a raw gamepad button value, the way the device backend would.
@@ -54,6 +55,36 @@ fn settle_to_launcher(app: &mut App) {
         }
     }
     panic!("the host never reached its launcher, so no route can be chosen from it");
+}
+
+/// Step until the round is actually LIVE.
+///
+/// A round opens on a countdown: the fighters are reset, healed and visible, and
+/// for 90 simulation ticks nothing they or the CPU decides reaches the fight.
+/// Every test below that presses a button or waits for a knockout is asking a
+/// question about the FIGHT, and asking it during the count gets the honest
+/// answer "nobody can act yet" — which reads as a broken controller chain.
+///
+/// So this is the line between "the stage exists" and "the round is being
+/// fought", and it is deliberately a wait on the PHASE rather than a bigger
+/// magic number. The count is 90 ticks today and the review that specified it
+/// said the duration would be tuned; a test that slept 90 would go quietly wrong
+/// the first time somebody tuned it, and a test that slept 200 would pass while
+/// telling you nothing about when the round began.
+fn settle_into_a_live_round(app: &mut App) {
+    for _ in 0..600 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting
+        ) {
+            return;
+        }
+    }
+    panic!(
+        "the round never went live: the countdown is still counting after 600 ticks, \
+         so the stage is showing a card over a fight that never starts"
+    );
 }
 
 /// The route exists in the shipped host's route table.
@@ -113,9 +144,7 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     );
 
     // Seating runs on the sim schedule once the room exists.
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
     let mut worn = world.query::<&ambition::characters::actor::WornCharacter>();
@@ -232,9 +261,7 @@ fn two_controllers_make_versus_a_two_player_game() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     // Two HUMAN seats, one per controller.
     let world = app.world_mut();
@@ -342,9 +369,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     // The CPU opponent: the seated body, not the session's own player.
     let world = app.world_mut();
@@ -407,9 +432,7 @@ fn both_fighters_can_actually_hit_each_other() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
     let mut brains = world.query::<(Entity, &Brain)>();
@@ -496,7 +519,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     use ambition::actors::actor::BodyKinematics;
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ROUNDS_TO_WIN};
+    use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -514,9 +537,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let seats = |app: &mut App| -> Vec<(usize, Entity)> {
         let world = app.world_mut();
@@ -611,7 +632,19 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
         "the match did not reset after it was won: {:?}",
         state.rounds_won
     );
-    assert!(matches!(state.phase, MatchPhase::Fighting { .. }));
+    // Back to round one, and no longer holding the last match's result. The
+    // loop above already rode past the fresh match's countdown, which is why the
+    // phase claim here is the negative one — `round` is what says the match
+    // reset rather than continued.
+    assert_eq!(state.round, 1, "a fresh match starts at round one");
+    assert!(
+        !matches!(
+            state.phase,
+            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
+        ),
+        "the match stayed on its own victory card instead of restarting: {:?}",
+        state.phase
+    );
 }
 
 /// **The CPU opponent actually fights.** (L11)
@@ -647,9 +680,7 @@ fn the_cpu_opponent_is_not_a_statue() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     // No gamepads were connected, so seat 1 is the CPU.
     let cpu = {
@@ -697,7 +728,6 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
     use ambition::actors::actor::BodyKinematics;
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::VersusMatch;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -715,9 +745,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let seat_zero = {
         let world = app.world_mut();
@@ -784,7 +812,6 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
 fn returning_to_versus_starts_a_fresh_match() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -804,9 +831,7 @@ fn returning_to_versus_starts_a_fresh_match() {
                 break;
             }
         }
-        for _ in 0..30 {
-            app.update();
-        }
+        settle_into_a_live_round(app);
     };
     enter(&mut app);
 
@@ -889,9 +914,17 @@ fn returning_to_versus_starts_a_fresh_match() {
         "walking back into Versus resumed the previous match's score: {:?}",
         state.rounds_won
     );
+    // Not mid-KO and not mid-victory. Which of `Starting`/`Fighting` it is
+    // depends on how far `enter` had to step to find the roster, and pinning
+    // that would be pinning the helper rather than the claim: what the previous
+    // match must not leave behind is a HOLD.
     assert!(
-        matches!(state.phase, MatchPhase::Fighting { .. }),
-        "the new match started mid-KO, inheriting the old one's countdown"
+        !matches!(
+            state.phase,
+            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
+        ),
+        "the new match started mid-KO, inheriting the old one's hold: {:?}",
+        state.phase
     );
 }
 
@@ -909,7 +942,6 @@ fn returning_to_versus_starts_a_fresh_match() {
 fn a_knockout_freezes_the_fight_until_the_next_round() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -923,9 +955,7 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
     let scale = |app: &App| {
         app.world()
             .resource::<ambition::time::ClockState>()
@@ -1028,7 +1058,6 @@ fn a_decided_round_takes_the_controls_away() {
     use ambition::characters::actor::control::ActorControlFrame;
     use ambition::characters::actor::BodyHealth;
     use ambition::characters::brain::{ActorControl, ScriptedControl};
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1042,9 +1071,7 @@ fn a_decided_round_takes_the_controls_away() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
     let seat = |app: &mut App, want: usize| -> Entity {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
@@ -1148,7 +1175,6 @@ fn a_decided_round_takes_the_controls_away() {
 fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     /// Stands in for `BallDash::charge` — provider-owned, transient, and the
     /// kind of state a generic reset cannot name.
@@ -1175,9 +1201,7 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
     let seat_one = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
@@ -1256,9 +1280,7 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let fill = |app: &App, slot: &str| -> Option<f32> {
         app.world()
@@ -1395,9 +1417,7 @@ fn four_controllers_make_versus_a_two_versus_two() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -1486,9 +1506,7 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
             break;
         }
     }
-    for _ in 0..40 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let bodies = |app: &mut App| -> Vec<(usize, Entity)> {
         let world = app.world_mut();
@@ -1517,6 +1535,9 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
             .map(|(_, e)| app.world().get::<BodyKinematics>(*e).unwrap().pos.x)
             .collect();
         pad_set(&mut app, pads[*seat], GamepadButton::DPadRight, 1.0);
+        // Long enough to walk a measurable distance. NOT a wait for the round to
+        // go live — the round already is, and this is inside the loop that
+        // presses each pad in turn.
         for _ in 0..30 {
             app.update();
         }
@@ -1571,7 +1592,7 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
 fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{VersusMatch, HEALTH_HUD_SLOTS};
+    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1588,9 +1609,7 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     // FOUR gauges, four distinct fills. Reading the fills rather than the slot
     // count is the point: two slots would have left two of these `None`.
@@ -1662,7 +1681,6 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
     use ambition::combat::moveset::MovePlayback;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1676,9 +1694,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let (seat_zero, seat_one) = {
         let world = app.world_mut();
@@ -1806,9 +1822,7 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
     // The match must actually be running, or this sweeps a stage that never
     // started and every resource is trivially unchanged.
     {
@@ -1892,7 +1906,6 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
 fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
     use ambition::actors::character_runtime::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1906,9 +1919,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
     let target = |app: &App| {
         app.world()
             .resource::<ambition::actors::time::time_control::RequestedClockScale>()
@@ -2056,9 +2067,7 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
             break;
         }
     }
-    for _ in 0..30 {
-        app.update();
-    }
+    settle_into_a_live_round(&mut app);
 
     let seat_zero = {
         let world = app.world_mut();
@@ -2133,5 +2142,109 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
          whiffing it costs nothing and the safe option is never worth taking",
         half_width(&committed),
         standing_half
+    );
+}
+
+/// **The round-start countdown is a simulation phase, not a card.** (queue L8)
+///
+/// A round used to open on a "ROUND n — FIGHT" banner that faded while the fight
+/// was ALREADY LIVE. That is a defensible presentation choice and it has one
+/// property no fighting game accepts: the two players do not start equal, because
+/// one of them is reading the banner. GPT 5.6 (2026-07-28) settled it — the
+/// countdown is engine behaviour, owned by the simulation, and the duration is
+/// the only part that is balance.
+///
+/// So this asserts the three things that make it a phase rather than a graphic:
+///
+/// 1. a fresh round is `Starting`, not `Fighting`;
+/// 2. a controller held down through the whole count moves the fighter NOWHERE;
+/// 3. the round goes live on its own, and the same input then works.
+///
+/// (2) is the one that matters. Every earlier version of this feature would have
+/// passed (1) and (3) while the fight ran underneath.
+#[test]
+fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::characters::brain::{Brain, PlayerSlot};
+
+    let mut app = versus_app();
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    // Deliberately NOT `settle_into_a_live_round` — the count is the subject.
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut brains = world.query::<(Entity, &Brain)>();
+    let body = brains
+        .iter(world)
+        .find_map(|(entity, brain)| match brain {
+            Brain::Player(PlayerSlot(0)) => Some(entity),
+            _ => None,
+        })
+        .expect("the versus stage seats a human in slot zero");
+
+    assert!(
+        matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Starting { .. }
+        ),
+        "round one went live immediately: {:?}",
+        app.world().resource::<VersusMatch>().phase
+    );
+
+    // Hold right for the whole count, the way somebody impatient would.
+    let start_x = app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+    pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
+    let mut ticks_counted = 0;
+    for _ in 0..600 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting
+        ) {
+            break;
+        }
+        ticks_counted += 1;
+        let drift = (app.world().get::<BodyKinematics>(body).unwrap().pos.x - start_x).abs();
+        assert!(
+            drift < 1.0,
+            "the fighter moved {drift:.2}px during the countdown — the count is a \
+             card over a live fight, which is the defect it replaced"
+        );
+    }
+    assert!(
+        ticks_counted > 30,
+        "the countdown lasted {ticks_counted} ticks; that is not long enough to \
+         be a countdown, so something is ending it early"
+    );
+
+    // And the SAME held input works the moment the round is live. A suppression
+    // that never lifts is not a countdown, it is a soft lock — and holding the
+    // button across the boundary is the case that catches it.
+    let live_x = app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+    for _ in 0..30 {
+        app.update();
+    }
+    let moved = app.world().get::<BodyKinematics>(body).unwrap().pos.x - live_x;
+    assert!(
+        moved > 1.0,
+        "the round went live and the held input still did nothing ({moved:.2}px): \
+         the controls were taken away and never given back"
     );
 }

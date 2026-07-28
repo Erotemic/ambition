@@ -59,19 +59,45 @@ const KO_HOLD_S: f32 = 2.0;
 /// How long the match-over card stays up before the match resets.
 const MATCH_HOLD_S: f32 = 4.0;
 
-/// How long "ROUND n — FIGHT" stays up at the start of a round. Short: it is
-/// telling the player the freeze ended, and it is over before it is in the way.
-const ROUND_ANNOUNCE_S: f32 = 1.2;
+/// How long a round-start countdown runs, in SIMULATION TICKS.
+///
+/// Ticks, not seconds. Every other duration here is a float against
+/// `WorldTime::wall_dt`, which is deterministic only because the fixed-tick host
+/// hands it a fixed timestep — true today and true by coincidence. A countdown
+/// is the one beat where "did both machines start the round on the same tick" is
+/// the whole question, so it counts the thing it actually cares about. At the
+/// normal 60Hz rate this is a second and a half.
+const COUNTDOWN_TICKS: u32 = 90;
+
+/// The last stretch of the countdown reads FIGHT instead of ROUND n.
+///
+/// The split is what makes a countdown a countdown rather than a card: the first
+/// beat tells you WHICH round, the second tells you it is about to be yours.
+const FIGHT_CALL_TICKS: u32 = 30;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {
-    /// The round is live.
+    /// The round is READY and not yet live.
     ///
-    /// `announce_s` counts down a "ROUND n — FIGHT" card at the start. It is a
-    /// PRESENTATION beat and the fight is already live under it: freezing again
-    /// would make every round begin with a stutter, and a player who can move
-    /// while the card fades learns the round started without being told twice.
-    Fighting { announce_s: f32 },
+    /// Fighters are reset, healed, placed and VISIBLE — the point of a countdown
+    /// is that you can see what you are about to fight — but nothing they or the
+    /// CPU decides can affect the fight: control is suspended for the whole
+    /// phase, so there is no input, no brain decision, no move trigger, no
+    /// projectile and no damage.
+    ///
+    /// **The clock keeps running.** This is not the KO freeze. Animation, the
+    /// HUD and the countdown itself all advance at full pace; what is suspended
+    /// is authority over the fight, not time. Freezing here would reintroduce
+    /// exactly the stutter the old presentation-only card existed to avoid, and
+    /// a countdown over stopped animation reads as a hang.
+    ///
+    /// This replaces a card that faded while play was ALREADY LIVE. That was a
+    /// defensible feel call with the fight running under it, and it was also the
+    /// only moment in a match where the two players did not start equal: one of
+    /// them was reading the card.
+    Starting { ticks_remaining: u32 },
+    /// The round is live.
+    Fighting,
     /// A round ended. `winner` is the team that took it, or `None` for a double
     /// KO.
     Ko {
@@ -107,7 +133,7 @@ impl Default for VersusMatch {
 }
 
 impl VersusMatch {
-    /// A fresh match with the round-one card up.
+    /// A fresh match, counting into round one.
     ///
     /// This IS `Default`. It was a separate constructor, and route entry reset
     /// the match with `default()` — which announced nothing — so the documented
@@ -118,8 +144,8 @@ impl VersusMatch {
         Self {
             rounds_won: BTreeMap::new(),
             round: 1,
-            phase: MatchPhase::Fighting {
-                announce_s: ROUND_ANNOUNCE_S,
+            phase: MatchPhase::Starting {
+                ticks_remaining: COUNTDOWN_TICKS,
             },
         }
     }
@@ -231,6 +257,7 @@ pub fn settle_versus_round(
     projectiles: Query<Entity, With<ambition::projectiles::LiveProjectile>>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
+    mut firing: Query<&mut ambition::projectiles::PlayerProjectileState, With<MatchSeat>>,
     mut scale: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
     mut snap: MessageWriter<ambition::actors::time::time_control::ClockResetRequest>,
 ) {
@@ -242,12 +269,50 @@ pub fn settle_versus_round(
     let dt = time.wall_dt();
 
     let (winner, remaining_s) = match state.phase.clone() {
-        MatchPhase::Fighting { announce_s } => {
-            if announce_s > 0.0 {
-                state.phase = MatchPhase::Fighting {
-                    announce_s: (announce_s - dt).max(0.0),
+        MatchPhase::Starting { ticks_remaining } => {
+            // Hold the controls EVERY tick, not once on entry.
+            //
+            // `try_insert` is idempotent, and asking every tick is what makes
+            // this correct for the two ways a round can begin: after a KO the
+            // marker is already on (the KO arm put it there and `begin_round` no
+            // longer takes it off), while at match start the fighters were
+            // seated by the stage and have never had it. One arm, both cases,
+            // and no dependence on which path arrived here.
+            take_the_controls(&mut commands, fighters.iter().map(|(entity, ..)| entity));
+
+            let left = ticks_remaining.saturating_sub(1);
+            if left > 0 {
+                state.phase = MatchPhase::Starting {
+                    ticks_remaining: left,
                 };
+                return;
             }
+
+            // GO.
+            state.phase = MatchPhase::Fighting;
+            for (entity, ..) in fighters.iter() {
+                commands
+                    .entity(entity)
+                    .try_remove::<ambition::characters::brain::ScriptedControl>();
+            }
+            // Whatever was mashed during the countdown does NOT carry into the
+            // round.
+            //
+            // Suspending control stops a body ACTING on input; it does not stop
+            // the buffers that exist to make inputs forgiving from filling up
+            // while it is suspended. A player holding fire through "3, 2, 1"
+            // would open the round with a charged shot they did not time, and a
+            // quarter-circle rolled during the count would still be inside the
+            // 0.45s motion window when the count ended. The countdown's whole
+            // promise is that both fighters start the round equal, and a stale
+            // edge is the cheapest way to break it.
+            for mut projectile_state in &mut firing {
+                projectile_state.motion_buffer.clear();
+                projectile_state.charging = None;
+            }
+            return;
+        }
+        MatchPhase::Fighting => {
             // Read health rather than any "is dead" marker: health is the fact,
             // and a marker is a downstream opinion about it that a versus stage
             // does not install.
@@ -372,8 +437,12 @@ pub fn settle_versus_round(
             // The round ADVANCES whether or not anybody scored. A draw scores
             // for no team, so a counter derived from win totals repeats itself.
             round: state.round + 1,
-            phase: MatchPhase::Fighting {
-                announce_s: ROUND_ANNOUNCE_S,
+            // Into the COUNTDOWN, not straight into the fight. Every round gets
+            // the same opening, including the first — a countdown that only the
+            // later rounds have is a countdown that tells you the match already
+            // started without you.
+            phase: MatchPhase::Starting {
+                ticks_remaining: COUNTDOWN_TICKS,
             },
         }
     };
@@ -463,10 +532,17 @@ fn begin_round(
         clusters.kinematics.facing = facing;
         commands
             .entity(entity)
-            .try_remove::<ambition::combat::moveset::MovePlayback>()
-            // The controls come back HERE and only here — the round is live
-            // again, so the beat that suspended them is over.
-            .try_remove::<ambition::characters::brain::ScriptedControl>();
+            .try_remove::<ambition::combat::moveset::MovePlayback>();
+        // The controls deliberately do NOT come back here.
+        //
+        // They used to: this function ran when the KO hold ended and the round
+        // was live the moment it returned. A round now opens on a COUNTDOWN, and
+        // the fighters are reset and visible through all of it without being
+        // able to act — so the suspension has to outlive this reset and end at
+        // the one place the round actually goes live, which is the `Starting`
+        // arm reaching zero. Releasing here would put the controls back 90 ticks
+        // early and leave the countdown counting over a live fight, which is the
+        // exact defect the countdown replaced.
         // The half of the reset this module cannot perform itself — a ball-dash
         // charge, a rolling form, a spark cadence — is announced by the ENGINE,
         // not from here. `reset_body_clusters` raises the pending flag and
@@ -588,14 +664,19 @@ pub fn publish_versus_hud(
     );
 
     match &state.phase {
-        MatchPhase::Fighting { announce_s } if *announce_s > 0.0 => readouts.set(
+        // The countdown reads in two beats: WHICH round, then GO. Both are
+        // derived from the same tick counter the simulation is already using, so
+        // the card cannot disagree with the phase — a presentation timer running
+        // beside a simulation timer is two clocks for one fact.
+        MatchPhase::Starting { ticks_remaining } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(format!(
-                "ROUND {}  —  FIGHT",
-                state.round
-            )),
+            ambition::presentation::HudReadout::bare(if *ticks_remaining > FIGHT_CALL_TICKS {
+                format!("ROUND {}", state.round)
+            } else {
+                "FIGHT".to_string()
+            }),
         ),
-        MatchPhase::Fighting { .. } => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
+        MatchPhase::Fighting => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
         MatchPhase::Ko { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
             ambition::presentation::HudReadout::bare(match winner {

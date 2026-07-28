@@ -245,6 +245,35 @@ pub fn install_outlander_content(app: &mut App) {
         use ambition::sprite_sheet::AuthoredSheetAppExt;
         app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
     }
+    // **The character-DEFINITION seam, exercised from outside the workspace.**
+    //
+    // The catalog fragment above says a character exists; this says what it can
+    // DO, and since 2026-07-28 an authored value here outranks the row (queue
+    // C3). Until now every caller of that seam was in-workspace — the two arena
+    // duelists — which makes it a claim about this repo rather than about an
+    // engine. The keystone rule applies: an engine claim nobody outside proves
+    // is not an engine claim.
+    //
+    // Outlander authors an EMPTY action set, deliberately, and it is the harder
+    // half of the claim rather than the lazy one. `Some(empty)` means "this
+    // character reaches for nothing" and must outrank the catalog exactly as a
+    // filled set would; a resolver that treated it as "unauthored" would fall
+    // through to the row — whose `playable_kit: HostCode` rebuilds the HOST
+    // protagonist's kit — and hand a third party's wanderer Ambition's sword.
+    {
+        use ambition::actors::character_runtime::{
+            CharacterDefinition, CharacterDefinitionAppExt,
+        };
+        app.register_character(
+            CharacterDefinition::new(
+                OUTLANDER_CHARACTER_ID,
+                "Outlander",
+                OUTLANDER_EXPERIENCE,
+            )
+            .with_sheet("outlander")
+            .with_action_set(ambition::characters::brain::ActionSet::default()),
+        );
+    }
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_ROSTER_RON",

@@ -510,3 +510,54 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
          this is the exact path a character load takes"
     );
 }
+
+/// **A third party's character can reach for NOTHING, and the engine honours it.**
+///
+/// The character-definition seam — what a character can DO, as opposed to the
+/// catalog row saying it exists — had every one of its callers inside the engine
+/// workspace until this fixture registered one. That makes it a claim about the
+/// repo rather than about an engine, which is the keystone rule this whole
+/// fixture exists to enforce.
+///
+/// Outlander authors an EMPTY `ActionSet`, which is the harder half of the claim.
+/// `Some(empty)` means "this character reaches for nothing" and must outrank the
+/// catalog exactly as a filled set would. Its own row declares
+/// `playable_kit: HostCode`, which rebuilds the HOST PROTAGONIST'S kit from the
+/// body's abilities — so a resolver that collapsed "authored as empty" into
+/// "authored nothing" would fall through to that row and hand a third party's
+/// wanderer Ambition's sword and bolt.
+///
+/// That is the same distinction Sanic needs in-workspace (his kit is the
+/// momentum ride and the ball dash, and giving him a punch would be authoring
+/// against the design), proved here by somebody outside it.
+#[test]
+fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
+    use ambition::characters::brain::ActionSet;
+
+    let mut app = outlander::build_outlander_app();
+    outlander::run_outlander_walkthrough(&mut app)
+        .unwrap_or_else(|error| panic!("the Outlander walkthrough failed: {error}"));
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(&ambition::characters::actor::WornCharacter, &ActionSet)>();
+    let outlanders: Vec<&ActionSet> = bodies
+        .iter(world)
+        .filter(|(worn, _)| worn.id() == outlander::OUTLANDER_CHARACTER_ID)
+        .map(|(_, set)| set)
+        .collect();
+
+    assert!(
+        !outlanders.is_empty(),
+        "no body is wearing the consumer's character, so this proves nothing \
+         about what such a body reaches for"
+    );
+    for set in outlanders {
+        assert!(
+            set.melee.is_none() && set.ranged.is_none() && set.special.is_none(),
+            "the consumer's wanderer was handed a kit it never authored: {set:?}. \
+             Its definition authors an EMPTY action set; falling through to the \
+             catalog row's `playable_kit: HostCode` rebuilds the host \
+             protagonist's own melee and bolt onto somebody else's character."
+        );
+    }
+}

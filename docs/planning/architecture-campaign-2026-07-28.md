@@ -260,6 +260,21 @@ Two reasons, one of them the review's own.
 * **Campaign 5's second consumer.** The conformance harness needs a NONCOMBAT
   provider and a first-party one beside Outlander, or it encodes one fixture's
   assumptions. That is a real gap and it does not touch rollback.
+  ✔ **a first slice landed 2026-07-28, and it did not need a second crate.** The
+  gap that mattered most was narrower than "a second fixture": the
+  character-DEFINITION seam — everything C3 spent the day making authoritative —
+  had **every one of its callers inside the workspace**. Two arena duelists. That
+  makes it a claim about this repo rather than about an engine.
+  → Outlander registers a `CharacterDefinition` now, authoring an EMPTY
+  `ActionSet`, which is the harder half of the claim rather than the lazy one.
+  Its catalog row declares `playable_kit: HostCode`, so a resolver that collapsed
+  "authored as empty" into "authored nothing" falls through to the row and
+  rebuilds the HOST protagonist's kit onto a third party's character.
+  ⚠ **RED-PROBED, and the probe is the argument.** With the authored set removed,
+  the wanderer is handed Ambition's own swipe, bolt AND bubble shield. That is
+  the Sanic principle — an intentionally weaponless character must not be given a
+  punch — demonstrated by somebody outside the workspace, which is the only place
+  the claim means anything.
 * **The measurements the facade work is blocked on.** They are cheap, nobody has
   taken them, and they decide a question that is currently argued from intuition.
 

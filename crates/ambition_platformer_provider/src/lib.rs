@@ -38,12 +38,14 @@
 //! [`PreparedPlatformerSource`]: ambition_runtime::PreparedPlatformerSource
 
 pub mod authoring;
+pub mod composition;
 pub mod lifecycle;
 
 pub use authoring::{
     AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
     PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
 };
+pub use composition::ShellComposition;
 pub use lifecycle::{
     prepare_platformer_content, prepare_platformer_content_for_app,
     prepare_world_replacement_candidate, PlatformerPreparationReport, PlatformerPreparationSet,

@@ -45,14 +45,17 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// home. The provider is host-independent — only these host lines (the two
 /// routes, and the host spec) are host-specific.
 fn compose_sanic_shell(app: &mut App, home_route: &str) {
-    use ambition::game_shell::{
-        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
-        ShellRouteSpec,
-    };
     use ambition_demo_sanic::{SANIC_GAMEPLAY_ROUTE, SanicExperiencePlugin};
 
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.insert_resource(
+    // The seven standard host steps, plus the one thing this demo actually
+    // decides: its launcher speaks, so the frontend context carries the three
+    // menu cues instead of the bare default.
+    ambition::provider::ShellComposition::new(
+        ambition_demo_sanic::SANIC_EXPERIENCE,
+        home_route,
+        SANIC_GAMEPLAY_ROUTE,
+    )
+    .with_frontend_audio(
         ambition::audio::selection::FrontendAudioProfile::new(
             ambition_demo_sanic::SANIC_EXPERIENCE,
         )
@@ -61,24 +64,8 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
             ambition::sfx::ids::UI_MENU_ACCEPT,
             ambition::sfx::ids::UI_MENU_BACK,
         ]),
-    );
-    // `AmbitionLoadPlugin` is NOT added here: the engine group supplies it,
-    // because the room-transition transaction it carries IS a load plan. Adding
-    // a second copy is a hard Bevy panic.
-    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
-    app.add_plugins(SanicExperiencePlugin);
-
-    // This host's home route: a launcher listing this host's registered
-    // experiences (here, just Sanic + the built-in exit).
-    app.world_mut()
-        .resource_mut::<ShellRouteCatalog>()
-        .register(ShellRouteSpec::new(
-            home_route,
-            ShellLaunchCatalog::basic_experience_id(),
-        ));
-    app.world_mut()
-        .resource_mut::<ShellHostConfiguration>()
-        .spec = Some(ShellHostSpec::new(SANIC_GAMEPLAY_ROUTE, home_route));
+    )
+    .install(app, SanicExperiencePlugin);
 
     // The shell-gated simulation stays dormant until the provider publishes
     // its exact SessionRoot during activation. No process-resident bootstrap

@@ -36,34 +36,20 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// minimal shell + the reusable provider + a launcher home. The provider is
 /// host-independent — only these host lines are host-specific.
 fn compose_mary_o_shell(app: &mut App, home_route: &str) {
-    use ambition::game_shell::{
-        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
-        ShellRouteSpec,
-    };
     use ambition_demo_mary_o::{MARY_O_GAMEPLAY_ROUTE, MaryOExperiencePlugin};
 
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    // The standalone launcher is an explicit frontend audio context. Mary-O
-    // authors an empty fragment, so the launcher and gameplay are deliberately
-    // silent rather than inheriting another provider's cached sounds.
-    app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
+    // The shell, the load coordinator, the loading presentation, the frontend
+    // audio context and the two route registrations — the seven steps every
+    // host of a platformer provider performs in the same order, none of which
+    // is a decision this demo makes. Mary-O authors no frontend sound, so the
+    // default profile keeps the launcher deliberately silent rather than
+    // inheriting another provider's cached audio.
+    ambition::provider::ShellComposition::new(
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
-    ));
-    // `AmbitionLoadPlugin` is NOT added here: the engine group supplies it,
-    // because the room-transition transaction it carries IS a load plan. Adding
-    // a second copy is a hard Bevy panic.
-    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
-    app.add_plugins(MaryOExperiencePlugin);
-
-    app.world_mut()
-        .resource_mut::<ShellRouteCatalog>()
-        .register(ShellRouteSpec::new(
-            home_route,
-            ShellLaunchCatalog::basic_experience_id(),
-        ));
-    app.world_mut()
-        .resource_mut::<ShellHostConfiguration>()
-        .spec = Some(ShellHostSpec::new(MARY_O_GAMEPLAY_ROUTE, home_route));
+        home_route,
+        MARY_O_GAMEPLAY_ROUTE,
+    )
+    .install(app, MaryOExperiencePlugin);
 
     // The shell-gated simulation stays dormant until the provider publishes
     // its exact SessionRoot during activation. No process-resident bootstrap

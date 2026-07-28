@@ -364,6 +364,31 @@ pub fn project_prepared_character_definitions(
                 crate::combat::components::DamageableVolumes::default(),
             ));
         }
+        // **The ACTION SET, which reached a worn player and never a seated one.**
+        // (campaign X9)
+        //
+        // Seating writes `ActionSet::default()` and its comment says the persona
+        // derive overwrites it "on the tick the worn character lands". The derive
+        // it means is `apply_worn_character_gameplay`, whose query requires
+        // `IdentityKit` and `BodyAbilities` — and `EnemyActorBundle` carries
+        // neither, so a seated body never matched it. This system is what serves
+        // a seated body, and it projected the moveset and the hurtbox doc and
+        // stopped there.
+        //
+        // The consequence was not cosmetic: the BRAIN reads `ActionSet` to decide
+        // whether it may press ranged or melee at all, so an authored ranged
+        // fighter stood holding a gun it did not believe in — its moves were
+        // projected and its capability to reach for them was not.
+        //
+        // `None` means the definition authored nothing and whatever the body
+        // already carries stands (the catalog persona, or seating's placeholder).
+        // `Some(empty)` is an authored decision and is projected as one — the same
+        // distinction `apply_worn_character_kit` makes, for the same reason.
+        if let Some(action_set) = prepared.action_set.clone() {
+            let combat_kit =
+                crate::combat::components::CombatKit::from_action_set(&action_set);
+            commands.entity(entity).insert((action_set, combat_kit));
+        }
     }
 }
 

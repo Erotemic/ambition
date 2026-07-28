@@ -446,3 +446,60 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
          just the faction rule"
     );
 }
+
+/// **A seated fighter must receive its character's ACTION SET.** (campaign X9)
+///
+/// Seating writes `ActionSet::default()` and leaves a comment saying the derive
+/// overwrites it "on the tick the worn character lands". The derive it means is
+/// `apply_worn_character_gameplay`, whose query requires `IdentityKit` and
+/// `BodyAbilities` — and `EnemyActorBundle` carries neither, so a seated body
+/// does not match it at all. What DOES serve a seated body is
+/// `project_prepared_character_definitions`, and that projects the moveset and
+/// the hurtbox doc and stops.
+///
+/// So the action set was the one part of an authored identity that reached a
+/// worn player and never reached a seated fighter. The visible consequence is a
+/// CPU that will not use a kit its own definition gave it: the brain reads
+/// `ActionSet` to decide whether it may press ranged at all, so an authored
+/// ranged fighter stands there holding a gun it does not believe in.
+#[test]
+fn a_seated_fighter_receives_its_definitions_action_set() {
+    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
+
+    let mut app = seating_app();
+    // The projection is the system that actually serves a seated body.
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+
+    let gunner = ActionSet {
+        ranged: Some(RangedActionSpec {
+            style: RangedStyle::default(),
+            speed: 320.0,
+            damage: 2,
+            flight: None,
+            visual: None,
+        }),
+        ..ActionSet::default()
+    };
+    app.register_character(
+        CharacterDefinition::new("gunner", "Gunner", "demo").with_action_set(gunner.clone()),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("gunner")],
+    });
+    app.update();
+    app.update();
+
+    let world = app.world_mut();
+    let mut seated = world.query::<(&MatchSeat, &ActionSet)>();
+    let found: Vec<&ActionSet> = seated.iter(world).map(|(_, set)| set).collect();
+    assert_eq!(found.len(), 1, "the roster seated no fighter");
+    assert_eq!(
+        found[0], &gunner,
+        "the seated fighter is wearing the placeholder action set seating wrote, \
+         not the one its definition authored — its brain will never press ranged"
+    );
+}

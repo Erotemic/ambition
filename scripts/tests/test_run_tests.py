@@ -164,3 +164,30 @@ def test_timings_payload_is_json_serializable(tmp_path):
     path = tmp_path / "timings.json"
     path.write_text(json.dumps(rt.timings_payload(_results())))
     assert json.loads(path.read_text())[2]["ok"] is False
+
+
+def test_the_web_build_is_checked_in_the_whole_suite():
+    """The web target sat broken for at least four days because nothing in the
+    suite compiled it — every native job stayed green while `--features web` had
+    four errors in it (docs/planning/repair_wasm.md).
+
+    A CHECK rather than a test run: there is no wasm runner here, and a check is
+    what the failure mode needs anyway. Non-fast, because it builds a second
+    target's dependency graph, and not under a package filter, because `-p
+    some_crate` is a question about that crate.
+    """
+    if not rt.wasm_target_installed():
+        pytest.skip("wasm32-unknown-unknown is not installed on this machine")
+
+    jobs = rt.build_jobs([], heavy=False, libtest_args=[])
+    web = [j for j in jobs if "wasm32-unknown-unknown" in j.argv]
+    assert len(web) == 2, f"expected both web personas, got {[j.name for j in web]}"
+    personas = {a for j in web for a in j.argv} & {"web", "web_served_assets"}
+    assert personas == {"web", "web_served_assets"}
+    for job in web:
+        assert "check" in job.argv, "the web job must be a check, not a test run"
+
+    fast = rt.build_jobs([], heavy=False, libtest_args=[], fast=True)
+    assert not [j for j in fast if "wasm32-unknown-unknown" in j.argv], (
+        "--fast is the backbone; a second target's dependency graph is not"
+    )

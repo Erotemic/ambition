@@ -186,6 +186,27 @@ def selected_members(only: list[str]) -> list[Path]:
     return members
 
 
+def wasm_target_installed() -> bool:
+    """Whether `wasm32-unknown-unknown` is available to this toolchain.
+
+    Asked rather than assumed: a machine without the target would otherwise turn
+    the web check into a job that can never pass, and a check that cannot pass
+    wedges whoever is waiting on a green suite.
+    """
+    rustup = os.path.expanduser("~/.cargo/bin/rustup")
+    if not os.path.exists(rustup):
+        rustup = "rustup"
+    try:
+        result = subprocess.run(
+            [rustup, "target", "list", "--installed"],
+            capture_output=True, text=True, check=False)
+    except OSError:
+        # No rustup at all (a distro toolchain, a container). Unknowable rather
+        # than absent — say so by declining the job, which the caller reports.
+        return False
+    return result.returncode == 0 and "wasm32-unknown-unknown" in result.stdout
+
+
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                fast: bool = False) -> list[Job]:
     jobs: list[Job] = []
@@ -254,6 +275,31 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("external consumer: outlander",
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
+
+    # The WEB build, as a compile CHECK rather than a test run: there is no wasm
+    # runner here, and a check is what the failure mode needs anyway. The web
+    # target sat broken for at least four days (see docs/planning/repair_wasm.md)
+    # because nothing in the suite compiled it — every native job stayed green
+    # while `--features web` had four errors in it.
+    #
+    # A cargo CHECK, so this costs a compile and not a link + run. Whole-suite
+    # and non-fast, because it builds a second target's dependency graph.
+    if not only and not fast:
+        if wasm_target_installed():
+            for persona in ("web", "web_served_assets"):
+                jobs.append(Job(
+                    f"web build check [{persona}]",
+                    [CARGO, "check", "-p", "ambition_app", "--lib",
+                     "--target", "wasm32-unknown-unknown",
+                     "--no-default-features", "--features", persona]))
+        else:
+            # LOUD, not silent. A skipped coverage that says nothing reads
+            # exactly like coverage that passed, which is the failure this job
+            # exists to end.
+            print("run_tests: SKIPPING the web build check — the "
+                  "wasm32-unknown-unknown target is not installed "
+                  "(`rustup target add wasm32-unknown-unknown`). "
+                  "The web build is UNCHECKED in this run.")
 
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.

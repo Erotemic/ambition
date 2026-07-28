@@ -212,6 +212,19 @@ pub struct CharacterDefinition {
     /// `None` means the catalog row stands, which is every character that has not
     /// authored one.
     pub motion_model: Option<ambition_engine_core::MotionModelSpec>,
+    /// Per-character axis FEEL — run accel, jump speed, coyote time, the rest.
+    ///
+    /// Distinct from [`Self::motion_model`], which picks the SOLVER. This is that
+    /// solver's numbers, and it is the last kit-adjacent field that was still
+    /// exclusively the catalog's.
+    ///
+    /// ⚠ `None` and `Some` are load-bearing here in a way they are not elsewhere:
+    /// the marker component's PRESENCE means "this body's tuning is authored,
+    /// not the shared dev tuning", so an unauthored character must end up with no
+    /// marker rather than with a defaulted one. A re-wear from an authored feel
+    /// back to the sandbox protagonist has to return the body to the live
+    /// inspector sliders.
+    pub movement_tuning: Option<ambition_engine_core::MovementTuning>,
 }
 
 impl CharacterDefinition {
@@ -233,6 +246,7 @@ impl CharacterDefinition {
             moveset: None,
             action_set: None,
             motion_model: None,
+            movement_tuning: None,
         }
     }
 
@@ -253,6 +267,12 @@ impl CharacterDefinition {
     /// Author how this character moves, outranking the catalog row.
     pub fn with_motion_model(mut self, spec: ambition_engine_core::MotionModelSpec) -> Self {
         self.motion_model = Some(spec);
+        self
+    }
+
+    /// Author this character's movement feel, outranking the catalog row.
+    pub fn with_movement_tuning(mut self, tuning: ambition_engine_core::MovementTuning) -> Self {
+        self.movement_tuning = Some(tuning);
         self
     }
 
@@ -292,6 +312,8 @@ pub struct PreparedCharacterDefinition {
     /// The authored movement policy, carried through preparation unchanged.
     /// `None` leaves the catalog row in charge.
     pub motion_model: Option<ambition_engine_core::MotionModelSpec>,
+    /// The authored movement feel, carried through preparation unchanged.
+    pub movement_tuning: Option<ambition_engine_core::MovementTuning>,
     /// DERIVED (§4.6): every cue this character can emit, read off its moves.
     /// Sorted, so two peers assemble byte-identical inventories.
     cue_dependencies: BTreeSet<String>,
@@ -686,6 +708,7 @@ pub fn prepare_character(
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
+        movement_tuning: definition.movement_tuning,
         cue_dependencies,
         vfx_dependencies,
         checked: bindings.checked(),

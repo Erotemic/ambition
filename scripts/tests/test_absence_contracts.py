@@ -40,6 +40,8 @@ VIOLATING_LINE = {
         "    let p = provider_of_character(registry, owners, id);",
     "one-caller-of-the-motion-model-resolver":
         "    let m = motion_model_spec_for_character(registry, catalog, id);",
+    "one-reader-of-the-catalog-axis-tuning":
+        "    match catalog.axis_tuning(id) {",
 }
 
 

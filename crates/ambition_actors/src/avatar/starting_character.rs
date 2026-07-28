@@ -124,6 +124,28 @@ pub fn motion_model_spec_for_character(
 ///
 /// Prefer [`motion_model_spec_for_character`] wherever a registry is in hand: a
 /// definition that authored a motion model outranks the row.
+/// The movement FEEL for `character_id`, DEFINITION first, catalog second.
+///
+/// Companion to [`motion_model_spec_for_character`]: that one picks the solver,
+/// this one supplies its numbers. Same precedence rule, and the same reason for
+/// being a separate function from the catalog-only lookup.
+///
+/// ⚠ `None` is not a default here, it is an ANSWER. The marker component's
+/// presence means "this body's tuning is authored rather than the shared dev
+/// tuning", so a character that authored none must produce `None` and have the
+/// marker REMOVED — otherwise a re-wear from an authored feel back to the
+/// sandbox protagonist never returns the body to the live inspector sliders.
+pub fn movement_tuning_for_character(
+    registry: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    catalog: &CharacterCatalog,
+    character_id: &str,
+) -> Option<ambition_engine_core::MovementTuning> {
+    registry
+        .and_then(|registry| registry.get(character_id))
+        .and_then(|prepared| prepared.movement_tuning)
+        .or_else(|| catalog.axis_tuning(character_id))
+}
+
 pub fn motion_model_spec_for_character_id(
     catalog: &CharacterCatalog,
     character_id: &str,
@@ -482,7 +504,7 @@ pub fn apply_worn_character_gameplay(
             // Insert it when the worn identity authors a tuning, remove it when
             // it does not — so a re-wear from an authored feel back to the
             // sandbox protagonist returns the body to the live inspector sliders.
-            match catalog.axis_tuning(id) {
+            match movement_tuning_for_character(registry.as_deref(), &catalog, id) {
                 Some(tuning) => {
                     commands
                         .entity(entity)

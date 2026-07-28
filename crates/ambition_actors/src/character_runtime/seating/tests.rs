@@ -550,3 +550,70 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
         models[0]
     );
 }
+
+/// **Movement FEEL reaches a seated fighter, and an unauthored one is left alone.**
+///
+/// The last kit-adjacent field, and the one whose `None` is an ANSWER rather
+/// than a default: `AuthoredMovementTuning`'s presence means "this body's tuning
+/// is authored, not the shared dev tuning", so a character that authored none
+/// must end with NO marker.
+///
+/// Both halves are asserted because the first version of the projection read the
+/// prepared value directly and made the two paths disagree — for a character
+/// with catalog tuning and no authored tuning, the worn path inserted the marker
+/// and the projection removed it on the same tick. Both go through one resolver
+/// now, which is the discipline this whole campaign is about.
+#[test]
+fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
+    let mut app = seating_app();
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+
+    let springy = ambition_engine_core::MovementTuning {
+        jump_speed: 999.0,
+        ..Default::default()
+    };
+    app.register_character(
+        CharacterDefinition::new("springy", "Springy", "demo").with_movement_tuning(springy),
+    );
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("springy"), cpu("plain")],
+    });
+    app.update();
+    app.update();
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_engine_core::AuthoredMovementTuning>,
+    )>();
+    let found: Vec<(String, Option<f32>)> = bodies
+        .iter(world)
+        .map(|(worn, tuning)| {
+            (
+                worn.id().to_string(),
+                tuning.map(|tuning| tuning.0.jump_speed),
+            )
+        })
+        .collect();
+    assert_eq!(found.len(), 2, "the roster seated {} fighters", found.len());
+
+    for (id, jump) in found {
+        match id.as_str() {
+            "springy" => assert_eq!(
+                jump,
+                Some(999.0),
+                "the authored feel never reached the seated fighter"
+            ),
+            "plain" => assert_eq!(
+                jump, None,
+                "a character that authored no feel was given the marker anyway, \
+                 so it can never be returned to the live inspector sliders"
+            ),
+            other => panic!("unexpected seated character {other}"),
+        }
+    }
+}

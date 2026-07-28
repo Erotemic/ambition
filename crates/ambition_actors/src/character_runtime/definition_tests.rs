@@ -368,6 +368,7 @@ fn a_definition_carries_no_controller_binding() {
         // fact about the body, not about who is steering it. A human and a CPU
         // wearing this character move identically.
         motion_model: _,
+        movement_tuning: _,
     } = def;
 }
 

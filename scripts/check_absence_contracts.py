@@ -193,6 +193,30 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "one-reader-of-the-catalog-axis-tuning",
+        # ENGINE crates only, and that is the claim rather than a concession.
+        # What must stay singular is the place the ENGINE weighs a catalog
+        # tuning against a definition's. A game reading its own catalog is a
+        # game reading its own content — Mary-O's inline tests assert her
+        # classic-physics numbers that way, and forbidding it would be
+        # forbidding a provider to know what it authored.
+        "paths": [
+            "crates/",
+            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
+        ],
+        "patterns": [r"\baxis_tuning\("],
+        "reason": (
+            "The catalog's movement feel is read in one place and weighed "
+            "against the definition's there. This one nearly broke on the "
+            "commit that introduced it: the seated projection first read the "
+            "prepared value DIRECTLY, so for a character with catalog tuning "
+            "and no authored tuning the worn path inserted the marker and the "
+            "projection removed it on the same tick. Two paths answering one "
+            "question, reintroduced by the commit closing that exact failure."
+        ),
+    },
+    {
         "id": "one-caller-of-the-motion-model-resolver",
         "paths": [
             "crates/",
@@ -306,6 +330,14 @@ def is_test_path(path: str) -> bool:
     Opt back in with `"include_tests": True` — exactly one contract needs it,
     because its subject IS a test file, and defaulting the other way would have
     silently disabled it.
+
+    ⚠ **This is a PATH test, and this repo also writes tests inline.** A
+    `#[cfg(test)] mod` inside a production `lib.rs` is invisible here — found
+    2026-07-28 when a contract flagged Mary-O's own inline physics assertions.
+    Line-local comment stripping cannot see a module boundary, so the honest
+    statement is "production PATHS only", not "production code only". A contract
+    whose symbol is legitimately named by inline tests has to narrow its paths
+    instead, and say why.
     """
     return (
         "/tests/" in path

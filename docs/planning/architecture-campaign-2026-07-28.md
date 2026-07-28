@@ -100,13 +100,13 @@ Campaign 1 only. Rows are executable; each maps to the review's numbered step.
 
 | id | row | maps to | done when |
 |---|---|---|---|
-| **X1** | Inventory every production read of `CharacterCatalog`, `PreparedCharacterRegistry`, action-set/moveset/provider-owner maps. Classify each: preparation / body construction / runtime / diagnostics / tests / migration. **Commit the counts** as the metric baseline (R-e). | C3.1 | a committed table with per-class counts |
+| ~~**X1**~~ | ✔ **DONE 2026-07-28** — [character-authority-inventory-2026-07-28.md](character-authority-inventory-2026-07-28.md). The metric that matters is not the 349 `CharacterCatalog` refs: it is **7 precedence-resolver sites, 3 resolved**. Campaign 1 is complete when that table has one row. | C3.1 | ✔ committed with counts + method |
 | **X2** | Define `ResolvedCharacterIdentity` — `action_set`, `moveset`, `hurtboxes`, provider/presentation. **No `motion_model` yet** (R-a). | C3.2 | type exists, unused, compiles |
 | **X3** | Write the resolver at the preparation boundary. `Option<ActionSet>` so "authored empty" ≠ "not authored" (R-b). Refuse conflicting duplicate authorities, permit identical ones (R-c). All-or-nothing: one character failing publishes nothing. | C3.2 | test: a Sanic-shaped definition authoring an EMPTY action set does not receive a punch |
 | **X4** | Publish `PreparedCharacterCatalog` — immutable per generation, atomically replaceable. Character-specific; **not** a `PreparedExperience`. | C3.3 | resource exists with a generation counter |
-| **X5** | Action-set precedence: definition outranks catalog. Move the two arena duelists' empty-but-intentional action set onto their definitions — the first production callers. | step 4 | test: a definition action set beats a conflicting catalog row |
-| **X6** | Moveset derives from the **winning** action set when no explicit moveset is authored — never from the displaced catalog value. | step 5 | test: prepared action set + no prepared moveset ⇒ moveset matches the prepared set |
-| **X7** | Preparation flags obvious incompatibilities: an authored ranged move whose resolved action set supplies no ranged payload. | C3.2 | test: the mismatch is reported with character id + field |
+| ~~**X5**~~ | ✔ **DONE 2026-07-28** (`34706cf39`). Both duelists author their `ActionSet` on their definitions. ⚠ also fixed: `wears_host_code_kit` was still asking the displaced catalog row. | step 4 | ✔ 3 tests incl. the Sanic authored-empty case |
+| ~~**X6**~~ | ✔ **DONE 2026-07-28**. Resolving the set BEFORE deriving is what makes this true; the empty-authored-set-vs-catalog-melee case is the test that tells the two implementations apart. | step 5 | ✔ `a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set` |
+| ~~**X7**~~ | ✔ **DONE 2026-07-28**. New `RangedPayload` binding namespace; reported only when the definition authored a set. | C3.2 | ✔ 3 tests incl. both negatives |
 | **X8** | Migrate primary-player construction to the resolved identity. | step 6 | player body's kit comes from `ResolvedCharacterIdentity` |
 | **X9** | Migrate match/secondary-fighter seating. | step 7 | versus seats read the resolved identity |
 | **X10** | Migrate NPC/enemy construction where the same authority applies. | step 8 | named production paths listed and moved |

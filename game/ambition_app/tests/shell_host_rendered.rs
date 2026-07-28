@@ -739,3 +739,60 @@ fn the_title_screen_says_choose_game_and_is_readable() {
         "the footer ({footer:.1}px) is no smaller than the title ({title:.1}px)"
     );
 }
+
+/// **The title screen must not advertise verbs nobody can press.**
+///
+/// Found 2026-07-28 while fixing the launcher's text: the game-select screen
+/// rendered the GAMEPLAY touch overlay over itself. "Dash", "Attack", "Shield",
+/// "Fly", "Blink" and "Special" were all on screen at 10-12px while a stranger
+/// chose a game, and none of them did anything — the launcher holds a CAPTURING
+/// input claim above gameplay, so every one of those verbs was already inert.
+///
+/// The prompt read-model was not wrong; it was answering a different question.
+/// It describes what the CONTROLLED SUBJECT can do, and it keeps describing that
+/// perfectly well while a menu owns input. "Can anybody drive this right now" is
+/// a question about the input context, and that is what the overlay now asks.
+///
+/// ⚠ This asserts the buttons' own `Visibility`, NOT `ViewVisibility`. The first
+/// version read the computed flag and passed while proving nothing: this
+/// composition never runs the render app that computes it, so every button read
+/// as invisible and the check was vacuous. A test that cannot fail is worse than
+/// no test, and this one only caught itself because it was asked to prove it
+/// could see the launcher too.
+#[test]
+fn the_title_screen_does_not_show_gameplay_touch_buttons() {
+    use ambition::touch_input::layout::TouchActionButton;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    let mut buttons = app
+        .world_mut()
+        .query::<(&TouchActionButton, &Visibility)>();
+    let all: Vec<(TouchActionButton, Visibility)> = buttons
+        .iter(app.world())
+        .map(|(action, visibility)| (*action, *visibility))
+        .collect();
+    assert!(
+        !all.is_empty(),
+        "no touch buttons exist at all, so this proves nothing about which ones \
+         are shown"
+    );
+
+    // Start and Reset are deliberately exempt: shell-shaped verbs, and a phone
+    // with no keyboard needs its way out of a game.
+    let advertised: Vec<TouchActionButton> = all
+        .iter()
+        .filter(|(action, _)| {
+            !matches!(action, TouchActionButton::Start | TouchActionButton::Reset)
+        })
+        .filter(|(_, visibility)| *visibility != Visibility::Hidden)
+        .map(|(action, _)| *action)
+        .collect();
+
+    assert!(
+        advertised.is_empty(),
+        "the game-select screen advertises gameplay verbs that do nothing \
+         there: {advertised:?}"
+    );
+}

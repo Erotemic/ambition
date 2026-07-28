@@ -1061,10 +1061,39 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
 /// toggle.
 pub fn sync_touch_button_visibility_from_prompt(
     prompt: Res<ControlPrompt>,
+    // Whether GAMEPLAY owns the participant's actions this frame. On the title
+    // screen the launcher holds a CAPTURING claim above gameplay, so this is
+    // false and every gameplay verb is unpressable — which is exactly why
+    // showing them was wrong (found 2026-07-28).
+    //
+    // Optional because this overlay composes into apps that never install the
+    // participant-context resolver; absent, the old prompt-only behaviour stands
+    // rather than the overlay vanishing.
+    active_context: Option<Res<ambition_input::ActiveInputContext>>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
+    // **A verb nobody can press must not be on screen.**
+    //
+    // The game-select screen showed the gameplay Jump and Interact buttons over
+    // itself while a stranger chose a game, with the rest of the cluster's
+    // entities present but already hidden by the prompt. The prompt read-model
+    // was not wrong; it was answering a different question. It describes what
+    // the CONTROLLED SUBJECT can do, and keeps describing that perfectly well
+    // while a menu owns input — "can anybody drive it right now" is a question
+    // about the input context, not about the body.
+    //
+    // Start and Reset are exempt. They are shell-shaped verbs — pause, restart —
+    // and hiding them is how a phone with no keyboard loses its way out.
+    let gameplay = active_context
+        .as_deref()
+        .is_none_or(ambition_input::ActiveInputContext::gameplay_owned);
+
     for (action, mut vis) in &mut buttons {
-        let target = if touch_action_available(*action, &prompt) {
+        let always_available = matches!(
+            action,
+            TouchActionButton::Start | TouchActionButton::Reset
+        );
+        let target = if (gameplay || always_available) && touch_action_available(*action, &prompt) {
             Visibility::Inherited
         } else {
             Visibility::Hidden

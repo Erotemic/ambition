@@ -223,6 +223,89 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     draw_aabb(gizmos, world, room, white_dim());
 }
 
+/// **Where the world ENDS**, drawn beside where it is bounded.
+///
+/// A stage authors `blast_margin` / `side_blast_margin` / `ceiling_blast_margin`
+/// and, until this existed, had no way to see the line short of throwing a body
+/// at it and watching. The room bounds and the kill line are the same idea one
+/// step apart, so they share `show_room_bounds`.
+///
+/// `gravity_dir` is not decoration. The gate measures every margin along the
+/// body's own `down`, so a line drawn at `y = size.y + margin` is correct only
+/// under down-gravity and lies in the Noether Chamber. Both are rotated through
+/// the live frame here for the same reason the gate uses it.
+///
+/// The fall line is always drawn — every room has one whether it wanted one or
+/// not. The side and ceiling lines appear only when the stage opted in, so an
+/// absent line is the honest picture of a direction that does not kill.
+pub fn draw_blast_zones(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae::Vec2) {
+    // Red: crossing this is death. Dimmer for the opt-in pair, so the direction
+    // that is ALWAYS live reads as the default and the other two read as
+    // choices this stage made.
+    let fall = Color::srgba(1.0, 0.25, 0.25, 0.55);
+    let opt_in = Color::srgba(1.0, 0.45, 0.30, 0.42);
+    for line in blast_zone_lines(world, gravity_dir) {
+        let color = if line.always_lethal { fall } else { opt_in };
+        gizmos.line_2d(w2(world, line.from), w2(world, line.to), color);
+    }
+}
+
+/// One drawn blast boundary, in WORLD space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlastZoneLine {
+    pub from: ae::Vec2,
+    pub to: ae::Vec2,
+    /// Whether this direction kills unconditionally (the fall margin) or only
+    /// because the stage opted in (the sides and the ceiling).
+    pub always_lethal: bool,
+}
+
+/// The blast boundaries of `world` as world-space segments, resolved in the
+/// BODY's frame.
+///
+/// Pure, and separate from the drawing, because the thing worth pinning is the
+/// GEOMETRY: the gate measures every margin along the body's own `down`, so a
+/// line drawn at `y = size.y + margin` is correct only under down-gravity and
+/// lies in the Noether Chamber. A gizmo call cannot be asserted; a segment can.
+pub fn blast_zone_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<BlastZoneLine> {
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let centre = world.size * 0.5;
+    // Half-extents measured along the body's own axes, so a sideways-gravity
+    // room reports its own "how far down" rather than the screen's.
+    let half_side = centre.dot(frame.side).abs();
+    let half_fall = centre.dot(frame.down).abs();
+
+    // A segment PERPENDICULAR to `axis`, `distance` along it from the centre,
+    // run out past the room so it reads as a boundary and not a tick mark.
+    let segment = |axis: ae::Vec2, distance: f32, span: f32, always_lethal: bool| {
+        let along = axis * distance;
+        let across = ae::Vec2::new(-axis.y, axis.x) * (span + 240.0);
+        BlastZoneLine {
+            from: centre + along - across,
+            to: centre + along + across,
+            always_lethal,
+        }
+    };
+
+    // The fall line is ALWAYS present: every room has a pit whether it wanted
+    // one or not. The other two appear only when the stage opted in, so an
+    // absent line is the honest picture of a direction that does not kill.
+    let mut lines = vec![segment(
+        frame.down,
+        half_fall + world.blast_margin,
+        half_side,
+        true,
+    )];
+    if let Some(margin) = world.ceiling_blast_margin {
+        lines.push(segment(-frame.down, half_fall + margin, half_side, false));
+    }
+    if let Some(margin) = world.side_blast_margin {
+        lines.push(segment(frame.side, half_side + margin, half_fall, false));
+        lines.push(segment(-frame.side, half_side + margin, half_fall, false));
+    }
+    lines
+}
+
 pub fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f32) {
     if minor <= 0.0 || major <= 0.0 {
         return;
@@ -451,6 +534,9 @@ pub fn draw_debug_viz(
     // are all unchanged. Only the sub-tick sampling phase matches its viewer.
     presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
     bodies: Query<(&BodyPoseView, Option<&ambition_sim_view::PresentedPose>)>,
+    // The live gravity, for the blast-zone lines. `Option` because headless and
+    // test apps do not insert it, and "down" is the honest fallback there.
+    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -458,6 +544,11 @@ pub fn draw_debug_viz(
     let world = &world.0;
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
+        draw_blast_zones(
+            &mut gizmos,
+            world,
+            ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref()),
+        );
     }
     if developer_tools.show_world_blocks {
         draw_world_blocks(&mut gizmos, world, &developer_tools);
@@ -521,5 +612,81 @@ pub fn draw_debug_viz(
             let aabb = ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
             draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
         }
+    }
+}
+
+#[cfg(test)]
+mod blast_zone_overlay_tests {
+    use super::*;
+
+    fn stage(side: Option<f32>, ceiling: Option<f32>) -> ae::World {
+        let mut world = ae::World::new(
+            "overlay rig",
+            ae::Vec2::new(960.0, 540.0),
+            ae::Vec2::new(480.0, 270.0),
+            Vec::new(),
+        )
+        .with_blast_margin(96.0);
+        world.side_blast_margin = side;
+        world.ceiling_blast_margin = ceiling;
+        world
+    }
+
+    const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
+    /// A room that opted into nothing shows ONE line. An overlay that drew a
+    /// side boundary here would be telling a stage author their corridor kills.
+    #[test]
+    fn a_room_that_opted_into_nothing_draws_only_its_pit() {
+        let lines = blast_zone_lines(&stage(None, None), DOWN);
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].always_lethal);
+        // 270 (half height) + 96 (margin) below the centre.
+        assert!((lines[0].from.y - (270.0 + 270.0 + 96.0)).abs() < 0.01);
+        assert!((lines[0].to.y - lines[0].from.y).abs() < 0.01, "level line");
+    }
+
+    /// Opting in adds exactly the boundaries that were opted into: two sides
+    /// and a ceiling, none of them marked unconditional.
+    #[test]
+    fn opting_in_draws_the_directions_that_were_opted_into() {
+        let lines = blast_zone_lines(&stage(Some(160.0), Some(64.0)), DOWN);
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.iter().filter(|l| l.always_lethal).count(), 1);
+        let xs: Vec<f32> = lines
+            .iter()
+            .filter(|l| (l.from.x - l.to.x).abs() < 0.01)
+            .map(|l| l.from.x)
+            .collect();
+        assert_eq!(xs.len(), 2, "two vertical boundaries, one per side");
+        // 480 (half width) + 160, either side of the centre.
+        assert!(xs
+            .iter()
+            .any(|x| (*x - (480.0 + 480.0 + 160.0)).abs() < 0.01));
+        assert!(xs.iter().any(|x| (*x + 160.0).abs() < 0.01));
+    }
+
+    /// **The lines follow gravity, because the gate does.**
+    ///
+    /// This is the whole reason the overlay takes a direction instead of
+    /// assuming `+y`. Rotate gravity a quarter turn and the pit boundary
+    /// becomes VERTICAL — a stage author in the Noether Chamber would otherwise
+    /// be shown a line the simulation does not use.
+    #[test]
+    fn the_boundaries_rotate_with_gravity() {
+        let world = stage(None, None);
+        let sideways = blast_zone_lines(&world, ae::Vec2::new(1.0, 0.0));
+        assert_eq!(sideways.len(), 1);
+        let line = sideways[0];
+        assert!(
+            (line.from.x - line.to.x).abs() < 0.01,
+            "under rightward gravity the pit boundary is a VERTICAL line, not a \
+             horizontal one: {line:?}"
+        );
+        // Half-width along the fall axis is 480, plus the 96px margin.
+        assert!(
+            (line.from.x - (480.0 + 480.0 + 96.0)).abs() < 0.01,
+            "{line:?}"
+        );
     }
 }

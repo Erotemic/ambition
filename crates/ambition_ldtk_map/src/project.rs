@@ -123,6 +123,15 @@ impl LdtkLevel {
                 .filter(|value| *value >= 0)
                 .map(|value| value as usize)
         };
+        // A DISTANCE in whole pixels. Zero is meaningful — "you are out the
+        // instant you cross my edge" is a legitimate stage — so only NEGATIVE
+        // values are rejected, and they are REJECTED rather than clamped: a
+        // negative blast margin would put the kill line inside the room, and a
+        // clamp turns an authoring mistake into a room that merely behaves
+        // oddly. One closure rather than one `filter` per field, because the
+        // three blast margins had already made three copies of it and the
+        // fourth distance field would have made the copy the pattern.
+        let take_px = |name: &str| self.field_i32(name).filter(|px| *px >= 0);
         ambition_world::rooms::RoomMetadata {
             biome: take("biome"),
             music_track: take("music_track"),
@@ -141,13 +150,9 @@ impl LdtkLevel {
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
             mode: take("mode"),
-            // A margin of zero is meaningful — "you are out the instant you
-            // cross my edge" is a legitimate stage — so only NEGATIVE values
-            // are rejected, and they are rejected rather than clamped: a
-            // negative blast margin would put the kill line INSIDE the room.
-            blast_margin: self.field_i32("blast_margin").filter(|px| *px >= 0),
-            side_blast_margin: self.field_i32("side_blast_margin").filter(|px| *px >= 0),
-            ceiling_blast_margin: self.field_i32("ceiling_blast_margin").filter(|px| *px >= 0),
+            blast_margin: take_px("blast_margin"),
+            side_blast_margin: take_px("side_blast_margin"),
+            ceiling_blast_margin: take_px("ceiling_blast_margin"),
         }
     }
 

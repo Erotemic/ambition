@@ -292,16 +292,13 @@ impl LdtkProject {
             .with_water_regions(water_regions)
             .with_climbable_regions(climbable_regions)
             .with_chains(chains)
-            // The room's own blast margin, authored on the level. Absent, the
-            // engine default stands — which is what every room had when the
-            // number was a literal inside the movement kernel.
-            .with_blast_margin(
-                metadata
-                    .blast_margin
-                    .map(|px| px as f32)
-                    .unwrap_or(ae::World::DEFAULT_BLAST_MARGIN),
-            )
-            .with_optional_blast_zones(
+            // The room's own blast zones, authored on the level, in ONE call
+            // so a fourth direction cannot be added to the metadata and
+            // silently not forwarded. Absent, the engine defaults stand —
+            // which is what every room had when the fall margin was a literal
+            // inside the movement kernel and the other two did not exist.
+            .with_blast_zones(
+                metadata.blast_margin.map(|px| px as f32),
                 metadata.side_blast_margin.map(|px| px as f32),
                 metadata.ceiling_blast_margin.map(|px| px as f32),
             ),
@@ -869,18 +866,45 @@ mod tests {
     /// merely behaves oddly.
     #[test]
     fn a_negative_blast_margin_is_refused_rather_than_clamped() {
+        // All THREE margins, because they share one `take_px` closure now. A
+        // regression in it would be invisible if only one field were driven.
+        let mut project = synthetic_level(Vec::new());
+        for name in ["blast_margin", "side_blast_margin", "ceiling_blast_margin"] {
+            project.levels[0]
+                .field_instances
+                .push(level_field(name, Value::Number((-32).into())));
+        }
+        let room = &project
+            .to_room_set_with_entry("central_hub_complex")
+            .expect("the project composes")
+            .rooms[0];
+        assert_eq!(room.metadata.blast_margin, None);
+        assert_eq!(room.metadata.side_blast_margin, None);
+        assert_eq!(room.metadata.ceiling_blast_margin, None);
+        assert_eq!(room.world.blast_margin, ae::World::DEFAULT_BLAST_MARGIN);
+        assert_eq!(room.world.side_blast_margin, None);
+        assert_eq!(room.world.ceiling_blast_margin, None);
+    }
+
+    /// Zero is not "unset". A stage that authors `0` is saying "you are out the
+    /// instant you cross my edge", and the refusal above must not swallow it —
+    /// `filter(>= 0)` and `filter(> 0)` differ by exactly this case.
+    #[test]
+    fn a_zero_margin_is_authored_and_not_mistaken_for_absence() {
         let mut project = synthetic_level(Vec::new());
         project.levels[0]
             .field_instances
-            .push(level_field("blast_margin", Value::Number((-32).into())));
-        let room_set = project
+            .push(level_field("blast_margin", Value::Number(0.into())));
+        project.levels[0]
+            .field_instances
+            .push(level_field("side_blast_margin", Value::Number(0.into())));
+        let room = &project
             .to_room_set_with_entry("central_hub_complex")
-            .expect("the project composes");
-        assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
-        assert_eq!(
-            room_set.rooms[0].world.blast_margin,
-            ae::World::DEFAULT_BLAST_MARGIN
-        );
+            .expect("the project composes")
+            .rooms[0];
+        assert_eq!(room.metadata.blast_margin, Some(0));
+        assert_eq!(room.world.blast_margin, 0.0);
+        assert_eq!(room.world.side_blast_margin, Some(0.0));
     }
 
     /// **A stage can declare that its SIDES are a blast zone, and a corridor

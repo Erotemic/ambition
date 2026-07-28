@@ -1013,9 +1013,21 @@ impl World {
         self
     }
 
-    /// Both opt-in blast zones at once, as `Option`s, for a lowering pass that
-    /// has an authored value or nothing and should not have to branch twice.
-    pub fn with_optional_blast_zones(mut self, side: Option<f32>, ceiling: Option<f32>) -> Self {
+    /// ALL THREE blast zones at once, for a lowering pass that has authored
+    /// values or nothing.
+    ///
+    /// Together, deliberately. A forwarding site that applies them one at a
+    /// time is a site that can forget one, and a forgotten margin is SILENT —
+    /// the field keeps its default and the room looks fine. `fall` is `Option`
+    /// here (unlike [`Self::with_blast_margin`]) because a lowering pass has
+    /// "the author said nothing", which is not the same as a number.
+    pub fn with_blast_zones(
+        mut self,
+        fall: Option<f32>,
+        side: Option<f32>,
+        ceiling: Option<f32>,
+    ) -> Self {
+        self.blast_margin = fall.unwrap_or(Self::DEFAULT_BLAST_MARGIN);
         self.side_blast_margin = side;
         self.ceiling_blast_margin = ceiling;
         self

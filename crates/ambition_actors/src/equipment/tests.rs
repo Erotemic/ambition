@@ -242,3 +242,62 @@ fn any_body_reconciles_not_only_a_player() {
         "an entity carrying no player marker at all still reconciles"
     );
 }
+
+/// **X11: an identity swap under worn equipment does not resurrect the old kit.**
+///
+/// `live identity = resolved character baseline + equipment grants` is only true
+/// if BOTH halves re-derive when the baseline moves. The revoke tests above all
+/// change the EQUIPMENT and hold the identity still; this changes the identity
+/// and holds the equipment still, which is the half a wear/re-wear actually does.
+///
+/// The failure it forbids is specific: if the reconcile overlaid onto the LIVE
+/// set instead of re-deriving from `IdentityKit`, a body that swapped from a
+/// melee character to a peaceful one would keep the melee — its own former verb,
+/// not equipment's — and the grant would look like it was doing it.
+#[test]
+fn swapping_the_identity_baseline_replaces_the_old_kit_and_keeps_the_grant() {
+    use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+
+    let (mut app, body) = app_with_body(WornEquipment::new(vec![granting_row("gun", None)]));
+    app.update();
+    assert!(has_ranged(&app, body), "the grant applied at all");
+
+    // The body becomes a character that punches. Equipment is untouched.
+    let punchy = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            damage: 4,
+            ..SwipeSpec::STRIKER_DEFAULT
+        })),
+        ..ActionSet::peaceful()
+    };
+    *app.world_mut().get_mut::<IdentityKit>(body).unwrap() = IdentityKit {
+        action_set: punchy,
+        moveset: Default::default(),
+    };
+    app.update();
+
+    let live = app.world().get::<ActionSet>(body).unwrap();
+    assert!(
+        live.melee.is_some(),
+        "the new identity's melee never arrived — the reconcile did not re-derive \
+         when the BASELINE changed, only when equipment did"
+    );
+    assert!(
+        live.ranged.is_some(),
+        "the identity swap dropped the equipment grant; the overlay is supposed \
+         to be re-applied on top of the new baseline, not lost with the old one"
+    );
+
+    // And back to peaceful: the melee must go with the identity that had it.
+    *app.world_mut().get_mut::<IdentityKit>(body).unwrap() = IdentityKit::default();
+    app.update();
+
+    let live = app.world().get::<ActionSet>(body).unwrap();
+    assert!(
+        live.melee.is_none(),
+        "the previous character's melee survived the swap — a body that stopped \
+         being that character can still throw its punch, and the grant gets the \
+         blame because it is the only thing anybody looks at"
+    );
+    assert!(live.ranged.is_some(), "the grant still stands");
+}

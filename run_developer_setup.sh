@@ -249,6 +249,7 @@ ensure_rust() {
     ensure_cargo_tool cargo-llvm-cov cargo-llvm-cov
     ensure_cargo_tool cargo-modules cargo-modules
     ensure_cargo_tool cargo-sweep cargo-sweep
+    ensure_cargo_tool cargo-mark-sweep cargo-mark-sweep
     # Per-test wall times, which stable libtest cannot report: `--report-time`
     # is nightly-only, so ranking the slowest tests in a 1600s suite otherwise
     # means timing each test binary by hand. nextest also runs each test in its

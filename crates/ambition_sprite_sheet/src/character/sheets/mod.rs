@@ -161,12 +161,22 @@ impl SheetTuning {
 /// Apps in one process (which is every test run in this repo) do not share it.
 ///
 /// Consumer records take precedence over baked ones with the same target, and a
-/// collision is logged rather than resolved silently — the same rule
-/// `sheet_for_declared_character` already applies when two declarations of one
-/// character disagree.
+/// collision between two AUTHORED records for one target is REFUSED — see
+/// [`AuthoredSheets::insert_ron`] for why refusing beats last-writer-wins.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct AuthoredSheets {
-    by_target: std::collections::BTreeMap<String, SheetRecord>,
+    by_target: std::collections::BTreeMap<String, AuthoredRecord>,
+}
+
+/// One authored record plus the provenance a collision report needs: which file
+/// declared it, and what that file said. The declaration text is what makes
+/// "the same provider registered twice" distinguishable from "two providers
+/// disagree" without a `PartialEq` bound across the whole `SheetRecord` graph.
+#[derive(Clone, Debug)]
+struct AuthoredRecord {
+    record: SheetRecord,
+    origin: String,
+    declaration: std::sync::Arc<str>,
 }
 
 impl AuthoredSheets {
@@ -177,8 +187,22 @@ impl AuthoredSheets {
     /// keys single-record files for exactly the reason the baked index does:
     /// a file's own name is what the catalog can name.
     ///
-    /// Returns how many records were indexed, or the parse error verbatim; a
-    /// provider registering a broken sheet gets told which file and why.
+    /// **A target is claimed once.** This used to `insert` over whatever was
+    /// there while the type's doc comment claimed collisions were logged, so two
+    /// providers registering one target resolved by PLUGIN ORDER and said
+    /// nothing — the exact failure mode the authored registry exists to remove
+    /// (GPT 5.6 review, 2026-07-28). Re-registering the identical declaration
+    /// from the same file is a no-op, because a provider whose plugin is built
+    /// twice in one process has not made a decision; anything else is two
+    /// authorities for one character and only the provider can resolve it.
+    ///
+    /// Validation runs over the whole file BEFORE anything is indexed: a
+    /// multi-record sheet whose fourth record collides must not leave the first
+    /// three installed under an error return.
+    ///
+    /// Returns how many records were indexed (0 when every record was an exact
+    /// re-registration), or the parse error verbatim; a provider registering a
+    /// broken sheet gets told which file and why.
     pub fn insert_ron(&mut self, file_root: &str, ron: &str) -> Result<usize, String> {
         let records: Vec<SheetRecord> = ron::from_str(ron).map_err(|error| {
             format!("authored sheet '{file_root}' is malformed RON: {error}")
@@ -186,20 +210,51 @@ impl AuthoredSheets {
         if records.is_empty() {
             return Err(format!("authored sheet '{file_root}' declares no records"));
         }
+        let declaration: std::sync::Arc<str> = std::sync::Arc::from(ron);
         let single = records.len() == 1;
-        let mut indexed = 0usize;
-        for mut record in records {
-            if single {
-                record.target = file_root.to_owned();
+        let mut records: Vec<SheetRecord> = records;
+        if single {
+            records[0].target = file_root.to_owned();
+        }
+
+        let mut fresh = Vec::with_capacity(records.len());
+        for record in records {
+            match self.by_target.get(&record.target) {
+                Some(held)
+                    if held.origin == file_root && *held.declaration == *declaration =>
+                {
+                    // Same file, same bytes: idempotent, not a decision.
+                }
+                Some(held) => {
+                    return Err(format!(
+                        "authored sheet target '{}' is claimed twice: '{}' declared it \
+                         and '{file_root}' redeclares it differently. Two authored \
+                         sheets for one target resolve by plugin-build order, so this \
+                         is refused rather than silently picked — rename one target or \
+                         register only one of the two sheets.",
+                        record.target, held.origin,
+                    ));
+                }
+                None => fresh.push(record),
             }
-            self.by_target.insert(record.target.clone(), record);
-            indexed += 1;
+        }
+
+        let indexed = fresh.len();
+        for record in fresh {
+            self.by_target.insert(
+                record.target.clone(),
+                AuthoredRecord {
+                    record,
+                    origin: file_root.to_owned(),
+                    declaration: std::sync::Arc::clone(&declaration),
+                },
+            );
         }
         Ok(indexed)
     }
 
     pub fn get(&self, target: &str) -> Option<&SheetRecord> {
-        self.by_target.get(target)
+        self.by_target.get(target).map(|held| &held.record)
     }
 
     pub fn is_empty(&self) -> bool {

@@ -371,3 +371,106 @@ fn unpacked_rows_fall_back_to_the_row_page() {
         "row.page is authoritative when rects are empty"
     );
 }
+
+/// Two providers registering one sheet target used to resolve by plugin-build
+/// order, silently: `insert_ron` overwrote the map entry while the type's own
+/// doc comment claimed collisions were logged. A stranger's game whose sheet
+/// target happened to match an engine one would draw the wrong character with
+/// nothing in the log, and swapping two `add_plugins` lines would change which.
+/// So a second, different claim on one target is refused (GPT 5.6, 2026-07-28).
+#[test]
+fn two_providers_cannot_silently_claim_one_sheet_target() {
+    use crate::character::sheets::AuthoredSheets;
+
+    fn one_record(target: &str, image: &str) -> String {
+        format!(
+            r#"[(
+                target: "{target}",
+                image: "{image}",
+                label_width: 0,
+                frame_width: 32,
+                frame_height: 32,
+                rows: [
+                    (animation: "idle", row_index: 0, frame_count: 1,
+                     duration_ms: 100, duration_secs: 0.1, page: 0, rects: []),
+                ],
+            )]"#
+        )
+    }
+
+    let mut sheets = AuthoredSheets::default();
+    let first = one_record("duelist", "first.png");
+    assert_eq!(
+        sheets.insert_ron("duelist", &first),
+        Ok(1),
+        "the first claim on a free target is indexed"
+    );
+
+    // Same file, same bytes: a plugin built twice has not made a decision.
+    assert_eq!(
+        sheets.insert_ron("duelist", &first),
+        Ok(0),
+        "re-registering the identical declaration is idempotent, not a conflict"
+    );
+    assert_eq!(
+        sheets.get("duelist").map(|record| record.image.as_str()),
+        Some("first.png"),
+    );
+
+    let error = sheets
+        .insert_ron("duelist", &one_record("duelist", "second.png"))
+        .expect_err("a second, DIFFERENT claim on one target must be refused");
+    assert!(
+        error.contains("duelist") && error.contains("claimed twice"),
+        "the refusal must name the target and both claimants: {error}"
+    );
+    assert_eq!(
+        sheets.get("duelist").map(|record| record.image.as_str()),
+        Some("first.png"),
+        "the refused claim must not have displaced the held one"
+    );
+}
+
+/// A multi-record sheet whose LAST record collides must not leave its earlier
+/// records installed under an error return — a provider told "rejected" and
+/// handed a half-populated registry is worse off than one told nothing.
+#[test]
+fn a_refused_multi_record_sheet_indexes_none_of_its_records() {
+    use crate::character::sheets::AuthoredSheets;
+
+    fn pack(targets: [&str; 2]) -> String {
+        let body: Vec<String> = targets
+            .iter()
+            .map(|target| {
+                format!(
+                    r#"(
+                        target: "{target}",
+                        image: "pack.png",
+                        label_width: 0,
+                        frame_width: 32,
+                        frame_height: 32,
+                        rows: [
+                            (animation: "idle", row_index: 0, frame_count: 1,
+                             duration_ms: 100, duration_secs: 0.1, page: 0, rects: []),
+                        ],
+                    )"#
+                )
+            })
+            .collect();
+        format!("[{}]", body.join(","))
+    }
+
+    let mut sheets = AuthoredSheets::default();
+    sheets
+        .insert_ron("held", &pack(["taken", "other"]))
+        .expect("the first pack indexes cleanly");
+
+    sheets
+        .insert_ron("rival", &pack(["fresh", "taken"]))
+        .expect_err("the pack collides on its second record");
+
+    assert!(
+        sheets.get("fresh").is_none(),
+        "the record BEFORE the collision must not survive a refused file"
+    );
+}

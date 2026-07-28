@@ -265,9 +265,37 @@ def test_inject_restates_the_open_items(repo: Path) -> None:
     assert "the queue still has open items" in specific["additionalContext"]
 
 
-def test_inject_is_silent_when_the_goal_is_met(repo: Path) -> None:
+def test_inject_never_runs_the_checks(repo: Path) -> None:
+    """The wedge fix, pinned.
+
+    This used to assert that inject was SILENT when every check passed — which
+    it could only know by RUNNING them. On 2026-07-27 a goal whose checks
+    included a 900s `cargo check` did exactly that at SessionStart, startup hung
+    until the IDE gave up at 60s, and the only way back into the repository was
+    to move `.goal/active.json` aside. A guard that can lock you out of the repo
+    it guards is worse than no guard, so inject now reads the Stop hook's cache
+    and nothing else.
+
+    The consequence is that "the goal is met" is no longer a state inject can
+    observe, and the old test was asserting an ability that was removed on
+    purpose. What replaces it is the property the fix actually bought: a check
+    that would take forever, or fail loudly, is never executed here.
+    """
+    forever = {"name": "would wedge startup", "cmd": "sleep 600"}
+    arm(repo, checks=[forever])
+
+    out = run(repo, "--inject", stdin={"hook_event_name": "SessionStart"})
+
+    context = out["hookSpecificOutput"]["additionalContext"]
+    assert "would wedge startup" in context, "the armed check is NAMED, not run"
+
+
+def test_inject_restates_an_armed_goal_that_has_never_been_checked(repo: Path) -> None:
+    """With no Stop hook run yet there is no cache, and silence would read as
+    'nothing is armed' — the one thing a fresh session must not conclude."""
     arm(repo, checks=[PASS])
-    assert run(repo, "--inject", stdin={"hook_event_name": "SessionStart"}) == {}
+    out = run(repo, "--inject", stdin={"hook_event_name": "SessionStart"})
+    assert "GOAL ARMED" in out["hookSpecificOutput"]["additionalContext"]
 
 
 def test_inject_is_silent_when_unarmed(repo: Path) -> None:

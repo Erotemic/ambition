@@ -191,6 +191,19 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     jobs: list[Job] = []
     members = selected_members(only)
 
+    # The repo's OWN tooling, which is Python and was therefore invisible to a
+    # cargo-only runner. `scripts/tests/` guards the goal guard, the test runner,
+    # the package-asset guard and the architectural absence contracts -- and on
+    # 2026-07-28 one of them had been RED for a day because a deliberate
+    # behaviour change (SessionStart must never run the checks) left a stale
+    # assertion behind and nothing ran it. A guard nobody executes is not a
+    # guard. Cheap (~3s) and dependency-free, so it runs in the backbone too,
+    # and FIRST: if the thing that decides whether the suite is honest is
+    # broken, that is the answer, not the 40 minutes of cargo behind it.
+    if not only:
+        jobs.append(Job("repo tooling (scripts/tests)",
+                        [sys.executable, "-m", "pytest", "scripts/tests", "-q"]))
+
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)
         return (["--"] + tail) if tail else []

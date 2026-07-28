@@ -13,8 +13,8 @@
 use ambition::engine_core as ae;
 
 use crate::{
-    FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS, PIT_LEFT_X,
-    PIT_RIGHT_X, sanic_speedway,
+    sanic_speedway, FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS,
+    PIT_LEFT_X, PIT_RIGHT_X,
 };
 
 /// The rig gravity every momentum test in this crate uses (60 Hz, y-down).
@@ -159,7 +159,7 @@ impl Probe {
             vel: self.scratch.kinematics.vel,
             ride,
             lane: m.depth_lane,
-            reset: result.events.reset,
+            reset: result.events.reset.is_some(),
         });
     }
 

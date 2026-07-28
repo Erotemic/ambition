@@ -231,7 +231,10 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
             1.0 / 60.0,
             TEST_TUNING,
         );
-        if evs.hazard {
+        if evs
+            .reset
+            .is_some_and(crate::movement::ResetCause::is_hazardous)
+        {
             hazard_fired = true;
             break;
         }

@@ -46,10 +46,12 @@ pub(super) fn test_world() -> World {
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
         chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
     }
 }
 
 mod ability_gates;
+mod blast_zone;
 mod blink;
 mod c4_reaction_seams;
 mod classic_platformer;

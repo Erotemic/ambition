@@ -75,7 +75,7 @@ pub(crate) fn apply_home_reset_policy(
     else {
         return;
     };
-    if !frame_out.reset {
+    if frame_out.reset.is_none() {
         return;
     }
     let mut clusters = cluster_item.as_clusters_mut();

@@ -32,6 +32,41 @@ impl GroundContactTransition {
     }
 }
 
+/// Why the body's owner is being asked to apply its reset policy this step.
+///
+/// The kernel reports WHAT the world did to the body; the owner decides what it
+/// MEANS — the home body respawns, an actor takes damage or ignores it, a
+/// platform fighter spends a stock. That split already existed; what did not
+/// was the reason. Both the void and a spike used to arrive as one anonymous
+/// `hazard` bool, so no consumer could tell them apart, and the death publisher
+/// downstream said so in a comment rather than in code.
+///
+/// The distinction is not cosmetic: "left the world" is the blast zone every
+/// platform fighter is built on, and it has to survive the seam to be built on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResetCause {
+    /// The reset verb, pressed by whoever is driving this body. Not hazardous —
+    /// nothing hurt the body, it asked.
+    Requested,
+    /// The body overlapped a hazard volume authored into the world.
+    Hazard,
+    /// The body was in water it cannot swim in.
+    Drowned,
+    /// The body passed the world's bounds along the fall direction, further
+    /// than the world's blast margin. Gravity-relative, so this is "fell out"
+    /// under any gravity direction, not just downward.
+    LeftTheWorld,
+}
+
+impl ResetCause {
+    /// Whether the world did this TO the body, as opposed to the body asking.
+    /// This is the predicate the old `hazard` bool carried, kept as a named
+    /// question so reaction code does not re-derive it by listing variants.
+    pub const fn is_hazardous(self) -> bool {
+        !matches!(self, Self::Requested)
+    }
+}
+
 /// Engine event emitted when a blink teleports the player.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BlinkEvent {
@@ -45,8 +80,10 @@ pub struct BlinkEvent {
 pub struct FrameEvents {
     pub operations: Vec<MovementOp>,
     pub blinks: Vec<BlinkEvent>,
-    pub reset: bool,
-    pub hazard: bool,
+    /// Why this step is asking the body's owner to apply its reset policy, or
+    /// `None` if it is not. Replaces the old `reset`/`hazard` bool pair, which
+    /// could say THAT the world reset a body but never WHICH world did it.
+    pub reset: Option<ResetCause>,
     /// The body's semantic ground-support transition for this movement step.
     /// Presentation and gameplay reactions consume this rather than deriving
     /// edges from default-initialized booleans.
@@ -82,8 +119,11 @@ impl FrameEvents {
     pub fn extend(&mut self, other: FrameEvents) {
         self.operations.extend(other.operations);
         self.blinks.extend(other.blinks);
-        self.reset |= other.reset;
-        self.hazard |= other.hazard;
+        // The FIRST cause across the two clocks wins. A body that asked to
+        // reset during the control pass and then drifted out of the world
+        // during the physics pass was reset by its own request; the void got
+        // there second and is reporting a body that is already leaving.
+        self.reset = self.reset.or(other.reset);
         if other.ground_contact != GroundContactTransition::Unchanged {
             self.ground_contact = other.ground_contact;
         }

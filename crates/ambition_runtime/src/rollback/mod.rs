@@ -190,6 +190,7 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
             HitSource::EnemyChargeCrash => (7, 0.0),
             HitSource::BossBody => (8, 0.0),
             HitSource::BossAttack => (9, 0.0),
+            HitSource::LeftTheWorld => (10, 0.0),
         };
         put_u8(&mut bytes, source_tag);
         put_f32(&mut bytes, source_payload);

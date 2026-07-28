@@ -47,14 +47,13 @@ pub mod trail;
 
 pub use body_integration::{
     advance_moving_platforms, integrate_home_body, ledge_platform_carry, surface_skidding,
-    LedgePlatformCarry, PlayerBodyFrameOutput,
+    BodyReset, LedgePlatformCarry, PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use starting_character::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
     gate_worn_player_control, motion_model_spec_for_character, motion_model_spec_for_character_id,
-    movement_tuning_for_character,
-    sustain_bubble_shield, StartingCharacter,
+    movement_tuning_for_character, sustain_bubble_shield, StartingCharacter,
 };
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,

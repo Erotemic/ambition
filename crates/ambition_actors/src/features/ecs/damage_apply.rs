@@ -843,19 +843,35 @@ pub fn publish_kernel_reset_death(
     bodies: Query<&crate::avatar::PlayerBodyFrameOutput, PrimaryPlayerOnly>,
 ) {
     for frame_out in &bodies {
-        let Some(reset_origin) = frame_out.reset_origin else {
+        let Some(reset) = frame_out.reset else {
             continue;
         };
         died.write(ActorDiedMessage {
-            pos: reset_origin,
-            // The kernel gate does not distinguish spikes from the void, and
-            // neither does any consumer today. `Hazard` is the honest category:
-            // the world killed her, and no entity claims the kill.
+            pos: reset.origin,
+            // The kernel gate now says WHICH world killed her, so this reports
+            // it instead of apologizing for not knowing. No entity claims any
+            // of these kills — `attacker` stays `None` for all of them.
             cause: crate::DeathCause {
-                source: crate::combat::HitSource::Hazard,
+                source: death_source_of(reset.cause),
                 attacker: None,
             },
         });
+    }
+}
+
+/// The killing category a kernel reset belongs to.
+///
+/// A voluntary reset is still a death: the run ended, the lives counter should
+/// spend one, and a player who presses the restart verb in a platformer expects
+/// the attempt to be over. It is charged to `Hazard` — the same anonymous
+/// world-killed-you category the spikes use — because no vocabulary exists for
+/// "you asked", and inventing one would only be honest if something read it.
+fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
+    match cause {
+        ae::ResetCause::LeftTheWorld => crate::combat::HitSource::LeftTheWorld,
+        ae::ResetCause::Hazard | ae::ResetCause::Drowned | ae::ResetCause::Requested => {
+            crate::combat::HitSource::Hazard
+        }
     }
 }
 

@@ -870,8 +870,10 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
         crate::actor::PlayerEntity,
         crate::actor::PrimaryPlayer,
         crate::avatar::PlayerBodyFrameOutput {
-            reset: true,
-            reset_origin: Some(impact),
+            reset: Some(crate::avatar::BodyReset {
+                cause: ae::ResetCause::Hazard,
+                origin: impact,
+            }),
             ..default()
         },
     ));

@@ -183,7 +183,11 @@ fn the_respawn_wrapper_leaves_a_zero_length_record_at_spawn() {
     );
     drop(clusters);
 
-    assert!(events.reset, "fixture: the fall must trigger the reset");
+    assert_eq!(
+        events.reset,
+        Some(crate::movement::ResetCause::LeftTheWorld),
+        "fixture: the fall must trigger the reset, as a fall"
+    );
     assert_eq!(scratch.kinematics.pos, world.spawn, "fixture: respawned");
     assert_eq!(
         sample.prev, world.spawn,

@@ -50,7 +50,7 @@ fn step_axis_body(
             dt,
         },
     );
-    if result.events.reset {
+    if result.events.reset.is_some() {
         let mut model = ae::MotionModel::default();
         ae::reset_body_clusters(&mut model, &mut clusters, world.spawn);
     }

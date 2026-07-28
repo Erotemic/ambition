@@ -53,7 +53,7 @@ pub use authority::{
     carry_body, constrain_body_pose, reconcile_transit, transit_body, TransitVelocity,
 };
 pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
-pub use events::{BlinkEvent, FrameEvents, GroundContactTransition};
+pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
 pub use facts::{BodyMotionFacts, LedgeFacts};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
@@ -116,7 +116,7 @@ pub(crate) fn update_body_control_in_frame(
     // applies its reset policy (respawn for the home body, damage/ignore for
     // an actor).
     if input.reset_pressed && clusters.abilities.abilities.reset {
-        events.reset = true;
+        events.reset = Some(ResetCause::Requested);
         return events;
     }
 
@@ -266,10 +266,9 @@ fn update_body_simulation_inner(
         state.ledge_grab = None;
     }
 
-    // Drowning gate — body flags hazard + reset; the owner applies its policy.
+    // Drowning gate — body flags the cause; the owner applies its policy.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
-        events.hazard = true;
-        events.reset = true;
+        events.reset = Some(ResetCause::Drowned);
         return events;
     }
 
@@ -372,21 +371,11 @@ fn update_body_simulation_inner(
         &mut events,
     );
 
-    // Hazard / out-of-bounds gate — body flags hazard + reset; the owner
-    // applies its policy. "Fell out of the world" is gravity-relative:
-    // distance past the world AABB measured ALONG the fall direction (fable
-    // review 2026-07-02 §B7 — the old `pos.y > size.y + 200` only caught the
-    // bottom edge, so under up/sideways gravity a body could fall forever).
-    let pos = clusters.kinematics.pos;
-    let clamped = crate::Vec2::new(
-        pos.x.clamp(0.0, world.size.x),
-        pos.y.clamp(0.0, world.size.y),
-    );
-    let fell_out = (pos - clamped).dot(frame.down()) > 200.0;
-    if collision::touching_hazard_aabb(world, clusters.kinematics.aabb()) || fell_out {
-        events.hazard = true;
-        events.reset = true;
-    }
+    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its
+    // policy. This is the KERNEL's gate, called rather than copied: the
+    // axis-swept policy used to keep its own transcription of it, so the two
+    // policies each owned a private opinion about where the world ends.
+    kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
 
     events
 }

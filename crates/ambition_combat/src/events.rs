@@ -268,6 +268,13 @@ pub enum HitSource {
     /// the player to the last safe platform; `Knockback` applies
     /// hitstun + knockback.
     Hazard,
+    /// The body left the world past the stage's blast margin — the pit, the
+    /// void, the blast zone. Distinct from `Hazard` because nothing touched
+    /// this body: the stage simply ended, and whoever knocked it out there is
+    /// credited by `attacker`, not by geometry. A platform fighter scores on
+    /// exactly this source, so collapsing it into `Hazard` (as the kernel's
+    /// reset gate used to) makes the genre unbuildable.
+    LeftTheWorld,
     /// Contact with an enemy body (touched the enemy itself, not
     /// its swing). Always knockback mode.
     EnemyBody,
@@ -311,9 +318,7 @@ impl HitSource {
     pub fn defaults_to_primary_attacker(&self) -> bool {
         matches!(
             self,
-            HitSource::PlayerSlash { .. }
-                | HitSource::PlayerProjectile
-                | HitSource::PogoBounce
+            HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile | HitSource::PogoBounce
         )
     }
 }

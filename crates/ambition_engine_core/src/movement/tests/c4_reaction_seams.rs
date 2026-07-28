@@ -122,6 +122,7 @@ fn rig_world(f: &AccelerationFrame) -> World {
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
         chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
     }
 }
 
@@ -372,9 +373,11 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
             DT,
             tuning,
         );
-        assert!(
-            events.reset && events.hazard,
-            "{} arm: body 201px past the +gravity edge must flag reset",
+        assert_eq!(
+            events.reset,
+            Some(crate::movement::ResetCause::LeftTheWorld),
+            "{} arm: body 201px past the +gravity edge left the world — and the \
+             gate must say so, not just that something reset it",
             arm.name
         );
 
@@ -389,7 +392,7 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
             tuning,
         );
         assert!(
-            !events.reset,
+            events.reset.is_none(),
             "{} arm: body 100px past the edge is within the grace margin",
             arm.name
         );

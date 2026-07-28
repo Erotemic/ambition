@@ -115,7 +115,7 @@ pub(crate) fn update_player_with_tuning_clusters(
             dt: raw_dt,
         },
     );
-    if result.events.reset {
+    if result.events.reset.is_some() {
         reset_body_clusters(model, clusters, world.spawn);
     }
     result.events
@@ -171,7 +171,7 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         tuning.frame(),
         tuning.params(),
     );
-    if events.reset {
+    if events.reset.is_some() {
         reset_body_clusters(model, &mut clusters, world.spawn);
     }
     events
@@ -217,7 +217,7 @@ pub(crate) fn update_player_simulation_with_clusters(
         tuning.frame(),
         tuning.params(),
     );
-    if events.reset {
+    if events.reset.is_some() {
         reset_body_clusters(model, clusters, world.spawn);
     }
     events

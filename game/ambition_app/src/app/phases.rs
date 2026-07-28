@@ -39,7 +39,7 @@ pub(super) fn sync_player_presentation(
     // resolve in ITS character's bank rather than the session provider's.
     source: Option<&ambition::sfx::PresentationSourceId>,
 ) {
-    if frame_out.reset {
+    if frame_out.reset.is_some() {
         return;
     }
     // Hard-fall screen shake consumes the kernel's semantic landing edge.

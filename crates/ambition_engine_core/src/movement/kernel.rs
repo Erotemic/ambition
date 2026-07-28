@@ -14,6 +14,7 @@ use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
 use super::{
     touching_hazard_aabb, touching_rebound_aabb, FrameEvents, GroundContactTransition, InputState,
+    ResetCause,
 };
 
 /// One deterministic movement tick's complete external context.
@@ -293,9 +294,14 @@ fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2)) {
 
 /// The ONE hazard/out-of-bounds gate every policy publishes through: hazard
 /// touch plus the frame-relative "fell out of the world" test (distance past
-/// the world AABB measured ALONG the fall direction). Policies flag; the
-/// body's owner applies its reset policy.
-fn apply_world_hazard_gate(
+/// the world AABB measured ALONG the fall direction, compared against the
+/// stage's authored `blast_margin`). Policies flag; the body's owner applies
+/// its reset policy.
+///
+/// "ONE" is now true. The axis-swept policy used to carry its own copy of this
+/// gate, literal `200.0` and all, so the two policies could silently disagree
+/// about where a world ends — and a stage could not move that edge for either.
+pub(crate) fn apply_world_hazard_gate(
     world: &World,
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
@@ -306,10 +312,13 @@ fn apply_world_hazard_gate(
         pos.x.clamp(0.0, world.size.x),
         pos.y.clamp(0.0, world.size.y),
     );
-    let fell_out = (pos - clamped).dot(frame.down()) > 200.0;
-    if touching_hazard_aabb(world, clusters.kinematics.aabb()) || fell_out {
-        events.hazard = true;
-        events.reset = true;
+    // Order matters, and it is a design statement: a body that is BOTH past
+    // the blast margin and overlapping a hazard left the world. The void is
+    // further out than any authored volume, so it is the later, larger fact.
+    if (pos - clamped).dot(frame.down()) > world.blast_margin {
+        events.reset = events.reset.or(Some(ResetCause::LeftTheWorld));
+    } else if touching_hazard_aabb(world, clusters.kinematics.aabb()) {
+        events.reset = events.reset.or(Some(ResetCause::Hazard));
     }
 }
 

@@ -26,7 +26,7 @@ fn step_axis_player(
         },
     );
     let events = result.events;
-    if events.reset {
+    if events.reset.is_some() {
         let mut model = ae::MotionModel::default();
         ae::reset_body_clusters(&mut model, &mut clusters, world.spawn);
     }
@@ -72,8 +72,11 @@ fn no_swim_ability_water_contact_triggers_reset() {
         ae::InputState::default(),
         0.016,
     );
-    assert!(events.reset, "expected reset on water without swim");
-    assert!(events.hazard, "expected hazard flag (drowned)");
+    assert_eq!(
+        events.reset,
+        Some(ae::ResetCause::Drowned),
+        "water without swim drowns her, and the gate must name the water"
+    );
     assert_eq!(scratch.kinematics.pos, world.spawn);
 }
 

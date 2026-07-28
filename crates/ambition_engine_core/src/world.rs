@@ -828,6 +828,16 @@ pub struct World {
     /// every AABB-only room — the zero-chain case takes the existing fast
     /// paths untouched; only surface-momentum bodies ever read this list.
     pub chains: Vec<SurfaceChain>,
+    /// How far past `size`, measured ALONG the fall direction, a body may
+    /// drift before the world declares it gone
+    /// ([`ResetCause::LeftTheWorld`](crate::movement::ResetCause::LeftTheWorld)).
+    ///
+    /// This is a platformer's pit depth and a platform fighter's blast zone —
+    /// the same number, and it belongs to the STAGE. It used to be a `200.0`
+    /// literal duplicated in the two out-of-bounds gates, which meant no room
+    /// could disagree with it and no fighting stage could be built on it.
+    #[serde(default = "World::default_blast_margin")]
+    pub blast_margin: f32,
 }
 
 /// First collision along a swept body path.
@@ -945,7 +955,28 @@ impl World {
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
             chains: Vec::new(),
+            blast_margin: Self::DEFAULT_BLAST_MARGIN,
         }
+    }
+
+    /// The blast margin a world gets when nobody authors one, and the value
+    /// every world used when the number was a literal in two copies of the
+    /// out-of-bounds gate. Generous: a platformer wants a body that fell in a
+    /// pit to be gone, not a body that clipped a corner to be dead.
+    pub const DEFAULT_BLAST_MARGIN: f32 = 200.0;
+
+    /// `serde` default so every world serialized before the margin was
+    /// authorable still deserializes with the behaviour it was saved under.
+    fn default_blast_margin() -> f32 {
+        Self::DEFAULT_BLAST_MARGIN
+    }
+
+    /// Builder-style setter for the blast margin. A stage tightens this when
+    /// leaving it is supposed to be the LOSS CONDITION rather than an accident
+    /// — a platform fighter's blast zone is exactly this number, authored small.
+    pub fn with_blast_margin(mut self, blast_margin: f32) -> Self {
+        self.blast_margin = blast_margin;
+        self
     }
 
     /// Builder-style setter for surface chains. Mirrors `with_water_regions`

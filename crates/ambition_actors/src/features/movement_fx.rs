@@ -226,10 +226,13 @@ pub fn emit_movement_fx(
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
                 // dedicated Shield SoundCue is added to the sfxbank.
-                sfx.write_for_body(source, SfxMessage::Blink {
-                    pos,
-                    precision: false,
-                });
+                sfx.write_for_body(
+                    source,
+                    SfxMessage::Blink {
+                        pos,
+                        precision: false,
+                    },
+                );
                 vfx.write(VfxMessage::Burst {
                     pos,
                     count: 12,
@@ -250,10 +253,13 @@ pub fn emit_movement_fx(
         }
     }
     for blink in &events.blinks {
-        sfx.write_for_body(source, SfxMessage::Blink {
-            pos: blink.from,
-            precision: blink.precision,
-        });
+        sfx.write_for_body(
+            source,
+            SfxMessage::Blink {
+                pos: blink.from,
+                precision: blink.precision,
+            },
+        );
         vfx.write(VfxMessage::BlinkEffects {
             from: blink.from,
             to: blink.to,
@@ -306,7 +312,7 @@ pub fn handle_player_events(
     // action is not a hit, and flashing the sprite white on every jump reads as
     // taking damage. Real combat/hazard damage arms `hit_flash` through the damage
     // path (`features::ecs::damage_apply`).
-    if events.hazard {
+    if events.reset.is_some_and(ae::ResetCause::is_hazardous) {
         combat.hit_flash = 0.12;
     }
 }

@@ -42,16 +42,30 @@ use ambition_world::collision::world_with_sandbox_solids;
 pub struct PlayerBodyFrameOutput {
     /// The movement tick's events (jump/dash/blink ops, blink endpoints, …).
     pub events: ae::FrameEvents,
-    /// The integration flagged a body reset this frame (drown / hazard /
-    /// out-of-bounds / death). The body was already teleported to spawn by this
-    /// phase; the home reset POLICY consumes this to run the full sandbox reset for
-    /// the primary, and the PRESENTATION phase skips the frame.
-    pub reset: bool,
+    /// The world reset this body this frame, or `None` if it did not. The body
+    /// was already teleported to spawn by this phase; the home reset POLICY
+    /// consumes this to run the full sandbox reset for the primary, and the
+    /// PRESENTATION phase skips the frame.
+    ///
+    /// One field, not the `reset: bool` + `reset_origin: Option<Vec2>` pair it
+    /// replaces: those two had to agree, nothing made them, and a consumer
+    /// reading only the bool could not say what had happened.
+    pub reset: Option<BodyReset>,
+}
+
+/// A reset the world applied to a body this frame: WHY, and WHERE the body was
+/// standing when it happened.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyReset {
+    /// What the world did — the request, the spikes, the water, or the void.
+    /// Carried through from the movement kernel's gate so downstream policy can
+    /// answer "did this body fall out of the stage?" without guessing.
+    pub cause: ae::ResetCause,
     /// Where the body was when the reset was triggered, before the home policy
     /// teleported it to spawn. This preserves the causal location for death VFX,
     /// replay tooling, and any other consumer that must not confuse respawn with
     /// impact.
-    pub reset_origin: Option<ae::Vec2>,
+    pub origin: ae::Vec2,
 }
 
 /// How a ledge-grabbing player should react to the moving platform that carries
@@ -200,14 +214,16 @@ pub fn integrate_home_body(
     // Capture the causal position before home-body policy teleports to spawn.
     // Reading kinematics after `reset_body_clusters` would report the respawn
     // point as the death impact location.
-    let reset_origin = result.events.reset.then_some(clusters.kinematics.pos);
-    if result.events.reset {
+    let reset = result.events.reset.map(|cause| BodyReset {
+        cause,
+        origin: clusters.kinematics.pos,
+    });
+    if reset.is_some() {
         ae::reset_body_clusters(motion_model, clusters, world.spawn);
     }
 
     *frame_out = PlayerBodyFrameOutput {
-        reset: result.events.reset,
-        reset_origin,
+        reset,
         events: result.events,
     };
 

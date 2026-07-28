@@ -174,7 +174,7 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
     let mut saw_reset = false;
     for _ in 0..1800 {
         step(&mut r, run);
-        if r.frame_out.reset {
+        if r.frame_out.reset.is_some() {
             saw_reset = true;
             break;
         }

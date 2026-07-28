@@ -46,10 +46,35 @@ pub struct AssetScaleVariant {
 }
 
 /// Filename row for a character spritesheet.
+///
+/// `filename` is a BASENAME under the shared sprite folder — the engine's own
+/// convention, and the reason a consumer's art could not get through this seam:
+/// every path was reduced to a basename and rebuilt as
+/// `{sprite_folder}/{filename}`, so an authored `game://sprites/mine.png` came
+/// out as `sprites/game://sprites/mine.png` (GPT 5.6, 2026-07-28).
+///
+/// `qualified` is the escape: a path that already names its own SOURCE
+/// (`game://…`, `embedded://…`) is carried through verbatim and never rebuilt.
+/// A consumer's art keeps its identity from the catalog to the manifest, which
+/// is what "a game gets to own its own art" has to mean past the reader.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CharacterSpriteCatalogRow {
     pub name: String,
     pub filename: String,
+    /// `Some(path)` when the catalog named a source-qualified path. Mutually
+    /// exclusive with the folder convention: when it is set, `filename` is only
+    /// a display echo and the manifest uses this.
+    pub qualified: Option<String>,
+}
+
+/// Does this authored path name its own asset SOURCE?
+///
+/// Bevy's own spelling: `source://path`. Deliberately not a general URL parse —
+/// the question is only whether the author already said where this lives, and
+/// anything with a scheme did.
+pub fn is_source_qualified(path: &str) -> bool {
+    path.split_once("://")
+        .is_some_and(|(scheme, rest)| !scheme.is_empty() && !rest.is_empty())
 }
 
 /// Filename row for a boss spritesheet.

@@ -310,6 +310,36 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         );
     }
 
+    // **WHICH FILE.** The clause this test is named after asks for file, id and
+    // field. The id and the field were always there (the validator says
+    // `character 'x' has empty spritesheet path`); the FILE could not be, because
+    // both seams took an anonymous `&str` and there was nothing in the API to
+    // report (GPT 5.6, 2026-07-28). `from_ron_at` is where an author says where
+    // its text came from, and the diagnostic repeats it back.
+    {
+        let source = "assets/data/outlander_catalog.ron";
+        let mistyped = CharacterCatalogFragment::from_ron_at(
+            source,
+            "outlander",
+            Some("wandrer_typo"),
+            good_ron,
+        )
+        .expect_err("a default character that is not in the fragment must be refused");
+        assert!(
+            mistyped.to_string().contains(source),
+            "the diagnostic does not name the FILE the author has to open, which \
+             is the clause this test exists for: {mistyped}"
+        );
+
+        use ambition::actors::features::CharacterRosterFragment as Roster;
+        let broken = Roster::from_ron_at(source, "outlander", None::<String>, "( roster: {")
+            .expect_err("truncated roster RON must be refused");
+        assert!(
+            broken.to_string().contains(source),
+            "the roster diagnostic does not name the file either: {broken}"
+        );
+    }
+
     // An empty provider id — the mistake a host makes rather than an author.
     let anonymous = CharacterCatalogFragment::from_ron("  ", None::<String>, good_ron)
         .expect_err("an anonymous fragment must be refused");

@@ -151,7 +151,11 @@ fn sandbox_catalog_inputs_without_worlds(
             character_catalog,
         )
         .into_iter()
-        .map(|(name, filename)| CharacterSpriteCatalogRow { name, filename })
+        .map(|(name, filename, qualified)| CharacterSpriteCatalogRow {
+            name,
+            filename,
+            qualified,
+        })
         .collect(),
         boss_sprites: boss_catalog
             .sprite_filenames()

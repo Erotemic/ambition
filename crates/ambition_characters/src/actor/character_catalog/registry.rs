@@ -20,10 +20,56 @@ pub struct CharacterCatalogFragment {
     default_character_id: Option<String>,
     catalog: CharacterCatalogData,
     source_ron: String,
+    /// WHERE the RON came from, for diagnostics — a path, an `include_str!`
+    /// argument, any label the author recognises.
+    ///
+    /// Optional because a fragment can legitimately be built from a literal in
+    /// a test, and `None` reads as "no file to name" rather than as a lie.
+    source: Option<String>,
 }
 
 impl CharacterCatalogFragment {
     pub fn from_ron(
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog_ron: &str,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        Self::build(None, provider_id, default_character_id, catalog_ron)
+    }
+
+    /// The same, plus WHERE the text came from.
+    ///
+    /// Milestone E asked authoring diagnostics to name "which FILE, which ID,
+    /// and which FIELD". The id and the field were already there — the
+    /// validator says `character 'x' has empty spritesheet path` — but nothing
+    /// could name a file, because the API took an anonymous `&str` and there was
+    /// no filename anywhere in it to report (GPT 5.6, 2026-07-28). A caller
+    /// holding an `include_str!` knows the path; this is where it says so.
+    ///
+    /// ```ignore
+    /// CharacterCatalogFragment::from_ron_at(
+    ///     "assets/data/outlander_catalog.ron",
+    ///     "outlander",
+    ///     Some("outlander_wanderer"),
+    ///     include_str!("../assets/data/outlander_catalog.ron"),
+    /// )
+    /// ```
+    pub fn from_ron_at(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog_ron: &str,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        Self::build(
+            Some(source.into()),
+            provider_id,
+            default_character_id,
+            catalog_ron,
+        )
+    }
+
+    fn build(
+        source: Option<String>,
         provider_id: impl Into<String>,
         default_character_id: Option<impl Into<String>>,
         catalog_ron: &str,
@@ -35,6 +81,7 @@ impl CharacterCatalogFragment {
         let catalog = try_parse_catalog(catalog_ron).map_err(|message| {
             CharacterCatalogAssemblyError::MalformedFragment {
                 provider_id: provider_id.clone(),
+                source: source.clone(),
                 message,
             }
         })?;
@@ -42,6 +89,7 @@ impl CharacterCatalogFragment {
         if !validation.is_empty() {
             return Err(CharacterCatalogAssemblyError::InvalidFragment {
                 provider_id,
+                source,
                 errors: validation,
             });
         }
@@ -50,6 +98,7 @@ impl CharacterCatalogFragment {
             if !catalog.characters.contains_key(default_id) {
                 return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
                     provider_id,
+                    source,
                     character_id: default_id.to_string(),
                 });
             }
@@ -59,6 +108,7 @@ impl CharacterCatalogFragment {
             default_character_id,
             catalog,
             source_ron: catalog_ron.to_string(),
+            source,
         })
     }
 
@@ -82,6 +132,7 @@ impl CharacterCatalogFragment {
         if !errors.is_empty() {
             return Err(CharacterCatalogAssemblyError::InvalidFragment {
                 provider_id: self.provider_id.clone(),
+                source: self.source.clone(),
                 errors,
             });
         }
@@ -89,6 +140,7 @@ impl CharacterCatalogFragment {
             if !self.catalog.characters.contains_key(default_id) {
                 return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
                     provider_id: self.provider_id.clone(),
+                    source: self.source.clone(),
                     character_id: default_id.to_string(),
                 });
             }
@@ -269,14 +321,17 @@ pub enum CharacterCatalogAssemblyError {
     },
     MalformedFragment {
         provider_id: String,
+        source: Option<String>,
         message: String,
     },
     InvalidFragment {
         provider_id: String,
+        source: Option<String>,
         errors: Vec<String>,
     },
     MissingDefaultCharacter {
         provider_id: String,
+        source: Option<String>,
         character_id: String,
     },
     DuplicateCharacter {
@@ -285,6 +340,15 @@ pub enum CharacterCatalogAssemblyError {
         second_provider: String,
     },
     InvalidAssembly(Vec<String>),
+}
+
+/// `" (assets/data/x.ron)"`, or nothing when the fragment was built from a
+/// literal and there is no file to name. Never invents a location.
+fn named(source: &Option<String>) -> String {
+    source
+        .as_deref()
+        .map(|source| format!(" ({source})"))
+        .unwrap_or_default()
 }
 
 impl fmt::Display for CharacterCatalogAssemblyError {
@@ -296,25 +360,31 @@ impl fmt::Display for CharacterCatalogAssemblyError {
             }
             Self::MalformedFragment {
                 provider_id,
+                source,
                 message,
             } => write!(
                 f,
-                "character catalog fragment '{provider_id}' is malformed RON: {message}"
+                "character catalog fragment '{provider_id}'{} is malformed RON: {message}",
+                named(source)
             ),
             Self::InvalidFragment {
                 provider_id,
+                source,
                 errors,
             } => write!(
                 f,
-                "character catalog fragment '{provider_id}' is invalid:\n  - {}",
+                "character catalog fragment '{provider_id}'{} is invalid:\n  - {}",
+                named(source),
                 errors.join("\n  - ")
             ),
             Self::MissingDefaultCharacter {
                 provider_id,
+                source,
                 character_id,
             } => write!(
                 f,
-                "character catalog fragment '{provider_id}' names missing default character '{character_id}'"
+                "character catalog fragment '{provider_id}'{} names missing default character '{character_id}'",
+                named(source)
             ),
             Self::DuplicateCharacter {
                 character_id,

@@ -89,8 +89,29 @@ pub(in super::super) fn extend_with_character_entries(
     rows: &[CharacterSpriteCatalogRow],
     scale_variants: &[AssetScaleVariant],
 ) {
-    for CharacterSpriteCatalogRow { name, filename } in rows {
+    for CharacterSpriteCatalogRow {
+        name,
+        filename,
+        qualified,
+    } in rows
+    {
         let id = ids::character_sprite(&name);
+        // A source-qualified path is the author's, verbatim. Rebuilding it under
+        // the shared sprite folder is what turned `game://sprites/mine.png` into
+        // `sprites/game://sprites/mine.png` and made consumer-owned character art
+        // unreachable through the production pipeline (GPT 5.6, 2026-07-28).
+        if let Some(qualified) = qualified {
+            manifest.insert(
+                AssetEntry::new(id, AssetKind::Image, qualified.clone())
+                    .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                    .with_preload_group(PreloadGroup::SandboxCore),
+            );
+            // No scale variants: the `sprites_half/…` twins are generated into
+            // the ENGINE's tree by this repo's own tooling, and inventing that
+            // layout inside somebody else's asset source would be a convention
+            // they never agreed to. A consumer that wants tiers registers them.
+            continue;
+        }
         let logical_path = format!("{sprite_folder}/{filename}");
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
             .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)

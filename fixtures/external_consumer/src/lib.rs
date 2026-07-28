@@ -177,8 +177,13 @@ pub fn install_outlander_content(app: &mut App) {
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
+    // `from_ron_at`, not `from_ron`: these two constants are this crate's
+    // authored content, and when one of them is wrong the message a stranger
+    // reads should say WHERE. The seam took an anonymous `&str` until
+    // 2026-07-28, so no diagnostic could name a file however hard it tried.
     app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
+        CharacterCatalogFragment::from_ron_at(
+            "fixtures/external_consumer/src/lib.rs:OUTLANDER_CATALOG_RON",
             OUTLANDER_EXPERIENCE,
             Some(OUTLANDER_CHARACTER_ID),
             OUTLANDER_CATALOG_RON,
@@ -186,7 +191,8 @@ pub fn install_outlander_content(app: &mut App) {
         .expect("Outlander character catalog should be valid"),
     );
     app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(
+        CharacterRosterFragment::from_ron_at(
+            "fixtures/external_consumer/src/lib.rs:OUTLANDER_ROSTER_RON",
             OUTLANDER_EXPERIENCE,
             None::<String>,
             OUTLANDER_ROSTER_RON,
@@ -486,44 +492,27 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
 /// route table, one session lifecycle, exactly the "visibly and headlessly
 /// from the same content" claim.
 pub fn compose_outlander_shell(app: &mut App) {
-    use ambition::game_shell::{
-        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
-        ShellRouteSpec,
-    };
-
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    // The frontend audio context for launcher/loading frames. Outlander
-    // authors no sounds, so the empty profile keeps those frames silent
-    // rather than inheriting another provider's cached audio.
-    app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
-        OUTLANDER_EXPERIENCE,
-    ));
-    // LEAK CLOSED 2026-07-27. This used to read "`AmbitionLoadPlugin` is NOT added
-    // here, and a second copy is a hard Bevy panic" — an undocumented rule about
-    // which group owes the load coordinator, enforced by a crash. Both in-repo
-    // demos were edited when ownership moved; this fixture, outside the workspace
-    // and invisible to a repo grep, sat red until somebody read the panic.
+    // LEAK CLOSED 2026-07-28, and this fixture is why it was found.
     //
-    // The plugin is idempotent now, so a consumer may add it, omit it, or add it
-    // twice. Added here DELIBERATELY, as the thing under test: an external
-    // consumer stating a dependency it actually has should not have to know which
-    // engine group already satisfied it.
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
-    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
-    app.add_plugins(OutlanderExperiencePlugin);
-
-    app.world_mut()
-        .resource_mut::<ShellRouteCatalog>()
-        .register(ShellRouteSpec::new(
-            OUTLANDER_LAUNCHER_ROUTE,
-            ShellLaunchCatalog::basic_experience_id(),
-        ));
-    app.world_mut()
-        .resource_mut::<ShellHostConfiguration>()
-        .spec = Some(ShellHostSpec::new(
-        OUTLANDER_GAMEPLAY_ROUTE,
+    // These were seven hand-written steps whose ORDER is enforced by a
+    // resource-missing panic, whose load-coordinator rule was documented only in
+    // the comments of hosts that had already been bitten by it, and two of whose
+    // omissions are silent (no frontend audio profile and the launcher inherits
+    // somebody else's cached sound; no host spec and the app boots to a router
+    // pointing nowhere). A third party outside the workspace had to get all
+    // seven right by reading two in-repo demos.
+    //
+    // `ShellComposition` is the answer, and this fixture is its customer: what a
+    // consumer still writes by hand below is what a consumer should still be
+    // DECIDING — its asset source, its foundation, its host group, its own
+    // experience plugin. Outlander authors no sounds, so the default frontend
+    // profile keeps launcher and loading frames silent.
+    ambition::provider::ShellComposition::new(
+        OUTLANDER_EXPERIENCE,
         OUTLANDER_LAUNCHER_ROUTE,
-    ));
+        OUTLANDER_GAMEPLAY_ROUTE,
+    )
+    .install(app, OutlanderExperiencePlugin);
 }
 
 /// Drive one frame of input, through the engine's own driver seam.

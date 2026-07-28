@@ -727,10 +727,40 @@ pub struct CharacterRosterFragment {
     fallback_brain_id: Option<String>,
     by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
     source_ron: String,
+    /// WHERE the RON came from, for diagnostics. See
+    /// [`Self::from_ron_at`]; `None` means "built from a literal", not "unknown".
+    source: Option<String>,
 }
 
 impl CharacterRosterFragment {
     pub fn from_ron(
+        provider_id: impl Into<String>,
+        fallback_brain_id: Option<impl Into<String>>,
+        roster_ron: &str,
+    ) -> Result<Self, CharacterRosterAssemblyError> {
+        Self::build(None, provider_id, fallback_brain_id, roster_ron)
+    }
+
+    /// The same, plus WHERE the text came from — the roster twin of
+    /// `CharacterCatalogFragment::from_ron_at`. An authoring error in a roster
+    /// could name the provider and the brain id but never the file, because the
+    /// API took an anonymous `&str` (GPT 5.6, 2026-07-28).
+    pub fn from_ron_at(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        fallback_brain_id: Option<impl Into<String>>,
+        roster_ron: &str,
+    ) -> Result<Self, CharacterRosterAssemblyError> {
+        Self::build(
+            Some(source.into()),
+            provider_id,
+            fallback_brain_id,
+            roster_ron,
+        )
+    }
+
+    fn build(
+        source: Option<String>,
         provider_id: impl Into<String>,
         fallback_brain_id: Option<impl Into<String>>,
         roster_ron: &str,
@@ -743,6 +773,7 @@ impl CharacterRosterFragment {
             ron::from_str::<std::collections::BTreeMap<String, CharacterArchetypeSpec>>(roster_ron)
                 .map_err(|error| CharacterRosterAssemblyError::MalformedFragment {
                     provider_id: provider_id.clone(),
+                    source: source.clone(),
                     message: error.to_string(),
                 })?;
         let fragment = Self {
@@ -750,6 +781,7 @@ impl CharacterRosterFragment {
             fallback_brain_id: fallback_brain_id.map(Into::into),
             by_brain,
             source_ron: roster_ron.to_string(),
+            source,
         };
         fragment.validate()?;
         Ok(fragment)
@@ -891,6 +923,7 @@ pub enum CharacterRosterAssemblyError {
     },
     MalformedFragment {
         provider_id: String,
+        source: Option<String>,
         message: String,
     },
     MissingFallbackBrain {
@@ -943,10 +976,15 @@ impl std::fmt::Display for CharacterRosterAssemblyError {
             }
             Self::MalformedFragment {
                 provider_id,
+                source,
                 message,
             } => write!(
                 f,
-                "character roster fragment '{provider_id}' is malformed RON: {message}"
+                "character roster fragment '{provider_id}'{} is malformed RON: {message}",
+                source
+                    .as_deref()
+                    .map(|source| format!(" ({source})"))
+                    .unwrap_or_default()
             ),
             Self::MissingFallbackBrain {
                 provider_id,

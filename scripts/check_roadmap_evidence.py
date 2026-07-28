@@ -364,16 +364,36 @@ def main() -> int:
             )
             continue
 
+        # A PLANNING DOCUMENT IS NOT EVIDENCE THAT WORK EXISTS.
+        #
+        # Path evidence used to accept any surviving path, `.md` included, so a
+        # row could claim done while pointing at nothing but another planning
+        # page — and stay green after every line of the implementation it
+        # described was deleted, because the doc it cited was still there (GPT
+        # 5.6, 2026-07-28). Docs are worth citing and are kept in the output as
+        # context; they simply cannot be the thing that makes a row true.
+        doc_paths = {name for name in paths if name.endswith(".md")}
+        impl_paths = paths - doc_paths
+        impl_cited = impl_paths | idents
+        if not impl_cited:
+            problems.append(
+                f"{label}: claims done and cites only planning documents "
+                f"({', '.join(sorted(doc_paths))}). A doc is not an artifact — "
+                "name the test, module, or script that makes this true."
+            )
+            continue
+
         missing = sorted(
-            [name for name in paths if not path_exists(name, Path(args.document))]
+            [name for name in impl_paths if not path_exists(name, Path(args.document))]
             + [name for name in idents if not identifier_exists(name)]
         )
         # One missing citation among many is usually prose (a word in backticks
         # that was never an identifier). ALL of them missing means the row is
-        # pointing at a world that no longer exists.
-        if missing and len(missing) == len(cited):
+        # pointing at a world that no longer exists — and a surviving `.md` no
+        # longer rescues it, which is the whole point of the split above.
+        if missing and len(missing) == len(impl_cited):
             problems.append(
-                f"{label}: claims done and every citation is gone "
+                f"{label}: claims done and every implementation citation is gone "
                 f"from the source: {', '.join(missing)}"
             )
 

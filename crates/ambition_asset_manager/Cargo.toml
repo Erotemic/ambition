@@ -20,7 +20,7 @@ default = []
 
 # Bevy integration: AmbitionAssetManagerPlugin, AmbitionAssetCatalog
 # resource, AssetServer load helpers, and AssetPath generation.
-bevy = ["dep:bevy"]
+bevy = ["dep:bevy", "dep:futures-lite"]
 
 # Optional embedded bundles consumed by the sandbox catalog/source plugin.
 # The consuming game crate forwards these from its platform persona features.
@@ -43,6 +43,10 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_asset",
     "bevy_state",
 ], optional = true }
+# Only for `stream::iter`, to hand `read_directory` a MERGED listing of both
+# layers. Same crate `bevy_asset` already builds its own `PathStream`s with, so
+# this adds nothing to the dependency graph.
+futures-lite = { version = "2", optional = true }
 
 [dev-dependencies]
 # Tests exercise the core layer without Bevy by default; a small set

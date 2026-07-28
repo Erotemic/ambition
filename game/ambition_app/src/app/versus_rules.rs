@@ -284,6 +284,25 @@ pub fn settle_versus_round(
             // the round was already decided (GPT 5.6, 2026-07-27). A fighter could
             // take a hit after losing.
             request_freeze(&mut scale);
+            // AND TAKE THE CONTROLS AWAY, for the same tick and the same reason.
+            //
+            // The freeze is a TARGET: the clock smoother ramps the live scale
+            // toward zero rather than snapping it, deliberately, because a KO
+            // decelerating into the card is the genre's own beat. Nothing else
+            // reads `MatchPhase` — not input, not the brains, not move
+            // triggering, not damage — so for the length of that ramp the
+            // fighters went on accepting control, walking, starting moves and
+            // spawning strikes, after the score had already been incremented and
+            // the winner named (GPT 5.6, 2026-07-27). Slow motion is a feel
+            // decision; deciding a round and then letting it keep being fought
+            // is not.
+            //
+            // `ScriptedControl` is the engine's existing word for "a sequence is
+            // driving this body, it does not answer input", and a KO card is
+            // exactly that sequence. It gates the DECISION and leaves everything
+            // physical alone, so a body already in the air still arcs, a move
+            // already playing still finishes, and both do it decelerating.
+            take_the_controls(&mut commands, fighters.iter().map(|(entity, ..)| entity));
             return;
         }
         MatchPhase::Ko {
@@ -367,6 +386,18 @@ pub fn settle_versus_round(
 /// card is the genre's own beat, it is the same primitive hitstop uses, and an
 /// instant stop is a feel decision this stage has not made. What was a defect is
 /// the tick this is first asked on — see the KO arm.
+/// Stop every fighter from deciding anything until the next round starts.
+///
+/// Paired with the removal in [`begin_round`], and nowhere else: a marker that
+/// suspends control is only as good as the one place that takes it off.
+fn take_the_controls(commands: &mut Commands, fighters: impl Iterator<Item = Entity>) {
+    for fighter in fighters {
+        commands
+            .entity(fighter)
+            .try_insert(ambition::characters::brain::ScriptedControl);
+    }
+}
+
 fn request_freeze(
     scale: &mut MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
 ) {
@@ -386,6 +417,11 @@ fn request_freeze(
 /// had spawned, the shot crossing the stage and the hitstun on the fighter who
 /// ate it are all still there, and they resume into round two — which can kill a
 /// fighter who has not yet been given a chance to move (GPT 5.6, 2026-07-27).
+///
+/// What this function can do ITSELF stops at the engine's own clusters. The
+/// fighters are authored by providers, and a provider's transient state is
+/// reached through [`ae::BodyRestarted`] rather than guessed at from here — see
+/// the trigger below.
 ///
 /// Removing `MovePlayback` is what retires the strike volumes: their existence
 /// is DERIVED from `(owner's playback t, window)` and
@@ -427,7 +463,21 @@ fn begin_round(
         clusters.kinematics.facing = facing;
         commands
             .entity(entity)
-            .try_remove::<ambition::combat::moveset::MovePlayback>();
+            .try_remove::<ambition::combat::moveset::MovePlayback>()
+            // The controls come back HERE and only here — the round is live
+            // again, so the beat that suspended them is over.
+            .try_remove::<ambition::characters::brain::ScriptedControl>();
+        // And the half of the reset this module cannot perform itself.
+        //
+        // `reset_body_clusters` clears every cluster the ENGINE owns. It cannot
+        // clear what a character PROVIDER attached — a ball-dash charge, a
+        // rolling form, a spark cadence — because a ruleset knows neither the
+        // types nor what resetting them means, and this stage exists precisely
+        // to seat fighters from providers it does not know (GPT 5.6,
+        // 2026-07-27). `BodyRestarted` is the announcement; each provider
+        // answers for its own state through an observer, and a body carrying no
+        // provider state costs nothing.
+        commands.trigger(ae::BodyRestarted { entity });
     }
     // Hitstun, recoil lock, i-frames and the damage blink are all round-scoped
     // reactions to a fight that is over.

@@ -420,6 +420,44 @@ impl BodyShieldState {
     }
 }
 
+/// **"This body starts again."** — the half of a reset the engine cannot perform.
+///
+/// [`reset_body_clusters`] clears every cluster the ENGINE owns, and a ruleset
+/// that calls it can honestly say the movement, ability, shield and dodge state
+/// are gone. It cannot say the body is clean, because a character provider may
+/// attach authoritative state of its own — Sanic's ball-dash charge and his
+/// `Rolling` marker, Mary-O's spark cadence — and a generic rule knows neither
+/// the types nor what resetting them means. The versus round boundary claimed
+/// "the whole movement/ability cluster set", which was true, and read as "the
+/// fighter starts clean", which was not (GPT 5.6, 2026-07-27).
+///
+/// So the reset ANNOUNCES itself and each provider answers for its own state.
+/// An entity event rather than a message: it fires at the command flush inside
+/// the tick that reset the body, so no provider has to find a schedule slot
+/// between "the round restarted" and "my systems run again" — the ordering bug
+/// this would otherwise hand to every character author in turn.
+///
+/// Observing it costs a provider one line and is inert for any body that lacks
+/// its components:
+///
+/// ```ignore
+/// app.add_observer(|restart: On<BodyRestarted>, mut dashes: Query<&mut BallDash>| {
+///     if let Ok(mut dash) = dashes.get_mut(restart.entity) {
+///         *dash = BallDash::default();
+///     }
+/// });
+/// ```
+///
+/// This is deliberately NOT triggered from inside [`reset_body_clusters`]: that
+/// function takes borrowed cluster data and no `Commands`, and giving it world
+/// access to gain a trigger would push every caller through a different seam.
+/// The caller that decides a body restarts is the caller that says so.
+#[derive(bevy_ecs::event::EntityEvent, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BodyRestarted {
+    /// The body starting again.
+    pub entity: bevy_ecs::entity::Entity,
+}
+
 /// Reset a live player back to spawn while preserving the
 /// `BodyAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.

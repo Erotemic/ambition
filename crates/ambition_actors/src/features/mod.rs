@@ -424,6 +424,24 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 tick_actor_brains,
+                // The SECOND blanking position, and the one that makes
+                // `ScriptedControl` mean the same thing for every body.
+                //
+                // The first is in `PlayerInputSet::ControlGate`, immediately
+                // after `tick_player_brains` — "the only position where blanking
+                // is observable", which was true of the writer it was placed
+                // against and false of this one. Actor brains write
+                // `ActorControl` HERE, in `WorldPrep`, a whole phase after that
+                // gate, so a CPU-driven body under a scripted beat had its frame
+                // blanked and then immediately refilled with the brain's own
+                // decision. The versus KO card is where that surfaced: the
+                // suspended fighter went on walking and swinging because the
+                // marker only ever suppressed human input (GPT 5.6,
+                // 2026-07-27).
+                //
+                // Before `steer_mount_from_rider` deliberately: a scripted rider
+                // must not steer its mount either.
+                crate::avatar::blank_scripted_control_frames,
                 // ADR 0020: a mount with a rider defers its locomotion to the
                 // rider's brain (the orbit lives on the rider). Runs after the
                 // brain tick (rider control frame fresh) and before the body

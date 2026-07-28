@@ -514,3 +514,53 @@ fn a_ball_launched_off_a_ramp_stays_balled_while_airborne_and_fast() {
     app.update();
     assert!(app.world().get::<Rolling>(e).is_none());
 }
+
+/// **A restarted body is not still holding last round's charge.**
+///
+/// The generic reset an outer ruleset can perform clears the ENGINE's clusters,
+/// and every one of Sanic's verbs lives outside them: a stored charge fires on
+/// the next release edge, and a `Rolling` body starts the next round as a ball
+/// with a borrowed collider. This is the provider's own answer to
+/// `BodyRestarted`, so no ruleset has to know that `BallDash` exists.
+#[test]
+fn a_body_restart_clears_the_charge_the_crouch_edge_and_the_ball_form() {
+    let (mut app, e) = body_app();
+    app.add_observer(clear_ball_dash_on_restart);
+
+    // Rev to a real charge, then roll — the two states a round boundary can
+    // catch him in.
+    set_ball_dash_input(&mut app, e, true, true);
+    app.update();
+    assert!(app.world().get::<BallDash>(e).unwrap().charge > 0.0);
+    set_ball_dash_input(&mut app, e, false, false);
+    app.update();
+    assert!(
+        app.world().get::<Rolling>(e).is_some(),
+        "the launch never balled him up, so the restart below proves nothing"
+    );
+    let standing = app.world().get::<Rolling>(e).unwrap().restore_size;
+    // ...and re-arm a charge on the rolling body, so both halves are live.
+    set_ball_dash_input(&mut app, e, true, true);
+    app.update();
+    assert!(app.world().get::<BallDash>(e).unwrap().charge > 0.0);
+
+    app.world_mut().trigger(ae::BodyRestarted { entity: e });
+    app.update();
+
+    assert_eq!(app.world().get::<BallDash>(e).unwrap().charge, 0.0);
+    assert_eq!(
+        *app.world().get::<BallDashInput>(e).unwrap(),
+        BallDashInput::default(),
+        "the crouch edge survived the restart, so the next round opens on a \
+         release the player never made"
+    );
+    assert!(
+        app.world().get::<Rolling>(e).is_none(),
+        "he started the next round still balled up"
+    );
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(e).unwrap().size,
+        standing,
+        "standing up did not give back the height the roll borrowed"
+    );
+}

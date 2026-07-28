@@ -67,6 +67,25 @@ pub struct MaryOSparkCooldown {
     pub remaining: f32,
 }
 
+/// **Mary-O's answer to "this body starts again".**
+///
+/// The cadence is authoritative sim state that GATES a press, so a body
+/// restarted mid-cooldown comes back unable to fire for up to
+/// [`SPARK_COOLDOWN_S`] — a fighter who opens a round pressing the button and
+/// gets nothing. [`MaryOGait`] is deliberately not touched: every field of it is
+/// re-derived from this tick's control frame, so it has nothing to carry.
+///
+/// Inert for any body without the component, which is what lets this be
+/// registered outside the mode gate.
+pub fn clear_spark_cooldown_on_restart(
+    restart: On<ambition::engine_core::BodyRestarted>,
+    mut cooldowns: Query<&mut MaryOSparkCooldown>,
+) {
+    if let Ok(mut cooldown) = cooldowns.get_mut(restart.entity) {
+        *cooldown = MaryOSparkCooldown::default();
+    }
+}
+
 /// Attach the gait bookkeeping and the authoritative spark cadence to Mary-O's
 /// body the first tick it exists.
 pub fn ensure_gait(

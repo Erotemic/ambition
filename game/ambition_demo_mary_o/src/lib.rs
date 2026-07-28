@@ -1403,6 +1403,11 @@ impl Plugin for MaryORulesPlugin {
                 .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
                 .run_if(ambition::runtime::in_mode(MARY_O_MODE)),
         );
+        // Mary-O's half of a body reset, answered wherever a body is restarted.
+        // Outside the mode gate for the same reason Sanic's is: the observer is
+        // inert without her components, and gating it would make the seam a
+        // no-op in any stage that seats her outside her own level.
+        app.add_observer(movement::clear_spark_cooldown_on_restart);
         let pipe_input = pipe::ensure_pipe_entry_latch
             .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
             .after(ambition::actors::avatar::tick_player_brains)

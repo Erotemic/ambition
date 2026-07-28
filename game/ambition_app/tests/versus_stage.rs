@@ -1006,6 +1006,218 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
     );
 }
 
+/// **A decided round stops being fought.** (GPT 5.6, 2026-07-27)
+///
+/// `a_knockout_freezes_the_fight_until_the_next_round` asserts the clock, and
+/// the clock is a RAMP: the KO asks for scale zero and the smoother slides down
+/// to it over the following second, which is the genre's own beat and staying.
+/// What was wrong is that nothing else changed on the tick the round was
+/// decided. Nothing reads `MatchPhase` — not input, not the brains, not move
+/// triggering — so for the length of that ramp both fighters went on accepting
+/// control, walking and swinging, after the score had been incremented and the
+/// winner named.
+///
+/// Asserted on the CPU fighter specifically, because that is the half that was
+/// hardest to fix: `ScriptedControl` was blanked only after the PLAYER brains,
+/// in `PlayerInput`, and actor brains write their frame a whole phase later in
+/// `WorldPrep`. A marker that suppresses humans and not opponents suspends
+/// nothing in a stage whose default mode is player-versus-CPU.
+#[test]
+fn a_decided_round_takes_the_controls_away() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::control::ActorControlFrame;
+    use ambition::characters::actor::BodyHealth;
+    use ambition::characters::brain::{ActorControl, ScriptedControl};
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let seat = |app: &mut App, want: usize| -> Entity {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == want)
+            .map(|(entity, _)| entity)
+            .expect("both seats are filled")
+    };
+    // Seat 1 is the CPU with no second pad connected; seat 0 is the human.
+    let cpu = seat(&mut app, 1);
+    let human = seat(&mut app, 0);
+
+    // The control this test is about has to EXIST while the round is live,
+    // otherwise "it went neutral" below is a fact about a fighter who was doing
+    // nothing anyway.
+    let mut acted_while_fighting = false;
+    for _ in 0..60 {
+        app.update();
+        if app.world().get::<ActorControl>(cpu).unwrap().0 != ActorControlFrame::neutral() {
+            acted_while_fighting = true;
+            break;
+        }
+    }
+    assert!(
+        acted_while_fighting,
+        "the CPU never produced a control frame during the round, so this test \
+         cannot tell a suspended fighter from an idle one"
+    );
+    assert!(
+        app.world().get::<ScriptedControl>(cpu).is_none(),
+        "the fighters were already suspended while the round was live"
+    );
+
+    // Decide the round on the HUMAN's seat, so the fighter under test is alive
+    // and still has every reason to keep playing.
+    app.world_mut()
+        .get_mut::<BodyHealth>(human)
+        .unwrap()
+        .health
+        .current = 0;
+    app.update();
+    assert!(
+        matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Ko { .. } | MatchPhase::Won { .. }
+        ),
+        "the fixture never decided the round"
+    );
+    assert!(
+        app.world().get::<ScriptedControl>(cpu).is_some(),
+        "the round was decided and the surviving fighter still answers input"
+    );
+
+    // Not "the frame happens to be neutral" — WRITE a full-throttle attacking
+    // frame and watch it be taken away again. That is the difference between a
+    // fighter who has stopped and one who has not been asked to.
+    for _ in 0..3 {
+        let mut control = app.world_mut().get_mut::<ActorControl>(cpu).unwrap();
+        control.0.locomotion = Vec2::new(1.0, 0.0);
+        control.0.melee_pressed = true;
+        app.update();
+        let frame = app.world().get::<ActorControl>(cpu).unwrap().0;
+        assert_eq!(
+            frame,
+            ActorControlFrame::neutral(),
+            "a fighter kept its control frame after the round was decided: \
+             {frame:?} — it is still walking and swinging under the KO card"
+        );
+    }
+
+    // And it gets them back, or round two is unplayable.
+    for _ in 0..900 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ) {
+            break;
+        }
+    }
+    assert!(
+        app.world().get::<ScriptedControl>(cpu).is_none(),
+        "the next round started with the fighters still suspended"
+    );
+}
+
+/// **A round boundary tells the fighter's PROVIDER to reset its own state.**
+/// (GPT 5.6, 2026-07-27)
+///
+/// `begin_round` restores health, position, facing and every engine-owned body
+/// cluster, and its comment claimed that as a clean start. It is not one for a
+/// fighter authored by a provider: Sanic's ball-dash charge and rolling form and
+/// Mary-O's spark cadence are components this module has never heard of, and a
+/// round that begins with a stored charge begins with a free launch.
+///
+/// The seam is `BodyRestarted`, and this test stands in for a provider rather
+/// than importing one — which is the point. Any crate that attaches state to a
+/// body gets the announcement and answers for itself, without the ruleset
+/// learning a single provider type.
+#[test]
+fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
+
+    /// Stands in for `BallDash::charge` — provider-owned, transient, and the
+    /// kind of state a generic reset cannot name.
+    #[derive(Component)]
+    struct ProviderCharge(f32);
+
+    let mut app = versus_app();
+    app.add_observer(
+        |restart: On<ambition::engine_core::BodyRestarted>,
+         mut charges: Query<&mut ProviderCharge>| {
+            if let Ok(mut charge) = charges.get_mut(restart.entity) {
+                charge.0 = 0.0;
+            }
+        },
+    );
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        if q.iter(world).count() == 2 {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("two seats")
+    };
+
+    app.world_mut()
+        .entity_mut(seat_one)
+        .insert(ProviderCharge(1.0));
+    app.world_mut()
+        .get_mut::<BodyHealth>(seat_one)
+        .unwrap()
+        .health
+        .current = 0;
+
+    for _ in 0..900 {
+        app.update();
+        if matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting { .. }
+        ) {
+            break;
+        }
+    }
+    assert!(
+        app.world().get::<BodyHealth>(seat_one).unwrap().current() > 0,
+        "the round never restarted, so nothing here is under test"
+    );
+    assert_eq!(
+        app.world().get::<ProviderCharge>(seat_one).unwrap().0,
+        0.0,
+        "the next round began with the fighter's provider-owned state intact — \
+         a charge stored in the round that ended is a free launch in the round \
+         that starts"
+    );
+}
+
 /// **The health readout is a GAUGE, and it tracks damage.** (queue L18)
 ///
 /// The declared HUD published strings and nothing else, so a health readout

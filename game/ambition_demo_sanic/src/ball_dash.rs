@@ -394,6 +394,39 @@ pub fn tick_rolling(
     }
 }
 
+/// **Sanic's answer to "this body starts again".**
+///
+/// The engine's own reset clears the engine's own clusters, which is everything
+/// it can honestly clear: a charge stored in [`BallDash`], the crouch edge in
+/// [`BallDashInput`] and the [`Rolling`] form are Sanic's state, authored here,
+/// and no generic ruleset can know they exist. Without this, a body restarted
+/// mid-rev came back holding the charge and fired it on the next release edge,
+/// or came back still balled up (GPT 5.6, 2026-07-27).
+///
+/// An observer rather than a system, so it lands inside whichever tick did the
+/// restarting no matter which schedule slot that caller occupies — and it is
+/// inert for every body that is not Sanic, which is why it can be registered
+/// unconditionally.
+///
+/// Standing up restores the size the roll borrowed, exactly as [`tick_rolling`]
+/// does: [`Rolling`] carries that size precisely so nobody has to re-derive it.
+pub fn clear_ball_dash_on_restart(
+    restart: On<ae::BodyRestarted>,
+    mut commands: Commands,
+    mut charges: Query<(&mut BallDash, &mut BallDashInput)>,
+    mut rolls: Query<(&Rolling, &mut ae::BodyKinematics)>,
+) {
+    let body = restart.entity;
+    if let Ok((mut dash, mut input)) = charges.get_mut(body) {
+        *dash = BallDash::default();
+        *input = BallDashInput::default();
+    }
+    if let Ok((rolling, mut kin)) = rolls.get_mut(body) {
+        kin.size = rolling.restore_size;
+        commands.entity(body).remove::<Rolling>();
+    }
+}
+
 /// Mirror the physical roll authority (the [`Rolling`] component that shrinks the
 /// body) onto the presentation fact the ONE animation picker reads, so a balled-up
 /// Sanic plays his looping `ball` row instead of a squished run. Per-frame

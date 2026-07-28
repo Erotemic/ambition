@@ -956,6 +956,14 @@ impl Plugin for SanicRulesPlugin {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
+        // Sanic's half of a body reset, answered wherever a body is restarted —
+        // a versus round boundary, a respawn, anything that says so. Registered
+        // unconditionally and outside the mode gate on purpose: an observer that
+        // only fires on `BodyRestarted` and only touches Sanic's own components
+        // is inert for every other body, and gating it on the Sanic mode would
+        // silently make the seam a no-op in exactly the crossover stage that
+        // needs it.
+        app.add_observer(ball_dash::clear_ball_dash_on_restart);
         // BEFORE the persona gate: attach the mode-local state + DECLARE the
         // spin-dash technique on the Attack slot, so the shared resolver inside
         // `gate_worn_player_control` resolves Attack -> `Technique("spin_dash")`

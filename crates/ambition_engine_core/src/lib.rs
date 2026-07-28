@@ -59,7 +59,7 @@ pub use body_clusters::{
     BodyClusterQueryDataItem, BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyKinematics, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense,
-    BodyShieldState, BodyWallState, SweepSample,
+    BodyRestarted, BodyShieldState, BodyWallState, SweepSample,
 };
 pub use combat_volume::CombatVolume;
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on

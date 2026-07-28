@@ -14,9 +14,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from ambition_ldtk_tools.area_authoring import build_level, load_project
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LDTK_PATH = REPO_ROOT / "crates" / "ambition_content" / "assets" / "worlds" / "sandbox.ldtk"
+LDTK_PATH = default_sandbox_ldtk()
 
 
 def _fields(entity: dict) -> dict:

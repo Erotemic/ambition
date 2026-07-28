@@ -224,6 +224,17 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     if not only:
         jobs.append(Job("repo tooling (scripts/tests)",
                         [sys.executable, "-m", "pytest", "scripts/tests", "-q"]))
+        # The LDtk AUTHORING toolchain, which is the path every room in the
+        # game is built through and was the second Python suite nothing ran.
+        # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset
+        # paths that moved out of `crates/ambition_actors/assets` -- and the
+        # tools themselves defaulted to the same dead path, so a bare
+        # `ldtk level set-field` opened a file that had not existed for weeks.
+        # The lesson is the same one the job above records: a suite nobody
+        # executes stops being a suite and becomes a document about the past.
+        jobs.append(Job("ldtk authoring tools (tools/ambition_ldtk_tools)",
+                        [sys.executable, "-m", "pytest", "tests", "-q"],
+                        cwd=str(REPO / "tools" / "ambition_ldtk_tools")))
 
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)

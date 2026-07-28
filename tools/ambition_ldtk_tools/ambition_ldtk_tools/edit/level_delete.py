@@ -34,6 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 
 from ambition_ldtk_tools.edit.postprocess import run_repair_and_validate
 from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def _remove_level(project: dict, level_id: str) -> dict:
@@ -71,13 +72,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--output", type=Path, default=None)

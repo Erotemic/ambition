@@ -51,6 +51,7 @@ from ambition_ldtk_tools.edit.set_field import (  # noqa: E402
     load_spec,
     _entity_field_value,
 )
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def select_for_delete(layer: dict, target: dict, all_matching: bool) -> list[dict]:
@@ -90,13 +91,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--output", type=Path, default=None)

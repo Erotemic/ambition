@@ -30,16 +30,9 @@ from ambition_ldtk_tools.area_authoring import load_project  # noqa: E402
 from ambition_ldtk_tools.edit.intgrid import find_intgrid_layer  # noqa: E402
 from ambition_ldtk_tools.edit.query import collect  # noqa: E402
 from ambition_ldtk_tools.edit.set_field import find_level  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
-DEFAULT_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+DEFAULT_LDTK = default_sandbox_ldtk()
 
 SOLID_VALUE = 1
 

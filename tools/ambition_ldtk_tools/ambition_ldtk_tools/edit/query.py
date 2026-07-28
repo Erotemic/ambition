@@ -49,6 +49,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 from ambition_ldtk_tools.area_authoring import load_project  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def _entity_field_dict(entity: dict) -> dict:
@@ -179,13 +180,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument(
         "--level",

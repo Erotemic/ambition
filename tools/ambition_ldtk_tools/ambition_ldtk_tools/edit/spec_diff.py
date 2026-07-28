@@ -35,6 +35,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -108,13 +109,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
         help="Path to the live .ldtk file (default: sandbox.ldtk).",
     )
     parser.add_argument(

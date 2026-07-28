@@ -21,18 +21,11 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 # tools/ambition_ldtk_tools/tests/test_area_authoring_smoke.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LDTK_PATH = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+LDTK_PATH = default_sandbox_ldtk()
 PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 
 # Minimal but realistic: a PlayerStart, a floor solid, a loading zone back

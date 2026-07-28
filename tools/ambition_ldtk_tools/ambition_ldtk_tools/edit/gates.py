@@ -25,16 +25,9 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 
 from ambition_ldtk_tools.area_authoring import load_project  # noqa: E402
 from ambition_ldtk_tools.edit.query import collect  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
-DEFAULT_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+DEFAULT_LDTK = default_sandbox_ldtk()
 
 SWITCH_TYPES = {"Switch"}
 LOCK_TYPES = {"LockWall"}

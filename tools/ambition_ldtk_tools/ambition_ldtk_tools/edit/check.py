@@ -47,6 +47,7 @@ from ambition_ldtk_tools.edit.set_field import (  # noqa: E402
     find_ambition_layer,
     find_level,
 )
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def _rects_overlap(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
@@ -80,13 +81,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument("--level", required=True, help="level identifier")
     parser.add_argument("--px", required=True, help="top-left X,Y of the rect to check")

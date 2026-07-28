@@ -45,6 +45,7 @@ from ambition_ldtk_tools.edit.set_field import (  # noqa: E402
     find_level,
     select_entities,
 )
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def _grid_size(project: dict, level: dict) -> int:
@@ -59,13 +60,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument("--level", required=True, help="Level (room) identifier")
     parser.add_argument("--iid", help="Target entity iid (preferred)")

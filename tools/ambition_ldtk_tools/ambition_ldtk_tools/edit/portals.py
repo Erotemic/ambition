@@ -35,17 +35,10 @@ from ambition_ldtk_tools.area_authoring import (
     write_project,
 )
 from ambition_ldtk_tools.edit.entities import find_ambition_layer, find_level
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-DEFAULT_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+DEFAULT_LDTK = default_sandbox_ldtk()
 
 # The named complementary pairs (mirrors PortalChannelColor::partner in Rust).
 NAMED_PARTNER = {

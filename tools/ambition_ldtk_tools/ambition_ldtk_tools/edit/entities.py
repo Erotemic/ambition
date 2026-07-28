@@ -51,6 +51,7 @@ from ambition_ldtk_tools.area_authoring import (  # noqa: E402
     load_project,
     write_project,
 )
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def load_spec(path: Path) -> dict:
@@ -87,13 +88,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     parser.add_argument("--in-place", action="store_true")
     parser.add_argument("--output", type=Path, default=None)

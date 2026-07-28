@@ -35,21 +35,14 @@ PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 sys.path.insert(0, str(PKG_ROOT))
 
 from ambition_ldtk_tools.validate import validate  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 
 def _load_real_project() -> dict:
     """Use the real sandbox.ldtk defs (they have all the entity / field
     UIDs the validator looks up) so the synthetic project under test
     only differs in its levels."""
-    src = (
-        REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk"
-    )
+    src = default_sandbox_ldtk()
     return json.loads(src.read_text())
 
 

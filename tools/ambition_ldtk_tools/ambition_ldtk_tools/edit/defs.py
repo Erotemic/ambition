@@ -74,19 +74,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 # tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/defs.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PKG_DIR = Path(__file__).resolve().parents[1]
-SANDBOX_LDTK = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_actors"
-    / "assets"
-    / "ambition"
-    / "worlds"
-    / "sandbox.ldtk"
-)
+SANDBOX_LDTK = default_sandbox_ldtk()
 VALIDATOR = PKG_DIR / "validate.py"
 RUNTIME_RS = (
     REPO_ROOT

@@ -18,9 +18,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 
 from ambition_ldtk_tools.ron_parse import load  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_content_assets_dir  # noqa: E402
 
 BOSS_DIR = (
-    REPO_ROOT / "crates" / "ambition_actors" / "assets" / "data" / "boss_encounters"
+    default_content_assets_dir() / "data" / "boss_encounters"
 )
 
 REQUIRED_FIELDS = {

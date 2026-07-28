@@ -45,6 +45,7 @@ from ambition_ldtk_tools.area_authoring import (  # noqa: E402
     write_project,
 )
 from ambition_ldtk_tools.edit.set_field import find_level  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 
 # IntGrid layer value → identifier lookup. Mirrored from sandbox.ldtk's
 # defs.layers; kept here so we can pretty-print rather than show raw ints.
@@ -323,13 +324,7 @@ def _add_shared_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--ldtk",
         type=Path,
-        default=REPO_ROOT
-        / "crates"
-        / "ambition_actors"
-        / "assets"
-        / "ambition"
-        / "worlds"
-        / "sandbox.ldtk",
+        default=default_sandbox_ldtk(),
     )
     p.add_argument(
         "--layer",

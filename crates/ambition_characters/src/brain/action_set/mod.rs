@@ -24,7 +24,7 @@ use bevy::ecs::component::Component;
 ///
 /// Construct via [`ActionSet::peaceful`] for a "no attacks" baseline
 /// and override only the slots that exist for this actor.
-#[derive(Component, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct ActionSet {
     /// What `frame.melee_pressed = true` resolves to. `None` means
     /// the actor has no melee at all (peaceful patroller, puppy slug,

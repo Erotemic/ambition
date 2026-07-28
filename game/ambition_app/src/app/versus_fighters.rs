@@ -30,6 +30,7 @@
 //! not a placeholder pretending to be art.
 
 use ambition::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
+use ambition::characters::brain::ActionSet;
 use ambition::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
@@ -211,6 +212,17 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             // rather than a coin flip — one exchange deciding the match is not a
             // fighting game, it is a duel of who pressed first.
             .with_health(60, 1.0)
+            // EMPTY, and authored here rather than left to the catalog row.
+            //
+            // Everything these fighters do is on the moveset below. The action
+            // set says what a body REACHES FOR — what the brain believes it can
+            // press — and theirs is nothing beyond it. Saying so on the
+            // definition is the point: the row used to carry an
+            // `authored_elsewhere` preset whose own comment admitted it was a
+            // second opinion that never wins, and a second opinion that never
+            // wins still reads as the real kit to whoever finds it first
+            // (C3 / GPT 5.6, 2026-07-28).
+            .with_action_set(ActionSet::default())
             .with_moveset(duelist_moveset(LONG_GUARD))
             .with_hurtboxes(duelist_hurtboxes(LONG_GUARD)),
         // A rushdown fighter. Shorter reach, a faster smash — has to get inside
@@ -220,6 +232,7 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             // Slightly frailer than the long guard, to pay for getting to swing
             // faster. Same round length, different price.
             .with_health(52, 0.9)
+            .with_action_set(ActionSet::default())
             .with_moveset(duelist_moveset(CLOSE_GUARD))
             .with_hurtboxes(duelist_hurtboxes(CLOSE_GUARD)),
     ]
@@ -255,10 +268,13 @@ impl WithHealth for CharacterDefinition {
 pub const VERSUS_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
-        // Empty ON PURPOSE. Every attack these fighters have is authored on
-        // their `CharacterDefinition` moveset, which the persona derive prefers
-        // over the catalog-derived one — so an `ActionSet` melee here would be
-        // a second opinion that never wins and would read as the real kit.
+        // A required FIELD on every row, and no longer this character's kit.
+        //
+        // Both fighters author an explicit empty `ActionSet` on their
+        // `CharacterDefinition`, which outranks anything here (C3). This exists
+        // because the row schema demands a `default_action_set` name, and it is
+        // empty so that the two authorities cannot disagree while the catalog
+        // is still an input to preparation.
         "authored_elsewhere": (
             move_style: Walk,
             melee: None,

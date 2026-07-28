@@ -966,3 +966,194 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
          it straight back"
     );
 }
+
+// ── C3: the definition's action set outranks the catalog row's ───────────────
+//
+// The moveset already outranked it. The action set did not, and the split was
+// the identity bug: a definition could author what moves EXIST while the catalog
+// separately decided what the body and the AI believed the body could reach for
+// (GPT 5.6, 2026-07-28).
+
+/// A catalog whose row hands `id` a real melee kit.
+fn catalog_granting_melee(id: &str) -> CharacterCatalog {
+    use ambition_characters::actor::character_catalog::parse_catalog;
+    let ron = format!(
+        r#"(
+            brain_presets: {{ "stand_still": StandStill }},
+            action_set_presets: {{
+                "brawler": (
+                    move_style: Walk,
+                    melee: Some(Swipe(
+                        windup_s: 0.28, active_s: 0.08, recover_s: 0.32,
+                        damage: 3, reach_px: 40.0,
+                    )),
+                ),
+            }},
+            characters: {{
+                "{id}": (
+                    display_name: "Catalog Says Brawler",
+                    spritesheet: "sprites/robot_spritesheet.png",
+                    manifest: "sprites/robot_spritesheet.ron",
+                    tier: Basement,
+                    body_kind: Standard,
+                    composition: None,
+                    default_brain: "stand_still",
+                    default_action_set: "brawler",
+                    playable_kit: Authored,
+                    tags: [],
+                ),
+            }},
+        )"#
+    );
+    CharacterCatalog::from_data(parse_catalog(&ron))
+}
+
+/// Run the one production writer and hand back what it put on the body.
+fn wear(
+    catalog: &CharacterCatalog,
+    registry: &crate::character_runtime::PreparedCharacterRegistry,
+    id: &str,
+) -> (ActionSet, ActorMoveset) {
+    let mut name = Name::new("placeholder");
+    let mut action_set = ActionSet::default();
+    let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
+    let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
+    crate::avatar::apply_worn_character_overlay(
+        catalog,
+        Some(registry),
+        &mut name,
+        &mut action_set,
+        &mut moveset,
+        &mut identity,
+        id,
+        ambition_engine_core::AbilitySet::default(),
+    );
+    assert_eq!(
+        identity.action_set, action_set,
+        "the identity BASELINE and the live set disagreed at publication — \
+         `reconcile_equipment_grants` re-derives from the baseline, so this is \
+         how a granted verb gets erased and a revoked one cannot be taken back"
+    );
+    (action_set, moveset)
+}
+
+fn prepared(
+    definition: crate::character_runtime::CharacterDefinition,
+) -> crate::character_runtime::PreparedCharacterRegistry {
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    registry.insert_prepared(
+        crate::character_runtime::prepare_character(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        )
+        .prepared,
+    );
+    registry
+}
+
+#[test]
+fn an_action_set_authored_on_the_definition_beats_the_catalog_row() {
+    use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+
+    let catalog = catalog_granting_melee("duellist");
+    let authored = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            damage: 9,
+            reach_px: 999.0,
+            ..SwipeSpec::STRIKER_DEFAULT
+        })),
+        ..ActionSet::default()
+    };
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("duellist", "Duellist", "demo")
+            .with_action_set(authored),
+    );
+
+    let (set, _) = wear(&catalog, &registry, "duellist");
+
+    match set.melee {
+        Some(MeleeActionSpec::Swipe(swipe)) => assert_eq!(
+            swipe.damage, 9,
+            "the catalog row's kit won: the definition authored damage 9 and the \
+             body is swinging the row's 3"
+        ),
+        other => panic!("the authored melee did not reach the body: {other:?}"),
+    }
+}
+
+#[test]
+fn an_authored_empty_action_set_is_not_the_same_as_authoring_nothing() {
+    // Sanic. His kit IS the momentum ride and the ball dash; giving him a punch
+    // to fill a slot would be authoring against the design (queue C3).
+    //
+    // So `Some(ActionSet::default())` has to survive as a DECISION. A resolver
+    // that asks "does this set look empty?" instead of "did anybody author one?"
+    // falls through to the catalog and hands him the row's melee — and the whole
+    // reason this field is an `Option` is to make that unrepresentable.
+    let catalog = catalog_granting_melee("speedster");
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("speedster", "Speedster", "demo")
+            .with_action_set(ActionSet::default()),
+    );
+
+    let (set, moveset) = wear(&catalog, &registry, "speedster");
+
+    assert!(
+        set.melee.is_none(),
+        "an author who wrote an empty action set was overruled by the catalog \
+         row, so 'this character reaches for nothing' and 'this character was \
+         never described' resolve identically: {:?}",
+        set.melee
+    );
+    assert!(
+        moveset.0.moves.is_empty(),
+        "and the moveset derived from the DISPLACED catalog value: {:?}",
+        moveset.0.moves.iter().map(|m| &m.id).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn a_definition_with_no_action_set_still_falls_through_to_the_catalog() {
+    // The other half of the same claim, and the one that keeps this migration
+    // safe: every character that has not authored a set must behave exactly as
+    // it did before this existed.
+    use ambition_characters::brain::action_set::MeleeActionSpec;
+
+    let catalog = catalog_granting_melee("inheritor");
+    let registry = prepared(crate::character_runtime::CharacterDefinition::new(
+        "inheritor",
+        "Inheritor",
+        "demo",
+    ));
+
+    let (set, _) = wear(&catalog, &registry, "inheritor");
+
+    match set.melee {
+        Some(MeleeActionSpec::Swipe(swipe)) => assert_eq!(swipe.damage, 3),
+        other => panic!("an unauthored character stopped inheriting its row: {other:?}"),
+    }
+}
+
+#[test]
+fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set() {
+    // The precise bug GPT 5.6 named. Precedence alone is not enough: if the
+    // action set is resolved and the moveset is then derived from the value the
+    // resolution DISPLACED, the body reaches for capabilities its own definition
+    // removed. Empty authored set + catalog melee is the case that tells the two
+    // implementations apart — deriving from the winner yields no moves, deriving
+    // from the loser yields the row's swipe.
+    let catalog = catalog_granting_melee("minimalist");
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("minimalist", "Minimalist", "demo")
+            .with_action_set(ActionSet::default()),
+    );
+
+    let (_, moveset) = wear(&catalog, &registry, "minimalist");
+
+    assert!(
+        moveset.0.moves.is_empty(),
+        "the moveset was derived from the catalog action set the definition had \
+         already displaced: {:?}",
+        moveset.0.moves.iter().map(|m| &m.id).collect::<Vec<_>>()
+    );
+}

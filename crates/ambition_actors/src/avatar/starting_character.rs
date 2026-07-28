@@ -244,23 +244,49 @@ fn apply_worn_character_kit(
 ) -> bool {
     let source = catalog.playable_kit_source(character_id);
     let authored = catalog.build_default_action_set(character_id);
-    if matches!(
-        source,
-        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
-    ) && authored.is_none()
-    {
-        bevy::log::error!(
-            "worn character '{character_id}' declares an Authored playable kit but its \
-             default_action_set does not resolve; installing a safe peaceful kit"
-        );
-    } else if source.is_none() {
-        bevy::log::warn_once!(
-            "worn character id '{character_id}' is not in the catalog; wearing the \
-             code-side compatibility kit and showing the id as the display name"
-        );
+    let prepared = registry.and_then(|registry| registry.get(character_id));
+
+    // **The DEFINITION's action set outranks the catalog row's.** (C3)
+    //
+    // It already outranked it for the moveset, and the split was the identity
+    // bug: a definition could author what moves EXIST while the catalog
+    // separately decided what the body and the AI believed the body could reach
+    // for. A ranged move then depended on a projectile specification owned by a
+    // different authority entirely (GPT 5.6, 2026-07-28).
+    //
+    // `Some(empty)` is NOT `None`. An author writing an empty action set has
+    // said "this character reaches for nothing" — Sanic's kit is the momentum
+    // ride and the ball dash — and collapsing that into "unauthored" would fall
+    // through to the catalog and hand him a punch. Which is why this matches on
+    // the Option rather than asking whether the set looks empty.
+    let prepared_action_set = prepared.and_then(|prepared| prepared.action_set.clone());
+
+    if prepared_action_set.is_none() {
+        if matches!(
+            source,
+            Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
+        ) && authored.is_none()
+        {
+            bevy::log::error!(
+                "worn character '{character_id}' declares an Authored playable kit but its \
+                 default_action_set does not resolve; installing a safe peaceful kit"
+            );
+        } else if source.is_none() {
+            bevy::log::warn_once!(
+                "worn character id '{character_id}' is not in the catalog; wearing the \
+                 code-side compatibility kit and showing the id as the display name"
+            );
+        }
     }
 
-    let (set, charges_projectiles) = resolve_playable_action_set(source, authored, base_abilities);
+    let definition_authored_the_kit = prepared_action_set.is_some();
+    let (set, charges_projectiles) = match prepared_action_set {
+        // A prepared set is the whole answer. `charges_projectiles` is a
+        // question about the CODE-SIDE compat kit's charge mechanic, and a
+        // character that authored its own capabilities is not wearing that kit.
+        Some(set) => (set, false),
+        None => resolve_playable_action_set(source, authored, base_abilities),
+    };
     // Fold `ActionSet.special` into a real `"special"`-verb move ONLY for the
     // HostCode / compat player kit, whose special is a capability marker
     // (bubble_shield) with no authored move. AUTHORED personas — bosses and other
@@ -268,10 +294,18 @@ fn apply_worn_character_kit(
     // (`dispatch_boss_special` / signature moves), so folding a generic shell move
     // here would CONFLICT: a possessed boss's `special_pressed` would fire the
     // shell instead of (or on top of) its authored special.
-    let wears_host_code_kit = !matches!(
-        source,
-        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
-    );
+    //
+    // A character whose DEFINITION authored the action set is authored by the
+    // same reasoning, and asking the catalog row would be the displaced
+    // authority still deciding: the row says `HostCode` for a body whose kit it
+    // no longer supplies, so the shell special would be folded in on top of the
+    // authored one and the robot blade's cues would be handed to somebody
+    // else's protagonist.
+    let wears_host_code_kit = !definition_authored_the_kit
+        && !matches!(
+            source,
+            Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
+        );
     let special = if wears_host_code_kit {
         set.special.as_ref()
     } else {
@@ -294,10 +328,14 @@ fn apply_worn_character_kit(
     // something". It happens HERE, before the identity baseline is published, so
     // `reconcile_equipment_grants` overlays equipment onto the prepared moves
     // instead of onto a moveset that is about to be overwritten behind it.
-    if let Some(prepared) = registry
-        .and_then(|registry| registry.get(character_id))
-        .and_then(|prepared| prepared.moveset.clone())
-    {
+    //
+    // Note what `derived` is when this does NOT fire: a moveset built from the
+    // WINNING action set a few lines up, not from the catalog value the winner
+    // displaced. A prepared action set with no prepared moveset is the case that
+    // distinguishes the two, and deriving from the loser there is the precise
+    // bug GPT 5.6 named on 2026-07-28 — the body would reach for capabilities
+    // its own definition removed.
+    if let Some(prepared) = prepared.and_then(|prepared| prepared.moveset.clone()) {
         derived = prepared;
     }
     // Publish what IDENTITY alone derived, before any equipment overlay. This is

@@ -40,7 +40,22 @@ def _has_pkg(jobs, pkg):
 def test_workspace_backbone_when_unfiltered():
     jobs = rt.build_jobs([], heavy=False, libtest_args=[])
     assert jobs, "unfiltered run must plan at least the workspace backbone"
-    assert "--workspace" in jobs[0].argv
+    assert any("--workspace" in a for a in _argvs(jobs))
+
+
+def test_repo_tooling_runs_first_and_only_unfiltered():
+    """`scripts/tests/` guards the goal guard, this runner, and the absence
+    contracts, and it was invisible to a cargo-only plan — one of its tests had
+    been red for a day because nothing ran it (2026-07-28).
+
+    FIRST, because if the thing that decides whether the suite is honest is
+    broken, that is the answer rather than the forty minutes of cargo behind it.
+    Not under a package filter: `-p some_crate` is a question about that crate."""
+    jobs = rt.build_jobs([], heavy=False, libtest_args=[])
+    assert jobs[0].argv[1:] == ["-m", "pytest", "scripts/tests", "-q"]
+
+    filtered = rt.build_jobs([KNOWN[0]], heavy=False, libtest_args=[])
+    assert all("pytest" not in a for a in _argvs(filtered))
 
 
 def test_selected_package_always_gets_a_default_job():
@@ -66,8 +81,12 @@ def test_fast_honors_package_filter():
 
 def test_fast_unfiltered_is_workspace_backbone():
     jobs = rt.build_jobs([], heavy=False, libtest_args=[], fast=True)
-    assert len(jobs) == 1
-    assert "--workspace" in jobs[0].argv
+    # The repo-tooling job plus the workspace backbone. Tooling is in the
+    # backbone deliberately: it costs ~3s and it is what the rest of the plan is
+    # trusted through.
+    assert len(jobs) == 2
+    assert any("--workspace" in a for a in _argvs(jobs))
+    assert all("--features" not in a for a in _argvs(jobs)), "--fast drops feature jobs"
 
 
 def test_multiple_packages_each_get_a_job():

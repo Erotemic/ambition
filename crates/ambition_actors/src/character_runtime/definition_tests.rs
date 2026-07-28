@@ -358,6 +358,12 @@ fn a_definition_carries_no_controller_binding() {
         hurtboxes: _,
         vitals: _,
         moveset: _,
+        // A CAPABILITY, not a controller binding, and the distinction is the
+        // whole of §4.7: this says what the body can reach for, and says nothing
+        // about who decides to reach. A human and a CPU wearing this character
+        // get the identical action set — which is exactly why it belongs on the
+        // definition and `default_brain` does not.
+        action_set: _,
     } = def;
 }
 
@@ -544,4 +550,99 @@ fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
             prepared.report.unresolved()
         );
     }
+}
+
+/// **A ranged move needs something to throw, and the two halves live apart.**
+///
+/// The projectile specification is on the ACTION SET; the move that fires it is
+/// on the MOVESET. Once a definition can author both (C3 precedence), it can
+/// author a `ranged` verb and an action set with no ranged payload — and each
+/// half is individually valid. The verb is real, the move is real, the set is
+/// real, and the button does nothing.
+///
+/// Only preparation holds both, so only preparation can see it (GPT 5.6,
+/// 2026-07-28).
+#[test]
+fn an_authored_ranged_move_with_no_ranged_payload_is_reported() {
+    use ambition_characters::brain::ActionSet;
+
+    let ranged_move = CharacterDefinition::new("gunner", "Gunner", "demo")
+        .with_action_set(ActionSet::default())
+        .with_moveset(moveset_with(
+            &[("ranged", "bolt")],
+            vec![slash("bolt", "swing", "hit")],
+        ));
+
+    let report = prepare_character(ranged_move, &CharacterBindings::default())
+        .prepared
+        .unresolved_references()
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        report.contains("ranged payload") && report.contains("bolt"),
+        "a ranged move with no payload prepared cleanly; the fighter's ranged \
+         button is dead and nothing said so. Report was:\n{report}"
+    );
+}
+
+/// The same definition with a payload authored prepares silently — otherwise the
+/// check above is just noise every ranged character has to live with.
+#[test]
+fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
+    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
+
+    let armed = CharacterDefinition::new("gunner", "Gunner", "demo")
+        .with_action_set(ActionSet {
+            ranged: Some(RangedActionSpec {
+                style: RangedStyle::default(),
+                speed: 300.0,
+                damage: 1,
+                flight: None,
+                visual: None,
+            }),
+            ..ActionSet::default()
+        })
+        .with_moveset(moveset_with(
+            &[("ranged", "bolt")],
+            vec![slash("bolt", "swing", "hit")],
+        ));
+
+    let report = prepare_character(armed, &CharacterBindings::default())
+        .prepared
+        .unresolved_references()
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        !report.contains("ranged payload"),
+        "an armed ranged character was reported anyway:\n{report}"
+    );
+}
+
+/// A character that authored NO action set is not asked about payloads.
+///
+/// Falling through to the catalog is the migration path, and its rows resolve
+/// elsewhere. Complaining here would complain about a value this definition never
+/// claimed — which is how a coherence check turns into noise and gets waived.
+#[test]
+fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
+    let inheritor = CharacterDefinition::new("gunner", "Gunner", "demo").with_moveset(
+        moveset_with(&[("ranged", "bolt")], vec![slash("bolt", "swing", "hit")]),
+    );
+
+    let report = prepare_character(inheritor, &CharacterBindings::default())
+        .prepared
+        .unresolved_references()
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        !report.contains("ranged payload"),
+        "preparation judged an action set the definition never authored:\n{report}"
+    );
 }

@@ -99,6 +99,19 @@ impl Namespace for PortraitTarget {
     const NAME: &'static str = "portrait target";
 }
 
+/// The ranged payload an authored `ranged` move needs to throw.
+///
+/// Not a lookup namespace like the others — there is no table of payloads to
+/// misspell. It is here because a `ranged` move whose action set supplies no
+/// projectile is the same CLASS of failure every other resolver reports (content
+/// disagreeing with content, silently, until a playtest), and reporting it
+/// through the same channel means one place to read and one guard to watch.
+pub struct RangedPayload;
+
+impl Namespace for RangedPayload {
+    const NAME: &'static str = "ranged payload";
+}
+
 /// The vfx tags a session's renderers know how to draw.
 ///
 /// §4.6 derives the vfx inventory from the moves that request it, exactly like
@@ -171,6 +184,22 @@ pub struct CharacterDefinition {
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
     pub moveset: Option<MovesetContract>,
+    /// What this character CAN do — melee, ranged, special, locomotion style.
+    ///
+    /// `None` means "the author said nothing", and the catalog row's
+    /// `default_action_set` stands. `Some(ActionSet::default())` means "the
+    /// author said NOTHING APPLIES", which is a different statement and has to
+    /// survive as one: Sanic's kit is the momentum ride and the ball dash, and
+    /// a resolver that treats an authored-empty set as unauthored hands him a
+    /// punch (queue C3 / architecture campaign X3, R-b).
+    ///
+    /// Splitting this from [`Self::moveset`] is the identity split C3 is about.
+    /// A moveset says what the MOVES are; an action set says what the body and
+    /// the AI believe the body can reach for. Leaving the second exclusively in
+    /// the catalog means a definition can author moves the brain does not know
+    /// exist — and it makes a ranged move depend on a projectile specification
+    /// from a different authority entirely (GPT 5.6, 2026-07-28).
+    pub action_set: Option<ambition_characters::brain::ActionSet>,
 }
 
 impl CharacterDefinition {
@@ -190,11 +219,21 @@ impl CharacterDefinition {
             hurtboxes: None,
             vitals: Vitals::default(),
             moveset: None,
+            action_set: None,
         }
     }
 
     pub fn with_moveset(mut self, moveset: MovesetContract) -> Self {
         self.moveset = Some(moveset);
+        self
+    }
+
+    /// Author this character's action set, outranking the catalog row.
+    ///
+    /// Passing `ActionSet::default()` is a real authoring decision — "this
+    /// character reaches for nothing" — and is preserved as such. See the field.
+    pub fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
+        self.action_set = Some(action_set);
         self
     }
 
@@ -226,6 +265,11 @@ pub struct PreparedCharacterDefinition {
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
     pub moveset: Option<MovesetContract>,
+    /// The authored action set, carried through preparation unchanged.
+    ///
+    /// `None` and `Some(empty)` mean different things all the way to the body —
+    /// see [`CharacterDefinition::action_set`].
+    pub action_set: Option<ambition_characters::brain::ActionSet>,
     /// DERIVED (§4.6): every cue this character can emit, read off its moves.
     /// Sorted, so two peers assemble byte-identical inventories.
     cue_dependencies: BTreeSet<String>,
@@ -520,6 +564,47 @@ pub fn prepare_character(
                 ledger.record(verbs.explain(verb, format!("{declared_by} moveset verb")));
             }
         }
+        // **The moveset and the action set have to agree about RANGED.** (C3)
+        //
+        // A move on the `ranged` verb needs a projectile to throw, and the
+        // projectile specification lives on the ACTION SET, not on the move. So
+        // a character authoring both — the case the C3 precedence work makes
+        // possible — can now author a ranged move and an action set with no
+        // ranged payload, and the two are individually valid: the verb is real,
+        // the move is real, the set is real. The button does nothing.
+        //
+        // This is preparation's job precisely because neither half is wrong on
+        // its own; only the PAIR is, and preparation is the only place both are
+        // in hand (GPT 5.6, 2026-07-28). Reported as a binding failure so it
+        // travels the same route every other content disagreement does — named,
+        // non-fatal, and visible to the guard.
+        //
+        // Only checked when the definition authored a set. Falling through to
+        // the catalog is the migration path, and its rows are resolved
+        // elsewhere; complaining here would be complaining about a value this
+        // definition never claimed.
+        if let Some(action_set) = definition.action_set.as_ref() {
+            if action_set.ranged.is_none() {
+                let ranged_verb = crate::combat::moveset::RANGED_VERB;
+                for (verb, target) in &moveset.verbs {
+                    if verb.as_str() != ranged_verb {
+                        continue;
+                    }
+                    ledger.record(ambition_platformer_primitives::binding::UnresolvedRef {
+                        namespace: RangedPayload::NAME,
+                        id: target.clone(),
+                        declared_by: format!("{declared_by} verb `{verb}`"),
+                        // Nothing WAS available, and saying so is the whole
+                        // report: the character authored an action set and left
+                        // `ranged` empty, so there is no candidate to suggest
+                        // and no typo to find. The fix is authoring, not
+                        // spelling.
+                        available: Vec::new(),
+                        did_you_mean: None,
+                    });
+                }
+            }
+        }
         // Move-time hurtbox overrides must name a declared move too, or the
         // override is dead data nothing will ever sample.
         if let Some(hurtboxes) = definition.hurtboxes.as_ref() {
@@ -577,6 +662,7 @@ pub fn prepare_character(
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
         moveset: definition.moveset,
+        action_set: definition.action_set,
         cue_dependencies,
         vfx_dependencies,
         checked: bindings.checked(),

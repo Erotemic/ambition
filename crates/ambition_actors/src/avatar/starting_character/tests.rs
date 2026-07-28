@@ -1157,3 +1157,85 @@ fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set()
         moveset.0.moves.iter().map(|m| &m.id).collect::<Vec<_>>()
     );
 }
+
+/// **X8: the primary player's kit comes from the RESOLVED identity.**
+///
+/// `PlayerSimulationBundle::from_scratch_as_character` applies the overlay with
+/// `registry: None`, and its comment says why — a from-scratch bundle predates
+/// the world it will live in, so there is no registry to consult yet, and "the
+/// per-frame derivation reaches the body on its first tick".
+///
+/// That is a claim about a SYSTEM, made at a call site that cannot verify it, so
+/// it is worth a test rather than a comment: if the derive did not reach the
+/// spawned body, the player would keep the catalog kit forever and the sentence
+/// would still read as true.
+///
+/// Driven through `apply_worn_character_gameplay` — the one production writer —
+/// against a body carrying what a player body carries.
+#[test]
+fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let authored = ActionSet {
+        ranged: Some(RangedActionSpec {
+            style: RangedStyle::default(),
+            speed: 411.0,
+            damage: 7,
+            flight: None,
+            visual: None,
+        }),
+        ..ActionSet::default()
+    };
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.insert_resource(prepared(
+        crate::character_runtime::CharacterDefinition::new("sanic", "Sanic", "sanic_demo")
+            .with_action_set(authored.clone()),
+    ));
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("sanic"),
+            MotionModel::default(),
+            Name::new("unset"),
+            // What the bundle leaves behind: the catalog-derived kit, applied
+            // with no registry because there was none yet.
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_characters::brain::action_set::IdentityKit::default(),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+
+    app.update();
+
+    let live = app.world().get::<ActionSet>(body).expect("the body kept its kit");
+    assert_eq!(
+        live, &authored,
+        "the spawned player never received its character's authored action set — \
+         the bundle's `registry: None` is only safe because the derive corrects \
+         it on the first tick, and it did not"
+    );
+    let baseline = app
+        .world()
+        .get::<ambition_characters::brain::action_set::IdentityKit>(body)
+        .expect("the body has an identity baseline");
+    assert_eq!(
+        &baseline.action_set, &authored,
+        "the live kit is right and the BASELINE is not, so the next equipment \
+         reconcile re-derives from the wrong thing and takes it away again"
+    );
+}

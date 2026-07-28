@@ -104,6 +104,7 @@ fn resolver_ignores_a_hit_inside_the_i_frame_window() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
     assert_eq!(health.current(), 5, "ignored hit deals no damage");
@@ -130,6 +131,7 @@ fn resolver_ignores_a_hit_on_a_dead_body() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
 }
@@ -153,6 +155,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(res, BodyHitResolution::Blocked);
     assert_eq!(health.current(), 5, "a blocked hit deals no damage");
@@ -177,6 +180,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -206,6 +210,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         2.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -233,6 +238,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         0.1,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -262,6 +268,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -289,6 +296,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         true,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -314,6 +322,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -772,6 +781,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(res, BodyHitResolution::Armored);
     assert_eq!(health.current(), 10, "worn armor spends itself, not HP");
@@ -801,6 +811,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
     assert_eq!(
         res,
@@ -991,6 +1002,7 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
 
     assert_eq!(res, BodyHitResolution::WalletShielded { spent: 7 });
@@ -1022,6 +1034,7 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         1.0,
         false,
         TEST_FEEL,
+        false,
     );
 
     assert_eq!(
@@ -1032,4 +1045,195 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         }
     );
     assert_eq!(health.current(), 0);
+}
+
+/// **Nothing defends against the edge of the world.**
+///
+/// Every gate in `resolve_body_hit` is a defence against BEING HIT — i-frames,
+/// the shield, a worn armor row, a wallet balance, and `never_dies`. Nothing
+/// hit a body that left the stage; the world stopped. So the blast zone is
+/// `unstoppable` and passes all of them.
+///
+/// The i-frame case is the one that matters by the frame: the launch that
+/// throws a body off the stage is the SAME event that arms its knockback
+/// invulnerability — 0.2s on an actor, 0.75s on the player — so gating the
+/// blast zone on vulnerability fails hardest at exactly the case it exists for.
+/// The victim crosses the line and falls for up to 45 frames with nothing
+/// happening, then dies far below where it should have.
+#[test]
+fn an_unstoppable_hit_passes_every_defence_a_body_has() {
+    let each_defence: [(&str, BodyCombat, bool); 2] = [
+        (
+            "i-frames",
+            BodyCombat {
+                damage_invuln_timer: 0.75,
+                ..Default::default()
+            },
+            false,
+        ),
+        ("a raised shield", BodyCombat::default(), true),
+    ];
+    for (what, combat, shield_active) in each_defence {
+        let pos = ae::Vec2::new(100.0, 200.0);
+        // The shield only blocks a hit arriving from the guarded side, so the
+        // impact is placed in front of the body's facing.
+        let impact = pos + ae::Vec2::new(50.0, 0.0);
+
+        let mut stopped_combat = combat.clone();
+        let mut stopped_health = test_health(5);
+        let stopped = resolve_body_hit(
+            &mut stopped_combat,
+            Some(&mut stopped_health),
+            None,
+            None,
+            shield_active,
+            1.0,
+            pos,
+            impact,
+            DOWN,
+            99,
+            1.0,
+            false,
+            TEST_FEEL,
+            false,
+        );
+        assert_ne!(
+            stopped,
+            BodyHitResolution::Damaged {
+                damage: 99,
+                died: true
+            },
+            "fixture: {what} must actually stop an ORDINARY hit, or the \
+             unstoppable arm below proves nothing"
+        );
+        assert_eq!(stopped_health.current(), 5, "{what}: ordinary hit absorbed");
+
+        let mut blasted_combat = combat.clone();
+        let mut blasted_health = test_health(5);
+        let blasted = resolve_body_hit(
+            &mut blasted_combat,
+            Some(&mut blasted_health),
+            None,
+            None,
+            shield_active,
+            1.0,
+            pos,
+            impact,
+            DOWN,
+            99,
+            1.0,
+            false,
+            TEST_FEEL,
+            true,
+        );
+        assert_eq!(
+            blasted,
+            BodyHitResolution::Damaged {
+                damage: 99,
+                died: true
+            },
+            "{what} stopped the BLAST ZONE. You cannot be invulnerable to the \
+             edge of the world."
+        );
+        assert!(!blasted_health.alive(), "{what}: the blast zone killed it");
+    }
+}
+
+/// **A training dummy that has left the stage is not training.**
+///
+/// `never_dies` is the sandbag's whole point and it must survive any amount of
+/// damage — but a `never_dies` body outside the world is worse than immortal,
+/// it is a permanent event source: the blast gate is a position test that
+/// re-fires every tick, so an immortal body past the line re-triggers its own
+/// death forever, once per frame, banner and all.
+#[test]
+fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
+    let pos = ae::Vec2::new(100.0, 200.0);
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(5);
+    let ordinary = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        99,
+        1.0,
+        true,
+        TEST_FEEL,
+        false,
+    );
+    assert_eq!(
+        ordinary,
+        BodyHitResolution::Damaged {
+            damage: 99,
+            died: false
+        },
+        "fixture: a never_dies body survives an ordinary lethal hit"
+    );
+    assert!(health.alive());
+
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(5);
+    let blasted = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        99,
+        1.0,
+        true,
+        TEST_FEEL,
+        true,
+    );
+    assert_eq!(
+        blasted,
+        BodyHitResolution::Damaged {
+            damage: 99,
+            died: true
+        },
+        "a never_dies body that left the world must DIE, or it sits outside the \
+         stage re-triggering its own death every tick forever"
+    );
+    assert!(!health.alive());
+}
+
+/// The one gate `unstoppable` does NOT bypass, and the reason it must not.
+///
+/// The blast gate re-fires every tick while a body is past the margin, so
+/// without this a corpse outside the world writes a lethal hit once per frame
+/// for as long as it exists.
+#[test]
+fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
+    let pos = ae::Vec2::new(100.0, 200.0);
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(5);
+    health.damage(5);
+    assert!(!health.alive(), "fixture: the body starts dead");
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        99,
+        1.0,
+        false,
+        TEST_FEEL,
+        true,
+    );
+    assert_eq!(res, BodyHitResolution::Ignored);
 }

@@ -223,6 +223,9 @@ pub(crate) fn apply_actor_hit(
         // frame-agnostic directional rule the player uses), damage, death
         // flag, and hit-flash/i-frame arming. Actors pass multiplier 1.0 —
         // difficulty scaling is player policy.
+        // Resolved BEFORE the shared mechanics, because it decides whether they
+        // apply at all: the blast zone is not a hit anything can defend against.
+        let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
         let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -244,6 +247,7 @@ pub(crate) fn apply_actor_hit(
                 block_hit_flash: 0.16,
                 block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
             },
+            left_the_world,
         );
         if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Ignored {
             return false;
@@ -260,7 +264,6 @@ pub(crate) fn apply_actor_hit(
         // world does"; filtering the world's own kill through the meter's
         // policy would leave such a body immortal, which is exactly why nothing
         // in production had ever selected `Unbounded`.
-        let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
         let killed = left_the_world
             || (matches!(
                 resolution,

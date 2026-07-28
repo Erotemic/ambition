@@ -187,8 +187,26 @@ pub fn resolve_body_hit(
     damage_multiplier: f32,
     never_dies: bool,
     feel: BodyHitFeel,
+    // Whether this hit is UNSTOPPABLE: no i-frame gate, no shield, no armor,
+    // no wallet, and not even `never_dies`.
+    //
+    // Exactly one source is — the blast zone. Every defence above is a defence
+    // against BEING HIT, and nothing hit this body: the world stopped. You
+    // cannot be invulnerable to the edge of the world, you cannot block it,
+    // and a training dummy that has left the stage is not training.
+    //
+    // It matters by the frame. The launch that throws a body off the stage is
+    // the same event that arms its knockback i-frames — 0.2s on an actor, 0.75s
+    // on the player — so gating the blast zone on vulnerability makes the case
+    // it is FOR the case it handles worst: the victim crosses the line and
+    // falls for up to 45 frames with nothing happening.
+    //
+    // The one gate it does NOT bypass is `!alive()`. The blast gate is a
+    // position test that re-fires every tick, so a corpse outside the world
+    // must stop being killed.
+    unstoppable: bool,
 ) -> BodyHitResolution {
-    if !combat.vulnerable() {
+    if !unstoppable && !combat.vulnerable() {
         return BodyHitResolution::Ignored;
     }
     if let Some(health) = health.as_deref() {
@@ -196,7 +214,7 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
-    if shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
+    if !unstoppable && shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
         if feel.block_hit_flash > 0.0 {
             combat.hit_flash = feel.block_hit_flash;
         }
@@ -209,7 +227,7 @@ pub fn resolve_body_hit(
     // `WornEquipment` with a `ConsumeAsArmor` row gets this; the player is the
     // only wirer today. `never_dies` bodies still spend armor (a downgrade is a
     // state change worth honoring), then reach the no-death path below anyway.
-    if let Some(armor) = armor {
+    if let Some(armor) = armor.filter(|_| !unstoppable) {
         if armor.consume_armor().is_some() {
             combat.hit_flash = feel.hit_flash;
             combat.damage_invuln_timer = feel.damage_invuln_time;
@@ -219,7 +237,10 @@ pub fn resolve_body_hit(
     // Wallet-backed armor is resolved before HP and death. A lethal hit against
     // a one-health body carrying currency therefore spends the balance rather
     // than entering the respawn path.
-    if let Some(spent) = wallet_shield.and_then(WalletArmor::spend_all) {
+    if let Some(spent) = wallet_shield
+        .filter(|_| !unstoppable)
+        .and_then(WalletArmor::spend_all)
+    {
         combat.hit_flash = feel.hit_flash;
         combat.damage_invuln_timer = feel.damage_invuln_time;
         return BodyHitResolution::WalletShielded { spent };
@@ -228,7 +249,7 @@ pub fn resolve_body_hit(
     combat.damage_invuln_timer = feel.damage_invuln_time;
     let damage = ((raw_damage as f32) * damage_multiplier).round() as i32;
     let damage = damage.max(1);
-    let died = if never_dies {
+    let died = if never_dies && !unstoppable {
         false
     } else {
         health
@@ -384,6 +405,9 @@ pub(crate) fn handle_player_damage_events(
             block_hit_flash: 0.0,
             block_invuln_floor: 0.12,
         },
+        // The player's knockback i-frames are 0.75s — the longest window in the
+        // game, armed by the very launch that throws them off the stage.
+        matches!(damage.source, crate::combat::HitSource::LeftTheWorld),
     );
     match resolution {
         BodyHitResolution::Ignored => false,

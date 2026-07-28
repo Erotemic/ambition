@@ -30,6 +30,10 @@ pub(super) fn sync_player_presentation(
     sfx_writer: &mut SfxWriter,
     vfx_writer: &mut MessageWriter<VfxMessage>,
     shake: &mut ambition::platformer::camera_ease::CameraShakeState,
+    // The active route's shake ceiling (D14): a landing thump is one of the two
+    // things in the game that shakes the screen, and how hard it is allowed to
+    // is now the ROUTE's statement rather than a constant every game shares.
+    shake_tuning: ambition::platformer::camera_ease::CameraShakeTuning,
     is_primary: bool,
     // A13: the player body's presentation source, so its jump/dash/land cues
     // resolve in ITS character's bank rather than the session provider's.
@@ -46,7 +50,7 @@ pub(super) fn sync_player_presentation(
         frame_out.events.ground_contact.landing_impact_speed(),
     );
     if is_primary && shake_amplitude > 0.0 {
-        shake.kick(shake_amplitude);
+        shake.kick(shake_amplitude, shake_tuning);
         sfx_writer.write_for_body(
             source,
             SfxMessage::Play {

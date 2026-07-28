@@ -773,6 +773,27 @@ pub struct GameplayPresentationProfile {
     /// rectangle. Separate from [`Self::hud`] because a game may well want its
     /// score in the surround while its controls still overlay, or the reverse.
     pub controls: ControlPlacementPolicy,
+    /// How the camera EASES and SHAKES for this route. (D14)
+    ///
+    /// The zoom rates, the snap epsilon and the shake ceiling were single global
+    /// resources and constants, so two games in one host could not ease or shake
+    /// differently — a one-game-shaped limit sitting in the middle of a
+    /// multi-game host. They ride the route-keyed profile now, beside viewport
+    /// and framing, because they are the same KIND of fact: how this experience
+    /// wants to be looked at.
+    pub camera_feel: CameraFeelPolicy,
+}
+
+/// The camera's feel for one route: how fast it eases, how hard it shakes.
+///
+/// Defaults are exactly the historical constants, so a route that declares
+/// nothing — the launcher, a menu, a provider that opted out — behaves as it
+/// always did. That is what makes this safe to put in front of every game at
+/// once.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct CameraFeelPolicy {
+    pub ease: crate::camera_ease::CameraEaseTuning,
+    pub shake: crate::camera_ease::CameraShakeTuning,
 }
 
 impl GameplayPresentationProfile {
@@ -804,6 +825,12 @@ impl GameplayPresentationProfile {
 
     pub fn with_occlusion_aware_framing(mut self, profile: SoftFramingProfile) -> Self {
         self.framing = SubjectFramingPolicy::OcclusionAware(profile);
+        self
+    }
+
+    /// Declare this route's camera feel. (D14)
+    pub fn with_camera_feel(mut self, feel: CameraFeelPolicy) -> Self {
+        self.camera_feel = feel;
         self
     }
 

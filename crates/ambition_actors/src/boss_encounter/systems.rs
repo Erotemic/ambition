@@ -356,6 +356,10 @@ pub fn boss_phase_transition_feedback(
     mut sfx: ambition_sfx::SfxWriter,
     // Optional: a headless / camera-less build may not insert the shake resource.
     mut shake: Option<ResMut<ambition_platformer_primitives::camera_ease::CameraShakeState>>,
+    // The active route's shake ceiling (D14). Optional for the same reason, and
+    // absent it falls back to the historical cap rather than to no cap — an
+    // unclamped kick is a screen nobody can read.
+    shake_tuning: Option<Res<ambition_platformer_primitives::camera_ease::CameraShakeTuning>>,
     // Boss entities — phase read from the entity-local state + the actor that
     // emits the phase-transition shockwave.
     bosses: Query<
@@ -385,7 +389,10 @@ pub fn boss_phase_transition_feedback(
         }
         if matches!(phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
             if let Some(shake) = shake.as_deref_mut() {
-                shake.kick(BOSS_PHASE_SHAKE_PX);
+                shake.kick(
+                    BOSS_PHASE_SHAKE_PX,
+                    shake_tuning.as_deref().copied().unwrap_or_default(),
+                );
             }
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,

@@ -135,6 +135,12 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .before(
                             ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
                         ),
+                    // The camera's ease and shake follow the route too (D14).
+                    // After the profile SELECTION rather than before the layout
+                    // resolve: it reads what that system just published, and the
+                    // camera resolve it feeds runs on its own schedule.
+                    crate::authoring::publish_active_camera_feel
+                        .after(crate::authoring::select_active_presentation_profiles),
                 ),
             );
     }

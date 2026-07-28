@@ -129,6 +129,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::rooms::GatePortalRegistry>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseState>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseTuning>()
+            .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeTuning>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeState>()
             .init_resource::<ambition_actors::session::reset::SandboxResetRequested>()
             // Track B: the rollback-registered slot a lifecycle op records into

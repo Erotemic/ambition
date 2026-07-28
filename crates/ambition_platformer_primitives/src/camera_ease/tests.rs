@@ -16,13 +16,13 @@ fn shake_starts_at_zero_amplitude() {
 #[test]
 fn kick_max_wins_no_stacking() {
     let mut shake = CameraShakeState::default();
-    shake.kick(4.0);
+    shake.kick(4.0, CameraShakeTuning::default());
     assert_eq!(shake.amplitude_px, 4.0);
     // Smaller kick after a big one should NOT reduce the active shake.
-    shake.kick(1.0);
+    shake.kick(1.0, CameraShakeTuning::default());
     assert_eq!(shake.amplitude_px, 4.0);
     // Bigger kick raises it.
-    shake.kick(8.0);
+    shake.kick(8.0, CameraShakeTuning::default());
     assert_eq!(shake.amplitude_px, 8.0);
 }
 
@@ -30,7 +30,7 @@ fn kick_max_wins_no_stacking() {
 fn kick_clamps_at_max_amplitude() {
     let mut shake = CameraShakeState::default();
     // 1000 px shake would white out the screen; cap holds.
-    shake.kick(1000.0);
+    shake.kick(1000.0, CameraShakeTuning::default());
     assert!(shake.amplitude_px <= 14.0);
     assert!(shake.amplitude_px > 0.0);
 }
@@ -38,14 +38,14 @@ fn kick_clamps_at_max_amplitude() {
 #[test]
 fn kick_clamps_negative_to_zero() {
     let mut shake = CameraShakeState::default();
-    shake.kick(-5.0);
+    shake.kick(-5.0, CameraShakeTuning::default());
     assert_eq!(shake.amplitude_px, 0.0);
 }
 
 #[test]
 fn offset_bounded_by_amplitude_and_independent_axes() {
     let mut shake = CameraShakeState::default();
-    shake.kick(8.0);
+    shake.kick(8.0, CameraShakeTuning::default());
     // Sample several seeds; both axes must stay inside ±amplitude.
     let mut max_x: f32 = 0.0;
     let mut max_y: f32 = 0.0;
@@ -120,6 +120,6 @@ fn hard_fall_saturates_through_kick_cap() {
     let raw = hard_fall_shake_amplitude(Some(5000.0));
     assert!(raw > 14.0, "raw amplitude exceeds cap, kick will clamp");
     let mut shake = CameraShakeState::default();
-    shake.kick(raw);
+    shake.kick(raw, CameraShakeTuning::default());
     assert!(shake.amplitude_px <= 14.0);
 }

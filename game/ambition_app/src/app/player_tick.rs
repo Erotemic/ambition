@@ -111,6 +111,10 @@ pub(crate) fn apply_home_reset_policy(
 pub fn sync_player_presentation(
     mut event_writers: SandboxEventWriters,
     mut shake: ResMut<ambition::platformer::camera_ease::CameraShakeState>,
+    // The active route's shake ceiling (D14), published from its presentation
+    // profile. Read once per system rather than per body: it is a fact about the
+    // experience, not about a fighter.
+    shake_tuning: Res<ambition::platformer::camera_ease::CameraShakeTuning>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -139,6 +143,7 @@ pub fn sync_player_presentation(
             &mut event_writers.sfx,
             &mut event_writers.vfx,
             &mut shake,
+            *shake_tuning,
             is_primary,
             source.map(ambition::sfx::BodyPresentationSource::id),
         );

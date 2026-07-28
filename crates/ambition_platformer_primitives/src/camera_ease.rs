@@ -99,13 +99,48 @@ pub struct CameraShakeState {
     pub seed: u32,
 }
 
+/// **How hard this game is allowed to shake, and how fast it settles.** (D14)
+///
+/// The cap was a `const` inside `kick` and the decay a module constant, so two
+/// games in one host shook identically whether or not that suited either of
+/// them. They are a resource now, published from the ACTIVE route's
+/// `GameplayPresentationProfile` by the same selection system that publishes
+/// viewport and framing — so a second game gets its own feel by declaring a
+/// profile, not by editing the engine.
+///
+/// Defaults are exactly the old constants, which is what makes this safe to put
+/// in front of every existing caller.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct CameraShakeTuning {
+    /// Ceiling for a single kick, in world pixels. A gut-punch landing should
+    /// saturate the budget rather than make the screen unreadable.
+    pub max_amplitude_px: f32,
+    /// Per-second decay toward zero.
+    pub decay_px_per_s: f32,
+}
+
+impl Default for CameraShakeTuning {
+    fn default() -> Self {
+        Self {
+            max_amplitude_px: DEFAULT_CAMERA_SHAKE_MAX_PX,
+            decay_px_per_s: CAMERA_SHAKE_DECAY_PX_PER_S,
+        }
+    }
+}
+
+/// The historical cap, kept as the default rather than deleted: it is the number
+/// every existing game was tuned against.
+pub const DEFAULT_CAMERA_SHAKE_MAX_PX: f32 = 14.0;
+
 impl CameraShakeState {
-    /// Bump the active shake to at least `amplitude_px` if the kick
-    /// is bigger than what's already in flight. Caps clamp keep gut-
-    /// punch landings from making the entire screen unreadable.
-    pub fn kick(&mut self, amplitude_px: f32) {
-        const MAX_AMPLITUDE_PX: f32 = 14.0;
-        let target = amplitude_px.max(0.0).min(MAX_AMPLITUDE_PX);
+    /// Bump the active shake to at least `amplitude_px` if the kick is bigger
+    /// than what is already in flight, clamped by `tuning`.
+    ///
+    /// The cap is a PARAMETER rather than a constant so the ceiling can differ
+    /// per game. Strongest-kick-wins is unchanged: a trickle from a small bounce
+    /// cannot reset a still-active big shake, and kicks do not stack.
+    pub fn kick(&mut self, amplitude_px: f32, tuning: CameraShakeTuning) {
+        let target = amplitude_px.max(0.0).min(tuning.max_amplitude_px.max(0.0));
         if target > self.amplitude_px {
             self.amplitude_px = target;
         }
@@ -123,10 +158,11 @@ pub const CAMERA_SHAKE_DECAY_PX_PER_S: f32 = 30.0;
 /// amplitude.
 pub fn tick_camera_shake(
     time: bevy::prelude::Res<bevy::prelude::Time>,
+    tuning: bevy::prelude::Res<CameraShakeTuning>,
     mut shake: bevy::prelude::ResMut<CameraShakeState>,
 ) {
     let dt = time.delta_secs();
-    shake.amplitude_px = (shake.amplitude_px - CAMERA_SHAKE_DECAY_PX_PER_S * dt).max(0.0);
+    shake.amplitude_px = (shake.amplitude_px - tuning.decay_px_per_s * dt).max(0.0);
     shake.seed = shake.seed.wrapping_add(1);
 }
 

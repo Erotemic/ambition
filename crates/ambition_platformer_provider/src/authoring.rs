@@ -204,6 +204,37 @@ pub fn select_active_presentation_profiles(
     }
 }
 
+/// Publish the active route's CAMERA FEEL into the resources the camera reads.
+/// (D14)
+///
+/// Exactly parallel to [`select_active_presentation_profiles`], and deliberately
+/// a separate system rather than a few more lines inside it: the camera tuning
+/// resources live in `camera_ease` and are read by the snapshot resolve and the
+/// shake tick, not by the presentation resolve, so folding them together would
+/// couple two schedules that have no other reason to meet.
+///
+/// A route with no declaration resolves to the profile default, which is exactly
+/// the historical constants — so the launcher, menus and any provider that opted
+/// out ease and shake as they always did.
+pub fn publish_active_camera_feel(
+    active: Res<ActiveGameplayPresentationProfiles>,
+    mut ease: ResMut<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
+    mut shake: ResMut<ambition_platformer_primitives::camera_ease::CameraShakeTuning>,
+) {
+    // Read the DEFAULT profile's feel rather than the environment-selected one.
+    // Viewport and framing legitimately differ between desk and handheld; how
+    // fast a camera eases is a statement about the GAME, and a zoom that changed
+    // rate because somebody picked up a controller would be a bug wearing a
+    // feature's clothes.
+    let feel = active.0.default.camera_feel;
+    if *ease != feel.ease {
+        *ease = feel.ease;
+    }
+    if *shake != feel.shake {
+        *shake = feel.shake;
+    }
+}
+
 /// Copy the active route's declared HUD into the resource the renderer
 /// consumes.
 ///
@@ -259,6 +290,88 @@ mod tests {
             Some(next.clone()),
         ));
         assert_eq!(active.0, Some(next));
+    }
+
+    /// **D14: two games in one host can ease and shake differently.**
+    ///
+    /// The zoom rates and the snap epsilon were one global resource and the
+    /// shake ceiling was a `const` inside `kick`, so a multi-game host had one
+    /// camera feel for every game in it — a one-game-shaped limit sitting in the
+    /// middle of the thing that exists to host several.
+    ///
+    /// Driven through the real system against the real resources, because the
+    /// claim is not "the struct has a field" — it is that SWITCHING ROUTES
+    /// changes what the camera does.
+    #[test]
+    fn each_route_publishes_its_own_camera_feel() {
+        use ambition_platformer_primitives::camera_ease::{CameraEaseTuning, CameraShakeTuning};
+        use ambition_platformer_primitives::gameplay_presentation::{
+            CameraFeelPolicy, GameplayPresentationProfile, GameplayPresentationProfiles,
+        };
+
+        let snappy = CameraFeelPolicy {
+            ease: CameraEaseTuning {
+                zoom_out_rate: 9.0,
+                zoom_in_rate: 8.0,
+                snap_epsilon: 0.5,
+            },
+            shake: CameraShakeTuning {
+                max_amplitude_px: 40.0,
+                decay_px_per_s: 200.0,
+            },
+        };
+
+        let mut app = bevy::app::App::new();
+        app.init_resource::<CameraEaseTuning>()
+            .init_resource::<CameraShakeTuning>()
+            .insert_resource(ActiveGameplayPresentationProfiles(
+                GameplayPresentationProfiles::uniform(
+                    GameplayPresentationProfile::full_bleed().with_camera_feel(snappy),
+                ),
+            ))
+            .add_systems(bevy::app::Update, publish_active_camera_feel);
+        app.update();
+
+        assert_eq!(*app.world().resource::<CameraEaseTuning>(), snappy.ease);
+        assert_eq!(*app.world().resource::<CameraShakeTuning>(), snappy.shake);
+
+        // Switch to a route that declares nothing — a menu, the launcher, a
+        // provider that opted out. It must land back on the historical defaults
+        // rather than inherit the last game's feel, or leaving Sanic would leave
+        // his camera behind in Mary-O.
+        *app.world_mut()
+            .resource_mut::<ActiveGameplayPresentationProfiles>() =
+            ActiveGameplayPresentationProfiles::default();
+        app.update();
+
+        assert_eq!(
+            *app.world().resource::<CameraEaseTuning>(),
+            CameraEaseTuning::default(),
+            "an undeclared route inherited the previous game's ease"
+        );
+        assert_eq!(
+            *app.world().resource::<CameraShakeTuning>(),
+            CameraShakeTuning::default(),
+        );
+    }
+
+    /// The ceiling is the ROUTE's now, and a kick obeys it.
+    #[test]
+    fn a_kick_is_clamped_by_the_routes_ceiling_not_a_constant() {
+        use ambition_platformer_primitives::camera_ease::{CameraShakeState, CameraShakeTuning};
+
+        let mut shake = CameraShakeState::default();
+        shake.kick(
+            1000.0,
+            CameraShakeTuning {
+                max_amplitude_px: 3.0,
+                ..CameraShakeTuning::default()
+            },
+        );
+        assert_eq!(
+            shake.amplitude_px, 3.0,
+            "the kick used the old hardcoded 14px cap instead of the route's"
+        );
     }
 
     #[test]

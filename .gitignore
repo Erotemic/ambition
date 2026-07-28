@@ -146,3 +146,13 @@ untracked
 # never APPLIED — a change lands as reviewed edits or not at all — so these are
 # inputs to read, not artifacts to track (and never binaries to commit).
 /*_overlay_*.zip
+
+# Emulator artifacts dropped in the repo root by a REFERENCE session — an SM64
+# config + save appeared here on 2026-07-28 while somebody was looking at what
+# classic physics actually feels like. They are runtime state of another
+# program, not project files: nothing here reads them, and one is a binary.
+#
+# Ignored rather than deleted. They belong to whoever ran the emulator, and a
+# clean `git status` is not worth throwing away somebody's keybindings.
+/sm64config.txt
+/sm64_save_file.bin

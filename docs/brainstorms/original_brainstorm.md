@@ -741,3 +741,9 @@ anthropomorphic animals walking around and about as many regular humans, and
 its just totally normal 17 dimension stuff. Makes the game a bit more
 whimsical. Although I only wish we could user her art style, that would be a
 sick game. But that's not something we will do here,
+
+----
+
+Ok Peano Man for Giuseppe Peano is a good idea if we can get the music right
+(Piano Man).  Ties in with Smirking Behemoth, although that might take away
+from the heavy object joke.

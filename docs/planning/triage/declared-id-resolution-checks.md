@@ -27,10 +27,22 @@
 > nothing; a build whose every shot is tinted or sheet-backed legitimately
 > declares no `Image` source, so that one reports and returns.
 >
-> **Still owed from option 2:** provider audio-fragment track ids and catalog
-> `manifest` targets. **Option 1** (`error_once!` at the ~6 bare-`?` miss sites)
-> is untouched and is what covers ids composed at RUNTIME, which no static check
-> can see — the Sanic scattered-rings row is that case.
+> * `every_declared_music_track_path_names_a_file_that_exists` — the
+>   `mary_o_you_died` row, "a cue requested successfully, into silence". The
+>   existing `every_live_music_track_resolves_under_web_served_assets` asserts the
+>   catalog produces a PATH; this asserts the path names a FILE. A track whose OGG
+>   was never rendered resolves, loads nothing, and gives the radio a silent
+>   station — indistinguishable from a quiet moment.
+>
+> **Still owed from option 2:** catalog `manifest` targets.
+>
+> ⚠ **OPTION 1 IS LARGELY ALREADY DONE, and the triage did not know it.** The
+> world-item art path has carried a report-once miss reporter since before this
+> was written — `resolve_art` consults a `ReportedOnce` watch and calls
+> `log_unresolved` with the resolver's own explanation (namespace, declarer,
+> what was available). The "roughly six sites discarding the `None` with a bare
+> `?`" is a count from 2026-07-25 that nobody re-took. Re-take it before
+> scheduling the rest: this is the pessimism direction, which nobody audits.
 
 ## The failure this is about
 

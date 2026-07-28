@@ -156,3 +156,50 @@ fn every_declared_projectile_image_names_a_file_that_exists() {
         missing.join("\n"),
     );
 }
+
+/// The AUDIO half of the same question, and the row from the triage table that
+/// says `mary_o_you_died` — "a cue requested successfully, into silence".
+///
+/// `every_live_music_track_resolves_under_web_served_assets` already asserts the
+/// catalog produces a PATH for every track. That is the target → catalog
+/// direction. This is the other one: the path names a FILE. A track whose OGG
+/// was never rendered resolves, loads nothing, and plays nothing — the radio
+/// simply has a silent station, which is indistinguishable from a quiet moment.
+#[test]
+fn every_declared_music_track_path_names_a_file_that_exists() {
+    use ambition::audio::spec::MusicRegistry;
+
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let roots = asset_roots();
+    assert!(!roots.is_empty(), "no asset root resolved");
+
+    let Some(registry) = app.world().get_resource::<MusicRegistry>() else {
+        panic!("the composed host has no music registry to check");
+    };
+    assert!(
+        !registry.tracks.is_empty(),
+        "the music registry is empty — this would pass about nothing"
+    );
+
+    // `asset_path: None` is a legitimate declaration: the track exists as an id
+    // with no file yet, and the catalog already drops it loudly on the web
+    // profile (see the sibling test). This checks the ones that DO name a file.
+    let missing: Vec<String> = registry
+        .tracks
+        .iter()
+        .filter_map(|track| track.asset_path.as_ref().map(|path| (track, path)))
+        .filter(|(_, path)| !resolves(path, &roots))
+        .map(|(track, path)| format!("  {} -> {path}", track.id))
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "{} declared music track path(s) name no file:\n{}\n\n\
+         The id resolves, the load finds nothing, and the station is silent — \
+         which sounds exactly like a quiet moment. `scripts/regen_music_registry.py` \
+         generates this registry; a path in it with no OGG behind it means the \
+         render step was skipped.",
+        missing.len(),
+        missing.join("\n"),
+    );
+}

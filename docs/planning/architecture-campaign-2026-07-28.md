@@ -275,8 +275,36 @@ Two reasons, one of them the review's own.
   the Sanic principle — an intentionally weaponless character must not be given a
   punch — demonstrated by somebody outside the workspace, which is the only place
   the claim means anything.
-* **The measurements the facade work is blocked on.** They are cheap, nobody has
-  taken them, and they decide a question that is currently argued from intuition.
+* ~~**The measurements the facade work is blocked on.**~~ ✔ **TAKEN 2026-07-28,
+  and they say LEAVE IT DEFERRED — for a reason rather than by inertia.**
+
+  The campaign's likely first restriction was *"internal content crates may not
+  depend on the full `ambition` facade."* Measured:
+
+  | measurement | value |
+  |---|---:|
+  | internal NON-app crates depending on the facade | **1** (`ambition_content`) |
+  | facade modules that crate actually uses | 8 |
+  | of its 43 facade references, `ambition::platformer` | 36 |
+  | direct `ambition_*` dependencies it ALREADY declares | 36 |
+  | `ambition_*` crates in the external consumer's graph | 41 of 528 total packages |
+
+  **The restriction has exactly one subject**, and that subject already declares
+  direct dependencies on nearly everything it reaches through the facade —
+  `ambition::platformer` is `ambition_platformer_primitives`, which is already a
+  direct dep. So the rule is cheap to satisfy.
+
+  ⛔ **And it would change nothing measurable.** `ambition_content` is co-built
+  with the facade in every composition that contains it: the app depends on both.
+  Removing the edge reduces no build, because nothing wants `ambition_content`
+  WITHOUT the facade. The benefit the restriction is supposed to buy has no
+  claimant.
+
+  ⚠ **Timings NOT taken** — the clean-build and incremental-rebuild numbers the
+  campaign also asks for. Disk hit 100% during this run and a clean build of the
+  528-package consumer graph was not a good use of what was left. They are the
+  half that could still change the answer, and saying they were skipped is the
+  difference between a deferral and a claim.
 
 ## Concrete task list
 

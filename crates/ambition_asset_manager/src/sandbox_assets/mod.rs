@@ -574,9 +574,23 @@ mod authored_path_tests {
             &scale_variants,
         );
 
+        // Audio joins no folder — a music row carries `asset_path` verbatim — so
+        // it is covered by INSPECTION rather than by the helper. Asserting it
+        // anyway is the difference between "we believe it passes through" and a
+        // test that fails the day somebody adds a folder convention here, which
+        // is precisely how the three sprite layers were introduced.
+        builders::extend_with_music_entries(
+            &mut manifest,
+            &[MusicCatalogRow {
+                id: "consumer_theme".into(),
+                asset_path: OWN.into(),
+            }],
+        );
+
         for (family, id) in [
             ("character", ids::character_sprite("consumer_hero")),
             ("boss", ids::boss_sprite("consumer_boss")),
+            ("music", ids::music_track("consumer_theme")),
         ] {
             let entry = manifest
                 .get(&id)
@@ -588,6 +602,8 @@ mod authored_path_tests {
                 entry.logical_path
             );
             // ...and no invented sibling under this repo's generated layout.
+            // Audio has no scale variants at all, so this is vacuous there and
+            // load-bearing for the two image families.
             assert!(
                 manifest
                     .get(&scaled_asset_id(&id, Some("0_5x")).expect("a variant id"))

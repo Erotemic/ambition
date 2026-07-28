@@ -105,10 +105,14 @@ pub mod host_input {
     pub use ambition_actors::schedule::{
         apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
-        populate_secondary_slot_controls, seat_input_participants_for_roster,
-        spawn_primary_input_participant, toggle_player_trail_emission_from_actions,
-        SeatDashTriggerState, SimulationSetupSet,
+        populate_secondary_slot_controls, publish_latched_slot_controls,
+        seat_input_participants_for_roster, spawn_primary_input_participant,
+        toggle_player_trail_emission_from_actions, SeatDashTriggerState, SimulationSetupSet,
     };
+    // The secondary seats' frame→tick latch (queue Y2). Re-exported beside the
+    // system that drains it so the host installs both through one path — the
+    // host does not depend on `ambition_characters` directly.
+    pub use ambition_characters::brain::SlotControlLatches;
     pub use ambition_dialog::dialog_pointer_input;
 }
 

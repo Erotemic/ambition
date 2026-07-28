@@ -340,12 +340,18 @@ pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeSta
 /// publishes straight into `SlotControls[N]`, which is where
 /// `tick_player_brains` already looks for it.
 ///
-/// ⚠ **Known limit, stated rather than discovered later:** the primary seat's
-/// frame passes through `ControlFrameLatch`, which ORs sub-tick press edges
-/// together so a tap between two ticks is never swallowed. A secondary seat has
-/// no latch yet, so on a fixed-tick host a very short player-two tap can be
-/// missed. It matters at 60Hz only for single-frame inputs and it is a bounded,
-/// named follow-up rather than a hidden asymmetry.
+/// ✔ **Latched now (queue Y2).** This used to end with a known limit: the primary
+/// seat's frame passes through `ControlFrameLatch`, which ORs sub-tick press
+/// edges together so a tap between two ticks is never swallowed, and a secondary
+/// seat had none — so on a fixed-tick host a very short player-two tap could be
+/// missed. Bounded and named rather than hidden, which was right, and still a
+/// FAIRNESS asymmetry: two people on two pads and only one of them forgiving.
+///
+/// Under a fixed-tick host this now folds into [`SlotControlLatches`] on the
+/// FEEL clock and [`publish_latched_slot_controls`] drains it on the TICK clock —
+/// the primary seat's two-system shape, for the primary seat's reason. Under a
+/// frame-stepped host one frame IS one tick, no latch is installed, and this
+/// writes `SlotControls` directly exactly as before.
 #[cfg(feature = "input")]
 pub fn populate_secondary_slot_controls(
     mode: Res<State<GameMode>>,
@@ -357,6 +363,9 @@ pub fn populate_secondary_slot_controls(
         &mut SeatDashTriggerState,
     )>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    // Present only under a fixed-tick host, mirroring `ControlFrameLatch`.
+    // Absent, a frame IS a tick and there is nothing to bridge.
+    mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
 ) {
     let gameplay = active_context.gameplay_owned() && mode.get().allows_gameplay();
     for (participant, actions, mut dash) in &mut seats {
@@ -369,12 +378,43 @@ pub fn populate_secondary_slot_controls(
             // a clean Released state — the same rule the primary seat follows.
             dash.0 = crate::persistence::settings::TriggerEdgeState::default();
             slots.set(slot, ControlFrame::default());
+            // The latch is CLEARED rather than drained: a seat that has stopped
+            // being driven must not hand a held direction to the tick after the
+            // pause, and an edge accumulated before it must not survive it.
+            if let Some(latches) = latches.as_deref_mut() {
+                latches.reset(slot);
+            }
             continue;
         }
         let (frame, next) =
             read_gameplay_control_frame_with_settings(actions, &user_settings.controls, dash.0);
         dash.0 = next;
-        slots.set(slot, frame);
+        match latches.as_deref_mut() {
+            // Fixed tick: fold this device sample in and let the tick drain it.
+            // Writing `SlotControls` here as well would be the sample racing its
+            // own latch — the tick would see whichever ran last.
+            Some(latches) => latches.accumulate(slot, frame),
+            // Frame-stepped: a frame IS a tick, so publish straight through.
+            None => slots.set(slot, frame),
+        }
+    }
+}
+
+/// TICK clock: publish each secondary seat's latched frame. (queue Y2)
+///
+/// The twin of `publish_latched_control_frame`, and it runs in the same place
+/// for the same reason: at the head of the sim's input phase, before any reader.
+/// Slot 0 is skipped — it is the primary seat, it already drains
+/// `ControlFrameLatch`, and latching it twice would hold one press across two
+/// ticks.
+#[cfg(feature = "input")]
+pub fn publish_latched_slot_controls(
+    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
+    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+) {
+    for slot in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::brain::PlayerSlot(slot as u8);
+        slots.set(slot, latches.take(slot));
     }
 }
 

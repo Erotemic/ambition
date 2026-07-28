@@ -599,3 +599,99 @@ fn melee_brute_brain_resolves_through_action_set() {
         (a, b) => panic!("expected Swipe vs Lunge, got {:?} vs {:?}", a, b),
     }
 }
+
+/// **Player two's sub-tick tap survives.** (queue Y2)
+///
+/// The primary seat has had `ControlFrameLatch` since netcode N0.1; a secondary
+/// seat had nothing, which was recorded as a bounded known limit — *"on a
+/// fixed-tick host a very short player-two tap can be missed."*
+///
+/// It is a FAIRNESS asymmetry, not a rounding error. Two people, two pads, one
+/// couch match, and only one of them gets a press that lands between two ticks.
+#[test]
+fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
+    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use ambition_engine_core::ControlFrame;
+
+    let mut latches = SlotControlLatches::default();
+    let seat_two = PlayerSlot(1);
+
+    // Player two taps jump and is already back up by the next rendered frame.
+    latches.accumulate(
+        seat_two,
+        ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..ControlFrame::default()
+        },
+    );
+    latches.accumulate(seat_two, ControlFrame::default());
+
+    let tick = latches.take(seat_two);
+    assert!(
+        tick.jump_pressed,
+        "player two's press edge was swallowed between two ticks — the exact \
+         asymmetry this latch exists to remove"
+    );
+    assert!(
+        !tick.jump_held,
+        "the LEVEL must be the latest sample; the button is up again"
+    );
+}
+
+/// Slots do not leak into each other. Four pads means four independent latches,
+/// and the bug this forbids would be player two's jump firing player three's.
+#[test]
+fn each_seats_latch_is_its_own() {
+    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use ambition_engine_core::ControlFrame;
+
+    let mut latches = SlotControlLatches::default();
+    latches.accumulate(
+        PlayerSlot(1),
+        ControlFrame {
+            attack_pressed: true,
+            ..ControlFrame::default()
+        },
+    );
+
+    assert!(latches.peek(PlayerSlot(1)).attack_pressed);
+    assert!(
+        !latches.peek(PlayerSlot(2)).attack_pressed,
+        "seat two's attack reached seat three"
+    );
+    assert!(
+        !latches.peek(PlayerSlot(0)).attack_pressed,
+        "seat two's attack reached the PRIMARY seat, which drains a different \
+         latch entirely — double-latching slot 0 would hold one press for two \
+         ticks"
+    );
+}
+
+/// A pause CLEARS rather than drains: a seat that stopped being driven must not
+/// hand a held direction to the tick after the pause, and an edge accumulated
+/// before it must not survive it. The primary seat follows the same rule.
+#[test]
+fn resetting_a_seat_drops_its_held_levels_not_just_its_edges() {
+    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use ambition_engine_core::ControlFrame;
+
+    let mut latches = SlotControlLatches::default();
+    let seat = PlayerSlot(1);
+    latches.accumulate(
+        seat,
+        ControlFrame {
+            axis_x: 1.0,
+            jump_pressed: true,
+            jump_held: true,
+            ..ControlFrame::default()
+        },
+    );
+
+    latches.reset(seat);
+
+    let tick = latches.take(seat);
+    assert_eq!(tick.axis_x, 0.0, "a held direction survived the pause");
+    assert!(!tick.jump_held, "a held button survived the pause");
+    assert!(!tick.jump_pressed, "an edge survived the pause");
+}

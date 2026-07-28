@@ -80,7 +80,8 @@ impl Plugin for HostInputBindingsPlugin {
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
-            seat_input_participants_for_roster, spawn_primary_input_participant,
+            publish_latched_slot_controls, seat_input_participants_for_roster,
+            spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -145,6 +146,17 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 sim,
                 ambition_engine_core::publish_latched_control_frame
+                    .in_set(SandboxSet::PlayerInput)
+                    .before(ambition_input::InputSet::Route),
+            );
+            // The SECONDARY seats' half of the same bridge (queue Y2). Installed
+            // under the same condition and ordered the same way: a couch match
+            // is two people on two pads, and giving only one of them sub-tick
+            // forgiveness is a fairness asymmetry rather than a rounding error.
+            app.init_resource::<ambition_runtime::host_input::SlotControlLatches>();
+            app.add_systems(
+                sim,
+                publish_latched_slot_controls
                     .in_set(SandboxSet::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );

@@ -116,6 +116,65 @@ impl SlotControls {
     }
 }
 
+/// **The frame→tick input latch for SECONDARY seats.** (queue Y2)
+///
+/// [`ambition_engine_core::ControlFrameLatch`] does this for the primary seat
+/// and nothing did it for the others, which was written down as a known limit
+/// rather than hidden: *"a secondary seat has no latch yet, so on a fixed-tick
+/// host a very short player-two tap can be missed."*
+///
+/// That is a FAIRNESS asymmetry, not a rounding error. Two people on two pads in
+/// the same couch match, and one of them has forgiving input while the other's
+/// tap can land entirely between two ticks and vanish. It is most visible in the
+/// first frames of a versus round, which is exactly where the round-start
+/// countdown hands control back.
+///
+/// One latch per slot, folded on the FEEL clock and drained on the TICK clock —
+/// the same two-system shape the primary seat uses, for the same reason. Slot 0
+/// is deliberately NOT latched here: it already goes through
+/// `ControlFrameLatch`, and latching it twice would hold an edge for two ticks.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
+pub struct SlotControlLatches {
+    slots: [ambition_engine_core::ControlFrameLatch; SlotControls::MAX_SLOTS],
+}
+
+impl SlotControlLatches {
+    /// Fold one device sample for `slot`. Levels overwrite; edges stick.
+    pub fn accumulate(&mut self, slot: PlayerSlot, sample: ambition_engine_core::ControlFrame) {
+        if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
+            latch.accumulate(sample);
+        }
+    }
+
+    /// Hand `slot`'s accumulated frame to a tick, retaining levels.
+    pub fn take(&mut self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
+        self.slots
+            .get_mut(slot.0 as usize)
+            .map(ambition_engine_core::ControlFrameLatch::take)
+            .unwrap_or_default()
+    }
+
+    /// Clear a slot outright — a pause, a lost context, a seat going neutral.
+    ///
+    /// Distinct from `take`, which RETAINS levels: a seat that has stopped being
+    /// driven must not keep reporting a held direction, and the post-pause
+    /// re-press has to start from a clean Released state (the rule the primary
+    /// seat already follows).
+    pub fn reset(&mut self, slot: PlayerSlot) {
+        if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
+            *latch = ambition_engine_core::ControlFrameLatch::default();
+        }
+    }
+
+    /// What `slot`'s next tick would take. Test/debug only.
+    pub fn peek(&self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
+        self.slots
+            .get(slot.0 as usize)
+            .map(ambition_engine_core::ControlFrameLatch::peek)
+            .unwrap_or_default()
+    }
+}
+
 /// Identifies which brain backend drives an actor this tick.
 ///
 /// Brains are dispatched via enum match (not trait objects) to keep

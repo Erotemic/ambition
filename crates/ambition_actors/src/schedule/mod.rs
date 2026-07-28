@@ -20,6 +20,7 @@ pub use input_systems::declare_gameplay_input_context;
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
+    publish_latched_slot_controls,
     seat_input_participants_for_roster, spawn_primary_input_participant,
     toggle_player_trail_emission_from_actions, MenuNavConsume, SeatDashTriggerState,
 };

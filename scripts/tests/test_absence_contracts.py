@@ -34,6 +34,8 @@ VIOLATING_LINE = {
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",
     "fight-tests-do-not-hand-roll-damage": "    mary_hp -= 12;",
+    "one-reader-of-the-catalog-default-action-set":
+        "    let authored = catalog.build_default_action_set(id);",
 }
 
 

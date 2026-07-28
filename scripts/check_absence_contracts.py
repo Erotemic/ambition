@@ -139,6 +139,33 @@ ABSENCE_CONTRACTS: list[dict] = [
             "path or not at all (queue A2)."
         ),
     },
+    {
+        # C3.7 / campaign X14. The catalog's `default_action_set` is the value a
+        # `CharacterDefinition`'s authored action set OUTRANKS, and precedence
+        # between them is decided in exactly one function. A second reader is a
+        # second answer to "what can this body reach for", which is the identity
+        # split Campaign 1 exists to close.
+        "id": "one-reader-of-the-catalog-default-action-set",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            # The resolver itself, and the catalog method being read.
+            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
+        ],
+        "patterns": [r"\bbuild_default_action_set\b"],
+        "reason": (
+            "`apply_worn_character_kit` is the ONE place the catalog's default "
+            "action set is read and weighed against the definition's authored "
+            "one (queue C3, 2026-07-28). A second reader forks the precedence, "
+            "and the failure is silent: the two answers agree for every "
+            "character that authored nothing, which is most of them, so it "
+            "presents only on the one character somebody bothered to author — "
+            "exactly how the seated-fighter gap hid behind two duelists whose "
+            "authored set happened to equal the default."
+        ),
+    },
 ]
 
 # Files whose content is ABOUT the contracts rather than governed by them.

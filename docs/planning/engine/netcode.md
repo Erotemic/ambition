@@ -117,11 +117,34 @@ The narrow gate is the real headless simulation, not a toy counter:
 
 ## Next online slice
 
-1. Quarantine external effects behind confirmed-frame release.
-2. Add a two-peer native/loopback GGRS acceptance test.
-3. Add `bevy_matchbox` signaling/WebRTC transport through the existing
-   `install_session` seam.
+1. ✔ Quarantine external effects behind confirmed-frame release.
+2. ✔ **Add a two-peer native/loopback GGRS acceptance test.** Landed
+   2026-07-28 as `two_seats_drive_independent_streams_through_a_rewind`: a
+   two-seat sync-test session, both players local, the seats driven in OPPOSITE
+   directions for 32 frames through the real save/rewind/resimulate loop.
+
+   ⚠ **Two SEATS, not two peers, and the distinction is the point.** A sync test
+   has no remote peer by definition. What this buys is that N input streams go
+   through rewind and are checksum-compared — the precondition for any of them
+   being remote later, and the thing that was missing: the session was built
+   `with_num_players(1)` while C4 shipped a 2–4 player couch mode, so the oracle
+   proved determinism for a quarter of what the game seated.
+
+   ⛔ **What it found on the way is the real content of this row.**
+   `publish_local_inputs` handed the PRIMARY seat's frame to every handle —
+   correct with one handle, silently wrong with two, and it would have made a
+   two-peer session checksum-compare a simulation nobody was playing. Seats 1–3
+   were also written on the FEEL clock where GGRS never saw them, so a
+   resimulated frame replayed seat zero faithfully and gave every other seat
+   whatever the device happened to be doing at replay time. Both are fixed;
+   neither was visible from a one-player session.
+3. ⛔ Add `bevy_matchbox` signaling/WebRTC transport through the existing
+   `install_session` seam. **DEFERRED by Jon until Smash** — do not reach for it.
 4. Negotiate exact prepared-content and rollback-schema identities before play.
+   ⚠ note for whoever takes this: the fingerprint EXISTS and moves on a schema
+   change, but nothing captures a BEFORE and asserts an AFTER across a refactor.
+   That harness is also the precondition the architecture campaign named for its
+   rollback-relocation campaign, so building it once serves both.
 5. Add disconnect/reconnect, spectator, and deployment policy only after the
    two-peer deterministic oracle is green.
 

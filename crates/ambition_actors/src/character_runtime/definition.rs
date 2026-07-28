@@ -724,14 +724,25 @@ pub fn prepare_character(
 /// on 2026-07-28 rather than inherited from the last time somebody wrote it down:
 ///
 /// * **Derived from here:** sprite declarations, cue authorization, each body's
-///   presentation source, and — since the projection landed — the authored
-///   MOVESET and HURTBOX DOC of any body whose identity resolves to a registered
-///   character (`project_prepared_character_definitions`, plus the moveset
-///   consulted inside `avatar::starting_character`'s one construction so the
-///   action set and the moveset are built together).
-/// * **Still the catalog's:** the ACTION SET, the identity baseline, and movement
-///   tuning. `CharacterCatalog` remains the authority for those, and a registered
-///   character that authors none of them is the ordinary case.
+///   presentation source, and the authored MOVESET, HURTBOX DOC, ACTION SET and
+///   MOTION MODEL of any body whose identity resolves to a registered character.
+///   Both construction paths honour all four —
+///   `project_prepared_character_definitions` for a seated or spawned body, and
+///   `avatar::starting_character`'s one construction for a worn one — because
+///   wiring only the worn path left seated fighters without their action set for
+///   a day (2026-07-28).
+/// * **Still the catalog's, and legitimately:** display names, sheet targets,
+///   default brains, tiers, tags, aggro and attack ranges, and the remaining
+///   movement TUNING. Those are not the KIT, which is what C3 was about — the
+///   catalog is the right authority for what a character is CALLED and what it
+///   LOOKS like, and it stays the fallback for every kit field a definition did
+///   not author, which is most characters.
+///
+/// **Precedence, in one sentence:** an explicitly authored value on the
+/// definition outranks the catalog row; `None` means the author said nothing and
+/// the row stands; and `Some(empty)` is an authoring DECISION that outranks the
+/// row exactly as a filled one does. That last distinction is the load-bearing
+/// one — collapsing it hands an intentionally weaponless character a punch.
 ///
 /// This comment previously said registering a character "does not yet cause a
 /// production-spawned body to receive what that character authored — the §7.10

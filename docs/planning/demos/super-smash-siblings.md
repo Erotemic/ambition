@@ -19,11 +19,11 @@ stretch). Percent-style damage display. A character select screen.
 |---|---|---|
 | [the sim assembly] + [the provider lifecycle] + [the windowed host] | app composition, exact session scope, mode scope, fixed-tick option | provider/session tracks 1–2; fixed-tick substrate landed |
 | [the sim heart] | bodies, slots, possession, spawn/respawn primitives | landed foundation; session-root cleanup continues |
-| [the combat resolver] | knockback growth + weight + `Unbounded` death policy (CM1), DI (CM2), smash/charge (CM3), cancels (CM4), per-move sfx/vfx (CM5), grab/throw/shield-stun (CM6), frame-data table (CM7) | CM1–CM7 |
+| [the combat resolver] | knockback growth + weight + `Unbounded` death policy (CM1), DI (CM2), smash/charge (CM3), cancels (CM4), per-move sfx/vfx (CM5), grab/throw/shield-stun (CM6), frame-data table (CM7) | CM1–CM7. ⚠ `DeathPolicy::Unbounded` had ZERO production callers until the blast zone above existed — a meter that never kills, and no world that does, is an immortal body. It is reachable now and still uncalled: selecting it needs knockback that can actually reach a blast zone (queue F0e). |
 | [the movement kernel] | BOTH movers in one arena — that's the whole point (robot/mary-o/goblin on axis-swept; sanic on surface-momentum) | landed |
 | [the actor vocabulary] | fighter-brain CPU profiles L1–L9 | FB1–FB4 |
 | [device→intent] | N controllers → N slots, join flow binding | N1.1 |
-| [the space IR] + [the LDtk backend] | stages as the demo's own `.ldtk`; blast zones = the world-AABB OOB event | landed |
+| [the space IR] + [the LDtk backend] | stages as the demo's own `.ldtk`; blast zones = the world-AABB OOB event | **landed 2026-07-28, and it was not before.** This row said "landed" while the OOB event did not exist as anything consumable: the kernel gate computed `fell_out` and merged it into an anonymous `hazard` bool, and for ACTORS it dropped the flag entirely — a body knocked off a stage fell forever. Now `ResetCause::LeftTheWorld` + `HitSource::LeftTheWorld`, a per-stage `World::blast_margin` authorable as an LDtk level field, and a lethal hit that kills regardless of `kills_at_max`. **Fall direction only** — side and ceiling blast zones are still missing (queue F0f), and a platform fighter loses most stocks off the side. |
 | [the observation boundary] | damage-meter + facts read for the percent HUD (the sim never knows "percent" exists) | E4 |
 | [the authoring spine] + [the sprite-geometry authority] | roster rows, movesets, sheets | landed |
 

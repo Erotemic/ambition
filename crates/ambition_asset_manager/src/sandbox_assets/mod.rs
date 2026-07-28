@@ -77,6 +77,41 @@ pub fn is_source_qualified(path: &str) -> bool {
         .is_some_and(|(scheme, rest)| !scheme.is_empty() && !rest.is_empty())
 }
 
+/// Join an authored filename to the folder convention — UNLESS the author
+/// already said where the file lives.
+///
+/// The one place this join is allowed to happen, because doing it inline is a
+/// mistake this repo has now made three times in three different seams
+/// (catalog→manifest, the sheet index, and the desktop load gate), each time by
+/// treating `game://sprites/x.png` as a relative path and producing
+/// `sprites/game://sprites/x.png` or looking for a file at a root that could
+/// never hold it. A fourth is only a matter of which builder somebody edits
+/// next, so the join has a name now and the name knows the rule.
+pub fn logical_asset_path(folder: &str, filename: &str) -> String {
+    if is_source_qualified(filename) {
+        filename.to_owned()
+    } else {
+        format!("{folder}/{filename}")
+    }
+}
+
+/// The scaled-variant sibling of [`logical_asset_path`], or `None` when the
+/// author owns the path.
+///
+/// A `sprites_0_5x/…` twin is generated into the ENGINE's tree by this repo's
+/// own tooling. Inventing that layout inside somebody else's asset source is a
+/// convention they never agreed to, so a source-qualified asset simply has no
+/// variants — it renders at full resolution, which is correct and visible,
+/// rather than resolving to a path that does not exist.
+pub fn scaled_logical_asset_path(
+    folder: &str,
+    subdir_suffix: &str,
+    filename: &str,
+) -> Option<String> {
+    (!is_source_qualified(filename))
+        .then(|| format!("{folder}_{subdir_suffix}/{filename}"))
+}
+
 /// Filename row for a boss spritesheet.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BossSpriteCatalogRow {
@@ -460,4 +495,105 @@ pub fn build_sandbox_catalog_with(
     extend_with_music_entries(&mut manifest, &inputs.music_tracks);
     extend(&mut manifest);
     SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
+}
+
+#[cfg(test)]
+mod authored_path_tests {
+    use super::*;
+
+    /// **The rule, stated once.** A path that names its own source belongs to
+    /// whoever authored it; everything else follows the folder convention.
+    #[test]
+    fn a_source_qualified_path_is_never_rebuilt_under_a_folder() {
+        assert_eq!(
+            logical_asset_path("sprites", "game://sprites/mine.png"),
+            "game://sprites/mine.png",
+            "the folder convention was applied to a path that already named its \
+             own source — this produced `sprites/game://sprites/mine.png`, a path \
+             to nothing, in three separate seams before it had a name"
+        );
+        assert_eq!(
+            logical_asset_path("sprites", "engine_art.png"),
+            "sprites/engine_art.png",
+            "an ordinary filename still follows the convention, or every engine \
+             asset breaks"
+        );
+    }
+
+    /// A consumer's asset gets NO invented scale siblings: `sprites_0_5x/…` is
+    /// this repo's generated layout, not a convention somebody else's asset
+    /// source agreed to.
+    #[test]
+    fn a_source_qualified_path_has_no_scaled_siblings() {
+        assert_eq!(
+            scaled_logical_asset_path("sprites", "0_5x", "game://sprites/mine.png"),
+            None
+        );
+        assert_eq!(
+            scaled_logical_asset_path("sprites", "0_5x", "engine_art.png").as_deref(),
+            Some("sprites_0_5x/engine_art.png")
+        );
+    }
+
+    /// **The guard against a fourth layer.** Every FAMILY that joins a folder to
+    /// an authored filename is exercised here with a source-qualified path, and
+    /// the manifest must carry it verbatim.
+    ///
+    /// Characters were fixed first, bosses second, and the reason bosses were
+    /// broken is that nobody had walked a consumer-authored boss end to end —
+    /// exactly the reason characters were broken. A family added later that
+    /// re-implements the join fails this test rather than waiting for somebody
+    /// to render it.
+    #[test]
+    fn every_manifest_family_carries_a_consumers_own_path_verbatim() {
+        const OWN: &str = "game://sprites/consumer_owned.png";
+        let scale_variants = [AssetScaleVariant {
+            asset_id_suffix: "0_5x",
+            sprite_subdir_suffix: "0_5x",
+            parallax_subdir: "parallax_0_5x",
+        }];
+
+        let mut manifest = AssetManifest::default();
+        builders::extend_with_character_entries(
+            &mut manifest,
+            "sprites",
+            &[CharacterSpriteCatalogRow {
+                name: "consumer_hero".into(),
+                filename: OWN.into(),
+                qualified: Some(OWN.into()),
+            }],
+            &scale_variants,
+        );
+        builders::extend_with_boss_entries(
+            &mut manifest,
+            "sprites",
+            &[BossSpriteCatalogRow {
+                name: "consumer_boss".into(),
+                filename: OWN.into(),
+            }],
+            &scale_variants,
+        );
+
+        for (family, id) in [
+            ("character", ids::character_sprite("consumer_hero")),
+            ("boss", ids::boss_sprite("consumer_boss")),
+        ] {
+            let entry = manifest
+                .get(&id)
+                .unwrap_or_else(|| panic!("{family} entry is in the manifest"));
+            assert_eq!(
+                entry.logical_path, OWN,
+                "the {family} manifest row mangled a consumer's own path — it \
+                 reads `{}`, and the asset it names does not exist",
+                entry.logical_path
+            );
+            // ...and no invented sibling under this repo's generated layout.
+            assert!(
+                manifest
+                    .get(&scaled_asset_id(&id, Some("0_5x")).expect("a variant id"))
+                    .is_none(),
+                "a scaled sibling was invented inside somebody else's asset source"
+            );
+        }
+    }
 }

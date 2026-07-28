@@ -96,23 +96,12 @@ pub(in super::super) fn extend_with_character_entries(
     } in rows
     {
         let id = ids::character_sprite(&name);
-        // A source-qualified path is the author's, verbatim. Rebuilding it under
-        // the shared sprite folder is what turned `game://sprites/mine.png` into
-        // `sprites/game://sprites/mine.png` and made consumer-owned character art
-        // unreachable through the production pipeline (GPT 5.6, 2026-07-28).
-        if let Some(qualified) = qualified {
-            manifest.insert(
-                AssetEntry::new(id, AssetKind::Image, qualified.clone())
-                    .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-                    .with_preload_group(PreloadGroup::SandboxCore),
-            );
-            // No scale variants: the `sprites_half/…` twins are generated into
-            // the ENGINE's tree by this repo's own tooling, and inventing that
-            // layout inside somebody else's asset source would be a convention
-            // they never agreed to. A consumer that wants tiers registers them.
-            continue;
-        }
-        let logical_path = format!("{sprite_folder}/{filename}");
+        // `qualified` carries the authored path when the catalog named its own
+        // source; the helper is the ONE place that decides whether to join.
+        // This was an inline branch here and inline `format!`s in three other
+        // seams, which is how the same mistake got made three times.
+        let authored = qualified.as_deref().unwrap_or(filename.as_str());
+        let logical_path = super::super::logical_asset_path(sprite_folder, authored);
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
             .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
             .with_preload_group(PreloadGroup::SandboxCore);
@@ -121,13 +110,17 @@ pub(in super::super) fn extend_with_character_entries(
         }
         manifest.insert(entry);
         for scale in scale_variants {
+            let Some(scaled) = super::super::scaled_logical_asset_path(
+                sprite_folder,
+                scale.sprite_subdir_suffix,
+                authored,
+            ) else {
+                continue;
+            };
             insert_scaled_image_entry(
                 manifest,
                 &ids::character_sprite(&name),
-                &format!(
-                    "{}_{}/{}",
-                    sprite_folder, scale.sprite_subdir_suffix, filename
-                ),
+                &scaled,
                 scale,
                 PreloadGroup::SandboxCore,
             );
@@ -157,20 +150,26 @@ pub(in super::super) fn extend_with_boss_entries(
 ) {
     for BossSpriteCatalogRow { name, filename } in rows {
         let id = ids::boss_sprite(name);
-        let logical_path = format!("{sprite_folder}/{filename}");
+        // Through the helper, not inline: a consumer-authored boss names its own
+        // art the same way a consumer-authored character does.
+        let logical_path = super::super::logical_asset_path(sprite_folder, filename);
         manifest.insert(
             AssetEntry::new(id, AssetKind::Image, logical_path)
                 .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
         for scale in scale_variants {
+            let Some(scaled) = super::super::scaled_logical_asset_path(
+                sprite_folder,
+                scale.sprite_subdir_suffix,
+                filename,
+            ) else {
+                continue;
+            };
             insert_scaled_image_entry(
                 manifest,
                 &ids::boss_sprite(name),
-                &format!(
-                    "{}_{}/{}",
-                    sprite_folder, scale.sprite_subdir_suffix, filename
-                ),
+                &scaled,
                 scale,
                 PreloadGroup::SandboxCore,
             );

@@ -43,6 +43,20 @@ changes. That is not a failure of the guard — a red line here is a conversatio
 about whether the absence is still wanted, and answering "no, we want the thing
 now" is a legitimate answer that ends with this row removed in the same commit.
 
+## The second table: dependency edges
+
+``DEPENDENCY_CONTRACTS`` guards the half a grep CANNOT express. "Crate A must not
+depend on crate B" is a fact about the manifest graph, not about any line of
+text: a grep can find the ``use`` that proves an edge exists and miss the one
+added through a re-export tomorrow, and it cannot see an edge introduced through
+an intermediary at all. So that table is checked against ``cargo metadata``, and
+checked TRANSITIVELY — the claim is that a foundation cannot REACH gameplay, and
+a layering inversion almost never arrives as a direct dependency line.
+
+Both tables are RED-PROBED in ``scripts/tests/test_absence_contracts.py``. Every
+contract here is green against the live tree, which is the whole point of it and
+also the reason running it proves nothing about whether it works.
+
 Usage:
     python3 scripts/check_absence_contracts.py            # report every contract
     python3 scripts/check_absence_contracts.py --check    # exit 1 on a violation
@@ -51,6 +65,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -129,6 +144,78 @@ ABSENCE_CONTRACTS: list[dict] = [
 # Files whose content is ABOUT the contracts rather than governed by them.
 SELF_REFERENTIAL = {"scripts/check_absence_contracts.py"}
 
+# Dependency-edge contracts, read from `cargo metadata` rather than from text.
+#
+# A grep cannot express "crate A must not depend on crate B". It can find the
+# `use` that proves it, and miss the one added through a re-export tomorrow; it
+# cannot see a dependency introduced through an intermediary at all. The manifest
+# graph is the fact, so this asks the manifest (GPT 5.6's W1 note, 2026-07-28:
+# "use Cargo metadata for dependency edges").
+#
+# `forbidden` is checked TRANSITIVELY. The claim being guarded is never "no
+# direct dependency line" — it is that a foundation crate cannot REACH gameplay,
+# and reaching it through one intermediary is the same architectural failure with
+# an extra hop. A layering inversion almost never arrives as a direct edge.
+DEPENDENCY_CONTRACTS: list[dict] = [
+    {
+        "id": "engine-core-is-the-floor",
+        "crate": "ambition_engine_core",
+        "forbidden": "*",
+        "reason": (
+            "The geometry, movement and body vocabulary every other crate is "
+            "written in terms of. It depends on NO workspace crate, and that is "
+            "what makes it the layer everything else can agree on rather than "
+            "one more participant in a cycle. A single edge out of here makes "
+            "the whole graph a suggestion."
+        ),
+    },
+    {
+        "id": "platformer-primitives-stays-a-foundation",
+        "crate": "ambition_platformer_primitives",
+        "forbidden": [
+            "ambition_actors",
+            "ambition_characters",
+            "ambition_combat",
+            "ambition_runtime",
+            "ambition_content",
+            "ambition",
+        ],
+        "reason": (
+            "Session scope, binding resolution and stable ids — the vocabulary "
+            "gameplay crates USE. It sits directly above `engine_core` and "
+            "below everything that has opinions about actors, so a dependency "
+            "on one of those inverts the layering the refactor timeline is "
+            "built on (foundations < gameplay_core < content)."
+        ),
+    },
+    {
+        "id": "characters-do-not-depend-on-the-actor-integration-layer",
+        "crate": "ambition_characters",
+        "forbidden": ["ambition_actors", "ambition_runtime", "ambition"],
+        "reason": (
+            "`ambition_actors` depends on `ambition_characters`, which makes "
+            "the reverse edge a cycle waiting to be discovered by the compiler "
+            "at the worst moment. It also matters for the deferred "
+            "`ambition_actors` decomposition: if a coherent actor kernel exists "
+            "at all, `ambition_characters` is below it."
+        ),
+    },
+    {
+        "id": "engine-crates-do-not-consume-the-umbrella-facade",
+        "crate": "ambition_actors",
+        "forbidden": ["ambition"],
+        "reason": (
+            "`ambition` is the facade a CONSUMER builds a game against; it "
+            "re-exports `ambition_actors` among thirty-odd others. An engine "
+            "crate reaching back through it is circular by construction, and it "
+            "is how a headless consumer ends up compiling the render stack. "
+            "⚠ deliberately scoped to engine crates: `ambition_content` DOES "
+            "depend on the facade today, and whether that should stop is a "
+            "MEASUREMENT question the campaign defers rather than a rule."
+        ),
+    },
+]
+
 _LINE_COMMENT = re.compile(r"//.*$")
 _HASH_COMMENT = re.compile(r"#(?!\[).*$")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -203,6 +290,75 @@ def violations(contract: dict, root: Path) -> list[tuple[str, int, str]]:
     return found
 
 
+def cargo_binary() -> str:
+    """`cargo`, found even when PATH does not have it.
+
+    This runs from the goal-guard hook, and the hook's PATH has no cargo — a
+    lesson this repo paid for twice, because a check that can only ever report
+    "command not found" can never pass and wedges the run it was supposed to
+    guard. So the rustup location is tried before giving up on PATH.
+    """
+    rustup = Path.home() / ".cargo" / "bin" / "cargo"
+    return str(rustup) if rustup.exists() else "cargo"
+
+
+def workspace_graph(root: Path) -> dict[str, set[str]]:
+    """Every workspace crate's DIRECT workspace dependencies, from the manifests.
+
+    `--no-deps` keeps this to the workspace: registry crates are somebody else's
+    layering problem. Dev-dependencies are included deliberately — a test that
+    reaches upward compiles the upward edge, and "only in tests" is exactly the
+    excuse under which a layering inversion first arrives.
+    """
+    raw = subprocess.run(
+        [cargo_binary(), "metadata", "--no-deps", "--format-version", "1"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    metadata = json.loads(raw)
+    members = {package["name"] for package in metadata["packages"]}
+    return {
+        package["name"]: {
+            dependency["name"]
+            for dependency in package["dependencies"]
+            if dependency["name"] in members
+        }
+        for package in metadata["packages"]
+    }
+
+
+def reachable(graph: dict[str, set[str]], start: str) -> dict[str, list[str]]:
+    """Every crate `start` can reach, mapped to the path that gets there.
+
+    The path is the whole value of reporting this: "A depends on B" is arguable,
+    "A -> C -> B" is a fix.
+    """
+    found: dict[str, list[str]] = {}
+    queue = [(start, [start])]
+    while queue:
+        crate, path = queue.pop(0)
+        for dependency in sorted(graph.get(crate, ())):
+            if dependency in found or dependency == start:
+                continue
+            found[dependency] = path + [dependency]
+            queue.append((dependency, path + [dependency]))
+    return found
+
+
+def dependency_violations(contract: dict, graph: dict[str, set[str]]) -> list[str]:
+    crate = contract["crate"]
+    if crate not in graph:
+        return [f"contract names `{crate}`, which is not a workspace member"]
+    reached = reachable(graph, crate)
+    forbidden = contract["forbidden"]
+    targets = sorted(reached) if forbidden == "*" else forbidden
+    return [
+        " -> ".join(reached[target]) for target in targets if target in reached
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -231,7 +387,19 @@ def main() -> int:
         for path, number, text in found:
             print(f"       {path}:{number}: {text}")
 
-    total = len(ABSENCE_CONTRACTS)
+    graph = workspace_graph(root)
+    for contract in DEPENDENCY_CONTRACTS:
+        found = dependency_violations(contract, graph)
+        if not found:
+            print(f"  ok   {contract['id']}")
+            continue
+        broken += 1
+        print(f"  RED  {contract['id']}")
+        print(f"       {contract['reason']}")
+        for path in found:
+            print(f"       {path}")
+
+    total = len(ABSENCE_CONTRACTS) + len(DEPENDENCY_CONTRACTS)
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")
         print(

@@ -99,3 +99,93 @@ def test_every_contract_holds_against_the_live_tree(contract):
         + "\n".join(f"  {path}:{number}: {text}" for path, number, text in found)
         + f"\n{contract['reason']}"
     )
+
+
+# ── Dependency-edge contracts ───────────────────────────────────────────────
+#
+# The half a grep cannot express. Same rule as above: the live tree is green, so
+# a test that only ran it would prove nothing. These feed synthetic graphs.
+
+from check_absence_contracts import (  # noqa: E402
+    DEPENDENCY_CONTRACTS,
+    dependency_violations,
+    reachable,
+    workspace_graph,
+)
+
+
+def test_a_transitive_edge_is_a_violation_not_just_a_direct_one():
+    """The claim is that a foundation cannot REACH gameplay.
+
+    A layering inversion almost never arrives as a direct dependency line — it
+    arrives through an intermediary that looked harmless. A checker that only
+    read direct edges would pass the graph below, which is the graph that
+    matters.
+    """
+    graph = {
+        "ambition_platformer_primitives": {"innocent_helper"},
+        "innocent_helper": {"ambition_actors"},
+        "ambition_actors": set(),
+    }
+    contract = {
+        "id": "test",
+        "crate": "ambition_platformer_primitives",
+        "forbidden": ["ambition_actors"],
+        "reason": "",
+    }
+    found = dependency_violations(contract, graph)
+    assert found == [
+        "ambition_platformer_primitives -> innocent_helper -> ambition_actors"
+    ], f"the two-hop inversion was not reported: {found}"
+
+
+def test_the_floor_contract_rejects_any_workspace_edge():
+    graph = {"ambition_engine_core": {"anything_at_all"}, "anything_at_all": set()}
+    contract = {
+        "id": "test",
+        "crate": "ambition_engine_core",
+        "forbidden": "*",
+        "reason": "",
+    }
+    assert dependency_violations(contract, graph) == [
+        "ambition_engine_core -> anything_at_all"
+    ]
+
+
+def test_a_clean_graph_reports_nothing():
+    graph = {"a": {"b"}, "b": set(), "forbidden_crate": set()}
+    contract = {
+        "id": "test",
+        "crate": "a",
+        "forbidden": ["forbidden_crate"],
+        "reason": "",
+    }
+    assert dependency_violations(contract, graph) == []
+
+
+def test_a_contract_naming_a_crate_that_does_not_exist_is_reported():
+    """A renamed crate must not turn its contract into a silent pass — that is
+    the failure mode where a guard keeps printing `ok` about nothing."""
+    found = dependency_violations(
+        {"id": "test", "crate": "ghost_crate", "forbidden": ["x"], "reason": ""},
+        {"a": set()},
+    )
+    assert found and "not a workspace member" in found[0]
+
+
+def test_reachable_reports_the_shortest_path_it_found():
+    graph = {"a": {"b", "c"}, "b": {"d"}, "c": set(), "d": set()}
+    assert reachable(graph, "a")["d"] == ["a", "b", "d"]
+
+
+@pytest.mark.parametrize(
+    "contract", DEPENDENCY_CONTRACTS, ids=lambda c: c["id"]
+)
+def test_every_dependency_contract_holds_against_the_live_workspace(contract):
+    graph = workspace_graph(Path(__file__).resolve().parents[2])
+    found = dependency_violations(contract, graph)
+    assert not found, (
+        f"{contract['id']} is violated:\n"
+        + "\n".join(f"  {path}" for path in found)
+        + f"\n{contract['reason']}"
+    )

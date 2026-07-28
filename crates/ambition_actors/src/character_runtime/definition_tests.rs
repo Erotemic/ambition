@@ -646,3 +646,41 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
         "preparation judged an action set the definition never authored:\n{report}"
     );
 }
+
+/// **A cast has a version, so a derivation can know it went stale.** (X4)
+///
+/// The registry is a live resource — a room transition builds a fresh one and
+/// registration mutates it in place — and nothing downstream could say WHICH
+/// cast a body's kit came from. "This was built before the cast changed" was not
+/// a question the code could ask; it could only compare values and guess, which
+/// is the shape of every stale-derivation bug in this repo.
+#[test]
+fn the_cast_generation_advances_on_every_published_change() {
+    let mut registry = PreparedCharacterRegistry::default();
+    let opening = registry.generation();
+
+    registry.insert_prepared(
+        prepare_character(mary_o(), &CharacterBindings::default()).prepared,
+    );
+    let after_first = registry.generation();
+    assert!(
+        after_first > opening,
+        "publishing a character left the cast on {opening}"
+    );
+
+    // REPLACING a character is a new cast even though the count did not move —
+    // a counter that only tracked insertions would call these two identical,
+    // which is exactly the case a consumer needs to notice.
+    registry.insert_prepared(
+        prepare_character(
+            CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"),
+            &CharacterBindings::default(),
+        )
+        .prepared,
+    );
+    assert_eq!(registry.len(), 1, "the replacement did not add a character");
+    assert!(
+        registry.generation() > after_first,
+        "a replaced cast reported the same generation as the one it replaced"
+    );
+}

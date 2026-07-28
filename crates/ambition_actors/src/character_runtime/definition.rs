@@ -719,9 +719,49 @@ pub fn prepare_character(
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
     by_id: BTreeMap<String, PreparedCharacterDefinition>,
+    generation: CharacterCatalogGeneration,
+}
+
+/// Which version of the cast a value was built from.
+///
+/// The registry is a live resource: a room transition builds a fresh one, and
+/// registration mutates it in place. Nothing downstream could say WHICH cast a
+/// body's kit came from, so "this body was built before the cast changed" was
+/// not a question the code could ask — it could only compare the values and
+/// guess. That is the shape of every stale-derivation bug in this repo.
+///
+/// A monotonic counter, not a hash: two registries with identical contents
+/// assembled at different times are legitimately different generations, and a
+/// consumer caching against a hash would silently keep a value across a
+/// replacement that happened to produce the same cast. Cheap enough to stamp,
+/// and it is rollback-safe because it only ever moves forward within a session
+/// and is rebuilt with the registry on a load.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CharacterCatalogGeneration(u64);
+
+impl CharacterCatalogGeneration {
+    pub fn get(self) -> u64 {
+        self.0
+    }
+}
+
+impl std::fmt::Display for CharacterCatalogGeneration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "cast generation {}", self.0)
+    }
 }
 
 impl PreparedCharacterRegistry {
+    /// Which version of the cast this is.
+    ///
+    /// Increments on every published change. A consumer that derived something
+    /// from the registry can hold this beside it and know, cheaply and without
+    /// comparing contents, whether its derivation is still about the cast that
+    /// exists now.
+    pub fn generation(&self) -> CharacterCatalogGeneration {
+        self.generation
+    }
+
     pub fn get(&self, id: &str) -> Option<&PreparedCharacterDefinition> {
         self.by_id.get(id)
     }
@@ -783,6 +823,11 @@ impl PreparedCharacterRegistry {
 
     fn insert(&mut self, prepared: PreparedCharacterDefinition) -> Option<String> {
         let id = prepared.id.clone();
+        // The generation advances on every PUBLISHED change, including the
+        // replacement branch below — a cast whose contents were swapped is a
+        // different cast even though the count did not move, and a counter that
+        // only tracked insertions would report the two as identical.
+        self.generation = CharacterCatalogGeneration(self.generation.0 + 1);
         match self.by_id.insert(id.clone(), prepared) {
             Some(previous) => Some(previous.provider),
             None => None,

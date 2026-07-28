@@ -82,6 +82,63 @@ that verified it.
 a before-number, and after the migration nobody can reconstruct it. C3.1's
 inventory *is* the baseline — it must be committed with counts, not just a list.
 
+### R-g. ⛔ `ResolvedCharacterIdentity` as a NEW type would be a seventh authority
+
+**Found while starting X2, 2026-07-28. This is the most important revision on the
+page and it inverts the step as written.**
+
+The review's target struct lists `character_id`, `provider`, `action_set`,
+`moveset`, `hurtboxes`, `presentation`. Compare `PreparedCharacterDefinition`,
+which exists and is published today:
+
+```rust
+pub struct PreparedCharacterDefinition {
+    pub id, pub display_name, pub provider, pub lineage,
+    pub sheet, pub portrait, pub body, pub hurtboxes,
+    pub vitals, pub moveset, pub action_set,        // ← as of 2026-07-28
+    cue_dependencies, vfx_dependencies, checked, unresolved,
+}
+```
+
+That IS the resolved identity, and `PreparedCharacterRegistry` is the prepared
+catalog minus a generation counter. **Adding a second type carrying the same
+fields would ADD a production authority, which is the one thing this campaign
+exists to stop** — and the review's own rule says so twice ("fewer production
+authorities"; "use the repository's actual current types and ownership
+boundaries"). Building it because a step said "define a type" would be the
+purest possible instance of the failure being migrated away from.
+
+So X2 is **redirected, not skipped**. What is genuinely missing is not a struct:
+
+1. **Precedence is decided at WEAR TIME, not at preparation.** `apply_worn_character_kit`
+   resolves prepared-vs-catalog every time a body wears an identity. That is
+   C3.6's "runtime arbitration", and moving it into preparation is the real work.
+2. **No generation counter.** The registry is mutable and replaceable in place, so
+   nothing can say "this body was built from generation N".
+3. **`hurtboxes` and presentation are not consumed from it** by body construction.
+
+### R-h. ⚠ The compat kit is ABILITY-derived, so it cannot move to preparation
+
+A constraint the review could not see from outside, and it bounds R-g's item 1.
+
+`resolve_playable_action_set` has three arms. The `Authored` arm is a pure
+function of identity. The `HostCode` arm and the unknown-id arm both call
+`default_player_action_set(base_abilities)` — and `base_abilities` is the
+BODY's persisted `AbilitySet`, not the character's. Two bodies wearing the same
+identity with different unlocks legitimately get different kits.
+
+So "preparation decides, runtime consumes" is achievable for the authored path
+and **false by construction for the host-code path**. The correct end state is
+not one resolver at preparation; it is:
+
+* identity-authored kits resolved ONCE at preparation, consumed verbatim;
+* the host-code compat kit derived per body, from abilities, and NAMED as the
+  one legitimate runtime derivation rather than left looking like arbitration.
+
+A campaign row that says "delete runtime arbitration" without this distinction
+would delete a correct derivation along with the incorrect ones. X12 is amended
+accordingly.
+
 ### R-f. Campaign 3 Part B is closer to done than the review assumes
 
 `BodyLifecycleTransition` describes something this tree partly has: the versus
@@ -101,9 +158,9 @@ Campaign 1 only. Rows are executable; each maps to the review's numbered step.
 | id | row | maps to | done when |
 |---|---|---|---|
 | ~~**X1**~~ | ✔ **DONE 2026-07-28** — [character-authority-inventory-2026-07-28.md](character-authority-inventory-2026-07-28.md). The metric that matters is not the 349 `CharacterCatalog` refs: it is **7 precedence-resolver sites, 3 resolved**. Campaign 1 is complete when that table has one row. | C3.1 | ✔ committed with counts + method |
-| **X2** | Define `ResolvedCharacterIdentity` — `action_set`, `moveset`, `hurtboxes`, provider/presentation. **No `motion_model` yet** (R-a). | C3.2 | type exists, unused, compiles |
-| **X3** | Write the resolver at the preparation boundary. `Option<ActionSet>` so "authored empty" ≠ "not authored" (R-b). Refuse conflicting duplicate authorities, permit identical ones (R-c). All-or-nothing: one character failing publishes nothing. | C3.2 | test: a Sanic-shaped definition authoring an EMPTY action set does not receive a punch |
-| **X4** | Publish `PreparedCharacterCatalog` — immutable per generation, atomically replaceable. Character-specific; **not** a `PreparedExperience`. | C3.3 | resource exists with a generation counter |
+| ~~**X2**~~ | ⊘ **REDIRECTED — do not build the struct.** `PreparedCharacterDefinition` already carries every field the review's `ResolvedCharacterIdentity` lists; a second type would ADD a production authority, which is the one thing this campaign exists to stop (R-g). The work is X3/X4/X12, not a definition. | C3.2 | ⊘ with a stated reason |
+| **X3** | Move precedence resolution from WEAR TIME into preparation, for the identity-authored path only — `apply_worn_character_kit` re-resolves prepared-vs-catalog on every wear, and that is C3.6's runtime arbitration. ⚠ bounded by R-h: the host-code kit is ability-derived and legitimately stays per-body. | C3.2/C3.6 | the authored path resolves once; test that two bodies wearing one identity get byte-identical kits |
+| ~~**X4**~~ | ✔ **DONE 2026-07-28.** `CharacterCatalogGeneration` on `PreparedCharacterRegistry`. A counter, not a hash: two registries with identical contents assembled at different times are legitimately different casts, and a consumer caching against a hash would keep a stale value across a replacement that happened to reproduce the same cast. Advances on REPLACEMENT too, which is the case an insertion counter misses. | C3.3 | ✔ `the_cast_generation_advances_on_every_published_change` |
 | ~~**X5**~~ | ✔ **DONE 2026-07-28** (`34706cf39`). Both duelists author their `ActionSet` on their definitions. ⚠ also fixed: `wears_host_code_kit` was still asking the displaced catalog row. | step 4 | ✔ 3 tests incl. the Sanic authored-empty case |
 | ~~**X6**~~ | ✔ **DONE 2026-07-28**. Resolving the set BEFORE deriving is what makes this true; the empty-authored-set-vs-catalog-melee case is the test that tells the two implementations apart. | step 5 | ✔ `a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set` |
 | ~~**X7**~~ | ✔ **DONE 2026-07-28**. New `RangedPayload` binding namespace; reported only when the definition authored a set. | C3.2 | ✔ 3 tests incl. both negatives |
@@ -111,7 +168,7 @@ Campaign 1 only. Rows are executable; each maps to the review's numbered step.
 | **X9** | Migrate match/secondary-fighter seating. | step 7 | versus seats read the resolved identity |
 | **X10** | Migrate NPC/enemy construction where the same authority applies. | step 8 | named production paths listed and moved |
 | **X11** | Equipment becomes an overlay: `live = resolved baseline + grants`. Identity change atomically replaces the baseline before reapplying equipment. | C3.5 | test: an identity swap mid-equipment does not resurrect the old kit |
-| **X12** | Delete runtime arbitration — no production system asks "prepared or catalog?" after body construction. | C3.6 | the branches are gone, not bypassed |
+| **X12** | Delete runtime arbitration — no production system asks "prepared or catalog?" after body construction. ⚠ **amended by R-h:** the ability-derived host-code kit is a legitimate runtime derivation and must be NAMED as one, not deleted alongside the arbitration it resembles. | C3.6 | the arbitration branches are gone; the one derivation is documented as such |
 | **X13** | Confine the legacy catalog to preparation, or delete it. | criteria | no runtime read remains |
 | **X14** | Add C3.7 guard rows to `scripts/check_absence_contracts.py` (R-d), comment-stripped, prod-only, each RED-probed. | C3.7 / W1 | each new contract has a red-probe test |
 | **X15** | Update C3 docs and the design doc — **only after** the old production path is gone. | step 13 | doc names ONE character identity authority |

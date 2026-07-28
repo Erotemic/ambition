@@ -491,6 +491,21 @@ pub(crate) fn handle_player_damage_events(
             // allowed to observe, and the exploration respawn ran before any
             // rules layer could look — so seat 0 could not lose (GPT 5.6,
             // 2026-07-27).
+            //
+            // But it still DIES OUT LOUD. What the ruleset owns is the
+            // CONSEQUENCE — where the body goes, what it costs, who scores it —
+            // and none of that is the sound of losing. Without this, seat 0
+            // being knocked out of a versus round was completely silent, which
+            // is the same defect the actor path had one `else if` deeper: the
+            // death drama had been nested inside the exploration arm, so
+            // "the world does not own this death" was read as "nothing
+            // happened".
+            sfx.write_for_body(
+                victim_source,
+                SfxMessage::Death {
+                    pos: clusters.kinematics.pos,
+                },
+            );
             false
         }
         BodyHitResolution::Damaged { died: true, .. } => {

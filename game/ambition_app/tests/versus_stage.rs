@@ -2426,3 +2426,149 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
          round: the KO reached the body but not the rules"
     );
 }
+
+/// **A KO makes a sound.**
+///
+/// The death drama — the burst, the debris, and the body's own death cue — used
+/// to live inside the exploration DEFEAT arm of `apply_actor_hit`, so two kinds
+/// of death were completely silent: a body the ruleset owns, and a body that
+/// left the world. Every fighter in a versus round carries `RulesetOwnsDeath`,
+/// which means EVERY versus KO was silent, and a KO is the whole payoff of the
+/// genre.
+///
+/// The arm's own comment lists what an arena must not have — bounty coin,
+/// heart, death explosion, split offspring, held-item drop, respawn timer — and
+/// it is all ECONOMY. A body dying in its own voice was never on that list.
+#[test]
+fn a_knockout_is_announced_in_the_losers_own_voice() {
+    use ambition::actors::actor::BodyKinematics;
+    use ambition::actors::character_runtime::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
+
+    let seat_one = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the stage seats an opponent")
+    };
+
+    // Off the right of the stage, past the 160px side margin, high inside the
+    // world so only the side zone can score it.
+    {
+        let mut kin = app.world_mut().get_mut::<BodyKinematics>(seat_one).unwrap();
+        kin.pos = ambition::engine_core::Vec2::new(1140.0, 300.0);
+        kin.vel = ambition::engine_core::Vec2::ZERO;
+    }
+
+    let mut heard_death = false;
+    for _ in 0..10 {
+        app.update();
+        let world = app.world_mut();
+        let mut cues =
+            world.resource_mut::<bevy::ecs::message::Messages<ambition::sfx::OwnedSfxMessage>>();
+        let mut reader = cues.get_cursor();
+        if reader
+            .read(&cues)
+            .any(|cue| matches!(cue.request, ambition::sfx::SfxMessage::Death { .. }))
+        {
+            heard_death = true;
+        }
+        cues.update();
+        if heard_death {
+            break;
+        }
+    }
+    assert!(
+        app.world().get::<BodyHealth>(seat_one).unwrap().current() <= 0,
+        "fixture: seat 1 must actually be knocked out, or this measures silence \
+         from a fighter that never died"
+    );
+    assert!(
+        heard_death,
+        "seat 1 was knocked out of the stage and NOTHING was heard. A round that \
+         ends with no sound is a round nobody notices."
+    );
+
+    // SEAT 0 TOO, on the other code path. Seat 1 is an actor and dies through
+    // `apply_actor_hit`; seat 0 is the adopted `PlayerEntity` and dies through
+    // the player damage drain, which had the SAME defect one file away — its
+    // `ruleset_owns_death` arm returned `false` and emitted nothing, so the
+    // human's own knockout was the quietest event in the mode.
+    let seat_zero = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the stage seats a player")
+    };
+    let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
+    let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
+    let volume: ambition::engine_core::CombatVolume = ambition::engine_core::Aabb::new(
+        where_it_stood,
+        ambition::engine_core::Vec2::new(40.0, 40.0),
+    )
+    .into();
+    app.world_mut()
+        .write_message(ambition::combat::events::HitEvent {
+            strike_sfx: None,
+            volume,
+            damage: hp + 10,
+            source: ambition::combat::events::HitSource::EnemyAttack,
+            attacker: None,
+            target: ambition::combat::events::HitTarget::Player(seat_zero),
+            mode: ambition::combat::events::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+
+    let mut heard_seat_zero = false;
+    for _ in 0..8 {
+        app.update();
+        let world = app.world_mut();
+        let mut cues = world.resource_mut::<bevy::ecs::message::Messages<
+            ambition::sfx::OwnedSfxMessage,
+        >>();
+        let mut reader = cues.get_cursor();
+        if reader
+            .read(&cues)
+            .any(|cue| matches!(cue.request, ambition::sfx::SfxMessage::Death { .. }))
+        {
+            heard_seat_zero = true;
+        }
+        cues.update();
+        if heard_seat_zero {
+            break;
+        }
+    }
+    assert!(
+        app.world().get::<BodyHealth>(seat_zero).unwrap().current() <= 0,
+        "fixture: seat 0 must actually be down, or this measures silence from a \
+         fighter that never died"
+    );
+    assert!(
+        heard_seat_zero,
+        "seat 0 lost the round and NOTHING was heard. The ruleset owns where the \
+         body goes and who scores it — not the sound of losing."
+    );
+}

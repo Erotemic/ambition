@@ -517,6 +517,21 @@ pub(crate) fn apply_actor_hit(
                     }
                 }
             }
+        }
+        // THE DEATH DRAMA, for every body that died — which arm it took decides
+        // the ECONOMY, not whether anybody notices.
+        //
+        // This used to live inside the defeat arm, so two kinds of death were
+        // SILENT: a body the ruleset owns (every fighter in a versus round
+        // carries `RulesetOwnsDeath`) and a body that left the world. A round
+        // that ends with no sound is a round nobody notices, and the KO is the
+        // whole payoff of a platform fighter.
+        //
+        // The `RulesetOwnsDeath` arm's own comment lists what an arena must not
+        // have and it is all economy — bounty coin, heart, death explosion,
+        // split offspring, held-item drop, respawn timer. A body dying in its
+        // own voice is not on that list and never was.
+        if killed {
             writers.vfx.write(VfxMessage::Burst {
                 pos: em.kin.pos,
                 count: 16,

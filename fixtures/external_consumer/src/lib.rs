@@ -569,6 +569,93 @@ pub fn compose_outlander_shell(app: &mut App) {
     .install(app, OutlanderExperiencePlugin);
 }
 
+/// Whether the windowed face opens a real window or runs the full render graph
+/// against no wgpu backend.
+///
+/// The in-repo demos carry this same enum for the same reason: a test that
+/// asserts "the consumer's character is DRAWN" has to build the drawing app,
+/// and CI has no GPU. `Headless` changes one enum value and nothing else — if
+/// it needed a second difference, the test would be observing a composition
+/// nothing ships.
+#[cfg(feature = "visible")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RenderMode {
+    Windowed,
+    Headless,
+}
+
+/// **Outlander, drawn.** The composition `src/bin/visible.rs` runs and the
+/// render test observes — one function, so they cannot drift.
+///
+/// This lived inside `main()` until the render test needed it (queue T2's last
+/// half). A `main` a test cannot call is a composition nothing verifies, which
+/// is the same shape as the leaks this fixture exists to record.
+#[cfg(feature = "visible")]
+pub fn build_windowed_app(render: RenderMode) -> App {
+    use bevy::render::settings::{RenderCreation, WgpuSettings};
+    use bevy::render::RenderPlugin;
+    use bevy::window::{ExitCondition, Window, WindowPlugin};
+
+    let mut app = App::new();
+    // BEFORE `DefaultPlugins`: Bevy seals its asset sources when `AssetPlugin`
+    // builds, so a consumer's own tree has to be registered first.
+    register_outlander_asset_source(&mut app);
+    let plugins = DefaultPlugins
+        .set(bevy::asset::AssetPlugin {
+            file_path: ambition::asset_manager::actors_desktop_asset_root(),
+            ..Default::default()
+        })
+        .set(WindowPlugin {
+            primary_window: match render {
+                RenderMode::Windowed => Some(Window {
+                    title: "Outlander — external consumer proof".into(),
+                    ..Default::default()
+                }),
+                RenderMode::Headless => None,
+            },
+            exit_condition: match render {
+                RenderMode::Windowed => ExitCondition::OnAllClosed,
+                RenderMode::Headless => ExitCondition::DontExit,
+            },
+            close_when_requested: matches!(render, RenderMode::Windowed),
+            ..Default::default()
+        });
+    match render {
+        RenderMode::Windowed => app.add_plugins(plugins),
+        // Same disables the in-repo demos use, and for the same reasons: a
+        // `backends: None` renderer has no RenderApp, and process-global
+        // logging/Ctrl+C handlers belong to an executable rather than to a
+        // manually stepped fixture.
+        RenderMode::Headless => app.add_plugins(
+            plugins
+                .disable::<bevy::log::LogPlugin>()
+                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
+                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        backends: None,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .disable::<bevy::winit::WinitPlugin>(),
+        ),
+    };
+    ambition::engine::init_engine_states(&mut app);
+    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    compose_outlander_shell(&mut app);
+    // AFTER the content, which registers the catalogs this reads, and BEFORE the
+    // presentation, which draws from what it installs.
+    app.add_plugins(
+        ambition::game_assets::PlatformerAssetsPlugin::for_experience(OUTLANDER_EXPERIENCE)
+            .with_room(outlander_room().metadata),
+    );
+    app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+    app
+}
+
 /// Drive one frame of input, through the engine's own driver seam.
 ///
 /// LEAK CLOSED 2026-07-27. This used to carry its own branch — `PendingLocalInput`

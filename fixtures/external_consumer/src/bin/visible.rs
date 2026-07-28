@@ -24,40 +24,8 @@
 //! recorded is the gap it now proves is gone.
 
 fn main() {
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    // BEFORE `DefaultPlugins`: Bevy seals its asset sources when `AssetPlugin`
-    // builds, so a consumer's own tree has to be registered first.
-    outlander::register_outlander_asset_source(&mut app);
-    app.add_plugins(
-        DefaultPlugins
-            .set(bevy::asset::AssetPlugin {
-                file_path: ambition::asset_manager::actors_desktop_asset_root(),
-                ..Default::default()
-            })
-            .set(bevy::window::WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Outlander — external consumer proof".into(),
-                    ..Default::default()
-                }),
-                exit_condition: bevy::window::ExitCondition::OnAllClosed,
-                close_when_requested: true,
-                ..Default::default()
-            }),
-    );
-    ambition::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    outlander::compose_outlander_shell(&mut app);
-    // AFTER the content, which registers the catalogs this reads, and BEFORE the
-    // presentation, which draws from what it installs.
-    app.add_plugins(
-        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
-            outlander::OUTLANDER_EXPERIENCE,
-        )
-        .with_room(outlander::outlander_room().metadata),
-    );
-    app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
-    app.run();
+    // The composition lives in the lib so the headless render test builds the
+    // SAME app (queue T2). A `main` a test cannot call is a composition nothing
+    // verifies.
+    outlander::build_windowed_app(outlander::RenderMode::Windowed).run();
 }

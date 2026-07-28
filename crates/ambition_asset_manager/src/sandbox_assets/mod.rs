@@ -232,6 +232,21 @@ impl SandboxAssetCatalog {
             | AssetProfile::DesktopInstalled
             | AssetProfile::SteamDeckInstalled => {
                 resolved.missing_policy.is_required()
+                    // A SOURCE-QUALIFIED path belongs to a custom `AssetSource`,
+                    // and this pre-check cannot see inside one: it walks the
+                    // desktop asset roots looking for `<root>/<rel>`, and
+                    // `game://sprites/x.png` is not a relative file path — no
+                    // candidate can ever exist. So the gate silently refused
+                    // every consumer-owned asset, and the decode that followed
+                    // reported "no sheet resolved" for a sheet that had resolved
+                    // perfectly (queue T2; found by rendering the external
+                    // fixture's own character, which is the only way it could be
+                    // found).
+                    //
+                    // The source owns its own existence check, exactly as the
+                    // Android/iOS arms trust the packager. Attempt the load and
+                    // let the reader answer.
+                    || is_source_qualified(path)
                     || self.resolve_local_file_path(path).is_some()
             }
             AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,

@@ -361,6 +361,25 @@ fn sprite_texture_scale(
 /// engine materializer in [`crate::character_runtime`]; nothing outside the
 /// engine should reach for it, because an app that forgets to is an app whose
 /// characters silently render as rectangles.
+/// Which of the two halves of a decode failed — a sheet DESCRIPTION or its
+/// IMAGE. They are different bugs with different fixes, and reporting both as
+/// "no sheet resolved" sent one investigation into a metadata seam that was
+/// already correct (queue T2, 2026-07-28).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SpriteMaterialization {
+    Ready,
+    /// No sheet description resolved for this character's target.
+    NoSheet,
+    /// The sheet resolved; the image did not.
+    NoImage,
+}
+
+impl SpriteMaterialization {
+    pub fn is_ready(self) -> bool {
+        matches!(self, Self::Ready)
+    }
+}
+
 pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
     authored: &sheets::AuthoredSheets,
@@ -374,18 +393,22 @@ pub fn materialize_declared_character_sprite(
     // catalog row.
     registered_target: Option<&str>,
     token: &str,
-) -> bool {
+) -> SpriteMaterialization {
     let cid = match sprites.sheet_state(token) {
-        ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => return true,
+        ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
+            return SpriteMaterialization::Ready
+        }
         ambition_sprite_sheet::character::CharacterSheetState::Declared {
             character_id,
         } => character_id.to_string(),
-        ambition_sprite_sheet::character::CharacterSheetState::Unknown => return false,
+        ambition_sprite_sheet::character::CharacterSheetState::Unknown => {
+            return SpriteMaterialization::NoSheet
+        }
     };
     let Some(sheet_spec) =
         sheet_for_declared_character(authored, character_catalog, registered_target, &cid)
     else {
-        return false;
+        return SpriteMaterialization::NoSheet;
     };
     let asset_id = ids::character_sprite(&cid);
     let variant_tuning = character_variant_tuning(character_catalog, &cid);
@@ -400,10 +423,10 @@ pub fn materialize_declared_character_sprite(
         Some(&cid),
         quality,
     ) else {
-        return false;
+        return SpriteMaterialization::NoImage;
     };
     sprites.publish(&cid, asset);
-    true
+    SpriteMaterialization::Ready
 }
 
 /// Declare every catalog character's sheet WITHOUT decoding any of it.

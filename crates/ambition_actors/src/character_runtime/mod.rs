@@ -135,10 +135,20 @@ pub enum CharacterLoadFailure {
     /// character from a provider that is not part of this composition. Waiting
     /// will never fix it.
     UnknownCharacter,
-    /// Content declares it and named a sheet, but the asset catalog gated the
-    /// load or the decode produced nothing. The character draws the marked
-    /// placeholder; this is legitimate for an art-free or reduced-asset build.
+    /// Content declares it, but no sheet DESCRIPTION resolved: neither a
+    /// provider-authored sheet nor the engine's baked index knows the target its
+    /// catalog row names. The character draws the marked placeholder.
     NoSheetResolved,
+    /// The sheet resolved and the IMAGE did not — the asset catalog gated the
+    /// load, or the path it produced reaches nothing.
+    ///
+    /// Split out from [`Self::NoSheetResolved`] on 2026-07-28 because they are
+    /// different bugs with different fixes and one of them was wearing the
+    /// other's name: the external fixture's character reported "no sheet
+    /// resolved" while its sheet resolved perfectly and the desktop load gate
+    /// was refusing a `game://` path it could not filesystem-check. Twenty
+    /// minutes went into a metadata seam that was already correct.
+    NoImageResolved,
     /// This composition has NO asset pipeline at all — a headless simulation, an
     /// RL rollout, an art-free shell. Legitimate, and a different fact from "the
     /// sheet did not resolve": nothing was ever going to decode.
@@ -155,7 +165,12 @@ impl CharacterLoadFailure {
         match self {
             Self::UnknownCharacter => "no loaded content declares this character",
             Self::NoSheetResolved => {
-                "declared, but no sheet resolved under the active asset profile"
+                "declared, but no sheet DESCRIPTION resolved: neither an authored \
+                 sheet nor the baked index knows the target its catalog row names"
+            }
+            Self::NoImageResolved => {
+                "the sheet resolved and its IMAGE did not: the asset catalog \
+                 gated the load, or its path reaches nothing"
             }
             Self::NoAssetPipeline => "this composition has no asset pipeline (headless / art-free)",
         }
@@ -459,7 +474,7 @@ pub fn materialize_character_demand(
             );
             continue;
         }
-        let ready = crate::character_sprites::materialize_declared_character_sprite(
+        let materialization = crate::character_sprites::materialize_declared_character_sprite(
             sprites,
             authored_sheets,
             character_catalog,
@@ -470,10 +485,20 @@ pub fn materialize_character_demand(
             registered_sheet_target(registry, sprites, &token),
             &token,
         );
-        let outcome = if ready {
+        let outcome = if materialization.is_ready() {
             CharacterLoadOutcome::Ready
         } else {
-            CharacterLoadOutcome::Failed(CharacterLoadFailure::NoSheetResolved)
+            CharacterLoadOutcome::Failed(match materialization {
+                crate::character_sprites::SpriteMaterialization::NoSheet => {
+                    CharacterLoadFailure::NoSheetResolved
+                }
+                crate::character_sprites::SpriteMaterialization::NoImage => {
+                    CharacterLoadFailure::NoImageResolved
+                }
+                crate::character_sprites::SpriteMaterialization::Ready => unreachable!(
+                    "the ready arm is handled above"
+                ),
+            })
         };
         states.record(token, &character_id, outcome);
     }

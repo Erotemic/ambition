@@ -611,13 +611,25 @@ pub fn prepare_character(
 /// The prepared authority: one entry per character, keyed by stable id.
 ///
 /// ⚠ §4.1's end state is that subsystem read models are DERIVED from this rather
-/// than registered beside it. That is where this is GOING, not where it is: the
-/// sprite declarations, the cue authorization, and each body's presentation source
-/// resolve through here today, but production fighter construction still reads
-/// `CharacterCatalog` for its action set, moveset, and movement tuning
-/// (`avatar::starting_character`, `features::ecs::spawn_actors`). Registering a
-/// character does not yet cause a production-spawned body to receive what that
-/// character authored — the §7.10 fight test projects it by hand. Tracked as C3.
+/// than registered beside it. Where that stands today, checked against the code
+/// on 2026-07-28 rather than inherited from the last time somebody wrote it down:
+///
+/// * **Derived from here:** sprite declarations, cue authorization, each body's
+///   presentation source, and — since the projection landed — the authored
+///   MOVESET and HURTBOX DOC of any body whose identity resolves to a registered
+///   character (`project_prepared_character_definitions`, plus the moveset
+///   consulted inside `avatar::starting_character`'s one construction so the
+///   action set and the moveset are built together).
+/// * **Still the catalog's:** the ACTION SET, the identity baseline, and movement
+///   tuning. `CharacterCatalog` remains the authority for those, and a registered
+///   character that authors none of them is the ordinary case.
+///
+/// This comment previously said registering a character "does not yet cause a
+/// production-spawned body to receive what that character authored — the §7.10
+/// fight test projects it by hand". That stopped being true when the projection
+/// landed and the hand-projection was deleted; nothing re-read the comment,
+/// because a doc comment describing an ABSENCE has no citation to rot (queue W1).
+/// Tracked as C3.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
     by_id: BTreeMap<String, PreparedCharacterDefinition>,

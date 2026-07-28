@@ -295,11 +295,6 @@ pub struct ProjectedCharacterKit(pub String);
 pub fn project_prepared_character_definitions(
     mut commands: Commands,
     registry: Option<Res<PreparedCharacterRegistry>>,
-    // The FALLBACK half of the movement-feel resolver. Optional because a
-    // composition with no catalog is legitimate (the seating fixtures build
-    // one); absent, the definition is the only source, which is the honest
-    // answer rather than a guess.
-    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
     bodies: Query<
         (
             Entity,
@@ -316,8 +311,6 @@ pub fn project_prepared_character_definitions(
     let Some(registry) = registry else {
         return;
     };
-    let empty_catalog =
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     for (entity, worn, tuning, projected) in &bodies {
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
@@ -344,6 +337,16 @@ pub fn project_prepared_character_definitions(
         if let Some(previous) = projected.and_then(|p| registry.get(&p.0)) {
             if previous.hurtboxes.is_some() {
                 commands.entity(entity).remove::<super::AuthoredHurtboxes>();
+            }
+            // Same rule for the movement feel: remove only what THIS system
+            // granted, looked up by the id it recorded. That is what keeps it
+            // from fighting the worn path, which owns the marker for a body
+            // whose feel came from the CATALOG — a case this system cannot see
+            // and must not overwrite.
+            if previous.movement_tuning.is_some() {
+                commands
+                    .entity(entity)
+                    .remove::<ambition_engine_core::AuthoredMovementTuning>();
             }
         }
         let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
@@ -410,34 +413,23 @@ pub fn project_prepared_character_definitions(
         // The movement FEEL, on the same path and for the same reason as the
         // motion model above.
         //
-        // ⚠ this one is a THREE-way answer, not two: the marker's PRESENCE means
-        // "authored, not the shared dev tuning", so a character that authored
-        // none must have it REMOVED rather than left behind by the previous
-        // identity. A projection that only ever inserted would leave a
-        // re-projected body wearing the last character's feel.
+        // ⚠ the marker's PRESENCE means "this body's feel is authored rather
+        // than the shared dev tuning", so a stale one is a body moving like the
+        // character it used to be. It is retracted in the block above, keyed on
+        // the id this system recorded — GRANT here, RETRACT there.
         //
-        // ⚠ and it goes through the SAME resolver the worn path uses, catalog
-        // fallback included. The first version read `prepared.movement_tuning`
-        // directly, which made the two paths disagree: for a character with
-        // catalog tuning and no authored tuning, the worn path inserted the
-        // marker and this removed it on the same tick. Two paths answering one
-        // question is the whole failure mode this campaign is about, and it
-        // nearly got reintroduced by the commit closing it.
-        match crate::avatar::movement_tuning_for_character(
-            Some(&registry),
-            catalog.as_deref().unwrap_or(&empty_catalog),
-            &prepared.id,
-        ) {
-            Some(tuning) => {
-                commands
-                    .entity(entity)
-                    .try_insert(ambition_engine_core::AuthoredMovementTuning(tuning));
-            }
-            None => {
-                commands
-                    .entity(entity)
-                    .try_remove::<ambition_engine_core::AuthoredMovementTuning>();
-            }
+        // ⚠ two earlier shapes were both wrong, and the reasons are worth
+        // keeping. Removing on `None` HERE made this fight the worn path: for a
+        // character with CATALOG tuning and no authored tuning, that path
+        // inserts the marker and this removed it on the same tick. Passing the
+        // catalog in to resolve both the same way then violated the workspace
+        // policy against `Option<Res<CharacterCatalog>>` — and requiring it
+        // broke three fixtures that deliberately run character demand with NO
+        // catalog, which is a state another test exists to name.
+        if let Some(tuning) = prepared.movement_tuning {
+            commands
+                .entity(entity)
+                .insert(ambition_engine_core::AuthoredMovementTuning(tuning));
         }
         if let Some(spec) = prepared.motion_model {
             commands.queue(move |world: &mut World| {

@@ -77,6 +77,16 @@ impl ShellRouteCatalog {
     pub fn contains(&self, id: &ShellRouteId) -> bool {
         self.routes.contains_key(id)
     }
+
+    /// Every registered route id, in id order.
+    ///
+    /// Exists so a refusal can NAME what was available. This repo's binding
+    /// boundary makes that the rule rather than a courtesy: "unknown route" is
+    /// a puzzle, and "unknown route, here are the eight that exist" is a typo
+    /// somebody can fix without a debugger.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.routes.keys().map(ShellRouteId::as_str)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

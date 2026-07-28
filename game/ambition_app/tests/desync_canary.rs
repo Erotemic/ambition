@@ -347,3 +347,89 @@ fn sim_mutated_state_that_changes_survives_rewind_identically() {
         90
     );
 }
+
+/// **TWO input streams through a real rewind.** (queue Y1, netcode.md step 2)
+///
+/// The oracle above proves determinism for ONE stream, and that was the whole
+/// coverage until C4 shipped a 2–4 player couch versus mode: the session was
+/// built `with_num_players(1)`, `publish_local_inputs` handed the primary seat's
+/// frame to every handle, and seats 1–3 were written on the feel clock where
+/// GGRS never saw them. A resimulated frame replayed seat zero faithfully and
+/// gave every other seat whatever the device happened to be doing at replay
+/// time.
+///
+/// So this drives two DIFFERENT streams — the seats push opposite directions —
+/// through the same save/rewind/resimulate loop and requires no checksum
+/// mismatch. Two streams that happened to be identical would prove nothing: the
+/// bug being excluded is precisely one seat's input standing in for another's.
+#[test]
+fn two_seats_drive_independent_streams_through_a_rewind() {
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10)
+            .with_rollback_players(2),
+    )
+    .expect("a two-seat GGRS sync-test harness builds");
+
+    for frame in 0..32 {
+        // Seat two pushes the OPPOSITE way to seat one, every frame, so the two
+        // streams can never be mistaken for each other.
+        sim.drive_seat(
+            1,
+            ambition::engine_core::ControlFrame {
+                axis_x: if frame % 24 < 12 { -1.0 } else { 1.0 },
+                jump_pressed: frame % 13 == 0,
+                attack_pressed: frame % 7 == 3,
+                ..ambition::engine_core::ControlFrame::default()
+            },
+        );
+        sim.step(scripted_action(frame));
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame} with two seats: {error}"));
+    }
+
+    let stats = sim
+        .rollback_execution_stats()
+        .expect("GGRS instrumentation is installed");
+    assert!(
+        stats.load_runs > 0,
+        "no rewind happened, so two streams were never resimulated and this \
+         asserts nothing about them"
+    );
+
+    // ⚠ the rewind passing is NOT enough on its own, and saying why matters:
+    // handing every handle the SAME frame is perfectly deterministic. It is just
+    // wrong. So the claim that needs asserting is that seat two's stream ARRIVES
+    // — that GGRS carried a second, different input to the slot its brain reads.
+    let seat_two = sim
+        .world()
+        .get_resource::<ambition::characters::brain::SlotControls>()
+        .expect("a two-seat session publishes slot controls")
+        .get(ambition::characters::brain::PlayerSlot(1));
+    let seat_one = *sim
+        .world()
+        .get_resource::<ambition::engine_core::ControlFrame>()
+        .expect("the primary seat's frame exists");
+
+    // ⚠ NOT `seat_two.axis_x != 0.0`. That was the first assertion and it passed
+    // against the ORIGINAL DEFECT: handing handle 1 seat zero's frame also
+    // produces a non-zero axis there. The claim has to be that the two streams
+    // are DIFFERENT, which is why the seats were driven in opposite directions
+    // in the first place.
+    assert!(
+        seat_two.axis_x != 0.0 && seat_one.axis_x != 0.0,
+        "one of the seats is neutral on the final frame, so opposite-ness proves \
+         nothing: seat one {}, seat two {}",
+        seat_one.axis_x,
+        seat_two.axis_x,
+    );
+    assert!(
+        seat_two.axis_x.signum() != seat_one.axis_x.signum(),
+        "seat two is pushing the same way as seat one ({} vs {}), and they were \
+         driven in opposite directions — the session ran two handles and fed \
+         them one input stream",
+        seat_two.axis_x,
+        seat_one.axis_x,
+    );
+}

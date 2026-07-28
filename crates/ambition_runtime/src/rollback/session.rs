@@ -372,15 +372,55 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
         latch.accumulate(frame);
         return;
     }
-    if let Some(mut seats) = world.get_resource_mut::<PendingSeatInputs>() {
-        *seats = PendingSeatInputs::default();
-    }
+    // ⚠ this does NOT clear `PendingSeatInputs`, and an earlier version did.
+    // `drive_seat_frame` is called BEFORE the step it applies to, so clearing
+    // here wiped every secondary seat's input on the way past — the seam was
+    // built and then emptied by its own sibling, one line later. A driver that
+    // wants a seat neutral drives it neutral; silence is not a request.
     if let Some(mut pending) = world.get_resource_mut::<PendingLocalInput>() {
         pending.0 = frame;
         return;
     }
     if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
         *control = frame;
+    }
+}
+
+/// **THE seam a driver writes a SECONDARY seat's input through.** (queue Y1)
+///
+/// The twin of [`drive_control_frame`], and it exists for the same reason that
+/// one does: every driver that grew its own copy grew the same bug, because
+/// writing the wrong resource is silently ignored and the sim simply never
+/// moves.
+///
+/// Under a latching host it folds into the seat's latch, so a sub-tick press
+/// survives exactly as the primary seat's does. Without one it writes the
+/// pending seat input directly, which is what a headless or replay driver
+/// wants — it authors per-tick frames itself and has no device to bridge.
+///
+/// Slot 0 is refused rather than silently redirected: it is
+/// [`drive_control_frame`]'s, and a driver that meant the primary seat should
+/// say so.
+pub fn drive_seat_frame(
+    world: &mut World,
+    slot: ambition_characters::brain::PlayerSlot,
+    frame: ControlFrame,
+) {
+    if slot.0 == 0 {
+        return;
+    }
+    if let Some(mut latches) =
+        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
+    {
+        latches.accumulate(slot, frame);
+        return;
+    }
+    if let Some(mut seats) = world.get_resource_mut::<PendingSeatInputs>() {
+        seats.set(slot.0 as usize, frame);
+        return;
+    }
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
+        slots.set(slot, frame);
     }
 }
 

@@ -127,6 +127,7 @@ impl SandboxSim {
         if let RollbackMode::SyncTest {
             check_distance,
             max_prediction_window,
+            players,
         } = rollback
         {
             ambition::runtime::rollback::start_sync_test_session(
@@ -134,9 +135,8 @@ impl SandboxSim {
                 ambition::runtime::rollback::SyncTestSettings {
                     check_distance,
                     max_prediction_window,
-                
-            ..Default::default()
-        },
+                    players,
+                },
             )
             .map_err(|error| format!("failed to start GGRS sync-test session: {error}"))?;
             app.update();
@@ -207,6 +207,25 @@ impl SandboxSim {
     /// drives this directly: the recorded stream already IS control frames, and
     /// routing them back through `AgentAction` would silently drop every field
     /// that type does not carry.
+    /// Author a SECONDARY seat's input for the next step. (queue Y1)
+    ///
+    /// Seat zero is `step`/`step_frame`; this is every other pad. Call it before
+    /// the step it should apply to — it accumulates into the seat's latch (or
+    /// its pending input on a driver-authored host), and the step is what hands
+    /// the whole set to GGRS.
+    ///
+    /// Only meaningful when the session actually carries that seat
+    /// (`with_rollback_players`). A frame authored for a seat the session does
+    /// not hold is written and never asked for, which is inert rather than
+    /// wrong — the same as a pad plugged into a one-player game.
+    pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
+        ambition::runtime::rollback::drive_seat_frame(
+            self.app.world_mut(),
+            ambition::characters::brain::PlayerSlot(slot),
+            frame,
+        );
+    }
+
     pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
         // ONE seam, whichever host this harness was built with. The branch that
         // used to be here is the engine's now
@@ -406,12 +425,12 @@ impl SandboxSim {
             RollbackMode::SyncTest {
                 check_distance,
                 max_prediction_window,
+                players,
             } => Some(ambition::runtime::rollback::SyncTestSettings {
                 check_distance,
                 max_prediction_window,
-            
-            ..Default::default()
-        }),
+                players,
+            }),
         }
     }
 

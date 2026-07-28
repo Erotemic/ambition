@@ -53,6 +53,7 @@ impl SandboxSimOptions {
         self.rollback = RollbackMode::SyncTest {
             check_distance: 7,
             max_prediction_window: 12,
+            players: 1,
         };
         self.fixed_tick = false;
         self.timestep = TimestepMode::fixed_60hz();
@@ -68,9 +69,22 @@ impl SandboxSimOptions {
         self.rollback = RollbackMode::SyncTest {
             check_distance,
             max_prediction_window,
+            players: 1,
         };
         self.fixed_tick = false;
         self.timestep = TimestepMode::fixed_60hz();
+        self
+    }
+
+    /// Builder: how many SEATS the sync-test session carries. (queue Y1)
+    ///
+    /// Only meaningful alongside a sync-test mode; on a disabled rollback it is
+    /// a no-op rather than an error, because "how many seats would rewind" is
+    /// not a question a non-rewinding harness has an answer to.
+    pub fn with_rollback_players(mut self, count: usize) -> Self {
+        if let RollbackMode::SyncTest { players, .. } = &mut self.rollback {
+            *players = count;
+        }
         self
     }
 }
@@ -82,6 +96,13 @@ pub enum RollbackMode {
     SyncTest {
         check_distance: usize,
         max_prediction_window: usize,
+        /// Seats in the session. (queue Y1)
+        ///
+        /// One until 2026-07-28, which meant the rollback oracle proved
+        /// determinism for ONE input stream while the shipped game seated four.
+        /// A second stream is not a bigger version of the first: it is the only
+        /// way a desync in seat two's input handling has anywhere to show up.
+        players: usize,
     },
 }
 

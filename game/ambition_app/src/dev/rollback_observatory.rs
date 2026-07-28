@@ -276,6 +276,17 @@ impl Plugin for RollbackObservatoryPlugin {
 /// [`finish_completed_proof_pulse`] immediately restores the baseline. The
 /// expensive N-frame resimulation is bounded to the proof request instead of
 /// continuing for the rest of gameplay.
+/// How many local handles the rollback session gets, from how many controllers
+/// are connected.
+///
+/// A pure rule so it can be stated: ONE PER DEVICE, never fewer than one. The
+/// floor is not defensive rounding — a keyboard-only desktop has no device rows
+/// and still has a player, and a session with zero local handles would accept
+/// input from nobody.
+fn session_players(devices: usize) -> usize {
+    devices.max(1)
+}
+
 fn maintain_local_ggrs_session(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
@@ -326,12 +337,47 @@ fn maintain_local_ggrs_session(world: &mut World) {
         rollback::stop_session(world);
     }
 
+    // HOW MANY PEOPLE ARE PLAYING, asked rather than assumed.
+    //
+    // This built the session with `..Default::default()`, whose player count is
+    // ONE — so the multi-handle session API, the per-seat input latches and the
+    // two-stream rollback harness all existed while the VISIBLE app started a
+    // one-player session and left seats 1..3 driven by live device state
+    // instead of confirmed/resimulated GGRS input. The mechanism was real and
+    // production did not use it (GPT 5.6, 2026-07-28).
+    //
+    // `LocalDeviceOrder` is the same source the versus roster seats from, so
+    // the session topology and the roster cannot disagree about who is here.
+    // Clamped to at least one: a keyboard-only desktop has no device rows and
+    // still has a player.
+    // FREEZE THE SEATING, once, here — and let every other consumer read the
+    // snapshot rather than the live device order.
+    //
+    // The roster and the session both need to agree about how many people are
+    // playing. Sampling `LocalDeviceOrder` independently means a controller
+    // connecting between the two samples makes them disagree while both cite
+    // "the same source": the roster seats three fighters into a two-handle
+    // session and nothing says so. Deciding it once at session start is what
+    // makes them the same answer rather than two answers that usually match
+    // (GPT 5.6, 2026-07-28).
+    let local_players = {
+        let order = world
+            .get_resource::<ambition::input::LocalDeviceOrder>()
+            .map(|devices| devices.devices().to_vec())
+            .unwrap_or_default();
+        let order = ambition::input::LocalDeviceOrder::from_devices(order);
+        let mut topology = world.get_resource_or_insert_with(
+            ambition::input::LocalSeatTopology::default,
+        );
+        topology.capture(&order);
+        topology.players()
+    };
     let session_settings = SyncTestSettings {
         check_distance: requested_mode.check_distance(settings),
         max_prediction_window: settings.max_prediction_window,
-    
-            ..Default::default()
-        };
+        players: local_players,
+        ..Default::default()
+    };
     match rollback::start_sync_test_session(world, session_settings) {
         Ok(()) => {
             if requested_mode == OwnedSessionMode::Proof {
@@ -519,7 +565,7 @@ fn finish_completed_proof_pulse(world: &mut World) {
         SyncTestSettings {
             check_distance: OwnedSessionMode::Baseline.check_distance(settings),
             max_prediction_window: settings.max_prediction_window,
-        
+
             ..Default::default()
         },
     ) {
@@ -727,6 +773,27 @@ mod tests {
         let settings = RollbackProofSettings::default();
         assert!(settings.check_distance >= 2);
         assert!(settings.check_distance < settings.max_prediction_window);
+    }
+
+    #[test]
+    /// **The session seats every controller, not just the first.**
+    ///
+    /// The production builder used `..Default::default()`, whose player count is
+    /// ONE — so the multi-handle session API, the per-seat latches and the
+    /// two-stream harness all existed while the visible app started a
+    /// single-player session and drove seats 1..3 from live device state
+    /// instead of confirmed GGRS input (GPT 5.6, 2026-07-28). Y1 had been
+    /// marked closed on the strength of the harness.
+    #[test]
+    fn the_session_seats_one_handle_per_connected_controller() {
+        assert_eq!(session_players(2), 2, "two pads is a two-player session");
+        assert_eq!(session_players(4), 4, "four pads is a four-player session");
+        assert_eq!(
+            session_players(0),
+            1,
+            "a keyboard-only desktop has no device rows and still has a player; \
+             a session with zero local handles accepts input from nobody"
+        );
     }
 
     #[test]

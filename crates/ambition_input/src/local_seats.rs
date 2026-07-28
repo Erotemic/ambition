@@ -70,6 +70,69 @@ impl LocalDeviceOrder {
     pub fn devices(&self) -> &[Entity] {
         &self.0
     }
+
+    /// Build an order from a known device list. For a caller that already holds
+    /// the devices (a session freezing its seating) and for tests; the tracking
+    /// system is still the only thing that DISCOVERS them.
+    pub fn from_devices(devices: Vec<Entity>) -> Self {
+        Self(devices)
+    }
+}
+
+/// The local seating a SESSION was started with — frozen, and shared by
+/// everything that must agree about it.
+///
+/// [`LocalDeviceOrder`] is LIVE: a controller connecting mid-match changes it.
+/// Several consumers need to agree about how many people are playing — the
+/// match roster, the rollback session's player count, the handle→device
+/// mapping, the per-seat input latches — and each of them sampling the live
+/// resource independently means a connection landing between two samples makes
+/// them disagree while both read "the same source". The roster would seat three
+/// fighters into a two-handle session and nothing would say so.
+///
+/// So the topology is decided ONCE, when a session starts or rebases, and every
+/// consumer reads the snapshot. `generation` exists so a consumer can notice it
+/// was rebuilt rather than compare vectors (GPT 5.6, 2026-07-28).
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct LocalSeatTopology {
+    generation: u64,
+    seats: Vec<Entity>,
+}
+
+impl LocalSeatTopology {
+    /// Freeze the current device order as this session's seating.
+    ///
+    /// Advances the generation on every capture, INCLUDING one that produces
+    /// the same seats: "the topology was decided again" is the fact a consumer
+    /// caches against, and two identical captures at different times are still
+    /// two decisions (the same reasoning as `CharacterCatalogGeneration`).
+    pub fn capture(&mut self, order: &LocalDeviceOrder) {
+        self.generation = self.generation.wrapping_add(1);
+        self.seats = order.devices().to_vec();
+    }
+
+    /// How many local players this session seats. At least one: a keyboard-only
+    /// desktop has no device rows and still has a player, and a session with
+    /// zero local handles accepts input from nobody.
+    pub fn players(&self) -> usize {
+        self.seats.len().max(1)
+    }
+
+    /// The controller a handle drives, if this seat has one. A handle past the
+    /// connected devices is a CPU or an empty seat, not an error.
+    pub fn device_for_handle(&self, handle: usize) -> Option<Entity> {
+        self.seats.get(handle).copied()
+    }
+
+    /// Bumped on every capture; `0` means never captured.
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Whether a session has decided its seating yet.
+    pub fn is_frozen(&self) -> bool {
+        self.generation > 0
+    }
 }
 
 /// Record connections in the order they happen, and forget disconnections.
@@ -266,5 +329,90 @@ mod tests {
              player two joined"
         );
         assert_eq!(assigned(&app, two), Some(second_pad));
+    }
+}
+
+#[cfg(test)]
+mod local_seat_topology_tests {
+    use super::*;
+    use bevy::prelude::Entity;
+
+    fn order(count: usize) -> LocalDeviceOrder {
+        LocalDeviceOrder::from_devices(
+            (0..count).map(|i| Entity::from_raw_u32(i as u32 + 1).unwrap()).collect(),
+        )
+    }
+
+    /// **A session's seating is decided once, and every consumer reads that.**
+    ///
+    /// The roster and the rollback session both need to know how many people
+    /// are playing. Sampling the LIVE device order independently means a
+    /// controller connecting between the two samples makes them disagree while
+    /// both cite the same source — the roster seats a fighter the session has
+    /// no handle for.
+    #[test]
+    fn a_frozen_topology_does_not_follow_a_later_connection() {
+        let mut topology = LocalSeatTopology::default();
+        assert!(
+            !topology.is_frozen(),
+            "nothing has decided the seating yet"
+        );
+
+        topology.capture(&order(2));
+        assert_eq!(topology.players(), 2);
+        assert!(topology.is_frozen());
+
+        // A third pad joins mid-match. The LIVE order changes; the session's
+        // seating does not, because the session cannot grow a handle.
+        let live = order(3);
+        assert_eq!(live.devices().len(), 3);
+        assert_eq!(
+            topology.players(),
+            2,
+            "a controller connecting mid-session must not silently add a seat \
+             the rollback session has no handle for"
+        );
+    }
+
+    /// Zero devices is one player: a keyboard-only desktop has no device rows
+    /// and still has somebody playing, and a session with zero local handles
+    /// accepts input from nobody.
+    #[test]
+    fn a_keyboard_only_desktop_is_still_one_player() {
+        let mut topology = LocalSeatTopology::default();
+        topology.capture(&order(0));
+        assert_eq!(topology.players(), 1);
+        assert_eq!(topology.device_for_handle(0), None, "and it owns no pad");
+    }
+
+    /// Re-capturing ADVANCES the generation even when the seats are identical.
+    /// "The topology was decided again" is the fact a consumer caches against,
+    /// and two identical decisions at different times are still two decisions.
+    #[test]
+    fn recapturing_the_same_seats_is_still_a_new_generation() {
+        let mut topology = LocalSeatTopology::default();
+        topology.capture(&order(2));
+        let first = topology.generation();
+        topology.capture(&order(2));
+        assert!(
+            topology.generation() > first,
+            "a rebase that happens to reproduce the same seating is still a \
+             rebase, and a consumer comparing generations must see it"
+        );
+    }
+
+    /// Each handle maps to the device that seat owns, in connection order.
+    #[test]
+    fn handles_map_to_devices_in_connection_order() {
+        let live = order(2);
+        let mut topology = LocalSeatTopology::default();
+        topology.capture(&live);
+        assert_eq!(topology.device_for_handle(0), Some(live.devices()[0]));
+        assert_eq!(topology.device_for_handle(1), Some(live.devices()[1]));
+        assert_eq!(
+            topology.device_for_handle(2),
+            None,
+            "a handle past the connected pads is a CPU or an empty seat, not an error"
+        );
     }
 }

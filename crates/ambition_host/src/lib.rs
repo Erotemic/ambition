@@ -135,25 +135,71 @@ impl Plugin for HostInputBindingsPlugin {
         // and replay drivers have no device and author the per-tick
         // `ControlFrame` themselves. Frame-stepped hosts skip it too — one
         // frame IS one tick, so there is nothing to bridge.
+        // FIXED-TICK **OR** GGRS. Both advance the simulation on a cadence of
+        // their own, so several rendered frames can pass between ticks and a
+        // short press sampled in between must not be lost — which is the whole
+        // job of these latches.
+        //
+        // `sim_is_fixed_tick()` asks whether the sim runs on `FixedUpdate`, and
+        // under rollback it runs on `GgrsSchedule`, so the answer was NO and
+        // NEITHER latch was installed. Both consumers take them as `Option` and
+        // quietly fall back to live device state, so the visible rollback host
+        // sampled every seat from whatever the pad happened to be doing at
+        // replay time rather than from confirmed input (GPT 5.6, 2026-07-28).
+        //
+        // Asked through `SimulationHost` rather than by naming `GgrsSchedule`,
+        // because this crate must not depend on `bevy_ggrs` — the schedule
+        // owner is optional and the host's vocabulary stays independent of it.
+        let rollback_host = app
+            .world()
+            .get_resource::<ambition_runtime::SimulationHost>()
+            .is_some_and(|host| host.is_ggrs());
+        // THE SEAT LATCHES, for a fixed-tick host AND a rollback one.
+        //
+        // `SlotControlLatches` needs no system of its own:
+        // `populate_secondary_slot_controls` folds into it whenever the resource
+        // exists and writes `SlotControls` straight through when it does not, so
+        // installing the resource IS the switch. Under rollback,
+        // `capture_latched_local_input` drains it on the `ReadInputs` edge —
+        // which is where a rollback host asks for input — and publishes each
+        // seat into the session.
+        //
+        // The PRIMARY latch is deliberately absent from this arm: under GGRS the
+        // rollback observatory already owns `ControlFrameLatch` and its
+        // accumulator, and adding a second registration here is a doubled
+        // system rather than a fix. That is what the seats were missing and the
+        // primary was not (GPT 5.6, 2026-07-28 — their reading was right and
+        // mine was not).
+        if app.sim_is_fixed_tick() || rollback_host {
+            app.init_resource::<ambition_runtime::host_input::SlotControlLatches>();
+        }
         if app.sim_is_fixed_tick() {
-            let sim = app.sim_schedule();
             app.init_resource::<ambition_engine_core::ControlFrameLatch>();
             app.add_systems(
                 Update,
                 ambition_engine_core::accumulate_control_frame_latch
                     .after(ambition_input::InputSet::Route),
             );
+        }
+        // THE PUBLISHING HALF IS FIXED-TICK ONLY, and that asymmetry is the
+        // point: under rollback the SESSION publishes input, from the frame
+        // GGRS confirmed, so a host system writing `ControlFrame` and
+        // `SlotControls` from the latch would bypass the rollback stream
+        // entirely and hand a resimulated tick whatever the pad said just now.
+        // `capture_latched_local_input` drains the same latches on the
+        // `ReadInputs` edge instead, which is where a rollback host asks.
+        if app.sim_is_fixed_tick() {
+            let sim = app.sim_schedule();
             app.add_systems(
                 sim,
                 ambition_engine_core::publish_latched_control_frame
                     .in_set(SandboxSet::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );
-            // The SECONDARY seats' half of the same bridge (queue Y2). Installed
-            // under the same condition and ordered the same way: a couch match
-            // is two people on two pads, and giving only one of them sub-tick
-            // forgiveness is a fairness asymmetry rather than a rounding error.
-            app.init_resource::<ambition_runtime::host_input::SlotControlLatches>();
+            // The SECONDARY seats' half of the same bridge (queue Y2). A couch
+            // match is two people on two pads, and giving only one of them
+            // sub-tick forgiveness is a fairness asymmetry rather than a
+            // rounding error.
             app.add_systems(
                 sim,
                 publish_latched_slot_controls

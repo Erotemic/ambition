@@ -87,7 +87,16 @@ fn local_ggrs_restart_policy(
             Ok(Some(ambition::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: settings.max_prediction_window,
-            
+                // SESSION TOPOLOGY SURVIVES A RELOAD, and `players` is topology.
+                //
+                // `..Default::default()` was silently resetting the local player
+                // count to one, so a two-to-four-player couch session became
+                // single-player after any LDtk hot reload — seats 1..3 keep
+                // their bodies and quietly leave the rollback session. A field
+                // added to this struct is opt-OUT of preservation here, which is
+                // the wrong default for anything describing WHO is playing
+                // (GPT 5.6, 2026-07-28).
+                players: settings.players,
                 ..Default::default()
             }))
         }
@@ -549,7 +558,7 @@ mod hot_reload_session_tests {
             SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
-            
+
                 ..Default::default()
             },
         )))
@@ -558,6 +567,38 @@ mod hot_reload_session_tests {
 
         assert_eq!(restart.check_distance, 0);
         assert_eq!(restart.max_prediction_window, 8);
+    }
+
+    /// **A reload must not evict player two.**
+    ///
+    /// The rebase preserved `max_prediction_window` and rebuilt everything else
+    /// from `..Default::default()`, whose player count is ONE — so a couch
+    /// session of two to four silently became single-player after any LDtk hot
+    /// reload, with seats 1..3 keeping their bodies and leaving the rollback
+    /// session. `check_distance` going to zero is deliberate (a fresh baseline);
+    /// WHO IS PLAYING is not a baseline, it is topology (GPT 5.6, 2026-07-28).
+    #[test]
+    fn a_reload_keeps_every_local_player_in_the_session() {
+        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest(
+            SyncTestSettings {
+                check_distance: 6,
+                max_prediction_window: 8,
+                players: 4,
+                ..Default::default()
+            },
+        )))
+        .expect("local developer sessions may be rebased")
+        .expect("an active local session needs a replacement");
+
+        assert_eq!(
+            restart.players,
+            4,
+            "the reload dropped {} of the 4 local players; a couch session must \
+             not lose seats to a content reload",
+            4 - restart.players
+        );
+        // And the deliberate reset is still deliberate.
+        assert_eq!(restart.check_distance, 0);
     }
 
     #[test]

@@ -217,6 +217,8 @@ fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition::game_shell::ShellRouter>,
     devices: Res<ambition::input::LocalDeviceOrder>,
+    // The seating a rollback session froze, when one is running.
+    topology: Option<Res<ambition::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
     mut seated: ResMut<ambition::actors::character_runtime::MatchSeated>,
@@ -232,7 +234,20 @@ fn track_versus_roster(
             // One local player per connected controller, capped by the stage's
             // two seats. Zero controllers is one seat: the keyboard is player
             // one, which is how every other route in the shell already plays.
-            let roster = versus_roster(devices.devices().len().max(1));
+            // THE SESSION'S FROZEN SEATING when one exists, the live order
+            // otherwise. A rollback session decides its handle count once, at
+            // session start; a roster that re-sampled the live device order
+            // could seat a fighter the session has no handle for, and both
+            // would be citing "the connected controllers" (GPT 5.6,
+            // 2026-07-28). Without a session — the shell's non-rollback
+            // routes — the live order IS the answer.
+            let roster = versus_roster(
+                topology
+                    .as_ref()
+                    .filter(|topology| topology.is_frozen())
+                    .map(|topology| topology.players())
+                    .unwrap_or_else(|| devices.devices().len().max(1)),
+            );
             // Demand the art before the bodies exist: a fighter seated with no
             // decoded sheet draws a placeholder, and the whole point of a visible
             // slice is that it looks like the two characters it says it is.

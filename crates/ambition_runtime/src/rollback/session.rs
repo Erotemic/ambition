@@ -511,8 +511,20 @@ fn capture_latched_local_input(
     seat_latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
     mut seats: Option<ResMut<PendingSeatInputs>>,
 ) {
+    // ONLY when a device is actually wired to this latch. An untouched latch
+    // means "nothing feeds me", not "the device said nothing" — and a
+    // composition that drives `PendingLocalInput` directly (every rollback
+    // harness, the equipment oracle's walker) would otherwise have its driven
+    // frame replaced by a neutral default on every tick, which is how four
+    // rollback oracles went red at once.
+    //
+    // The predicate is STICKY rather than per-frame: a tick that sampled
+    // nothing must still receive the retained levels, or a held direction
+    // sticks on forever.
     if let Some(mut latch) = latch {
-        pending.0 = latch.take();
+        if latch.is_device_authority() {
+            pending.0 = latch.take();
+        }
     }
     if let (Some(mut seat_latches), Some(seats)) = (seat_latches, seats.as_deref_mut()) {
         for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
@@ -544,7 +556,10 @@ fn publish_local_inputs(
         let frame = if handle == 0 {
             pending.0
         } else {
-            seats.as_deref().map(|seats| seats.get(handle)).unwrap_or_default()
+            seats
+                .as_deref()
+                .map(|seats| seats.get(handle))
+                .unwrap_or_default()
         };
         inputs.insert(handle, frame);
     }
@@ -829,9 +844,9 @@ mod tests {
             SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-            
-            ..Default::default()
-        },
+
+                ..Default::default()
+            },
         )
         .expect("a one-player baseline SyncTest session is valid");
 
@@ -841,9 +856,9 @@ mod tests {
             RollbackSessionOwnership::LocalSyncTest(SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-            
-            ..Default::default()
-        })
+
+                ..Default::default()
+            })
         );
         assert_eq!(
             world.resource::<Time<GgrsTime>>().elapsed(),
@@ -865,7 +880,7 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
-        
+
             ..Default::default()
         };
 
@@ -909,7 +924,7 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
-        
+
             ..Default::default()
         };
 
@@ -1192,7 +1207,11 @@ mod multi_seat_input_tests {
             players: 0,
             ..SyncTestSettings::default()
         };
-        assert_eq!(zero.player_count(), 1, "a session needs at least one player");
+        assert_eq!(
+            zero.player_count(),
+            1,
+            "a session needs at least one player"
+        );
 
         let too_many = SyncTestSettings {
             players: 99,

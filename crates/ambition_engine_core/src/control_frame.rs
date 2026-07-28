@@ -218,12 +218,36 @@ impl ControlFrame {
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ControlFrameLatch {
     accumulated: ControlFrame,
+    /// Whether a DEVICE has ever fed this latch.
+    ///
+    /// STICKY, and that is the whole subtlety. The question is not "did a
+    /// device speak this frame" — a tick that samples nothing must still hand
+    /// over the retained levels, or a held direction sticks on forever. The
+    /// question is "does this composition HAVE a device feeding this latch at
+    /// all". Once one does, the latch speaks for the frame from then on.
+    ///
+    /// A composition where nothing ever accumulates — a rollback harness that
+    /// drives its own control frame, a headless fixture — must not have that
+    /// driven input replaced by this latch's neutral default, which is what an
+    /// unconditional take does. Silence is not a request (the same rule
+    /// `drive_control_frame` learned the hard way about `PendingSeatInputs`).
+    device_seen: bool,
 }
 
 impl ControlFrameLatch {
     /// Fold one device sample in. Levels overwrite; edges stick.
     pub fn accumulate(&mut self, sample: ControlFrame) {
         self.accumulated = self.accumulated.merge_sample(sample);
+        self.device_seen = true;
+    }
+
+    /// Whether a device feeds this latch at all, so it speaks for the frame.
+    ///
+    /// A consumer that would OVERWRITE another writer's frame must ask this
+    /// first: an untouched latch means "no device is wired to this latch", not
+    /// "the device said nothing". Sticky by design — see the field.
+    pub fn is_device_authority(&self) -> bool {
+        self.device_seen
     }
 
     /// Hand the accumulated frame to a tick, retaining levels for the next one.
@@ -350,5 +374,59 @@ mod latch_tests {
         assert!(second.attack_held, "the attack level remains held");
         assert_eq!(second.axis_x, 1.0, "a held stick stays held");
         assert!(second.jump_held);
+    }
+}
+
+#[cfg(test)]
+mod latch_authority_tests {
+    use super::*;
+
+    /// **An untouched latch is not a request for a neutral frame.**
+    ///
+    /// The latch only becomes an authority over the tick's input once a device
+    /// has fed it. Without that distinction a consumer cannot tell "the player
+    /// pressed nothing" from "nothing sampled a device at all", and it will
+    /// overwrite whatever another writer put there — which is exactly what
+    /// happened when the rollback host started installing this latch: every
+    /// harness that drives its own control frame had it replaced by a default
+    /// on each tick, and four rollback oracles went red at once.
+    #[test]
+    fn a_latch_nobody_fed_is_not_an_authority() {
+        let mut latch = ControlFrameLatch::default();
+        assert!(
+            !latch.is_device_authority(),
+            "a fresh latch has heard from no device and must not claim the frame"
+        );
+
+        latch.accumulate(ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..ControlFrame::default()
+        });
+        assert!(
+            latch.is_device_authority(),
+            "a device sample makes it the authority"
+        );
+
+        let taken = latch.take();
+        assert!(taken.jump_pressed, "the tick receives the accumulated edge");
+        assert!(
+            latch.is_device_authority(),
+            "and it STAYS the authority: a tick that sampled nothing must still \
+             receive the retained levels, or a held direction sticks on forever"
+        );
+    }
+
+    /// A NEUTRAL sample still counts as a device speaking. "Nothing is pressed"
+    /// is an answer, and a host that stops publishing it would leave the last
+    /// held direction stuck on.
+    #[test]
+    fn a_neutral_sample_is_still_a_sample() {
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(ControlFrame::default());
+        assert!(
+            latch.is_device_authority(),
+            "a device that reports nothing pressed has still reported"
+        );
     }
 }

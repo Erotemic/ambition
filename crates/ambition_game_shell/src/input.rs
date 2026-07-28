@@ -31,6 +31,12 @@ pub struct ShellActionEdges {
     /// entries, so Start no longer retires; quitting to home is a separate
     /// semantic developer action.
     pub pause: bool,
+    /// Decrease / increase the focused row's VALUE, as opposed to moving
+    /// between rows. A settings row is the first shell surface with a value
+    /// rather than only an action, and left/right is the convention every
+    /// console settings screen uses.
+    pub decrease: bool,
+    pub increase: bool,
     pub startup_acknowledge: bool,
     pub loading_continue: bool,
 }
@@ -45,6 +51,8 @@ pub fn shell_action_edges(menu: Option<&MenuControlFrame>) -> ShellActionEdges {
         confirm: menu.select,
         back: menu.back,
         pause: menu.start,
+        decrease: menu.left,
+        increase: menu.right,
         startup_acknowledge: menu.select,
         loading_continue: menu.select,
     }

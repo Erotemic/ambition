@@ -36,31 +36,108 @@ use crate::{shell_action_edges, ActiveGameplaySession, ShellCommand};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PauseEntry {
     Resume,
+    /// A global audio property, edited through the shared settings IR.
+    ///
+    /// The row carries the IR's own id rather than a shell-local copy, so
+    /// "what does turning this up mean" is answered in exactly one place —
+    /// `apply_settings_option` — for the title screen, Ambition's own system
+    /// menu, and the lunex cube alike.
+    Audio(ambition_settings_menu::settings::SettingsOptionId),
     QuitToTitle,
     QuitToDesktop,
+    /// Close the menu when there is no session to resume.
+    Close,
 }
 
-impl PauseEntry {
-    const ALL: [PauseEntry; 3] = [
-        PauseEntry::Resume,
-        PauseEntry::QuitToTitle,
-        PauseEntry::QuitToDesktop,
-    ];
+/// The audio properties the SHELL owns, in row order.
+///
+/// Deliberately only these four. Jon: *"only for generic global all-game
+/// properties. Then in ambition itself, it would extend or compose with that IR
+/// to add the additional one it needs."* Video, controls and gameplay settings
+/// are either per-game or need a live session to preview, so they stay with the
+/// game's own system menu; audio is the one group that means the same thing on
+/// a title screen as it does mid-fight.
+const SHELL_AUDIO_OPTIONS: [ambition_settings_menu::settings::SettingsOptionId; 4] = [
+    ambition_settings_menu::settings::SettingsOptionId::Mute,
+    ambition_settings_menu::settings::SettingsOptionId::MasterVolume,
+    ambition_settings_menu::settings::SettingsOptionId::MusicVolume,
+    ambition_settings_menu::settings::SettingsOptionId::SfxVolume,
+];
 
-    fn label(self) -> &'static str {
+impl PauseEntry {
+    /// The rows for this menu, which depend on whether a session is live.
+    ///
+    /// One menu, two row sets, rather than two menus. The Start intent means
+    /// the same thing on the title screen and in a game — "show me the things
+    /// that are not the game" — and the only honest difference is that there is
+    /// nothing to resume or quit BACK to.
+    fn rows(in_session: bool) -> Vec<PauseEntry> {
+        let mut rows = Vec::with_capacity(7);
+        if in_session {
+            rows.push(PauseEntry::Resume);
+        }
+        rows.extend(SHELL_AUDIO_OPTIONS.map(PauseEntry::Audio));
+        if in_session {
+            rows.push(PauseEntry::QuitToTitle);
+        } else {
+            rows.push(PauseEntry::Close);
+        }
+        rows.push(PauseEntry::QuitToDesktop);
+        rows
+    }
+
+    fn label(self) -> String {
         match self {
-            PauseEntry::Resume => "Resume",
-            PauseEntry::QuitToTitle => "Quit to Title",
-            PauseEntry::QuitToDesktop => "Quit to Desktop",
+            PauseEntry::Resume => "Resume".to_owned(),
+            PauseEntry::Audio(id) => audio_label(id).to_owned(),
+            PauseEntry::QuitToTitle => "Quit to Title".to_owned(),
+            PauseEntry::QuitToDesktop => "Quit to Desktop".to_owned(),
+            PauseEntry::Close => "Close".to_owned(),
         }
     }
 
-    fn detail(self) -> &'static str {
+    fn detail(self, settings: &ambition_persistence::settings::UserSettings) -> String {
         match self {
-            PauseEntry::Resume => "Return to the game.",
-            PauseEntry::QuitToTitle => "Leave this session and return to the title screen.",
-            PauseEntry::QuitToDesktop => "Exit the game.",
+            PauseEntry::Resume => "Return to the game.".to_owned(),
+            // The VALUE is the detail. A settings row whose current state is
+            // invisible is a switch with no indicator: you can only discover
+            // what it does by changing it.
+            PauseEntry::Audio(id) => audio_value(id, settings),
+            PauseEntry::QuitToTitle => {
+                "Leave this session and return to the title screen.".to_owned()
+            }
+            PauseEntry::QuitToDesktop => "Exit the game.".to_owned(),
+            PauseEntry::Close => "Back to the title screen.".to_owned(),
         }
+    }
+}
+
+fn audio_label(id: ambition_settings_menu::settings::SettingsOptionId) -> &'static str {
+    use ambition_settings_menu::settings::SettingsOptionId as Id;
+    match id {
+        Id::Mute => "Mute",
+        Id::MasterVolume => "Master Volume",
+        Id::MusicVolume => "Music Volume",
+        Id::SfxVolume => "Sound Volume",
+        // Unreachable through `SHELL_AUDIO_OPTIONS`; a label rather than a
+        // panic, because a row that appears with a wrong name is a smaller
+        // failure than a shell that refuses to draw its own menu.
+        _ => "Audio",
+    }
+}
+
+fn audio_value(
+    id: ambition_settings_menu::settings::SettingsOptionId,
+    settings: &ambition_persistence::settings::UserSettings,
+) -> String {
+    use ambition_settings_menu::settings::SettingsOptionId as Id;
+    let percent = |value: f32| format!("{}%", (value * 100.0).round() as i32);
+    match id {
+        Id::Mute => if settings.audio.muted { "On" } else { "Off" }.to_owned(),
+        Id::MasterVolume => percent(settings.audio.master_volume),
+        Id::MusicVolume => percent(settings.audio.music_volume),
+        Id::SfxVolume => percent(settings.audio.sfx_volume),
+        _ => String::new(),
     }
 }
 
@@ -133,12 +210,20 @@ fn drive_shell_pause_menu(
     mut shell: MessageWriter<ShellCommand>,
     game_mode: Option<Res<State<GameMode>>>,
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
+    mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
 ) {
-    // No live session, or the active experience owns its own pause chrome: the
-    // shell menu is inert. If it was open (e.g. the session just retired), fold
-    // it shut and hand the sim back.
-    if session.0.is_none() || suppressed.0 {
+    // The active experience owns its own pause chrome: the shell menu yields
+    // entirely. If it was open (e.g. that experience just took over), fold it
+    // shut and hand the sim back.
+    //
+    // ⚠ NOT gated on a live session any more. It was, and the visible symptom
+    // was Jon's: "Currently the touch menu icon does nothing" — on the title
+    // screen there is no session, so Start/Menu returned here and the button
+    // was decoration. There is nothing to RESUME without a session, but audio
+    // and quitting are global, and a stranger's first screen is exactly where
+    // "how do I mute this" gets asked (2026-07-28).
+    if suppressed.0 {
         if menu.open {
             menu.open = false;
             menu.cursor = 0;
@@ -146,6 +231,8 @@ fn drive_shell_pause_menu(
         }
         return;
     }
+    let in_session = session.0.is_some();
+    let rows = PauseEntry::rows(in_session);
 
     let edges = shell_action_edges(menu_frame.as_deref());
     // Escape / Start toggle; the controller B (`back`) also closes an open menu.
@@ -155,7 +242,11 @@ fn drive_shell_pause_menu(
         menu.open = !menu.open;
         menu.cursor = 0;
         if menu.open {
-            pause_sim(&game_mode, &mut next_mode);
+            // Pausing is a no-op without a session, and asking for it anyway
+            // would pause a title screen that has no sim to pause.
+            if in_session {
+                pause_sim(&game_mode, &mut next_mode);
+            }
             play(&mut sfx, ids::UI_MENU_ACCEPT);
         } else {
             resume_sim(&game_mode, &mut next_mode);
@@ -173,16 +264,32 @@ fn drive_shell_pause_menu(
         play(&mut sfx, ids::UI_MENU_MOVE);
     }
     if edges.next {
-        menu.cursor = (menu.cursor + 1).min(PauseEntry::ALL.len() - 1);
+        menu.cursor = (menu.cursor + 1).min(rows.len() - 1);
         play(&mut sfx, ids::UI_MENU_MOVE);
     }
+
+    // LEFT/RIGHT edit the focused row's value. Only a settings row has one, so
+    // this is inert everywhere else rather than being a second confirm.
+    let focused = rows.get(menu.cursor).copied().unwrap_or(PauseEntry::Close);
+    if let (PauseEntry::Audio(id), Some(settings)) = (focused, settings.as_deref_mut()) {
+        let direction = i32::from(edges.increase) - i32::from(edges.decrease);
+        if direction != 0 && ambition_settings_menu::settings::apply_settings_option(
+            id,
+            direction,
+            settings,
+        ) {
+            play(&mut sfx, ids::UI_MENU_MOVE);
+        }
+    }
+
     if edges.confirm {
         activate_pause_entry(
-            PauseEntry::ALL[menu.cursor],
+            focused,
             &mut menu,
             &mut shell,
             &game_mode,
             &mut next_mode,
+            settings.as_deref_mut(),
             &mut sfx,
         );
     }
@@ -200,13 +307,17 @@ fn shell_pause_menu_pointer(
     mut shell: MessageWriter<ShellCommand>,
     game_mode: Option<Res<State<GameMode>>>,
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
+    mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
 ) {
+    let rows = PauseEntry::rows(session.0.is_some());
     for activation in activated.read() {
-        if session.0.is_none() || suppressed.0 || !menu.open {
+        // Session-independent, like the keyboard path: the title screen's menu
+        // is real, so its rows are pointer- and touch-activatable too.
+        if suppressed.0 || !menu.open {
             continue;
         }
-        menu.cursor = PauseEntry::ALL
+        menu.cursor = rows
             .iter()
             .position(|entry| *entry == activation.action)
             .unwrap_or(menu.cursor);
@@ -216,6 +327,7 @@ fn shell_pause_menu_pointer(
             &mut shell,
             &game_mode,
             &mut next_mode,
+            settings.as_deref_mut(),
             &mut sfx,
         );
     }
@@ -227,9 +339,27 @@ fn activate_pause_entry(
     shell: &mut MessageWriter<ShellCommand>,
     game_mode: &Option<Res<State<GameMode>>>,
     next_mode: &mut Option<ResMut<NextState<GameMode>>>,
+    settings: Option<&mut ambition_persistence::settings::UserSettings>,
     sfx: &mut SfxWriter,
 ) {
     match entry {
+        // Confirm on a settings row advances it, exactly as the shared IR
+        // defines: a toggle flips, a slider steps up. That is `apply_settings_option`'s
+        // documented behaviour for a non-negative direction, and reimplementing
+        // "what confirm means" here would be the second authority this row
+        // exists to avoid.
+        PauseEntry::Audio(id) => {
+            if let Some(settings) = settings {
+                if ambition_settings_menu::settings::apply_settings_option(id, 1, settings) {
+                    play(sfx, ids::UI_MENU_ACCEPT);
+                }
+            }
+        }
+        PauseEntry::Close => {
+            menu.open = false;
+            menu.cursor = 0;
+            play(sfx, ids::UI_MENU_BACK);
+        }
         PauseEntry::Resume => {
             menu.open = false;
             menu.cursor = 0;
@@ -262,11 +392,37 @@ fn activate_pause_entry(
 fn render_shell_pause_menu(
     mut commands: Commands,
     menu: Res<ShellPauseMenu>,
+    session: Res<ActiveGameplaySession>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     asset_server: Option<Res<AssetServer>>,
     roots: Query<Entity, (With<BevyUiMenuRoot>, With<ShellPauseMenuRoot>)>,
-    mut prior: Local<Option<(bool, usize)>>,
+    mut prior: Local<Option<(bool, usize, bool, u64)>>,
 ) {
-    let key = (menu.open, menu.cursor);
+    let in_session = session.0.is_some();
+    let settings = settings.map(|s| s.clone()).unwrap_or_default();
+    // The rebuild key has to include the VALUES, or a volume that changed
+    // without moving the cursor would keep drawing its old percentage — a
+    // settings row whose number lags the setting is worse than no number.
+    // Quantised to whole percent because that is all the row displays; a float
+    // key would rebuild the page on every inaudible step.
+    let audio_key = SHELL_AUDIO_OPTIONS
+        .iter()
+        .fold(0u64, |acc, id| {
+            let value = match id {
+                ambition_settings_menu::settings::SettingsOptionId::Mute => {
+                    u64::from(settings.audio.muted)
+                }
+                other => (audio_value(*other, &settings).len() as u64)
+                    .wrapping_mul(31)
+                    .wrapping_add(
+                        audio_value(*other, &settings)
+                            .bytes()
+                            .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
+                    ),
+            };
+            acc.wrapping_mul(1_000_003).wrapping_add(value)
+        });
+    let key = (menu.open, menu.cursor, in_session, audio_key);
     if *prior == Some(key) {
         return;
     }
@@ -279,31 +435,37 @@ fn render_shell_pause_menu(
         return;
     }
 
+    // "Paused" is wrong on the title screen — there is nothing to pause. The
+    // heading names what the surface IS, and the two cases are genuinely
+    // different surfaces sharing rows rather than one surface with a lie on it.
+    let heading = if in_session { "Paused" } else { "Settings" };
     let mut page = MenuPageModel::new(
         PausePage::Root,
-        "Paused",
+        heading,
         MenuColor::rgba(0.02, 0.03, 0.07, 0.94),
     );
     page.text(
         50.0,
         14.0,
         5.0,
-        "Paused",
+        heading,
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    let row_height = 10.0;
-    for (index, entry) in PauseEntry::ALL.iter().enumerate() {
+    let rows = PauseEntry::rows(in_session);
+    // Seven rows do not fit the three-row spacing this menu was built for.
+    let row_height = (52.0 / rows.len().max(1) as f32).min(10.0);
+    for (index, entry) in rows.iter().enumerate() {
         page.control(
             MenuRect::new(
                 28.0,
-                34.0 + index as f32 * (row_height + 3.0),
+                30.0 + index as f32 * (row_height + 2.0),
                 44.0,
                 row_height,
             ),
             MenuControlKind::Action,
             entry.label(),
-            Some(entry.detail().to_owned()),
+            Some(entry.detail(&settings)),
             index == menu.cursor,
             false,
             Some(*entry),
@@ -313,7 +475,11 @@ fn render_shell_pause_menu(
         50.0,
         90.0,
         2.6,
-        "Up / Down select \u{b7} Enter confirms \u{b7} Esc resumes",
+        if in_session {
+            "Up / Down select \u{b7} Left / Right adjust \u{b7} Enter confirms \u{b7} Esc resumes"
+        } else {
+            "Up / Down select \u{b7} Left / Right adjust \u{b7} Enter confirms \u{b7} Esc closes"
+        },
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
@@ -400,10 +566,33 @@ mod tests {
         )));
     }
 
+    /// Move the cursor onto `wanted` by pressing Down, the way a player would.
+    ///
+    /// Derived from the row list rather than a hand-counted number of presses:
+    /// the row set grew audio rows and every hardcoded count in these tests went
+    /// stale at once, which is a test suite pinning a layout instead of a claim.
+    fn navigate_to(app: &mut App, in_session: bool, wanted: PauseEntry) {
+        let index = PauseEntry::rows(in_session)
+            .iter()
+            .position(|entry| *entry == wanted)
+            .expect("the row is in this menu");
+        for _ in 0..index {
+            intent(app, |f| f.down = true);
+        }
+    }
+
     #[test]
-    fn the_start_intent_opens_and_closes_only_during_a_live_session() {
+    fn the_start_intent_opens_the_menu_with_or_without_a_session() {
+        // **The title screen has a menu now.** It did not, and the visible
+        // symptom was Jon's: "Currently the touch menu icon does nothing." The
+        // drive system returned early with no session, so Start was decoration
+        // on the one screen where "how do I mute this" gets asked.
         let mut app = app();
-        // No session: the Start intent does nothing.
+        press_start(&mut app);
+        assert!(
+            app.world().resource::<ShellPauseMenu>().open,
+            "the Start intent must open the shell menu on the title screen"
+        );
         press_start(&mut app);
         assert!(!app.world().resource::<ShellPauseMenu>().open);
 
@@ -419,6 +608,77 @@ mod tests {
             !app.world().resource::<ShellPauseMenu>().open,
             "the Start intent again closes it"
         );
+    }
+
+    /// Without a session there is nothing to resume and nowhere to quit BACK
+    /// to, so those rows are absent rather than present-and-broken.
+    #[test]
+    fn the_title_screen_menu_offers_no_resume_and_no_quit_to_title() {
+        let rows = PauseEntry::rows(false);
+        assert!(!rows.contains(&PauseEntry::Resume));
+        assert!(!rows.contains(&PauseEntry::QuitToTitle));
+        assert!(rows.contains(&PauseEntry::Close));
+        assert!(rows.contains(&PauseEntry::QuitToDesktop));
+
+        let in_game = PauseEntry::rows(true);
+        assert!(in_game.contains(&PauseEntry::Resume));
+        assert!(in_game.contains(&PauseEntry::QuitToTitle));
+        assert!(!in_game.contains(&PauseEntry::Close));
+
+        // The audio rows are on BOTH. That is the point of them being global.
+        for id in SHELL_AUDIO_OPTIONS {
+            assert!(rows.contains(&PauseEntry::Audio(id)), "{id:?} off the title menu");
+            assert!(in_game.contains(&PauseEntry::Audio(id)), "{id:?} off the pause menu");
+        }
+    }
+
+    /// **Left / right edit the focused setting**, through the shared IR rather
+    /// than through a shell-local opinion about what a volume step is.
+    #[test]
+    fn adjusting_a_volume_row_writes_the_persisted_setting() {
+        use ambition_persistence::settings::UserSettings;
+        use ambition_settings_menu::settings::SettingsOptionId;
+
+        let mut app = app();
+        app.init_resource::<UserSettings>();
+        press_start(&mut app);
+        navigate_to(&mut app, false, PauseEntry::Audio(SettingsOptionId::MasterVolume));
+
+        let before = app.world().resource::<UserSettings>().audio.master_volume;
+        intent(&mut app, |f| f.right = true);
+        let after = app.world().resource::<UserSettings>().audio.master_volume;
+        assert!(
+            after > before,
+            "right on Master Volume did not raise it ({before} -> {after})"
+        );
+
+        intent(&mut app, |f| f.left = true);
+        assert!(
+            app.world().resource::<UserSettings>().audio.master_volume < after,
+            "left did not lower it back"
+        );
+    }
+
+    /// Mute is the property Jon named, and confirm has to work it — a toggle you
+    /// can only reach with a direction key is a toggle a controller cannot press.
+    #[test]
+    fn confirming_the_mute_row_toggles_mute() {
+        use ambition_persistence::settings::UserSettings;
+        use ambition_settings_menu::settings::SettingsOptionId;
+
+        let mut app = app();
+        app.init_resource::<UserSettings>();
+        press_start(&mut app);
+        navigate_to(&mut app, false, PauseEntry::Audio(SettingsOptionId::Mute));
+
+        assert!(!app.world().resource::<UserSettings>().audio.muted);
+        intent(&mut app, |f| f.select = true);
+        assert!(
+            app.world().resource::<UserSettings>().audio.muted,
+            "confirm on the Mute row did not mute"
+        );
+        intent(&mut app, |f| f.select = true);
+        assert!(!app.world().resource::<UserSettings>().audio.muted);
     }
 
     #[test]
@@ -445,7 +705,7 @@ mod tests {
         let mut app = app();
         with_live_session(&mut app);
         press_start(&mut app); // open
-        intent(&mut app, |f| f.down = true); // cursor -> Quit to Title
+        navigate_to(&mut app, true, PauseEntry::QuitToTitle);
         intent(&mut app, |f| f.select = true); // confirm
 
         let sent: Vec<ShellCommand> = app
@@ -498,8 +758,7 @@ mod tests {
         let mut app = app();
         with_live_session(&mut app);
         press_start(&mut app);
-        intent(&mut app, |f| f.down = true);
-        intent(&mut app, |f| f.down = true); // cursor -> Quit to Desktop
+        navigate_to(&mut app, true, PauseEntry::QuitToDesktop);
         intent(&mut app, |f| f.select = true);
 
         let sent: Vec<ShellCommand> = app

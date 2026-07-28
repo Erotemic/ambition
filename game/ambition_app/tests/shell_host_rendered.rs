@@ -801,3 +801,94 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
          there: {advertised:?}"
     );
 }
+
+/// **The title screen's Menu button does something now.** (Jon, 2026-07-28)
+///
+/// *"Some form of the 'Menu' probably should be available here, so you can
+/// change global engine properties like audio mute. Currently the touch menu
+/// icon does nothing."* It did nothing because the shell's pause menu returned
+/// early with no live session, so the Start intent — keyboard Escape, controller
+/// Start, and the touch HUD's "Menu" button, which all fold to the same
+/// semantic edge — was decoration on the one screen where "how do I mute this"
+/// gets asked.
+///
+/// Driven through the REAL composed host with REAL key presses. Writing
+/// `MenuControlFrame` directly does not work here and the failure is instructive:
+/// the frame is republished every tick from the participant's `ActionState`, so
+/// a hand-written frame is overwritten before the shell consumes it. The shell's
+/// own unit tests can write it because they run without that producer; an
+/// app-level test that did the same would be testing a value nothing reads.
+///
+/// The other half of what this proves: the shipped host actually HAS a
+/// `UserSettings` for the menu to edit. A settings row that writes to a resource
+/// nobody installed is the same defect one layer down.
+#[test]
+fn the_title_screen_menu_opens_and_mutes_the_game() {
+    use ambition::persistence::settings::UserSettings;
+
+    let mut app = rendered_app();
+    settle(&mut app);
+
+    /// One frame with `key` down, then one with it up. Both halves matter: these
+    /// are just-pressed edges, so a key held across updates fires once and a key
+    /// never released fires nothing again.
+    fn tap(app: &mut App, key: KeyCode) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(key);
+        app.update();
+    }
+
+    assert!(
+        app.world().get_resource::<UserSettings>().is_some(),
+        "the shipped host has no `UserSettings`, so the menu's audio rows would \
+         write nowhere — they would look live and change nothing"
+    );
+
+    tap(&mut app, KeyCode::Escape);
+    assert!(
+        app.world()
+            .resource::<ambition::game_shell::ShellPauseMenu>()
+            .open,
+        "Escape on the title screen did not open the shell menu"
+    );
+
+    // ⚠ `UserSettings` is loaded from the real settings file at startup and
+    // `save_settings_on_change` writes it back, so this test edits the
+    // DEVELOPER'S actual config. The first version asserted the fixture started
+    // unmuted, muted the machine it ran on, and then failed on every subsequent
+    // run — passing alone and failing in the suite, which is the signature of a
+    // test with a side effect outside the process.
+    //
+    // So: snapshot everything, assert a FLIP rather than a value, and put the
+    // whole resource back. Leaving somebody's game muted because a test ran is
+    // not a trade this test gets to make.
+    let snapshot = app.world().resource::<UserSettings>().clone();
+    let muted = |app: &App| app.world().resource::<UserSettings>().audio.muted;
+    let before = muted(&app);
+
+    // Walk the rows until one FLIPS mute. Navigating by pressing Down until the
+    // SETTING changes, rather than by a hardcoded row index: the row order is
+    // the shell's business and muting is this test's.
+    let mut toggled = false;
+    for _ in 0..8 {
+        tap(&mut app, KeyCode::Enter);
+        if muted(&app) != before {
+            toggled = true;
+            break;
+        }
+        tap(&mut app, KeyCode::ArrowDown);
+    }
+
+    *app.world_mut().resource_mut::<UserSettings>() = snapshot;
+    app.update();
+
+    assert!(
+        toggled,
+        "walked the whole title-screen menu without finding a row that mutes"
+    );
+}

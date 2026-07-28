@@ -150,8 +150,9 @@ pub const OUTLANDER_SHEET_RON: &str = r#"[
 const OUTLANDER_ROSTER_RON: &str = r#"{
     "outlander_sentry": (
         max_health: 2,
-        patrol_speed: 38.0,
-        chase_speed: 38.0,
+        run_speed: 38.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.5,

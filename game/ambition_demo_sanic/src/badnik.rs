@@ -45,8 +45,9 @@ const STOMP_BAND: f32 = 16.0;
 const BADNIK_ROSTER_RON: &str = r#"{
     "sanic_badnik": (
         max_health: 1,
-        patrol_speed: 60.0,
-        chase_speed: 60.0,
+        run_speed: 60.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.5,

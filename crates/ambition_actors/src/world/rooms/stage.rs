@@ -583,19 +583,19 @@ mod tests {
         features::CharacterRoster::from_ron(&format!(
             r#"{{
                 "combatant": (
-                    max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                    max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                     aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                     damage_amount: 0, brain_template: StandStill, move_style: Walk,
                 ),
                 "giant_gnu": (
-                    max_health: 42, patrol_speed: 0.0, chase_speed: 0.0,
+                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                     aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                     damage_amount: 0, brain_template: StandStill, move_style: Walk,
                     mount_class: Some("giant"),
                     default_size: Some(({default_size}, {default_size})),
                 ),
                 "giant_gnu_hands": (
-                    max_health: 42, patrol_speed: 0.0, chase_speed: 0.0,
+                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                     aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                     damage_amount: 0, brain_template: StandStill, move_style: Walk,
                 ),

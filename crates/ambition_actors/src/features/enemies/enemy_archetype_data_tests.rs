@@ -112,7 +112,10 @@ fn legacy_baseline_pins() {
     use ambition_characters::brain::MeleeActionSpec;
     let combatant = test_spec("combatant");
     assert_eq!(combatant.max_health, 4);
-    assert!((combatant.chase_speed - 155.0).abs() < f32::EPSILON);
+    // Read through `tuning()`, which is where the authored effort becomes the
+    // px/s gameplay consumes. The number is unchanged across the C1 migration —
+    // that is the point of pinning it here rather than pinning the fraction.
+    assert!((combatant.tuning().chase_speed - 155.0).abs() < f32::EPSILON);
     assert!((combatant.aggro_radius - 460.0).abs() < f32::EPSILON);
     assert!(
         matches!(combatant.melee, Some(MeleeActionSpec::Swipe(_))),
@@ -121,7 +124,7 @@ fn legacy_baseline_pins() {
     );
     let slug = test_spec("puppy_slug");
     assert_eq!(slug.max_health, 2);
-    assert!((slug.patrol_speed - 55.0).abs() < f32::EPSILON);
+    assert!((slug.tuning().patrol_speed - 55.0).abs() < f32::EPSILON);
     assert_eq!(slug.aggro_radius, 0.0);
     assert_eq!(slug.brain_template, CharacterBrainTemplate::Wanderer);
     assert!(slug.melee.is_none());

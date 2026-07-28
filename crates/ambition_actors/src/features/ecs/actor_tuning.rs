@@ -95,6 +95,8 @@ impl Default for ActorTuning {
         Self {
             movement: BodyMovementTuning::default(),
             max_health: 0,
+            // `ActorTuning` keeps the DERIVED absolute speeds: this is the
+            // body-space projection brains consume, not the authored row.
             patrol_speed: 0.0,
             chase_speed: 0.0,
             max_run_speed: 0.0,

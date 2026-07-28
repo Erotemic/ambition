@@ -19,10 +19,16 @@
 //   mount_class        Optional: this archetype can be ridden; the content
 //                      class a rider must be allowed to pilot (ADR 0020).
 //   pilotable_mount_classes  Mount classes a rider of this archetype may pilot.
-//   patrol_speed       Idle-pace movement speed (px/s).
-//   chase_speed        Aggro/engage movement speed (px/s). For aerial
-//                      actors this is the steering convergence rate
-//                      toward the choreography target.
+//   run_speed          The BODY's ground-run capability (px/s) — the fastest
+//                      this archetype locomotes, and the only absolute speed
+//                      it authors.
+//   patrol_effort      Idle-pace exertion, 0.0..=1.0 of run_speed.
+//   chase_effort       Aggro/engage exertion, 0.0..=1.0 of run_speed. For
+//                      aerial actors this scales the steering convergence
+//                      rate toward the choreography target.
+//                      (§4.7: locomotion crosses the brain->body seam as
+//                      normalized effort, never world-space speed. The body
+//                      owns the number; the author owns the fraction.)
 //   aggro_radius       Distance (px) at which the AI flips from
 //                      Patrol → Chase. `0.0` = never aggros.
 //   attack_range       Distance (px) at which the AI will fire an
@@ -87,8 +93,9 @@
     "combatant": (
         respawn: OnRoomReenter,
         max_health: 4,
-        patrol_speed: 105.0,
-        chase_speed: 155.0,
+        run_speed: 155.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
         aggro_radius: 460.0,
         attack_range: 150.0,
         contact_strength: 0.70,
@@ -118,8 +125,9 @@
     "cellular_automaton_fighter": (
         respawn: OnRoomReenter,
         max_health: 60,
-        patrol_speed: 96.0,
-        chase_speed: 168.0,
+        run_speed: 168.0,
+        patrol_effort: 0.5714,
+        chase_effort: 1.0,
         aggro_radius: 540.0,
         attack_range: 150.0,
         contact_strength: 0.75,
@@ -213,8 +221,9 @@
             double_jump_speed: Some(520.0),
         ),
         max_health: 60,
-        patrol_speed: 110.0,
-        chase_speed: 200.0,
+        run_speed: 200.0,
+        patrol_effort: 0.55,
+        chase_effort: 1.0,
         aggro_radius: 560.0,
         attack_range: 60.0,
         contact_strength: 0.6,
@@ -279,8 +288,9 @@
     "small_skitter": (
         respawn: OnRoomReenter,
         max_health: 2,
-        patrol_speed: 150.0,
-        chase_speed: 210.0,
+        run_speed: 210.0,
+        patrol_effort: 0.7143,
+        chase_effort: 1.0,
         aggro_radius: 320.0,
         attack_range: 105.0,
         contact_strength: 0.55,
@@ -304,8 +314,9 @@
     "exploding_mite": (
         respawn: OnRoomReenter,
         max_health: 2,
-        patrol_speed: 70.0,
-        chase_speed: 245.0,
+        run_speed: 245.0,
+        patrol_effort: 0.2857,
+        chase_effort: 1.0,
         aggro_radius: 460.0,
         attack_range: 60.0,
         contact_strength: 0.60,
@@ -328,8 +339,9 @@
     "dividing_mite": (
         respawn: OnRoomReenter,
         max_health: 4,
-        patrol_speed: 80.0,
-        chase_speed: 130.0,
+        run_speed: 130.0,
+        patrol_effort: 0.6154,
+        chase_effort: 1.0,
         aggro_radius: 380.0,
         attack_range: 55.0,
         contact_strength: 0.70,
@@ -354,8 +366,9 @@
     "ranged_skirmisher": (
         respawn: OnRoomReenter,
         max_health: 3,
-        patrol_speed: 90.0,
-        chase_speed: 150.0,
+        run_speed: 150.0,
+        patrol_effort: 0.6,
+        chase_effort: 1.0,
         aggro_radius: 540.0,
         attack_range: 520.0,
         contact_strength: 0.40,
@@ -374,8 +387,9 @@
     "sky_parrot": (
         respawn: OnRoomReenter,
         max_health: 3,
-        patrol_speed: 120.0,
-        chase_speed: 240.0,
+        run_speed: 240.0,
+        patrol_effort: 0.5,
+        chase_effort: 1.0,
         aggro_radius: 620.0,
         attack_range: 60.0,
         contact_strength: 0.55,
@@ -401,8 +415,9 @@
     "small_lurker": (
         respawn: OnRoomReenter,
         max_health: 2,
-        patrol_speed: 60.0,
-        chase_speed: 90.0,
+        run_speed: 90.0,
+        patrol_effort: 0.6667,
+        chase_effort: 1.0,
         aggro_radius: 96.0,
         attack_range: 90.0,
         contact_strength: 0.45,
@@ -421,8 +436,9 @@
     "medium_striker": (
         respawn: OnRoomReenter,
         max_health: 5,
-        patrol_speed: 105.0,
-        chase_speed: 170.0,
+        run_speed: 170.0,
+        patrol_effort: 0.6176,
+        chase_effort: 1.0,
         aggro_radius: 460.0,
         attack_range: 150.0,
         contact_strength: 0.70,
@@ -449,8 +465,9 @@
     ),
     "large_brute": (
         max_health: 9,
-        patrol_speed: 72.0,
-        chase_speed: 118.0,
+        run_speed: 118.0,
+        patrol_effort: 0.6102,
+        chase_effort: 1.0,
         aggro_radius: 380.0,
         attack_range: 205.0,
         contact_strength: 1.25,
@@ -476,8 +493,9 @@
     // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
     "large_colossus": (
         max_health: 14,
-        patrol_speed: 40.0,
-        chase_speed: 80.0,
+        run_speed: 80.0,
+        patrol_effort: 0.5,
+        chase_effort: 1.0,
         aggro_radius: 200.0,
         attack_range: 240.0,
         contact_strength: 1.50,
@@ -499,8 +517,9 @@
     "gradient_seeker": (
         respawn: OnRoomReenter,
         max_health: 4,
-        patrol_speed: 130.0,
-        chase_speed: 225.0,
+        run_speed: 225.0,
+        patrol_effort: 0.5778,
+        chase_effort: 1.0,
         aggro_radius: 900.0,
         attack_range: 150.0,
         contact_strength: 0.80,
@@ -521,8 +540,9 @@
         max_health: 9999,
         never_dies: true,
         body_contact_damage: false,
-        patrol_speed: 105.0,
-        chase_speed: 155.0,
+        run_speed: 155.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 150.0,
         contact_strength: 0.70,
@@ -538,8 +558,9 @@
         max_health: 6,
         respawn: InPlace(0.85),
         body_contact_damage: false,
-        patrol_speed: 105.0,
-        chase_speed: 155.0,
+        run_speed: 155.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 150.0,
         contact_strength: 0.70,
@@ -554,8 +575,9 @@
     "pirate_raider": (
         respawn: OnRoomReenter,
         max_health: 5,
-        patrol_speed: 130.0,
-        chase_speed: 190.0,
+        run_speed: 190.0,
+        patrol_effort: 0.6842,
+        chase_effort: 1.0,
         aggro_radius: 460.0,
         attack_range: 140.0,
         contact_strength: 0.85,
@@ -573,13 +595,14 @@
         ))),
         move_style: Walk,
     ),
-    // Aerial shark (dismounted form). chase_speed is the steering
-    // convergence rate, not ground sprint.
+    // Aerial shark (dismounted form). `chase_effort` scales the steering
+    // convergence rate, not a ground sprint.
     "burning_flying_shark": (
         respawn: OnRoomReenter,
         max_health: 6,
-        patrol_speed: 110.0,
-        chase_speed: 260.0,
+        run_speed: 260.0,
+        patrol_effort: 0.4231,
+        chase_effort: 1.0,
         aggro_radius: 1200.0,
         attack_range: 200.0,
         contact_strength: 1.10,
@@ -630,8 +653,9 @@
         max_health: 42,
         // Stationary: no patrol / chase / aggro / attack. The StandStill brain
         // ignores these, but the schema requires the numeric fields.
-        patrol_speed: 0.0,
-        chase_speed: 0.0,
+        run_speed: 0.0,
+        patrol_effort: 0.0,
+        chase_effort: 0.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.0,
@@ -664,8 +688,9 @@
     "giant_gnu_hands": (
         respawn: OnRoomReenter,
         max_health: 42,
-        patrol_speed: 0.0,
-        chase_speed: 0.0,
+        run_speed: 0.0,
+        patrol_effort: 0.0,
+        chase_effort: 0.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.0,
@@ -706,8 +731,9 @@
         // 90 stops her inside her own reach (≈21 px hit margin) while
         // keeping ~40 px body clearance.
         attack_range: 90.0,
-        patrol_speed: 75.0,
-        chase_speed: 130.0,
+        run_speed: 130.0,
+        patrol_effort: 0.5769,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         contact_strength: 0.0,
         damage_amount: 2,
@@ -734,8 +760,9 @@
         max_health: 4,
         body_contact_damage: false,
         respawn: OnRest,
-        patrol_speed: 110.0,
-        chase_speed: 230.0,
+        run_speed: 230.0,
+        patrol_effort: 0.4783,
+        chase_effort: 1.0,
         aggro_radius: 1200.0,
         // Orbit-and-fire standoff (matches the old pirate_on_shark row).
         attack_range: 1100.0,
@@ -753,8 +780,9 @@
         max_health: 6,
         body_contact_damage: false,
         respawn: OnRest,
-        patrol_speed: 110.0,
-        chase_speed: 215.0,
+        run_speed: 215.0,
+        patrol_effort: 0.5116,
+        chase_effort: 1.0,
         aggro_radius: 1200.0,
         attack_range: 1100.0,
         contact_strength: 1.30,
@@ -767,7 +795,7 @@
         move_style: WalkHeavy,
     ),
     // Crawlid-style grunt. Body-contact damage only; never aggros.
-    // chase_speed is unused but kept non-zero so a future "panic on
+    // `chase_effort` is unused but kept non-zero so a future "panic on
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
     "puppy_slug": (
@@ -783,8 +811,9 @@
         // gravity for a moment, then re-attaches on landing.
         cling_breaks_on_hit: true,
         max_health: 2,
-        patrol_speed: 55.0,
-        chase_speed: 80.0,
+        run_speed: 80.0,
+        patrol_effort: 0.6875,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.55,
@@ -803,8 +832,9 @@
     "ai_slop": (
         respawn: OnRoomReenter,
         max_health: 1,
-        patrol_speed: 42.0,
-        chase_speed: 42.0,
+        run_speed: 42.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.5,

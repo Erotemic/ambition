@@ -75,8 +75,24 @@ pub(crate) struct CharacterArchetypeSpec {
     #[serde(skip)]
     pub movement_resolved: crate::combat::BodyMovementTuning,
     pub max_health: i32,
-    pub patrol_speed: f32,
-    pub chase_speed: f32,
+    /// **The BODY's ground-run capability (px/s)** — the fastest this archetype
+    /// can locomote, and the only absolute speed it authors.
+    ///
+    /// §4.7: locomotion crosses the brain→body seam as normalized effort, never
+    /// world-space speed. This is the body half of that sentence. It used to be
+    /// implicit — `max(patrol_speed, chase_speed)` — which meant a body's top
+    /// speed was a side effect of how hard its brain happened to chase, and an
+    /// archetype reused on a different body kept the first body's absolute
+    /// numbers (queue C1).
+    pub run_speed: f32,
+    /// Idle-pace exertion, `0.0..=1.0` of [`Self::run_speed`].
+    ///
+    /// A heavy at `0.9` and a light at `0.35` sometimes reaching the same
+    /// absolute speed is NOT wrong: effort is relative exertion, not a
+    /// cross-character ranking.
+    pub patrol_effort: f32,
+    /// Aggro/engage exertion, `0.0..=1.0` of [`Self::run_speed`].
+    pub chase_effort: f32,
     pub aggro_radius: f32,
     pub attack_range: f32,
     pub contact_strength: f32,
@@ -398,11 +414,15 @@ impl CharacterArchetypeSpec {
             // (BASELINE <- inherits-chain <- this row's `movement` patch).
             movement: self.movement_resolved,
             max_health: self.max_health,
-            patrol_speed: self.patrol_speed,
-            chase_speed: self.chase_speed,
-            // Ground-run capability = the fastest this body locomotes; the brain
-            // expresses patrol/chase (with jitter) as a throttle of it.
-            max_run_speed: self.patrol_speed.max(self.chase_speed),
+            // The absolute speeds brains consume are DERIVED here: the body owns
+            // the number, the author owns the fraction (§4.7, queue C1). Every
+            // consumer downstream is unchanged — it still reads px/s — but no
+            // authored row states one any more.
+            patrol_speed: crate::character_runtime::NormalizedEffort::new(self.patrol_effort)
+                .applied_to(self.run_speed),
+            chase_speed: crate::character_runtime::NormalizedEffort::new(self.chase_effort)
+                .applied_to(self.run_speed),
+            max_run_speed: self.run_speed,
             aggro_radius: self.aggro_radius,
             attack_range: self.attack_range,
             contact_strength: self.contact_strength,
@@ -701,8 +721,9 @@ fn resolve_movement_for(
 const CONTENT_FREE_ROSTER_RON: &str = r#"{
     "combatant": (
         max_health: 1,
-        patrol_speed: 0.0,
-        chase_speed: 0.0,
+        run_speed: 0.0,
+        patrol_effort: 0.0,
+        chase_effort: 0.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.0,
@@ -1101,21 +1122,21 @@ mod app_local_roster_tests {
 
     const A: &str = r#"{
         "combatant": (
-            max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+            max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
             aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
             damage_amount: 0, brain_template: StandStill, move_style: Walk,
         ),
     }"#;
     const B: &str = r#"{
         "beta": (
-            max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+            max_health: 7, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
             aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
             damage_amount: 0, brain_template: StandStill, move_style: Walk,
         ),
     }"#;
     const B_WITH_DEFAULT: &str = r#"{
         "beta": (
-            max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+            max_health: 7, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
             aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
             damage_amount: 0, brain_template: StandStill, move_style: Walk,
         ),
@@ -1202,7 +1223,7 @@ mod app_local_roster_tests {
         const CHILD: &str = r#"{
             "child": (
                 inherits: Some("combatant"),
-                max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+                max_health: 7, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                 aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                 damage_amount: 0, brain_template: StandStill, move_style: Walk,
             ),
@@ -1240,13 +1261,13 @@ mod app_local_roster_tests {
     fn unknown_movement_parent_is_rejected_with_local_candidates() {
         const BROKEN: &str = r#"{
             "combatant": (
-                max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+                max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                 aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                 damage_amount: 0, brain_template: StandStill, move_style: Walk,
             ),
             "child": (
                 inherits: Some("missing"),
-                max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+                max_health: 7, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                 aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                 damage_amount: 0, brain_template: StandStill, move_style: Walk,
             ),

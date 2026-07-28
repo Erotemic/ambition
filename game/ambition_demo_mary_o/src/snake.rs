@@ -349,8 +349,9 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
     "mary_o_snake": (
         max_health: 1,
-        patrol_speed: 46.0,
-        chase_speed: 46.0,
+        run_speed: 46.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
         aggro_radius: 0.0,
         attack_range: 0.0,
         contact_strength: 0.5,

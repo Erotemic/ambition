@@ -340,7 +340,7 @@ fn enemy_archetype_tunings_are_finite() {
     for key in COMBAT_BRAIN_KEYS {
         let spec = test_spec(key);
         assert!(spec.max_health > 0);
-        assert!(spec.patrol_speed.is_finite());
+        assert!(spec.tuning().patrol_speed.is_finite());
         assert!(spec.tuning().chase_speed.is_finite());
         assert!(spec.tuning().aggro_radius.is_finite());
         assert!(spec.tuning().aggro_radius >= 0.0);
@@ -419,12 +419,12 @@ fn enemy_archetype_size_and_aggression_invariants() {
     // Patrol speed: lurker / colossus visibly slower than their
     // higher-aggression siblings.
     assert!(
-        crate::features::enemies::test_spec("small_lurker").patrol_speed
-            < crate::features::enemies::test_spec("small_skitter").patrol_speed
+        crate::features::enemies::test_spec("small_lurker").tuning().patrol_speed
+            < crate::features::enemies::test_spec("small_skitter").tuning().patrol_speed
     );
     assert!(
-        crate::features::enemies::test_spec("large_colossus").patrol_speed
-            < crate::features::enemies::test_spec("large_brute").patrol_speed
+        crate::features::enemies::test_spec("large_colossus").tuning().patrol_speed
+            < crate::features::enemies::test_spec("large_brute").tuning().patrol_speed
     );
 }
 

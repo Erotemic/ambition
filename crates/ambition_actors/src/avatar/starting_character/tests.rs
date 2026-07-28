@@ -1158,6 +1158,58 @@ fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set()
     );
 }
 
+/// **An authored RANGED action set must derive a ranged MOVE.**
+///
+/// The mirror of the test above, and the half that was broken. Precedence put
+/// the definition's action set in charge, and then the derivation threw away
+/// its ranged payload: `build_actor_moveset(None, melee, None, special)` passed
+/// a hard-coded `None` where `set.ranged` lives.
+///
+/// The result is worse than a missing move, because the body still ADVERTISES
+/// the capability — the brain and the input bridge both read `ActionSet` to
+/// decide whether the ranged verb may be pressed — so it reaches for a verb
+/// with no timeline behind it. A gun the character does not believe in.
+///
+/// Preparation never caught it: it validates the REVERSE mismatch only (an
+/// explicit ranged move whose action set supplies no payload). Found by
+/// GPT 5.6, 2026-07-28.
+#[test]
+fn an_authored_ranged_action_set_derives_a_ranged_move() {
+    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+
+    let catalog = catalog_granting_melee("gunslinger");
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("gunslinger", "Gunslinger", "demo")
+            .with_action_set(ActionSet {
+                ranged: Some(RangedActionSpec {
+                    style: RangedStyle::default(),
+                    speed: 411.0,
+                    damage: 7,
+                    flight: None,
+                    visual: None,
+                }),
+                ..ActionSet::default()
+            }),
+    );
+
+    let (action_set, moveset) = wear(&catalog, &registry, "gunslinger");
+
+    assert!(
+        action_set.ranged.is_some(),
+        "fixture: the body must ADVERTISE ranged, or the mismatch under test \
+         cannot exist"
+    );
+    assert!(
+        moveset
+            .0
+            .verbs
+            .contains_key(crate::combat::moveset::RANGED_VERB),
+        "the action set advertises ranged and the derived moveset has no ranged \
+         verb, so pressing it does nothing: {:?}",
+        moveset.0.verbs.keys().collect::<Vec<_>>()
+    );
+}
+
 /// **X8: the primary player's kit comes from the RESOLVED identity.**
 ///
 /// `PlayerSimulationBundle::from_scratch_as_character` applies the overlay with

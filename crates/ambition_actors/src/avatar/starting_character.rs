@@ -360,8 +360,34 @@ fn apply_worn_character_kit(
     } else {
         None
     };
+    // THE RANGED PAYLOAD, which used to be dropped on the floor here — and
+    // ONLY for a kit that has no other way to fire.
+    //
+    // The third argument was hard-coded `None` while `set.ranged` may hold a
+    // perfectly good payload, so a definition that authored a ranged action set
+    // and no explicit moveset produced a body that ADVERTISES ranged — the
+    // brain and the input bridge both read `ActionSet` to decide whether the
+    // verb may be pressed — with no timeline to execute when they pressed it.
+    // A gun the character does not believe in, which is the same sentence X9
+    // wrote about the seated action set and the opposite half of it.
+    //
+    // Preparation only ever validated the REVERSE mismatch (an explicit ranged
+    // move whose action set supplies no payload), so nothing caught this
+    // direction. Found by GPT 5.6, 2026-07-28.
+    //
+    // Gated the OPPOSITE way from `special` above, and the asymmetry is the
+    // point. `charges_projectiles` is exactly "the code-side compat kit fires
+    // ranged through the legacy projectile path", and it is TRUE for the
+    // host-code kit and FALSE for any definition-authored one. So the host-code
+    // kit already has a firing mechanism and folding a second one in would make
+    // one press do two things; an authored kit has none, which is the bug.
+    let ranged = if charges_projectiles {
+        None
+    } else {
+        set.ranged.as_ref()
+    };
     let mut derived =
-        build_actor_moveset(None, set.melee.as_ref(), None, special).unwrap_or_default();
+        build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
     // The robot blade's SFX family belongs to the code-built kit, not to a
     // character named "player": whoever is wearing that kit is swinging that
     // blade, and an AUTHORED persona brings its own cues. Keyed on the row's

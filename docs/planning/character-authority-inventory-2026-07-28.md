@@ -130,7 +130,55 @@ precedence rule, is reachable from one file, and is pinned by an absence
 contract that a fifth one would break.** A future reader chasing "one row"
 would be chasing a target this campaign deliberately walked away from.
 
-### And the R-a deferral is obsolete too — 7 of 7
+### ⛔ THE "7 OF 7" BELOW IS WRONG — REOPENED 2026-07-28 (GPT 5.6 review)
+
+Read the correction before the claim. The table below counts a site as resolved
+when the WORN path resolves it. Three of those sites are resolved on the worn
+path ONLY, and a seated body reaches a different answer:
+
+- **The catalog fallback does not reach a seated fighter.** `seat_character`
+  writes `ActionSet::default()` and an empty `ActorMoveset` as placeholders,
+  with a comment saying the persona derive replaces them. The derive it names
+  (`apply_worn_character_gameplay`) requires `IdentityKit` and `BodyAbilities`,
+  and `EnemyActorBundle` carries neither — which X9 already found. What X9 then
+  wired was projection of the definition's AUTHORED fields, and
+  `project_prepared_character_definitions` writes nothing when the definition
+  authored `None`.
+
+  My own comment on that branch states the bug without noticing it: *"`None`
+  means the definition authored nothing and whatever the body already carries
+  stands (the catalog persona, **or seating's placeholder**)"*. Those two are
+  not the same thing. On a worn body "what it already carries" IS the catalog
+  persona, because `apply_worn_character_kit` resolved prepared-vs-catalog
+  first. On a seated body it is an EMPTY placeholder that nothing resolved.
+
+  So a catalog-playable character with no authored action set works as the worn
+  player and is handed an empty kit as player two. That is precisely the
+  contract `PreparedCharacterRegistry` documents — `None` means the catalog row
+  stands — violated on one of the two construction paths.
+
+- **Identity replacement is not atomic on the seated path.** The projection
+  retracts authored hurtboxes and movement tuning on a character change and
+  does NOT retract the moveset, action set, combat kit, or motion model. A
+  seated body changing from A to B keeps A's kit for every field B left
+  unauthored.
+
+- **Ranged derivation is incomplete** (see the queue's X6 row): the worn path
+  derives its moveset from the winning action set with the ranged payload
+  hard-coded to `None`.
+
+**The honest metric is 4 of 7, not 7 of 7** — the three `apply_worn_character_kit`
+rows are genuinely resolved and so is the identity baseline; the seated action
+set, the presentation source, and motion/movement tuning are resolved for ONE
+construction path each.
+
+**And the revised criterion was too weak.** "Four resolvers, one file each" is
+satisfiable while the two construction paths produce different gameplay for the
+same character, which is what happened. The criterion should be behavioural:
+*one shared function resolves the complete effective baseline, and both worn
+and seated construction consume its result.*
+
+### And the R-a deferral is obsolete too — 7 of 7 (SUPERSEDED, see above)
 
 R-a deferred motion tuning out of slice one because folding it into a
 `ResolvedCharacterIdentity` struct would have made the first commit touch the

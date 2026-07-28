@@ -67,6 +67,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+from ambition_ldtk_tools.ldtk.paths import default_hall_ldtk  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
@@ -90,14 +91,7 @@ SPEC_PATH = (
 # monolith. The hub-side door is permanent hand-authored content in
 # sandbox.ldtk (`hall_of_characters_door`); this file only carries the hall
 # level + its own entry zone that cross-targets the hub.
-HALL_LDTK_PATH = (
-    REPO_ROOT
-    / "game"
-    / "ambition_content"
-    / "assets"
-    / "worlds"
-    / "hall_of_characters.ldtk"
-)
+HALL_LDTK_PATH = default_hall_ldtk()
 HALL_LDTK_IDENTIFIER = "ambition-hall-world"
 
 # --- Layout dimensions ---

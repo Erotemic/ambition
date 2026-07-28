@@ -81,10 +81,22 @@ def test_fast_honors_package_filter():
 
 def test_fast_unfiltered_is_workspace_backbone():
     jobs = rt.build_jobs([], heavy=False, libtest_args=[], fast=True)
-    # The repo-tooling job plus the workspace backbone. Tooling is in the
-    # backbone deliberately: it costs ~3s and it is what the rest of the plan is
-    # trusted through.
-    assert len(jobs) == 2
+    # The two Python tooling jobs plus the workspace backbone. Both tooling jobs
+    # are in the backbone deliberately: together they cost ~6s, and they are what
+    # the rest of the plan is trusted through — one guards the runner and the
+    # architectural contracts, the other guards the LDtk authoring path every
+    # room in the game is built with.
+    #
+    # Named, not counted. A bare `len(jobs) == N` passes when a job is swapped
+    # for a different one, and its failure message says nothing about which job
+    # is missing — this assertion caught the ldtk job being ADDED and reported
+    # only "3 != 2" (2026-07-28).
+    names = {j.name for j in jobs}
+    assert names == {
+        "repo tooling (scripts/tests)",
+        "ldtk authoring tools (tools/ambition_ldtk_tools)",
+        "workspace (default features)",
+    }, f"unexpected backbone plan: {sorted(names)}"
     assert any("--workspace" in a for a in _argvs(jobs))
     assert all("--features" not in a for a in _argvs(jobs)), "--fast drops feature jobs"
 

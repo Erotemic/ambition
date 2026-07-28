@@ -243,6 +243,30 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "one-caller-of-the-movement-tuning-resolver",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            # The ONE production caller, and the re-export that lets it be one.
+            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_actors/src/avatar/mod.rs",
+        ],
+        "patterns": [r"\bmovement_tuning_for_character\("],
+        "reason": (
+            "`movement_tuning_for_character` resolves prepared-vs-catalog for a "
+            "body's movement tuning, and it is one of the four surviving "
+            "character resolvers Campaign 1 decided to KEEP rather than collapse "
+            "(X12: they answer different fields on different cadences, and one "
+            "universal resolver is the premature abstraction the review warns "
+            "against). Keeping four is only safe while each has exactly one "
+            "caller — the campaign's content is a guard that no FIFTH appears. "
+            "Found 2026-07-28 by verifying the claim that every resolver was "
+            "pinned: three were, this one was not, and an unguarded resolver is "
+            "the one a second caller grows on."
+        ),
+    },
+    {
         "id": "one-caller-of-the-motion-model-resolver",
         "paths": [
             "crates/",

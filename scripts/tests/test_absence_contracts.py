@@ -42,6 +42,8 @@ VIOLATING_LINE = {
         "    let m = motion_model_spec_for_character(registry, catalog, id);",
     "one-reader-of-the-catalog-axis-tuning":
         "    match catalog.axis_tuning(id) {",
+    "one-caller-of-the-movement-tuning-resolver":
+        "    let t = movement_tuning_for_character(registry, catalog, id);",
     "one-place-builds-the-worlds-path":
         '    DEFAULT_LDTK = REPO_ROOT / "assets" / "worlds" / "sandbox.ldtk"',
 }

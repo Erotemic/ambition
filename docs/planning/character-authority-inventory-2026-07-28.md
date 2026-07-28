@@ -91,6 +91,47 @@ row — preparation — and the rest is consumption.
 deferred, which is the honest reading: nothing was left half-done, and what
 remains was scheduled rather than forgotten.
 
+### Third measurement, and a correction to the EXIT CRITERION (2026-07-28, late)
+
+Re-run with the identical pipeline at the top of this file:
+
+| authority | baseline | after X8–X11 | now |
+|---|---:|---:|---:|
+| `CharacterCatalog` | 349 | 355 | **357** |
+| `ActionSet` | 276 | 286 | **287** |
+| `ActorMoveset` | 57 | 57 | **57** |
+| `BodyPresentationSource` | 33 | 33 | **33** |
+| `PreparedCharacterRegistry` | 32 | — | **35** |
+| `PreparedCharacterDefinition` | 13 | — | **13** |
+
+Still rising, still not a regression, for the reason already stated: code that
+RESOLVES an authority reads it more, not less, until the displaced one is
+deleted.
+
+⚠ **`presentation.rs` is listed above as "open (X12)", and that is now STALE.**
+X12 was reframed and met: its real content turned out to be a GUARD that no
+fifth resolver appears, not a deletion. `provider_of_character` is called from
+exactly one file (twice, both in `presentation.rs`) and
+`one-caller-of-the-provider-resolver` is the contract that keeps it there.
+
+⛔ **Which means this document's own exit criterion — "complete when this table
+has ONE row" — was abandoned on purpose, and saying so matters more than the
+count.** Four resolvers survive: action-set/moveset/host-code-kit
+(`apply_worn_character_kit`), movement policy
+(`motion_model_spec_for_character`), presentation source
+(`provider_of_character`), and the seated projection
+(`project_prepared_character_definitions`). Collapsing them into one universal
+character resolver is the premature universal abstraction the review explicitly
+warns against: they resolve different fields, on different cadences, for
+different consumers, and the only thing they share is the word "character".
+
+**The revised criterion: every remaining resolver is NAMED, has a documented
+precedence rule, is reachable from one file, and is pinned by an absence
+contract that a fifth one would break.** By that reading Campaign 1 is complete
+except for the motion-model/movement-tuning slice deferred under R-a — and a
+future reader chasing "one row" would be chasing a target this campaign
+deliberately walked away from.
+
 ⚠ **the raw counts went UP, and that is not a regression.** `CharacterCatalog`
 349 → 355 and `ActionSet` 276 → 286. Both are the new projection, the new
 precedence branch, and their tests — code that RESOLVES an authority reads it

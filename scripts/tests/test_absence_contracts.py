@@ -36,6 +36,10 @@ VIOLATING_LINE = {
     "fight-tests-do-not-hand-roll-damage": "    mary_hp -= 12;",
     "one-reader-of-the-catalog-default-action-set":
         "    let authored = catalog.build_default_action_set(id);",
+    "one-caller-of-the-provider-resolver":
+        "    let p = provider_of_character(registry, owners, id);",
+    "one-caller-of-the-motion-model-resolver":
+        "    let m = motion_model_spec_for_character(registry, catalog, id);",
 }
 
 

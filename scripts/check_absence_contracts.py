@@ -103,6 +103,9 @@ ABSENCE_CONTRACTS: list[dict] = [
     },
     {
         "id": "rollback-exit-oracle-is-not-quarantined",
+        # The one contract whose SUBJECT is a test file. Everything else is about
+        # production code, so tests are excluded by default — see `violations`.
+        "include_tests": True,
         "paths": ["game/ambition_app/tests/rollback_exit_oracle.rs"],
         "patterns": [
             # An `#[ignore]` here is either opt-in TOOLING (a bisection you run
@@ -164,6 +167,46 @@ ABSENCE_CONTRACTS: list[dict] = [
             "presents only on the one character somebody bothered to author — "
             "exactly how the seated-fighter gap hid behind two duelists whose "
             "authored set happened to equal the default."
+        ),
+    },
+    {
+        # C3.6 / campaign X12. Every remaining prepared-vs-catalog decision is a
+        # NAMED resolver with a documented precedence rule, each called from one
+        # file. That is what "no runtime arbitration" means in a tree that still
+        # has a legacy catalog as a preparation input: not zero decisions, but no
+        # decision made in a second place.
+        "id": "one-caller-of-the-provider-resolver",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_actors/src/character_runtime/presentation.rs",
+        ],
+        "patterns": [r"\bprovider_of_character\("],
+        "reason": (
+            "Which provider owns a character — registry first, catalog owners "
+            "second — is decided in `presentation.rs` and consumed everywhere "
+            "else. A second caller is a second answer, and the failure is a "
+            "body emitting in the wrong provider's voice: audible, "
+            "attributable to nothing, and only on a crossover stage where two "
+            "providers are live at once."
+        ),
+    },
+    {
+        "id": "one-caller-of-the-motion-model-resolver",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+        ],
+        "patterns": [r"\bmotion_model_spec_for_character\("],
+        "reason": (
+            "The definition-first movement policy resolver (R-a, 2026-07-28). "
+            "The catalog-only `motion_model_spec_for_character_id` is "
+            "deliberately NOT covered — it is the fallback this one calls, and "
+            "two tests plus a from-scratch bundle legitimately have no registry "
+            "to consult. What must stay singular is the place that WEIGHS them."
         ),
     },
 ]
@@ -248,6 +291,31 @@ _HASH_COMMENT = re.compile(r"#(?!\[).*$")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 
+def is_test_path(path: str) -> bool:
+    """Whether `path` is test code rather than production code.
+
+    The module docstring has always claimed these contracts "search production
+    source only", and the path lists did not enforce it — they happened not to
+    match test code, which is not the same thing. The first contract that named a
+    function a test legitimately calls proved the gap by flagging its own test
+    (2026-07-28).
+
+    A test calling a resolver is not a second authority; it is a test. What the
+    contracts are about is who DECIDES in the shipped binary.
+
+    Opt back in with `"include_tests": True` — exactly one contract needs it,
+    because its subject IS a test file, and defaulting the other way would have
+    silently disabled it.
+    """
+    return (
+        "/tests/" in path
+        or path.endswith("/tests.rs")
+        or path.endswith("_tests.rs")
+        or "/tests/" in path
+        or path.endswith("_test.rs")
+    )
+
+
 def strip_comments_for(path: str, line: str) -> str:
     """Return `line` with comment text removed, so prose cannot match a pattern.
 
@@ -302,6 +370,7 @@ def violations(contract: dict, root: Path) -> list[tuple[str, int, str]]:
     survives and one that gets waived.
     """
     found: list[tuple[str, int, str]] = []
+    include_tests = contract.get("include_tests", False)
     for pattern in contract["patterns"]:
         if isinstance(pattern, str):
             grep, confirm = pattern, pattern
@@ -310,6 +379,8 @@ def violations(contract: dict, root: Path) -> list[tuple[str, int, str]]:
         compiled = re.compile(confirm)
         for path, number, text in git_grep(grep, contract["paths"], root):
             if path in SELF_REFERENTIAL:
+                continue
+            if not include_tests and is_test_path(path):
                 continue
             if compiled.search(strip_comments_for(path, text)):
                 found.append((path, number, text.strip()))

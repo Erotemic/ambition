@@ -42,7 +42,26 @@ VIOLATING_LINE = {
         "    let m = motion_model_spec_for_character(registry, catalog, id);",
     "one-reader-of-the-catalog-axis-tuning":
         "    match catalog.axis_tuning(id) {",
+    "one-place-builds-the-worlds-path":
+        '    DEFAULT_LDTK = REPO_ROOT / "assets" / "worlds" / "sandbox.ldtk"',
 }
+
+# The language each contract's subject is written in, which decides what a
+# COMMENT looks like when the prose check strips one. Rust unless stated: the
+# harness assumed Rust everywhere until the first Python contract arrived
+# (2026-07-28), and a prose check that only ever tested `//` would have proved
+# nothing about a `#`.
+CONTRACT_LANGUAGE = {
+    "one-place-builds-the-worlds-path": "py",
+}
+
+
+def comment_forms(language: str) -> tuple[str, list[str]]:
+    """A representative source path and the comment shapes for `language`."""
+    if language == "py":
+        return "some/file.py", ["# {}", "    # {}"]
+    return "some/file.rs", ["/// This used to be `{}` and no longer is.",
+                            "//! {}", "    // {}"]
 
 
 def confirm_patterns(contract: dict) -> list[re.Pattern]:
@@ -56,7 +75,8 @@ def confirm_patterns(contract: dict) -> list[re.Pattern]:
 @pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
 def test_each_contract_matches_a_real_violation(contract):
     line = VIOLATING_LINE[contract["id"]]
-    stripped = strip_comments_for("some/file.rs", line)
+    path, _ = comment_forms(CONTRACT_LANGUAGE.get(contract["id"], "rs"))
+    stripped = strip_comments_for(path, line)
     assert any(pattern.search(stripped) for pattern in confirm_patterns(contract)), (
         f"{contract['id']} would not notice {line!r} — a contract that cannot "
         "match its own violation is decoration"
@@ -67,10 +87,9 @@ def test_each_contract_matches_a_real_violation(contract):
 def test_no_contract_fires_on_prose_describing_the_removal(contract):
     """Documenting a removal must not break the guard that verified it."""
     line = VIOLATING_LINE[contract["id"]]
-    for comment in (f"/// This used to be `{line.strip()}` and no longer is.",
-                    f"//! {line.strip()}",
-                    f"    // {line.strip()}"):
-        stripped = strip_comments_for("some/file.rs", comment)
+    path, forms = comment_forms(CONTRACT_LANGUAGE.get(contract["id"], "rs"))
+    for comment in (form.format(line.strip()) for form in forms):
+        stripped = strip_comments_for(path, comment)
         assert not any(
             pattern.search(stripped) for pattern in confirm_patterns(contract)
         ), (

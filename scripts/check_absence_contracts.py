@@ -89,6 +89,32 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "one-place-builds-the-worlds-path",
+        # The subject includes TEST modules: five of them spelled the path too,
+        # and a contract that guards only the package would have watched half a
+        # migration.
+        "include_tests": True,
+        "paths": [
+            "tools/ambition_ldtk_tools/",
+            # The one legitimate home, and the test that pins what it returns.
+            ":(exclude)tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py",
+            ":(exclude)tools/ambition_ldtk_tools/tests/test_ldtk_core_helpers.py",
+        ],
+        "patterns": [r'/\s*"worlds"'],
+        "reason": (
+            "The LDtk worlds directory is built in ONE place, `ldtk/paths.py`, "
+            "whose own docstring says it exists 'so individual commands do not "
+            "recreate stale repository-layout assumptions'. Fifteen commands and "
+            "five test modules then recreated them anyway, in three different "
+            "spellings, and when the worlds moved out of "
+            "`crates/ambition_actors/assets` every one of them broke: 11 of 149 "
+            "tests red on a clean tree, and a bare `ldtk edit measure` dying with "
+            "FileNotFoundError because its `--ldtk` default pointed at a "
+            "directory that had not existed for weeks (2026-07-28). A second "
+            "copy of a correct path is a copy that has not gone stale YET."
+        ),
+    },
+    {
         "id": "no-string-keyed-sheet-row-lookup",
         "paths": ["crates/", "game/", "fixtures/", "tools/"],
         "patterns": [r"\.row_index_of\(", r"\bfn row_index_of\b"],

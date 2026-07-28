@@ -584,7 +584,27 @@ pub enum VisibleRenderMode {
     /// The full render graph with NO window and NO wgpu backend — the
     /// standard Bevy recipe for exercising the real presentation composition
     /// in tests/CI without a GPU or display server.
+    ///
+    /// ⚠ `backends: None` OMITS THE RENDER APP. Nothing is ever drawn, so
+    /// anything that needs pixels to exist — a screenshot, a readback, the
+    /// tilemap spine — cannot work here and cannot be made to. That is not a
+    /// limitation to route around; it is what this mode is. Use
+    /// [`Self::OffscreenGpu`] when the output is an IMAGE.
     NoWindow,
+    /// No window, but a REAL wgpu backend — so there IS a render app, the
+    /// render graph runs, and a readback can complete.
+    ///
+    /// The difference from [`Self::NoWindow`] is one field (`backends`) and it
+    /// is the whole difference between "composes the presentation" and
+    /// "produces pixels". `capture_scene` has always built this shape by hand
+    /// for ROOMS; naming it here is what lets a shell ROUTE — the launcher, the
+    /// title cards, the versus stage and its HUD — be photographed through the
+    /// same composition a player runs, which is the thing the room-only capture
+    /// tool could never reach (queue Z1).
+    ///
+    /// Needs a working wgpu adapter, software or otherwise. A machine without
+    /// one should use `NoWindow` and expect no image.
+    OffscreenGpu,
 }
 
 /// Assemble the visible Ambition app — the ONE composition the desktop binary
@@ -615,7 +635,10 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     if direct_windowed {
         app.insert_resource(ambition::platformer::lifecycle::InitialGameplayReadiness::closed());
     }
-    if matches!(render, VisibleRenderMode::NoWindow) {
+    if matches!(
+        render,
+        VisibleRenderMode::NoWindow | VisibleRenderMode::OffscreenGpu
+    ) {
         // Automated no-window hosts exercise the real ownership, resolver, and
         // playback-state path, but the final output side effect is recorded
         // instead of issuing Kira `play` commands to the user's speakers.
@@ -693,6 +716,33 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
                     .disable::<bevy::winit::WinitPlugin>(),
             );
         }
+        VisibleRenderMode::OffscreenGpu => {
+            use bevy::app::ScheduleRunnerPlugin;
+            use bevy::window::ExitCondition;
+            // The SAME recipe as NoWindow minus the one field that matters:
+            // no `backends: None`, so wgpu picks a real adapter, the render app
+            // exists, and a readback can complete. `CorePipelinePlugin` and
+            // `GizmoRenderPlugin` stay ENABLED for the same reason — their work
+            // has somewhere to go.
+            app.add_plugins(
+                plugins
+                    .disable::<bevy::log::LogPlugin>()
+                    .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
+                    .set(WindowPlugin {
+                        primary_window: None,
+                        exit_condition: ExitCondition::DontExit,
+                        close_when_requested: false,
+                        ..default()
+                    })
+                    .disable::<bevy::winit::WinitPlugin>(),
+            );
+            // Winit is the loop runner for a windowed app; without it `run()`
+            // executes ONE update and exits, having drawn nothing. That is the
+            // first thing the Z1 attempt tripped over, and it failed silently.
+            app.add_plugins(ScheduleRunnerPlugin::run_loop(
+                std::time::Duration::from_millis(0),
+            ));
+        }
     }
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     ambition::runtime::init_engine_states(&mut app);
@@ -730,6 +780,17 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
             // LDtk tile spine is absent in this mode. The session LDtk roots
             // guard on the asset registry so nothing dangles.
             app.add_plugins((SandboxSimulationPlugin, SandboxPresentationPlugin));
+        }
+        VisibleRenderMode::OffscreenGpu => {
+            // The FULL set, tile spine included — this mode has a render app,
+            // which is the whole reason it exists. A capture that quietly
+            // dropped the painted tiles would be a photograph of a different
+            // game than the one a player runs.
+            app.add_plugins((
+                SandboxSimulationPlugin,
+                SandboxLdtkPlugin,
+                SandboxPresentationPlugin,
+            ));
         }
     }
     if shell_hosted {

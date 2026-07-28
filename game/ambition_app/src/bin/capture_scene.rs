@@ -53,6 +53,13 @@ struct SceneCaptureConfig {
     /// When the focus positional is the literal `player`, center the camera on
     /// the live player entity's position after warmup (no coordinate hunting).
     follow_player: bool,
+    /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
+    ///
+    /// The surfaces a stranger sees first — the launcher, the startup cards,
+    /// the versus stage and its HUD — are routes, and this tool could only ever
+    /// reach rooms. Asking for one by room id silently captured the sandbox
+    /// instead, which is the worst thing a verification tool can do (queue Z1).
+    route: Option<String>,
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -67,6 +74,12 @@ struct SceneCaptureRuntime {
     requested: bool,
     completed: bool,
     failed: bool,
+    /// Route mode only: the shell has been told where to go. One request, not
+    /// one per frame — a `GoTo` every update would restart the route forever.
+    route_requested: bool,
+    /// How many cameras the route capture has adopted, so the count is
+    /// announced when it CHANGES rather than once per frame.
+    cameras_adopted: usize,
 }
 
 fn main() {
@@ -94,6 +107,17 @@ fn main() {
         config.output.display(),
         asset_root,
     );
+
+    // A ROUTE is photographed through the composition a PLAYER runs: the shell
+    // host, built by the same `build_visible_app` the desktop binary uses, on
+    // the offscreen-GPU render mode. That mode exists because the older
+    // no-window one sets `backends: None` and therefore has no render app at
+    // all — a readback under it can never complete, which is what three
+    // eliminated hypotheses were circling (queue Z1).
+    if let Some(route_id) = config.route.clone() {
+        run_route_capture(config, route_id);
+        return;
+    }
 
     let show_window = config.show_window;
     let mut app = App::new();
@@ -172,6 +196,7 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut show_window = false;
         let mut character: Option<String> = None;
+        let mut route: Option<String> = None;
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
@@ -192,6 +217,17 @@ impl SceneCaptureConfig {
                 }
                 arg if arg.starts_with("--character=") => {
                     character = Some(arg.trim_start_matches("--character=").to_string());
+                    i += 1;
+                }
+                "--route" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--route requires a shell route id".to_string());
+                    };
+                    route = Some(value.clone());
+                    i += 2;
+                }
+                arg if arg.starts_with("--route=") => {
+                    route = Some(arg.trim_start_matches("--route=").to_string());
                     i += 1;
                 }
                 "--warmup" => {
@@ -218,6 +254,35 @@ impl SceneCaptureConfig {
                     i += 1;
                 }
             }
+        }
+
+        // A ROUTE has no room id and no focus point: the shell composes its own
+        // surface and its own cameras. Requiring the room positionals anyway
+        // would mean inventing values that are then ignored, which is how a
+        // flag ends up documented as "pass anything here".
+        if let Some(route) = route.clone() {
+            let output = positional
+                .first()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(format!("/tmp/route_{route}.png")));
+            let size = positional
+                .get(1)
+                .and_then(|text| parse_image_size(text))
+                .unwrap_or(UVec2::new(1280, 720));
+            return Ok(Self {
+                room_id: String::new(),
+                focus: ae::Vec2::ZERO,
+                output,
+                size,
+                warmup_frames: warmup_frames.max(90),
+                // A route IS its UI. Capturing one without it would photograph
+                // an empty clear colour and call it the launcher.
+                include_ui: true,
+                show_window,
+                character,
+                follow_player: false,
+                route: Some(route),
+            });
         }
 
         let Some(room_id) = positional.first().cloned() else {
@@ -254,7 +319,158 @@ impl SceneCaptureConfig {
             show_window,
             character,
             follow_player,
+            route: None,
         })
+    }
+}
+
+/// Photograph a shell ROUTE through the player's own composition.
+///
+/// Fails LOUDLY on an unknown route, naming the ones that exist: a capture that
+/// silently photographs somewhere else is how a blind agent reports the wrong
+/// thing with confidence, and that is the defect this whole mode exists to
+/// remove.
+fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
+    let mut app = ambition_app::app::build_visible_app(
+        ambition_app::app::VisibleRenderMode::OffscreenGpu,
+        true,
+    );
+
+    let known: Vec<String> = {
+        let catalog = app
+            .world()
+            .get_resource::<ambition::game_shell::ShellRouteCatalog>();
+        catalog
+            .map(|catalog| catalog.ids().map(|id| id.to_string()).collect())
+            .unwrap_or_default()
+    };
+    if !known.is_empty() && !known.iter().any(|id| id == &route_id) {
+        eprintln!(
+            "capture_scene: unknown route '{route_id}'. Known routes: {}",
+            known.join(", ")
+        );
+        std::process::exit(2);
+    }
+
+    app.insert_resource(config.clone());
+    app.insert_resource(SceneCaptureRuntime::default());
+    app.add_systems(Startup, setup_route_capture_target);
+    app.add_systems(
+        Update,
+        (
+            go_to_route,
+            adopt_route_cameras,
+            request_capture,
+            finish_after_capture,
+            fail_after_timeout,
+        )
+            .chain(),
+    );
+    app.run();
+}
+
+/// Drive the shell to the requested route once, on the first update.
+fn go_to_route(
+    config: Res<SceneCaptureConfig>,
+    mut runtime: ResMut<SceneCaptureRuntime>,
+    mut commands: Commands,
+) {
+    if runtime.route_requested {
+        return;
+    }
+    runtime.route_requested = true;
+    let Some(route) = config.route.clone() else {
+        return;
+    };
+    commands.write_message(ambition::game_shell::ShellCommand::GoTo(
+        ambition::game_shell::ShellRouteId::new(route),
+    ));
+}
+
+/// Retarget EVERY camera, not the gameplay markers.
+///
+/// A shell route has neither a `MainCamera` nor a `FrontHudCamera` — the
+/// launcher reports three cameras carrying neither marker — so the marker-keyed
+/// setup built an image nothing drew into. Which camera a route composes is the
+/// route's business; that it must land in the capture target is ours.
+fn setup_route_capture_target(
+    mut commands: Commands,
+    config: Res<SceneCaptureConfig>,
+    mut images: ResMut<Assets<Image>>,
+    mut cameras: Query<(Entity, &mut Camera)>,
+) {
+    if let Some(parent) = config.output.parent().filter(|p| !p.as_os_str().is_empty()) {
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            eprintln!(
+                "capture_scene: failed to create output directory '{}': {error}",
+                parent.display()
+            );
+            commands.write_message(AppExit::from_code(2));
+            return;
+        }
+    }
+    let mut capture_image = Image::new_target_texture(
+        config.size.x.max(1),
+        config.size.y.max(1),
+        TextureFormat::Rgba8UnormSrgb,
+        None,
+    );
+    capture_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+    let image = images.add(capture_image);
+    commands.insert_resource(SceneCaptureTarget { image });
+}
+
+/// Adopt a route's cameras AS THEY APPEAR, every frame.
+///
+/// A shell route has no cameras at `Startup` — it spawns them when the route
+/// composes, several frames in. Retargeting once at startup therefore adopted
+/// ZERO cameras and produced a blank image that was written successfully and
+/// reported as a capture, which is the same silent-wrong-answer this whole mode
+/// exists to remove, three levels down. The count is printed for that reason.
+fn adopt_route_cameras(
+    mut commands: Commands,
+    target: Option<Res<SceneCaptureTarget>>,
+    mut runtime: ResMut<SceneCaptureRuntime>,
+    mut cameras: Query<(Entity, &mut Camera)>,
+) {
+    let Some(target_res) = target else {
+        return;
+    };
+    let target = RenderTarget::Image(ImageRenderTarget::from(target_res.image.clone()));
+    // ONE target, several cameras — so only the FIRST may clear it.
+    //
+    // A shell route composes a stack (world, then UI, then overlays). Point
+    // them all at one image with their default clear config and each wipes the
+    // one before it, so the file that lands is whatever the LAST camera drew
+    // over a fresh clear: a blank rectangle, written successfully, reported as
+    // a capture. Ordering by `Camera::order` and clearing only on the lowest is
+    // what makes the stack composite instead of compete.
+    let mut ordered: Vec<(Entity, isize)> = cameras
+        .iter()
+        .map(|(entity, camera)| (entity, camera.order))
+        .collect();
+    ordered.sort_by_key(|(entity, order)| (*order, entity.index()));
+    for (rank, (entity, order)) in ordered.iter().enumerate() {
+        if let Ok((_, mut camera)) = cameras.get_mut(*entity) {
+            camera.is_active = true;
+            camera.clear_color = if rank == 0 {
+                ClearColorConfig::Default
+            } else {
+                ClearColorConfig::None
+            };
+        }
+        commands.entity(*entity).insert((target.clone(), Msaa::Off));
+        eprintln!(
+            "capture_scene: camera {rank} (order {order}) -> capture image{}",
+            if rank == 0 { ", clears" } else { ", overlays" }
+        );
+    }
+    if ordered.len() != runtime.cameras_adopted {
+        eprintln!(
+            "capture_scene: retargeted {} camera(s) to the capture image",
+            ordered.len()
+        );
+        runtime.cameras_adopted = ordered.len();
     }
 }
 

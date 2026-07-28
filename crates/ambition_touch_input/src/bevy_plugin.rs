@@ -319,6 +319,9 @@ impl Plugin for TouchControlsPlugin {
                     // the scheme lacks are hidden.
                     update_button_verb_from_prompt,
                     sync_touch_button_visibility_from_prompt,
+                    // The STICK, on the same rule, after the root sync so it
+                    // wins over the blanket setting mirror rather than racing it.
+                    sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
                     update_button_glyph_from_active_input
                         .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     update_button_pressed_from_actions
@@ -1059,6 +1062,43 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
 /// [`touch_action_available`]). Shown buttons use `Visibility::Inherited` (never
 /// `Visible`) so they still obey the overlay-wide [`TouchControlsVisible`] root
 /// toggle.
+/// **The movement STICK is a verb nobody can press either.**
+///
+/// `sync_touch_button_visibility_from_prompt` below hides the gameplay action
+/// buttons while a menu owns input, on the argument that a verb nobody can
+/// press must not be on screen. The stick was left out of that fix and kept
+/// drawing itself over the game-select screen — found 2026-07-28 by
+/// PHOTOGRAPHING the launcher, which is a thing the capture tool could not do
+/// until the same day. The rendered test that covers this queries
+/// `TouchActionButton` and the stick is not one, so nothing caught it.
+///
+/// Gated on `TouchSurface::Movement` rather than on the shared
+/// `MobileTouchUiRoot`, because the action bezel carries Start and Reset — the
+/// shell-shaped verbs a phone with no keyboard needs to keep its way out — and
+/// hiding their root would take those with it.
+pub fn sync_touch_stick_visibility_from_context(
+    active_context: Option<Res<ambition_input::ActiveInputContext>>,
+    visible: Res<TouchControlsVisible>,
+    mut sticks: Query<(&TouchSurface, &mut Visibility)>,
+) {
+    let gameplay = active_context
+        .as_deref()
+        .is_none_or(ambition_input::ActiveInputContext::gameplay_owned);
+    let target = if visible.0 && gameplay {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for (surface, mut vis) in &mut sticks {
+        if !matches!(surface, TouchSurface::Movement) {
+            continue;
+        }
+        if *vis != target {
+            *vis = target;
+        }
+    }
+}
+
 pub fn sync_touch_button_visibility_from_prompt(
     prompt: Res<ControlPrompt>,
     // Whether GAMEPLAY owns the participant's actions this frame. On the title
@@ -1089,10 +1129,8 @@ pub fn sync_touch_button_visibility_from_prompt(
         .is_none_or(ambition_input::ActiveInputContext::gameplay_owned);
 
     for (action, mut vis) in &mut buttons {
-        let always_available = matches!(
-            action,
-            TouchActionButton::Start | TouchActionButton::Reset
-        );
+        let always_available =
+            matches!(action, TouchActionButton::Start | TouchActionButton::Reset);
         let target = if (gameplay || always_available) && touch_action_available(*action, &prompt) {
             Visibility::Inherited
         } else {

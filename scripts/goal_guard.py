@@ -23,6 +23,28 @@ the files those commands read. The honest claim is narrower: it converts
 thing to do and leaves a diff. Write checks that name a TEST, not a doc marker,
 and the bar goes up again.
 
+## The four ways out, none of which needs the repository to be healthy
+
+A guard that can wedge a session is worse than no guard, and this one has had
+that bug twice (a SessionStart hook that ran `cargo check` before the session
+was ready; a stall counter that reset itself whenever `git` failed). The escape
+hatches are therefore listed here rather than inferred from the code:
+
+1. `deadline_utc` passes — the intended release. `--arm` REFUSES a deadline it
+   cannot parse, because a deadline that silently becomes `None` is a run with
+   no end.
+2. `max_stalled_blocks` blocks with no new commit. An unreadable `HEAD` counts
+   as a stall, not as progress: not knowing whether work happened must never
+   read as "work happened".
+3. `max_run_hours` since the FIRST block (default 36). Depends on nothing but
+   the clock — not on git, not on the checks, not on this file being correct
+   past the point of parsing.
+4. `MAX_CONSECUTIVE_CRASHES` crashes of this script. A crashed guard blocks,
+   because a broken instrument is not a passing one, but it stands down before
+   a typo here can cost somebody their whole session.
+
+Every one of those says out loud that the goal was NOT met when it fires.
+
 ## Wiring (`.claude/settings.json`)
 
     "hooks": {
@@ -95,6 +117,36 @@ from pathlib import Path
 
 DEFAULT_CHECK_TIMEOUT = 120
 DEFAULT_MAX_STALLED_BLOCKS = 3
+# The wall-clock ceiling on how long an armed goal may block, counted from its
+# FIRST block. A backstop under `deadline_utc`, not a replacement for it: a goal
+# with no deadline (or one armed before `--arm` validated deadlines) would
+# otherwise block forever if a check could never pass.
+DEFAULT_MAX_RUN_HOURS = 36.0
+# How many consecutive crashes of this script are treated as "the guard is
+# broken" rather than "the work is not done". A crashed guard keeps blocking —
+# deliberately, because a broken instrument must not read as success — but it
+# cannot do so forever, or a typo in this file wedges every session in the repo.
+MAX_CONSECUTIVE_CRASHES = 3
+
+
+def as_int(value, fallback: int) -> int:
+    """A malformed number in the goal file must not crash the guard.
+
+    Every one of these used to be a bare `int(...)` on JSON a human hand-edits at
+    2am. A `TypeError` there lands in the crash handler, which keeps blocking —
+    so a stray string in `max_stalled_blocks` could wedge the session with no way
+    out but deleting the file (GPT 5.6, 2026-07-28)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def as_float(value, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
 
 
 def repo_root() -> Path:
@@ -297,17 +349,41 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # is simply stuck and a human should hear about it.
     state = load_json(state_path(root)) or {}
     sha = head_sha(root)
-    stalled = int(state.get("stalled", 0))
-    stalled = stalled + 1 if sha and sha == state.get("last_head") else 0
-    max_stalled = int(goal.get("max_stalled_blocks", DEFAULT_MAX_STALLED_BLOCKS))
+    # An UNREADABLE head is not progress.
+    #
+    # This read `stalled + 1 if sha and sha == last_head else 0`, so a failing
+    # `git rev-parse` — a permission problem, a lock file, a repo the hook cannot
+    # see — returned "" and reset the counter to zero on every single block. The
+    # stall release could then never fire, and the one escape hatch from a run
+    # that is going nowhere was disabled by exactly the infrastructure failures
+    # most likely to make a run go nowhere (GPT 5.6, 2026-07-28).
+    #
+    # So the three cases are named: a NEW commit is progress and resets; the same
+    # commit is a stall; and not knowing is a stall too, because a guard that
+    # cannot see progress must not assume it.
+    if not sha:
+        stalled = as_int(state.get("stalled"), 0) + 1
+    elif sha == state.get("last_head"):
+        stalled = as_int(state.get("stalled"), 0) + 1
+    else:
+        stalled = 0
+    max_stalled = as_int(
+        goal.get("max_stalled_blocks"), DEFAULT_MAX_STALLED_BLOCKS
+    )
+    blocks = as_int(state.get("blocks"), 0) + 1
+    first_block_at = state.get("first_block_at") or now_utc().isoformat()
 
     state.update(
         {
             "last_head": sha,
             "stalled": stalled,
-            "blocks": int(state.get("blocks", 0)) + 1,
+            "blocks": blocks,
+            "first_block_at": first_block_at,
             "last_block_at": now_utc().isoformat(),
             "last_open": [r.name for r in results if not r.ok],
+            # A clean run: the crash fuse in `main` counts consecutive crashes,
+            # so reaching here at all means the guard is working.
+            "crashes": 0,
         }
     )
     goal_dir(root).mkdir(parents=True, exist_ok=True)
@@ -323,6 +399,30 @@ def mode_stop(root: Path, hook_input: dict) -> int:
                     f"Goal guard: released after {stalled} blocks with no new "
                     f"commit — the run is stuck, not finished. Still open: "
                     + ", ".join(state["last_open"])
+                )
+            }
+        )
+        return 0
+
+    # The WALL-CLOCK fuse, which depends on nothing but the clock.
+    #
+    # `deadline_utc` is the intended release and every armed goal should carry
+    # one — but it is optional, and an unparseable one used to become silently
+    # no deadline at all. A goal with no deadline and a check that can never pass
+    # is an unbounded block, so the guard keeps its own ceiling: `--arm` now
+    # rejects a malformed deadline outright, and this catches goals armed before
+    # that existed, or edited by hand afterwards.
+    fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
+    started = parse_deadline(first_block_at)
+    if fuse_h > 0 and started and now_utc() - started >= _dt.timedelta(hours=fuse_h):
+        clear_goal(root, f"wall-clock fuse: blocked for over {fuse_h}h")
+        emit(
+            {
+                "systemMessage": (
+                    f"Goal guard: RELEASED by the {fuse_h}h wall-clock fuse — this "
+                    f"goal has been blocking since {first_block_at} and is being "
+                    f"cleared so the session is usable. It was NOT met. Still "
+                    f"open: " + ", ".join(state["last_open"])
                 )
             }
         )
@@ -424,6 +524,62 @@ def mode_status(root: Path) -> int:
     return 0 if results and all(r.ok for r in results) else 1
 
 
+def validate_goal(goal: dict) -> list[str]:
+    """Every way a goal file can wedge a session, checked BEFORE it is armed.
+
+    Arming used to check one thing — that checks exist — and everything else was
+    read later, in a hook, where a bad value either silently disabled a release
+    (an unparseable `deadline_utc` became NO deadline) or raised inside the Stop
+    hook, which keeps blocking by design (GPT 5.6, 2026-07-28). Both failures
+    land on a human who has to work out why the session will not end.
+
+    Arming is the one moment a person is watching, so it is where these belong.
+    """
+    problems: list[str] = []
+
+    checks = goal.get("checks")
+    if not isinstance(checks, list) or not checks:
+        problems.append(
+            "no `checks` — a goal with nothing to verify is exactly the "
+            "judged-by-vibes hook this replaces"
+        )
+    else:
+        for index, raw in enumerate(checks):
+            label = f"check {index}"
+            if not isinstance(raw, dict):
+                problems.append(f"{label}: not an object")
+                continue
+            label = f"check {index} ({raw.get('name') or 'unnamed'})"
+            if not raw.get("cmd"):
+                problems.append(f"{label}: has no `cmd`")
+            if "timeout" in raw:
+                try:
+                    timeout = float(raw["timeout"])
+                except (TypeError, ValueError):
+                    problems.append(f"{label}: `timeout` is not a number")
+                else:
+                    if timeout <= 0:
+                        problems.append(f"{label}: `timeout` must be positive")
+
+    raw_deadline = goal.get("deadline_utc")
+    if raw_deadline and parse_deadline(raw_deadline) is None:
+        # The dangerous one: this used to degrade to "no deadline", which is
+        # indistinguishable from "run until somebody notices".
+        problems.append(
+            f"`deadline_utc` {raw_deadline!r} is not an ISO-8601 timestamp — a "
+            "deadline that does not parse is silently NO deadline"
+        )
+
+    for field, kind in (("max_stalled_blocks", int), ("max_run_hours", float)):
+        if field in goal:
+            try:
+                kind(goal[field])
+            except (TypeError, ValueError):
+                problems.append(f"`{field}` is not a number")
+
+    return problems
+
+
 def mode_arm(root: Path, source: str) -> int:
     src = Path(source)
     if not src.is_absolute():
@@ -432,12 +588,11 @@ def mode_arm(root: Path, source: str) -> int:
     if goal is None:
         print(f"cannot read a goal from {src}", file=sys.stderr)
         return 2
-    if not goal.get("checks"):
-        print(
-            "refusing to arm a goal with no checks — a goal with nothing to "
-            "verify is exactly the judged-by-vibes hook this replaces",
-            file=sys.stderr,
-        )
+    problems = validate_goal(goal)
+    if problems:
+        print(f"refusing to arm {src}:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
         return 2
     goal_dir(root).mkdir(parents=True, exist_ok=True)
     if src.resolve() != active_path(root).resolve():
@@ -480,21 +635,63 @@ def main() -> int:
     return mode_stop(root, hook_input)
 
 
+def note_crash(root: Path) -> int:
+    """Count consecutive crashes, so a broken guard is bounded.
+
+    Returns the new count; any clean `mode_stop` resets it to zero.
+    """
+    state = load_json(state_path(root)) or {}
+    crashes = as_int(state.get("crashes"), 0) + 1
+    state["crashes"] = crashes
+    state["last_crash_at"] = now_utc().isoformat()
+    try:
+        goal_dir(root).mkdir(parents=True, exist_ok=True)
+        state_path(root).write_text(json.dumps(state, indent=2) + "\n")
+    except OSError:
+        # Cannot even record it. Treat that as the fuse blowing: a guard that can
+        # neither run nor remember that it failed has nothing left to be trusted
+        # with, and the alternative is an unbreakable block.
+        return MAX_CONSECUTIVE_CRASHES
+    return crashes
+
+
 if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:  # noqa: BLE001
         # A crashed guard must never silently release a run: say so loudly and
         # keep blocking, because "the guard broke" is not "the work is done".
+        #
+        # But not forever. Blocking on a crash means a typo in THIS file wedges
+        # every session in the repo, with the only escape being to find and move
+        # `.goal/active.json` by hand — which is exactly the lock-out this file
+        # claims at the top it cannot cause (GPT 5.6, 2026-07-28). After
+        # MAX_CONSECUTIVE_CRASHES it releases and says why, loudly enough that
+        # nobody mistakes it for the goal being met.
         root = repo_root()
         if active_path(root).exists():
+            crashes = note_crash(root)
+            if crashes >= MAX_CONSECUTIVE_CRASHES:
+                emit(
+                    {
+                        "systemMessage": (
+                            f"Goal guard: RELEASED after crashing {crashes} times "
+                            f"in a row ({exc!r}). The goal is NOT met — the guard "
+                            f"itself is broken and is standing down so the session "
+                            f"is usable. Fix scripts/goal_guard.py, then re-arm."
+                        )
+                    }
+                )
+                sys.exit(0)
             emit(
                 {
                     "decision": "block",
                     "reason": (
-                        f"goal_guard.py crashed ({exc!r}) while a goal was armed. "
-                        "Treating this as NOT MET. Fix the guard, then continue "
-                        "the goal."
+                        f"goal_guard.py crashed ({exc!r}) while a goal was armed "
+                        f"({crashes} of {MAX_CONSECUTIVE_CRASHES} consecutive "
+                        f"crashes before it stands down). Treating this as NOT "
+                        f"MET. FIX THE GUARD FIRST — it is the instrument this "
+                        f"run is judged by — then continue the goal."
                     ),
                 }
             )

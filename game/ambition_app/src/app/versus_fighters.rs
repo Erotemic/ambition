@@ -224,7 +224,15 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             // (C3 / GPT 5.6, 2026-07-28).
             .with_action_set(ActionSet::default())
             .with_moveset(duelist_moveset(LONG_GUARD))
-            .with_hurtboxes(duelist_hurtboxes(LONG_GUARD)),
+            .with_hurtboxes(duelist_hurtboxes(LONG_GUARD))
+            // A VOICE. These two are registered-only, so nothing else can
+            // give them one, and a fighter on a Hall pedestal saying nothing
+            // reads as unfinished.
+            .with_voice([
+                "Reach is patience with a longer arm.",
+                "I will meet you exactly where you were.",
+                "Come closer. That is the whole plan, is it not?",
+            ]),
         // A rushdown fighter. Shorter reach, a faster smash — has to get inside
         // to do anything, and is rewarded for being there.
         CharacterDefinition::new("arena_duelist_close", "Close Guard", VERSUS_PROVIDER)
@@ -234,7 +242,15 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             .with_health(52, 0.9)
             .with_action_set(ActionSet::default())
             .with_moveset(duelist_moveset(CLOSE_GUARD))
-            .with_hurtboxes(duelist_hurtboxes(CLOSE_GUARD)),
+            .with_hurtboxes(duelist_hurtboxes(CLOSE_GUARD))
+            // A VOICE. These two are registered-only, so nothing else can
+            // give them one, and a fighter on a Hall pedestal saying nothing
+            // reads as unfinished.
+            .with_voice([
+                "Everything good happens inside arm's length.",
+                "Your reach is a commitment. I am counting on it.",
+                "Guard up. Guard close. Guard now.",
+            ]),
     ]
 }
 

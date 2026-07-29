@@ -993,6 +993,11 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
+            fallback_dialogue: [
+                "The shell is load-bearing. Please stop.",
+                "I was told there would be a corridor.",
+                "Kick me and I become somebody else's problem.",
+            ],
         ),
         // AI Slop's IDENTITY row (the plain stompable walker): its sprite is the
         // published `ai_slop` sheet, resolved from this display name. Behavior/HP/
@@ -1016,6 +1021,11 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
+            fallback_dialogue: [
+                "I walk left. It is a complete philosophy.",
+                "Statistically, one of us is about to be stomped.",
+                "I was trained on a thousand walkers and became the average one.",
+            ],
         ),
     },
 )"#;

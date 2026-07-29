@@ -127,7 +127,15 @@ pub fn install_pocket_content(app: &mut App) {
         use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
-                .with_sheet("super_mary_o"),
+                .with_sheet("super_mary_o")
+                // A VOICE, so this one is not mute on a pedestal. A
+                // registered-only character has no catalog row to hold bark
+                // pools, and the ambient ticker skips whoever has nothing to say.
+                .with_voice([
+                    "Small screen, same distance.",
+                    "I run in your pocket. Mind the lint.",
+                    "Everything here had to fit through a thumb.",
+                ]),
         );
     }
     app.register_audio_catalog_fragment(

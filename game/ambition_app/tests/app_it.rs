@@ -36,6 +36,7 @@ mod dive_drill_reachability;
 mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;
+mod every_character_says_something;
 mod falling_sand_room;
 mod fuzz_random_walker;
 mod gameplay_presentation_ggrs;

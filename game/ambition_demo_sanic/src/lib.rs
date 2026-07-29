@@ -503,6 +503,11 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
+            fallback_dialogue: [
+                "I pace. It is a living.",
+                "Something blue went past. Twice.",
+                "The wall and I have an understanding.",
+            ],
         ),
     },
 )"#;

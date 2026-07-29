@@ -252,6 +252,9 @@ impl PlayerSimulationBundle {
             &mut bundle.action_set,
             &mut bundle.moveset,
             &mut bundle.identity_kit,
+            // This bundle carries no `CombatKit`; the player body's capabilities
+            // live on its `ActionSet` alone.
+            None,
             character_id,
             base_abilities,
         );

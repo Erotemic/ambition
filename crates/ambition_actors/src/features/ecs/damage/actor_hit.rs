@@ -366,6 +366,7 @@ pub(crate) fn apply_actor_hit(
             let facing = em.kin.facing;
             crate::features::ecs::damage_apply::apply_body_hit_reaction(
                 &mut em.kin.vel,
+                &mut em.flight,
                 combat,
                 pos,
                 facing,

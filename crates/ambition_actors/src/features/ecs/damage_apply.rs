@@ -730,6 +730,14 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
 /// this owns only the launch + control-lock timers.
 pub(crate) fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
+    // **The carried-momentum channel.** The launch is momentum the WORLD
+    // imparted, and the hands-off air stop assist is required not to bleed that
+    // away — `carried_run`'s own doc names knockback as one of the two cases it
+    // exists for. Only the portal adapter ever wrote it, so a launched body's
+    // floor was zero and `AIR_STOP_ASSIST` erased a 420px/s smash in seven
+    // frames: 15.5px of travel out of the ~210px the launch describes
+    // (measured, queue F0e).
+    flight: &mut ae::BodyFlightState,
     combat: &mut BodyCombat,
     body_pos: ae::Vec2,
     body_facing: f32,
@@ -761,6 +769,19 @@ pub(crate) fn apply_body_hit_reaction(
     // readable beat, not something that scales with how hard the hit was.
     combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
     combat.hitstop_timer = feel.player_damage_hitstop_time;
+    // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
+    //
+    // The floor is the run-axis component of the velocity just written, in the
+    // same frame the launch was resolved in. The window is HITSTUN, not the
+    // recoil lock: the recoil lock is the short hard beat at the front, while
+    // hitstun is the whole span in which the body has no authority over its own
+    // trajectory — and "momentum you were given while you could not act" is a
+    // statement about authority. Deliberately an existing number rather than a
+    // new tuning knob; the carry is owed for exactly as long as the reaction it
+    // belongs to.
+    let side = ae::AccelerationFrame::new(gravity_dir).side;
+    flight.carried_run = vel.dot(side);
+    flight.carried_hold = combat.hitstun_timer;
 }
 
 pub(crate) fn apply_player_knockback(
@@ -793,6 +814,7 @@ pub(crate) fn apply_player_knockback(
     let facing = clusters.kinematics.facing;
     apply_body_hit_reaction(
         &mut clusters.kinematics.vel,
+        &mut clusters.flight,
         combat,
         pos,
         facing,

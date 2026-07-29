@@ -374,9 +374,23 @@ pub struct BodyFlightState {
     /// ordinary jump drift keeps the tight stop-on-release feel. Clamped each
     /// frame to the actual run velocity (opposing input, walls, and landing
     /// all shrink it naturally) and bled by `MovementTuning::carried_decay`.
-    /// World-imparted (written by the portal adapter) — SHARED, not
-    /// policy-private.
+    /// World-imparted (written by the portal adapter and by knockback) —
+    /// SHARED, not policy-private.
     pub carried_run: f32,
+    /// **How long this carry is still OWED to the body**, in seconds.
+    ///
+    /// The floor exists because momentum the world imparted must not bleed away
+    /// under the hands-off air stop assist. But that argument has an expiry: it
+    /// is momentum you were given *while you could not act*, so it stops being
+    /// owed the moment you can. Without a bound, one knockback makes a body
+    /// coast at its launch speed for the rest of its airtime and the tight
+    /// stop-on-release feel is gone for everyone who was ever hit (queue F0e).
+    ///
+    /// Zero means the ordinary rule: `carried_run` bleeds at
+    /// `MovementTuning::carried_decay` like it always did. A portal fling leaves
+    /// this at zero deliberately — a fling is a change of reference frame, not a
+    /// reaction you are locked out of, and it has always decayed that way.
+    pub carried_hold: f32,
 }
 
 /// Blink RESOURCE: the recharge cooldown, preserved across policy switches.

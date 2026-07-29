@@ -1004,9 +1004,44 @@ fn finalize_character(
             // A `HostCode` row, or an id the catalog does not know, or no catalog
             // at all. All three mean the same thing to a body: build the host kit
             // from what this body can do.
-            _ => PreparedKit::HostCode {
-                authored_moveset: moveset,
-            },
+            // ⚠ **AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.**
+            //
+            // A character can take the host-code kit — whose action set the HOST
+            // builds, so the definition authors none — and still bring its own
+            // timelines; `authored_moveset` exists precisely for that. If that
+            // moveset declares the `ranged` verb, the same press is owned twice:
+            // by the legacy charge-projectile path this kit installs, and by the
+            // moveset's ranged verb. That is the exact double-ownership
+            // `RangedExecution::HostCharge` exists to prevent, arriving through
+            // the one door it does not watch.
+            //
+            // The finalization plan recorded that there was no contradictory
+            // authored HostCode configuration to reject, and that a validator
+            // would therefore be a test of itself. There is one (GPT 5.6,
+            // 2026-07-29).
+            //
+            // Reported HERE and not in `prepare_character`'s binding ledger,
+            // because deciding this needs the CATALOG and the catalog is
+            // deliberately not in scope until finalization — the Phase A split.
+            // Same shape, and same reason, as the malformed-Authored-row report
+            // directly above: named once at preparation rather than every time a
+            // body wears it.
+            _ => {
+                if let Some(moveset) = moveset.as_ref() {
+                    let ranged_verb = crate::combat::moveset::RANGED_VERB;
+                    if moveset.verbs.contains_key(ranged_verb) {
+                        bevy::log::error!(
+                            "character `{id}` takes the host-code kit AND authors a `{ranged_verb}` \
+                             verb. The host kit already owns the ranged press through its \
+                             charge-projectile path, so one press would fire two things; author an \
+                             action set to own the verb, or drop it from the moveset"
+                        );
+                    }
+                }
+                PreparedKit::HostCode {
+                    authored_moveset: moveset,
+                }
+            }
         },
     };
 
@@ -1042,10 +1077,21 @@ fn finalize_character(
 /// prefab builder, and a body that got the capability without the timeline
 /// advertises an attack it cannot perform.
 ///
-/// The `special` slot is deliberately NOT folded in. It is a capability marker on
-/// the host compat kit (`bubble_shield`) with no authored move behind it; an
-/// authored persona drives its special through its own path, so folding a generic
-/// shell move here would make one press fire two things.
+/// ⚠ **`special` used to be deliberately NOT folded in, and that was H2 again one
+/// field over.** The reasoning said it is a capability marker on the host compat
+/// kit (`bubble_shield`) with no authored move behind it, and that an authored
+/// persona drives its special through its own path — true only when that persona
+/// authored a MOVESET. The public API does not require one: a definition may
+/// carry `action_set.special = Some(..)` and no moveset at all, and `ActionSet
+/// ::special`'s own doc says the brain reads `special.is_some()` to decide
+/// whether to press it while the execution "is a data-driven move in the body's
+/// `ActorMoveset`". So that character advertised a signature move with no
+/// timeline behind it — the exact defect H2 closed for `ranged` (GPT 5.6,
+/// 2026-07-29).
+///
+/// Folding it here cannot double-fire: this branch runs ONLY when there is no
+/// authored moveset, so there is no second declaration to collide with. A
+/// persona that authored its moves still overrides everything derived.
 fn derive_moveset(
     action_set: &ambition_characters::brain::ActionSet,
     authored: Option<MovesetContract>,
@@ -1055,7 +1101,7 @@ fn derive_moveset(
             None,
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
-            None,
+            action_set.special.as_ref(),
         )
         .unwrap_or_default()
     })

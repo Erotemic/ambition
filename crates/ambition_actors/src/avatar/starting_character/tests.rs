@@ -914,6 +914,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut action_set,
         &mut moveset,
         &mut identity,
+        None,
         "hero",
         ambition_engine_core::AbilitySet::default(),
     );
@@ -951,6 +952,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut action_set,
         &mut moveset,
         &mut identity,
+        None,
         "monk",
         ambition_engine_core::AbilitySet::default(),
     );
@@ -1025,6 +1027,7 @@ fn wear(
         &mut action_set,
         &mut moveset,
         &mut identity,
+        None,
         id,
         ambition_engine_core::AbilitySet::default(),
     );
@@ -1221,6 +1224,49 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
             .contains_key(crate::combat::moveset::RANGED_VERB),
         "the action set advertises ranged and the derived moveset has no ranged \
          verb, so pressing it does nothing: {:?}",
+        moveset.0.verbs.keys().collect::<Vec<_>>()
+    );
+}
+
+/// **An authored SPECIAL derives a special move.** (the H2 defect, one field over)
+///
+/// `ActionSet::special` is a CAPABILITY marker: its own doc says the brain reads
+/// `special.is_some()` to decide whether to press it, and that the execution is
+/// "a data-driven move in the body's `ActorMoveset`, triggered on the `special`
+/// verb". Both derivations passed a hard-coded `None` there, on the reasoning
+/// that an authored persona puts its special into its authored MOVES — which is
+/// true only when it authored a moveset, and nothing requires one.
+///
+/// So a character could advertise a signature move with no timeline behind it,
+/// which is exactly what H2 closed for `ranged` and exactly as invisible: the
+/// press is accepted and nothing happens.
+#[test]
+fn an_authored_special_action_set_derives_a_special_move() {
+    use ambition_characters::brain::SpecialActionSpec;
+
+    let catalog = catalog_granting_melee("mystic");
+    let registry = prepared(
+        crate::character_runtime::CharacterDefinition::new("mystic", "Mystic", "demo")
+            .with_action_set(ActionSet {
+                special: Some(SpecialActionSpec::Special("starfall".into())),
+                ..ActionSet::default()
+            }),
+    );
+
+    let (action_set, moveset) = wear(&catalog, &registry, "mystic");
+
+    assert!(
+        action_set.special.is_some(),
+        "fixture: the body must ADVERTISE a special, or the mismatch under test \
+         cannot exist"
+    );
+    assert!(
+        moveset
+            .0
+            .verbs
+            .contains_key(crate::combat::moveset::SPECIAL_VERB),
+        "the action set advertises a special and the derived moveset has no \
+         special verb, so pressing it does nothing: {:?}",
         moveset.0.verbs.keys().collect::<Vec<_>>()
     );
 }

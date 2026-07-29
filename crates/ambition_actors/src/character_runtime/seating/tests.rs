@@ -745,6 +745,140 @@ fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
     );
 }
 
+/// **A seated fighter's DURABLE capability baseline matches its identity.**
+///
+/// `ActionSet` is the hot per-frame resolver; `CombatKit` is the durable source
+/// of the same capability — its own doc calls it "what the actor can do
+/// innately". Several subsystems rebuild an `ActionSet` from it rather than
+/// reading the live one (a brain command's `apply_catalog_mode`, the mount pair,
+/// autonomous reconciliation).
+///
+/// Seating seeds it from `ActionSet::default()` — empty, matching what an enemy
+/// spawn does before its archetype fills one in — and the persona writer then
+/// installed the real action set, moveset and identity kit and left the durable
+/// one at the placeholder. A seated fighter could act through its live
+/// `ActionSet` and then lose its innate attacks the moment anything rebuilt them
+/// from the stale baseline (GPT 5.6, 2026-07-29).
+#[test]
+fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("brawler", "Brawler", "demo").with_action_set(
+            ambition_characters::brain::ActionSet {
+                melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+                    ambition_characters::brain::SwipeSpec {
+                        windup_s: 0.2,
+                        active_s: 0.1,
+                        recover_s: 0.2,
+                        damage: 4,
+                        reach_px: 44.0,
+                    },
+                )),
+                ..ambition_characters::brain::ActionSet::default()
+            },
+        ),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("brawler")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::brain::ActionSet,
+        &crate::combat::components::CombatKit,
+        &ambition_characters::actor::WornCharacter,
+    )>();
+    let (live, durable, _) = bodies
+        .iter(world)
+        .next()
+        .expect("the fighter must seat at all");
+    assert!(
+        live.melee.is_some(),
+        "fixture: the identity must GRANT a melee, or the mismatch under test \
+         cannot exist"
+    );
+    assert_eq!(
+        durable.innate_melee, live.melee,
+        "the durable capability baseline disagrees with the identity the body is \
+         actually wearing, so anything that rebuilds this fighter's kit from it — \
+         a brain command, a mount, autonomous reconciliation — disarms it"
+    );
+}
+
+/// **The same character is the same BODY in either seat.** (mirror match)
+///
+/// A spawned seat sized itself from `BodySource::Explicit` and took
+/// `prepared.vitals.mass`; the adopted primary player kept whatever box and
+/// weight its session gave it. So the same character could stand on the stage
+/// twice with two different body shapes and two different masses, and the seat
+/// that was wrong was always player one (GPT 5.6, 2026-07-29).
+///
+/// Drives adoption specifically — seat 0 is a HUMAN seat, which is the branch
+/// that adopts rather than spawns.
+#[test]
+fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
+    let mut app = seating_app();
+    app.register_character(
+        // Public fields: the definition is authoring data, not a builder-only
+        // type, and these two are exactly the facts under test.
+        {
+            let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
+            definition.body = Some(crate::character_runtime::BodySource::Explicit {
+                half_extents: (19.0, 31.0),
+            });
+            definition.vitals.mass = 4.5;
+            definition
+        },
+    );
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::avatar::PlayerSimulationBundle::from_scratch(
+                crate::avatar::primary_player_scratch(
+                    Vec2::new(0.0, 0.0),
+                    ambition_engine_core::AbilitySet::basic(),
+                ),
+                ambition_characters::actor::Health::new(10),
+            ),
+            ambition_characters::actor::WornCharacter::new("heavy"),
+        ))
+        .id();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 })
+        ],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let size = app
+        .world()
+        .get::<ambition_engine_core::BodyKinematics>(player)
+        .expect("the adopted body keeps its kinematics")
+        .size;
+    assert_eq!(
+        (size.x, size.y),
+        (38.0, 62.0),
+        "the adopted seat kept its session's body box instead of the one its \
+         character authored, so a mirror match puts two different shapes on the \
+         stage"
+    );
+    let mass = app
+        .world()
+        .get::<crate::features::Mass>(player)
+        .expect("the adopted body must carry the authored mass");
+    assert!(
+        (mass.0 - 4.5).abs() < 1e-4,
+        "the adopted seat weighs {} instead of the authored 4.5, so the mount \
+         pair's centre of gravity depends on which seat a character took",
+        mass.0
+    );
+}
+
 /// And a roster that says nothing does not get a suspension it never asked for.
 #[test]
 fn an_ordinary_roster_seats_fighters_that_can_act() {

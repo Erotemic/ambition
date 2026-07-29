@@ -14,7 +14,7 @@
 //!   # center on the player, spawned AS the pirate admiral:
 //!   cargo run -p ambition_app --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use ambition::engine_core as ae;
 use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
@@ -867,12 +867,36 @@ fn save_readback_to_disk(
     runtime.completed = true;
 }
 
-fn fail_after_timeout(mut commands: Commands, runtime: Res<SceneCaptureRuntime>) {
+/// The backstop for a capture that never finishes, DERIVED from what the run was
+/// asked to wait for rather than fixed at 600.
+///
+/// ⚠ this was a flat `runtime.frames > 600`, which quietly preempted every
+/// policy above it. The route-readiness check allows `warmup + 600` frames for a
+/// camera to appear, so for ANY warmup above zero the generic timeout fired
+/// first: the route-specific diagnostic — the one that says *which* route never
+/// produced a camera — was unreachable, and a `--warmup` above 600 could not
+/// complete at all (GPT 5.6, 2026-07-29).
+///
+/// It never produced a false SUCCESS, which is why it survived a session of use.
+/// A backstop that fires before the thing it is backstopping is still just a
+/// shorter timeout wearing a policy's name.
+fn fail_after_timeout(
+    mut commands: Commands,
+    runtime: Res<SceneCaptureRuntime>,
+    config: Res<SceneCaptureConfig>,
+) {
     if runtime.completed {
         return;
     }
-    if runtime.frames > 600 || runtime.wait_frames > 600 {
-        eprintln!("capture_scene: timed out waiting for texture readback");
+    // Whatever the readiness policies may legitimately still be waiting for,
+    // plus the same slack the readback itself gets.
+    let budget = config.warmup_frames.max(1) + ROUTE_CAMERA_GRACE_FRAMES;
+    if runtime.frames > budget || runtime.wait_frames > 600 {
+        eprintln!(
+            "capture_scene: timed out waiting for texture readback after {} frames \
+             (warmup {} + grace {})",
+            runtime.frames, config.warmup_frames, ROUTE_CAMERA_GRACE_FRAMES
+        );
         commands.write_message(AppExit::from_code(1));
     }
 }
@@ -908,14 +932,28 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
     Some(UVec2::new(w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
 
+/// **THE Z′14 BUG, and it was one character.**
+///
+/// This carried its own copy of the asset-root rule, and the copy said
+/// `crates/ambition::actors/assets` — a `::` where the crate name has a `_`. No
+/// such directory can exist, `canonicalize` failed every time, and the fallback
+/// pointed the room composition at the workspace-root `assets/` tree, which
+/// holds IPFS metadata and none of the actor sprites, shaders or sounds.
+///
+/// So room-mode capture wrote a valid PNG of a room whose art never resolved,
+/// and exited 0. Six measurements narrowed it to "the entities exist and the
+/// sprite half does not"; this is why (GPT 5.6, 2026-07-29). Route mode goes
+/// through the visible app and its own correct root, which is exactly why
+/// `--route` looked fine while rooms did not.
+///
+/// ⚠ the lesson is the duplication, not the typo. `ambition_asset_manager`
+/// exists *because* a demo that rendered nothing standalone was this same
+/// divergence, and the fix then was to make one helper the single source of
+/// truth. A second copy in a verification tool is worse than a second copy
+/// anywhere else: the tool's whole job is to tell you what is on screen.
 fn desktop_asset_root() -> String {
     if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
         return "assets".to_string();
     }
-    let dev_assets =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/ambition::actors/assets");
-    match dev_assets.canonicalize() {
-        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
-        _ => "assets".to_string(),
-    }
+    ambition::asset_manager::actors_desktop_asset_root()
 }

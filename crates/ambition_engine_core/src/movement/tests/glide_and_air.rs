@@ -676,6 +676,95 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
     );
 }
 
+/// **A launched body travels the distance its launch describes.** (queue F0e)
+///
+/// The defect this pins, measured end to end before it was fixed: a clean
+/// forward smash — the duelists' authored 420px/s launch — landed on a fighter
+/// moved it **15.5px horizontally**. The launch WAS applied (peak speed was
+/// exactly 420px/s) and then `AIR_STOP_ASSIST` removed it inside about two
+/// frames, because the hands-off stop assist decays toward `carried_run` and
+/// nothing but the portal adapter had ever written that. A hit read as a shove.
+///
+/// The assertion is deliberately loose — this is not a tuning lock. It says the
+/// body goes somewhere *on the order of* what its launch describes, so the next
+/// person may retune freely and will still hear about it if the launch starts
+/// being eaten again.
+#[test]
+fn a_launched_body_keeps_its_launch_for_the_window_it_cannot_act() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(600.0, 300.0));
+    scratch.ground.on_ground = false;
+
+    // The smash: 420px/s sideways, rising. Written the way the damage path
+    // writes it — velocity, floor, and the window the floor is owed for.
+    const LAUNCH: f32 = 420.0;
+    const HITSTUN_S: f32 = 0.24; // `SandboxFeelTuning::enemy_hitstun_time`
+    scratch.kinematics.vel = Vec2::new(LAUNCH, -260.0);
+    scratch.flight.carried_run = LAUNCH;
+    scratch.flight.carried_hold = HITSTUN_S;
+
+    let start = scratch.kinematics.pos.x;
+    let frames = (HITSTUN_S * 60.0).round() as usize;
+    for _ in 0..frames {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    let travelled = scratch.kinematics.pos.x - start;
+    let described = LAUNCH * HITSTUN_S;
+
+    assert!(
+        travelled > described * 0.5,
+        "a body launched at {LAUNCH}px/s travelled {travelled:.1}px in {frames} \
+         frames, against the {described:.1}px its launch describes — the stop \
+         assist is eating the launch again and a smash reads as a shove"
+    );
+}
+
+/// **And it gives the launch back the moment it can act.**
+///
+/// The other half, and the reason the first attempt at this was reverted: with
+/// no bound, one hit made a body coast at its launch speed for the rest of its
+/// airtime. `carried_decay` is `0.0` on this profile — the floor never bleeds —
+/// so "expire into the ordinary decay" would have been no expiry at all.
+///
+/// After the window, hands-off flight must decay like any other drift. That is
+/// the tight stop-on-release feel the carried-momentum channel was carefully
+/// built NOT to break for ordinary locomotion, and being hit must not opt a body
+/// out of it permanently.
+#[test]
+fn the_carried_launch_is_surrendered_when_the_window_ends() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 200.0));
+    scratch.ground.on_ground = false;
+
+    const LAUNCH: f32 = 420.0;
+    const HITSTUN_S: f32 = 0.24;
+    scratch.kinematics.vel = Vec2::new(LAUNCH, -400.0);
+    scratch.flight.carried_run = LAUNCH;
+    scratch.flight.carried_hold = HITSTUN_S;
+
+    // Past the window.
+    for _ in 0..((HITSTUN_S * 60.0).round() as usize + 1) {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert_eq!(
+        scratch.flight.carried_run, 0.0,
+        "the floor outlived the window it was owed for, so this body coasts at \
+         its launch speed until something else eats it"
+    );
+
+    let before = scratch.kinematics.vel.x;
+    for _ in 0..10 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(
+        scratch.kinematics.vel.x < before - 1.0,
+        "hands-off flight is not decaying after the launch window ended \
+         ({before} -> {}), so being hit once opted this body out of the tight \
+         stop-on-release feel for good",
+        scratch.kinematics.vel.x
+    );
+}
+
 #[test]
 fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
     // The middle ground: the CONTROLLER is tight (hands-off drift stops fast)

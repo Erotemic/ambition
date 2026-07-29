@@ -84,11 +84,13 @@ fn step_spine_with_variable_jump(
     let mut fast_falling = false;
     let mut gliding = false;
     let mut carried_run = 0.0;
+    let mut carried_hold = 0.0;
     integrate_normal_spine(
         vel,
         &mut fast_falling,
         &mut gliding,
         &mut carried_run,
+        &mut carried_hold,
         phase,
         NormalSpineCtx {
             can_variable_jump,

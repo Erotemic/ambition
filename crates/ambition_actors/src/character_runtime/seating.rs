@@ -552,6 +552,28 @@ pub fn seat_match_participants(
             health.health.current = health.health.max;
             let mut item = clusters;
             let mut clusters = item.as_clusters_mut();
+            // **THE AUTHORED BODY BOX ON THE ADOPTED SEAT TOO.**
+            //
+            // A spawned seat sized itself from `BodySource::Explicit`; the
+            // adopted primary player kept whatever box its session gave it. So a
+            // MIRROR MATCH — the same character in both seats — could put two
+            // different body shapes on the stage, and the one that was wrong was
+            // always player one (GPT 5.6, 2026-07-29).
+            //
+            // Written BEFORE `transit_body`, deliberately: the transit seam is
+            // the one authority that re-resolves a body's pose against the world
+            // (ADR 0024), so a size change followed by a transit is a body
+            // arriving at its seat correctly sized, not a live resize that could
+            // leave it intersecting the floor it was standing on.
+            //
+            // `SpriteAuthored` needs nothing here — its live pose projection
+            // already reaches every body on every path. This is the `Explicit`
+            // case, which was seating-only.
+            if let Some(super::BodySource::Explicit { half_extents }) =
+                registry.get(character).and_then(|p| p.body.as_ref())
+            {
+                clusters.kinematics.size = Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
+            }
             ambition_engine_core::movement::transit_body(
                 &mut model,
                 &mut clusters,
@@ -564,10 +586,18 @@ pub fn seat_match_participants(
             // restores full health BEFORE any rules layer can look — so seat 0
             // could never be seen at zero health, and the match was rigged in
             // its favour (GPT 5.6, 2026-07-27).
-            commands.entity(body).insert((
+            let mut adopted = commands.entity(body);
+            adopted.insert((
                 MatchSeat(index),
                 crate::combat::components::RulesetOwnsDeath,
             ));
+            // **AND THE AUTHORED MASS**, for the same reason as the box: a
+            // spawned seat gets `prepared.vitals.mass` and the adopted one kept
+            // the mount system's default of one, so the same character weighed
+            // different amounts depending on which seat it took.
+            if let Some(prepared) = registry.get(character) {
+                adopted.insert(crate::features::Mass(prepared.vitals.mass));
+            }
             seated_bodies.push(body);
             // The TEAM, which this branch dropped when the death-ownership
             // insert was added over it. A seat with no team is judged by FACTION

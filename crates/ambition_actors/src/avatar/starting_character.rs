@@ -274,9 +274,18 @@ pub(crate) fn derive_persona_moveset(
         // The charge mechanic already owns the ranged press; `special` is the
         // shell marker this kit's moves are built from.
         RangedExecution::HostCharge => (None, set.special.as_ref()),
-        // Symmetrically: the ranged preset IS the ranged verb, and the special
-        // is authored into the moves rather than folded from a marker.
-        RangedExecution::MovesetVerb => (set.ranged.as_ref(), None),
+        // Symmetrically: the ranged preset IS the ranged verb — and the special
+        // preset IS the special verb.
+        //
+        // ⚠ this arm passed `None` for special, on the reasoning that an authored
+        // persona puts its special into its authored MOVES. That holds only when
+        // it authored a moveset, and the API does not require one: a character
+        // with `action_set.special = Some(..)` and no moveset advertised a
+        // signature move the brain would press with no timeline to run — H2's
+        // defect one field over (GPT 5.6, 2026-07-29). `authored` still
+        // overrides the whole derivation below, so a persona that DID author its
+        // moves is unaffected.
+        RangedExecution::MovesetVerb => (set.ranged.as_ref(), set.special.as_ref()),
     };
     let mut derived =
         build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
@@ -345,6 +354,11 @@ pub fn apply_worn_character_overlay(
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
+    // OPTIONAL because not every body has a durable baseline to keep in step: a
+    // seated fighter carries `CombatKit` (seating seeds it), the plain player
+    // bundle does not. `None` is "this body has no second baseline", which is a
+    // different claim from "leave it stale" — and the type says which.
+    combat_kit: Option<&mut crate::combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
 ) -> RangedExecution {
@@ -374,6 +388,7 @@ pub fn apply_worn_character_overlay(
         action_set,
         moveset,
         identity,
+        combat_kit,
         character_id,
         base_abilities,
     )
@@ -392,6 +407,9 @@ fn apply_worn_character_kit(
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
+    // The DURABLE half of the same baseline, when this body has one. See the
+    // publication point below.
+    combat_kit: Option<&mut crate::combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
 ) -> RangedExecution {
@@ -458,6 +476,30 @@ fn apply_worn_character_kit(
     // is what makes a granted verb revocable: without it, a consumed or downgraded
     // row could not take its verb back, because the live set no longer remembers
     // which half of it came from the body and which from a row.
+    // **AND `CombatKit`, WHICH IS THE SAME BASELINE.**
+    //
+    // `ActionSet` is the hot per-frame resolver; `CombatKit` is the DURABLE
+    // source of the same capability, and its own doc says so — "what the actor
+    // can do innately, before current held-item overlays are applied". Several
+    // subsystems reconstruct an `ActionSet` from it rather than reading the live
+    // one: `apply_catalog_mode` on a brain command, the mount pair, autonomous
+    // reconciliation.
+    //
+    // Seating seeds it from `ActionSet::default()` — an empty kit, matching what
+    // an enemy spawn does before its archetype fills one in — and this writer
+    // then installed the real action set, moveset and identity kit and left the
+    // durable one at the placeholder. So a seated fighter could act through its
+    // live `ActionSet` and then LOSE its innate attacks the moment anything
+    // rebuilt them from the stale baseline (GPT 5.6, 2026-07-29).
+    //
+    // That is precisely the split this campaign exists to remove: one identity,
+    // one writer, every derived baseline published together. Equipment stays an
+    // overlay — `CombatKit` is the INNATE kit, so it is built from the identity's
+    // set exactly as `IdentityKit` is, and a granted verb is layered over it
+    // rather than baked into it.
+    if let Some(combat_kit) = combat_kit {
+        *combat_kit = crate::combat::components::CombatKit::from_action_set(&set);
+    }
     *identity =
         ambition_characters::brain::action_set::IdentityKit::of(set.clone(), derived.clone());
     *moveset = ActorMoveset(derived);
@@ -508,6 +550,11 @@ pub fn apply_worn_character_gameplay(
         &mut ActionSet,
         &mut ActorMoveset,
         &mut ambition_characters::brain::action_set::IdentityKit,
+        // The DURABLE capability baseline, on the bodies that carry one — a
+        // seated fighter does, the plain player bundle does not. It is published
+        // WITH the identity kit rather than beside it, because a second baseline
+        // updated separately is a second baseline that can be stale.
+        Option<&mut crate::combat::components::CombatKit>,
         Ref<crate::actor::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
         // re-wear initializes destination-private state inside the new
@@ -529,6 +576,7 @@ pub fn apply_worn_character_gameplay(
         mut action_set,
         mut moveset,
         mut identity,
+        mut combat_kit,
         abilities,
         mut motion_model,
         has_projectile_state,
@@ -555,6 +603,7 @@ pub fn apply_worn_character_gameplay(
                 &mut action_set,
                 &mut moveset,
                 &mut identity,
+                combat_kit.as_deref_mut(),
                 id,
                 abilities.abilities,
             );
@@ -612,6 +661,7 @@ pub fn apply_worn_character_gameplay(
                     &mut action_set,
                     &mut moveset,
                     &mut identity,
+                    combat_kit.as_deref_mut(),
                     id,
                     abilities.abilities,
                 );

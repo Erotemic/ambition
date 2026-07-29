@@ -323,6 +323,7 @@ pub(super) fn integrate_normal_clusters(
         &mut state.fast_falling,
         &mut state.gliding,
         &mut flight.carried_run,
+        &mut flight.carried_hold,
         &mut state.phased_jump,
         NormalSpineCtx {
             on_ground: ground.on_ground,
@@ -390,6 +391,12 @@ pub fn integrate_normal_spine(
     fast_falling: &mut bool,
     gliding: &mut bool,
     carried_run: &mut f32,
+    // **How long the carry is still owed.** Counted down here rather than by a
+    // watcher on the reaction timers, because this is the one function that
+    // already runs every tick with `dt` for every body — a release condition
+    // living anywhere else would need the flight cluster plumbed to a second
+    // place, and the two would be free to disagree about when a launch ends.
+    carried_hold: &mut f32,
     phased_jump: &mut PhasedJumpState,
     ctx: NormalSpineCtx,
     input: InputState,
@@ -457,7 +464,45 @@ pub fn integrate_normal_spine(
         let m = frame.side();
         let run = input.local_axis().x;
         let along = kin_vel.dot(m);
-        *carried_run = approach(*carried_run, 0.0, tuning.locomotion.carried_decay * dt);
+        // THE CARRY IS OWED FOR A WINDOW, then it is ordinary momentum again.
+        //
+        // While the hold lasts the floor holds its value: this is the launch a
+        // body was given while it could not act, and bleeding it under the
+        // hands-off stop assist is what made a clean smash move a fighter 15px
+        // instead of 110 (queue F0e). When the window ends the floor bleeds at
+        // `carried_decay` exactly as it always has — which is also what a portal
+        // fling gets, since a fling sets no hold.
+        // ⚠ this whole block is inside `can_move_horizontal`, so the hold counts
+        // TICKS THE HORIZONTAL LAW RAN, not wall time. That is the right clock
+        // for it — the carry only means anything while this law is deciding the
+        // run axis — and it is inert in the gap: a body that cannot move
+        // horizontally is not reading `carried_run` either.
+        if *carried_hold > 0.0 {
+            *carried_hold = (*carried_hold - dt).max(0.0);
+            if *carried_hold == 0.0 {
+                // SURRENDERED. The floor was owed because the body could not
+                // answer for the momentum; control is back, so it stops being
+                // owed and the tight stop-on-release feel returns immediately.
+                //
+                // ⚠ this must ZERO the floor, not hand it to `carried_decay`.
+                // That rate is `0.0` on the axis-swept profile — the floor never
+                // bleeds — so "expire into the ordinary decay" would mean a body
+                // that was hit once coasts at its launch speed for the rest of
+                // its life. That is the core-feel change that got the first
+                // attempt at this reverted (queue F0e).
+                //
+                // Zeroing the FLOOR is not braking: `kin_vel` is untouched, so
+                // the launched body flies on and decelerates under the ordinary
+                // air stop assist, which is exactly what should happen once it
+                // can act.
+                *carried_run = 0.0;
+            }
+        } else {
+            // No hold — a portal fling, or a launch that has already expired.
+            // Unchanged behaviour, including a `carried_decay` of zero meaning
+            // "a fling is conserved until input, a wall or the ground eats it".
+            *carried_run = approach(*carried_run, 0.0, tuning.locomotion.carried_decay * dt);
+        }
 
         let new_along = match tuning.locomotion.horizontal_law {
             AxisHorizontalLaw::Responsive => {

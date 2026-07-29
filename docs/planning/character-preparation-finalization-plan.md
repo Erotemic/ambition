@@ -349,10 +349,30 @@ somebody else's moves.
   host, so content cannot author a ranged preset into it. A validator for an
   unreachable state is a test of itself. It becomes real the day content can
   author over a host kit.
-- **Versus activation** (`PreparedMatchPlan`-shaped): validate all required
-  participants, activate the roster atomically, publish `ActiveMatch`, and start
-  the countdown from THAT rather than from the presence of a requested roster
-  (queue H5).
+- ◐ **Versus activation** — the publication half LANDED (`ActiveMatch` names the
+  seated bodies and the topology they were activated against; the countdown
+  starts from it; `MatchSeated(bool)` is gone). What remains is now better
+  understood, and worse:
+  ⛔ **`ActiveMatch` is authoritative SIMULATION state and is not rollback
+  state.** It gates two behaviours inside the sim — seating returns early the
+  moment it exists, and the countdown advances only when it does — it holds live
+  `Entity` values, and it is mutated from ordinary `Update` by topology
+  reconciliation. Only `VersusMatch` is rollback-registered. A rewind across the
+  activation tick returns the fighters to a pre-activation frame while the
+  resource survives, so seating believes the match is already live and the
+  countdown advances against stale or nonexistent participants (GPT 5.6,
+  2026-07-29).
+  ⛔ **treat this as a hard blocker on versus under rollback.** It is the same
+  deterministic-boundary problem that was fixed for `VersusMatch`, moved one
+  layer outward. Two honest routes: finish activation BEFORE the rollback session
+  begins, or make the activation selection rollback-owned and reconstruct the
+  participant references deterministically. Clone-snapshotting raw `Entity`
+  values is not a third route — it needs correct remapping and does nothing about
+  the `Update` mutation.
+  ⚠ and the Y′9 stamp repair runs in that same `Update`, on that same resource.
+  It happens to be safe: it is idempotent and derives its value from the frozen
+  topology, so it re-applies harmlessly after a rewind. That is a property worth
+  stating rather than discovering.
 
 ## Provenance
 

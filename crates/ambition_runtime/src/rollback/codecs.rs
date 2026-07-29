@@ -315,6 +315,10 @@ snapshot_pod!(bc::BodyDashState {
 snapshot_pod!(bc::BodyFlightState {
     fly_enabled: bool,
     carried_run: f32,
+    // The hold is snapshot state for the same reason the value it guards is: a
+    // rewind into the middle of a launch that restored the speed and not the
+    // window would resimulate a body that coasts for the wrong duration.
+    carried_hold: f32,
 });
 snapshot_pod!(bc::BodyBlinkState { cooldown: f32 });
 snapshot_pod!(bc::BodyDodgeState { cooldown: f32 });

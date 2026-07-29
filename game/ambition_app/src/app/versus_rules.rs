@@ -161,7 +161,6 @@ impl VersusMatch {
             .find(|(_, wins)| **wins >= ROUNDS_TO_WIN)
             .map(|(team, _)| team.as_str())
     }
-
 }
 
 /// The team a body fights for.
@@ -248,10 +247,23 @@ type FighterQuery<'w, 's> = Query<
 /// the fixed timestep, so the countdown is as deterministic as anything else in
 /// the sim.
 #[allow(clippy::too_many_arguments)]
+/// Whether the starting countdown may tick down.
+///
+/// `None` — no `MatchSeated` resource at all — is treated as "go", because a
+/// composition without the seating system is one where nothing will ever set
+/// it, and a countdown that can never start is worse than one that starts
+/// early. Only an explicit `Some(false)` holds.
+fn countdown_may_advance(seated: Option<bool>) -> bool {
+    seated.unwrap_or(true)
+}
+
 pub fn settle_versus_round(
     time: Res<ambition::time::WorldTime>,
     roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
     geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
+    // Whether every participant on the roster actually HAS a body yet.
+    // Seating retries until they all do; the countdown must not run ahead of it.
+    seated: Option<Res<ambition::actors::character_runtime::MatchSeated>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
     projectiles: Query<Entity, With<ambition::projectiles::LiveProjectile>>,
@@ -270,6 +282,23 @@ pub fn settle_versus_round(
 
     let (winner, remaining_s) = match state.phase.clone() {
         MatchPhase::Starting { ticks_remaining } => {
+            // **THE COUNTDOWN WAITS FOR THE ROSTER.**
+            //
+            // This arm decremented as soon as the roster resource and the room
+            // geometry existed, and neither of those means a fighter has a
+            // body. `seat_match_participants` retries until every participant
+            // is seated and only THEN sets `MatchSeated` — so the count could
+            // run, and the round could go live, while a seat was still empty.
+            // A participant arriving afterwards joined a round already in
+            // progress, having never passed the countdown or its reset
+            // boundary, which is the one place a round equalises its fighters
+            // (GPT 5.6, 2026-07-28).
+            //
+            // Holding at the initial value rather than pausing mid-count: a
+            // countdown that starts, stalls and resumes reads as a stutter, and
+            // the fighters are held anyway by the marker below.
+            let everybody_is_here = countdown_may_advance(seated.as_deref().map(|s| s.0));
+
             // Hold the controls EVERY tick, not once on entry.
             //
             // `try_insert` is idempotent, and asking every tick is what makes
@@ -279,6 +308,12 @@ pub fn settle_versus_round(
             // seated by the stage and have never had it. One arm, both cases,
             // and no dependence on which path arrived here.
             take_the_controls(&mut commands, fighters.iter().map(|(entity, ..)| entity));
+
+            if !everybody_is_here {
+                // Held, not paused: the phase keeps its full count so the round
+                // begins with the whole card once the last fighter lands.
+                return;
+            }
 
             let left = ticks_remaining.saturating_sub(1);
             if left > 0 {
@@ -694,6 +729,40 @@ pub fn publish_versus_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The countdown waits for the roster.**
+    ///
+    /// It decremented as soon as the roster resource and the room geometry
+    /// existed, and neither means a fighter has a BODY. Seating retries until
+    /// every participant is seated and only then sets `MatchSeated`, so the
+    /// count could run — and the round go live — with a seat still empty. A
+    /// participant landing afterwards joins a round in progress, having never
+    /// passed the countdown or its reset boundary, which is the one place a
+    /// round equalises its fighters (GPT 5.6, 2026-07-28).
+    ///
+    /// ⚠ Tested as a PREDICATE, not through the app, and the reason is worth
+    /// keeping: an app-level version cannot express the scenario. Seating
+    /// re-asserts `MatchSeated(true)` every tick once the roster is complete,
+    /// so a test that pokes the resource is corrected before the next update
+    /// and proves nothing — mine did exactly that and failed, which is how I
+    /// found out. Reaching the real case needs a participant that CANNOT seat,
+    /// which the fixture cannot yet produce.
+    #[test]
+    fn the_countdown_holds_until_every_seat_is_filled() {
+        assert!(
+            !countdown_may_advance(Some(false)),
+            "a roster that is not fully seated must hold the count"
+        );
+        assert!(
+            countdown_may_advance(Some(true)),
+            "and release it the moment every participant has a body"
+        );
+        assert!(
+            countdown_may_advance(None),
+            "a composition with no seating system will never set the flag, and a \
+             countdown that can never start is worse than one that starts early"
+        );
+    }
 
     fn team(name: &str) -> MatchTeam {
         MatchTeam::new(name)

@@ -2546,9 +2546,8 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
     for _ in 0..8 {
         app.update();
         let world = app.world_mut();
-        let mut cues = world.resource_mut::<bevy::ecs::message::Messages<
-            ambition::sfx::OwnedSfxMessage,
-        >>();
+        let mut cues =
+            world.resource_mut::<bevy::ecs::message::Messages<ambition::sfx::OwnedSfxMessage>>();
         let mut reader = cues.get_cursor();
         if reader
             .read(&cues)

@@ -467,9 +467,8 @@ impl SandboxSim {
             ambition::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: settings.max_prediction_window,
-            
-            ..Default::default()
-        },
+                ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
+            },
         )
         .map_err(|error| format!("failed to start GGRS setup frame: {error}"))?;
         self.app.update();

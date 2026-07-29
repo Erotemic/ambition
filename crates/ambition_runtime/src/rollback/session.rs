@@ -141,22 +141,33 @@ pub enum RollbackSessionOwnership {
     External,
 }
 
-impl Default for SyncTestSettings {
-    fn default() -> Self {
+/// Settings for `players` local streams, at the standard rollback depth.
+///
+/// **THE ONLY WAY to get settings without naming every field**, and it takes the
+/// player count as an argument, which is the whole point of the `Default` impl
+/// this replaced.
+///
+/// That impl guessed ONE, and the guess was wrong in production three separate
+/// times: the initial session, the hot-reload rebase and the proof-pulse restore
+/// each built a one-handle session while the game seated up to four (queue H3,
+/// H4; GPT 5.6, 2026-07-28 and -29). Each was repaired individually and the
+/// fourth site would have been free to make the same mistake, because the rule
+/// keeping them right lived in a doc comment saying "every construction of this
+/// struct must set it" — a load-bearing negative nothing enforced.
+///
+/// The split is between TUNING and TOPOLOGY. `check_distance` and
+/// `max_prediction_window` are tuning: a default is a real answer, and a
+/// third-party consumer should be able to name only the ones it cares about and
+/// keep compiling when the engine adds another (which is exactly what
+/// `fixtures/external_consumer` exists to prove). How many people are playing is
+/// not tuning, and there is no honest default for it — so it is an argument, and
+/// a caller that has not decided cannot type this.
+impl SyncTestSettings {
+    pub fn for_players(players: usize) -> Self {
         Self {
             check_distance: 7,
             max_prediction_window: 12,
-            // ONE by default — for TESTS and harnesses that mean one stream.
-            //
-            // ⚠ this used to add "and what the shipped host still installs". That
-            // stopped being true on 2026-07-28: all three production paths — the
-            // initial session, the hot-reload rebase, and the proof-pulse restore
-            // — size themselves from the frozen `LocalSeatTopology`. The comment
-            // outlived the fact by a day and the proof-pulse path was still
-            // defaulting, which is exactly the repair a stale comment misdirects.
-            //
-            // A production caller reaching this default is a bug, not a choice.
-            players: 1,
+            players,
         }
     }
 }
@@ -885,8 +896,7 @@ mod tests {
             SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-
-                ..Default::default()
+                ..SyncTestSettings::for_players(1)
             },
         )
         .expect("a one-player baseline SyncTest session is valid");
@@ -897,8 +907,7 @@ mod tests {
             RollbackSessionOwnership::LocalSyncTest(SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: 8,
-
-                ..Default::default()
+                ..SyncTestSettings::for_players(1)
             })
         );
         assert_eq!(
@@ -921,8 +930,7 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
-
-            ..Default::default()
+            ..SyncTestSettings::for_players(1)
         };
 
         // Build with NO world in scope at all — the fallible step is pure.
@@ -965,8 +973,7 @@ mod tests {
         let settings = SyncTestSettings {
             check_distance: 0,
             max_prediction_window: 8,
-
-            ..Default::default()
+            ..SyncTestSettings::for_players(1)
         };
 
         start_sync_test_session(&mut world, settings).expect("first session starts");
@@ -1241,12 +1248,12 @@ mod multi_seat_input_tests {
     /// that refuses to start is worse than one that starts with a sane count.
     #[test]
     fn the_player_count_is_clamped_into_what_a_session_can_hold() {
-        let one = SyncTestSettings::default();
+        let one = SyncTestSettings::for_players(1);
         assert_eq!(one.player_count(), 1, "the default is still one seat");
 
         let zero = SyncTestSettings {
             players: 0,
-            ..SyncTestSettings::default()
+            ..SyncTestSettings::for_players(1)
         };
         assert_eq!(
             zero.player_count(),
@@ -1256,7 +1263,7 @@ mod multi_seat_input_tests {
 
         let too_many = SyncTestSettings {
             players: 99,
-            ..SyncTestSettings::default()
+            ..SyncTestSettings::for_players(1)
         };
         assert_eq!(too_many.player_count(), SlotControls::MAX_SLOTS);
     }
@@ -1268,7 +1275,7 @@ mod multi_seat_input_tests {
     fn a_two_player_sync_test_session_builds() {
         let settings = SyncTestSettings {
             players: 2,
-            ..SyncTestSettings::default()
+            ..SyncTestSettings::for_players(1)
         };
         build_sync_test_session(settings).expect("a two-seat sync test session builds");
     }

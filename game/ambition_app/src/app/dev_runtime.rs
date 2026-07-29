@@ -84,20 +84,24 @@ fn local_ggrs_restart_policy(
             "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
         ),
         Some(ambition::runtime::rollback::RollbackSessionOwnership::LocalSyncTest(settings)) => {
+            // THE SAME SESSION, RESTARTED — so it inherits from the session it
+            // replaces, and only the deliberate override is spelled out.
+            //
+            // This read `..Default::default()`, which silently reset the local
+            // player count to one: a two-to-four-player couch session came back
+            // from any LDtk hot reload single-player, seats 1..3 keeping their
+            // bodies while quietly leaving the rollback session (GPT 5.6,
+            // 2026-07-28). Naming `players: settings.players` repaired that ONE
+            // field and left the shape that caused it — every field added to
+            // this struct would have been opt-OUT of surviving a reload, and
+            // "who is playing" was not the last topology this struct will carry.
+            //
+            // `..settings` inverts it: preservation is the default and dropping
+            // something is the thing you have to type. `check_distance: 0` is
+            // that thing — a rebase is not a proof pulse.
             Ok(Some(ambition::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
-                max_prediction_window: settings.max_prediction_window,
-                // SESSION TOPOLOGY SURVIVES A RELOAD, and `players` is topology.
-                //
-                // `..Default::default()` was silently resetting the local player
-                // count to one, so a two-to-four-player couch session became
-                // single-player after any LDtk hot reload — seats 1..3 keep
-                // their bodies and quietly leave the rollback session. A field
-                // added to this struct is opt-OUT of preservation here, which is
-                // the wrong default for anything describing WHO is playing
-                // (GPT 5.6, 2026-07-28).
-                players: settings.players,
-                ..Default::default()
+                ..settings
             }))
         }
         None => Ok(None),
@@ -558,8 +562,7 @@ mod hot_reload_session_tests {
             SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
-
-                ..Default::default()
+                ..SyncTestSettings::for_players(1)
             },
         )))
         .expect("local developer sessions may be rebased")
@@ -584,7 +587,6 @@ mod hot_reload_session_tests {
                 check_distance: 6,
                 max_prediction_window: 8,
                 players: 4,
-                ..Default::default()
             },
         )))
         .expect("local developer sessions may be rebased")

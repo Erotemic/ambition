@@ -562,16 +562,22 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
     }
     ambition::runtime::rollback::start_sync_test_session(
         app.world_mut(),
-        // `..Default::default()` rather than every field, deliberately: this is
-        // a THIRD PARTY constructing an engine settings struct, and it should
-        // name only what it cares about. Spelling every field out is how a
-        // consumer breaks on an engine's internal addition — which is exactly
-        // what happened when `players` landed (queue Y1) and this fixture was
-        // the only build in the repo that noticed.
+        // A SPREAD rather than every field, deliberately: this is a THIRD PARTY
+        // constructing an engine settings struct, and it should name only what it
+        // cares about. Spelling every field out is how a consumer breaks on an
+        // engine's internal addition — which is exactly what happened when
+        // `players` landed (queue Y1) and this fixture was the only build in the
+        // repo that noticed.
+        //
+        // ⚠ and the spread used to be `..Default::default()`, which took that
+        // ergonomic argument one field too far: it also defaulted HOW MANY PEOPLE
+        // ARE PLAYING, and a guess about topology is not a convenience. The base
+        // is now a constructor that asks. Outlander is single-player, and now says
+        // so (2026-07-29).
         ambition::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-            ..Default::default()
+            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
         },
     )
     .map_err(|error| format!("failed to start the Outlander sync-test session: {error}"))?;

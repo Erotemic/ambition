@@ -395,7 +395,6 @@ fn maintain_local_ggrs_session(world: &mut World) {
         check_distance: requested_mode.check_distance(settings),
         max_prediction_window: settings.max_prediction_window,
         players: local_players,
-        ..Default::default()
     };
     match rollback::start_sync_test_session(world, session_settings) {
         Ok(()) => {
@@ -597,7 +596,6 @@ fn finish_completed_proof_pulse(world: &mut World) {
             // Every reconstruction reads the SAME frozen topology, which is
             // what makes "the same session, restarted" true rather than hoped.
             players,
-            ..Default::default()
         },
     ) {
         Ok(()) => {

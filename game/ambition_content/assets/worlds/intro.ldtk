@@ -5544,16 +5544,16 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [11,14],
+							"__grid": [11,16],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
 							"iid": "LoadingZone-104358",
 							"width": 48,
-							"height": 128,
+							"height": 96,
 							"defUid": 2002,
-							"px": [180,224],
+							"px": [180,256],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "wake_room_arrival", "__tile": null, "defUid": 3002, "realEditorValues": [{
 									"id": "V_String",
@@ -5575,7 +5575,7 @@
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
 							],
 							"__worldX": 180,
-							"__worldY": 224
+							"__worldY": 256
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -15028,7 +15028,10 @@
 							"px": [576,800],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "Debug Label", "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": "[overflow sump \u2014 mind the ripples]", "__tile": null, "defUid": 3016, "realEditorValues": [] },
+								{ "__identifier": "text", "__type": "String", "__value": "[overflow sump — mind the ripples]", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["[overflow sump — mind the ripples]"]
+								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],
 							"__worldX": 4480,

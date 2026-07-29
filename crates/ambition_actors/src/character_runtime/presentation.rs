@@ -358,7 +358,7 @@ pub fn project_prepared_character_definitions(
         commands
             .entity(entity)
             .insert(ProjectedCharacterKit(prepared.id.clone()));
-        if let Some(moveset) = prepared.moveset.clone() {
+        if let Some(moveset) = prepared.kit.projectable_moveset().cloned() {
             // The routing markers are NOT set here. They are derived from the live
             // `ActorMoveset` by `reconcile_moveset_routing_markers` — deriving them
             // is what makes them right for the catalog persona path too, which
@@ -390,11 +390,19 @@ pub fn project_prepared_character_definitions(
         // fighter stood holding a gun it did not believe in — its moves were
         // projected and its capability to reach for them was not.
         //
-        // `None` means the definition authored nothing and whatever the body
-        // already carries stands (the catalog persona, or seating's placeholder).
-        // `Some(empty)` is an authored decision and is projected as one — the same
-        // distinction `apply_worn_character_kit` makes, for the same reason.
-        if let Some(action_set) = prepared.action_set.clone() {
+        // `None` is now reached ONLY by the host-code kit, which is built per
+        // body from that body's own `AbilitySet` and so cannot be a per-character
+        // value. Every other character has an answer here, including the ones
+        // that inherited it from their catalog row — which is the H1 fix: this
+        // used to read the definition's raw override, so a character that authored
+        // no action set and had a perfectly good one on its row was projected onto
+        // a seated fighter as nothing at all.
+        //
+        // The comment this replaces said `None` meant "whatever the body already
+        // carries stands (the catalog persona, or seating's placeholder)". For a
+        // seated body that placeholder is `ActionSet::default()` and no catalog
+        // persona was ever coming, so "stands" meant "empty, forever".
+        if let Some(action_set) = prepared.kit.action_set().cloned() {
             let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
             commands.entity(entity).insert((action_set, combat_kit));
         }
@@ -431,7 +439,8 @@ pub fn project_prepared_character_definitions(
                 .entity(entity)
                 .insert(ambition_engine_core::AuthoredMovementTuning(tuning));
         }
-        if let Some(spec) = prepared.motion_model {
+        {
+            let spec = prepared.motion_model;
             commands.queue(move |world: &mut World| {
                 let Some(mut model) = world.get_mut::<crate::features::MotionModel>(entity) else {
                     return;

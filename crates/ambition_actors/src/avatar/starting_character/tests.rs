@@ -888,7 +888,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         smash_charge_mult: 1.0,
     };
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-    let prepared = crate::character_runtime::prepare_character(
+    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
         crate::character_runtime::CharacterDefinition::new("hero", "Hero", "demo").with_moveset(
             MovesetContract {
                 verbs: std::collections::BTreeMap::from([(
@@ -939,7 +939,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     // (GPT 5.6, 2026-07-27). Pinned HERE because this is the single writer for a
     // worn body, and a guarantee belongs at the authority that provides it.
     let mut registry = registry;
-    let unarmed = crate::character_runtime::prepare_character(
+    let unarmed = crate::character_runtime::prepare_and_finalize_for_test(
         crate::character_runtime::CharacterDefinition::new("monk", "Monk", "demo"),
         &crate::character_runtime::CharacterBindings::default(),
     );
@@ -1040,11 +1040,27 @@ fn wear(
 fn prepared(
     definition: crate::character_runtime::CharacterDefinition,
 ) -> crate::character_runtime::PreparedCharacterRegistry {
+    prepared_against(definition, None)
+}
+
+/// The same, with the catalog the barrier folds against.
+///
+/// Which row a character inherits is decided at FINALIZATION now, not when a
+/// body wears it — so a fixture proving inheritance has to supply the catalog
+/// here rather than only to `wear`. That is not fixture bookkeeping: it is the
+/// change itself, visible. A registry finalized without a catalog describes a
+/// composition that has none, and a character in it inherits nothing because
+/// there was nothing to inherit from.
+fn prepared_against(
+    definition: crate::character_runtime::CharacterDefinition,
+    catalog: Option<&CharacterCatalog>,
+) -> crate::character_runtime::PreparedCharacterRegistry {
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     registry.insert_prepared(
-        crate::character_runtime::prepare_character(
+        crate::character_runtime::prepare_and_finalize_against_for_test(
             definition,
             &crate::character_runtime::CharacterBindings::default(),
+            catalog,
         )
         .prepared,
     );
@@ -1120,11 +1136,10 @@ fn a_definition_with_no_action_set_still_falls_through_to_the_catalog() {
     use ambition_characters::brain::action_set::MeleeActionSpec;
 
     let catalog = catalog_granting_melee("inheritor");
-    let registry = prepared(crate::character_runtime::CharacterDefinition::new(
-        "inheritor",
-        "Inheritor",
-        "demo",
-    ));
+    let registry = prepared_against(
+        crate::character_runtime::CharacterDefinition::new("inheritor", "Inheritor", "demo"),
+        Some(&catalog),
+    );
 
     let (set, _) = wear(&catalog, &registry, "inheritor");
 

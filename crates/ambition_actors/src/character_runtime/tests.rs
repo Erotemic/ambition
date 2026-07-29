@@ -5,6 +5,13 @@
 //! to kill was invisible precisely because the only test coverage ran through the
 //! one application that happened to install the missing step.
 
+// Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
+// close the plugin-composition barrier; `App::update` does not, and character
+// preparation publishes its registry there — so a fixture that only updated
+// would register a cast and never publish one. Idempotent, so a helper called
+// per step costs a set lookup after the first.
+use ambition_platformer_primitives::app_finalization::{finalize, finalize_and_update};
+
 use super::*;
 
 /// Any real baked sheet, to stand in as "a decoded asset".
@@ -180,7 +187,7 @@ fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
         .spawn(ambition_characters::actor::WornCharacter("mary_o".into()));
     app.world_mut()
         .spawn(ambition_characters::actor::WornCharacter("sanic".into()));
-    app.update();
+    finalize_and_update(&mut app);
 
     // No asset pipeline in this fixture, so the demand is still pending — which is
     // the observable proof that BOTH bodies asked.
@@ -200,7 +207,7 @@ fn a_later_identity_swap_demands_the_new_sheet() {
         .world_mut()
         .spawn(ambition_characters::actor::WornCharacter("mary_o".into()))
         .id();
-    app.update();
+    finalize_and_update(&mut app);
     app.world_mut().resource_mut::<CharacterLoadDemand>().take();
 
     // A runtime form change (Mary-O growing into `mary_o_tall`) is a new sheet.
@@ -209,7 +216,7 @@ fn a_later_identity_swap_demands_the_new_sheet() {
         .insert(ambition_characters::actor::WornCharacter(
             "mary_o_tall".into(),
         ));
-    app.update();
+    finalize_and_update(&mut app);
 
     assert_eq!(
         app.world()
@@ -271,7 +278,7 @@ fn every_entry_route_materializes_the_same_character() {
             let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();
             demand.request_all(tokens);
         }
-        app.update();
+        finalize_and_update(&mut app);
         let demand = app.world().resource::<CharacterLoadDemand>();
         let states = app.world().resource::<CharacterLoadStates>();
         outcomes.push((
@@ -402,7 +409,7 @@ fn an_app_that_stages_no_characters_reports_no_gaps() {
     let mut app = App::new();
     assert!(audit_character_capabilities(app.world()).is_empty());
     app.add_systems(Update, report_character_capability_gaps);
-    app.update();
+    finalize_and_update(&mut app);
 }
 
 /// **A1.** A character declared ONLY through `register_character` is known to the
@@ -438,7 +445,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
         .with_sheet("super_mary_o_spritesheet"),
     );
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let sprites = &app
         .world()
@@ -460,7 +467,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
         let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();
         demand.request("mary_o");
     }
-    app.update();
+    finalize_and_update(&mut app);
     let outcome = app
         .world()
         .resource::<CharacterLoadStates>()
@@ -499,6 +506,7 @@ fn the_decode_path_declares_a_registered_character_itself() {
         )
         .with_sheet("super_mary_o_spritesheet"),
     );
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>().clone();
     let mut sprites = CharacterSpriteAssets::default();
     assert!(

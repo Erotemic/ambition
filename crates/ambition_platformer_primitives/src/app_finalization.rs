@@ -32,9 +32,11 @@ use bevy::prelude::App;
 /// Bring a hand-driven `App` to the state a runner would leave it in, then run
 /// one update.
 ///
-/// Idempotent by Bevy's own accounting: `finish`/`cleanup` only act on plugins
-/// that have not had them run, so calling this on an app a runner already
-/// finalized is a plain update.
+/// ⚠ **NOT idempotent on Bevy's behalf.** `App::finish` walks the ENTIRE plugin
+/// registry every time it is called and re-runs each plugin's `finish` — it does
+/// not remember which ones already ran. A plugin whose `finish` CONSUMES
+/// something must guard itself; character preparation republished an empty
+/// registry on the second call before it did (see the test below).
 pub fn finalize_and_update(app: &mut App) {
     finalize(app);
     app.update();
@@ -102,14 +104,41 @@ mod tests {
         );
     }
 
-    /// Finalizing twice is harmless: Bevy tracks which plugins have been
-    /// finished, so a helper called on an already-finalized app is an update.
+    /// **`App::finish` re-runs every plugin's `finish`, every time.**
+    ///
+    /// The dangerous half of this helper, pinned as a test because the obvious
+    /// assumption is the opposite one and it cost real debugging: character
+    /// preparation consumes its staged overrides at the barrier, so a second
+    /// `finish` published an empty cast over a good one. A plugin that consumes
+    /// anything in `finish` must guard itself — this helper cannot do it for it,
+    /// and neither does Bevy.
     #[test]
-    fn finalizing_an_already_finalized_app_is_harmless() {
+    fn finishing_twice_runs_every_plugin_finish_twice() {
+        #[derive(Resource, Default)]
+        struct FinishCount(usize);
+
+        struct CountsFinishes;
+
+        impl Plugin for CountsFinishes {
+            fn build(&self, app: &mut App) {
+                app.init_resource::<FinishCount>();
+            }
+
+            fn finish(&self, app: &mut App) {
+                app.world_mut().resource_mut::<FinishCount>().0 += 1;
+            }
+        }
+
         let mut app = App::new();
-        app.add_plugins(SealsAtFinish);
+        app.add_plugins(CountsFinishes);
         finalize_and_update(&mut app);
         finalize_and_update(&mut app);
-        assert!(app.world().resource::<FinishRan>().0);
+        assert_eq!(
+            app.world().resource::<FinishCount>().0,
+            2,
+            "Bevy started tracking which plugins have been finished — if so, the \
+             self-guards written against this behaviour (character preparation's \
+             `finalized` flag) are now dead weight and should be removed"
+        );
     }
 }

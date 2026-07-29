@@ -14,11 +14,23 @@
 //!
 //! ```text
 //! CharacterDefinition          authored, decomposable, may reference
-//!         |  prepare_character(...)   validates + flattens
+//!         |  prepare_character(...)      validates + flattens
 //!         v
-//! PreparedCharacterDefinition  immutable, no inheritance, no string search
-//!                              in authoritative gameplay paths
+//! PreparedCharacterOverrides   PARTIAL. `None` still means "ask the catalog",
+//!         |                    and this module is the only one that can say it
+//!         |  Plugin::finish              folds the catalog in, once, for the
+//!         v                              whole cast, transactionally
+//! PreparedCharacterDefinition  COMPLETE, immutable, no inheritance left, no
+//!                              string search in authoritative gameplay paths
 //! ```
+//!
+//! The middle row is the 2026-07-29 change and the reason the arrows are two.
+//! Preparation used to publish the partial value directly, so each construction
+//! path resolved `None` against the catalog itself — and the SEATED path could
+//! not, because the workspace policy `engine.character-authority-is-app-local`
+//! puts the catalog beyond an engine-side projection's reach. A worn player and
+//! a seated fighter wearing the same character therefore disagreed about that
+//! character's kit. See `docs/planning/character-preparation-finalization-plan.md`.
 //!
 //! ## What is DERIVED rather than registered again
 //!
@@ -287,11 +299,137 @@ impl CharacterDefinition {
     }
 }
 
-/// **A prepared character: flat, immutable, no inheritance left to resolve.**
+/// **What one authored definition OVERRIDES, before the catalog is folded in.**
+///
+/// The output of [`prepare_character`], and the input to finalization — never a
+/// runtime value. Every kit field here is an `Option` whose `None` means *the
+/// author said nothing*, which is a question and not an answer: the body cannot
+/// act on it without also consulting the catalog row.
+///
+/// # This type is deliberately unnameable outside this module
+///
+/// Not `pub`, not `pub(crate)`, and that visibility is the entire mechanism.
+/// Preparation used to publish this partial value AS the runtime authority, so
+/// both body-construction paths had to re-resolve `None` against the catalog
+/// themselves — and only one of them did. A seated fighter and a worn player
+/// wearing the same character disagreed about that character's kit for a day
+/// (campaign H1, 2026-07-28).
+///
+/// Two types with the same visibility would just be that bug with a longer name.
+/// Because `presentation`, `seating`, and `avatar::starting_character` are
+/// siblings of this module rather than children, they *cannot* read a partial
+/// value: the phase split is checked by the compiler instead of by review.
+#[derive(Debug, Clone, PartialEq)]
+struct PreparedCharacterOverrides {
+    id: String,
+    display_name: String,
+    provider: String,
+    lineage: Option<Lineage>,
+    sheet: Option<String>,
+    portrait: Option<String>,
+    body: Option<BodySource>,
+    hurtboxes: Option<HurtboxDoc>,
+    vitals: Vitals,
+    moveset: Option<MovesetContract>,
+    /// The authored action set, carried through preparation unchanged.
+    ///
+    /// `None` and `Some(empty)` mean different things all the way to the body —
+    /// see [`CharacterDefinition::action_set`].
+    action_set: Option<ambition_characters::brain::ActionSet>,
+    /// The authored movement policy, carried through preparation unchanged.
+    /// `None` leaves the catalog row in charge.
+    motion_model: Option<ambition_engine_core::MotionModelSpec>,
+    /// The authored movement feel, carried through preparation unchanged.
+    movement_tuning: Option<ambition_engine_core::MovementTuning>,
+    /// DERIVED (§4.6): every cue this character can emit, read off its moves.
+    /// Sorted, so two peers assemble byte-identical inventories.
+    cue_dependencies: BTreeSet<String>,
+    /// DERIVED: every vfx tag its moves request.
+    vfx_dependencies: BTreeSet<String>,
+    /// Namespaces preparation actually RESOLVED, carried on the published value.
+    ///
+    /// This lived only on the transient [`PreparedCharacter`] and was dropped on
+    /// the floor by registration, so once a character was published there was no
+    /// way to ask whether its cues had been checked against a real vocabulary or
+    /// whether nobody had looked. Those must never read the same — that confusion
+    /// is the entire reason the binding boundary exists — and a distinction that
+    /// survives only until the value is stored is not a distinction.
+    checked: Vec<&'static str>,
+    /// References a resolver was supplied for and REJECTED, formatted for a reader.
+    ///
+    /// [`Self::checked`] says a vocabulary was consulted; it says nothing about the
+    /// verdict, so a typo'd sheet target read as "verified" — which is how four
+    /// shipped characters declared `<name>_spritesheet` (the sheet FILE) instead of
+    /// the sheet TARGET and drew placeholders while every check stayed green.
+    /// Registration still publishes (a placeholder beats a session that refuses to
+    /// boot); carrying the failures onto the published value is what lets a guard
+    /// be red about them without making the runtime fatal.
+    unresolved: Vec<String>,
+}
+
+/// **Where a prepared character's fighting kit comes from.**
+///
+/// The one honest answer to "what does this character reach for", decided ONCE
+/// at finalization instead of re-decided by each construction path.
+///
+/// Two variants and not one, because exactly one case is genuinely undecidable
+/// before a body exists: the host's code-side protagonist kit is built from that
+/// body's own persisted `AbilitySet`, so no per-character value can hold it.
+/// Naming that case is the point — the alternative is a "complete" definition
+/// that quietly is not, which is the bug class this whole split exists to close.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PreparedKit {
+    /// Content decided: this action set, these moves. Whether the decision came
+    /// from the definition or from the catalog row it inherited is finalization's
+    /// business and nobody else's.
+    ///
+    /// The moveset is never `None` here. An authored one wins; otherwise it is
+    /// DERIVED from the winning action set, which is what a body that authored
+    /// capabilities and no explicit timeline needs in order to swing at all.
+    Authored {
+        action_set: ambition_characters::brain::ActionSet,
+        moveset: MovesetContract,
+    },
+    /// The host's code-side kit, rebuilt per body from its `AbilitySet`.
+    ///
+    /// `authored_moveset` is still honoured: a character may take the host kit's
+    /// capabilities and bring its own timelines.
+    HostCode {
+        authored_moveset: Option<MovesetContract>,
+    },
+}
+
+impl PreparedKit {
+    /// The action set content decided on, or `None` when only a body can say.
+    pub fn action_set(&self) -> Option<&ambition_characters::brain::ActionSet> {
+        match self {
+            Self::Authored { action_set, .. } => Some(action_set),
+            Self::HostCode { .. } => None,
+        }
+    }
+
+    /// The moveset to put on a body that is not building the host kit itself.
+    pub fn projectable_moveset(&self) -> Option<&MovesetContract> {
+        match self {
+            Self::Authored { moveset, .. } => Some(moveset),
+            Self::HostCode { authored_moveset } => authored_moveset.as_ref(),
+        }
+    }
+}
+
+/// **A prepared character: flat, immutable, and COMPLETE.**
 ///
 /// The session consumes resolved values. That is the real invariant behind §4.3 —
 /// not "sharing must live in a generator", but that nothing downstream re-derives
 /// a character from parents, patches, or a string search.
+///
+/// Complete is the word that changed on 2026-07-29. This value used to be the
+/// output of [`prepare_character`], carrying `Option` kit fields whose `None`
+/// meant "ask the catalog" — so every construction path had to hold the catalog
+/// and perform the same fold, and the seated path could not (the workspace policy
+/// `engine.character-authority-is-app-local` puts the catalog out of an
+/// engine-side projection's reach). Now the fold happens ONCE, at the
+/// finalization barrier, and what a body reads has no questions left in it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreparedCharacterDefinition {
     pub id: String,
@@ -303,16 +441,17 @@ pub struct PreparedCharacterDefinition {
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
-    pub moveset: Option<MovesetContract>,
-    /// The authored action set, carried through preparation unchanged.
+    /// What this character fights with — resolved, not inherited.
+    pub kit: PreparedKit,
+    /// The movement policy, resolved. Every body already carries exactly one
+    /// explicit model, so this is a value rather than a question.
+    pub motion_model: ambition_engine_core::MotionModelSpec,
+    /// The movement feel, resolved.
     ///
-    /// `None` and `Some(empty)` mean different things all the way to the body —
-    /// see [`CharacterDefinition::action_set`].
-    pub action_set: Option<ambition_characters::brain::ActionSet>,
-    /// The authored movement policy, carried through preparation unchanged.
-    /// `None` leaves the catalog row in charge.
-    pub motion_model: Option<ambition_engine_core::MotionModelSpec>,
-    /// The authored movement feel, carried through preparation unchanged.
+    /// ⚠ still an `Option`, and its `None` is now an ANSWER rather than a
+    /// question: "this character has no authored feel, so a body wearing it runs
+    /// on the shared dev tuning and must NOT carry the authored-tuning marker".
+    /// Before the fold, `None` here meant the catalog might still have one.
     pub movement_tuning: Option<ambition_engine_core::MovementTuning>,
     /// DERIVED (§4.6): every cue this character can emit, read off its moves.
     /// Sorted, so two peers assemble byte-identical inventories.
@@ -517,16 +656,21 @@ impl CharacterBindings {
 }
 
 /// A prepared character plus what preparation could and could not verify.
-pub struct PreparedCharacter {
-    pub prepared: PreparedCharacterDefinition,
-    pub report: BindingReport,
+///
+/// Module-private for the same reason [`PreparedCharacterOverrides`] is: it
+/// carries one, and a type that leaks a partial value leaks the partial phase.
+struct PreparedCharacter {
+    prepared: PreparedCharacterOverrides,
+    report: BindingReport,
     /// Namespaces that were actually resolved.
-    pub checked: Vec<&'static str>,
+    #[allow(dead_code)]
+    checked: Vec<&'static str>,
 }
 
 impl PreparedCharacter {
     /// True when every reference preparation COULD check did resolve.
-    pub fn is_clean(&self) -> bool {
+    #[allow(dead_code)]
+    fn is_clean(&self) -> bool {
         self.report.is_empty()
     }
 }
@@ -568,7 +712,7 @@ fn runtime_verb_vocabulary() -> Vec<String> {
     vocabulary
 }
 
-pub fn prepare_character(
+fn prepare_character(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
 ) -> PreparedCharacter {
@@ -695,7 +839,7 @@ pub fn prepare_character(
     }
 
     let report = ledger.finish();
-    let prepared = PreparedCharacterDefinition {
+    let prepared = PreparedCharacterOverrides {
         id: definition.id,
         display_name: definition.display_name,
         provider: definition.provider,
@@ -735,6 +879,187 @@ pub fn prepare_character(
     let checked = prepared.checked.clone();
     PreparedCharacter {
         prepared,
+        report,
+        checked,
+    }
+}
+
+/// **Fold one character's overrides against the catalog into a complete value.**
+///
+/// The whole campaign in one function. Precedence, unchanged from what the worn
+/// path used to do inline: an explicitly authored value outranks the catalog row;
+/// `None` means the author said nothing and the row stands; and `Some(empty)` is
+/// an authoring DECISION that outranks the row exactly as a filled one does.
+///
+/// What CHANGED is where it happens. This used to run per body, in
+/// `apply_worn_character_kit`, which meant a construction path without a catalog
+/// could not do it — and `project_prepared_character_definitions`, the path that
+/// serves every SEATED fighter, is exactly such a path. So a seated fighter
+/// inherited nothing while a worn player wearing the same character inherited
+/// everything.
+///
+/// `catalog: None` is a real composition, not a degraded one: a bare engine App
+/// that registers characters and installs no catalog has nothing to inherit FROM,
+/// which is the same answer as "this id is not in the catalog" — the case the
+/// runtime already handled by installing the host compatibility kit.
+fn finalize_character(
+    overrides: PreparedCharacterOverrides,
+    catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
+) -> PreparedCharacterDefinition {
+    use ambition_characters::actor::character_catalog::PlayableKitSource;
+    use ambition_characters::brain::ActionSet;
+
+    let PreparedCharacterOverrides {
+        id,
+        display_name,
+        provider,
+        lineage,
+        sheet,
+        portrait,
+        body,
+        hurtboxes,
+        vitals,
+        moveset,
+        action_set,
+        motion_model,
+        movement_tuning,
+        cue_dependencies,
+        vfx_dependencies,
+        checked,
+        unresolved,
+    } = overrides;
+
+    // THE KIT. Three outcomes, and which one a character gets is decided here
+    // once rather than by whichever construction path reaches it first.
+    let kit = match action_set {
+        // The definition authored capabilities. Nothing else gets a vote.
+        Some(set) => PreparedKit::Authored {
+            moveset: derive_moveset(&set, moveset),
+            action_set: set,
+        },
+        None => match catalog.and_then(|catalog| catalog.playable_kit_source(&id)) {
+            Some(PlayableKitSource::Authored) => {
+                let set = catalog
+                    .and_then(|catalog| catalog.build_default_action_set(&id))
+                    .unwrap_or_else(|| {
+                        // A known Authored row whose preset does not resolve is
+                        // malformed content. Reported ONCE here rather than every
+                        // time a body wears it, and the body still gets a safe
+                        // peaceful kit rather than silent host privileges.
+                        bevy::log::error!(
+                            "character `{id}` declares an Authored playable kit but its \
+                             default_action_set does not resolve; preparing a safe peaceful kit"
+                        );
+                        ActionSet::peaceful()
+                    });
+                PreparedKit::Authored {
+                    moveset: derive_moveset(&set, moveset),
+                    action_set: set,
+                }
+            }
+            // A `HostCode` row, or an id the catalog does not know, or no catalog
+            // at all. All three mean the same thing to a body: build the host kit
+            // from what this body can do.
+            _ => PreparedKit::HostCode {
+                authored_moveset: moveset,
+            },
+        },
+    };
+
+    PreparedCharacterDefinition {
+        motion_model: motion_model.unwrap_or_else(|| match catalog {
+            Some(catalog) => {
+                crate::avatar::starting_character::motion_model_spec_for_character_id(catalog, &id)
+            }
+            None => ambition_engine_core::MotionModelSpec::AxisSwept(Default::default()),
+        }),
+        movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
+        id,
+        display_name,
+        provider,
+        lineage,
+        sheet,
+        portrait,
+        body,
+        hurtboxes,
+        vitals,
+        kit,
+        cue_dependencies,
+        vfx_dependencies,
+        checked,
+        unresolved,
+    }
+}
+
+/// An authored moveset if there is one, otherwise the moves the action set implies.
+///
+/// Deriving rather than leaving it empty is the other half of H1: a character can
+/// legitimately author *what it can reach for* and leave the timelines to the
+/// prefab builder, and a body that got the capability without the timeline
+/// advertises an attack it cannot perform.
+///
+/// The `special` slot is deliberately NOT folded in. It is a capability marker on
+/// the host compat kit (`bubble_shield`) with no authored move behind it; an
+/// authored persona drives its special through its own path, so folding a generic
+/// shell move here would make one press fire two things.
+fn derive_moveset(
+    action_set: &ambition_characters::brain::ActionSet,
+    authored: Option<MovesetContract>,
+) -> MovesetContract {
+    authored.unwrap_or_else(|| {
+        crate::combat::moveset::build_actor_moveset(
+            None,
+            action_set.melee.as_ref(),
+            action_set.ranged.as_ref(),
+            None,
+        )
+        .unwrap_or_default()
+    })
+}
+
+/// One character, prepared and finalized, outside an `App`.
+#[cfg(test)]
+pub(crate) struct FinalizedCharacter {
+    pub(crate) prepared: PreparedCharacterDefinition,
+    pub(crate) report: BindingReport,
+    pub(crate) checked: Vec<&'static str>,
+}
+
+#[cfg(test)]
+impl FinalizedCharacter {
+    /// True when every reference preparation COULD check did resolve.
+    pub(crate) fn is_clean(&self) -> bool {
+        self.report.is_empty()
+    }
+}
+
+/// Run the whole pipeline on one definition, with no composition around it.
+///
+/// Deliberately NOT available to production. The barrier exists because the
+/// catalog is not knowable at registration time, so a production caller able to
+/// fold early would be choosing to inherit from whatever happened to be
+/// installed so far — which is the ordering hazard `Plugin::finish` removes.
+#[cfg(test)]
+pub(crate) fn prepare_and_finalize_for_test(
+    definition: CharacterDefinition,
+    bindings: &CharacterBindings,
+) -> FinalizedCharacter {
+    prepare_and_finalize_against_for_test(definition, bindings, None)
+}
+
+/// The same, with a catalog to inherit from — the case the barrier exists for.
+#[cfg(test)]
+pub(crate) fn prepare_and_finalize_against_for_test(
+    definition: CharacterDefinition,
+    bindings: &CharacterBindings,
+    catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
+) -> FinalizedCharacter {
+    let PreparedCharacter {
+        prepared, report, ..
+    } = prepare_character(definition, bindings);
+    let checked = prepared.checked.clone();
+    FinalizedCharacter {
+        prepared: finalize_character(prepared, catalog),
         report,
         checked,
     }
@@ -1001,6 +1326,15 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         if definition.id.trim().is_empty() {
             return Err(CharacterRegistrationError::BlankId);
         }
+        // Registration installs its own barrier. Deliberately not a composition
+        // requirement: `register_character` is an App extension anybody may call
+        // on a bare App, and a finalizer that only runs when the caller also
+        // remembered a plugin is a finalizer most callers will not have — which
+        // is the same shape as every other "the app forgot the step" defect this
+        // module exists because of.
+        if !self.is_plugin_added::<CharacterPreparationPlugin>() {
+            self.add_plugins(CharacterPreparationPlugin);
+        }
         let provider = definition.provider.clone();
         // The engine supplies its OWN vocabulary. A sheet target resolves against
         // the baked manifest index, which the engine always knows, so every
@@ -1017,9 +1351,19 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // free. A rejected registration leaves the previous authority active.
         let mut candidate = self
             .world()
-            .get_resource::<PreparedCharacterRegistry>()
+            .get_resource::<StagedCharacterOverrides>()
             .cloned()
             .unwrap_or_default();
+        if candidate.finalized {
+            panic!(
+                "character `{id}` was registered after the preparation barrier closed. \
+                 Authoring is a `Plugin::build` operation: a contribution that arrives \
+                 after finalization would be folded against a catalog the published cast \
+                 was already built without, so half the session would know a character the \
+                 other half does not. A later cast change is a separate explicit \
+                 transaction (see docs/planning/character-preparation-finalization-plan.md)"
+            );
+        }
         // A display name already spoken for by a DIFFERENT id is rejected before the
         // insert, so the registry can never hold the ambiguity that
         // `id_for_display_name` would then have to resolve arbitrarily.
@@ -1047,3 +1391,125 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         Ok(self)
     }
 }
+
+/// **What providers have authored, before the catalog exists to fold against.**
+///
+/// The preparation-phase half of the registry. Holds partial values and is
+/// consumed by [`CharacterPreparationPlugin::finish`]; nothing downstream can
+/// read one, because [`PreparedCharacterOverrides`] does not escape this module.
+#[derive(bevy::prelude::Resource, Debug, Clone, Default)]
+struct StagedCharacterOverrides {
+    by_id: BTreeMap<String, PreparedCharacterOverrides>,
+    /// Set when the barrier closes, so a late contribution is a panic rather than
+    /// a value nobody will ever fold.
+    finalized: bool,
+}
+
+impl StagedCharacterOverrides {
+    fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
+        self.by_id
+            .values()
+            .find(|staged| staged.display_name == display_name)
+            .map(|staged| staged.id.as_str())
+    }
+
+    /// Returns the previous author when the id was already spoken for.
+    fn insert(&mut self, staged: PreparedCharacterOverrides) -> Option<String> {
+        self.by_id
+            .insert(staged.id.clone(), staged)
+            .map(|previous| previous.provider)
+    }
+}
+
+/// **The finalization barrier.** (H1, 2026-07-29)
+///
+/// Bevy runs every plugin's `build` during registration and every `finish` once
+/// all of them are ready. That ordering is the whole reason this is a plugin
+/// rather than a startup system or an eager fold at registration time: a provider
+/// registering its cast before the App installs `CharacterCatalog` would otherwise
+/// inherit an empty row and bake the absence in permanently. Which provider goes
+/// first is a composition detail no provider can see.
+///
+/// Installed automatically by [`CharacterDefinitionAppExt::try_register_character`].
+///
+/// ⚠ **`App::update` does not run `finish`** — Bevy's runners do. A hand-driven
+/// App (every headless test, every fixture, every tool in this repository) must
+/// call [`ambition_runtime::finalize`] or it will have a staged cast and no
+/// published one. That is not silent: `PreparedCharacterRegistry` is absent
+/// rather than empty, and absent already means "no registered characters" to
+/// every consumer.
+pub struct CharacterPreparationPlugin;
+
+impl bevy::prelude::Plugin for CharacterPreparationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<StagedCharacterOverrides>();
+        // THE BACKSTOP, for the apps Bevy's runner never touches.
+        //
+        // `App::update` does not run `finish` — runners do — and this repository
+        // drives `update` by hand almost everywhere: every headless test, the
+        // external-consumer fixture, the rollback harnesses, the tools. Without
+        // this, all of them would register a cast and publish none, and the
+        // symptom is the worst kind: every character silently falls back to the
+        // host's compatibility kit, so a consumer's peaceful wanderer comes out
+        // swinging the protagonist's sword. That is not hypothetical — it is
+        // what the outlander fixture reported within an hour of the barrier
+        // landing.
+        //
+        // Not a second authority: it calls the SAME finalizer, guarded by the
+        // same `finalized` flag, so whichever trigger fires first wins and the
+        // other is a no-op. And it is not a weaker barrier — `PreStartup` runs
+        // after every plugin's `build`, which is the entire ordering hazard
+        // `finish` exists to remove. What `finish` still buys is that the
+        // registry exists before ANY system runs, including `Startup`.
+        app.add_systems(bevy::prelude::PreStartup, close_preparation_barrier);
+    }
+
+    fn finish(&self, app: &mut bevy::prelude::App) {
+        finalize_prepared_cast(app.world_mut());
+    }
+}
+
+/// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
+fn close_preparation_barrier(world: &mut bevy::prelude::World) {
+    finalize_prepared_cast(world);
+}
+
+/// **Fold the staged cast and publish it.** Idempotent; runs at most once.
+fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
+    let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
+        return;
+    };
+    // ⚠ **`App::finish` re-runs EVERY plugin's `finish`, every time it is
+    // called.** It does not track which ones already ran — it walks the whole
+    // registry and sets `plugins_state = Finished` (read in `bevy_app` 0.18.1
+    // after this bit us, 2026-07-29). The `PreStartup` backstop is a second
+    // trigger on top of that.
+    //
+    // Without this flag, a second call republished an EMPTY registry: the staged
+    // overrides had already been consumed, so the whole cast silently vanished on
+    // the fixture's second step. The barrier has to be idempotent itself;
+    // nothing upstream makes it so.
+    if staged.finalized {
+        return;
+    }
+    staged.finalized = true;
+    let staged = std::mem::take(&mut staged.by_id);
+    let catalog = world
+        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+        .cloned();
+    // TRANSACTIONAL: the whole cast is folded and only then published, so a
+    // reader can never observe a registry that holds half of one generation.
+    let mut registry = PreparedCharacterRegistry::default();
+    for (_, overrides) in staged {
+        registry.insert(finalize_character(overrides, catalog.as_ref()));
+    }
+    world.insert_resource(registry);
+}
+
+// A CHILD of the preparation module, not a sibling. Its subject is the partial
+// phase — `PreparedCharacterOverrides`, the fold, the barrier — and a sibling
+// could not name any of them. Making the tests reach the same way runtime does
+// would have meant widening the visibility that IS the design.
+#[cfg(test)]
+#[path = "definition_tests.rs"]
+mod definition_tests;

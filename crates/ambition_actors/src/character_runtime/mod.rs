@@ -45,10 +45,12 @@ pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
+#[cfg(test)]
+pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
-    prepare_character, BodySource, CharacterBindings, CharacterDefinition,
-    CharacterDefinitionAppExt, CharacterRegistrationError, Lineage, PreparedCharacter,
-    PreparedCharacterDefinition, PreparedCharacterRegistry, Vitals,
+    BodySource, CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt,
+    CharacterPreparationPlugin, CharacterRegistrationError, Lineage, PreparedCharacterDefinition,
+    PreparedKit, PreparedCharacterRegistry, Vitals,
 };
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
@@ -863,8 +865,6 @@ impl Plugin for CharacterRuntimePlugin {
     }
 }
 
-#[cfg(test)]
-mod definition_tests;
 #[cfg(test)]
 mod fight_tests;
 #[cfg(test)]

@@ -1,11 +1,12 @@
 //! One registration, one prepared authority (§7.6).
 
-use super::definition::*;
-use super::{CharacterLoadDemand, PreparedCharacterRegistry};
+use super::*;
+use crate::character_runtime::CharacterLoadDemand;
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveEvent,
     MoveEventKind, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
+use ambition_platformer_primitives::app_finalization::finalize;
 use ambition_platformer_primitives::binding::Namespace;
 use bevy::prelude::App;
 use std::collections::BTreeMap;
@@ -74,7 +75,7 @@ fn mary_o() -> CharacterDefinition {
 /// hand-listed beside them, because a hand-maintained list drifts.
 #[test]
 fn cue_vocabulary_is_derived_from_the_moves_that_emit_it() {
-    let prepared = prepare_character(mary_o(), &CharacterBindings::default());
+    let prepared = prepare_and_finalize_for_test(mary_o(), &CharacterBindings::default());
     assert!(prepared.is_clean(), "{:?}", prepared.report.unresolved());
 
     // Both halves: the move's own event cue AND the hit volume's strike sound.
@@ -103,7 +104,7 @@ fn misspelled_cue_is_named_at_preparation() {
             vec![slash("stomp", "mary_o.stmop", "mary_o.stomp.land")],
         ));
 
-    let prepared = prepare_character(
+    let prepared = prepare_and_finalize_for_test(
         typo,
         &CharacterBindings::default().with_authorized_cues(authorized),
     );
@@ -129,7 +130,7 @@ fn misspelled_cue_is_named_at_preparation() {
 
     // And the correctly spelled sibling still resolves, so this is a real check
     // and not "every cue fails".
-    let good = prepare_character(
+    let good = prepare_and_finalize_for_test(
         mary_o(),
         &CharacterBindings::default().with_authorized_cues(authorized),
     );
@@ -139,7 +140,7 @@ fn misspelled_cue_is_named_at_preparation() {
 /// An unchecked namespace must not read as a checked one.
 #[test]
 fn without_an_authorized_cue_set_cues_are_reported_as_unchecked() {
-    let prepared = prepare_character(mary_o(), &CharacterBindings::default());
+    let prepared = prepare_and_finalize_for_test(mary_o(), &CharacterBindings::default());
     assert!(
         !prepared.checked.contains(&"sfx cue"),
         "with no authorized set supplied, cues were NOT checked — saying otherwise \
@@ -160,7 +161,7 @@ fn a_verb_naming_an_undeclared_move_is_named_not_silently_peaceful() {
             &[("attack", "spindash")],
             vec![slash("roll", "sanic.roll", "sanic.roll.hit")],
         ));
-    let prepared = prepare_character(broken, &CharacterBindings::default());
+    let prepared = prepare_and_finalize_for_test(broken, &CharacterBindings::default());
     let report = format!("{:?}", prepared.report.unresolved());
     assert!(report.contains("spindash"), "{report}");
     assert!(report.contains("move"), "{report}");
@@ -195,7 +196,7 @@ fn a_hurtbox_override_for_an_undeclared_move_is_named() {
         poses: BTreeMap::new(),
         moves,
     });
-    let prepared = prepare_character(def, &CharacterBindings::default());
+    let prepared = prepare_and_finalize_for_test(def, &CharacterBindings::default());
     let report = format!("{:?}", prepared.report.unresolved());
     assert!(report.contains("nonexistent_move"), "{report}");
 }
@@ -215,6 +216,7 @@ fn registration_declares_without_demanding_art() {
     let mut app = App::new();
     app.register_character(mary_o());
 
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>();
     assert_eq!(registry.ids().collect::<Vec<_>>(), vec!["mary_o"]);
     let prepared = registry.get("mary_o").expect("published");
@@ -243,6 +245,7 @@ fn preparation_provenance_survives_registration() {
     // Registered with NO cue resolver: moves are checked, cues are not.
     let mut app = App::new();
     app.register_character(mary_o());
+    finalize(&mut app);
     let unchecked = app
         .world()
         .resource::<PreparedCharacterRegistry>()
@@ -266,6 +269,7 @@ fn preparation_provenance_survives_registration() {
         CharacterBindings::default().with_authorized_cues(["swing", "hit_flesh"]),
     )
     .expect("registers");
+    finalize(&mut app);
     let checked = app
         .world()
         .resource::<PreparedCharacterRegistry>()
@@ -292,6 +296,7 @@ fn the_cast_cue_inventory_is_the_union_over_prepared_characters() {
         )),
     );
 
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>();
     assert_eq!(
         registry
@@ -329,6 +334,7 @@ fn two_providers_cannot_author_the_same_stable_id() {
             second_provider: "other_provider".to_string(),
         }
     );
+    finalize(&mut app);
     assert_eq!(
         app.world()
             .resource::<PreparedCharacterRegistry>()
@@ -390,12 +396,13 @@ fn sheets_portraits_and_derived_vfx_are_resolved_at_preparation() {
 
     // Nothing supplied: every art namespace reports NOT CHECKED, and the report is
     // clean — because nobody looked, which must not read as "looked and fine".
-    let unchecked = prepare_character(definition.clone(), &CharacterBindings::default());
+    let unchecked =
+        prepare_and_finalize_for_test(definition.clone(), &CharacterBindings::default());
     assert!(!unchecked.prepared.was_checked(SheetTarget::NAME));
     assert!(unchecked.is_clean());
 
     // Vocabulary supplied: the typo is NAMED at preparation.
-    let checked = prepare_character(
+    let checked = prepare_and_finalize_for_test(
         definition,
         &CharacterBindings::default()
             .with_available_sheets(["super_mary_o_spritesheet", "sanic_spritesheet"]),
@@ -416,7 +423,7 @@ fn a_derived_vfx_tag_no_renderer_knows_is_named() {
     let definition = CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo")
         .with_moveset(moveset_with(&[("attack", "slash")], vec![spec]));
 
-    let prepared = prepare_character(
+    let prepared = prepare_and_finalize_for_test(
         definition,
         &CharacterBindings::default().with_known_vfx_tags(["spark_blossom"]),
     );
@@ -461,6 +468,7 @@ fn two_characters_cannot_present_under_the_same_display_name() {
         }
     );
 
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>();
     assert_eq!(
         registry.id_for_display_name("Hero"),
@@ -515,7 +523,7 @@ fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
             vec![slash("big_swing", "arena.swing", "arena.hit")],
         ));
 
-    let prepared = prepare_character(unreachable, &CharacterBindings::default());
+    let prepared = prepare_and_finalize_for_test(unreachable, &CharacterBindings::default());
     let problems: Vec<String> = prepared
         .report
         .unresolved()
@@ -548,7 +556,7 @@ fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
                 &[(verb, "big_swing")],
                 vec![slash("big_swing", "arena.swing", "arena.hit")],
             ));
-        let prepared = prepare_character(ok, &CharacterBindings::default());
+        let prepared = prepare_and_finalize_for_test(ok, &CharacterBindings::default());
         assert!(
             prepared.is_clean(),
             "`{verb}` is a verb the runtime presses and preparation rejected it: {:?}",
@@ -578,7 +586,7 @@ fn an_authored_ranged_move_with_no_ranged_payload_is_reported() {
             vec![slash("bolt", "swing", "hit")],
         ));
 
-    let report = prepare_character(ranged_move, &CharacterBindings::default())
+    let report = prepare_and_finalize_for_test(ranged_move, &CharacterBindings::default())
         .prepared
         .unresolved_references()
         .map(str::to_string)
@@ -615,7 +623,7 @@ fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
             vec![slash("bolt", "swing", "hit")],
         ));
 
-    let report = prepare_character(armed, &CharacterBindings::default())
+    let report = prepare_and_finalize_for_test(armed, &CharacterBindings::default())
         .prepared
         .unresolved_references()
         .map(str::to_string)
@@ -639,7 +647,7 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
         moveset_with(&[("ranged", "bolt")], vec![slash("bolt", "swing", "hit")]),
     );
 
-    let report = prepare_character(inheritor, &CharacterBindings::default())
+    let report = prepare_and_finalize_for_test(inheritor, &CharacterBindings::default())
         .prepared
         .unresolved_references()
         .map(str::to_string)
@@ -664,7 +672,9 @@ fn the_cast_generation_advances_on_every_published_change() {
     let mut registry = PreparedCharacterRegistry::default();
     let opening = registry.generation();
 
-    registry.insert_prepared(prepare_character(mary_o(), &CharacterBindings::default()).prepared);
+    registry.insert_prepared(
+        prepare_and_finalize_for_test(mary_o(), &CharacterBindings::default()).prepared,
+    );
     let after_first = registry.generation();
     assert!(
         after_first > opening,
@@ -675,7 +685,7 @@ fn the_cast_generation_advances_on_every_published_change() {
     // a counter that only tracked insertions would call these two identical,
     // which is exactly the case a consumer needs to notice.
     registry.insert_prepared(
-        prepare_character(
+        prepare_and_finalize_for_test(
             CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"),
             &CharacterBindings::default(),
         )

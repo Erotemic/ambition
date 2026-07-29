@@ -1,5 +1,12 @@
 //! C4 slice 1: a roster of CPU participants becomes bodies that can fight.
 
+// Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
+// close the plugin-composition barrier; `App::update` does not, and character
+// preparation publishes its registry there — so a fixture that only updated
+// would register a cast and never publish one. Idempotent, so a helper called
+// per step costs a set lookup after the first.
+use ambition_platformer_primitives::app_finalization::finalize_and_update;
+
 use super::*;
 use crate::character_runtime::{
     CharacterDefinition, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
@@ -52,7 +59,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
         participants: vec![cpu("mary_o"), cpu("sanic")],
     });
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -105,7 +112,7 @@ fn seating_runs_once_however_many_ticks_pass() {
     });
 
     for _ in 0..10 {
-        app.update();
+        finalize_and_update(&mut app);
     }
 
     let world = app.world_mut();
@@ -128,7 +135,7 @@ fn an_unregistered_participant_is_not_seated() {
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("nobody_registered_this")],
     });
-    app.update();
+    finalize_and_update(&mut app);
 
     {
         let world = app.world_mut();
@@ -177,7 +184,7 @@ fn a_human_seat_adopts_the_existing_player_body_instead_of_duplicating_it() {
         ],
     });
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
@@ -229,7 +236,7 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
         ],
     });
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
@@ -277,7 +284,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
         ],
     });
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut bodies = world.query::<(&ambition_characters::actor::WornCharacter, Option<&Brain>)>();
@@ -324,7 +331,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
         ],
     });
 
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut locals = world.query::<(
@@ -374,7 +381,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
             cpu("delta").on_team("red"),
         ],
     });
-    app.update();
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -490,8 +497,8 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("gunner")],
     });
-    app.update();
-    app.update();
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut seated = world.query::<(&MatchSeat, &ActionSet)>();
@@ -536,8 +543,8 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("roller")],
     });
-    app.update();
-    app.update();
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut seated = world.query::<(&MatchSeat, &crate::features::MotionModel)>();
@@ -582,8 +589,8 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("springy"), cpu("plain")],
     });
-    app.update();
-    app.update();
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
 
     let world = app.world_mut();
     let mut bodies = world.query::<(

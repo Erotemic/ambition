@@ -1,6 +1,7 @@
 # Character preparation: the finalization barrier (plan, 2026-07-28)
 
-**Status: agreed design, not started.** Written to survive compaction. This is
+**Status: PHASE A LANDED 2026-07-29.** Phases B and C are open. Written to
+survive compaction. This is
 the settled outcome of a three-round argument with GPT-5.6 over how to close
 H1 — the finding that a catalog-playable character with no authored action set
 works as the worn player and gets an EMPTY kit when seated as player two.
@@ -150,23 +151,59 @@ publish a partially updated registry.
 
 Resolution and construction must not change in the same commit.
 
-### Phase A — unify the effective baseline, keep the spawn mechanics
+### ✔ Phase A — LANDED 2026-07-29
 
-1. rename/replace the current partial prepared type as
-   `PreparedCharacterOverrides`;
-2. restrict it to the preparation module or crate (the acceptance test above);
-3. preserve `Inherit` vs explicit-empty;
-4. add the character finalizer in `Plugin::finish`;
-5. fold catalog fallbacks + overrides into complete
-   `PreparedCharacterDefinition` values;
-6. publish one immutable registry generation;
-7. remove the partial resources after successful publication;
-8. make BOTH worn and seated paths consume only the complete definition —
-   **without changing how either spawns.**
+1. ✔ the partial type is `PreparedCharacterOverrides`;
+2. ✔ **it is declared with NO visibility modifier at all** — not `pub`, not
+   `pub(crate)` — inside `character_runtime::definition`. `presentation`,
+   `seating` and `avatar::starting_character` are SIBLINGS of that module, so
+   they cannot name it. The acceptance test passes by construction rather than by
+   review. `definition_tests` was re-parented as a CHILD of `definition` for the
+   same reason: widening the visibility so the tests could reach it would have
+   been widening the thing that IS the design;
+3. ✔ `None` vs `Some(empty)` survives — the fold matches on the `Option`, never
+   on whether the set looks empty;
+4. ✔ `CharacterPreparationPlugin::finish`, installed automatically by
+   `try_register_character` so it is never a composition requirement;
+5. ✔ `finalize_character(overrides, catalog)` — the fold that used to run per
+   body inside `apply_worn_character_kit`;
+6. ✔ one registry, built whole and inserted once (transactional);
+7. ✔ the staged overrides are consumed by the fold and the barrier latches
+   `finalized`;
+8. ✔ both paths read `PreparedKit`. Spawn mechanics unchanged.
 
-At the end of Phase A: worn and seated resolve identically, `None` means one
-thing everywhere, and no new constructor exists. A regression here is
-attributable to authority resolution alone.
+**`PreparedKit` is the one honest concession, and it is not a partial value.**
+The host's code-side kit is built from the BODY's own `AbilitySet`, so no
+per-character value can hold it. Naming that case (`HostCode` vs `Authored`)
+beats a "complete" definition that quietly is not.
+
+#### Two things that only showed up on contact with the tree
+
+⚠ **`App::finish` re-runs EVERY plugin's `finish`, every time it is called.** It
+does not track which have run — it walks the registry and sets
+`plugins_state = Finished` (read in `bevy_app` 0.18.1). A barrier that CONSUMES
+its input must guard itself, or the second call republishes an empty registry
+over a good one. It did, and the whole cast vanished on a fixture's second step.
+Pinned by `finishing_twice_runs_every_plugin_finish_twice`.
+
+⚠ **The audit of hand-driven apps could not be an audit.** The external-consumer
+fixture drives `App::update` by hand, never published its cast, and every
+character silently fell back to the host compatibility kit — a consumer's
+peaceful wanderer came out swinging the protagonist's sword. Fixing that one
+fixture would have left every future one exposed, so the barrier gained a
+`PreStartup` BACKSTOP calling the same idempotent finalizer. `PreStartup` runs
+after every plugin's `build`, which is the entire ordering hazard `finish`
+exists to remove, so it is not a weaker barrier — what `finish` still buys is a
+registry that exists before ANY system runs.
+
+#### What Phase A did NOT do
+
+The catalog fold still runs at wear time for ids nothing REGISTERED — most of
+the legacy cast. Those have no prepared value to disagree with, and a seated
+fighter cannot be one (seating requires the registry). Condition 5 of the design
+("no runtime catalog fallback") therefore holds for every character the campaign
+is about, and not yet for the migration tail. Both readers are named in
+`the-catalog-default-action-set-is-confined-to-one-file`.
 
 ### Phase B — consolidate construction
 

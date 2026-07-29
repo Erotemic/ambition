@@ -4,6 +4,7 @@
 //! schedule seams without depending on `ambition_actors`, content,
 //! presentation, app assembly, or devtool modules.
 
+pub mod app_finalization;
 pub mod binding;
 pub mod body;
 pub mod camera_ease;

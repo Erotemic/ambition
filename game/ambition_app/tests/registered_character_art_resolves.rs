@@ -26,7 +26,12 @@ fn every_registered_character_resolves_the_art_it_declares() {
     // SHELL-hosted: the provider plugins that register characters (Sanic, Mary-O,
     // Pocket) join in that composition, and they are the ones this guard exists
     // for. The non-hosted build has no cast to check.
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    // BUILDING an app is not COMPOSING one. Character preparation publishes its
+    // registry at the plugin-composition barrier, which Bevy's runners close and
+    // `build_visible_app` alone does not — so a guard that inspects a built-but-
+    // never-run app is inspecting the staged cast, not the published one.
+    ambition::runtime::finalize(&mut app);
     let registry = app
         .world()
         .get_resource::<PreparedCharacterRegistry>()

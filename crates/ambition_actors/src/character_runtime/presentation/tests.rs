@@ -1,5 +1,12 @@
 //! A4: the cast's sources are authorized by PRODUCTION code, not by a test.
 
+// Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
+// close the plugin-composition barrier; `App::update` does not, and character
+// preparation publishes its registry there — so a fixture that only updated
+// would register a cast and never publish one. Idempotent, so a helper called
+// per step costs a set lookup after the first.
+use ambition_platformer_primitives::app_finalization::finalize_and_update;
+
 use super::*;
 use crate::character_runtime::{
     CharacterDefinition, CharacterDefinitionAppExt, CharacterRuntimePlugin,
@@ -33,8 +40,8 @@ fn session_app() -> App {
 /// fixture-shaped answer — asserting after one update would be asserting on
 /// Bevy's arbitrary intra-set order.
 fn settle(app: &mut App) {
-    app.update();
-    app.update();
+    finalize_and_update(app);
+    finalize_and_update(app);
 }
 
 /// Start a fresh gameplay session: a new scope, and a new audio authority whose
@@ -93,7 +100,7 @@ fn seating_a_cast_authorizes_every_participants_presentation_source() {
 
     stage(&mut app, "mary_o");
     stage(&mut app, "sanic");
-    app.update();
+    finalize_and_update(&mut app);
 
     let selection = app
         .world()
@@ -119,7 +126,7 @@ fn a_registered_only_character_still_names_its_provider() {
     let mut app = session_app();
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     stage(&mut app, "sanic");
-    app.update();
+    finalize_and_update(&mut app);
 
     assert!(app
         .world()
@@ -139,7 +146,7 @@ fn staging_a_character_by_display_name_authorizes_its_provider() {
     let mut app = session_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     stage(&mut app, "Mary-O");
-    app.update();
+    finalize_and_update(&mut app);
 
     assert!(
         is_authorized(&app, "mary_o_demo"),
@@ -174,13 +181,13 @@ fn a_new_session_does_not_inherit_the_previous_casts_providers() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
 
     stage(&mut app, "mary_o");
-    app.update();
+    finalize_and_update(&mut app);
     assert!(is_authorized(&app, "mary_o_demo"), "session one's cast");
 
     // A different fight, with a different fighter.
     begin_session(&mut app, 2);
     stage(&mut app, "sanic");
-    app.update();
+    finalize_and_update(&mut app);
 
     assert!(is_authorized(&app, "sanic_demo"), "session two's cast");
     assert!(
@@ -209,7 +216,7 @@ fn a_new_session_does_not_inherit_the_previous_casts_providers() {
 fn an_unclaimed_character_authorizes_nothing() {
     let mut app = session_app();
     stage(&mut app, "someone_elses_fighter");
-    app.update();
+    finalize_and_update(&mut app);
 
     let selection = app
         .world()
@@ -253,7 +260,7 @@ fn a_body_emits_under_its_own_characters_provider() {
         .spawn(ambition_characters::actor::WornCharacter::new("mary_o"))
         .id();
     let bare_body = app.world_mut().spawn_empty().id();
-    app.update();
+    finalize_and_update(&mut app);
     // Guard against the whole test being vacuous: if the derivation never ran, all
     // three lookups would be `None` and the two positive assertions below would be
     // the only thing failing — which reads as a wiring bug, not as "nothing ran".
@@ -293,12 +300,12 @@ fn changing_worn_identity_changes_the_bodys_source() {
         .world_mut()
         .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
         .id();
-    app.update();
+    finalize_and_update(&mut app);
 
     app.world_mut()
         .entity_mut(body)
         .insert(ambition_characters::actor::WornCharacter::new("mary_o"));
-    app.update();
+    finalize_and_update(&mut app);
 
     assert_eq!(
         app.world()
@@ -325,13 +332,13 @@ fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
         .world_mut()
         .spawn(ambition_characters::actor::WornCharacter::new("sanic"))
         .id();
-    app.update();
+    finalize_and_update(&mut app);
 
     let bolt = app
         .world_mut()
         .spawn(ambition_projectiles::ProjectileOwner(firer))
         .id();
-    app.update();
+    finalize_and_update(&mut app);
 
     let source_of = |app: &App, entity| {
         app.world()
@@ -345,8 +352,8 @@ fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
     );
 
     app.world_mut().entity_mut(firer).despawn();
-    app.update();
-    app.update();
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
 
     assert_eq!(
         source_of(&app, bolt).as_deref(),
@@ -376,10 +383,10 @@ fn a_second_room_in_one_session_adds_to_the_cast_rather_than_replacing_it() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
 
     stage(&mut app, "mary_o");
-    app.update();
+    finalize_and_update(&mut app);
     // A later room in the SAME session, staging somebody else.
     stage(&mut app, "sanic");
-    app.update();
+    finalize_and_update(&mut app);
 
     let states = app
         .world()
@@ -471,7 +478,7 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
             ..Default::default()
         })
         .id();
-    app.update();
+    finalize_and_update(&mut app);
 
     assert!(app
         .world()
@@ -617,7 +624,7 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
             crate::combat::moveset::ATTACK_VERB,
         )))
         .id();
-    app.update();
+    finalize_and_update(&mut app);
     assert!(app
         .world()
         .get::<crate::combat::moveset::MovesetMelee>(body)
@@ -633,7 +640,7 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
         .get_mut::<crate::combat::moveset::ActorMoveset>(body)
         .unwrap() =
         crate::combat::moveset::ActorMoveset(contract(crate::combat::moveset::RANGED_VERB));
-    app.update();
+    finalize_and_update(&mut app);
     assert!(
         app.world()
             .get::<crate::combat::moveset::MovesetMelee>(body)

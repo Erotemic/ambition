@@ -15,6 +15,13 @@
 //! If a future change makes a character playable only in the app that happens to
 //! install some step, this test is the one that goes red.
 
+// Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
+// close the plugin-composition barrier; `App::update` does not, and character
+// preparation publishes its registry there — so a fixture that only updated
+// would register a cast and never publish one. Idempotent, so a helper called
+// per step costs a set lookup after the first.
+use ambition_platformer_primitives::app_finalization::{finalize, finalize_and_update};
+
 use super::*;
 use ambition_engine_core::AabbExt;
 use ambition_engine_core::Vec2;
@@ -181,14 +188,15 @@ fn two_providers_stage_into_one_session_and_both_reach_readiness() {
     );
 
     // ── Both are prepared, and each kept its OWN provider and numbers ──
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>();
     let mary = registry.get("mary_o").expect("Mary-O is prepared");
     let sanic = registry.get("sanic").expect("Sanic is prepared");
     assert_eq!(mary.provider, "mary_o_demo");
     assert_eq!(sanic.provider, "sanic_demo");
     assert_ne!(
-        mary.moveset.as_ref().unwrap().moves[0].windows[0].volumes[0].damage,
-        sanic.moveset.as_ref().unwrap().moves[0].windows[0].volumes[0].damage,
+        mary.kit.projectable_moveset().unwrap().moves[0].windows[0].volumes[0].damage,
+        sanic.kit.projectable_moveset().unwrap().moves[0].windows[0].volumes[0].damage,
         "two characters in one session keep their own authored damage"
     );
 
@@ -212,7 +220,7 @@ fn two_providers_stage_into_one_session_and_both_reach_readiness() {
     );
 
     // ── The readiness invariant holds for both, through the engine ──
-    app.update();
+    finalize_and_update(&mut app);
     let demand = app.world().resource::<CharacterLoadDemand>();
     let states = app.world().resource::<CharacterLoadStates>();
     for character in ["mary_o", "sanic"] {
@@ -244,6 +252,7 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
         roster.project_demand(&mut demand);
     }
 
+    finalize(&mut app);
     let registry = app.world().resource::<PreparedCharacterRegistry>();
     assert!(registry.get("mary_o").is_some());
     assert!(
@@ -360,6 +369,7 @@ fn spawn_fighter(
     facing: f32,
     faction: crate::combat::components::ActorFaction,
 ) -> Entity {
+    finalize(app);
     let prepared = app
         .world()
         .resource::<PreparedCharacterRegistry>()
@@ -611,7 +621,7 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
     // Both swing on the same tick: a fight, not a beating.
     press_attack(&mut app, mary);
     press_attack(&mut app, sanic);
-    app.update();
+    finalize_and_update(&mut app);
     release_attack(&mut app, mary);
     release_attack(&mut app, sanic);
 
@@ -622,7 +632,7 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
          fails the trigger chain is not in the path and the rest proves nothing"
     );
     for _ in 0..14 {
-        app.update();
+        finalize_and_update(&mut app);
     }
 
     // Mary-O's stomp authored 3 damage; Sanic's roll authored 2.
@@ -687,7 +697,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         crate::combat::components::ActorFaction::Npc,
     );
     press_attack(&mut app, mary);
-    app.update();
+    finalize_and_update(&mut app);
     release_attack(&mut app, mary);
 
     // ── The premise, CHECKED, on the tick the strike is live ──────────────────
@@ -699,7 +709,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     // claims — the coarse box overlaps it, the published silhouette does not.
     let mut checked = false;
     for _ in 0..14 {
-        app.update();
+        finalize_and_update(&mut app);
         // The strike's world box, resolved the SAME way `apply_hitbox_damage`
         // resolves it: a `FollowOwner` hitbox carries a local offset and tracks the
         // owner's box centre, so there is no world rectangle on the entity to read.
@@ -805,10 +815,10 @@ fn a_dying_body_dies_in_its_own_voice() {
             break;
         }
         press_attack(&mut app, mary);
-        app.update();
+        finalize_and_update(&mut app);
         release_attack(&mut app, mary);
         for _ in 0..20 {
-            app.update();
+            finalize_and_update(&mut app);
         }
     }
 

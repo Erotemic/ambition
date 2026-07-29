@@ -327,6 +327,8 @@ mod authority_parity_tests {
     },
 )"#;
 
+    use ambition_platformer_primitives::app_finalization::finalize;
+
     fn app_with_catalog() -> App {
         let mut app = App::new();
         app.insert_resource(
@@ -349,6 +351,7 @@ mod authority_parity_tests {
                 .with_sheet("registry_sheet"),
         );
 
+        finalize(&mut app);
         let conflicts = audit_character_authority_parity(app.world());
         assert!(
             conflicts.contains(&CharacterAuthorityConflict::SheetDisagreement {
@@ -368,6 +371,7 @@ mod authority_parity_tests {
     fn deferring_to_the_catalog_for_art_is_not_a_conflict() {
         let mut app = app_with_catalog();
         app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        finalize(&mut app);
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 
@@ -393,6 +397,7 @@ mod authority_parity_tests {
         );
         app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
 
+        finalize(&mut app);
         let conflicts = audit_character_authority_parity(app.world());
         assert!(
             conflicts.contains(&CharacterAuthorityConflict::ProviderDisagreement {
@@ -419,6 +424,7 @@ mod authority_parity_tests {
             ),
         );
         app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        finalize(&mut app);
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 
@@ -431,6 +437,7 @@ mod authority_parity_tests {
         // A different id, the same label the catalog already uses.
         app.register_character(CharacterDefinition::new("mary_o_alt", "Mary-O", "other"));
 
+        finalize(&mut app);
         let conflicts = audit_character_authority_parity(app.world());
         assert!(
             conflicts.contains(&CharacterAuthorityConflict::AmbiguousDisplayName {

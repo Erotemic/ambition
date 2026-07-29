@@ -197,7 +197,9 @@ ABSENCE_CONTRACTS: list[dict] = [
             "crates/",
             "game/",
             "fixtures/",
-            # The resolver itself, and the catalog method being read.
+            # The FOLD, the wear-time path for ids nothing registered, and the
+            # catalog method being read.
+            ":!crates/ambition_actors/src/character_runtime/definition.rs",
             ":!crates/ambition_actors/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
@@ -210,7 +212,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             "character that authored nothing, which is most of them, so it "
             "presents only on the one character somebody bothered to author — "
             "exactly how the seated-fighter gap hid behind two duelists whose "
-            "authored set happened to equal the default."
+            "authored set happened to equal the default. "
+            "⚠ 2026-07-29: the fold MOVED to `definition.rs`, where "
+            "`finalize_character` performs it once per character at the "
+            "preparation barrier. `starting_character.rs` keeps a caller for "
+            "the ids nothing REGISTERED — most of the legacy cast — which have "
+            "no prepared value to weigh against. Two files, still one decision "
+            "per character; the day a registered character is resolved in both "
+            "is the day this contract has stopped meaning anything, so read "
+            "them together before adding a third."
         ),
     },
     {
@@ -246,6 +256,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # forbidding a provider to know what it authored.
         "paths": [
             "crates/",
+            ":!crates/ambition_actors/src/character_runtime/definition.rs",
             ":!crates/ambition_actors/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
@@ -257,7 +268,12 @@ ABSENCE_CONTRACTS: list[dict] = [
             "prepared value DIRECTLY, so for a character with catalog tuning "
             "and no authored tuning the worn path inserted the marker and the "
             "projection removed it on the same tick. Two paths answering one "
-            "question, reintroduced by the commit closing that exact failure."
+            "question, reintroduced by the commit closing that exact failure. "
+            "⚠ 2026-07-29: `definition.rs` joined the allowed set because the "
+            "fold moved to the barrier — and the projection's half of that old "
+            "bug is GONE with it, because there is no longer a prepared value "
+            "the projection could read `None` from while the worn path read a "
+            "row."
         ),
     },
     {

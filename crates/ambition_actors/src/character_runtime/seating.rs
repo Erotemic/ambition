@@ -341,6 +341,24 @@ impl ActiveMatch {
         self.seat_topology
     }
 
+    /// **Adopt a frozen topology this match already agrees with.**
+    ///
+    /// The ONLY legitimate mutation of a live activation, and the narrowness is
+    /// the point. It records which topology decided a seating that has not
+    /// changed — it cannot move a body, add a seat or drop one.
+    ///
+    /// The case it exists for is ordinary: a route's roster is built from live
+    /// device discovery when the route is entered, and the rollback session
+    /// freezes its topology afterwards. If the fighters the frozen topology
+    /// would produce are the fighters already on the stage, the two agree about
+    /// WHO and disagree only about the paperwork, and correcting paperwork is a
+    /// repair. A real disagreement — different fighters — is still reported and
+    /// still not reseated, because reseating mid-match is the worse bug
+    /// (queue Y′9, 2026-07-29).
+    pub fn adopt_seat_topology(&mut self, generation: u64) {
+        self.seat_topology = Some(generation);
+    }
+
     /// Build an activation directly, for a test that needs a LIVE match without
     /// standing up seating to produce one.
     ///

@@ -262,35 +262,61 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition::input::LocalSeatTopology>>,
-    roster: Option<Res<MatchParticipantRoster>>,
-    active_match: Option<Res<ambition::actors::character_runtime::ActiveMatch>>,
+    roster: Option<ResMut<MatchParticipantRoster>>,
+    active_match: Option<ResMut<ambition::actors::character_runtime::ActiveMatch>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
-    let (Some(topology), Some(roster)) = (topology, roster) else {
+    let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
     };
     if !topology.is_frozen() || roster.seat_topology == Some(topology.generation()) {
         return;
     }
-    if let Some(active) = active_match.as_deref() {
+    // What the frozen topology WOULD seat. Before activation this replaces the
+    // roster; after it, it is the thing the live roster is compared against.
+    let rebuilt = versus_roster_from(topology.players(), Some(topology.generation()));
+    if let Some(mut active) = active_match {
         // The match is LIVE and these are its bodies. Reseating them underneath
-        // the round is worse than the disagreement, so it is reported — and the
-        // report can now name what disagrees, because activation recorded which
-        // topology it was built against instead of merely that it happened.
-        let _ = active.participants();
+        // the round is worse than the disagreement — so the question is whether
+        // there IS one.
+        //
+        // ⚠ **and the obvious comparison is wrong.** A one-player topology seats
+        // TWO participants (there is always an opponent, human or CPU), so
+        // comparing `participants.len()` against `topology.players()` reports a
+        // disagreement in the ordinary single-player case. Compare the FIGHTERS —
+        // the roster the frozen topology would build against the one that is
+        // live — because that is what "the same match" actually means.
+        if rebuilt.participants == roster.participants {
+            // AGREEMENT ABOUT WHO, disagreement only about the paperwork.
+            //
+            // Ordinary, not contrived: the route builds its roster from live
+            // device discovery on entry, and the rollback session freezes its
+            // topology afterwards, so a roster stamped `None` meets a frozen
+            // generation the moment the session starts. Nothing about the stage
+            // is wrong — the same fighters, driven by the same devices — and the
+            // only stale thing is the record of which decision produced them.
+            //
+            // Correcting a record is a repair. This is the half of Y′9 that was
+            // left as "reported rather than repaired", and it turns the warning
+            // below into a signal instead of startup noise.
+            roster.seat_topology = Some(topology.generation());
+            active.adopt_seat_topology(topology.generation());
+            return;
+        }
         bevy::log::warn_once!(
             "the versus roster seats {} fighter(s) from seat topology {:?}, but the session \
-             froze topology {} with {} player(s). The match is already seated, so it is left \
-             alone — reseating bodies mid-match would be the worse bug. This is the case \
-             match ACTIVATION exists to make impossible.",
+             froze topology {} with {} player(s), which would seat {} different fighter(s) \
+             across {} body/bodies already on the stage. The match is already seated, so it \
+             is left alone — reseating bodies mid-match would be the worse bug.",
             roster.participants.len(),
             roster.seat_topology,
             topology.generation(),
             topology.players(),
+            rebuilt.participants.len(),
+            active.participants().len(),
         );
         return;
     }
-    let rebuilt = versus_roster_from(topology.players(), Some(topology.generation()));
     rebuilt.project_demand(&mut demand);
     commands.insert_resource(rebuilt);
 }
@@ -628,6 +654,51 @@ mod roster_topology_tests {
             4,
             "a topology that has never been captured overruled a four-player \
              roster and cut it to the two-seat floor"
+        );
+    }
+
+    /// **The stamp is repaired when the match and the session agree about WHO.**
+    ///
+    /// The ordinary sequence, and the one that made this worth building: the
+    /// route builds its roster from live device discovery on entry, stamped
+    /// `None` because no session has frozen anything yet; the fighters seat; the
+    /// rollback session starts and freezes its topology. Now the roster
+    /// disagrees with the session about which decision produced it while
+    /// agreeing completely about who is fighting.
+    ///
+    /// Before this, that warned — on a stage where nothing was wrong. Y′9 left
+    /// the post-seating case "reported rather than repaired"; repairing the
+    /// repairable half is what makes the remaining report mean something.
+    #[test]
+    fn a_live_match_that_agrees_with_its_session_adopts_its_topology() {
+        let mut app = app_with(versus_roster_from(1, None), 1, true);
+        let generation = app.world().resource::<LocalSeatTopology>().generation();
+        let fighters = app
+            .world()
+            .resource::<MatchParticipantRoster>()
+            .participants
+            .clone();
+
+        app.update();
+
+        let roster = app.world().resource::<MatchParticipantRoster>();
+        assert_eq!(
+            roster.participants, fighters,
+            "the repair changed WHO is fighting; it may only correct the record \
+             of which topology decided them"
+        );
+        assert_eq!(
+            roster.seat_topology,
+            Some(generation),
+            "the roster and the session agree about the fighters and the roster \
+             still records no topology, so the reconciler warns about a stage \
+             where nothing is wrong — every tick, forever"
+        );
+        assert_eq!(
+            app.world().resource::<ActiveMatch>().seat_topology(),
+            Some(generation),
+            "the ACTIVATION kept the stale stamp, so the next comparison asks \
+             the same question again and the repair has to be redone"
         );
     }
 

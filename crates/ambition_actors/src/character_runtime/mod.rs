@@ -561,6 +561,43 @@ pub fn declare_registered_characters(
     }
 }
 
+/// **An ACTOR that resolved a character identity needs that art too.**
+///
+/// The exact sibling of [`demand_worn_character_sheets`], and it was missing.
+/// That system watches `WornCharacter` — the identity a body PUTS ON. An
+/// `EnemySpawn` wears nothing: it resolves its character through the display-name
+/// join (`ActorClusterSeed` → `catalog.id_for_display_name`) and carries the
+/// answer on `ActorConfig::sprite_character_id`. So a room full of authored
+/// enemies declared their characters, resolved them correctly, and never asked
+/// for the art.
+///
+/// The symptom is a marked placeholder rectangle, and the renderer says so
+/// exactly: *"actor 'Puppy Slug' resolved no sprite and is drawing the
+/// placeholder rectangle: declared as 'npc_puppy_slug' but not materialized —
+/// nothing demanded it, so the engine never decoded its sheet"*. Four of them
+/// stand in `intro_escape_shaft`, in the sequence a stranger plays first
+/// (2026-07-29, found by photographing the room).
+///
+/// ⚠ **`Added` rather than `Changed`.** An actor's config is rebuilt every tick
+/// as a read-model (`sync_actor_read_models` restores its reaction timers over a
+/// fresh value), so `Changed` here would re-request the whole room's cast every
+/// frame. The identity is decided at construction and does not drift, so asking
+/// once when the component appears is both sufficient and the only affordable
+/// option.
+pub fn demand_actor_character_sheets(
+    actors: Query<&crate::features::ActorConfig, Added<crate::features::ActorConfig>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+) {
+    let Some(mut demand) = demand else {
+        return;
+    };
+    for config in &actors {
+        if let Some(character_id) = config.sprite_character_id.as_deref() {
+            demand.request(character_id);
+        }
+    }
+}
+
 /// A body that put on an identity needs that identity's art.
 ///
 /// Every worn body, not just the primary player. The host's version of this
@@ -823,6 +860,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // it, drop the previous session's.
                     retire_previous_session_cast,
                     demand_worn_character_sheets,
+                    demand_actor_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
                     audit::report_character_capability_gaps,

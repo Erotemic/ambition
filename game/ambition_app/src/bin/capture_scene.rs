@@ -53,6 +53,19 @@ struct SceneCaptureConfig {
     /// When the focus positional is the literal `player`, center the camera on
     /// the live player entity's position after warmup (no coordinate hunting).
     follow_player: bool,
+    /// Keep the DEVELOPER overlays in the shot (`--dev-overlays`).
+    ///
+    /// Off by default, and that default is the point: this tool exists to show
+    /// what is actually on screen, and a `desktop_dev` build puts a debug banner,
+    /// an FPS counter and per-entity nameplates on top of the product. Reading
+    /// those as product is a mistake I made for a whole session — the Ambition
+    /// route's `military_tower_door` / `hall_of_bosses_door` labels look exactly
+    /// like raw identifiers leaking into player UI, and are debug nameplates
+    /// (2026-07-29).
+    ///
+    /// A verification screenshot should show the PRODUCT. The debugging use that
+    /// genuinely wants nameplates asks for them.
+    dev_overlays: bool,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
     ///
     /// The surfaces a stranger sees first — the launcher, the startup cards,
@@ -229,12 +242,17 @@ impl SceneCaptureConfig {
         let mut positional = Vec::new();
         let mut warmup_frames = 12u32;
         let mut include_ui = false;
+        let mut dev_overlays = false;
         let mut show_window = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
+                "--dev-overlays" => {
+                    dev_overlays = true;
+                    i += 1;
+                }
                 "--include-ui" => {
                     include_ui = true;
                     i += 1;
@@ -338,6 +356,7 @@ impl SceneCaptureConfig {
                 show_window,
                 character,
                 follow_player: false,
+                dev_overlays,
                 route: Some(route),
             });
         }
@@ -375,6 +394,7 @@ impl SceneCaptureConfig {
             include_ui,
             show_window,
             character,
+            dev_overlays,
             follow_player,
             route: None,
         })
@@ -387,6 +407,45 @@ impl SceneCaptureConfig {
 /// silently photographs somewhere else is how a blind agent reports the wrong
 /// thing with confidence, and that is the defect this whole mode exists to
 /// remove.
+/// Silence the developer overlays unless the caller asked for them.
+///
+/// A `desktop_dev` build draws a debug banner, an FPS counter and per-entity
+/// nameplates on top of the product, and this tool exists to show what is on
+/// screen. Reading that scaffolding as product is a mistake worth engineering
+/// against: on the Ambition route the nameplates read `military_tower_door` and
+/// `hall_of_bosses_door`, which look exactly like raw identifiers leaking into
+/// player UI (2026-07-29).
+///
+/// ⚠ a SYSTEM, not a one-shot insert at build time. Settings are loaded and
+/// re-applied during startup, so a value written before the first update is
+/// overwritten by the load — which is exactly what the first version of this did,
+/// silently, leaving every overlay on screen. Forcing it each frame is
+/// order-independent, and for a capture tool that costs nothing.
+///
+/// Written as SETTINGS rather than by disabling plugins, because the settings are
+/// what a player toggles: a clean capture is a configuration a player can reach,
+/// not a special build that might diverge from one.
+fn silence_dev_overlays(
+    config: Res<SceneCaptureConfig>,
+    mut settings: ResMut<ambition::persistence::settings::UserSettings>,
+    mut developer: Option<ResMut<ambition::dev_tools::dev_tools::DeveloperTools>>,
+) {
+    if config.dev_overlays {
+        return;
+    }
+    if settings.gameplay.debug_hud_visible {
+        settings.gameplay.debug_hud_visible = false;
+    }
+    if settings.video.show_fps {
+        settings.video.show_fps = false;
+    }
+    if let Some(developer) = developer.as_mut() {
+        if developer.show_hud {
+            developer.show_hud = false;
+        }
+    }
+}
+
 fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     let mut app = ambition_app::app::build_visible_app(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
@@ -432,6 +491,7 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     app.add_systems(
         Update,
         (
+            silence_dev_overlays,
             go_to_route,
             adopt_route_cameras,
             request_capture,

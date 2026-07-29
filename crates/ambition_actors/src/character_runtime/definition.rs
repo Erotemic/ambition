@@ -221,11 +221,20 @@ pub struct CharacterDefinition {
     /// Select-screen portrait. Loads WITHOUT the sheet, so an enumeration screen
     /// costs no sheet decode.
     ///
-    /// ⚠ **preparation RESOLVES this reference; no runtime consumes it.** The
-    /// portrait target is checked against the composition's vocabulary and named
-    /// at load if it is wrong — but nothing reads the prepared portrait path to
-    /// draw anything. The catalog's own `portrait_ref` is what dialogue and the
-    /// select surface use today (verified 2026-07-29).
+    /// ⚠ **preparation RESOLVES this reference; no runtime consumes it**, and the
+    /// reason is structural rather than an oversight (checked 2026-07-29).
+    ///
+    /// This declares a portrait TARGET — a name. Dialogue resolves a speaker's
+    /// portrait through `CharacterCatalog::portrait_ref`, which yields concrete
+    /// `{ image, manifest, default_clip }` paths. There is no
+    /// target → portrait-art resolver anywhere, so an authored target has nothing
+    /// to resolve THROUGH and reaches nothing.
+    ///
+    /// Either that resolver gets built — the sheet path is exactly this shape,
+    /// `SheetTarget` resolving a name to a manifest — or this field goes and the
+    /// catalog owns portraits outright. ⛔ what it must NOT become is a copy of
+    /// the catalog's concrete paths: two places declaring the same art is the
+    /// split this campaign exists to remove.
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,

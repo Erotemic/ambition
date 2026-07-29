@@ -231,8 +231,26 @@ and goes red when the derive is removed from the fixture.
 
 ### Phase B remainder — consolidate construction
 
-Still open: extract the common body construction, then delete seating
-placeholders, path-specific baseline insertion, and per-field retraction.
+Still open: extract the common body construction, and remove path-specific
+baseline insertion and per-field retraction.
+
+⛔ **DO NOT "delete the seating placeholders". This step, as originally written,
+would reintroduce H1.** Checked against the code on 2026-07-29 rather than
+inherited:
+
+`apply_worn_character_gameplay` takes `&mut Name`, `&mut ActionSet`,
+`&mut ActorMoveset`, `&mut IdentityKit` and `&mut MotionModel` as REQUIRED,
+non-`Option` query columns. A body missing any of them does not match the single
+persona writer AT ALL — it wears a character and derives nothing from it, which is
+precisely the failure this campaign exists to remove.
+
+So seating's `ActionSet::default()` and empty `ActorMoveset` are not residue and
+not a second opinion. They are the components the writer needs to exist before it
+can overwrite them, and the comment beside them says so. The thing that WAS a
+second opinion — the projection writing kits — is already gone.
+
+The honest version of this step: extract the shared construction so both paths
+insert the same required columns in one place, rather than delete the columns.
 
 ### Phase C — generation invalidation (folds in H6)
 

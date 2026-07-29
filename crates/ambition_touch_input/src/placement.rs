@@ -468,6 +468,78 @@ mod tests {
         );
     }
 
+    /// **A VISIBLE touch stick is drawn at the bottom-left, and drawn at all.**
+    ///
+    /// The companion to `an_unplaced_surface_leaves_the_layout`, and the half
+    /// that keeps that fix honest. Hiding an unplaced surface is only correct if
+    /// a surface that SHOULD be on screen still gets a rectangle — otherwise the
+    /// repair for "the d-pad drew in the wrong corner" would be "the d-pad does
+    /// not draw", which is worse for the person holding a phone: a misplaced
+    /// stick is playable and an absent one is not (Jon, 2026-07-29).
+    ///
+    /// Driven through the REAL resolver with this crate's real footprints and
+    /// then through the REAL placement system, so it asserts the pixels a touch
+    /// session actually gets rather than a hand-made resolved value.
+    #[test]
+    fn a_visible_touch_stick_is_placed_at_the_bottom_left_corner() {
+        use ambition_platformer_primitives::gameplay_presentation::{
+            resolve_gameplay_presentation, GameplayPresentationInput, GameplayPresentationProfile,
+            ScreenInsets,
+        };
+
+        let display = Vec2::new(1280.0, 720.0);
+        // Full-bleed: no reserved surround, so the controls take the overlay
+        // ladder's last rung — a device-safe corner. That is the shipped desktop
+        // and phone case, and the one the bug appeared in.
+        let profile = GameplayPresentationProfile::full_bleed();
+        let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
+            display_px: display,
+            safe_area_insets: ScreenInsets::ZERO,
+            profile: &profile,
+            occlusions: &[],
+            control_footprints: touch_control_footprints(),
+        });
+
+        let movement = resolved
+            .controls
+            .movement
+            .expect(
+                "a visible touch session must place its movement stick; if this is None the \
+                 overlay is hidden entirely and the game is unplayable by touch",
+            )
+            .rect;
+        assert!(
+            movement.min.x < display.x * 0.5,
+            "the stick belongs on the LEFT, got min.x={}",
+            movement.min.x
+        );
+        assert!(
+            movement.max.y > display.y - 1.0,
+            "the stick belongs at the BOTTOM — flush with the safe area's lower \
+             edge — got max.y={} on a {}px-tall display. Drawn at the TOP is the \
+             exact symptom that put a d-pad over the versus scoreboard",
+            movement.max.y,
+            display.y
+        );
+
+        // And the placement system turns that into a drawn node, rather than
+        // hiding it the way an unplaced surface is now hidden.
+        let mut app = app_with(resolved);
+        let root = app
+            .world_mut()
+            .spawn((TouchSurface::Movement, Node::default()))
+            .id();
+        app.update();
+        let node = app.world().entity(root).get::<Node>().unwrap().clone();
+        assert_eq!(
+            node.display,
+            Display::Flex,
+            "a placed surface must stay in the layout"
+        );
+        assert_eq!(node.left, Val::Px(movement.min.x));
+        assert_eq!(node.top, Val::Px(movement.min.y));
+    }
+
     /// Hiding the touch HUD withdraws its footprints, so the layout stops
     /// reserving surround for controls that are not on screen.
     #[test]

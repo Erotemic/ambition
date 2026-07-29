@@ -83,7 +83,7 @@ fn three_real_providers_compose_independent_of_registration_order() {
     assert_eq!(boss_providers(&forward), boss_providers(&reverse));
 
     let catalog = forward.world().resource::<CharacterCatalog>();
-    for id in ["player", "sanic", "super_sanic", "mary_o"] {
+    for id in ["player_robot_v3", "sanic", "super_sanic", "mary_o"] {
         assert!(
             catalog.get(id).is_some(),
             "missing real provider character {id}"

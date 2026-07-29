@@ -863,6 +863,43 @@ pub fn register_engine_rollback_state(app: &mut App) {
             hasher.finish() ^ baseline.generation.get().rotate_left(32)
         },
     )
+    // **THE PROJECTION'S OWN MEMO**, and the third time this exact shape has had
+    // to be registered rather than assumed derived — after `IdentityKit` and
+    // `PersonaBaseline` directly above.
+    //
+    // `project_prepared_character_definitions` early-exits when this record
+    // agrees with the body's worn id and the cast generation, and it also
+    // records what it GRANTED so it can retract exactly that. Leave it out of
+    // rollback and a rewind restores an earlier `WornCharacter` while the memo
+    // still claims the abandoned future's id: the projection skips, and the body
+    // resimulates wearing a kit — hurtboxes, movement tuning, sprite-posed body
+    // — that its identity no longer asks for. `granted` makes it worse than a
+    // stale read, because retraction is driven from it: the wrong record retracts
+    // the wrong facts.
+    //
+    // ⚠ it was ALWAYS unregistered; nothing caught it because no tested room had
+    // a body carrying one. Registering the protagonist's own incarnations as
+    // characters (2026-07-29) put it on the PLAYER, so it appeared in every room
+    // at once and three coverage gates went red together. The component did not
+    // become dangerous that day — it became visible.
+    //
+    // PROBED over the id, the generation AND the grant set, for the reason
+    // `PersonaBaseline` is: a desync here is silent by construction. It does not
+    // corrupt a number, it makes a derive SKIP, and a presence-only probe would
+    // see the component and nothing about what it claims.
+    .rollback_component_clone_probed::<ambition_actors::character_runtime::ProjectedCharacterKit>(
+        ENGINE,
+        "actor.projected_character_kit",
+        |projected| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            projected.id.hash(&mut hasher);
+            projected.granted.hurtboxes.hash(&mut hasher);
+            projected.granted.movement_tuning.hash(&mut hasher);
+            projected.granted.posed_body.hash(&mut hasher);
+            hasher.finish() ^ projected.generation.get().rotate_left(32)
+        },
+    )
     .rollback_component_clone::<ambition_characters::brain::BossCapability>(
         ENGINE,
         "boss.capability",

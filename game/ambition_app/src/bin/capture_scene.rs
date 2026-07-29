@@ -163,6 +163,7 @@ fn main() {
         );
         app.add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_millis(0)));
     }
+    pin_the_clock(&mut app);
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
@@ -457,6 +458,33 @@ fn silence_dev_overlays(
     }
 }
 
+/// **A frame of warmup must mean the same amount of TIME every run.**
+///
+/// The capture advances the app with `ScheduleRunnerPlugin::run_loop(ZERO)` —
+/// as fast as the machine goes — and Bevy's default clock advances by the real
+/// duration each frame actually took. So `--warmup 60` bought sixty frames of
+/// *whatever the CPU managed*, and two runs of the same binary with identical
+/// arguments landed on different animation poses.
+///
+/// That was measured, not assumed: two identical runs differed by ~132 pixels,
+/// and an unrelated change measured 800–1450 — a number I nearly filed as a
+/// rendering regression before tiling the two images and seeing the same
+/// silhouette with its arms in a different part of the idle bob (2026-07-29).
+///
+/// It matters beyond tidiness. This tool is the repository's eyes: every "the
+/// room renders", "the sprite is distinct", "nothing changed" conclusion is a
+/// pixel comparison, and a comparison against a moving baseline is only as good
+/// as the gap between signal and noise. Pinning the clock makes a zero-diff
+/// evidence instead of a coincidence.
+///
+/// 60 Hz, matching `ambition_runtime::SIM_TICK_HZ`, so a warmup frame is a sim
+/// tick and `--warmup N` reads as "N ticks in".
+fn pin_the_clock(app: &mut App) {
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        Duration::from_secs_f64(1.0 / ambition::runtime::SIM_TICK_HZ),
+    ));
+}
+
 fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     let mut app = ambition_app::app::build_visible_app(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
@@ -495,6 +523,12 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
         );
         std::process::exit(2);
     }
+
+    // ⚠ **AND THE CLOCK, in BOTH builders.** Room mode pins it too; this tool
+    // has now shipped the same half-wired flag three times (the `--route`
+    // positional, the headless surface above, `--dev-overlays`) because each
+    // mode assembles its own app and a change to one reads as done.
+    pin_the_clock(&mut app);
 
     app.insert_resource(config.clone());
     app.insert_resource(SceneCaptureRuntime::default());

@@ -272,8 +272,18 @@ constructor now, pinned by
 the SFX stamp entirely, comparing the whole contract was vacuous because
 `AbilitySet::basic()` grants no attack, and only granting attack made the probe go
 red. The divergence it now catches is the entire robot-blade cue family.
-▢ remaining: the rest of the shared construction — path-specific baseline
-insertion and per-field retraction.
+✔ **per-field retraction is gone (2026-07-29).** The projection kept three loose
+booleans — `granted_hurtboxes`, `granted_movement_tuning`, `granted_posed_body` —
+each with a field declaration, a grant expression and a retract branch. Three
+places to edit per fact, and forgetting one is SILENT: the body keeps a retired
+hurtbox document, or loses a live one.
+They are one `GrantedBodyFacts` record now, with one producer (`of`) and one
+consumer (`retract`). `retract` DESTRUCTURES it, so adding a fact is a compile
+error until it is handled — verified by adding a field and watching
+`E0027: pattern does not mention field`. The coupling was real, so it is enforced
+rather than remembered.
+
+▢ remaining: path-specific baseline insertion.
 
 ### Phase C — generation invalidation (folds in H6)
 

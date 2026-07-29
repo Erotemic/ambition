@@ -288,12 +288,64 @@ pub struct ProjectedCharacterKit {
     ///
     /// Historical ownership is not a property of the new authority. So it is
     /// written down at grant time.
-    pub granted_hurtboxes: bool,
-    pub granted_movement_tuning: bool,
-    /// Whether this system installed a [`SpritePosedBody`] from the definition's
-    /// authored `body`. Same reason as the two above: retraction must remove what
-    /// was granted, and the new registry cannot be asked what the old one gave.
-    pub granted_posed_body: bool,
+    pub granted: GrantedBodyFacts,
+}
+
+/// **What the projection put on a body**, so it can take exactly that back.
+///
+/// One record with one producer ([`Self::of`]) and one consumer
+/// ([`Self::retract`]), because the three facts used to be three loose booleans
+/// with a grant expression, a retract branch and a field declaration each —
+/// three places to edit per fact, and forgetting one is silent (the body keeps a
+/// retired hurtbox document, or loses a live one).
+///
+/// ⚠ `retract` DESTRUCTURES this struct, so adding a fact here is a COMPILE ERROR
+/// until it is retracted too. That is the whole reason it is a struct rather than
+/// three fields: the coupling is real, so it should be enforced rather than
+/// remembered.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GrantedBodyFacts {
+    pub hurtboxes: bool,
+    pub movement_tuning: bool,
+    pub posed_body: bool,
+}
+
+impl GrantedBodyFacts {
+    /// What projecting `prepared` onto a body WILL grant.
+    fn of(prepared: &super::PreparedCharacterDefinition) -> Self {
+        Self {
+            hurtboxes: prepared.hurtboxes.is_some(),
+            movement_tuning: prepared.movement_tuning.is_some(),
+            posed_body: posed_body_for(prepared).is_some(),
+        }
+    }
+
+    /// Take back exactly what was granted, and nothing else.
+    ///
+    /// Removing only what THIS system granted is what keeps it from fighting the
+    /// worn path, which owns the movement-feel marker for a body whose feel came
+    /// from the CATALOG — a case this system cannot see and must not overwrite.
+    fn retract(self, entity: Entity, commands: &mut Commands) {
+        // Exhaustive on purpose: a new fact does not compile until it is handled.
+        let Self {
+            hurtboxes,
+            movement_tuning,
+            posed_body,
+        } = self;
+        if hurtboxes {
+            commands.entity(entity).remove::<super::AuthoredHurtboxes>();
+        }
+        if movement_tuning {
+            commands
+                .entity(entity)
+                .remove::<ambition_engine_core::AuthoredMovementTuning>();
+        }
+        if posed_body {
+            commands
+                .entity(entity)
+                .remove::<crate::character_sprites::SpritePosedBody>();
+        }
+    }
 }
 
 /// The sprite-posed body a definition's authored `body` asks for, if any.
@@ -446,24 +498,7 @@ pub fn project_prepared_character_definitions(
         // are derived from the live moveset by
         // `reconcile_moveset_routing_markers`, so they follow whichever writer won.
         if let Some(previous) = projected {
-            // Read off the RECORD of what was granted, not off a lookup of the
-            // old id in the new registry — see [`ProjectedCharacterKit`]. Removing
-            // only what this system granted is what keeps it from fighting the
-            // worn path, which owns the marker for a body whose feel came from the
-            // CATALOG: a case this system cannot see and must not overwrite.
-            if previous.granted_hurtboxes {
-                commands.entity(entity).remove::<super::AuthoredHurtboxes>();
-            }
-            if previous.granted_movement_tuning {
-                commands
-                    .entity(entity)
-                    .remove::<ambition_engine_core::AuthoredMovementTuning>();
-            }
-            if previous.granted_posed_body {
-                commands
-                    .entity(entity)
-                    .remove::<crate::character_sprites::SpritePosedBody>();
-            }
+            previous.granted.retract(entity, &mut commands);
         }
         let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
             if projected.is_some() {
@@ -486,9 +521,7 @@ pub fn project_prepared_character_definitions(
         commands.entity(entity).insert(ProjectedCharacterKit {
             id: prepared.id.clone(),
             generation: registry.generation(),
-            granted_hurtboxes: prepared.hurtboxes.is_some(),
-            granted_movement_tuning: prepared.movement_tuning.is_some(),
-            granted_posed_body: posed_body_for(prepared).is_some(),
+            granted: GrantedBodyFacts::of(prepared),
         });
         // **THE KIT, for the bodies the persona derive cannot see.**
         // (Phase B, 2026-07-29)

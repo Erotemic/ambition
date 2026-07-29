@@ -148,7 +148,11 @@ impl PlayerSimulationBundle {
         // rule, a second cue family — and this campaign is otherwise about
         // removing exactly that (2026-07-29).
         let moveset = crate::combat::moveset::ActorMoveset(
-            crate::avatar::starting_character::build_host_code_moveset(&action_set, None),
+            crate::avatar::starting_character::derive_persona_moveset(
+                &action_set,
+                crate::avatar::RangedExecution::HostCharge,
+                None,
+            ),
         );
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);

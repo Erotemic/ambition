@@ -86,8 +86,8 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         ambition::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-        
-            ..Default::default()
+            // Single-player demo, stated rather than inherited (2026-07-29).
+            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
         },
     )
     .expect("the demo composition starts a GGRS sync-test session");

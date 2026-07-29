@@ -716,7 +716,7 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
 fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
 
-    let (set, charges_projectiles) = resolve_playable_action_set(
+    let (set, execution) = resolve_playable_action_set(
         Some(PlayableKitSource::Authored),
         None,
         ambition_engine_core::AbilitySet::sandbox_all(),
@@ -724,7 +724,7 @@ fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
     assert!(set.melee.is_none());
     assert!(set.ranged.is_none());
     assert!(set.special.is_none());
-    assert!(!charges_projectiles);
+    assert_eq!(execution, RangedExecution::MovesetVerb);
 }
 
 /// Gate 1 (GPT-5.6 review): the canonical player's `Special("bubble_shield")` was
@@ -1225,6 +1225,77 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
     );
 }
 
+/// **An UNREGISTERED authored persona derives its ranged move too.**
+///
+/// The test above proves it for a character in the prepared registry, where the
+/// fold happens at the preparation barrier. Most of the cast is not registered —
+/// it lives in the catalog and nothing else — and that path derives its moves
+/// separately, in `derive_persona_moveset`.
+///
+/// ⚠ found by RED-PROBING the `RangedExecution` unification rather than by
+/// reading: replacing the `MovesetVerb` arm's `set.ranged.as_ref()` with `None`
+/// — reinstating the exact defect H2 closed — left all 1101 actors tests green.
+/// The row read as covered because a test with the right name existed; it
+/// covered the other path. Being tested somewhere is not being tested here
+/// (2026-07-29).
+#[test]
+fn an_unregistered_authored_persona_derives_its_ranged_move() {
+    let catalog = catalog_granting_melee_and_ranged("drifter");
+    let empty = crate::character_runtime::PreparedCharacterRegistry::default();
+
+    let (action_set, moveset) = wear(&catalog, &empty, "drifter");
+
+    assert!(
+        action_set.ranged.is_some(),
+        "fixture: the catalog row must ADVERTISE ranged, or the mismatch under \
+         test cannot exist"
+    );
+    assert!(
+        moveset
+            .0
+            .verbs
+            .contains_key(crate::combat::moveset::RANGED_VERB),
+        "an unregistered catalog persona advertises ranged and derived no ranged \
+         verb, so pressing it does nothing: {:?}",
+        moveset.0.verbs.keys().collect::<Vec<_>>()
+    );
+}
+
+/// A catalog whose one authored row grants BOTH a melee and a ranged preset.
+fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
+    use ambition_characters::actor::character_catalog::parse_catalog;
+    let ron = format!(
+        r#"(
+            brain_presets: {{ "stand_still": StandStill }},
+            action_set_presets: {{
+                "gunbrawler": (
+                    move_style: Walk,
+                    melee: Some(Swipe(
+                        windup_s: 0.28, active_s: 0.08, recover_s: 0.32,
+                        damage: 3, reach_px: 40.0,
+                    )),
+                    ranged: Some(Pistol(speed: 411.0, damage: 7)),
+                ),
+            }},
+            characters: {{
+                "{id}": (
+                    display_name: "Catalog Says Gunbrawler",
+                    spritesheet: "sprites/robot_spritesheet.png",
+                    manifest: "sprites/robot_spritesheet.ron",
+                    tier: Basement,
+                    body_kind: Standard,
+                    composition: None,
+                    default_brain: "stand_still",
+                    default_action_set: "gunbrawler",
+                    playable_kit: Authored,
+                    tags: [],
+                ),
+            }},
+        )"#
+    );
+    CharacterCatalog::from_data(parse_catalog(&ron))
+}
+
 /// **X8: the primary player's kit comes from the RESOLVED identity.**
 ///
 /// `PlayerSimulationBundle::from_scratch_as_character` applies the overlay with
@@ -1374,7 +1445,11 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
         crate::avatar::primary_player_scratch(ambition_engine_core::Vec2::new(0.0, 0.0), abilities),
         ambition_characters::actor::Health::new(10),
     );
-    let rewarn = crate::avatar::starting_character::build_host_code_moveset(&action_set, None);
+    let rewarn = crate::avatar::starting_character::derive_persona_moveset(
+        &action_set,
+        crate::avatar::RangedExecution::HostCharge,
+        None,
+    );
 
     // ⚠ VACUITY FIRST. Two empty contracts compare equal, and a probe showed this
     // test passing while the construction was un-shared AND altered — because

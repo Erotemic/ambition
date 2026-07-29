@@ -336,11 +336,19 @@ somebody else's moves.
 
 ## Related, deliberately after
 
-- **`RangedExecution`** replacing `charges_projectiles` as the single switch
-  BOTH the legacy projectile path and the moveset path consult — with
-  preparation rejecting contradictory authored configurations. Useful only if
-  it becomes the sole switch; otherwise it is a third name for the same implicit
-  split.
+- ✔ **`RangedExecution`** replaced `charges_projectiles` on 2026-07-29, and the
+  condition this entry set — *useful only if it becomes the sole switch* — is
+  what made it worth doing. It could be: HOW a body fires decides four things
+  (which presets fold into the moveset, whether the blade SFX is stamped, and
+  whether the body carries `ChargesProjectiles`), and they were decided in three
+  places in two spellings. One enum decides all four, and the two moveset
+  builders collapsed into one function that takes it.
+  ⚠ what this entry ALSO asked for is not done and is deliberately not being
+  done: *preparation rejecting contradictory authored configurations*. There is
+  no contradiction to reject yet — a `HostCode` kit's action set is built by the
+  host, so content cannot author a ranged preset into it. A validator for an
+  unreachable state is a test of itself. It becomes real the day content can
+  author over a host kit.
 - **Versus activation** (`PreparedMatchPlan`-shaped): validate all required
   participants, activate the roster atomically, publish `ActiveMatch`, and start
   the countdown from THAT rather than from the presence of a requested roster

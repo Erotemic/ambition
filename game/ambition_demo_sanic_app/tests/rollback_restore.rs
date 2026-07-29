@@ -81,9 +81,10 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         ambition::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-        
-                ..Default::default()
-            },
+            // Sanic's demo is single-player, and now says so rather than
+            // inheriting a guess (2026-07-29).
+            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
+        },
     )
     .expect("the demo composition starts a GGRS sync-test session");
 

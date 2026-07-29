@@ -216,44 +216,105 @@ fn sync_worn_motion_model_preserving_state(
 /// capability marker (`bubble_shield`) with no authored move behind it; an
 /// authored persona drives its special through its own path, so folding a
 /// generic shell move there would make one press fire two things.
-pub(crate) fn build_host_code_moveset(
+/// **HOW a body fires — the single fact four decisions used to make separately.**
+///
+/// A body that fires has exactly one mechanism for it, and which one it is
+/// decides more than it looks:
+///
+/// * whether the action set's `ranged` preset folds into the derived moveset,
+/// * whether its `special` preset does,
+/// * whether the protagonist's blade SFX is stamped over the derived melee,
+/// * and whether the body carries `ChargesProjectiles` and its projectile state.
+///
+/// All four are the same question, and until this enum they were asked in three
+/// places in two spellings: a `bool` named for the fourth, and two hard-coded
+/// arguments (`None` for ranged here, `None` for special at the catalog site)
+/// each carrying a comment explaining that it was the opposite of the other. A
+/// fifth consultation could have been written in a third spelling without
+/// contradicting anything, which is what the queue meant by warning that a new
+/// name is only worth having if it becomes the SOLE switch.
+///
+/// It is not a component. `ChargesProjectiles` is the runtime marker and stays
+/// exactly as it was; this is the derivation-time decision that installs it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RangedExecution {
+    /// The host's chargeable-projectile mechanic owns the ranged press.
+    ///
+    /// The compat kit every unknown id and every `HostCode` row wears. Its
+    /// ranged verb is NOT a moveset move — folding one in would make one press
+    /// do two things, which is the test that went red when the queue's H2 first
+    /// tried passing `set.ranged` unconditionally.
+    HostCharge,
+    /// A moveset verb derived from the action set's own `ranged` preset.
+    ///
+    /// What content-authored personas use. They have no charge mechanic and no
+    /// shell `special` marker, so their special is authored into their moves
+    /// rather than folded from the set.
+    MovesetVerb,
+}
+
+impl RangedExecution {
+    /// Whether a body executing this way carries the host charge capability.
+    pub fn charges_projectiles(self) -> bool {
+        matches!(self, Self::HostCharge)
+    }
+}
+
+/// Derive a persona's moves from its action set, given HOW it fires.
+///
+/// The `authored` contract, when present, replaces the derivation outright: a
+/// character that authored its own moveset said something more specific than
+/// anything derivable from presets.
+pub(crate) fn derive_persona_moveset(
     set: &ActionSet,
+    execution: RangedExecution,
     authored: Option<ambition_entity_catalog::MovesetContract>,
 ) -> ambition_entity_catalog::MovesetContract {
-    // Ranged is NOT passed: this kit already fires through the legacy charged
-    // projectile path, and a second mechanism would make one press do two things.
-    let mut derived = build_actor_moveset(None, set.melee.as_ref(), None, set.special.as_ref())
-        .unwrap_or_default();
-    crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
+    let (ranged, special) = match execution {
+        // The charge mechanic already owns the ranged press; `special` is the
+        // shell marker this kit's moves are built from.
+        RangedExecution::HostCharge => (None, set.special.as_ref()),
+        // Symmetrically: the ranged preset IS the ranged verb, and the special
+        // is authored into the moves rather than folded from a marker.
+        RangedExecution::MovesetVerb => (set.ranged.as_ref(), None),
+    };
+    let mut derived =
+        build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
+    if execution.charges_projectiles() {
+        crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
+    }
     authored.unwrap_or(derived)
 }
 
 /// Resolve a playable ActionSet without collapsing an invalid authored row into
-/// the privileged host-code fallback. The returned bool says whether the body
-/// owns the host's chargeable-projectile capability.
+/// the privileged host-code fallback. The returned [`RangedExecution`] says how
+/// the body fires.
 fn resolve_playable_action_set(
     source: Option<ambition_characters::actor::character_catalog::PlayableKitSource>,
     authored: Option<ActionSet>,
     base_abilities: ambition_engine_core::AbilitySet,
-) -> (ActionSet, bool) {
+) -> (ActionSet, RangedExecution) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
 
     match source {
         Some(PlayableKitSource::HostCode) => (
             crate::avatar::bundles::default_player_action_set(base_abilities),
-            true,
+            RangedExecution::HostCharge,
         ),
         Some(PlayableKitSource::Authored) => {
             // A known authored row with a missing preset is malformed content.
             // The startup validator reports it; runtime remains fail-safe and
             // peaceful rather than silently granting the host protagonist kit.
-            (authored.unwrap_or_else(ActionSet::peaceful), false)
+            (
+                authored.unwrap_or_else(ActionSet::peaceful),
+                RangedExecution::MovesetVerb,
+            )
         }
         None => (
             // Unknown ids use one explicit compatibility fallback. This is
             // intentionally distinct from a known-but-invalid Authored row.
             crate::avatar::bundles::default_player_action_set(base_abilities),
-            true,
+            RangedExecution::HostCharge,
         ),
     }
 }
@@ -270,8 +331,8 @@ fn resolve_playable_action_set(
 /// - unknown id: install the explicit host-code compatibility fallback and name
 ///   the body after the id so the problem is visible.
 ///
-/// Returns whether the resolved persona owns the host chargeable-projectile
-/// capability; the ECS derive system synchronizes its marker and mutable state.
+/// Returns HOW the resolved persona fires ([`RangedExecution`]); the ECS derive
+/// system synchronizes the charge marker and its mutable state from that.
 pub fn apply_worn_character_overlay(
     catalog: &CharacterCatalog,
     // C3: the prepared registry, consulted for the moveset. Threaded THROUGH this
@@ -286,7 +347,7 @@ pub fn apply_worn_character_overlay(
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
-) -> bool {
+) -> RangedExecution {
     // NAME. A known row supplies a display name; an unknown id becomes its own
     // label — deterministic and never stale, and a legible diagnostic that a body
     // is wearing an id the catalog does not know.
@@ -333,7 +394,7 @@ fn apply_worn_character_kit(
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
-) -> bool {
+) -> RangedExecution {
     let prepared = registry.and_then(|registry| registry.get(character_id));
 
     // **A REGISTERED character's kit is already decided.** (H1, 2026-07-29)
@@ -348,22 +409,22 @@ fn apply_worn_character_kit(
     // The catalog arm below is not a fallback for a prepared character. It serves
     // ids that are in the catalog and were never registered — most of the legacy
     // cast — which have no prepared value to disagree with.
-    let (set, derived, charges_projectiles) = match prepared.map(|prepared| &prepared.kit) {
+    let (set, derived, execution) = match prepared.map(|prepared| &prepared.kit) {
         Some(crate::character_runtime::PreparedKit::Authored {
             action_set,
             moveset,
         }) => (
             action_set.clone(),
             moveset.clone(),
-            // `charges_projectiles` is a question about the CODE-SIDE compat
-            // kit's charge mechanic, and a character whose capabilities content
-            // decided is not wearing that kit.
-            false,
+            // The charge mechanic is the CODE-SIDE compat kit's, and a character
+            // whose capabilities content decided is not wearing that kit.
+            RangedExecution::MovesetVerb,
         ),
         Some(crate::character_runtime::PreparedKit::HostCode { authored_moveset }) => {
             let set = crate::avatar::bundles::default_player_action_set(base_abilities);
-            let derived = build_host_code_moveset(&set, authored_moveset.clone());
-            (set, derived, true)
+            let execution = RangedExecution::HostCharge;
+            let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
+            (set, derived, execution)
         }
         None => {
             let source = catalog.playable_kit_source(character_id);
@@ -383,18 +444,13 @@ fn apply_worn_character_kit(
                      code-side compatibility kit and showing the id as the display name"
                 );
             }
-            let (set, charges) = resolve_playable_action_set(source, authored, base_abilities);
-            if charges {
-                let derived = build_host_code_moveset(&set, None);
-                (set, derived, true)
-            } else {
-                // A catalog-authored persona: its moves come from its own action
-                // set, and its special is authored rather than a shell marker.
-                let derived =
-                    build_actor_moveset(None, set.melee.as_ref(), set.ranged.as_ref(), None)
-                        .unwrap_or_default();
-                (set, derived, false)
-            }
+            // ONE call for both kits now. The two arms this replaced differed
+            // only in which presets they folded and whether they stamped the
+            // blade SFX — which is precisely what `RangedExecution` decides, so
+            // they were the same call written twice with the answer inlined.
+            let (set, execution) = resolve_playable_action_set(source, authored, base_abilities);
+            let derived = derive_persona_moveset(&set, execution, None);
+            (set, derived, execution)
         }
     };
     // Publish what IDENTITY alone derived, before any equipment overlay. This is
@@ -406,13 +462,13 @@ fn apply_worn_character_kit(
         ambition_characters::brain::action_set::IdentityKit::of(set.clone(), derived.clone());
     *moveset = ActorMoveset(derived);
     *action_set = set;
-    charges_projectiles
+    execution
 }
 
 fn sync_charge_projectile_capability(
     commands: &mut Commands,
     entity: Entity,
-    charges_projectiles: bool,
+    execution: RangedExecution,
     has_projectile_state: bool,
 ) {
     // This kit refresh is deferred, and a session-scoped body can be despawned
@@ -420,7 +476,7 @@ fn sync_charge_projectile_capability(
     // `try_` variants apply the capability iff the entity is still alive rather
     // than erroring on a torn-down entity.
     let mut entity_commands = commands.entity(entity);
-    if charges_projectiles {
+    if execution.charges_projectiles() {
         entity_commands.try_insert(ambition_characters::brain::ChargesProjectiles);
         if !has_projectile_state {
             entity_commands.try_insert(ambition_projectiles::PlayerProjectileState::default());
@@ -492,7 +548,7 @@ pub fn apply_worn_character_gameplay(
         let stale_cast =
             baseline.is_none_or(|baseline| baseline.id != id || baseline.generation != generation);
         if character.is_changed() || stale_cast {
-            let charges_projectiles = apply_worn_character_overlay(
+            let execution = apply_worn_character_overlay(
                 &catalog,
                 registry.as_deref(),
                 &mut name,
@@ -505,7 +561,7 @@ pub fn apply_worn_character_gameplay(
             sync_charge_projectile_capability(
                 &mut commands,
                 entity,
-                charges_projectiles,
+                execution,
                 has_projectile_state,
             );
 
@@ -550,7 +606,7 @@ pub fn apply_worn_character_gameplay(
         if abilities.is_changed() {
             let source = catalog.playable_kit_source(id);
             if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
-                let charges_projectiles = apply_worn_character_kit(
+                let execution = apply_worn_character_kit(
                     &catalog,
                     registry.as_deref(),
                     &mut action_set,
@@ -562,7 +618,7 @@ pub fn apply_worn_character_gameplay(
                 sync_charge_projectile_capability(
                     &mut commands,
                     entity,
-                    charges_projectiles,
+                    execution,
                     has_projectile_state,
                 );
             }

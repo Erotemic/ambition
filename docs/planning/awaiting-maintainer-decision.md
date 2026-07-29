@@ -76,6 +76,16 @@ still there when you step away; an actor may not be) — but that is a
 readability judgement about your game, and the wrong choice makes the intro's
 tutorial signs disappear behind whoever is standing near them.
 
+Jon's Thoughts: 
+This doesn't feel that important right now. This is more of a debugging feature, but its 
+incredibly helpful to have as something always on, but a real game probably doesn't use it
+in this capacity. It's more like there's a door, and the player knows where it goes based on
+a map, or something. A game itself might define that it wasn't a nameplate style presentation, 
+and having engine sugar to make this easy might not be a bad idea. But again, this is extremely
+low priority. This is game polish that I don't anticipate caring about until we have really really
+good combat.
+
+
 ---
 
 ## 2. Should a prompt advertise a verb that resolves to nothing? (queue Z′4)
@@ -104,6 +114,11 @@ answers:
 `ambition_sim_view::control_prompt`), so no match concept is visible to it. A
 per-body marker from `ambition_characters` is the only shape both callers can
 read — the route `ScriptedControl` already takes.
+
+
+Jons Thoughts: 
+
+A smash game (versus) shouldn't have the concept of "interact", in fact neither does Mary-O, or Sanic. Only Ambition has an "interact" --- well I guess maryo sort of has interact, it's like going into a pipe, but its a different mapping. The "interact" is something the ambition game might want, and its general to that game, but maybe not to the engine. There is certainly an architecture issue here, and I don't want to make a rash decision and introduce a worse abstraction. We need to have a discussion to think about what the right way to handle this is. 
 
 ---
 
@@ -139,6 +154,12 @@ feature rather than a character-authoring one, deleting is cleaner.
 definition. That makes two places declaring the same art, which is the split this
 whole campaign has been removing.
 
+Jon's TThoughts: Yeah the resolver makes sense. The portraits are not a hub feature, 
+but different games might want to do it differently, however a character portrait for a dialog
+box is ubiquitous for platformer 2d games, so it makes sense the engine has a mechanism to 
+make it easy, although like most things with the engine, it should always be possible to 
+ignore some part of it and roll your own. This is the Bevy ECS way. 
+
 ---
 
 ## 4. Which enemies get art first? (queue AB5)
@@ -164,6 +185,13 @@ should stage enemies that already have art (Puppy Slug, AI Slop, Goblin) and
 leave the lab dummies for later. The second option is a content edit I can make
 in one commit if you want it.
 
+Jon's Thoughts: 
+
+The lab striker was an agent invention. I asked it to just use a goblin as the enemy there
+until I decided what I wanted to do about the Nazis, which was the original idea. 
+Just replace those enemies with a real enemy that already exist. The entire intro sequence
+is unpolished slop anyway.  
+
 ---
 
 ## 5. What is DI worth on a fighter? (queue F0-J1)
@@ -180,6 +208,11 @@ coin flip and one that is a read.
 
 **What I need:** one number (or "yes, use 18°"). The wiring is done.
 
+Jon's Feedback:
+
+In smash DI is critical! I probably want to use some smash physics in ambition itself too, because I want that game
+to feel like a cross between smash subspace emissary and hollow knight (among other things, I'm drawing inspiration from a lot of places). 
+
 ---
 
 ## 6. Does versus end on HP or on stocks? (queue F0-J2)
@@ -195,6 +228,12 @@ game.
 
 This is a decision about what the mode IS, not a defect, which is why nothing
 has been done to it.
+
+Jon's Feedback:
+
+For a generic "versus" fighting proof of concept I don't care. Probably use health, to make it a generic fighter.
+For Smash Siblings 3 stock, no items, final destination, fox only (that's fox only part is a joke). What I want for smash siblings is actually character select screen, ability to have 1-4 players, have them toggle between real player or cpu, use a smash like, drag an orb onto your character to select, and then the fight boots into a single 
+battlefield like 3 platform level. Its 3 stocks, and then when the game ends it goes back to the character select screen. We don't need items in a first pass.
 
 ---
 
@@ -216,3 +255,7 @@ better than a HUD over the arena, or does it waste fighting width?
 turned out to be two other bugs (an unresolved layout and the touch overlay
 drawing unplaced surfaces). Both are fixed on main, so this branch is now purely
 a look-and-feel proposal. If it is not wanted, discarding costs nothing.
+
+Jon's Feedback:
+
+A smash game would have a character portrait on the bottom for each character with an icon for each stock and their current percentage. There is no score, when you lose your stock you are dead. 

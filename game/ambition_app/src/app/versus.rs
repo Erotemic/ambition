@@ -395,6 +395,33 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
+    // **A RESERVED BAND FOR THE SCOREBOARD.** (Z′3 — UNVERIFIED, see below)
+    //
+    // The HUD slots below ask for `SurroundRegion::Top`, and asking is all they
+    // can do: the renderer honours a region only when the active profile RESERVES
+    // a surround, and otherwise the slot overlays gameplay. This experience
+    // declared no profile, so it got the full-bleed default — and both health
+    // readouts were drawn on top of the corner where the control legend already
+    // lives. "Long Guard 60/60" rendered through a virtual d-pad.
+    //
+    // 16:9 rather than the 4:3 Mary-O uses: a fighting stage is WIDE, and the
+    // point of the arena is horizontal space to be knocked across.
+    //
+    // ⛔ **THIS IS WHY THE CHANGE IS ON A BRANCH.** It could not be shown to do
+    // anything: `capture_scene` adopts the route's cameras and retargets them at
+    // its own image, which overrides whatever viewport the profile resolved — so
+    // letterboxing and reserved surrounds are invisible to the only instrument
+    // that can see this stage. Nothing changed at 16:9 (expected: no slack) and
+    // nothing changed at 16:10 (not expected). Keep or discard once the capture
+    // honours the resolved viewport, or once somebody runs the stage in a window.
+    .with_presentation_profiles(
+        ambition::presentation::gameplay_presentation::GameplayPresentationProfiles::uniform(
+            ambition::presentation::gameplay_presentation::GameplayPresentationProfile::fixed_aspect(
+                16.0, 9.0,
+            )
+            .with_reserved_surround(),
+        ),
+    )
     // The scoreboard. One health gauge PER SEAT plus two text readouts; the
     // engine never learns what a ROUND is — `publish_versus_hud` writes the
     // words.

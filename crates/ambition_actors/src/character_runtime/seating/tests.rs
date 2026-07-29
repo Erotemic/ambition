@@ -1054,3 +1054,49 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
          some other size"
     );
 }
+
+/// **A participant that CANNOT seat holds the latch open.** (H5's missing half)
+///
+/// `MatchSeated` is what the versus countdown waits on, and the predicate test
+/// beside that countdown records why the real scenario had never been driven:
+/// *"reaching the real case needs a participant that CANNOT seat, which the
+/// fixture cannot yet produce"*. Poking the resource does not work, because
+/// seating re-asserts it every tick once the roster is complete.
+///
+/// It can be produced, and cheaply: name a character nothing registered.
+/// `seat_character` returns `None` for an unregistered id, so the seat count
+/// never reaches the participant count and the latch stays open — which is the
+/// state the countdown must refuse to advance through, and the state a fighter
+/// arriving late would otherwise join a live round from.
+#[test]
+fn a_roster_with_an_unseatable_participant_never_latches() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("present", "Present", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        // One that can seat, one that cannot. The mix is the point: a latch that
+        // closed on "any seat succeeded" would report a one-fighter match as
+        // ready, which is the defect the atomic condition was written for.
+        participants: vec![cpu("present"), cpu("never_registered")],
+        ..Default::default()
+    });
+
+    // Several ticks, because seating RETRIES: the latch must stay open for as
+    // long as the roster is incomplete, not merely on the first tick.
+    for _ in 0..5 {
+        finalize_and_update(&mut app);
+    }
+
+    assert!(
+        !app.world().resource::<MatchSeated>().0,
+        "the match latched with a seat still empty, so the countdown is free to \
+         run and the round goes live one fighter short"
+    );
+    let world = app.world_mut();
+    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    assert_eq!(
+        worn.iter(world).count(),
+        1,
+        "the seatable participant should still have got its body — an incomplete \
+         roster must not also mean nobody is staged"
+    );
+}

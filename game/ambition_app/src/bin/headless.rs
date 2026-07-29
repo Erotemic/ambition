@@ -216,15 +216,21 @@ fn main() {
         std::process::exit(code);
     }
 
-    // Plain run: use the existing run_headless entry point. start_room
-    // override is only honored on the trace-dump path because the
-    // existing run_headless doesn't take options yet (and tests/CI
-    // depend on the no-arg form).
-    if start_room.is_some() {
-        eprintln!(
-            "headless: --start-room only takes effect with --dump-trace (run_headless takes no options yet)"
-        );
-    }
+    // Plain run: the existing `run_headless` entry point.
+    //
+    // ⚠ this used to warn *"--start-room only takes effect with --dump-trace
+    // (run_headless takes no options yet)"*, and that was FALSE — it told the
+    // user their flag had been ignored while the room was changing underneath
+    // them. `cli_start_room_arg()` reads `std::env::args()` directly, so the
+    // sandbox resource init honours the flag on EVERY path; the explicit
+    // `start_room` threaded into the trace-dump call below is how that path
+    // states it, not the only way it works.
+    //
+    // Verified rather than reasoned: `headless -- 30 --start-room
+    // goblin_encounter` prints `[ambition] start room: goblin_encounter` and
+    // `--start-room central_hub_main` now fails with the list of 72 ids
+    // (2026-07-29). A warning that contradicts the behaviour is worse than
+    // silence, because it sends the reader looking for a second mechanism.
     match ambition_app::run_headless(max_ticks) {
         Ok(report) => {
             println!("{report}");

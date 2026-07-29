@@ -321,6 +321,24 @@ fn reconcile_roster_with_frozen_topology(
     commands.insert_resource(rebuilt);
 }
 
+/// **The fighting stage's directional-influence budget, in radians.**
+///
+/// Jon, asked whether DI was worth turning on: *"In smash DI is critical!"* —
+/// and `SandboxFeelTuning::di_max_angle`'s own doc has named this mode as the
+/// caller since the field was written: *"a fighter mode (Super Smash Siblings)
+/// authors a smash-like ≈ 0.31 (18°) to turn it on."*
+///
+/// ⚠ **a MATCH RULE, set on route entry and restored on exit** — the same shape
+/// `FriendlyFire` already uses below, and for the same reason: a rule that
+/// outlives its match is a rule the next game silently inherits. Ambition's PvE
+/// knockback keeps the `0.0` default, because Jon said he *"probably"* wants
+/// Smash physics in the flagship too and did not name a number; changing how the
+/// whole game feels is his call, not an inference from this one.
+///
+/// 0.31 rad ≈ 18°: the victim's held stick may rotate its own launch by that
+/// much, which is what makes a knock-off a read instead of a coin flip.
+const VERSUS_DI_MAX_ANGLE: f32 = 0.31;
+
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition::game_shell::ShellRouter>,
@@ -330,6 +348,9 @@ fn track_versus_roster(
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
     mut friendly_fire: ResMut<ambition::combat::targeting::FriendlyFire>,
+    // DI is a rule of THIS stage, so it is switched on with the stage and off
+    // with it. See `VERSUS_DI_MAX_ANGLE`.
+    mut feel: ResMut<ambition::actors::time::feel::SandboxFeelTuning>,
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
     let on_versus = router
@@ -375,6 +396,10 @@ fn track_versus_roster(
             // teammates hittable too, and it is a world-wide rule change made by
             // one stage. Teams say the same thing locally and correctly.
             friendly_fire.enabled = false;
+            // DI ON. A launched fighter can steer its own trajectory, which is
+            // the difference between a knock-off that is a read and one that is a
+            // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
+            feel.di_max_angle = VERSUS_DI_MAX_ANGLE;
             // A FRESH match. `VersusMatch` is a long-lived resource, so without
             // this, leaving mid-round and coming back resumes the old score —
             // and a KO or match-over countdown resumes with it, which reads as
@@ -393,6 +418,11 @@ fn track_versus_roster(
             // game silently inherits, and "your allies can now shoot you" is a
             // bad surprise to bring into a co-op level.
             friendly_fire.enabled = false;
+            // And DI off, to the engine default rather than to a literal — so
+            // this restores whatever "no DI" means rather than asserting it is
+            // zero.
+            feel.di_max_angle =
+                ambition::actors::time::feel::SandboxFeelTuning::default().di_max_angle;
         }
         _ => {}
     }
@@ -560,6 +590,73 @@ pub fn compose_versus_experience(app: &mut App) {
         )
             .chain(),
     );
+}
+
+#[cfg(test)]
+mod stage_rule_tests {
+    use super::*;
+    use ambition::actors::time::feel::SandboxFeelTuning;
+
+    /// **DI is a rule of the fighting stage, and it leaves with the stage.**
+    ///
+    /// Jon: *"In smash DI is critical!"* — and also that he only *"probably"*
+    /// wants Smash physics in the flagship, without naming a number. So the
+    /// budget is switched on by the versus route and restored on the way out.
+    ///
+    /// The restore half is the half worth pinning. A match rule that outlives its
+    /// match is a rule the next game silently inherits, which is exactly the bug
+    /// `FriendlyFire` had here: leaving the arena used to leave "your allies can
+    /// now shoot you" behind in a co-op level. DI leaking would be quieter and
+    /// worse — every knockback in Ambition would start steering, and nothing
+    /// would say why.
+    #[test]
+    fn di_switches_on_with_the_versus_route_and_off_again_when_it_ends() {
+        let mut app = App::new();
+        app.init_resource::<SandboxFeelTuning>();
+        app.init_resource::<ambition::combat::targeting::FriendlyFire>();
+        app.init_resource::<super::super::versus_rules::VersusMatch>();
+        app.init_resource::<ambition::actors::character_runtime::CharacterLoadDemand>();
+        app.init_resource::<ambition::input::LocalDeviceOrder>();
+        app.insert_resource(ambition::game_shell::ShellRouter::default());
+        app.add_systems(Update, track_versus_roster);
+
+        assert_eq!(
+            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            0.0,
+            "Ambition's PvE default is no DI; if this ever starts nonzero the \
+             restore below stops proving anything"
+        );
+
+        // ENTER the versus route.
+        app.world_mut()
+            .resource_mut::<ambition::game_shell::ShellRouter>()
+            .active = Some(ambition::game_shell::ActiveShellExperience {
+            activation_id: ambition::game_shell::ShellActivationId(1),
+            route_id: ambition::game_shell::ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE),
+            experience_id: ambition::game_shell::ShellExperienceId::new(VERSUS_EXPERIENCE),
+            parameters: Default::default(),
+            load_authorization: None,
+            prepared_session: None,
+        });
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            VERSUS_DI_MAX_ANGLE,
+            "the fighting stage must author its DI budget"
+        );
+
+        // LEAVE it.
+        app.world_mut()
+            .resource_mut::<ambition::game_shell::ShellRouter>()
+            .active = None;
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            0.0,
+            "DI outlived its match, so every knockback in the game it returns to \
+             now steers and nothing says why"
+        );
+    }
 }
 
 #[cfg(test)]

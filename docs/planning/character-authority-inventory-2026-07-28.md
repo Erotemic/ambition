@@ -112,7 +112,7 @@ deleted.
 X12 was reframed and met: its real content turned out to be a GUARD that no
 fifth resolver appears, not a deletion. `provider_of_character` is called from
 exactly one file (twice, both in `presentation.rs`) and
-`one-caller-of-the-provider-resolver` is the contract that keeps it there.
+`the-provider-resolver-is-confined-to-one-file` is the contract that keeps it there.
 
 ⛔ **Which means this document's own exit criterion — "complete when this table
 has ONE row" — was abandoned on purpose, and saying so matters more than the
@@ -127,7 +127,16 @@ different consumers, and the only thing they share is the word "character".
 
 **The revised criterion: every remaining resolver is NAMED, has a documented
 precedence rule, is reachable from one file, and is pinned by an absence
-contract that a fifth one would break.** A future reader chasing "one row"
+contract that a fifth one would break.**
+
+⚠ **and "pinned" means CONFINED, not unique.** Those contracts exclude the one
+allowed file, so they prove no reference exists OUTSIDE it — not that exactly
+one call exists inside. `provider_of_character` already has two calls in
+`presentation.rs` and satisfies its guard. The ids were renamed to
+`*-is-confined-to-one-file` on 2026-07-28 because this document cited them as
+evidence of single authority and they were never that (GPT 5.6). Confinement is
+still what stops a SECOND file growing its own opinion, which is how every
+split-authority bug here started; it is just the weaker claim. A future reader chasing "one row"
 would be chasing a target this campaign deliberately walked away from.
 
 ### ⛔ THE "7 OF 7" BELOW IS WRONG — REOPENED 2026-07-28 (GPT 5.6 review)

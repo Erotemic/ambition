@@ -34,17 +34,17 @@ VIOLATING_LINE = {
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",
     "fight-tests-do-not-hand-roll-damage": "    mary_hp -= 12;",
-    "one-reader-of-the-catalog-default-action-set":
+    "the-catalog-default-action-set-is-confined-to-one-file":
         "    let authored = catalog.build_default_action_set(id);",
-    "one-caller-of-the-provider-resolver":
+    "the-provider-resolver-is-confined-to-one-file":
         "    let p = provider_of_character(registry, owners, id);",
-    "one-caller-of-the-motion-model-resolver":
+    "the-motion-model-resolver-is-confined-to-one-file":
         "    let m = motion_model_spec_for_character(registry, catalog, id);",
-    "one-reader-of-the-catalog-axis-tuning":
+    "the-catalog-axis-tuning-is-confined-to-one-file":
         "    match catalog.axis_tuning(id) {",
-    "one-caller-of-the-movement-tuning-resolver":
+    "the-movement-tuning-resolver-is-confined-to-one-file":
         "    let t = movement_tuning_for_character(registry, catalog, id);",
-    "one-place-builds-the-worlds-path":
+    "the-worlds-path-is-confined-to-ldtk-paths":
         '    DEFAULT_LDTK = REPO_ROOT / "assets" / "worlds" / "sandbox.ldtk"',
 }
 
@@ -54,7 +54,7 @@ VIOLATING_LINE = {
 # (2026-07-28), and a prose check that only ever tested `//` would have proved
 # nothing about a `#`.
 CONTRACT_LANGUAGE = {
-    "one-place-builds-the-worlds-path": "py",
+    "the-worlds-path-is-confined-to-ldtk-paths": "py",
 }
 
 

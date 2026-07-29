@@ -74,6 +74,24 @@ from pathlib import Path
 # Every entry is one architectural absence. `paths` are git pathspecs limited to
 # production source; `patterns` are Python regexes matched against comment-
 # stripped lines. Keep patterns narrow — see the module docstring.
+#
+# ⚠ CONFINEMENT, NOT SINGULARITY — and the names now say so.
+#
+# A contract that excludes the one allowed file proves "no reference exists
+# OUTSIDE this file". It does not prove that exactly one call exists inside it,
+# that the intended call still exists, or that a second resolver was not added
+# beside the first. `provider_of_character` already has TWO calls inside
+# `presentation.rs` and satisfies its guard.
+#
+# These were originally named `one-caller-of-*` / `one-reader-of-*`, and
+# Campaign 1 then cited them as evidence of exact single authority — which they
+# never were (GPT 5.6, 2026-07-28). Confinement is genuinely valuable: it is
+# what stops a SECOND file growing its own opinion, which is how every
+# split-authority bug in this campaign started. It is just not the stronger
+# claim, so the ids no longer imply it.
+#
+# If exact singularity ever matters for one of these, add a positive count
+# assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
         "id": "registration-does-not-demand-art",
@@ -89,7 +107,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "one-place-builds-the-worlds-path",
+        "id": "the-worlds-path-is-confined-to-ldtk-paths",
         # The subject includes TEST modules: five of them spelled the path too,
         # and a contract that guards only the package would have watched half a
         # migration.
@@ -174,7 +192,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # between them is decided in exactly one function. A second reader is a
         # second answer to "what can this body reach for", which is the identity
         # split Campaign 1 exists to close.
-        "id": "one-reader-of-the-catalog-default-action-set",
+        "id": "the-catalog-default-action-set-is-confined-to-one-file",
         "paths": [
             "crates/",
             "game/",
@@ -201,7 +219,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # file. That is what "no runtime arbitration" means in a tree that still
         # has a legacy catalog as a preparation input: not zero decisions, but no
         # decision made in a second place.
-        "id": "one-caller-of-the-provider-resolver",
+        "id": "the-provider-resolver-is-confined-to-one-file",
         "paths": [
             "crates/",
             "game/",
@@ -219,7 +237,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "one-reader-of-the-catalog-axis-tuning",
+        "id": "the-catalog-axis-tuning-is-confined-to-one-file",
         # ENGINE crates only, and that is the claim rather than a concession.
         # What must stay singular is the place the ENGINE weighs a catalog
         # tuning against a definition's. A game reading its own catalog is a
@@ -243,7 +261,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "one-caller-of-the-movement-tuning-resolver",
+        "id": "the-movement-tuning-resolver-is-confined-to-one-file",
         "paths": [
             "crates/",
             "game/",
@@ -267,7 +285,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "one-caller-of-the-motion-model-resolver",
+        "id": "the-motion-model-resolver-is-confined-to-one-file",
         "paths": [
             "crates/",
             "game/",

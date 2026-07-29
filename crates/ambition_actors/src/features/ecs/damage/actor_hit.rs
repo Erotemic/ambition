@@ -419,11 +419,19 @@ pub(crate) fn apply_actor_hit(
             // Those are an exploration economy. An arena has no economy, and a
             // round that funds the player's wallet and detonates the loser is
             // not a round (GPT 5.6, 2026-07-27).
-        } else if killed && left_the_world {
+        } else if killed && kill_disposition(&event.source, em.config.tuning.respawn).is_gone() {
             // GONE — see [`kill_disposition`]. No respawn timer, and no
             // exploration payout either: a bounty coin, a heart, or a death
             // explosion dropped at this corpse would land in the void, somewhere
             // no player can ever walk to.
+            //
+            // ⚠ this branch used to re-test the local `left_the_world` bool, so
+            // `KillDisposition::is_gone` had NO CALLER and the compiler said so.
+            // The type's own doc claims it is *"a decision, extracted so it can be
+            // stated and tested rather than inferred from the order of an
+            // `if`-chain"* — and the chain went on inferring it. Asking the
+            // decision makes the extraction load-bearing instead of decorative
+            // (2026-07-29).
             banner.show(format!("{} fell out of the world", em.config.name), 2.2);
         } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to

@@ -581,17 +581,22 @@ fn go_to_route(
     ));
 }
 
-/// Retarget EVERY camera, not the gameplay markers.
+/// Create the image a route capture draws into, and nothing else.
 ///
-/// A shell route has neither a `MainCamera` nor a `FrontHudCamera` — the
-/// launcher reports three cameras carrying neither marker — so the marker-keyed
-/// setup built an image nothing drew into. Which camera a route composes is the
-/// route's business; that it must land in the capture target is ours.
+/// ⚠ this used to be documented as *"Retarget EVERY camera, not the gameplay
+/// markers"* and carried a `Query<(Entity, &mut Camera)>` it never touched. The
+/// retargeting is [`adopt_route_cameras`]' job — it has to run EVERY frame,
+/// because a shell route has no cameras at `Startup` — and this function makes
+/// the target they get pointed at.
+///
+/// The unused query was the compiler saying so: a doc comment describing a
+/// neighbour's behaviour reads as a second implementation of it, and the next
+/// person to debug a blank route capture would have looked here first
+/// (2026-07-29).
 fn setup_route_capture_target(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
     mut images: ResMut<Assets<Image>>,
-    mut cameras: Query<(Entity, &mut Camera)>,
 ) {
     if let Some(parent) = config.output.parent().filter(|p| !p.as_os_str().is_empty()) {
         if let Err(error) = std::fs::create_dir_all(parent) {

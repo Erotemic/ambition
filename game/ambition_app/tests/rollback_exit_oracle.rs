@@ -1064,14 +1064,27 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 /// hit volume, a projectile, a debris chunk — because they live for a handful of
 /// frames and are gone by the time anyone samples. Those are exactly the entities
 /// a rewind has to reproduce, so the census walks every frame and unions.
-fn walk_the_combat_route(
-    sim: &mut SandboxSim,
-) -> (
-    Result<(), String>,
-    OracleEvents,
-    usize,
-    std::collections::BTreeMap<String, usize>,
-) {
+/// The first harness frame on which the simulation advanced and the GGRS
+/// session did not, with everything known about the session at that moment.
+#[derive(Debug)]
+struct GgrsStall {
+    frame: usize,
+    stats: Option<ambition::runtime::rollback::RollbackExecutionStats>,
+    session_active: bool,
+}
+
+/// What one walk of the route observed. A struct rather than a tuple because
+/// the fifth member (the stall) was the one that mattered and a 5-tuple is
+/// where a reader stops counting.
+struct RouteWalk {
+    health: Result<(), String>,
+    events: OracleEvents,
+    frames_run: usize,
+    census: std::collections::BTreeMap<String, usize>,
+    stalled_at: Option<GgrsStall>,
+}
+
+fn walk_the_combat_route(sim: &mut SandboxSim) -> RouteWalk {
     let mut census: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let enemy_health_baseline: i32 = {
         let world = sim.world_mut();
@@ -1098,6 +1111,7 @@ fn walk_the_combat_route(
     };
 
     let mut frames_run = 0usize;
+    let mut stalled_at: Option<GgrsStall> = None;
     for frame in 0..MAX_FRAMES {
         let (enemies, brick, switch) = target_positions(&mut *sim, &targets);
         let player = sim.observation();
@@ -1157,7 +1171,36 @@ fn walk_the_combat_route(
             ..AgentAction::default()
         };
 
+        let advances_before = sim
+            .rollback_execution_stats()
+            .map(|stats| stats.advance_runs)
+            .unwrap_or(0);
         sim.step(action);
+        // **Did the step actually DRIVE the rollback session?**
+        //
+        // A harness step advances `SimTick` whether or not GGRS is running, so a
+        // session that stops being driven is invisible: the route keeps walking,
+        // the checksums keep agreeing (with nothing), and the only thing that
+        // notices is the `advance_runs > frames_run` assert 600 frames later —
+        // which reports a ratio and cannot say when or why. That is exactly how
+        // AC18 was found and exactly why its mechanism went unestablished.
+        //
+        // Record the FIRST frame where the sim advanced and GGRS did not. It is
+        // not fatal here — the run continues so the events and the census still
+        // report — but the final assertion can now name the frame.
+        if stalled_at.is_none() && sim.rollback_enabled() {
+            let advances_after = sim
+                .rollback_execution_stats()
+                .map(|stats| stats.advance_runs)
+                .unwrap_or(0);
+            if advances_after == advances_before {
+                stalled_at = Some(GgrsStall {
+                    frame,
+                    stats: sim.rollback_execution_stats(),
+                    session_active: sim.rollback_status().is_some(),
+                });
+            }
+        }
         for (name, count) in crate::rollback_coverage::unaccounted_components(sim) {
             let seen = census.entry(name).or_default();
             *seen = (*seen).max(count);
@@ -1170,7 +1213,13 @@ fn walk_the_combat_route(
                  unaccounted components at failure (candidates inserted mid-run): {late:?}",
                 events.melee_landed, events.armor_spent, events.brick_broken, events.switch_flipped
             );
-            return (Err(report), events, frame + 1, census);
+            return RouteWalk {
+                health: Err(report),
+                events,
+                frames_run: frame + 1,
+                census,
+                stalled_at,
+            };
         }
         let before = (
             events.melee_landed,
@@ -1202,7 +1251,13 @@ fn walk_the_combat_route(
             break;
         }
     }
-    (Ok(()), events, frames_run, census)
+    RouteWalk {
+        health: Ok(()),
+        events,
+        frames_run,
+        census,
+        stalled_at,
+    }
 }
 
 /// **Track 0's exit criterion, in one run.** All four events, checksum-identical.
@@ -1232,7 +1287,13 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     wear_oracle_armor(&mut sim);
     stage_player_on_arena_floor(&mut sim);
 
-    let (health, events, frames_run, census) = walk_the_combat_route(&mut sim);
+    let RouteWalk {
+        health,
+        events,
+        frames_run,
+        census,
+        stalled_at,
+    } = walk_the_combat_route(&mut sim);
     assert!(
         census.is_empty(),
         "state lived on a simulated entity at some point during the route that \
@@ -1279,16 +1340,45 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
          never reached x≈1132 or its interact pulses did not land"
     );
 
+    // A step that advanced the sim and not GGRS. Named BEFORE the ratio
+    // assertions because it is a CAUSE and they are symptoms of it — and
+    // because this run's history is precisely a case where the symptom got
+    // diagnosed as this cause and was not (see below).
+    assert!(
+        stalled_at.is_none(),
+        "the simulation advanced while the GGRS session did not: {:?}\n\
+         Every frame after this one ran with nothing rewinding it, so the \
+         checksum agreement above covers only the frames before it.",
+        stalled_at
+    );
+
     let stats = sim
         .rollback_execution_stats()
         .expect("GGRS instrumentation is installed");
+    // ⚠ **LIFETIME, not per-session, and that distinction is the whole of AC18.**
+    //
+    // This route can produce a confirmed Track-B lifecycle commit, which rebases
+    // the GGRS session — atomically, deliberately, correctly. A rebase installs
+    // a new session, and a new session's frame numbering (and therefore these
+    // per-session counters) starts at zero.
+    //
+    // Asserting `advance_runs > frames_run` therefore compared the LAST
+    // session's work against the WHOLE run's steps. With three differently-named
+    // enemies in the lab the commit landed at frame 587 of 600, and this
+    // assertion reported `advance_runs: 40, last_simulated_frame: 12` — which
+    // reads exactly like a session that stopped being driven at frame 12, and
+    // was read that way. It had executed 2915 advances by frame 500.
+    //
+    // The content coupling AC18 filed was real, but not where it looked: the
+    // authored enemy set decides whether a lifecycle op commits inside the
+    // window, and the assertion was only valid for runs where none did.
     assert!(
-        stats.load_runs > 0,
+        stats.lifetime_load_runs > 0,
         "no LoadWorld request was ever issued, so nothing was rewound and the \
          checksum agreement above is agreement with itself: {stats:?}"
     );
     assert!(
-        stats.advance_runs > frames_run as u64,
+        stats.lifetime_advance_runs > frames_run as u64,
         "resimulation must execute more GGRS frames than the {frames_run} \
          harness steps, or the same frames were never replayed: {stats:?}"
     );
@@ -1356,9 +1446,18 @@ fn which_population_does_the_rollback_divergence_need() {
         sim.rebase_rollback_history()
             .expect("variant despawn setup becomes the rollback baseline");
 
-        let (health, events, frames_run, census) = walk_the_combat_route(&mut sim);
+        let RouteWalk {
+            health,
+            events,
+            frames_run,
+            census,
+            stalled_at,
+        } = walk_the_combat_route(&mut sim);
         if !census.is_empty() {
             findings.push(format!("  {variant:<12} TRANSIENT UNACCOUNTED: {census:?}"));
+        }
+        if let Some(stall) = stalled_at {
+            findings.push(format!("  {variant:<12} GGRS STALLED: {stall:?}"));
         }
         match health {
             Ok(()) => findings.push(format!(

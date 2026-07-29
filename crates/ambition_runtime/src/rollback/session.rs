@@ -56,6 +56,26 @@ impl PendingSeatInputs {
 
 /// Counts actual GGRS operations. It is intentionally outside rollback state so
 /// tests can prove that a single harness step performed load/resimulation work.
+///
+/// ## Per-session versus lifetime, and why both exist (queue AC18)
+///
+/// A rebase installs a NEW session, and a new session legitimately starts its
+/// frame numbering at zero — so the per-session counters below reset with it.
+/// That is correct, and it silently invalidated the one assertion these
+/// counters existed for.
+///
+/// The rollback exit oracle asserted `advance_runs > harness_steps`. Its route
+/// happened to produce a confirmed Track-B lifecycle commit at frame 587 of
+/// 600, which rebased the session atomically and by design — leaving
+/// `advance_runs: 40, last_simulated_frame: 12` to be compared against 600
+/// steps. The oracle went red reporting numbers that looked exactly like a GGRS
+/// session that had stopped being driven at frame 12, and was read that way for
+/// a day. It had in fact executed 2915 advances by frame 500.
+///
+/// ⚠ **so the numbers were not wrong, they were answering a different
+/// question**, and nothing in the type said which. The `lifetime_*` fields
+/// survive session replacement and are what a whole-run claim must be made
+/// against; the unprefixed fields describe the CURRENT session only.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RollbackExecutionStats {
     pub advance_runs: u64,
@@ -67,6 +87,37 @@ pub struct RollbackExecutionStats {
     /// a first-time one. `None` until the first advance, so frame 0 is not
     /// mistaken for a replay of itself.
     pub highest_simulated_frame: Option<i32>,
+    /// Advances across every session this process has installed.
+    pub lifetime_advance_runs: u64,
+    /// Loads across every session this process has installed.
+    pub lifetime_load_runs: u64,
+    /// How many sessions have been installed. `1` for a run that never rebased,
+    /// so `sessions_installed > 1` is exactly "the counters above were reset
+    /// under you".
+    pub sessions_installed: u64,
+}
+
+impl RollbackExecutionStats {
+    /// The stats a freshly installed session starts from: per-session counters
+    /// zeroed, lifetime totals carried through untouched.
+    ///
+    /// ⚠ **carried, not folded.** The lifetime totals are accumulated by the
+    /// same systems that accumulate the per-session ones, so they are correct
+    /// on every frame rather than only just after a rebase. Adding the outgoing
+    /// session's counts here — which is the obvious reading of "carry forward",
+    /// and what this did first — double-counts every session. A teardown with no
+    /// following install would also lose its work under a fold-at-install rule,
+    /// and those are exactly the runs worth measuring.
+    fn rebased(self) -> Self {
+        Self {
+            advance_runs: 0,
+            load_runs: 0,
+            last_simulated_frame: 0,
+            highest_simulated_frame: None,
+            sessions_installed: self.sessions_installed + 1,
+            ..self
+        }
+    }
 }
 
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
@@ -330,7 +381,14 @@ fn install_session_with_ownership(
     let content = live_content_identity(world);
     world.insert_resource(RollbackSessionContract { content, schema });
     world.insert_resource(RollbackSessionStatus::default());
-    world.insert_resource(RollbackExecutionStats::default());
+    // Per-session counters restart; lifetime totals do not. A caller measuring
+    // a whole run must not have its measurement silently zeroed by a rebase it
+    // did not ask for and cannot see (AC18).
+    let carried = world
+        .get_resource::<RollbackExecutionStats>()
+        .copied()
+        .unwrap_or_default();
+    world.insert_resource(carried.rebased());
     world.insert_resource(ownership);
     world.insert_resource(session);
 
@@ -687,6 +745,7 @@ fn count_advance_run(
     boundary: Option<ResMut<ConfirmedFrameBoundary>>,
 ) {
     stats.advance_runs = stats.advance_runs.saturating_add(1);
+    stats.lifetime_advance_runs = stats.lifetime_advance_runs.saturating_add(1);
     stats.last_simulated_frame = frame.0;
     let simulated_before = stats
         .highest_simulated_frame
@@ -725,6 +784,7 @@ fn clear_historical_replay(
 
 fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
     stats.load_runs = stats.load_runs.saturating_add(1);
+    stats.lifetime_load_runs = stats.lifetime_load_runs.saturating_add(1);
 }
 
 fn record_sync_test_mismatch(
@@ -1011,6 +1071,56 @@ mod tests {
             !app.world().contains_resource::<ConfirmedFrameBoundary>(),
             "the deferred path must execute the same complete teardown as stop_session"
         );
+    }
+
+    /// The property AC18 turned on: a rebase restarts the per-session counters
+    /// and must NOT restart the lifetime ones. A whole-run claim made against
+    /// the per-session numbers is a claim about however much happened since the
+    /// last rebase, which the caller cannot see and did not ask for.
+    #[test]
+    fn a_rebase_restarts_the_session_counters_and_carries_the_lifetime_totals() {
+        let worked = RollbackExecutionStats {
+            advance_runs: 2915,
+            load_runs: 583,
+            last_simulated_frame: 588,
+            highest_simulated_frame: Some(588),
+            lifetime_advance_runs: 2915,
+            lifetime_load_runs: 583,
+            sessions_installed: 1,
+        };
+
+        let rebased = worked.rebased();
+
+        assert_eq!(
+            rebased.advance_runs, 0,
+            "a new session starts at frame zero"
+        );
+        assert_eq!(rebased.load_runs, 0);
+        assert_eq!(rebased.last_simulated_frame, 0);
+        assert_eq!(rebased.highest_simulated_frame, None);
+        assert_eq!(rebased.lifetime_advance_runs, 2915);
+        assert_eq!(rebased.lifetime_load_runs, 583);
+        assert_eq!(
+            rebased.sessions_installed, 2,
+            "sessions_installed > 1 is exactly the signal that the per-session \
+             counters were reset under a reader"
+        );
+
+        // Carried, NOT folded: the counting systems already advance the
+        // lifetime totals every frame, so re-adding the outgoing session here
+        // would double every session's work. This assertion is the one that
+        // caught exactly that, first try.
+        let twice = RollbackExecutionStats {
+            advance_runs: 40,
+            load_runs: 7,
+            lifetime_advance_runs: 2955,
+            lifetime_load_runs: 590,
+            ..rebased
+        }
+        .rebased();
+        assert_eq!(twice.lifetime_advance_runs, 2955);
+        assert_eq!(twice.lifetime_load_runs, 590);
+        assert_eq!(twice.sessions_installed, 3);
     }
 
     #[test]

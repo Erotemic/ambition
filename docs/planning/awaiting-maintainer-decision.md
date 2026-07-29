@@ -117,7 +117,32 @@ whole campaign has been removing.
 
 ---
 
-## 4. What is DI worth on a fighter? (queue F0-J1)
+## 4. Which enemies get art first? (queue AB5)
+
+**What you would see.** `combat_calibration_lab` — the room labelled "P4: Combat
+Calibration", where the intro teaches a new player to fight — stages three
+enemies that draw as red rectangles with `lab_patrol_dummy` / `lab_spitter` /
+`lab_striker` floating above them. None is a catalog character, so none resolves
+a sheet.
+
+**This is the design working.** §4.10 is explicit that there is no fallback
+sheet, because a body borrowing the goblin's art made missing work invisible:
+*"Ambition's own enemies visibly regress until each gets art, which is the
+point."* Nothing is broken.
+
+**The call is about WHERE the debt is showing**, not whether the mechanism is
+right. It is showing in the tutorial room of the opening sequence — the
+highest-traffic square metre in the game for anyone you hand a build to. Three
+sprites would change what the first fight in Ambition looks like.
+
+**What I need:** whether those three are worth drawing now, or whether the intro
+should stage enemies that already have art (Puppy Slug, AI Slop, Goblin) and
+leave the lab dummies for later. The second option is a content edit I can make
+in one commit if you want it.
+
+---
+
+## 5. What is DI worth on a fighter? (queue F0-J1)
 
 **The state.** `di_adjust` — directional influence, the input that lets a
 launched fighter steer their trajectory — is landed and pure. `di_max_angle` is
@@ -133,7 +158,7 @@ coin flip and one that is a read.
 
 ---
 
-## 5. Does versus end on HP or on stocks? (queue F0-J2)
+## 6. Does versus end on HP or on stocks? (queue F0-J2)
 
 **The state.** `DeathPolicy::Unbounded` works and is uncalled. Leaving it uncalled
 means versus has TWO win conditions — drain the HP bars, or throw them out — and
@@ -149,7 +174,7 @@ has been done to it.
 
 ---
 
-## 6. Keep or discard `wip/versus-reserved-surround`? (queue Z′10)
+## 7. Keep or discard `wip/versus-reserved-surround`? (queue Z′10)
 
 **The branch** (`c90cff205`) reserves a top band on the versus stage and draws
 the scoreboard into it, instead of over the arena.

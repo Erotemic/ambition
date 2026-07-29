@@ -43,6 +43,8 @@ use ambition_sim_view::ControlledBodiesView;
 use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
 
+use crate::ui_fonts::{UiFontWeight, UiFonts};
+
 /// Which family a world-space label belongs to. **Declaration order IS the
 /// ranking**: an earlier variant is placed first and never yields to a later
 /// one.
@@ -363,6 +365,52 @@ fn controlled_body_boxes(view: Option<&ControlledBodiesView>, world: &ae::World)
             half: Vec2::new(fact.size.x * 0.5, fact.size.y * 0.5),
         })
         .collect()
+}
+
+/// The typeface a family is drawn in.
+///
+/// **The rule, stated (queue row AC20): all world text is ONE family, and the
+/// weight carries the role.** Signage is prose a designer wrote — a sentence —
+/// so it is Regular. A plate is a NAME, read at a glance against busy art, so
+/// it is Semibold.
+///
+/// What this replaces was not a different rule, it was no rule:
+/// `spawn_world_label` built `TextFont { font_size, ..default() }` because it
+/// had no `UiFonts` in scope, so signage rendered in Bevy's built-in fallback
+/// (a mono face) while plates used the project's font. Two typefaces on one
+/// screen, and the accident happened to look deliberate — mono reads as
+/// machine annotation next to strings like `MAP_OFFICIAL:`. It is not chosen
+/// mono either way: the project's only monospace asset is the *debug* HUD font,
+/// which is the wrong signal for shipped world signage.
+fn font_weight_for(family: WorldLabelFamily) -> UiFontWeight {
+    match family {
+        WorldLabelFamily::Signage => UiFontWeight::Regular,
+        WorldLabelFamily::Fixture | WorldLabelFamily::Actor => UiFontWeight::Semibold,
+    }
+}
+
+/// Keep every world label on its family's typeface.
+///
+/// A separate system from placement on purpose — and it runs every frame
+/// rather than once at spawn, which fixes a race the spawn-time resolution
+/// could not: fonts load asynchronously, so a label spawned before its font
+/// arrived kept Bevy's fallback forever. Assignment is guarded on inequality
+/// because writing `TextFont` re-runs text layout.
+pub fn apply_world_label_fonts(
+    ui_fonts: Option<Res<UiFonts>>,
+    mut labels: Query<(&WorldLabel, &mut TextFont)>,
+) {
+    let Some(fonts) = ui_fonts.as_deref() else {
+        return;
+    };
+    for (label, mut font) in &mut labels {
+        let wanted = fonts
+            .text_font(font.font_size, font_weight_for(label.family))
+            .font;
+        if font.font != wanted {
+            font.font = wanted;
+        }
+    }
 }
 
 /// The pass. Places every [`WorldLabel`] and writes the result.

@@ -146,7 +146,11 @@ impl Plugin for ActorNameplatePresentationPlugin {
             )
             .add_systems(
                 Update,
-                super::label_layout::layout_world_labels
+                (
+                    super::label_layout::apply_world_label_fonts,
+                    super::label_layout::layout_world_labels,
+                )
+                    .chain()
                     .in_set(super::label_layout::WorldLabelLayoutSet)
                     .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
             );

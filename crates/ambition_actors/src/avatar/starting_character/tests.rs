@@ -1349,3 +1349,54 @@ fn a_definition_authored_motion_model_beats_the_catalog_row() {
         "an unauthored character stopped inheriting its catalog row"
     );
 }
+
+/// **A from-scratch player and a re-worn one get the SAME host kit.**
+///
+/// `PlayerSimulationBundle::from_scratch` built the host code kit's moves inline
+/// and the persona derive built them again in `build_host_code_moveset`. They
+/// agreed only because a comment in the derive said they did — *"so this agrees
+/// with `PlayerSimulationBundle::from_scratch`, which builds the same code kit and
+/// applies the same overlay."*
+///
+/// An agreement asserted in prose diverges the first time either side learns
+/// something: a ranged rule, a second cue family, a new slot. Both call the one
+/// constructor now, and this pins that they produce the same moves so the shared
+/// call cannot be quietly un-shared later.
+#[test]
+fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
+    // An ability set that actually grants ATTACK — `basic()` does not, and a
+    // probe caught this test comparing two empty contracts because of it.
+    let mut abilities = ambition_engine_core::AbilitySet::basic();
+    abilities.attack = true;
+    let action_set = crate::avatar::bundles::default_player_action_set(abilities);
+
+    let spawned = crate::avatar::PlayerSimulationBundle::from_scratch(
+        crate::avatar::primary_player_scratch(ambition_engine_core::Vec2::new(0.0, 0.0), abilities),
+        ambition_characters::actor::Health::new(10),
+    );
+    let rewarn = crate::avatar::starting_character::build_host_code_moveset(&action_set, None);
+
+    // ⚠ VACUITY FIRST. Two empty contracts compare equal, and a probe showed this
+    // test passing while the construction was un-shared AND altered — because
+    // `AbilitySet::basic()` grants no combat, so both sides were producing nothing
+    // and agreeing about it (2026-07-29).
+    assert!(
+        !spawned.moveset.0.moves.is_empty(),
+        "the host kit produced NO moves, so comparing the two constructions \
+         compares two empty contracts and proves nothing"
+    );
+
+    // The WHOLE contract, not just ids and verbs.
+    //
+    // ⚠ the first version of this compared `moves[].id` and `verbs`, and a probe
+    // showed it could not go red: un-sharing the construction and dropping
+    // `apply_player_robot_slash_sfx` left ids and verbs identical, because that
+    // stamp writes CUE names onto the moves. A guard that cannot fail on the
+    // divergence it exists to catch is not a guard — the same lesson this session
+    // learned twice on the touch overlay (2026-07-29).
+    assert_eq!(
+        spawned.moveset.0, rewarn,
+        "a player that SPAWNED with the host kit and one that RE-WORE it have \
+         different moves, so which one you are depends on how you got here"
+    );
+}

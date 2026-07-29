@@ -136,15 +136,20 @@ impl PlayerSimulationBundle {
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
-        let mut derived_moveset = crate::combat::moveset::build_actor_moveset(
-            None,
-            action_set.melee.as_ref(),
-            None,
-            action_set.special.as_ref(),
-        )
-        .unwrap_or_default();
-        crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived_moveset);
-        let moveset = crate::combat::moveset::ActorMoveset(derived_moveset);
+        // **ONE construction for the host code kit's moves.**
+        //
+        // This built them inline — `build_actor_moveset(None, melee, None,
+        // special)` then the robot-blade SFX stamp — and so does the persona
+        // derive. Two places deciding what the host kit swings, agreeing only
+        // because a comment in the other one said they did: *"so this agrees with
+        // `PlayerSimulationBundle::from_scratch`, which builds the same code kit
+        // and applies the same overlay."* An agreement asserted in prose is one
+        // that diverges the first time either side learns something — a ranged
+        // rule, a second cue family — and this campaign is otherwise about
+        // removing exactly that (2026-07-29).
+        let moveset = crate::combat::moveset::ActorMoveset(
+            crate::avatar::starting_character::build_host_code_moveset(&action_set, None),
+        );
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.

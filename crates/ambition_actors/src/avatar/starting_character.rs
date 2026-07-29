@@ -216,7 +216,7 @@ fn sync_worn_motion_model_preserving_state(
 /// capability marker (`bubble_shield`) with no authored move behind it; an
 /// authored persona drives its special through its own path, so folding a
 /// generic shell move there would make one press fire two things.
-fn build_host_code_moveset(
+pub(crate) fn build_host_code_moveset(
     set: &ActionSet,
     authored: Option<ambition_entity_catalog::MovesetContract>,
 ) -> ambition_entity_catalog::MovesetContract {

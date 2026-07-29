@@ -18236,9 +18236,9 @@
 							"defUid": 2008,
 							"px": [800,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Salvage Guard", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Puppy Slug", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Salvage Guard"]
+									"params": ["Puppy Slug"]
 								}] },
 								{ "__identifier": "brain", "__type": "String", "__value": "Guard:96", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
@@ -18262,9 +18262,9 @@
 							"defUid": 2008,
 							"px": [992,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Lab Raider", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Puppy Slug", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Lab Raider"]
+									"params": ["Puppy Slug"]
 								}] },
 								{ "__identifier": "brain", "__type": "String", "__value": "medium_striker", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",

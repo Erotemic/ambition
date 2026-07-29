@@ -64,6 +64,63 @@ impl ActorIdentity {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RulesetOwnsDeath;
 
+/// **How many times this fighter may still be killed.** (Smash Siblings)
+///
+/// Jon's spec for the mode is *"3 stock, no items"* and *"when you lose your
+/// stock you are dead"* — so a death spends one and elimination is running out,
+/// not a health bar reaching zero.
+///
+/// # Why this is not `rounds_won` with a different name
+///
+/// Rounds are SYMMETRIC and reset both fighters; stocks are per-fighter,
+/// asymmetric, and never reset. *"2 stocks versus 3"* is a legal and completely
+/// ordinary mid-match state, and the round model cannot represent it — which is
+/// why this is a component on the body rather than another counter in the match
+/// resource.
+///
+/// # It composes with, and needs, two things that already exist
+///
+/// * [`DeathPolicy::Unbounded`](super::DeathPolicy::Unbounded) — smash percent.
+///   Without it the meter kills at max and stocks are never consulted, because
+///   the body dies of damage before the world throws it out.
+/// * [`RulesetOwnsDeath`] — whose own doc already named this caller: *"any
+///   ruleset with rounds, stocks, lives, or a training mode needs exactly
+///   this."* The KO'd body stays at zero for the ruleset to act on.
+///
+/// Engine-shaped rather than Smash-shaped: a lives counter is the same object.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FighterStocks {
+    /// Stocks left. `0` means ELIMINATED — out of the match, not respawning.
+    pub remaining: u32,
+    /// What it started with, kept so a HUD can draw "2 of 3" rather than
+    /// inferring a maximum it was never told.
+    pub started_with: u32,
+}
+
+impl FighterStocks {
+    pub fn new(stocks: u32) -> Self {
+        Self {
+            remaining: stocks,
+            started_with: stocks,
+        }
+    }
+
+    /// Spend one. Returns `true` when that was the LAST one, i.e. this fighter is
+    /// now eliminated.
+    ///
+    /// Saturating, so a double-report cannot wrap a `u32` into a fighter with
+    /// four billion lives — the kind of arithmetic that turns a duplicated death
+    /// event into an unkillable body.
+    pub fn spend(&mut self) -> bool {
+        self.remaining = self.remaining.saturating_sub(1);
+        self.is_eliminated()
+    }
+
+    pub fn is_eliminated(self) -> bool {
+        self.remaining == 0
+    }
+}
+
 /// High-level actor disposition. Peaceful actors talk/patrol; hostile actors
 /// chase/attack. Hostility is data now, not an enum arm callers must discover
 /// by inspecting an actor-type tag.

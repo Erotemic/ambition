@@ -9,6 +9,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use super::label_layout::WorldLabelFamily;
 use super::nameplates::DoorNameplateSource;
 use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, BlockVisual, FeatureVisual,
@@ -230,11 +231,16 @@ pub fn spawn_room_visuals(
             spawn_authored_interactable(commands, session_scope, world, &authored, assets);
         }
     }
-    for label in &spec.debug_labels {
+    for (index, label) in spec.debug_labels.iter().enumerate() {
+        // Authored signage carries no id of its own, so the identity is
+        // positional. It only has to be stable within a room load and unique
+        // across families — the placement pass keys on it.
         spawn_world_label(
             commands,
             session_scope,
             world,
+            format!("signage:{index}:{}", label.id),
+            WorldLabelFamily::Signage,
             label.payload.position,
             &label.payload.text,
             14.0,
@@ -791,7 +797,16 @@ pub fn spawn_loading_zone(
         ));
     } else {
         let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
-        spawn_world_label(commands, session_scope, world, label_pos, &zone.name, 13.0);
+        spawn_world_label(
+            commands,
+            session_scope,
+            world,
+            format!("fixture:zone:{}", zone.id),
+            WorldLabelFamily::Fixture,
+            label_pos,
+            &zone.name,
+            13.0,
+        );
     }
 }
 
@@ -913,6 +928,8 @@ fn spawn_authored_chest(
         commands,
         session_scope,
         world,
+        format!("fixture:chest:{}", authored.id),
+        WorldLabelFamily::Fixture,
         authored.aabb.center() + ae::Vec2::new(0.0, -half_h - 22.0),
         &authored.name,
         14.0,

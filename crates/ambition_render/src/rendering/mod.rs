@@ -21,7 +21,13 @@
 //! - [`health`] — debug health-bar overlay
 //!   ([`sync_health_overlays`]).
 //! - [`nameplates`] — player-facing actor/door labels
-//!   ([`sync_actor_nameplates`]).
+//!   ([`sync_actor_nameplates`]). It publishes each plate's WANTED anchor and
+//!   opacity; it does not place it.
+//! - [`label_layout`] — the ONE ranked placement pass over every world-label
+//!   family ([`layout_world_labels`]). Single writer of a label's transform,
+//!   visibility and colour, so authored signage, fixture plates and actor
+//!   plates are ranked against each other instead of each family only against
+//!   itself.
 //! - [`parallax`] — optional generated sky/background/atmosphere layers
 //!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
 //! - [`camera`] — player-following camera with eased zoom around
@@ -41,6 +47,7 @@ pub mod gravity_visuals;
 mod health;
 mod hit_flash;
 mod item_visuals;
+pub mod label_layout;
 pub mod mark_beacon;
 pub mod morph_ball;
 mod nameplates;
@@ -71,6 +78,10 @@ pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureReque
 pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
+pub use label_layout::{
+    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutSet,
+    WorldLabelLayoutSettings,
+};
 pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
     ActorNameplateSettings, ActorNameplateVisual, DoorNameplateSource,

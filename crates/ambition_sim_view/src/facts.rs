@@ -96,6 +96,53 @@ pub fn rebuild_held_item_view(
         });
 }
 
+/// The box of every body a participant is DRIVING this tick.
+///
+/// Presentation needs this to know what it must not obscure — the world-label
+/// placement pass dims a label that would be drawn across a driven body rather
+/// than shoving the label aside (`ambition_render::rendering::label_layout`).
+///
+/// Derived from the BRAIN, not from a player marker, for two reasons. First,
+/// possession is a brain transfer, so a possessed enemy is the driven body and
+/// the vacated home avatar is not — asking "who carries a player brain" gets
+/// that right for free. Second, it is plural: a couch-versus match has two
+/// driven bodies and neither is more protected than the other
+/// ([[feedback-relativity-principle]]).
+///
+/// ⚠ Note what this is NOT: it is not the nameplate index's `controlled` flag.
+/// That flag lives on rows keyed by `FeatureId`, and the home avatar carries
+/// no `FeatureId` at all — so the flag is only ever true while possessing a
+/// feature actor. A label-occlusion rule built on it would have protected
+/// every body EXCEPT the one you normally play.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct ControlledBodiesView(pub Vec<ControlledBodyFact>);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ControlledBodyFact {
+    pub center: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+pub fn rebuild_controlled_bodies_view(
+    mut view: ResMut<ControlledBodiesView>,
+    bodies: Query<(&ambition_characters::brain::Brain, &BodyKinematics)>,
+) {
+    // AMBITION_REVIEW(determinism): query order is not stable, and this Vec is
+    // built in it. Safe: the only consumer asks "does any of these boxes
+    // overlap mine", which is order-independent, and this is derived
+    // presentation state that never enters a sim trajectory.
+    view.0.clear();
+    view.0.extend(
+        bodies
+            .iter()
+            .filter(|(brain, _)| brain.is_player())
+            .map(|(_, kin)| ControlledBodyFact {
+                center: kin.pos,
+                size: kin.size,
+            }),
+    );
+}
+
 /// Every ground item's visual facts (position, box, item id).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GroundItemsView(pub Vec<GroundItemFact>);
@@ -656,6 +703,7 @@ impl Plugin for SimViewPlugin {
         let sim = app.sim_schedule();
         app.init_resource::<PlayerHudFacts>()
             .init_resource::<HeldItemView>()
+            .init_resource::<ControlledBodiesView>()
             .init_resource::<GroundItemsView>()
             .init_resource::<WorldItemsView>()
             .init_resource::<HeldShotsView>()
@@ -679,6 +727,7 @@ impl Plugin for SimViewPlugin {
             (
                 rebuild_player_hud_facts,
                 rebuild_held_item_view,
+                rebuild_controlled_bodies_view,
                 rebuild_ground_items_view,
                 rebuild_world_items_view,
                 rebuild_held_shots_view,

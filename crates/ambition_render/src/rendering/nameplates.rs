@@ -21,6 +21,7 @@ use bevy::prelude::*;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
 use super::camera::CameraViewState;
+use super::label_layout::{WorldLabel, WorldLabelFamily};
 use super::primitives::RoomVisual;
 
 /// Presentation policy for world nameplates.
@@ -123,16 +124,30 @@ pub struct ActorNameplatePresentationPlugin;
 impl Plugin for ActorNameplatePresentationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActorNameplateSettings>()
+            .init_resource::<super::label_layout::WorldLabelLayoutSettings>()
             .configure_sets(
                 Update,
                 ActorNameplateSet
                     .after(super::actors::sync_visuals)
                     .after(super::camera::camera_follow),
             )
+            // The placement pass runs AFTER every family has published its
+            // anchor for the frame. It is a hard ordering, not a preference:
+            // placing before the plates move is placing against last frame.
+            .configure_sets(
+                Update,
+                super::label_layout::WorldLabelLayoutSet.after(ActorNameplateSet),
+            )
             .add_systems(
                 Update,
                 sync_actor_nameplates
                     .in_set(ActorNameplateSet)
+                    .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+            )
+            .add_systems(
+                Update,
+                super::label_layout::layout_world_labels
+                    .in_set(super::label_layout::WorldLabelLayoutSet)
                     .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
             );
     }
@@ -142,6 +157,10 @@ impl Plugin for ActorNameplatePresentationPlugin {
 struct NameplateCandidate {
     owner_id: String,
     label: String,
+    /// Which placement family this plate belongs to. A door plate names a
+    /// STATIC fixture, so it yields only to authored signage; an actor plate
+    /// is already in motion and is the family that absorbs displacement.
+    family: WorldLabelFamily,
     anchor_world: ae::Vec2,
     distance_sq: f32,
     opacity: f32,
@@ -188,15 +207,7 @@ pub fn sync_actor_nameplates(
     ui_fonts: Option<Res<UiFonts>>,
     mut nameplate_queries: ParamSet<(
         Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-        Query<(
-            Entity,
-            &ActorNameplateVisual,
-            &mut Transform,
-            &mut Visibility,
-            &mut TextColor,
-            &Children,
-        )>,
-        Query<&mut TextColor, With<ActorNameplateOutlineVisual>>,
+        Query<(Entity, &ActorNameplateVisual, &mut WorldLabel)>,
     )>,
 ) {
     let Some(session_scope) =
@@ -206,7 +217,9 @@ pub fn sync_actor_nameplates(
     };
     if !settings.enabled {
         let mut nameplates = nameplate_queries.p1();
-        hide_all_nameplates(&mut nameplates);
+        for (_, _, mut label) in nameplates.iter_mut() {
+            label.owner_opacity = 0.0;
+        }
         return;
     }
 
@@ -254,13 +267,14 @@ pub fn sync_actor_nameplates(
         .map(|candidate| (candidate.owner_id.clone(), candidate))
         .collect();
 
+    // This system publishes each plate's WANTED anchor and opacity; the shared
+    // placement pass (`label_layout`) owns the transform, visibility and
+    // colour, because a plate has to be ranked against authored signage and
+    // door plates too — not only against other actor plates (AC12).
     let mut existing_visible = HashSet::new();
-    let mut outline_color_updates = Vec::new();
     {
         let mut nameplates = nameplate_queries.p1();
-        for (entity, plate, mut transform, mut visibility, mut text_color, children) in
-            &mut nameplates
-        {
+        for (entity, plate, mut label) in &mut nameplates {
             if let Some(candidate) = visible_candidates.get(&plate.owner_id) {
                 if plate.label != candidate.label {
                     // Name changes are rare. Rebuild the small text subtree so
@@ -270,30 +284,15 @@ pub fn sync_actor_nameplates(
                     continue;
                 }
                 existing_visible.insert(plate.owner_id.clone());
-                transform.translation = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
-                let visible = candidate.opacity > 0.0;
-                *visibility = if visible {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                };
-                *text_color = TextColor(color_with_opacity(settings.text_color, candidate.opacity));
-                for child in children.iter() {
-                    outline_color_updates.push((child, candidate.opacity));
-                }
+                label.family = candidate.family;
+                label.anchor = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
+                label.owner_opacity = candidate.opacity;
+                label.text_color = settings.text_color;
+                label.outline_color = Some(settings.outline_color);
             } else if source_ids.contains(plate.owner_id.as_str()) {
-                *visibility = Visibility::Hidden;
+                label.owner_opacity = 0.0;
             } else {
                 commands.entity(entity).despawn();
-            }
-        }
-    }
-
-    {
-        let mut outline_colors = nameplate_queries.p2();
-        for (child, opacity) in outline_color_updates {
-            if let Ok(mut outline_color) = outline_colors.get_mut(child) {
-                *outline_color = TextColor(color_with_opacity(settings.outline_color, opacity));
             }
         }
     }
@@ -333,6 +332,7 @@ fn collect_actor_candidates(
             candidates,
             id.to_string(),
             fact.label.clone(),
+            WorldLabelFamily::Actor,
             fact.center,
             fact.size,
         );
@@ -361,18 +361,21 @@ fn collect_door_candidates(
             candidates,
             source.id.clone(),
             source.label.clone(),
+            WorldLabelFamily::Fixture,
             source.center_world,
             source.size_world,
         );
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_candidate_if_in_range(
     settings: &ActorNameplateSettings,
     focus_world: ae::Vec2,
     candidates: &mut Vec<NameplateCandidate>,
     owner_id: String,
     label: String,
+    family: WorldLabelFamily,
     center: ae::Vec2,
     size: ae::Vec2,
 ) {
@@ -386,6 +389,7 @@ fn push_candidate_if_in_range(
     candidates.push(NameplateCandidate {
         owner_id,
         label,
+        family,
         anchor_world: nameplate_anchor(center, size, settings.vertical_gap_px),
         distance_sq,
         opacity: 1.0,
@@ -410,21 +414,6 @@ fn rank_opacity(rank_index: usize, full_opacity_count: usize, fade_out_count: us
     let fade_span = (fade_out_count - full_opacity_count) as f32;
     let remaining = (fade_out_count - rank) as f32;
     (remaining / fade_span).clamp(0.0, 1.0)
-}
-
-fn hide_all_nameplates(
-    nameplates: &mut Query<(
-        Entity,
-        &ActorNameplateVisual,
-        &mut Transform,
-        &mut Visibility,
-        &mut TextColor,
-        &Children,
-    )>,
-) {
-    for (_, _, _, mut visibility, _, _) in nameplates.iter_mut() {
-        *visibility = Visibility::Hidden;
-    }
 }
 
 fn nameplate_anchor(center: ae::Vec2, size: ae::Vec2, vertical_gap_px: f32) -> ae::Vec2 {
@@ -454,6 +443,7 @@ fn spawn_actor_nameplate(
     let outline_offsets = outline_offsets(settings.outline_offset_px);
     let text_color = color_with_opacity(settings.text_color, candidate.opacity);
     let outline_color = color_with_opacity(settings.outline_color, candidate.opacity);
+    let anchor = world_to_bevy(world, candidate.anchor_world, settings.z);
     commands
         .spawn_session_scoped(
             session_scope,
@@ -461,11 +451,7 @@ fn spawn_actor_nameplate(
                 Text2d::new(text.clone()),
                 font.clone(),
                 TextColor(text_color),
-                Transform::from_translation(world_to_bevy(
-                    world,
-                    candidate.anchor_world,
-                    settings.z,
-                )),
+                Transform::from_translation(anchor),
                 if candidate.opacity > 0.0 {
                     Visibility::Visible
                 } else {
@@ -474,6 +460,13 @@ fn spawn_actor_nameplate(
                 ActorNameplateVisual {
                     owner_id: candidate.owner_id.clone(),
                     label: text.clone(),
+                },
+                {
+                    let mut label =
+                        WorldLabel::new(candidate.owner_id.clone(), candidate.family, anchor)
+                            .with_colors(settings.text_color, Some(settings.outline_color));
+                    label.owner_opacity = candidate.opacity;
+                    label
                 },
                 RoomVisual,
                 Name::new(format!("Nameplate: {text}")),

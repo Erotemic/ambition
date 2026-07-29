@@ -56,6 +56,12 @@ python3 scripts/goal_guard.py --arm .goal/planning-sweep.json
 - **Read the output, not the exit code.** A background job reported success while
   the suite was 17/18.
 - Cargo lives at `$HOME/.cargo/bin/cargo`; the hook PATH has no cargo.
+- **An `ldtk authoring tools` job failing 18 tests with `No module named 'pyron'`
+  is a STALE ENV, not a regression.** The dependency is correctly declared
+  (`tools/ambition_ldtk_tools/pyproject.toml` → `python-ron>=0.2.5`); the uv env
+  the runner uses just did not have it. Fix:
+  `/home/agent/.local/uv/envs/uvpy3.13.2/bin/python3 -m pip install python-ron`.
+  Worth knowing before you spend an hour bisecting your own diff (2026-07-29).
 
 ## 3. The instrument built this run — use it
 

@@ -178,14 +178,28 @@ pub(super) fn feature_color(kind: FeatureVisualKind, fighting: bool, flash: bool
     }
 }
 
+/// Colour of a static world label at full opacity. Named because the placement
+/// pass ([`super::label_layout`]) is the single writer of the rendered
+/// `TextColor` and needs the un-faded value to fade FROM.
+pub(super) const WORLD_LABEL_COLOR: Color = Color::srgba(0.86, 0.94, 1.0, 0.94);
+
+/// Spawn one static world-space label.
+///
+/// `owner_id` must be unique across every label family — the placement pass
+/// keys its resolved layout by it. Static labels are prefixed by their caller
+/// (`signage:` / `fixture:`) so they can never collide with a nameplate's
+/// view identity, which is a bare feature/zone id.
 pub(super) fn spawn_world_label(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
+    owner_id: impl Into<String>,
+    family: super::label_layout::WorldLabelFamily,
     pos: ae::Vec2,
     text: &str,
     font_size: f32,
 ) {
+    let anchor = world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0);
     commands.spawn_session_scoped(
         session_scope,
         (
@@ -194,10 +208,12 @@ pub(super) fn spawn_world_label(
                 font_size,
                 ..default()
             },
-            TextColor(Color::srgba(0.86, 0.94, 1.0, 0.94)),
-            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0)),
+            TextColor(WORLD_LABEL_COLOR),
+            Transform::from_translation(anchor),
             Name::new(format!("World label: {text}")),
             RoomVisual,
+            super::label_layout::WorldLabel::new(owner_id, family, anchor)
+                .with_colors(WORLD_LABEL_COLOR, None),
         ),
     );
 }

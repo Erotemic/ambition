@@ -829,7 +829,7 @@ fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
             definition.body = Some(crate::character_runtime::BodySource::Explicit {
                 half_extents: (19.0, 31.0),
             });
-            definition.vitals.mass = 4.5;
+            definition.vitals.mass = Some(4.5);
             definition
         },
     );
@@ -1084,8 +1084,8 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     let mut app = seating_app();
     let mut tank = CharacterDefinition::new("tank", "Tank", "demo");
     tank.vitals = crate::character_runtime::Vitals {
-        max_health: 60,
-        mass: 1.0,
+        max_health: Some(60),
+        mass: Some(1.0),
     };
     app.register_character(tank);
 
@@ -1314,9 +1314,9 @@ fn activation_publishes_every_seated_body_in_seat_order() {
         .expect("a fully seated roster must activate")
         .clone();
     assert_eq!(
-        active.participants().len(),
+        active.seats(),
         2,
-        "activation must name every seat, not merely report that seating ended"
+        "activation must count every seat, not merely report that seating ended"
     );
     assert_eq!(
         active.seat_topology(),
@@ -1325,20 +1325,26 @@ fn activation_publishes_every_seated_body_in_seat_order() {
          later disagreement has nothing to compare against"
     );
 
-    // Seat order, checked through the bodies themselves.
+    // Seat order, checked through the bodies themselves — which is now the ONLY
+    // place it lives. `match_participants` derives the cast from `MatchSeat`
+    // rather than from a remembered list, so this reads what production reads.
     let world = app.world_mut();
-    let worn: Vec<String> = active
-        .participants()
-        .iter()
-        .map(|body| {
-            world
-                .entity(*body)
-                .get::<ambition_characters::actor::WornCharacter>()
-                .expect("every named participant is a body wearing its character")
-                .id()
-                .to_string()
-        })
-        .collect();
+    let worn: Vec<String> = world
+        .run_system_cached(
+            |seated: Query<(Entity, &MatchSeat)>,
+             worn: Query<&ambition_characters::actor::WornCharacter>| {
+                crate::character_runtime::match_participants(&seated)
+                    .into_iter()
+                    .map(|body| {
+                        worn.get(body)
+                            .expect("every seated participant wears its character")
+                            .id()
+                            .to_string()
+                    })
+                    .collect::<Vec<_>>()
+            },
+        )
+        .expect("the participant query runs");
     assert_eq!(
         worn,
         vec!["alpha".to_string(), "beta".to_string()],
@@ -1364,8 +1370,8 @@ fn a_seated_fighter_carries_its_authored_mass() {
     let mut app = seating_app();
     let mut heavy = CharacterDefinition::new("anvil", "Anvil", "demo");
     heavy.vitals = crate::character_runtime::Vitals {
-        max_health: 40,
-        mass: 6.5,
+        max_health: Some(40),
+        mass: Some(6.5),
     };
     app.register_character(heavy);
     app.insert_resource(MatchParticipantRoster {

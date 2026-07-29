@@ -660,6 +660,52 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
     );
 }
 
+/// **A body cannot end up with two owners of one press.** (GPT 5.6)
+///
+/// A character that takes the host-code kit gets the host's charge-projectile
+/// mechanic on its ranged press. If its authored moveset also binds a ranged
+/// verb, both fire — the charge path because the kit installed it, the moveset
+/// because the verb resolves. The first version of this guard REPORTED the
+/// contradiction and published the kit anyway, which named the bug without
+/// preventing it.
+///
+/// The whole verb FAMILY, not the base alone: `directional_verb_chain` resolves
+/// a press through `ranged_air_forward` → `ranged_forward` → `ranged_air` →
+/// `ranged`, so a suffixed binding owns that direction's press exactly as the
+/// base owns the neutral one. Watching only `"ranged"` would leave the same
+/// double-fire in the air.
+#[test]
+fn a_host_code_kit_cannot_also_carry_an_authored_ranged_verb() {
+    let hybrid = CharacterDefinition::new("gunner", "Gunner", "demo").with_moveset(moveset_with(
+        &[
+            ("attack", "swing"),
+            ("ranged", "bolt"),
+            ("ranged_air", "bolt"),
+            ("ranged_forward", "bolt"),
+        ],
+        vec![
+            slash("swing", "swing", "hit"),
+            slash("bolt", "swing", "hit"),
+        ],
+    ));
+
+    // No catalog and no authored action set: the host-code kit, whose charge
+    // path owns the ranged press.
+    let prepared = prepare_and_finalize_for_test(hybrid, &CharacterBindings::default()).prepared;
+    let PreparedKit::HostCode { authored_moveset } = &prepared.kit else {
+        panic!("expected the host-code kit, got {:?}", prepared.kit);
+    };
+    let verbs = &authored_moveset.as_ref().expect("authored moveset").verbs;
+
+    assert!(
+        !verbs.keys().any(|verb| verb.starts_with("ranged")),
+        "the host kit owns the ranged press, so no ranged verb may survive: {verbs:?}"
+    );
+    // Everything else the author wrote is untouched — this revokes one press,
+    // it does not discard the moveset.
+    assert_eq!(verbs.get("attack").map(String::as_str), Some("swing"));
+}
+
 /// **A cast has a version, so a derivation can know it went stale.** (X4)
 ///
 /// Nothing downstream could say WHICH cast a body's kit came from. "This was

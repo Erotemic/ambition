@@ -92,8 +92,15 @@ pub fn seat_character(
     brain: ambition_entity_catalog::placements::CharacterBrain,
 ) -> Option<Entity> {
     let prepared = registry.get(character_id)?;
-    // **THE AUTHORED BODY BOX, when the character declared one.**
+    // **THE AUTHORED PHYSICAL IDENTITY**, resolved once and read three times
+    // below — the box here, the health pool on the seed, the mass on the bundle.
     //
+    // Read through [`PhysicalBaseline`] rather than off `prepared.vitals` and
+    // `prepared.body` directly, because the exploration player reads the same
+    // value through the same accessors. Three paths each interpreting the fields
+    // for themselves is precisely how the worn player ended up with the catalog's
+    // health and none of the character's mass (GPT 5.6, 2026-07-29).
+    let baseline = super::PhysicalBaseline::of(prepared);
     // `SEAT_BODY_PX` is a placeholder ON PURPOSE and stays the answer for a
     // character that authored nothing. But `BodySource::Explicit` had no consumer
     // anywhere in the repository, so a provider could author half-extents and
@@ -102,12 +109,7 @@ pub fn seat_character(
     // Spawn time is the right place for it: the box is a construction fact, and a
     // per-tick projection writing a live body's size would be a second geometry
     // authority beside the transit seam (ADR 0024).
-    let body_px = match prepared.body.as_ref() {
-        Some(super::BodySource::Explicit { half_extents }) => {
-            Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0)
-        }
-        _ => SEAT_BODY_PX,
-    };
+    let body_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
     let aabb = ambition_engine_core::Aabb::new(at, body_px / 2.0);
     // `new_in`, not the test-only `new`: production construction never has a
     // hidden catalog fallback, and a seated fighter resolves its sprite identity
@@ -122,9 +124,13 @@ pub fn seat_character(
         brain,
         &[],
     );
-    seed.health = ambition_characters::actor::BodyHealth::new(
-        ambition_characters::actor::Health::new(prepared.vitals.max_health.max(1)),
-    );
+    // The seed's own pool stands for a character that authored none — which used
+    // to be impossible to express, because an unauthored `Vitals` defaulted to a
+    // one-hit pool and every seated fighter silently took it.
+    seed.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+            baseline.max_health_over(seed.health.health.max.max(1)),
+        ));
     seed.kin.facing = facing;
     let centered = ambition_engine_core::CenteredAabb::from_center_size(at, body_px);
     let motion_model = seed.config.tuning.motion_model();
@@ -155,109 +161,116 @@ pub fn seat_character(
     let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
     let cluster = seed.into_components();
     use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
-    Some(
-        commands
-            .spawn_session_scoped(
-                session_scope,
-                (
-                    // The SAME bundle every other actor spawn builds. Seating used to
-                    // hand-pick a subset of these components, and the subset was
-                    // missing `ActorTarget` — which `tick_actor_brains` requires
-                    // non-optionally, so a seated fighter silently dropped out of the
-                    // brain tick entirely and stood still. It looked like a body in
-                    // every way a test that queries components can see.
-                    crate::features::EnemyActorBundle::new(
-                        crate::features::FeatureBaseBundle::new(
-                            character_id,
-                            prepared.display_name.clone(),
-                            centered,
-                        ),
-                        identity,
-                        disposition,
-                        faction,
-                        crate::features::ActorPose::from_parts(at, body_px / 2.0, facing),
-                        combat_kit,
-                        crate::features::ActorAggression::hostile(),
-                        combat,
-                        intent,
-                        cooldowns,
-                    )
-                    .with_motion_model(motion_model),
-                    cluster,
-                    action_set,
-                    derived_brain,
-                    // **Required columns of `apply_worn_character_gameplay`**, the
-                    // ONE writer that turns `WornCharacter` into a persona — name,
-                    // action set, moveset, identity baseline. A body missing any of
-                    // them does not match the derive at all: it wears a character
-                    // and derives nothing from it, and the fighter walks and cannot
-                    // swing. Placeholders; the derive replaces them on the tick the
-                    // worn character lands.
-                    //
-                    // ⚠ **a correction (2026-07-29).** The comment here used to say
-                    // the derive's query "requires `IdentityKit` and
-                    // `BodyAbilities` — and `EnemyActorBundle` carries neither, so
-                    // a seated body never matched it", and that reasoning was
-                    // carried into the queue, into a campaign doc, and into the
-                    // design of the projection that grew up to serve seated bodies.
-                    // It is FALSE and was checked rather than inherited:
-                    // `WornCharacter` is `#[require(IdentityKit)]`, so every worn
-                    // body has one, and `BodyAbilities` arrives with
-                    // `AncillaryMovementBundle` inside the cluster below — adding
-                    // it here is a duplicate component and Bevy panics on the
-                    // bundle, which is how this got caught.
-                    //
-                    // Seated bodies therefore ALWAYS matched the derive. The second
-                    // kit writer was never necessary; it was built on a diagnosis
-                    // nobody re-read. That is the more useful lesson than the one
-                    // the old comment taught.
-                    Name::new(prepared.display_name.clone()),
-                    crate::combat::moveset::ActorMoveset(Default::default()),
-                    // The body WEARS the character. Everything that makes it that
-                    // fighter rather than a generic actor follows from this one
-                    // component: the moveset and silhouette arrive via
-                    // `project_prepared_character_definitions`, and the presentation
-                    // source via `publish_body_presentation_sources`. Seating does not
-                    // insert any of them by hand — that hand projection is exactly
-                    // what made the old fixture prove less than it looked like.
-                    ambition_characters::actor::WornCharacter::new(character_id),
-                    // The MATCH owns this fighter's death, not the world. Without
-                    // this a KO runs the exploration economy — a bounty coin, a
-                    // heart, a death explosion, an in-place respawn timer — none of
-                    // which an arena has any use for.
-                    crate::combat::components::RulesetOwnsDeath,
-                    // WITHOUT THIS THE FIGHTER IS INVISIBLE. The marker's own
-                    // documentation says so: "the authored render pass only spawns
-                    // visuals for `spec.enemy_spawns`, and the dynamic pass only for
-                    // EncounterMob / reward chests, so a directly-staged actor would
-                    // render invisibly."
-                    //
-                    // A seated fighter is a directly-staged actor, and seating did
-                    // not apply it — so the versus arena had a body with a published
-                    // view, a hurtbox, a moveset and no picture. Jon found it by
-                    // picking Versus and seeing one fighter (2026-07-27); the seat-0
-                    // fighter looked fine only because it is the adopted PRIMARY
-                    // PLAYER, which renders through the player path entirely.
-                    crate::combat::components::RuntimeStagedActor,
-                    ambition_characters::brain::ActorControl::default(),
-                    ambition_characters::actor::attack_gesture::AttackGestureState::default(),
-                    ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
-                    ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
-                    // **THE AUTHORED MASS**, which reached nothing until now.
-                    //
-                    // `Mass` is real and has one consumer: the mount pair's
-                    // mass-weighted centre of gravity (ADR 0020) — a heavy mount
-                    // keeps the COG near itself so the lighter rider orbits it on
-                    // a gravity flip. It was populated from the ROSTER archetype
-                    // and never from the character definition, so
-                    // `Vitals.mass` was a second declaration of a fact only the
-                    // roster could state (GPT 5.6 flagged it as dead; it was not
-                    // dead, it was disconnected — 2026-07-29).
-                    crate::features::Mass(prepared.vitals.mass),
-                ),
-            )
-            .id(),
-    )
+    let body = commands
+        .spawn_session_scoped(
+            session_scope,
+            (
+                // The SAME bundle every other actor spawn builds. Seating used to
+                // hand-pick a subset of these components, and the subset was
+                // missing `ActorTarget` — which `tick_actor_brains` requires
+                // non-optionally, so a seated fighter silently dropped out of the
+                // brain tick entirely and stood still. It looked like a body in
+                // every way a test that queries components can see.
+                crate::features::EnemyActorBundle::new(
+                    crate::features::FeatureBaseBundle::new(
+                        character_id,
+                        prepared.display_name.clone(),
+                        centered,
+                    ),
+                    identity,
+                    disposition,
+                    faction,
+                    crate::features::ActorPose::from_parts(at, body_px / 2.0, facing),
+                    combat_kit,
+                    crate::features::ActorAggression::hostile(),
+                    combat,
+                    intent,
+                    cooldowns,
+                )
+                .with_motion_model(motion_model),
+                cluster,
+                action_set,
+                derived_brain,
+                // **Required columns of `apply_worn_character_gameplay`**, the
+                // ONE writer that turns `WornCharacter` into a persona — name,
+                // action set, moveset, identity baseline. A body missing any of
+                // them does not match the derive at all: it wears a character
+                // and derives nothing from it, and the fighter walks and cannot
+                // swing. Placeholders; the derive replaces them on the tick the
+                // worn character lands.
+                //
+                // ⚠ **a correction (2026-07-29).** The comment here used to say
+                // the derive's query "requires `IdentityKit` and
+                // `BodyAbilities` — and `EnemyActorBundle` carries neither, so
+                // a seated body never matched it", and that reasoning was
+                // carried into the queue, into a campaign doc, and into the
+                // design of the projection that grew up to serve seated bodies.
+                // It is FALSE and was checked rather than inherited:
+                // `WornCharacter` is `#[require(IdentityKit)]`, so every worn
+                // body has one, and `BodyAbilities` arrives with
+                // `AncillaryMovementBundle` inside the cluster below — adding
+                // it here is a duplicate component and Bevy panics on the
+                // bundle, which is how this got caught.
+                //
+                // Seated bodies therefore ALWAYS matched the derive. The second
+                // kit writer was never necessary; it was built on a diagnosis
+                // nobody re-read. That is the more useful lesson than the one
+                // the old comment taught.
+                Name::new(prepared.display_name.clone()),
+                crate::combat::moveset::ActorMoveset(Default::default()),
+                // The body WEARS the character. Everything that makes it that
+                // fighter rather than a generic actor follows from this one
+                // component: the moveset and silhouette arrive via
+                // `project_prepared_character_definitions`, and the presentation
+                // source via `publish_body_presentation_sources`. Seating does not
+                // insert any of them by hand — that hand projection is exactly
+                // what made the old fixture prove less than it looked like.
+                ambition_characters::actor::WornCharacter::new(character_id),
+                // The MATCH owns this fighter's death, not the world. Without
+                // this a KO runs the exploration economy — a bounty coin, a
+                // heart, a death explosion, an in-place respawn timer — none of
+                // which an arena has any use for.
+                crate::combat::components::RulesetOwnsDeath,
+                // WITHOUT THIS THE FIGHTER IS INVISIBLE. The marker's own
+                // documentation says so: "the authored render pass only spawns
+                // visuals for `spec.enemy_spawns`, and the dynamic pass only for
+                // EncounterMob / reward chests, so a directly-staged actor would
+                // render invisibly."
+                //
+                // A seated fighter is a directly-staged actor, and seating did
+                // not apply it — so the versus arena had a body with a published
+                // view, a hurtbox, a moveset and no picture. Jon found it by
+                // picking Versus and seeing one fighter (2026-07-27); the seat-0
+                // fighter looked fine only because it is the adopted PRIMARY
+                // PLAYER, which renders through the player path entirely.
+                crate::combat::components::RuntimeStagedActor,
+                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::actor::attack_gesture::AttackGestureState::default(),
+                ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
+                ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
+            ),
+        )
+        .id();
+    // **THE AUTHORED MASS**, which reached nothing until 2026-07-29.
+    //
+    // `Mass` is real and has one consumer: the mount pair's mass-weighted centre
+    // of gravity (ADR 0020) — a heavy mount keeps the COG near itself so the
+    // lighter rider orbits it on a gravity flip. It was populated from the ROSTER
+    // archetype and never from the character definition, so `Vitals.mass` was a
+    // second declaration of a fact only the roster could state (GPT 5.6 flagged
+    // it as dead; it was not dead, it was disconnected).
+    //
+    // ⚠ CONDITIONAL now, and that is the fix to the fix: writing it into the
+    // bundle unconditionally meant a character that authored no mass overwrote
+    // its own archetype's with the ambient 1.0. Health and geometry are already
+    // applied by the seed above, so this is all the boundary has left to do.
+    baseline.apply_to_body(
+        super::BaselineBoundary::Construction,
+        &mut commands.entity(body),
+        None,
+        None,
+    );
+    Some(body)
 }
 
 /// Where a participant sits and which way it looks.
@@ -301,7 +314,33 @@ pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
     seat_for(index, centre)
 }
 
-/// **The match that is LIVE, and the bodies that are in it.**
+/// **The bodies in a live match, in seat order, DERIVED from the world.**
+///
+/// The seat binding lives on the fighters as [`MatchSeat`], which is where it
+/// belongs: a body knows which seat it is, and a body that no longer exists
+/// cannot claim one. Anything that needs the cast asks the world through this,
+/// rather than reading a list somebody remembered.
+///
+/// ⚠ **this used to be a `Vec<Entity>` on [`ActiveMatch`], and that was the bug**
+/// (GPT 5.6, 2026-07-29). A resource holding live `Entity` values, mutated from
+/// inside the rollback schedule and not registered as rollback state, keeps its
+/// future contents across a rewind: the bodies are restored to an earlier state —
+/// or to not existing — while the list still names them. Deriving costs one
+/// query and cannot go stale, because there is nothing to keep in step.
+///
+/// Sorted by seat, so `participants[i]` is seat `i` however the entities were
+/// spawned. Entity order is not an order; a set that arrives in spawn order makes
+/// indexing it mean nothing.
+pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
+    let mut by_seat: Vec<(usize, Entity)> = seated
+        .iter()
+        .map(|(entity, seat)| (seat.0, entity))
+        .collect();
+    by_seat.sort_by_key(|(seat, _)| *seat);
+    by_seat.into_iter().map(|(_, entity)| entity).collect()
+}
+
+/// **The match that is LIVE.**
 ///
 /// Present means every participant in the roster has a body. Absent means no
 /// match is running — either none was requested, or seating is still retrying.
@@ -313,26 +352,43 @@ pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
 /// A bool said seating had FINISHED and never said WHO, so nothing could ask
 /// whether the live fighters are still the set the match was built from — which
 /// is exactly why a roster that disagrees with its session after seating could
-/// only be REPORTED and not repaired (queue Y′9). Naming the bodies and the
-/// topology generation they were activated against makes that a question the
-/// code can answer (2026-07-29).
+/// only be REPORTED and not repaired (queue Y′9).
+///
+/// ⚠ **and it says how MANY, not WHICH** (GPT 5.6, 2026-07-29). Naming the
+/// bodies meant holding `Vec<Entity>` in a resource that is written from inside
+/// the rollback schedule and is not rollback state, so a rewind across activation
+/// would restore the fighters and leave the list pointing at the future. The
+/// review's rule is the right one — *"do not snapshot raw entity references
+/// without a complete remapping and reconstruction contract"* — and the cheapest
+/// way to obey it was to stop snapshotting: [`match_participants`] derives the
+/// cast from [`MatchSeat`] on the bodies themselves, which rewinds because the
+/// bodies do.
+///
+/// What is left here is plain data with no identity in it: a count and a
+/// generation number. Both are facts about the DECISION to activate, and both
+/// only ever move forward within a match.
 ///
 /// Published in ONE insert, on the tick the last seat is filled. Never partially:
 /// a roster whose seat 0 cannot adopt yet while seat 1 spawned fine must not
 /// activate on the strength of seat 1.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct ActiveMatch {
-    /// Seat order: `participants[i]` is the body seated at seat `i`.
-    participants: Vec<Entity>,
+    /// How many seats this match activated with. Compare it against
+    /// [`match_participants`] to ask whether the cast is still whole.
+    seats: usize,
     /// The frozen seat topology this match was activated against, copied from
     /// the roster so the two can be COMPARED rather than assumed equal.
     seat_topology: Option<u64>,
 }
 
 impl ActiveMatch {
-    /// The bodies in this match, in seat order.
-    pub fn participants(&self) -> &[Entity] {
-        &self.participants
+    /// How many fighters this match activated with.
+    ///
+    /// Deliberately not "how many are alive now" — that is a question for the
+    /// world, and [`match_participants`] answers it. The difference between the
+    /// two is exactly the signal a rules layer wants.
+    pub fn seats(&self) -> usize {
+        self.seats
     }
 
     /// Which frozen topology decided this match's seating, if a session had
@@ -365,9 +421,9 @@ impl ActiveMatch {
     /// The fields stay private so production has exactly one publisher; this is
     /// the hatch, and it is named for what it is.
     #[doc(hidden)]
-    pub fn for_test(participants: Vec<Entity>, seat_topology: Option<u64>) -> Self {
+    pub fn for_test(seats: usize, seat_topology: Option<u64>) -> Self {
         Self {
-            participants,
+            seats,
             seat_topology,
         }
     }
@@ -525,54 +581,51 @@ pub fn seat_match_participants(
                 // its `StartingCharacter`.
                 continue;
             }
-            // Through `transit_body`, the ONE transit authority (ADR 0024): a
-            // bare `kin.pos = at` is a pose write the kernel never sees, so the
-            // body arrives believing it is still standing on the floor it left.
-            // The workspace policy caught that draft, and was right to.
-            // **THE AUTHORED MAXIMUM, on the adopted body too.** A seat starts at
-            // FULL health, adopted or spawned — and at the SAME maximum its
-            // character authored, whichever way it got its body.
-            //
-            // A spawned seat took `prepared.vitals.max_health` from the seed. The
-            // adopted primary player did not: it kept the maximum its session
-            // established from the legacy catalog or the default player health, so
-            // the same character could bring 60 HP as player two and something else
-            // entirely as player one. The versus duelists author 60 and 52 — a
-            // deliberate trade, one fighter paying for a faster smash — and that
-            // trade simply did not apply to seat 0 (GPT 5.6, 2026-07-29).
-            //
-            // Match activation is the right long-term home for this (it is a
-            // once-per-match decision, not a per-tick projection, and health is
-            // live state the rest of the time). Until that seam exists, adoption
-            // is the one place a body becomes a fighter, so it is where the
-            // authored maximum has to land.
-            if let Some(prepared) = registry.get(character) {
-                health.health.max = prepared.vitals.max_health.max(1);
-            }
-            health.health.current = health.health.max;
+            // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its death
+            // runs `death_respawn_player`, which teleports it to the room spawn
+            // and restores full health BEFORE any rules layer can look — so seat 0
+            // could never be seen at zero health, and the match was rigged in
+            // its favour (GPT 5.6, 2026-07-27).
+            let mut adopted = commands.entity(body);
+            adopted.insert((
+                MatchSeat(index),
+                crate::combat::components::RulesetOwnsDeath,
+            ));
             let mut item = clusters;
             let mut clusters = item.as_clusters_mut();
-            // **THE AUTHORED BODY BOX ON THE ADOPTED SEAT TOO.**
+            // **MATCH ACTIVATION IS A CONSTRUCTION BOUNDARY**, so the adopted body
+            // gets the same physical identity a spawned seat gets — from the same
+            // resolver, through the same call.
             //
-            // A spawned seat sized itself from `BodySource::Explicit`; the
-            // adopted primary player kept whatever box its session gave it. So a
-            // MIRROR MATCH — the same character in both seats — could put two
-            // different body shapes on the stage, and the one that was wrong was
-            // always player one (GPT 5.6, 2026-07-29).
+            // Each of these three was a separate divergence, found one at a time,
+            // and the pattern is what made them worth unifying (GPT 5.6,
+            // 2026-07-29):
             //
-            // Written BEFORE `transit_body`, deliberately: the transit seam is
-            // the one authority that re-resolves a body's pose against the world
+            // * **health** — a spawned seat took the authored maximum; the adopted
+            //   player kept whatever its session established. The versus duelists
+            //   author 60 and 52, a deliberate trade with one fighter paying for a
+            //   faster smash, and that trade did not apply to seat 0.
+            // * **box** — a mirror match could put two different body shapes on
+            //   the stage, and the wrong one was always player one.
+            // * **mass** — the same character weighed different amounts depending
+            //   on which seat it took.
+            //
+            // Written BEFORE `transit_body`, deliberately: the transit seam is the
+            // one authority that re-resolves a body's pose against the world
             // (ADR 0024), so a size change followed by a transit is a body
             // arriving at its seat correctly sized, not a live resize that could
-            // leave it intersecting the floor it was standing on.
-            //
-            // `SpriteAuthored` needs nothing here — its live pose projection
-            // already reaches every body on every path. This is the `Explicit`
-            // case, which was seating-only.
-            if let Some(super::BodySource::Explicit { half_extents }) =
-                registry.get(character).and_then(|p| p.body.as_ref())
-            {
-                clusters.kinematics.size = Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0);
+            // leave it intersecting the floor it was standing on. That ordering is
+            // exactly why this path may pass a `size` and the re-wear path may not.
+            if let Some(prepared) = registry.get(character) {
+                super::PhysicalBaseline::of(prepared).apply_to_body(
+                    super::BaselineBoundary::Construction,
+                    &mut adopted,
+                    Some(&mut health),
+                    Some(&mut clusters.kinematics.size),
+                );
+            } else {
+                // No prepared character to speak for it; a seat still opens full.
+                health.health.current = health.health.max;
             }
             ambition_engine_core::movement::transit_body(
                 &mut model,
@@ -581,23 +634,6 @@ pub fn seat_match_participants(
                 ambition_engine_core::movement::TransitVelocity::Zero,
             );
             clusters.kinematics.facing = facing;
-            // The adopted PRIMARY PLAYER needs it most. Its death runs
-            // `death_respawn_player`, which teleports it to the room spawn and
-            // restores full health BEFORE any rules layer can look — so seat 0
-            // could never be seen at zero health, and the match was rigged in
-            // its favour (GPT 5.6, 2026-07-27).
-            let mut adopted = commands.entity(body);
-            adopted.insert((
-                MatchSeat(index),
-                crate::combat::components::RulesetOwnsDeath,
-            ));
-            // **AND THE AUTHORED MASS**, for the same reason as the box: a
-            // spawned seat gets `prepared.vitals.mass` and the adopted one kept
-            // the mount system's default of one, so the same character weighed
-            // different amounts depending on which seat it took.
-            if let Some(prepared) = registry.get(character) {
-                adopted.insert(crate::features::Mass(prepared.vitals.mass));
-            }
             seated_bodies.push(body);
             // The TEAM, which this branch dropped when the death-ownership
             // insert was added over it. A seat with no team is judged by FACTION
@@ -686,11 +722,15 @@ pub fn seat_match_participants(
     // whether a seat is possible yet.
     if seated_count == roster.participants.len() {
         // ACTIVATION, in one insert. `by_seat` already holds the seats filled on
-        // earlier ticks; this pass's go in on top, so the published list is the
-        // whole cast in seat order however many ticks it took to assemble.
+        // earlier ticks; this pass's go in on top, so the count is the whole cast
+        // however many ticks it took to assemble.
+        //
+        // The BODIES are not recorded. They wear `MatchSeat` and
+        // `match_participants` reads them off the world, which is what keeps the
+        // activation free of entity references a rewind could invalidate.
         by_seat.extend(seated_this_pass);
         commands.insert_resource(ActiveMatch {
-            participants: by_seat.into_values().collect(),
+            seats: by_seat.len(),
             seat_topology: roster.seat_topology,
         });
     }

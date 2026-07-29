@@ -43,6 +43,23 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
     recipes: Res<'w, ambition::actors::construction::ActorConstructionRegistry>,
 }
 
+/// **Who this app's characters ARE**, in one parameter.
+///
+/// The catalog is the legacy cast's authority, the prepared registry is the
+/// registered cast's, the sheets say what art they may reach, and the roster
+/// says what a hostile one is built from. Four questions about the same subject,
+/// and grouping them is what keeps this system under Bevy's 16-parameter limit —
+/// which it went over the moment the prepared registry joined (2026-07-29).
+#[derive(SystemParam)]
+pub(crate) struct CharacterAuthorities<'w> {
+    catalog: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    /// `None` for a composition that registers no characters — the ordinary
+    /// case, not a degraded one.
+    prepared: Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
+    sheets: Res<'w, ambition::actors::character_sprites::AuthoredSheets>,
+    roster: Res<'w, ambition::actors::features::CharacterRoster>,
+}
+
 /// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). The presentation startup system discovers the home avatar by
@@ -61,9 +78,7 @@ pub(super) fn setup_simulation_system(
     starting_character: ambition::platformer::lifecycle::SessionWorldRef<
         ambition::actors::avatar::StartingCharacter,
     >,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition::actors::character_sprites::AuthoredSheets>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
+    characters: CharacterAuthorities,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     construction: RoomConstructionAuthorities,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
@@ -78,9 +93,10 @@ pub(super) fn setup_simulation_system(
             editable_abilities: &editable_abilities,
             tuning: &active_tuning,
             starting_character: &starting_character,
-            character_catalog: &character_catalog,
-            authored_sheets: &authored_sheets,
-            character_roster: &character_roster,
+            character_catalog: &characters.catalog,
+            prepared_characters: characters.prepared.as_deref(),
+            authored_sheets: &characters.sheets,
+            character_roster: &characters.roster,
             placement_lowering: &construction.placement_lowering,
             content_staging: &construction.content_staging,
             // Direct entry builds its session root at plugin-build time rather

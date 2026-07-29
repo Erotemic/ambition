@@ -1427,6 +1427,87 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     );
 }
 
+/// **A worn character brings its BODY, not only its kit.** (GPT 5.6)
+///
+/// Health, mass and the collision box used to be seating's alone: a fighter
+/// spawned into a match got the character's authored numbers, and the same
+/// character worn by the exploration player got the catalog's health, the mount
+/// system's default mass, and the player's own box. Three construction paths,
+/// three answers, one character.
+///
+/// ⚠ and the damage stays. A re-wear is character REPLACEMENT, not construction
+/// — the maximum moves to the new identity's and the current value is clamped
+/// under it, because refilling would make swapping characters mid-round a free
+/// heal.
+#[test]
+fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    let mut heavy =
+        crate::character_runtime::CharacterDefinition::new("anvil", "Anvil", "demo_provider");
+    heavy.vitals = crate::character_runtime::Vitals {
+        max_health: Some(40),
+        mass: Some(6.5),
+    };
+    app.insert_resource(prepared(heavy));
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("anvil"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_characters::brain::action_set::IdentityKit::default(),
+            ambition_engine_core::BodyKinematics::default(),
+            // A body that has already TAKEN four damage off a ten-point pool.
+            {
+                let mut health = ambition_characters::actor::BodyHealth::new(
+                    ambition_characters::actor::Health::new(10),
+                );
+                health.health.current = 6;
+                health
+            },
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+
+    app.update();
+
+    let health = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(body)
+        .expect("the body kept its health");
+    assert_eq!(
+        health.health.max, 40,
+        "the worn character authored a 40-point pool and the body kept the one \
+         its construction happened to give it"
+    );
+    assert_eq!(
+        health.health.current, 6,
+        "wearing a character HEALED the body — a re-wear is replacement, not \
+         construction, so accumulated damage is the body's and survives"
+    );
+    assert_eq!(
+        app.world().get::<crate::features::Mass>(body).map(|m| m.0),
+        Some(6.5),
+        "the authored mass reached a seated fighter and not a worn one, which is \
+         the same character weighing two different amounts"
+    );
+}
+
 /// The worn half of the same claim: a player wearing a character that authored
 /// its motion model gets that model, not the catalog row's.
 ///

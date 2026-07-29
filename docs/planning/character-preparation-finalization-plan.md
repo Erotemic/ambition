@@ -349,6 +349,21 @@ somebody else's moves.
   host, so content cannot author a ranged preset into it. A validator for an
   unreachable state is a test of itself. It becomes real the day content can
   author over a host kit.
+  ⛔ **WRONG, and it was already reachable when this was written.** A `HostCode`
+  kit carries `authored_moveset` precisely so a character can take the host's
+  capabilities and bring its own timelines — and if that moveset binds `ranged`,
+  the press is owned by the host's charge-projectile path AND by the moveset
+  verb. Both fire. `default_player_action_set` always sets
+  `ranged: Some(bolt)` and `simple_ranged`'s fire event samples the owner's live
+  `ActionSet.ranged`, so it is two projectiles, not one that quietly does nothing.
+  ✔ **CLOSED 2026-07-29, and reporting was not enough.** The first fix logged the
+  contradiction and published the kit anyway, which named the bug without
+  preventing it. `revoke_host_owned_ranged` now strips the whole ranged verb
+  FAMILY at finalization — `ranged`, and every `ranged_*` the directional chain
+  can resolve — so the invalid ownership cannot reach a body and
+  `RangedExecution::HostCharge` is the sole authority for that press. The moves
+  themselves survive; a timeline nothing presses is inert, and deleting authored
+  content on a reachability argument is the more expensive mistake.
 - ◐ **Versus activation** — the publication half LANDED (`ActiveMatch` names the
   seated bodies and the topology they were activated against; the countdown
   starts from it; `MatchSeated(bool)` is gone). What remains is now better
@@ -369,6 +384,25 @@ somebody else's moves.
   participant references deterministically. Clone-snapshotting raw `Entity`
   values is not a third route — it needs correct remapping and does nothing about
   the `Update` mutation.
+  ✔ **the ENTITY half is closed (2026-07-29).** The review's own rule — *"do not
+  snapshot raw entity references without a complete remapping and reconstruction
+  contract"* — has a cheaper reading than building the contract: stop
+  snapshotting. `ActiveMatch` now holds a seat COUNT and a topology generation,
+  both plain data, and `match_participants` derives the cast in seat order from
+  the `MatchSeat` component on the bodies themselves. That rewinds because the
+  bodies do, and it cannot go stale because there is nothing to keep in step.
+  ⚠ it turned out there was exactly ONE production reader of the entity list, and
+  it was a `warn_once!` counting them. The list had been carrying a rollback
+  hazard to serve a log line.
+  ▢ **the LIFECYCLE half is still open**, and it is the part the review calls
+  preferred: activation happens inside the rollback schedule (seating runs on
+  `sim`, which under a session IS `GgrsSchedule`), so a rewind across the
+  activation tick still leaves a non-rollback latch saying the match is live
+  while the fighters are pre-activation. The failure is now bounded — a count and
+  a generation cannot dangle, and the disagreement is DETECTABLE by comparing
+  `seats()` against `match_participants()` — but it is not gone. The fix remains
+  route one: freeze the topology, prepare every fighter, construct the match,
+  publish, and start the session afterward.
   ⚠ and the Y′9 stamp repair runs in that same `Update`, on that same resource.
   It happens to be safe: it is idempotent and derives its value from the frozen
   topology, so it re-applies harmlessly after a rewind. That is a property worth

@@ -51,6 +51,18 @@ pub struct SimulationSetup<'a> {
     pub starting_character: &'a crate::avatar::StartingCharacter,
     /// App-local assembled character definitions used by spawn and re-wear.
     pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
+    /// The prepared cast, when this composition registered one.
+    ///
+    /// `None` is the ordinary case for a composition that registers no
+    /// characters — not a degraded one — which is why it is an `Option` rather
+    /// than a required authority like the catalog beside it.
+    ///
+    /// Setup needs it because the player is a body being CONSTRUCTED, and a
+    /// prepared character states what a body physically is. Without it, the worn
+    /// player took its health from the catalog row and its mass and box from
+    /// nowhere, while a seated fighter wearing the same character took all three
+    /// from the definition (GPT 5.6, 2026-07-29).
+    pub prepared_characters: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     /// App-local sheets this session's providers authored (U1). Sized bodies
     /// come from sheets, so setup needs it wherever it needs the catalog.
     pub authored_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -107,6 +119,7 @@ pub fn simulation_world(
         tuning,
         starting_character,
         character_catalog,
+        prepared_characters,
         authored_sheets,
         character_roster,
         placement_lowering,
@@ -183,16 +196,42 @@ pub fn simulation_world(
     // The player is a control box that WEARS a character. The protagonist takes
     // the untouched canonical path; any other selected character overlays its
     // moveset + name onto the same box (its sprite is bound presentation-side).
-    // How fragile the body is travels WITH the worn character, exactly like its
-    // capability set above: a classic-platformer character authors `max_health: 1`
-    // (armor absorbs, then the next hit is fatal) rather than forcing the whole
-    // host onto a one-hit pool. A row that authors none keeps the standard pool,
-    // so Ambition's own protagonist is untouched.
-    let player_health = ambition_characters::actor::Health::new(
-        character_catalog
-            .max_health(starting_character.effective_id(default_character_id))
+    //
+    // **What the body physically IS travels with the worn character**, through
+    // the same resolver a seated fighter uses. How fragile it is, how much it
+    // weighs, and how big its box is are one statement made once — a
+    // classic-platformer character authors `max_health: 1` (armor absorbs, then
+    // the next hit is fatal) rather than forcing the whole host onto a one-hit
+    // pool, and a character that authors none keeps the standard pool, so
+    // Ambition's own protagonist is untouched.
+    //
+    // ⚠ this used to read `character_catalog.max_health(..)` directly, which was
+    // a THIRD authority: the catalog row for the worn player, the prepared
+    // definition for a seated fighter, and nothing at all for mass or the box.
+    // The registry now folds the catalog row at its barrier, so consulting the
+    // prepared value is strictly more informed than consulting the row — and a
+    // registered-only character (every versus fighter) has no row to consult.
+    let worn_id = starting_character.effective_id(default_character_id);
+    let physical = prepared_characters
+        .and_then(|registry| registry.get(worn_id))
+        .map(crate::character_runtime::PhysicalBaseline::of);
+    let player_health = ambition_characters::actor::Health::new(match physical.as_ref() {
+        Some(physical) => physical.max_health_over(DEFAULT_PLAYER_HEALTH),
+        // No prepared character: the catalog row is still the authority for the
+        // legacy cast, which is most of it.
+        None => character_catalog
+            .max_health(worn_id)
             .unwrap_or(DEFAULT_PLAYER_HEALTH),
-    );
+    });
+    // The authored BOX, on the exploration player. `SpriteAuthored` needs nothing
+    // here — its per-pose projection reaches every body on every path — so this
+    // is the `Explicit` case, which was seating-only until now. Written into the
+    // scratch before the body exists, which is the one moment a size may be set
+    // without going through the transit seam (ADR 0024).
+    if let Some(size) = physical.as_ref().and_then(|p| p.explicit_size()) {
+        initial_scratch.kinematics.size = size;
+        initial_scratch.base_size.base_size = size;
+    }
     let player_bundle = if starting_character.is_default() {
         crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {
@@ -225,6 +264,19 @@ pub fn simulation_world(
             ),
         )
         .id();
+
+    // The authored MASS. Health and the box are already on the body above (both
+    // are construction inputs the bundle consumes); this is the remainder, and it
+    // goes through the shared applier so the exploration player and a seated
+    // fighter cannot drift apart again.
+    if let Some(physical) = physical.as_ref() {
+        physical.apply_to_body(
+            crate::character_runtime::BaselineBoundary::Construction,
+            &mut commands.entity(player),
+            None,
+            None,
+        );
+    }
 
     // Movement identity travels WITH the worn character. Every body already
     // carries one explicit policy; the App-local catalog selects or refreshes

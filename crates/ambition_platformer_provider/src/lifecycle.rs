@@ -1062,6 +1062,11 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     tuning: Res<'w, ambition_engine_core::ActiveMovementTuning>,
     asset_server: Res<'w, AssetServer>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    /// The prepared cast, when this composition registered one. Activation builds
+    /// the player's BODY, and a prepared character states what a body physically
+    /// is — its health pool, its mass, its authored box.
+    prepared_characters:
+        Option<Res<'w, ambition_actors::character_runtime::PreparedCharacterRegistry>>,
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets: Res<'w, ambition_actors::character_sprites::AuthoredSheets>,
@@ -1110,6 +1115,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 tuning: &self.tuning,
                 starting_character: &live_world.starting_character,
                 character_catalog: &self.character_catalog,
+                prepared_characters: self.prepared_characters.as_deref(),
                 authored_sheets: &self.authored_sheets,
                 character_roster: &self.character_roster,
                 placement_lowering: &self.placement_lowering,

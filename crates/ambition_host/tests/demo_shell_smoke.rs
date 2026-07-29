@@ -111,6 +111,7 @@ fn fixture_setup(
         ambition_runtime::demo_fixture::StartingCharacter,
     >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    prepared_characters: Option<Res<ambition_runtime::demo_fixture::PreparedCharacterRegistry>>,
     character_roster: Res<ambition_runtime::demo_fixture::CharacterRoster>,
     boss_catalog: Res<ambition_runtime::demo_fixture::BossCatalog>,
     placement_lowering: Res<ambition_runtime::demo_fixture::PlacementLoweringRegistry>,
@@ -129,6 +130,7 @@ fn fixture_setup(
             tuning: &tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            prepared_characters: prepared_characters.as_deref(),
             // A smoke fixture authors no sheets; empty is the honest value and
             // resolves exactly as this test did before U1.
             authored_sheets: &Default::default(),

@@ -31,10 +31,10 @@
 
 use ambition::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
 use ambition::characters::brain::ActionSet;
+use ambition::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
-use ambition::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition::entity_catalog::{MoveGates, MovesetContract};
 
 /// What makes one duelist different from another.
@@ -247,7 +247,14 @@ trait WithHealth {
 
 impl WithHealth for CharacterDefinition {
     fn with_health(mut self, max_health: i32, mass: f32) -> Self {
-        self.vitals = ambition::actors::character_runtime::Vitals { max_health, mass };
+        // `Some`, because these two fighters DID author their pools — 60 and 52
+        // is the trade this stage is built on. `None` on `Vitals` means "the
+        // author said nothing", which is the case a body must be able to
+        // distinguish from an authored one-hit pool.
+        self.vitals = ambition::actors::character_runtime::Vitals {
+            max_health: Some(max_health),
+            mass: Some(mass),
+        };
         self
     }
 }

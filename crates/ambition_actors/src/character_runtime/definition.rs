@@ -150,13 +150,37 @@ pub struct Lineage {
 }
 
 /// Physical limits and vitals. Gameplay numbers, flat.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// ⚠ **both fields are `Option` and that is load-bearing**, for the same reason
+/// every other kit field on a definition is: `None` means *the author said
+/// nothing*, which is a question, and `Some` is an answer that outranks whatever
+/// would have answered it.
+///
+/// They used to be flat, with `max_health` defaulting to `1`. That default was
+/// indistinguishable from an authored one-hit glass cannon — so the value could
+/// not be applied to a body without nerfing every character that had never
+/// thought about health, which is why only the SEATING path ever read it and the
+/// worn path read the catalog instead. Two construction paths, two answers, one
+/// character (GPT 5.6, 2026-07-29). Making the absence expressible is what lets
+/// one applier serve every path.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Vitals {
-    pub max_health: i32,
-    /// Reaches a seated body as [`Mass`](crate::features::Mass), which drives the
-    /// mount pair's mass-weighted centre of gravity (ADR 0020): a heavy mount
-    /// keeps the COG near itself, so the lighter rider orbits it on a gravity
-    /// flip.
+    /// How much punishment this character's body takes. `None` leaves whatever
+    /// pool the body's construction established — for a playable body that is
+    /// the host's standard pool.
+    ///
+    /// The definition-side analogue of the catalog row's `max_health`, which has
+    /// carried exactly this `Option` meaning since it was added; finalization
+    /// folds the two, definition first.
+    pub max_health: Option<i32>,
+    /// Reaches a body as [`Mass`](crate::features::Mass), which drives the mount
+    /// pair's mass-weighted centre of gravity (ADR 0020): a heavy mount keeps the
+    /// COG near itself, so the lighter rider orbits it on a gravity flip.
+    ///
+    /// `None` leaves the body's own mass alone — which for a seated fighter is
+    /// the one its roster archetype set. Authoring `Some(1.0)` and saying nothing
+    /// are different claims even though 1.0 is the ambient default, and only the
+    /// first one may overwrite an archetype.
     ///
     /// ⚠ this said "AUTHORED AND UNCONSUMED — no production code reads this,
     /// verified by grep". The grep was right about the FIELD and wrong about the
@@ -164,16 +188,7 @@ pub struct Vitals {
     /// the ROSTER archetype and never from here. So this was not a dead field, it
     /// was a second declaration of a fact only the roster could state — and
     /// "delete it" was very nearly the recommendation (2026-07-29).
-    pub mass: f32,
-}
-
-impl Default for Vitals {
-    fn default() -> Self {
-        Self {
-            max_health: 1,
-            mass: 1.0,
-        }
-    }
+    pub mass: Option<f32>,
 }
 
 /// Where a body's collision geometry comes from (§4.11, §5).
@@ -1020,32 +1035,53 @@ fn finalize_character(
             // would therefore be a test of itself. There is one (GPT 5.6,
             // 2026-07-29).
             //
-            // Reported HERE and not in `prepare_character`'s binding ledger,
+            // Decided HERE and not in `prepare_character`'s binding ledger,
             // because deciding this needs the CATALOG and the catalog is
             // deliberately not in scope until finalization — the Phase A split.
-            // Same shape, and same reason, as the malformed-Authored-row report
-            // directly above: named once at preparation rather than every time a
-            // body wears it.
-            _ => {
-                if let Some(moveset) = moveset.as_ref() {
-                    let ranged_verb = crate::combat::moveset::RANGED_VERB;
-                    if moveset.verbs.contains_key(ranged_verb) {
+            //
+            // ⚠ **and REPORTING it was not enough**, which is the second half of
+            // the same finding. A diagnostic left the contradictory kit intact and
+            // published it, so runtime still installed both owners and the log line
+            // was a description of a bug rather than a fix for one. Invalid
+            // ownership must not reach a body at all (GPT 5.6, second pass).
+            _ => PreparedKit::HostCode {
+                authored_moveset: moveset.map(|mut moveset| {
+                    let revoked = revoke_host_owned_ranged(&mut moveset);
+                    if !revoked.is_empty() {
                         bevy::log::error!(
-                            "character `{id}` takes the host-code kit AND authors a `{ranged_verb}` \
-                             verb. The host kit already owns the ranged press through its \
-                             charge-projectile path, so one press would fire two things; author an \
-                             action set to own the verb, or drop it from the moveset"
+                            "character `{id}` takes the host-code kit AND authored the ranged \
+                             verb(s) {revoked:?}. The host kit owns the ranged press through its \
+                             charge-projectile path, so one press would have fired both; those \
+                             verb bindings are DROPPED and the charge path keeps the press. To own \
+                             the verb from content instead, author an action set — that makes the \
+                             character `Authored`, and its moveset owns ranged outright"
                         );
                     }
-                }
-                PreparedKit::HostCode {
-                    authored_moveset: moveset,
-                }
-            }
+                    moveset
+                }),
+            },
         },
     };
 
     PreparedCharacterDefinition {
+        // **HEALTH FOLDS LIKE EVERY OTHER KIT FIELD**, and it is the last one
+        // that did not. The catalog row has carried `max_health: Option<i32>`
+        // with exactly this `None`-means-unauthored meaning since it was added,
+        // and `session::setup` read it directly — so a registered character's
+        // authored pool and a catalog row's authored pool were two authorities
+        // that never met. Folding here is what lets ONE applier serve the worn
+        // player and the seated fighter (GPT 5.6, 2026-07-29).
+        //
+        // Mass has no catalog counterpart to fold against; it carries through.
+        vitals: Vitals {
+            max_health: vitals
+                .max_health
+                .or_else(|| catalog?.max_health(&id))
+                // A pool of zero or less is dead on arrival and no author means
+                // it. Clamped once, at the barrier, so no consumer has to.
+                .map(|max| max.max(1)),
+            ..vitals
+        },
         motion_model: motion_model.unwrap_or_else(|| match catalog {
             Some(catalog) => {
                 crate::avatar::starting_character::motion_model_spec_for_character_id(catalog, &id)
@@ -1061,13 +1097,44 @@ fn finalize_character(
         portrait,
         body,
         hurtboxes,
-        vitals,
         kit,
         cue_dependencies,
         vfx_dependencies,
         checked,
         unresolved,
     }
+}
+
+/// **Take the ranged press away from a moveset whose body wears the host kit.**
+///
+/// Returns the verb bindings removed, in sorted order, for the caller to name.
+///
+/// The whole ranged FAMILY, not the base verb alone. `directional_verb_chain`
+/// resolves a press through `ranged_air_forward` → `ranged_forward` →
+/// `ranged_air` → `ranged`, so a moveset binding any suffixed form owns the press
+/// for that direction exactly as the base form owns the neutral one. A guard
+/// that watched only `"ranged"` would have let `ranged_air` through — the same
+/// double-fire, one direction over, and invisible until somebody shot while
+/// jumping.
+///
+/// Only the VERB bindings go. The move itself stays: a timeline nothing presses
+/// is inert, and pruning it would delete authored content on the strength of a
+/// reachability argument, which is the more expensive mistake. It keeps its cues
+/// in the derived inventory, so the session loads a sound it will not play —
+/// cheap, and honest about what the author wrote.
+fn revoke_host_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
+    let base = crate::combat::moveset::RANGED_VERB;
+    let prefix = format!("{base}_");
+    let revoked: Vec<String> = moveset
+        .verbs
+        .keys()
+        .filter(|verb| verb.as_str() == base || verb.starts_with(&prefix))
+        .cloned()
+        .collect();
+    for verb in &revoked {
+        moveset.verbs.remove(verb);
+    }
+    revoked
 }
 
 /// An authored moveset if there is one, otherwise the moves the action set implies.

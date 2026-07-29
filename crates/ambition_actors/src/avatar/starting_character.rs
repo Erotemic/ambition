@@ -560,6 +560,10 @@ pub fn apply_worn_character_gameplay(
         // re-wear initializes destination-private state inside the new
         // variant value; no cluster is touched (ADR 0024).
         &mut MotionModel,
+        // The physical baseline's live half. `Option` because not every worn body
+        // carries a health pool, and "this path cannot write it" is a different
+        // claim from "leave it alone".
+        Option<&mut ambition_characters::actor::BodyHealth>,
         Has<ambition_projectiles::PlayerProjectileState>,
         // What THIS system last applied to this body. See [`PersonaBaseline`]:
         // the change-detection filter that used to live here could not see a
@@ -579,6 +583,7 @@ pub fn apply_worn_character_gameplay(
         mut combat_kit,
         abilities,
         mut motion_model,
+        mut health,
         has_projectile_state,
         baseline,
     ) in &mut worn
@@ -613,6 +618,31 @@ pub fn apply_worn_character_gameplay(
                 execution,
                 has_projectile_state,
             );
+
+            // **WHAT THE BODY PHYSICALLY IS follows the character it wears.**
+            //
+            // A re-wear is character REPLACEMENT — one of the boundaries a body
+            // may legitimately be told its maximum health and mass — so a
+            // possession or a character swap moves those numbers to the new
+            // identity's instead of leaving the previous one's on the body.
+            //
+            // ⚠ `Replacement`, not `Construction`, and the difference is a real
+            // gameplay rule: the damage a body has taken is the BODY's and
+            // survives the swap, clamped under the new maximum. Refilling here
+            // would make wearing a character mid-round a free heal. Geometry is
+            // deliberately not applied — see [`BaselineBoundary::Replacement`].
+            if let Some(physical) = registry
+                .as_deref()
+                .and_then(|registry| registry.get(id))
+                .map(crate::character_runtime::PhysicalBaseline::of)
+            {
+                physical.apply_to_body(
+                    crate::character_runtime::BaselineBoundary::Replacement,
+                    &mut commands.entity(entity),
+                    health.as_deref_mut(),
+                    None,
+                );
+            }
 
             // Movement identity is identity-derived, not ability-derived. Only
             // a wear/re-wear may replace the model; doing this for a live

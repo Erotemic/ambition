@@ -313,7 +313,7 @@ fn reconcile_roster_with_frozen_topology(
             topology.generation(),
             topology.players(),
             rebuilt.participants.len(),
-            active.participants().len(),
+            active.seats(),
         );
         return;
     }
@@ -584,7 +584,7 @@ mod roster_topology_tests {
         if active {
             // An ACTIVE match: seating published it, so its bodies are on the
             // stage and rebuilding the roster would reseat underneath them.
-            app.insert_resource(ActiveMatch::for_test(vec![], None));
+            app.insert_resource(ActiveMatch::for_test(0, None));
         }
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);

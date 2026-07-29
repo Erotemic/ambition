@@ -57,6 +57,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("mary_o"), cpu("sanic")],
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);
@@ -109,6 +110,7 @@ fn seating_runs_once_however_many_ticks_pass() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("mary_o")],
+        ..Default::default()
     });
 
     for _ in 0..10 {
@@ -134,6 +136,7 @@ fn an_unregistered_participant_is_not_seated() {
     let mut app = seating_app();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("nobody_registered_this")],
+        ..Default::default()
     });
     finalize_and_update(&mut app);
 
@@ -182,6 +185,7 @@ fn a_human_seat_adopts_the_existing_player_body_instead_of_duplicating_it() {
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
             cpu("mary_o"),
         ],
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);
@@ -234,6 +238,7 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);
@@ -282,6 +287,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
             MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 }),
         ],
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);
@@ -329,6 +335,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
         participants: vec![
             MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 })
         ],
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);
@@ -380,6 +387,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
             cpu("gamma").on_team("red"),
             cpu("delta").on_team("red"),
         ],
+        ..Default::default()
     });
     finalize_and_update(&mut app);
 
@@ -496,6 +504,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     );
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("gunner")],
+        ..Default::default()
     });
     finalize_and_update(&mut app);
     finalize_and_update(&mut app);
@@ -542,6 +551,7 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     );
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("roller")],
+        ..Default::default()
     });
     finalize_and_update(&mut app);
     finalize_and_update(&mut app);
@@ -588,6 +598,7 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("springy"), cpu("plain")],
+        ..Default::default()
     });
     finalize_and_update(&mut app);
     finalize_and_update(&mut app);
@@ -623,4 +634,72 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
             other => panic!("unexpected seated character {other}"),
         }
     }
+}
+
+/// **A fighter that opens suspended is suspended on the tick it appears.**
+/// (queue Y′8 / H5's second half, 2026-07-29)
+///
+/// The versus countdown gate landed and this half did not: the ruleset suspends
+/// control when the countdown begins, and a fighter seating on that same tick
+/// could take one simulation step first — a CPU decision, or a held direction
+/// carried in from the menu — before the insert landed.
+///
+/// The distinction the assertion is making is ONE update, not "eventually". A
+/// suspension applied by a later system would pass an "is it suspended by the
+/// time the fight starts" test while still leaving the tick that was the bug.
+#[test]
+fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("mary_o"), cpu("sanic")],
+        opens_suspended: true,
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::brain::ScriptedControl>,
+    )>();
+    let seated: Vec<_> = bodies
+        .iter(world)
+        .map(|(worn, scripted)| (worn.id().to_string(), scripted.is_some()))
+        .collect();
+    assert_eq!(seated.len(), 2, "both fighters must seat at all");
+    for (id, suspended) in seated {
+        assert!(
+            suspended,
+            "`{id}` seated able to act on the very tick it appeared, which is the \
+             one tick the countdown cannot cover"
+        );
+    }
+}
+
+/// And a roster that says nothing does not get a suspension it never asked for.
+#[test]
+fn an_ordinary_roster_seats_fighters_that_can_act() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("mary_o")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::brain::ScriptedControl>,
+    )>();
+    let suspended: Vec<_> = bodies.iter(world).map(|(_, s)| s.is_some()).collect();
+    assert_eq!(
+        suspended,
+        vec![false],
+        "seating must not decide on its own that a fighter cannot act — a stage \
+         with no countdown opens live"
+    );
 }

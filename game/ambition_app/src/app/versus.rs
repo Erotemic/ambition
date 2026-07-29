@@ -200,7 +200,16 @@ pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
                 .on_team(if seat % 2 == 0 { "blue" } else { "red" })
         })
         .collect();
-    MatchParticipantRoster { participants }
+    MatchParticipantRoster {
+        participants,
+        // A round opens on a COUNTDOWN, so nobody acts until it ends. Declared on
+        // the roster rather than applied after seating: a fighter that seats on
+        // the tick the countdown begins would otherwise get one simulation step
+        // first — a CPU decision, or a held direction — before the suspension
+        // insert lands (GPT 5.6, 2026-07-29). The `Starting` arm reaching zero is
+        // what takes it off, which is already the one place a round goes live.
+        opens_suspended: true,
+    }
 }
 
 /// One screen, four fighters, four `SlotControls` slots.

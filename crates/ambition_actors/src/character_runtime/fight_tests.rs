@@ -170,6 +170,7 @@ fn two_providers_stage_into_one_session_and_both_reach_readiness() {
                 })
                 .on_team("red"),
         ],
+        ..Default::default()
     };
     {
         let mut demand = app.world_mut().resource_mut::<CharacterLoadDemand>();

@@ -180,6 +180,23 @@ impl NormalizedEffort {
 #[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
 pub struct MatchParticipantRoster {
     pub participants: Vec<MatchParticipant>,
+    /// **Whether a seated fighter may act on the tick it appears.**
+    ///
+    /// A ruleset that opens on a countdown wants `true`: the fighters are reset,
+    /// placed and VISIBLE through "3, 2, 1" and none of them — human or CPU —
+    /// may decide anything until it ends.
+    ///
+    /// It lives on the ROSTER because it is a fact about the match, and seating
+    /// is the only place that can act on it without a window. The versus stage
+    /// suspends control when its countdown begins, and a fighter that seats on
+    /// the same tick could take a simulation step before that insert lands: one
+    /// tick of a CPU deciding, or of a held direction, before the count starts
+    /// (GPT 5.6, 2026-07-29). Applying it AT seating closes the window rather
+    /// than narrowing it, which is the difference between a fix and a smaller bug.
+    ///
+    /// Taken off by whoever put the countdown up — for versus, the `Starting`
+    /// arm reaching zero, which is the one place a round goes live.
+    pub opens_suspended: bool,
 }
 
 impl MatchParticipantRoster {
@@ -193,6 +210,7 @@ impl MatchParticipantRoster {
                 .into_iter()
                 .map(|c| MatchParticipant::new(c))
                 .collect(),
+            ..Default::default()
         }
     }
 }
@@ -256,6 +274,7 @@ mod tests {
                 MatchParticipant::new("mary_o").on_team("blue"),
                 MatchParticipant::new("ai_slop").driven_by(ControllerBinding::Replay),
             ],
+            ..Default::default()
         };
 
         let mut from_room = CharacterLoadDemand::default();

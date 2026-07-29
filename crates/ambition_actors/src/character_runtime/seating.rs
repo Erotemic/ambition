@@ -329,6 +329,10 @@ pub fn seat_match_participants(
     let occupied: std::collections::BTreeSet<usize> =
         already_seated.iter().map(|seat| seat.0).collect();
     let mut seated_count = occupied.len();
+    // Every body this pass produced, so the roster's suspension lands on all of
+    // them in the SAME command flush that creates them. A body is therefore never
+    // observable in a state the ruleset did not ask for — no window to narrow.
+    let mut seated_bodies: Vec<Entity> = Vec::new();
     for (index, participant) in roster.participants.iter().enumerate() {
         let MatchParticipant {
             character,
@@ -392,6 +396,7 @@ pub fn seat_match_participants(
                         crate::control::components::LocalPlayer,
                         crate::control::components::PlayerInputFrame::default(),
                     ));
+                    seated_bodies.push(body);
                 }
                 continue;
             }
@@ -432,6 +437,7 @@ pub fn seat_match_participants(
                 MatchSeat(index),
                 crate::combat::components::RulesetOwnsDeath,
             ));
+            seated_bodies.push(body);
             // The TEAM, which this branch dropped when the death-ownership
             // insert was added over it. A seat with no team is judged by FACTION
             // alone, and `effective_faction` maps every player-brained body to
@@ -465,7 +471,20 @@ pub fn seat_match_participants(
             if let Some(team) = team_tag.clone() {
                 commands.entity(body).insert(team);
             }
+            seated_bodies.push(body);
             seated_count += 1;
+        }
+    }
+    // **A fighter that opens suspended is suspended BEFORE it exists.**
+    //
+    // Not narrowed — closed. These inserts flush with the spawns above, so no
+    // schedule ordering, no first-tick exemption, and nothing for a future system
+    // to run in between.
+    if roster.opens_suspended {
+        for body in seated_bodies {
+            commands
+                .entity(body)
+                .try_insert(ambition_characters::brain::ScriptedControl);
         }
     }
     // ATOMIC: the latch closes only when EVERY participant got a body.

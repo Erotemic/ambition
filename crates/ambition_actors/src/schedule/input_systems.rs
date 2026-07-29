@@ -636,6 +636,7 @@ mod focus_gate_tests {
                 MatchParticipant::new("sanic")
                     .driven_by(ControllerBinding::Human { device_slot: 1 }),
             ],
+            ..Default::default()
         });
         app.update();
         assert_eq!(seat_slots(&mut app), vec![0, 1]);
@@ -649,6 +650,7 @@ mod focus_gate_tests {
                     brain_profile: Some("medium_striker".into()),
                 }),
             ],
+            ..Default::default()
         });
         app.update();
         assert_eq!(seat_slots(&mut app), vec![0]);
@@ -676,6 +678,7 @@ mod focus_gate_tests {
         app.world_mut().insert_resource(MatchParticipantRoster {
             participants: vec![MatchParticipant::new("sanic")
                 .driven_by(ControllerBinding::Human { device_slot: 1 })],
+            ..Default::default()
         });
         app.add_systems(Update, super::seat_input_participants_for_roster);
         app.update();

@@ -263,7 +263,7 @@ fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
-    seated: Res<ambition::actors::character_runtime::MatchSeated>,
+    active_match: Option<Res<ambition::actors::character_runtime::ActiveMatch>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
 ) {
     let (Some(topology), Some(roster)) = (topology, roster) else {
@@ -272,7 +272,12 @@ fn reconcile_roster_with_frozen_topology(
     if !topology.is_frozen() || roster.seat_topology == Some(topology.generation()) {
         return;
     }
-    if seated.0 {
+    if let Some(active) = active_match.as_deref() {
+        // The match is LIVE and these are its bodies. Reseating them underneath
+        // the round is worse than the disagreement, so it is reported — and the
+        // report can now name what disagrees, because activation recorded which
+        // topology it was built against instead of merely that it happened.
+        let _ = active.participants();
         bevy::log::warn_once!(
             "the versus roster seats {} fighter(s) from seat topology {:?}, but the session \
              froze topology {} with {} player(s). The match is already seated, so it is left \
@@ -298,7 +303,6 @@ fn track_versus_roster(
     topology: Option<Res<ambition::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
-    mut seated: ResMut<ambition::actors::character_runtime::MatchSeated>,
     mut friendly_fire: ResMut<ambition::combat::targeting::FriendlyFire>,
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
@@ -330,7 +334,9 @@ fn track_versus_roster(
             // slice is that it looks like the two characters it says it is.
             roster.project_demand(&mut demand);
             commands.insert_resource(roster);
-            seated.0 = false;
+            // A NEW roster is not yet a match. Activation is seating's to
+            // publish, once every participant has a body.
+            commands.remove_resource::<ambition::actors::character_runtime::ActiveMatch>();
             // NO global free-for-all. The fighters are on declared TEAMS
             // (`blue` / `red`), and `MatchTeam` outranks faction for "may this
             // land" — which is what the roster's teams were for since §7.8 and
@@ -353,7 +359,9 @@ fn track_versus_roster(
         }
         (false, true) => {
             commands.remove_resource::<MatchParticipantRoster>();
-            seated.0 = false;
+            // The match ends WITH its route. An activation that outlives its
+            // match is the next game inheriting somebody else's fighters.
+            commands.remove_resource::<ambition::actors::character_runtime::ActiveMatch>();
             // Off again on the way out, for the same reason the roster is
             // removed: a match rule that outlives its match is a rule the next
             // game silently inherits, and "your allies can now shoot you" is a
@@ -531,7 +539,7 @@ pub fn compose_versus_experience(app: &mut App) {
 #[cfg(test)]
 mod roster_topology_tests {
     use super::*;
-    use ambition::actors::character_runtime::{CharacterLoadDemand, MatchSeated};
+    use ambition::actors::character_runtime::{ActiveMatch, CharacterLoadDemand};
     use ambition::input::{LocalDeviceOrder, LocalSeatTopology};
     use bevy::prelude::*;
 
@@ -543,11 +551,15 @@ mod roster_topology_tests {
         topology
     }
 
-    fn app_with(roster: MatchParticipantRoster, pads: usize, seated: bool) -> App {
+    fn app_with(roster: MatchParticipantRoster, pads: usize, active: bool) -> App {
         let mut app = App::new();
         app.insert_resource(roster);
         app.insert_resource(topology_of(pads));
-        app.insert_resource(MatchSeated(seated));
+        if active {
+            // An ACTIVE match: seating published it, so its bodies are on the
+            // stage and rebuilding the roster would reseat underneath them.
+            app.insert_resource(ActiveMatch::for_test(vec![], None));
+        }
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
         app
@@ -605,7 +617,6 @@ mod roster_topology_tests {
         let mut app = App::new();
         app.insert_resource(versus_roster_from(4, None));
         app.insert_resource(LocalSeatTopology::default());
-        app.insert_resource(MatchSeated(false));
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
         app.update();

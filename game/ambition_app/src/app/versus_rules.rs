@@ -249,12 +249,17 @@ type FighterQuery<'w, 's> = Query<
 #[allow(clippy::too_many_arguments)]
 /// Whether the starting countdown may tick down.
 ///
-/// `None` — no `MatchSeated` resource at all — is treated as "go", because a
-/// composition without the seating system is one where nothing will ever set
-/// it, and a countdown that can never start is worse than one that starts
-/// early. Only an explicit `Some(false)` holds.
-fn countdown_may_advance(seated: Option<bool>) -> bool {
-    seated.unwrap_or(true)
+/// The count runs only while a match is ACTIVE — every participant has a body.
+///
+/// ⚠ this used to take `Option<bool>` from a `MatchSeated` latch and treat
+/// `None` as "go", on the reasoning that a composition without the seating
+/// system would otherwise hold the count forever. That special case is gone with
+/// the latch: `ActiveMatch` is published by seating itself, so absent means no
+/// match is live and there is nothing for a countdown to count into. A
+/// composition with no seating has no match, and a round that opens without one
+/// is the defect this gate exists for (2026-07-29).
+fn countdown_may_advance(active_match: bool) -> bool {
+    active_match
 }
 
 pub fn settle_versus_round(
@@ -263,7 +268,7 @@ pub fn settle_versus_round(
     geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
     // Whether every participant on the roster actually HAS a body yet.
     // Seating retries until they all do; the countdown must not run ahead of it.
-    seated: Option<Res<ambition::actors::character_runtime::MatchSeated>>,
+    active_match: Option<Res<ambition::actors::character_runtime::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
     projectiles: Query<Entity, With<ambition::projectiles::LiveProjectile>>,
@@ -297,7 +302,7 @@ pub fn settle_versus_round(
             // Holding at the initial value rather than pausing mid-count: a
             // countdown that starts, stalls and resumes reads as a stutter, and
             // the fighters are held anyway by the marker below.
-            let everybody_is_here = countdown_may_advance(seated.as_deref().map(|s| s.0));
+            let everybody_is_here = countdown_may_advance(active_match.is_some());
 
             // Hold the controls EVERY tick, not once on entry.
             //
@@ -742,25 +747,27 @@ mod tests {
     ///
     /// ⚠ Tested as a PREDICATE, not through the app, and the reason is worth
     /// keeping: an app-level version cannot express the scenario. Seating
-    /// re-asserts `MatchSeated(true)` every tick once the roster is complete,
-    /// so a test that pokes the resource is corrected before the next update
-    /// and proves nothing — mine did exactly that and failed, which is how I
-    /// found out. Reaching the real case needs a participant that CANNOT seat,
-    /// which the fixture cannot yet produce.
+    /// re-published its activation every tick once the roster was complete, so
+    /// a test that poked the resource was corrected before the next update and
+    /// proved nothing — mine did exactly that and failed, which is how I found
+    /// out. Reaching the real case needs a participant that CANNOT seat.
+    ///
+    /// ✔ that case IS producible, and is driven end-to-end by
+    /// `a_roster_with_an_unseatable_participant_never_latches` in
+    /// `ambition_actors`: a roster naming a character nothing registered never
+    /// completes, so the match never activates. The note here used to say the
+    /// fixture could not produce it; it could, cheaply (2026-07-29).
     #[test]
     fn the_countdown_holds_until_every_seat_is_filled() {
         assert!(
-            !countdown_may_advance(Some(false)),
-            "a roster that is not fully seated must hold the count"
+            !countdown_may_advance(false),
+            "no ACTIVE match means no fighters have bodies yet, and a countdown \
+             that runs there opens a round a participant never entered"
         );
         assert!(
-            countdown_may_advance(Some(true)),
-            "and release it the moment every participant has a body"
-        );
-        assert!(
-            countdown_may_advance(None),
-            "a composition with no seating system will never set the flag, and a \
-             countdown that can never start is worse than one that starts early"
+            countdown_may_advance(true),
+            "and it releases the moment the match is active — every participant \
+             seated, published in one insert"
         );
     }
 

@@ -290,13 +290,59 @@ pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
     seat_for(index, centre)
 }
 
-/// Marker: this roster has already been seated for this session.
+/// **The match that is LIVE, and the bodies that are in it.**
 ///
-/// Seating is a one-shot per match. Without the latch the system would re-seat
-/// every tick the roster resource exists, which is a fresh pair of fighters per
-/// frame — the kind of runaway that looks like a spawn bug three systems away.
-#[derive(Resource, Debug, Default)]
-pub struct MatchSeated(pub bool);
+/// Present means every participant in the roster has a body. Absent means no
+/// match is running — either none was requested, or seating is still retrying.
+/// Seating is a one-shot per match: without this the system would re-seat every
+/// tick the roster exists, which is a fresh pair of fighters per frame, the kind
+/// of runaway that looks like a spawn bug three systems away.
+///
+/// ⚠ this replaced a `MatchSeated(bool)`, and the difference is the whole point.
+/// A bool said seating had FINISHED and never said WHO, so nothing could ask
+/// whether the live fighters are still the set the match was built from — which
+/// is exactly why a roster that disagrees with its session after seating could
+/// only be REPORTED and not repaired (queue Y′9). Naming the bodies and the
+/// topology generation they were activated against makes that a question the
+/// code can answer (2026-07-29).
+///
+/// Published in ONE insert, on the tick the last seat is filled. Never partially:
+/// a roster whose seat 0 cannot adopt yet while seat 1 spawned fine must not
+/// activate on the strength of seat 1.
+#[derive(Resource, Debug, Clone, PartialEq)]
+pub struct ActiveMatch {
+    /// Seat order: `participants[i]` is the body seated at seat `i`.
+    participants: Vec<Entity>,
+    /// The frozen seat topology this match was activated against, copied from
+    /// the roster so the two can be COMPARED rather than assumed equal.
+    seat_topology: Option<u64>,
+}
+
+impl ActiveMatch {
+    /// The bodies in this match, in seat order.
+    pub fn participants(&self) -> &[Entity] {
+        &self.participants
+    }
+
+    /// Which frozen topology decided this match's seating, if a session had
+    /// frozen one when the roster was built.
+    pub fn seat_topology(&self) -> Option<u64> {
+        self.seat_topology
+    }
+
+    /// Build an activation directly, for a test that needs a LIVE match without
+    /// standing up seating to produce one.
+    ///
+    /// The fields stay private so production has exactly one publisher; this is
+    /// the hatch, and it is named for what it is.
+    #[doc(hidden)]
+    pub fn for_test(participants: Vec<Entity>, seat_topology: Option<u64>) -> Self {
+        Self {
+            participants,
+            seat_topology,
+        }
+    }
+}
 
 /// Seat every CPU participant in [`MatchParticipantRoster`], once.
 ///
@@ -322,11 +368,11 @@ pub fn seat_match_participants(
         >,
     >,
     active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
-    mut seated: ResMut<MatchSeated>,
+    active: Option<Res<ActiveMatch>>,
     // Seats that already have a body. Derived from the world rather than
     // remembered, so a seat can never be counted twice and the retry below
     // cannot spawn a second copy of a fighter that seated fine last tick.
-    already_seated: Query<&MatchSeat>,
+    already_seated: Query<(Entity, &MatchSeat)>,
     mut player: Query<
         (
             Entity,
@@ -338,7 +384,7 @@ pub fn seat_match_participants(
         crate::actor::PrimaryPlayerOnly,
     >,
 ) {
-    if seated.0 {
+    if active.is_some() {
         return;
     }
     let (Some(roster), Some(registry), Some(geometry)) = (roster, registry, geometry) else {
@@ -359,13 +405,19 @@ pub fn seat_match_participants(
     // The stage centre is the room's authored spawn: the one point a room
     // guarantees is standable, which is the only guarantee seating needs.
     let centre = geometry.0.spawn;
-    let occupied: std::collections::BTreeSet<usize> =
-        already_seated.iter().map(|seat| seat.0).collect();
+    // Seat index -> body, for the seats that were filled on an EARLIER tick.
+    // Seating retries, so the closing tick may add only the last one.
+    let mut by_seat: std::collections::BTreeMap<usize, Entity> = already_seated
+        .iter()
+        .map(|(entity, seat)| (seat.0, entity))
+        .collect();
+    let occupied: std::collections::BTreeSet<usize> = by_seat.keys().copied().collect();
     let mut seated_count = occupied.len();
     // Every body this pass produced, so the roster's suspension lands on all of
     // them in the SAME command flush that creates them. A body is therefore never
     // observable in a state the ruleset did not ask for — no window to narrow.
     let mut seated_bodies: Vec<Entity> = Vec::new();
+    let mut seated_this_pass: Vec<(usize, Entity)> = Vec::new();
     for (index, participant) in roster.participants.iter().enumerate() {
         let MatchParticipant {
             character,
@@ -430,6 +482,7 @@ pub fn seat_match_participants(
                         crate::control::components::PlayerInputFrame::default(),
                     ));
                     seated_bodies.push(body);
+                    seated_this_pass.push((index, body));
                 }
                 continue;
             }
@@ -521,6 +574,7 @@ pub fn seat_match_participants(
                 commands.entity(body).insert(team);
             }
             seated_bodies.push(body);
+            seated_this_pass.push((index, body));
             seated_count += 1;
         }
     }
@@ -572,7 +626,14 @@ pub fn seat_match_participants(
     // complete, and `seat_character`/adoption are the only things that decide
     // whether a seat is possible yet.
     if seated_count == roster.participants.len() {
-        seated.0 = true;
+        // ACTIVATION, in one insert. `by_seat` already holds the seats filled on
+        // earlier ticks; this pass's go in on top, so the published list is the
+        // whole cast in seat order however many ticks it took to assemble.
+        by_seat.extend(seated_this_pass);
+        commands.insert_resource(ActiveMatch {
+            participants: by_seat.into_values().collect(),
+            seat_topology: roster.seat_topology,
+        });
     }
 }
 

@@ -62,7 +62,7 @@ pub use presentation::{
     publish_body_presentation_sources, ProjectedCharacterKit,
 };
 pub use seating::{
-    seat_character, seat_match_participants, seat_placement, MatchSeat, MatchSeated,
+    seat_character, seat_match_participants, seat_placement, ActiveMatch, MatchSeat,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -775,7 +775,6 @@ impl Plugin for CharacterRuntimePlugin {
                     .in_set(crate::schedule::SandboxSet::Combat)
                     .before(crate::schedule::CombatSet::Playback),
             )
-            .init_resource::<seating::MatchSeated>()
             .add_systems(
                 sim,
                 // C4 slice 1: a match roster becomes bodies. Before the character

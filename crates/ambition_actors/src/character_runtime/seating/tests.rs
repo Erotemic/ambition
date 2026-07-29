@@ -20,7 +20,6 @@ fn cpu(character: &str) -> MatchParticipant {
 
 fn seating_app() -> App {
     let mut app = App::new();
-    app.init_resource::<MatchSeated>();
     app.init_resource::<PreparedCharacterRegistry>();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<crate::character_sprites::AuthoredSheets>();
@@ -163,9 +162,9 @@ fn an_unregistered_participant_is_not_seated() {
         assert_eq!(q.iter(world).count(), 0);
     }
     assert!(
-        !app.world().resource::<MatchSeated>().0,
-        "a match that seated nobody must not be marked seated — the roster may \
-         become seatable once its characters register"
+        app.world().get_resource::<ActiveMatch>().is_none(),
+        "a match that seated nobody must not ACTIVATE — the roster may become \
+         seatable once its characters register"
     );
 }
 
@@ -1087,8 +1086,8 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
     }
 
     assert!(
-        !app.world().resource::<MatchSeated>().0,
-        "the match latched with a seat still empty, so the countdown is free to \
+        app.world().get_resource::<ActiveMatch>().is_none(),
+        "the match ACTIVATED with a seat still empty, so the countdown is free to \
          run and the round goes live one fighter short"
     );
     let world = app.world_mut();
@@ -1098,5 +1097,68 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
         1,
         "the seatable participant should still have got its body — an incomplete \
          roster must not also mean nobody is staged"
+    );
+}
+
+/// **Activation names WHICH bodies are in the match, in seat order.** (Z′7)
+///
+/// The thing a `MatchSeated(bool)` could never say. A bool reported that seating
+/// had FINISHED; nothing could then ask whether the live fighters are still the
+/// set the match was built from, which is why a roster that disagrees with its
+/// session after seating could only be REPORTED and not repaired (queue Y′9).
+///
+/// It also has to be published in ONE insert, on the tick the last seat fills.
+/// A roster that seats over several ticks — the ordinary case, since seating
+/// retries — must not activate partially: the countdown gates on this, and a
+/// half-built match releasing it is the defect the gate exists for.
+#[test]
+fn activation_publishes_every_seated_body_in_seat_order() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("alpha", "Alpha", "demo"));
+    app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("alpha"), cpu("beta")],
+        seat_topology: Some(7),
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let active = app
+        .world()
+        .get_resource::<ActiveMatch>()
+        .expect("a fully seated roster must activate")
+        .clone();
+    assert_eq!(
+        active.participants().len(),
+        2,
+        "activation must name every seat, not merely report that seating ended"
+    );
+    assert_eq!(
+        active.seat_topology(),
+        Some(7),
+        "the activation records WHICH frozen topology decided its seating, or a \
+         later disagreement has nothing to compare against"
+    );
+
+    // Seat order, checked through the bodies themselves.
+    let world = app.world_mut();
+    let worn: Vec<String> = active
+        .participants()
+        .iter()
+        .map(|body| {
+            world
+                .entity(*body)
+                .get::<ambition_characters::actor::WornCharacter>()
+                .expect("every named participant is a body wearing its character")
+                .id()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(
+        worn,
+        vec!["alpha".to_string(), "beta".to_string()],
+        "participants are in SEAT order; a set that arrives in spawn order makes \
+         `participants[i]` mean nothing"
     );
 }

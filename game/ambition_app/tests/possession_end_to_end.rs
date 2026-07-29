@@ -278,10 +278,22 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     // travels. (Vertically the abandoned body may settle a little under gravity /
     // ground-snap — not input-driven, so we pin the horizontal axis the input
     // actually targets.)
+    // ⚠ **the sign matters, and `abs()` was the wrong test.** The guarantee is
+    // that the drive input does not reach this body — the input is `move_x(+1.0)`,
+    // so the failure mode is moving RIGHT. An `abs()` bound also fails on a body
+    // pushed LEFT, which is not the input reaching it: the vacated avatar is a
+    // live body in a live room and can be struck.
+    //
+    // It now is. Two 2026-07-29 fixes made enemies actually connect — a ranged
+    // poke that starved its own melee finish (queue AB4) and knockback that
+    // carries its launch (F0e) — and this assertion started failing on a body
+    // knocked 9.7px LEFT while the input drove right. That is the guarantee
+    // HOLDING, reported as a violation by a proxy that could not tell the two
+    // apart.
     assert!(
-        (player_after.x - player_before.x).abs() < 1.0,
-        "the player's OWN body does not respond to the drive input while possessing: \
-         {player_before:?} -> {player_after:?}"
+        player_after.x - player_before.x < 1.0,
+        "the player's OWN body ran RIGHT with the drive input while possessing, so \
+         one input drove two bodies: {player_before:?} -> {player_after:?}"
     );
 
     // 3. A fresh Down+Interact press releases possession. `prev_down_interact` is

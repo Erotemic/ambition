@@ -84,7 +84,7 @@ pub const V0: Incarnation = Incarnation {
 /// There is no v1. v2's own dialogue handles the question (*"There is no v1. Ask
 /// someone else why."*) and its row records the reason: it is a joke, not a gap.
 pub const V2: Incarnation = Incarnation {
-    id: "npc_player_robot_v2",
+    id: "player_robot_v2",
     display_name: "Player Robot v2",
     sheet: "player_robot_v2",
     replaces: Some(V0.id),
@@ -97,8 +97,8 @@ pub const V2: Incarnation = Incarnation {
 /// whose id meant "whichever is latest", which would have made preserving it a
 /// retroactive rename of every sheet, rig and reference it owns.
 pub const V3: Incarnation = Incarnation {
-    id: "player",
-    display_name: "Player",
+    id: "player_robot_v3",
+    display_name: "Player Robot v3",
     sheet: "player_robot_v3",
     replaces: Some(V2.id),
 };

@@ -22,7 +22,7 @@ use std::sync::OnceLock;
 /// can't tell them apart — we key by file root instead.
 const PLAYER_FILE_ROOT: &str = "player_robot_v3";
 /// The player's catalog character id (drives the render-size spec lookup).
-const PLAYER_CHARACTER_ID: &str = "player";
+const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
 
 /// Baked sheets keyed by **file root** (not `record.target`), so the
 /// player's `player_robot_v3` stays distinct from the enemy `robot`. Built
@@ -164,17 +164,15 @@ pub fn authored_attack_volume_resolver(
             facing,
             gravity_dir,
         ),
-        None => {
-            player_attack_hitbox_world(
-                authored,
-                catalog,
-                animation,
-                body_pos,
-                collision,
-                facing,
-                gravity_dir,
-            )
-        }
+        None => player_attack_hitbox_world(
+            authored,
+            catalog,
+            animation,
+            body_pos,
+            collision,
+            facing,
+            gravity_dir,
+        ),
     }
 }
 
@@ -246,15 +244,14 @@ pub fn actor_attack_hitbox_world(
         .or_else(|| file_root_registry().get(file_root))?;
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
-    let render_size =
-        super::assets::sprite_body_collision_for_character_id_in(
-            authored,
-            catalog,
-            character_id,
-            collision,
-        )
-            .map(|b| b.render_size)
-            .unwrap_or(collision);
+    let render_size = super::assets::sprite_body_collision_for_character_id_in(
+        authored,
+        catalog,
+        character_id,
+        collision,
+    )
+    .map(|b| b.render_size)
+    .unwrap_or(collision);
     manifest_attack_hitbox_world(
         record,
         animation,

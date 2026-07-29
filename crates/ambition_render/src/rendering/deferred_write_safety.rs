@@ -380,7 +380,11 @@ mod boss_pass {
             ambition_sprite_sheet::boss::BossAnimator,
             _,
             _,
-        >(&mut app, Update, crate::rendering::actors::upgrade_boss_sprites);
+        >(
+            &mut app,
+            Update,
+            crate::rendering::actors::upgrade_boss_sprites,
+        );
     }
 }
 
@@ -432,10 +436,7 @@ mod character_sprite_passes {
             texture: texture.clone(),
             layout: layout.clone(),
             spec,
-            pages: vec![ambition_sprite_sheet::character::CharacterSpritePage {
-                texture,
-                layout,
-            }],
+            pages: vec![ambition_sprite_sheet::character::CharacterSpritePage { texture, layout }],
         })
     }
 
@@ -526,10 +527,10 @@ mod character_sprite_passes {
             return;
         };
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
-        // `"player"` is the id this pass falls back to for a visual with no
+        // `"player_robot_v3"` is the id this pass falls back to for a visual with no
         // `PlayerSpriteCharacter` marker — publishing under any other name makes
         // the pass skip and the probe vacuous.
-        assets.characters.publish("player", sheet);
+        assets.characters.publish("player_robot_v3", sheet);
         app.insert_resource(assets);
 
         app.world_mut().spawn((

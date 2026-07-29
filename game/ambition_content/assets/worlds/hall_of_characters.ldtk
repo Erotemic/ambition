@@ -7495,9 +7495,9 @@
 							"defUid": 2006,
 							"px": [48,1696],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "player", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "player_robot_v3", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["player"]
+									"params": ["player_robot_v3"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",
@@ -11508,9 +11508,9 @@
 							"defUid": 2006,
 							"px": [944,352],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_player_robot_v2", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "player_robot_v2", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_player_robot_v2"]
+									"params": ["player_robot_v2"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Inspect", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",

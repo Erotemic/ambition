@@ -346,9 +346,9 @@ mod tests {
             &catalog,
             player_scratch(),
             Health::new(20),
-            "player",
+            "player_robot_v3",
         );
-        assert_eq!(bundle.name.as_str(), "Player");
+        assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert!(bundle.brain.is_player());
         assert!(matches!(
             bundle.action_set.melee,

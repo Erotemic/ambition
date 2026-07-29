@@ -46,8 +46,8 @@ pub fn register(app: &mut bevy::prelude::App) {
 ///
 /// ## The player robot's own lineage is IN the cast (2026-07-29)
 ///
-/// `robot`, `npc_player_robot_v2` and `player` are three incarnations of the
-/// same character, and the catalog has always said so — v2's row records that
+/// `robot`, `player_robot_v2` and `player_robot_v3` are three incarnations of
+/// the same character, and the catalog has always said so — v2's row records that
 /// *"`robot` is v0, the original. There is no v1 -- that is a joke, not a
 /// gap"*, and that Ambition *"wants old versions of yourself to be things you
 /// can meet, talk to, and fight"*.
@@ -60,8 +60,8 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// cast is not a variant mechanism, it is three characters that happen to
 /// share a face.
 pub const PLAYABLE_ROSTER: &[&str] = &[
-    "player",                     // the player robot, v3 (current)
-    "npc_player_robot_v2",        // v2: the build before the SVG rig
+    "player_robot_v3",            // the player robot, v3 (current)
+    "player_robot_v2",            // v2: the build before the SVG rig
     "robot",                      // v0: the original
     "goblin",                     // melee striker
     "npc_pirate_admiral",         // pistol + cutlass
@@ -103,9 +103,11 @@ mod tests {
 
     #[test]
     fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
-        // The protagonist ("player") is the roster's head. Content owns this
+        // The CURRENT incarnation is the roster's head — `player_robot_v3`, not
+        // a generic `player`, because there is no generic one: each incarnation
+        // is its own character (see `player_robot_lineage`). Content owns this
         // provider-relative default through the App-local registry.
-        assert_eq!(PLAYABLE_ROSTER[0], "player");
+        assert_eq!(PLAYABLE_ROSTER[0], "player_robot_v3");
         let mut app = bevy::prelude::App::new();
         register(&mut app);
         assert_eq!(
@@ -128,10 +130,10 @@ mod tests {
 
     #[test]
     fn next_playable_wraps_and_recovers_unknown() {
-        assert_eq!(next_playable("player"), PLAYABLE_ROSTER[1]);
+        assert_eq!(next_playable("player_robot_v3"), PLAYABLE_ROSTER[1]);
         assert_eq!(
             next_playable(PLAYABLE_ROSTER[PLAYABLE_ROSTER.len() - 1]),
-            "player"
+            "player_robot_v3"
         );
         // Unknown / stale ids re-enter at the top of the cast.
         assert_eq!(next_playable("not_a_real_id"), PLAYABLE_ROSTER[0]);

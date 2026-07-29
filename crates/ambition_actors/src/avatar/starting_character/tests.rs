@@ -60,7 +60,7 @@ fn default_is_unset_and_is_default() {
     // `effective_id` resolves to a real catalog row (the content-installed
     // default, or the first row as fallback) — never empty, never a name
     // the ENGINE baked in.
-    let eff = sc.effective_id("player");
+    let eff = sc.effective_id("player_robot_v3");
     assert!(!eff.is_empty());
     assert!(test_catalog().get(eff).is_some());
 }
@@ -100,7 +100,7 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
-        apply_worn_motion_model(&catalog, &mut commands, entity, "player");
+        apply_worn_motion_model(&catalog, &mut commands, entity, "player_robot_v3");
     }
     queue.apply(app.world_mut());
     assert!(
@@ -174,7 +174,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     // Re-wear the protagonist through the supported path (mutate the
     // identity). Downstream observes the change: the stale momentum model is
     // replaced by the explicit axis-swept policy and the name follows.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player");
+    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
     app.update();
     assert!(
         matches!(
@@ -185,7 +185,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     );
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
-        "Player",
+        "Player Robot v3",
         "the display name follows the new worn identity"
     );
 }
@@ -425,11 +425,15 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
         "wearing the pirate first installs its pistol"
     );
 
-    // Re-wear the HostCode default ("player"): the code kit (Swipe + Bolt +
-    // bubble_shield from sandbox_all abilities) is rebuilt — NO stale pistol.
-    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player");
+    // Re-wear the HostCode default ("player_robot_v3"): the code kit (Swipe +
+    // Bolt + bubble_shield from sandbox_all abilities) is rebuilt — NO stale
+    // pistol.
+    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
     app.update();
-    assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "Player");
+    assert_eq!(
+        app.world().get::<Name>(e).unwrap().as_str(),
+        "Player Robot v3"
+    );
     let set = app.world().get::<ActionSet>(e).unwrap();
     assert!(
         matches!(set.melee, Some(MeleeActionSpec::Swipe(_))),

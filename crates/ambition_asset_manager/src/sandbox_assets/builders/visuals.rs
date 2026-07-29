@@ -133,7 +133,7 @@ pub(in super::super) fn extend_with_character_entries(
 /// `EmbeddedAssetRegistry` insertions in `register_embedded_core_assets`.
 fn character_sprite_embedded_url(name: &str) -> Option<&'static str> {
     match name {
-        "player" => Some(embedded_core::SPRITE_PLAYER_URL),
+        "player_robot_v3" => Some(embedded_core::SPRITE_PLAYER_URL),
         "robot" => Some(embedded_core::SPRITE_ROBOT_URL),
         "goblin" => Some(embedded_core::SPRITE_GOBLIN_URL),
         "sandbag" => Some(embedded_core::SPRITE_SANDBAG_URL),

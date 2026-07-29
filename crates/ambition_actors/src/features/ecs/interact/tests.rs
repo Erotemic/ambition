@@ -222,7 +222,7 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = dialogue_app(&["hall_player", "hall_player__self"]);
     spawn_interaction_player_wearing(&mut app, center, "goblin");
-    spawn_pedestal(&mut app, center, "player", "hall_player");
+    spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);
     app.update();
@@ -238,8 +238,8 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
 fn wearing_the_pedestals_character_enters_the_self_branch() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = dialogue_app(&["hall_player", "hall_player__self"]);
-    spawn_interaction_player_wearing(&mut app, center, "player");
-    spawn_pedestal(&mut app, center, "player", "hall_player");
+    spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
+    spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);
     app.update();
@@ -260,8 +260,8 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
 fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = dialogue_app(&["hall_player"]);
-    spawn_interaction_player_wearing(&mut app, center, "player");
-    spawn_pedestal(&mut app, center, "player", "hall_player");
+    spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
+    spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
     // Pre-poison: if the system returns early for the WRONG reason, these
     // stay as-set and the assertions below would pass vacuously.
@@ -303,8 +303,8 @@ fn an_unpopulated_node_index_never_suppresses() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = dialogue_app(&[]);
     app.insert_resource(ambition_dialog::DialogueNodeIndex::default());
-    spawn_interaction_player_wearing(&mut app, center, "player");
-    spawn_pedestal(&mut app, center, "player", "hall_player");
+    spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
+    spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);
     app.update();
@@ -323,7 +323,7 @@ fn character_identity_beats_placement_identity() {
         "Talk",
         ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
         ambition_interaction::InteractionKind::Npc {
-            character_id: Some("player".into()),
+            character_id: Some("player_robot_v3".into()),
             dialogue_id: Some("hall_player".into()),
             patrol_radius: 0.0,
             patrol_path_id: None,
@@ -337,7 +337,7 @@ fn character_identity_beats_placement_identity() {
     let identity = ActorIdentity::new("some_ldtk_placement_iid", "Player");
     assert_eq!(
         dialogue_identity(Some(&interaction), Some(&identity)).as_deref(),
-        Some("player"),
+        Some("player_robot_v3"),
     );
     // A body with no character identity falls back to its placement.
     assert_eq!(

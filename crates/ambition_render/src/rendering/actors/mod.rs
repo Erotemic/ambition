@@ -10,8 +10,8 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::primitives::{
-    FeatureVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, feature_color, feature_z,
-    switch_on_color,
+    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
+    PropVisual,
 };
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
@@ -19,8 +19,8 @@ use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisu
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    CharacterAnimator, build_character_sprite, build_character_sprite_with_render_size,
-    feet_anchor_for, feet_anchor_for_render_size, player_placeholder_render_size,
+    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -684,7 +684,9 @@ pub fn refresh_player_sprites_on_game_assets_change(
         // Rebind the sheet of whichever character the sprite was originally
         // bound from. If an old test fixture lacks the marker, fall back to the
         // content default id used by the base sandbox catalog.
-        let start_id = character.map(|c| c.id.as_str()).unwrap_or("player");
+        let start_id = character
+            .map(|c| c.id.as_str())
+            .unwrap_or("player_robot_v3");
         let Some(asset) = assets.characters.sheet(start_id) else {
             continue;
         };

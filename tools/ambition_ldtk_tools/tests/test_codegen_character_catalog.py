@@ -20,10 +20,15 @@ from ambition_ldtk_tools.codegen_character_catalog import (  # noqa: E402
 )
 
 
-def test_character_id_aliases_player_robot_v3_to_player():
-    """`player_robot_v3` is the dedicated player sheet; the catalog id
-    stays as `player` (not `npc_player_robot_v3`)."""
-    assert character_id_for("player_robot_v3") == "player"
+def test_the_current_incarnations_sheet_and_catalog_id_are_one_name():
+    """The sheet target and the catalog id are the SAME STRING, so the
+    mapping is an identity and gets no `npc_` prefix.
+
+    It used to be an alias -- sheet `player_robot`, character `player` --
+    which is two names for one thing. Versioning the incarnations
+    collapsed them: each is its own character, named for which one it is.
+    """
+    assert character_id_for("player_robot_v3") == "player_robot_v3"
 
 
 def test_character_id_aliases_absurd_general_to_npc_general():

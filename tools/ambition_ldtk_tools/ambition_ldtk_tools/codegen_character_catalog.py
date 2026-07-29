@@ -257,10 +257,12 @@ def character_id_for(target: str) -> str:
     `_boss` so the id reads naturally.
     """
     if target in ("player_robot_v3",):
-        # player_robot_v3 is the dedicated player sheet; alias it to
-        # `player`. The renderer keeps the longer name for clarity
-        # in its target list.
-        return "player"
+        # The sheet target and the catalog id are the SAME STRING now, so this
+        # is an identity and the alias is gone. It existed because the sheet was
+        # `player_robot` and the character was `player` -- two names for one
+        # thing, which is exactly what versioning the incarnations removed
+        # (2026-07-29).
+        return target
     if target == "absurd_general":
         return "npc_general"
     if target in ("goblin", "robot", "sandbag"):

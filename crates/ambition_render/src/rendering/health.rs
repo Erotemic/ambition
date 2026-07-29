@@ -197,7 +197,7 @@ pub fn sync_health_overlays(
             &mut commands,
             session_scope,
             &world.0,
-            "player",
+            "player_robot_v3",
             ae::Aabb::new(
                 ambition_sim_view::presented_pose::draw_pos(pose, presented),
                 pose.size * 0.5,

@@ -227,7 +227,7 @@ fn built_in_roster_non_momentum_and_unknown_ids_have_no_momentum_profile() {
     // Momentum identities are App-local catalog data. The Ambition roster does
     // not own Sanic; standalone providers test their own momentum rows locally.
     assert!(
-        catalog().momentum_params("player").is_none(),
+        catalog().momentum_params("player_robot_v3").is_none(),
         "the protagonist authors no surface-momentum profile"
     );
     assert!(catalog().momentum_params("npc_not_a_character").is_none());

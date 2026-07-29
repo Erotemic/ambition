@@ -155,9 +155,9 @@
         // player slot is special-cased by the runtime (Brain::Player);
         // its catalog entry exists only to keep the sprite registry
         // and catalog symmetrical so Phase 6 can delete the registry.
-        "player": (
+        "player_robot_v3": (
             sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
-            display_name: "Player",
+            display_name: "Player Robot v3",
             spritesheet: "sprites/player_robot_v3_spritesheet.png",
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
@@ -2549,7 +2549,7 @@
                 "I speak rarely. When the algebra is correct there is not much left to add.",
             ],
         ),
-        "npc_player_robot_v2": (
+        "player_robot_v2": (
             // The SAME tuning the `player` row carried when this art was the
             // protagonist. `frame_sample_inset` decides which pixels count as
             // body when the bbox is sampled, so it moves the COLLISION box, not

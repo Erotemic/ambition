@@ -166,6 +166,27 @@ pub struct TouchPresentationPlugin;
 
 impl bevy::prelude::Plugin for TouchPresentationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        // **A SURFACE IS BORN HIDDEN.**
+        //
+        // `apply_touch_control_placement` decides every frame whether a surface
+        // is drawn and where — but a `Node`'s `display` defaults to `Flex`, so
+        // the frame a surface is CREATED it renders before that system has ever
+        // looked at it. The module docs above already name the symptom: "one
+        // visible frame at the joystick crate's own corner position, over
+        // gameplay, whatever the touch-controls setting says".
+        //
+        // An observer rather than a `display: Display::None` on each spawned
+        // `Node`, because the movement surface is not spawned here at all — it is
+        // a `TouchSurface` inserted onto an entity the joystick crate owns, and
+        // that is exactly the one the symptom names (2026-07-29).
+        app.add_observer(
+            |surface: bevy::prelude::On<bevy::prelude::Add, crate::bevy_plugin::TouchSurface>,
+             mut nodes: bevy::prelude::Query<&mut bevy::prelude::Node>| {
+                if let Ok(mut node) = nodes.get_mut(surface.entity) {
+                    node.display = bevy::prelude::Display::None;
+                }
+            },
+        );
         use bevy::prelude::{IntoScheduleConfigs as _, Update};
 
         TouchPresentationSet::configure(app);
@@ -538,6 +559,33 @@ mod tests {
         );
         assert_eq!(node.left, Val::Px(movement.min.x));
         assert_eq!(node.top, Val::Px(movement.min.y));
+    }
+
+    /// **A surface is HIDDEN the moment it is created, before placement runs.**
+    /// (Z′6)
+    ///
+    /// `apply_touch_control_placement` decides every frame whether a surface is
+    /// drawn — but a `Node`'s `display` defaults to `Flex`, so on the frame a
+    /// surface is CREATED it renders before that system has looked at it. The
+    /// module docs name the symptom: one visible frame at the joystick crate's
+    /// own corner position, over gameplay, whatever the setting says.
+    ///
+    /// Asserted WITHOUT running the placement system, because the whole point is
+    /// the state between creation and the first placement pass.
+    #[test]
+    fn a_freshly_created_surface_is_hidden_before_placement_ever_runs() {
+        let mut app = App::new();
+        app.add_plugins(TouchPresentationPlugin);
+        let surface = app
+            .world_mut()
+            .spawn((TouchSurface::Movement, Node::default()))
+            .id();
+        assert_eq!(
+            app.world().entity(surface).get::<Node>().unwrap().display,
+            Display::None,
+            "a surface drew for one frame at whatever rectangle it was spawned \
+             with, before anything decided where it belongs"
+        );
     }
 
     /// Hiding the touch HUD withdraws its footprints, so the layout stops

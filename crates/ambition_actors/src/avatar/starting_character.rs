@@ -290,7 +290,19 @@ pub fn apply_worn_character_overlay(
     // NAME. A known row supplies a display name; an unknown id becomes its own
     // label — deterministic and never stale, and a legible diagnostic that a body
     // is wearing an id the catalog does not know.
-    match catalog.display_name(character_id) {
+    // The REGISTRY first, then the catalog, then the id.
+    //
+    // Registration is the newer authority and a registered-only character has no
+    // catalog row at all — so asking the catalog first named those bodies after
+    // their raw id. That did not matter while this ran only for the worn player,
+    // whose id is always a catalog one; it started mattering the moment seated
+    // fighters began coming through here, and every versus fighter is
+    // registered-only (Phase B, 2026-07-29).
+    let display = registry
+        .and_then(|registry| registry.get(character_id))
+        .map(|prepared| prepared.display_name.as_str())
+        .or_else(|| catalog.display_name(character_id));
+    match display {
         Some(display) => *name = Name::new(display.to_string()),
         None => *name = Name::new(character_id.to_string()),
     }

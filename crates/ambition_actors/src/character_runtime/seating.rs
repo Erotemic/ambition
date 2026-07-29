@@ -170,14 +170,31 @@ pub fn seat_character(
                     cluster,
                     action_set,
                     derived_brain,
-                    // `Name` and `ActorMoveset` are here for one reason: they are
-                    // REQUIRED columns of `apply_worn_character_gameplay`, the ONE
-                    // writer that turns `WornCharacter` into a persona (name, action
-                    // set, moveset, identity kit). A body missing either does not
-                    // match the derive at all, so it wears a character and derives
-                    // nothing from it — the fighter walks and cannot swing. Both are
-                    // placeholders; the derive overwrites them on the tick the worn
-                    // character lands.
+                    // **Required columns of `apply_worn_character_gameplay`**, the
+                    // ONE writer that turns `WornCharacter` into a persona — name,
+                    // action set, moveset, identity baseline. A body missing any of
+                    // them does not match the derive at all: it wears a character
+                    // and derives nothing from it, and the fighter walks and cannot
+                    // swing. Placeholders; the derive replaces them on the tick the
+                    // worn character lands.
+                    //
+                    // ⚠ **a correction (2026-07-29).** The comment here used to say
+                    // the derive's query "requires `IdentityKit` and
+                    // `BodyAbilities` — and `EnemyActorBundle` carries neither, so
+                    // a seated body never matched it", and that reasoning was
+                    // carried into the queue, into a campaign doc, and into the
+                    // design of the projection that grew up to serve seated bodies.
+                    // It is FALSE and was checked rather than inherited:
+                    // `WornCharacter` is `#[require(IdentityKit)]`, so every worn
+                    // body has one, and `BodyAbilities` arrives with
+                    // `AncillaryMovementBundle` inside the cluster below — adding
+                    // it here is a duplicate component and Bevy panics on the
+                    // bundle, which is how this got caught.
+                    //
+                    // Seated bodies therefore ALWAYS matched the derive. The second
+                    // kit writer was never necessary; it was built on a diagnosis
+                    // nobody re-read. That is the more useful lesson than the one
+                    // the old comment taught.
                     Name::new(prepared.display_name.clone()),
                     crate::combat::moveset::ActorMoveset(Default::default()),
                     // The body WEARS the character. Everything that makes it that

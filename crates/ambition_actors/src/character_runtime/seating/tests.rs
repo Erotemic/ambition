@@ -43,7 +43,24 @@ fn seating_app() -> App {
         app.world_mut(),
         ambition_engine_core::RoomGeometry(world),
     );
-    app.add_systems(Update, seat_match_participants);
+    app.add_systems(
+        Update,
+        (
+            seat_match_participants,
+            // **The persona derive, which is now the writer for a seated body's
+            // kit too** (Phase B, 2026-07-29). It used to be absent here and the
+            // tests still passed, because the projection wrote seated kits — two
+            // writers for one question, which is what let the worn and seated
+            // paths disagree about the same character (H1).
+            //
+            // A fixture that omits the single writer proves whatever the OTHER
+            // writer happened to do, which is precisely how this was missed. It
+            // is chained after seating so the body exists before the derive looks
+            // for it.
+            crate::avatar::apply_worn_character_gameplay,
+        )
+            .chain(),
+    );
     app
 }
 
@@ -703,4 +720,79 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
         "seating must not decide on its own that a fighter cannot act — a stage \
          with no countdown opens live"
     );
+}
+
+/// **A seated fighter INHERITS its catalog row's kit — the H1 case itself.**
+/// (Phase B, 2026-07-29)
+///
+/// Everything before this proved that a seated fighter receives what its
+/// DEFINITION authored. H1 was the other case, and it is the common one: a
+/// character that authored no action set at all, whose kit comes from the
+/// catalog row. That fighter worked as the worn player and stood empty-handed as
+/// player two, for a day, with every test green — because the two paths had two
+/// writers and only one of them consulted the catalog.
+///
+/// This is the test that could not have been written before Phase A: the
+/// inheritance now happens at the preparation barrier, so a seated body reads a
+/// resolved value rather than re-deriving one it has no catalog to derive from.
+#[test]
+fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
+    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+
+    const CATALOG: &str = r#"(
+        brain_presets: { "stand_still": StandStill },
+        action_set_presets: {
+            "brawler": (
+                move_style: Walk,
+                melee: Some(Swipe(
+                    windup_s: 0.1, active_s: 0.1, recover_s: 0.1,
+                    damage: 7, reach_px: 40.0,
+                )),
+            ),
+        },
+        characters: {
+            "inheritor": (
+                display_name: "Inheritor", spritesheet: "a.png", manifest: "a.ron",
+                tier: Basement, body_kind: Standard, composition: None,
+                default_brain: "stand_still", default_action_set: "brawler", tags: [],
+            ),
+        },
+    )"#;
+
+    let mut app = seating_app();
+    app.insert_resource(CharacterCatalog::from_data(parse_catalog(CATALOG)));
+    // Registered, and authoring NO action set — so `None` means "the catalog row
+    // stands", which is the registry's documented contract and the exact thing
+    // the seated path could not honour.
+    app.register_character(CharacterDefinition::new("inheritor", "Inheritor", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("inheritor")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::brain::ActionSet,
+    )>();
+    let (_, set) = bodies
+        .iter(world)
+        .next()
+        .expect("the fighter must be seated at all");
+    match &set.melee {
+        Some(ambition_characters::brain::action_set::MeleeActionSpec::Swipe(swipe)) => {
+            assert_eq!(
+                swipe.damage, 7,
+                "the seated fighter got A melee action, but not its row's"
+            );
+        }
+        other => panic!(
+            "the seated fighter inherited nothing from its catalog row — this is H1 \
+             exactly: it would fight as the worn player and stand empty-handed as \
+             player two. Got {other:?}"
+        ),
+    }
 }

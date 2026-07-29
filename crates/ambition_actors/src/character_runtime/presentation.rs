@@ -329,6 +329,31 @@ pub fn project_prepared_character_definitions(
     // A new cast changes nothing on a body, so the change-detection query above
     // cannot see one — the worn id is still the worn id. That is exactly how a
     // body kept a retired cast's moves with every check green. This query is
+    // **The bodies `apply_worn_character_gameplay` can actually see.**
+    //
+    // Its required columns, spelled out, because "does the derive match this
+    // entity" has no shorter honest form. `WornCharacter` looks like the answer
+    // and is not — it REQUIRES `IdentityKit`, so gating on either one silently
+    // means "does it wear a character", which is a different and wrong question:
+    // a hand-assembled body wearing a character without a moveset column matches
+    // neither writer and would get no kit at all while reading as covered.
+    //
+    // ⚠ this list is coupled to that system's query. If a column is added there
+    // and not here, bodies quietly fall between the two writers — which is the
+    // failure this whole phase exists to remove, so the coupling is stated rather
+    // than hidden behind a marker component that could drift on its own.
+    persona_bodies: Query<
+        Entity,
+        (
+            With<ambition_characters::actor::WornCharacter>,
+            With<Name>,
+            With<ambition_characters::brain::ActionSet>,
+            With<crate::combat::moveset::ActorMoveset>,
+            With<ambition_characters::brain::action_set::IdentityKit>,
+            With<crate::actor::BodyAbilities>,
+            With<crate::features::MotionModel>,
+        ),
+    >,
     // walked ONLY on the tick the registry changes, which is startup and hot
     // reload; the ordinary tick still pays only for identities that moved.
     all_bodies: Query<(
@@ -399,15 +424,64 @@ pub fn project_prepared_character_definitions(
             id: prepared.id.clone(),
             generation: registry.generation(),
         });
-        if let Some(moveset) = prepared.kit.projectable_moveset().cloned() {
-            // The routing markers are NOT set here. They are derived from the live
-            // `ActorMoveset` by `reconcile_moveset_routing_markers` — deriving them
-            // is what makes them right for the catalog persona path too, which
-            // replaces the moveset and never knew the markers existed.
-            commands
-                .entity(entity)
-                .insert(crate::combat::moveset::ActorMoveset(moveset));
+        // **THE KIT, for the bodies the persona derive cannot see.**
+        // (Phase B, 2026-07-29)
+        //
+        // `apply_worn_character_gameplay` is the ONE writer that turns a
+        // `WornCharacter` into a persona. This system wrote seated bodies' kits
+        // too, on the belief that seated bodies did not match it — and they always
+        // did. `WornCharacter` is `#[require(IdentityKit)]` and `BodyAbilities`
+        // comes with `AncillaryMovementBundle`, so the two columns the old comment
+        // named as missing were both present (checked 2026-07-29).
+        //
+        // So there were two writers for one question, and they answered it
+        // differently: this one wrote what the definition AUTHORED, while the
+        // derive resolved authored-vs-catalog first. A character that authored no
+        // action set fought as the worn player and stood empty-handed as player
+        // two (campaign H1). Phase A made the two answers identical; deleting this
+        // writer is what stops them drifting apart again.
+        //
+        // What is left here is the population the derive genuinely cannot see: a
+        // body with no `WornCharacter` at all — an archetype-staged actor
+        // identified by its `CombatTuning.sprite_character_id`. This is still its
+        // only route to an authored moveset.
+        //
+        // Two writers on DISJOINT populations, named, rather than two writers on
+        // overlapping ones. That is the honest state; collapsing the last of it
+        // means giving tuning-identified bodies a real worn identity, which is a
+        // change to what those bodies ARE and does not belong in this commit.
+        //
+        if !persona_bodies.contains(entity) {
+            //
+            // This used to project the moveset and the action set, because seated
+            // bodies did not match `apply_worn_character_gameplay` — they were missing
+            // two of its required columns — and something had to give them a kit.
+            //
+            // That made two writers for one question, on two paths, and they answered
+            // it differently: this one wrote what the definition AUTHORED, while the
+            // worn path resolved authored-vs-catalog first. A character that authored
+            // no action set therefore fought as the worn player and stood empty-handed
+            // as player two (campaign H1). Phase A made the answer identical; giving
+            // seated bodies `IdentityKit` and `BodyAbilities` makes the WRITER
+            // identical, which is the half that stops it happening again.
+            //
+            if let Some(moveset) = prepared.kit.projectable_moveset().cloned() {
+                // The routing markers are NOT set here. They are derived from the
+                // live `ActorMoveset` by `reconcile_moveset_routing_markers` —
+                // deriving them is what makes them right for the persona path too,
+                // which replaces the moveset and never knew the markers existed.
+                commands
+                    .entity(entity)
+                    .insert(crate::combat::moveset::ActorMoveset(moveset));
+            }
+            if let Some(action_set) = prepared.kit.action_set().cloned() {
+                let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
+                commands.entity(entity).insert((action_set, combat_kit));
+            }
         }
+        // The rest is what the persona derive does not own on ANY path: the
+        // authored silhouette, the movement feel, and the motion model — body
+        // facts rather than kit facts, each with a matching retraction above.
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
             commands.entity(entity).insert((
                 super::AuthoredHurtboxes(hurtboxes),
@@ -431,22 +505,6 @@ pub fn project_prepared_character_definitions(
         // fighter stood holding a gun it did not believe in — its moves were
         // projected and its capability to reach for them was not.
         //
-        // `None` is now reached ONLY by the host-code kit, which is built per
-        // body from that body's own `AbilitySet` and so cannot be a per-character
-        // value. Every other character has an answer here, including the ones
-        // that inherited it from their catalog row — which is the H1 fix: this
-        // used to read the definition's raw override, so a character that authored
-        // no action set and had a perfectly good one on its row was projected onto
-        // a seated fighter as nothing at all.
-        //
-        // The comment this replaces said `None` meant "whatever the body already
-        // carries stands (the catalog persona, or seating's placeholder)". For a
-        // seated body that placeholder is `ActionSet::default()` and no catalog
-        // persona was ever coming, so "stands" meant "empty, forever".
-        if let Some(action_set) = prepared.kit.action_set().cloned() {
-            let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
-            commands.entity(entity).insert((action_set, combat_kit));
-        }
         // **The MOTION MODEL, on the same path and for the X9 reason.**
         //
         // The worn-player path resolves this in `apply_worn_character_kit`;

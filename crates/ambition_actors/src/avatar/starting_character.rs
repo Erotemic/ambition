@@ -27,7 +27,7 @@
 
 use bevy::ecs::change_detection::{DetectChanges, Ref};
 use bevy::ecs::system::{Commands, Query};
-use bevy::prelude::{Changed, Component, Entity, Has, Name, Or, Res, With};
+use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
@@ -447,23 +447,24 @@ pub fn apply_worn_character_gameplay(
     // characters is the ordinary case and must not require the resource.
     registry: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut commands: Commands,
-    mut worn: Query<
-        (
-            Entity,
-            Ref<WornCharacter>,
-            &mut Name,
-            &mut ActionSet,
-            &mut ActorMoveset,
-            &mut ambition_characters::brain::action_set::IdentityKit,
-            Ref<crate::actor::BodyAbilities>,
-            // The one transition seam (`switch_motion_model`): a cross-model
-            // re-wear initializes destination-private state inside the new
-            // variant value; no cluster is touched (ADR 0024).
-            &mut MotionModel,
-            Has<ambition_projectiles::PlayerProjectileState>,
-        ),
-        Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
-    >,
+    mut worn: Query<(
+        Entity,
+        Ref<WornCharacter>,
+        &mut Name,
+        &mut ActionSet,
+        &mut ActorMoveset,
+        &mut ambition_characters::brain::action_set::IdentityKit,
+        Ref<crate::actor::BodyAbilities>,
+        // The one transition seam (`switch_motion_model`): a cross-model
+        // re-wear initializes destination-private state inside the new
+        // variant value; no cluster is touched (ADR 0024).
+        &mut MotionModel,
+        Has<ambition_projectiles::PlayerProjectileState>,
+        // What THIS system last applied to this body. See [`PersonaBaseline`]:
+        // the change-detection filter that used to live here could not see a
+        // cast replacement, because a replacement changes nothing on a body.
+        Option<&PersonaBaseline>,
+    )>,
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
 
@@ -477,10 +478,22 @@ pub fn apply_worn_character_gameplay(
         abilities,
         mut motion_model,
         has_projectile_state,
+        baseline,
     ) in &mut worn
     {
         let id = character.id();
-        if character.is_changed() {
+        let generation = registry
+            .as_deref()
+            .map(crate::character_runtime::PreparedCharacterRegistry::generation)
+            .unwrap_or_default();
+        // A body needs the whole persona re-derived when its identity changed OR
+        // when the cast it was built from is no longer the cast that exists. The
+        // `Or<(Changed<..>, Changed<..>)>` query filter that used to stand here
+        // could only ever express the first, which left every live body wearing a
+        // retired kit after a hot reload.
+        let stale_cast =
+            baseline.is_none_or(|baseline| baseline.id != id || baseline.generation != generation);
+        if character.is_changed() || stale_cast {
             let charges_projectiles = apply_worn_character_overlay(
                 &catalog,
                 registry.as_deref(),
@@ -526,6 +539,13 @@ pub fn apply_worn_character_gameplay(
                         .try_remove::<ambition_engine_core::AuthoredMovementTuning>();
                 }
             }
+            // LAST, and that ordering is the point: the record says the baseline
+            // HAS been applied, so it must not be written by anything that has
+            // not applied it — including this system on an early return.
+            commands.entity(entity).try_insert(PersonaBaseline {
+                id: id.to_string(),
+                generation,
+            });
             continue;
         }
 
@@ -550,6 +570,32 @@ pub fn apply_worn_character_gameplay(
             }
         }
     }
+}
+
+/// **What cast a body's PERSONA was built from.**
+///
+/// The record `apply_worn_character_gameplay` keeps of its own work: the id it
+/// last applied and the registry generation it read. Nothing else writes it.
+///
+/// It exists because a cast replacement changes nothing ON a body — not its worn
+/// character, not its abilities — so the derive's change-detection filter could
+/// not see one, and a rebalanced or hot-reloaded character left every live body
+/// wearing the retired kit. `project_prepared_character_definitions` DID notice,
+/// and stamped its own marker with the new generation regardless, which made the
+/// failure worse than a missed update: the body recorded that it was current, so
+/// nothing would ever revisit it (GPT 5.6, 2026-07-29).
+///
+/// ⚠ deliberately a SECOND marker rather than sharing
+/// [`ProjectedCharacterKit`](crate::character_runtime::ProjectedCharacterKit).
+/// That one is the projection's record of the body facts IT grants — authored
+/// hurtboxes, movement feel, motion model. Two writers sharing one "already done"
+/// record is how one of them ends up certifying work the other has not performed,
+/// which is precisely the defect this fixes. One writer, one record, each stamped
+/// only after its own work is applied.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct PersonaBaseline {
+    pub id: String,
+    pub generation: crate::character_runtime::CharacterCatalogGeneration,
 }
 
 /// Gate the raw player-control frame by the effective worn kit before any body

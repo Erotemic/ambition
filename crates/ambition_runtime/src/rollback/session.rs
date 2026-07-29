@@ -146,9 +146,16 @@ impl Default for SyncTestSettings {
         Self {
             check_distance: 7,
             max_prediction_window: 12,
-            // ONE by default, which is what every existing caller means and what
-            // the shipped host still installs. A multi-seat session is opt-in
-            // until something drives more than one stream.
+            // ONE by default — for TESTS and harnesses that mean one stream.
+            //
+            // ⚠ this used to add "and what the shipped host still installs". That
+            // stopped being true on 2026-07-28: all three production paths — the
+            // initial session, the hot-reload rebase, and the proof-pulse restore
+            // — size themselves from the frozen `LocalSeatTopology`. The comment
+            // outlived the fact by a day and the proof-pulse path was still
+            // defaulting, which is exactly the repair a stale comment misdirects.
+            //
+            // A production caller reaching this default is a bug, not a choice.
             players: 1,
         }
     }

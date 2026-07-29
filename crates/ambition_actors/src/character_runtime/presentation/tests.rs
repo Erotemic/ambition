@@ -739,3 +739,62 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
          counter something could compare if it thought to"
     );
 }
+
+/// **A character that becomes UNAUTHORED in a new cast loses what it granted.**
+/// (GPT 5.6, 2026-07-29)
+///
+/// Retraction used to look the previously-projected id up in the CURRENT registry
+/// and remove whatever THAT definition carried. For a same-id replacement whose
+/// new definition authors nothing, the lookup returns the new, empty definition —
+/// so nothing is retracted and the body keeps the retired hurtbox document
+/// forever, with the projection reporting success.
+///
+/// Historical ownership is not a property of the new authority.
+#[test]
+fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
+    use ambition_entity_catalog::HurtboxDoc;
+
+    fn doc() -> HurtboxDoc {
+        HurtboxDoc {
+            default: None,
+            poses: std::collections::BTreeMap::new(),
+            moves: std::collections::BTreeMap::new(),
+        }
+    }
+
+    let mut app = session_app();
+    app.register_character(
+        CharacterDefinition::new("armored", "Armored", "demo").with_hurtboxes(doc()),
+    );
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("armored"))
+        .id();
+    settle(&mut app);
+    assert!(
+        app.world()
+            .get::<super::super::AuthoredHurtboxes>(body)
+            .is_some(),
+        "the first cast must grant the hurtbox doc at all"
+    );
+
+    // Same id, new cast, authoring NOTHING.
+    let stripped = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("armored", "Armored", "demo"),
+        &crate::character_runtime::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(stripped);
+    settle(&mut app);
+
+    assert!(
+        app.world()
+            .get::<super::super::AuthoredHurtboxes>(body)
+            .is_none(),
+        "the body kept the retired cast's authored hurtboxes: retraction asked the \
+         NEW registry what the OLD definition granted, and the new one grants \
+         nothing, so it removed nothing"
+    );
+}

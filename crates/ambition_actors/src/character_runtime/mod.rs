@@ -48,9 +48,9 @@ pub use audit::{
 #[cfg(test)]
 pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
-    BodySource, CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt,
-    CharacterPreparationPlugin, CharacterRegistrationError, Lineage, PreparedCharacterDefinition,
-    PreparedKit, PreparedCharacterRegistry, Vitals,
+    BodySource, CharacterBindings, CharacterCatalogGeneration, CharacterDefinition,
+    CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError, Lineage,
+    PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit, Vitals,
 };
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
@@ -497,9 +497,9 @@ pub fn materialize_character_demand(
                 crate::character_sprites::SpriteMaterialization::NoImage => {
                     CharacterLoadFailure::NoImageResolved
                 }
-                crate::character_sprites::SpriteMaterialization::Ready => unreachable!(
-                    "the ready arm is handled above"
-                ),
+                crate::character_sprites::SpriteMaterialization::Ready => {
+                    unreachable!("the ready arm is handled above")
+                }
             })
         };
         states.record(token, &character_id, outcome);

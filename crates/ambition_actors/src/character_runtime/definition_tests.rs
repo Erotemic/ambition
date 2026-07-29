@@ -662,11 +662,17 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
 
 /// **A cast has a version, so a derivation can know it went stale.** (X4)
 ///
-/// The registry is a live resource — a room transition builds a fresh one and
-/// registration mutates it in place — and nothing downstream could say WHICH
-/// cast a body's kit came from. "This was built before the cast changed" was not
-/// a question the code could ask; it could only compare values and guess, which
-/// is the shape of every stale-derivation bug in this repo.
+/// Nothing downstream could say WHICH cast a body's kit came from. "This was
+/// built before the cast changed" was not a question the code could ask; it
+/// could only compare values and guess, which is the shape of every
+/// stale-derivation bug in this repo.
+///
+/// ⚠ this used to describe the registry as "a live resource — a room transition
+/// builds a fresh one and registration mutates it in place". Since the
+/// finalization barrier (2026-07-29) it is published once, whole, and a late
+/// registration panics. The generation is per PUBLICATION now; the hatch this
+/// test uses stamps each insert as its own publication because a test has no
+/// barrier to publish for it.
 #[test]
 fn the_cast_generation_advances_on_every_published_change() {
     let mut registry = PreparedCharacterRegistry::default();

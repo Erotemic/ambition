@@ -90,9 +90,17 @@ impl LocalDeviceOrder {
 /// them disagree while both read "the same source". The roster would seat three
 /// fighters into a two-handle session and nothing would say so.
 ///
-/// So the topology is decided ONCE, when a session starts or rebases, and every
-/// consumer reads the snapshot. `generation` exists so a consumer can notice it
-/// was rebuilt rather than compare vectors (GPT 5.6, 2026-07-28).
+/// So the topology is decided ONCE **per GAMEPLAY session** — not per GGRS
+/// session — and every consumer reads the snapshot. Baseline starts, proof
+/// pulses and hot-reload rebases are all the same gameplay session RESTARTED and
+/// reuse the frozen value; recapturing for one of them would make the topology
+/// stable only for a rollback sub-session, which is not the lifetime the roster
+/// or the latches use. It is REMOVED when gameplay ends, because a topology that
+/// outlives its session is the previous match's seating presented to the next one
+/// as a frozen fact.
+///
+/// `generation` exists so a consumer can notice it was rebuilt rather than
+/// compare vectors (GPT 5.6, 2026-07-28; lifetime corrected 2026-07-29).
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatTopology {
     generation: u64,
@@ -181,8 +189,23 @@ pub fn assign_local_seat_devices(
     mut seats: Query<(&InputParticipant, &mut InputMap<SandboxAction>)>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
+    // **HOW MANY PEOPLE ARE PLAYING comes from the session, not from how many
+    // seat entities have materialized yet.** (GPT 5.6, 2026-07-29)
+    //
+    // This asked `seats.iter().len() < 2`, which is an observation of ACTIVATION
+    // PROGRESS. During activation a two-player topology can already exist while
+    // only the primary participant entity does — and in that window the solo
+    // branch below cleared the primary's gamepad restriction and restored
+    // any-pad behaviour, so a controller meant for handle 1 could drive seat 0
+    // until the second entity appeared.
+    //
+    // A frozen topology is the session's own answer and does not move.
+    let players = match frozen.as_ref() {
+        Some(topology) => topology.players(),
+        None => seats.iter().len(),
+    };
     // Solo: leave leafwing's any-pad behaviour exactly as it was.
-    if seats.iter().len() < 2 {
+    if players < 2 {
         for (_, mut map) in &mut seats {
             if map.gamepad().is_some() {
                 map.clear_gamepad();
@@ -320,6 +343,42 @@ mod tests {
             Some(pad_b),
             "with no session owning the seating, the live order is the authority"
         );
+    }
+
+    /// **Activation progress is not the session's player count.**
+    /// (GPT 5.6, 2026-07-29)
+    ///
+    /// The solo branch asked how many seat ENTITIES existed. During activation a
+    /// two-player topology can already be frozen while only the primary
+    /// participant has materialized — and in that window the solo branch cleared
+    /// the primary's gamepad restriction and restored any-pad behaviour, so a
+    /// controller meant for handle 1 could drive seat 0 until the second entity
+    /// appeared.
+    #[test]
+    fn a_frozen_two_player_session_binds_the_primary_before_seat_two_exists() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture(app.world().resource::<LocalDeviceOrder>());
+            topology
+        };
+        assert_eq!(frozen.players(), 2, "the fixture must freeze two players");
+        app.insert_resource(frozen);
+        app.update();
+
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "seat two has not materialized yet, so the entity count says SOLO and \
+             the primary was handed any-pad behaviour — pad B could drive it until \
+             the second participant appeared"
+        );
+        let _ = pad_b;
     }
 
     #[test]

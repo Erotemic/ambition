@@ -431,10 +431,26 @@ pub fn seat_match_participants(
             // bare `kin.pos = at` is a pose write the kernel never sees, so the
             // body arrives believing it is still standing on the floor it left.
             // The workspace policy caught that draft, and was right to.
-            // A seat starts at FULL health, adopted or spawned. A spawned seat
-            // gets its character's vitals from the seed; the adopted primary
-            // player kept whatever the last session left it on, so a match could
-            // begin with one fighter already half dead.
+            // **THE AUTHORED MAXIMUM, on the adopted body too.** A seat starts at
+            // FULL health, adopted or spawned — and at the SAME maximum its
+            // character authored, whichever way it got its body.
+            //
+            // A spawned seat took `prepared.vitals.max_health` from the seed. The
+            // adopted primary player did not: it kept the maximum its session
+            // established from the legacy catalog or the default player health, so
+            // the same character could bring 60 HP as player two and something else
+            // entirely as player one. The versus duelists author 60 and 52 — a
+            // deliberate trade, one fighter paying for a faster smash — and that
+            // trade simply did not apply to seat 0 (GPT 5.6, 2026-07-29).
+            //
+            // Match activation is the right long-term home for this (it is a
+            // once-per-match decision, not a per-tick projection, and health is
+            // live state the rest of the time). Until that seam exists, adoption
+            // is the one place a body becomes a fighter, so it is where the
+            // authored maximum has to land.
+            if let Some(prepared) = registry.get(character) {
+                health.health.max = prepared.vitals.max_health.max(1);
+            }
             health.health.current = health.health.max;
             let mut item = clusters;
             let mut clusters = item.as_clusters_mut();

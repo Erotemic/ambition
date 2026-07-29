@@ -796,3 +796,152 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
         ),
     }
 }
+
+/// **A new cast generation must reach the PERSONA writer, not just the stamp.**
+/// (H6 reopened, GPT 5.6 2026-07-29)
+///
+/// The first H6 probe replaced a cast under a hand-spawned body. That body did
+/// not carry the persona writer's full column set, so it took the projection's
+/// FALLBACK branch — and the probe proved generation replacement for the
+/// population whose kit the projection still owns, while being cited as evidence
+/// for the worn and seated population whose kit it deliberately does not.
+///
+/// This one uses a real seated fighter: every column, the derive installed, the
+/// projection installed. The failure it catches is worse than a missed update —
+/// the projection stamps `ProjectedCharacterKit` with the new generation whether
+/// or not anything refreshed the kit, so the body ends up recorded as CURRENT
+/// while wearing the retired cast's moves, and no later pass will revisit it.
+#[test]
+fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
+    use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    use ambition_characters::brain::ActionSet;
+
+    fn swiping(damage: i32) -> ActionSet {
+        ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                windup_s: 0.1,
+                active_s: 0.1,
+                recover_s: 0.1,
+                damage,
+                reach_px: 40.0,
+            })),
+            ..ActionSet::default()
+        }
+    }
+
+    let mut app = seating_app();
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+    app.register_character(
+        CharacterDefinition::new("veteran", "Veteran", "demo").with_action_set(swiping(3)),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("veteran")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    fn melee_damage(app: &mut App) -> Option<i32> {
+        let world = app.world_mut();
+        let mut bodies = world.query::<(
+            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::brain::ActionSet,
+        )>();
+        match bodies.iter(world).next().map(|(_, set)| set.melee.clone()) {
+            Some(Some(MeleeActionSpec::Swipe(swipe))) => Some(swipe.damage),
+            _ => None,
+        }
+    }
+
+    assert_eq!(
+        melee_damage(&mut app),
+        Some(3),
+        "the fighter must reach its first cast at all, or the replacement below \
+         proves nothing"
+    );
+
+    // THE CAST IS REPLACED. Same id, same body, rebalanced numbers — a hot
+    // reload, or a second composition landing on a running session.
+    let rebalanced = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("veteran", "Veteran", "demo").with_action_set(swiping(9)),
+        &crate::character_runtime::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(rebalanced);
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    assert_eq!(
+        melee_damage(&mut app),
+        Some(9),
+        "the seated fighter kept the retired cast's kit. `apply_worn_character_gameplay` \
+         is the only writer for it and runs on `Changed<WornCharacter>` / \
+         `Changed<BodyAbilities>` — a cast replacement changes neither, so nothing \
+         refreshed it. Worse, the projection stamped the body with the NEW generation \
+         anyway, so it now reads as current and no later pass will revisit it"
+    );
+}
+
+/// **The authored maximum health applies to the ADOPTED seat too.**
+/// (GPT 5.6, 2026-07-29)
+///
+/// A spawned seat took `prepared.vitals.max_health` from its seed. The adopted
+/// primary player did not — it kept whatever maximum its session established from
+/// the legacy catalog or the default player health. So the same character could
+/// bring its authored 60 HP as player two and something else entirely as player
+/// one, and the versus duelists' deliberate 60-vs-52 trade (one fighter paying for
+/// a faster smash) simply did not apply to seat 0.
+#[test]
+fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
+    let mut app = seating_app();
+    let mut tank = CharacterDefinition::new("tank", "Tank", "demo");
+    tank.vitals = crate::character_runtime::Vitals {
+        max_health: 60,
+        mass: 1.0,
+    };
+    app.register_character(tank);
+
+    // The REAL player bundle: a hand-rolled body without the movement clusters
+    // does not match seating's query, so adoption silently skips and the test
+    // would pass for the wrong reason. Its health starts at a maximum the
+    // character never authored, which is exactly what adoption finds.
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::avatar::PlayerSimulationBundle::from_scratch(
+                crate::avatar::primary_player_scratch(
+                    Vec2::new(0.0, 0.0),
+                    ambition_engine_core::AbilitySet::default(),
+                ),
+                ambition_characters::actor::Health::new(999),
+            ),
+            ambition_characters::actor::WornCharacter::new("tank"),
+        ))
+        .id();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 })
+        ],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let health = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(player)
+        .expect("the adopted body keeps its health component");
+    assert_eq!(
+        health.health.max, 60,
+        "the adopted seat kept a maximum its character never authored, so the same \
+         fighter is tougher as player one than as player two"
+    );
+    assert_eq!(
+        health.health.current, 60,
+        "and a seat starts full, adopted or spawned"
+    );
+}

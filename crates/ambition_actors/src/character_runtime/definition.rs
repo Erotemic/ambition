@@ -153,6 +153,16 @@ pub struct Lineage {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Vitals {
     pub max_health: i32,
+    /// ⛔ **AUTHORED AND UNCONSUMED.** No production code reads this — verified by
+    /// grep on 2026-07-29, zero runtime reads. A provider can author a mass,
+    /// preparation carries it faithfully onto the published definition, and no
+    /// constructed body differs as a result.
+    ///
+    /// It is left in place rather than deleted because whether mass SHOULD drive
+    /// knockback, mounting, momentum or collision response is a product decision,
+    /// not a cleanup. What is not acceptable is a field in a "complete prepared
+    /// authority" that reads as authoritative and does nothing, so it says so
+    /// here. Tracked in the 24h queue (GPT 5.6, 2026-07-29).
     pub mass: f32,
 }
 
@@ -166,6 +176,19 @@ impl Default for Vitals {
 }
 
 /// Where a body's collision geometry comes from (§4.11, §5).
+///
+/// ⛔ **AUTHORED AND UNCONSUMED.** No production code reads `CharacterDefinition
+/// .body` or the prepared field — verified by grep on 2026-07-29. Neither variant
+/// has any effect: `Explicit` half-extents are ignored, `SpriteAuthored`'s
+/// `world_per_pixel` is ignored, and no construction path selects its geometry
+/// from here. Seated fighters get the fixed `SEAT_BODY_PX` placeholder and are
+/// later resized by the independent sprite-pose pipeline, which is a DIFFERENT
+/// authority that happens to produce a plausible result.
+///
+/// A provider can author an explicit body and receive a body of another size.
+/// That is a genuine hole in "one character definition", and it is either
+/// consumed during complete body construction or removed in favour of the sheet
+/// authority — a decision, not a cleanup (GPT 5.6, 2026-07-29).
 #[derive(Debug, Clone, PartialEq)]
 pub enum BodySource {
     /// The sheet authors it, per pose (`SpritePosedBody`).
@@ -191,6 +214,12 @@ pub struct CharacterDefinition {
     pub sheet: Option<String>,
     /// Select-screen portrait. Loads WITHOUT the sheet, so an enumeration screen
     /// costs no sheet decode.
+    ///
+    /// ⚠ **preparation RESOLVES this reference; no runtime consumes it.** The
+    /// portrait target is checked against the composition's vocabulary and named
+    /// at load if it is wrong — but nothing reads the prepared portrait path to
+    /// draw anything. The catalog's own `portrait_ref` is what dialogue and the
+    /// select surface use today (verified 2026-07-29).
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
@@ -1106,11 +1135,19 @@ pub struct PreparedCharacterRegistry {
 
 /// Which version of the cast a value was built from.
 ///
-/// The registry is a live resource: a room transition builds a fresh one, and
-/// registration mutates it in place. Nothing downstream could say WHICH cast a
-/// body's kit came from, so "this body was built before the cast changed" was
-/// not a question the code could ask — it could only compare the values and
-/// guess. That is the shape of every stale-derivation bug in this repo.
+/// Nothing downstream could say WHICH cast a body's kit came from, so "this body
+/// was built before the cast changed" was not a question the code could ask — it
+/// could only compare the values and guess. That is the shape of every
+/// stale-derivation bug in this repo.
+///
+/// ⚠ this used to open "the registry is a live resource: a room transition
+/// builds a fresh one, and registration mutates it in place". That stopped being
+/// true when the finalization barrier landed (2026-07-29): the registry is
+/// PUBLISHED once, whole, at `Plugin::finish` or the `PreStartup` backstop, and a
+/// registration arriving after the barrier closes PANICS rather than mutating it.
+/// One generation per publication, carried across rebuilds — a counter that
+/// restarted would republish generation 1 over a body stamped with generation 1
+/// from the previous cast, and every staleness check would read "still current".
 ///
 /// A monotonic counter, not a hash: two registries with identical contents
 /// assembled at different times are legitimately different generations, and a

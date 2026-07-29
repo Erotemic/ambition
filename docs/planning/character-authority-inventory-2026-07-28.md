@@ -154,6 +154,9 @@ path ONLY, and a seated body reaches a different answer:
   `project_prepared_character_definitions` writes nothing when the definition
   authored `None`.
 
+> ⛔ **THE SENTENCE ABOVE IS FALSE (checked 2026-07-29).** `WornCharacter` is `#[require(IdentityKit)]`, so every worn body has one, and `BodyAbilities` arrives with `AncillaryMovementBundle` inside the actor cluster — inserting it again panics Bevy with a duplicate-component error, which is how this was finally caught. **Seated bodies always matched `apply_worn_character_gameplay`.** The claim was repeated into a source comment, the 24h queue, and this document, and a whole second kit writer was built on top of it. Nothing re-derived it, because everything built on it kept working. The real defect was two writers answering one question differently, not a body missing a column.
+
+
   My own comment on that branch states the bug without noticing it: *"`None`
   means the definition authored nothing and whatever the body already carries
   stands (the catalog persona, **or seating's placeholder**)"*. Those two are

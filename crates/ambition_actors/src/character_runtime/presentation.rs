@@ -274,6 +274,22 @@ pub struct ProjectedCharacterKit {
     pub id: String,
     /// The cast this body's projected kit was derived from.
     pub generation: super::definition::CharacterCatalogGeneration,
+    /// **What was actually GRANTED, recorded rather than re-derived.**
+    ///
+    /// Retraction used to look the previous id up in the CURRENT registry and
+    /// remove whatever that definition happened to carry. That cannot work, and
+    /// fails in the two cases most worth handling (GPT 5.6, 2026-07-29):
+    ///
+    /// * the same id becomes UNAUTHORED in a new cast — the lookup returns the
+    ///   new definition, whose fields are `None`, so the old components are left
+    ///   standing and the body keeps a retired hurtbox document forever;
+    /// * the character LEAVES the cast — the lookup returns nothing at all, and
+    ///   nothing is retracted.
+    ///
+    /// Historical ownership is not a property of the new authority. So it is
+    /// written down at grant time.
+    pub granted_hurtboxes: bool,
+    pub granted_movement_tuning: bool,
 }
 
 /// **C3: a registered character's authored fight reaches a spawned BODY.**
@@ -399,16 +415,16 @@ pub fn project_prepared_character_definitions(
         // same tick this runs. The routing markers that used to be removed here
         // are derived from the live moveset by
         // `reconcile_moveset_routing_markers`, so they follow whichever writer won.
-        if let Some(previous) = projected.and_then(|projected| registry.get(&projected.id)) {
-            if previous.hurtboxes.is_some() {
+        if let Some(previous) = projected {
+            // Read off the RECORD of what was granted, not off a lookup of the
+            // old id in the new registry — see [`ProjectedCharacterKit`]. Removing
+            // only what this system granted is what keeps it from fighting the
+            // worn path, which owns the marker for a body whose feel came from the
+            // CATALOG: a case this system cannot see and must not overwrite.
+            if previous.granted_hurtboxes {
                 commands.entity(entity).remove::<super::AuthoredHurtboxes>();
             }
-            // Same rule for the movement feel: remove only what THIS system
-            // granted, looked up by the id it recorded. That is what keeps it
-            // from fighting the worn path, which owns the marker for a body
-            // whose feel came from the CATALOG — a case this system cannot see
-            // and must not overwrite.
-            if previous.movement_tuning.is_some() {
+            if previous.granted_movement_tuning {
                 commands
                     .entity(entity)
                     .remove::<ambition_engine_core::AuthoredMovementTuning>();
@@ -420,9 +436,23 @@ pub fn project_prepared_character_definitions(
             }
             continue;
         };
+        // ⚠ **this marker records what THIS system granted, and nothing else.**
+        //
+        // It used to be written here for every body, including the ones whose kit
+        // belongs to `apply_worn_character_gameplay` — so a cast replacement
+        // stamped a persona body as current while the writer that owns its kit had
+        // not run and, filtered on `Changed<WornCharacter>`, never would. The body
+        // recorded that it was up to date and no later pass revisited it, which is
+        // worse than a missed update (GPT 5.6, 2026-07-29).
+        //
+        // That writer keeps its own record now, `avatar::PersonaBaseline`, stamped
+        // after IT applies the baseline. One writer, one record. This one covers
+        // the authored silhouette, the movement feel and the motion model below.
         commands.entity(entity).insert(ProjectedCharacterKit {
             id: prepared.id.clone(),
             generation: registry.generation(),
+            granted_hurtboxes: prepared.hurtboxes.is_some(),
+            granted_movement_tuning: prepared.movement_tuning.is_some(),
         });
         // **THE KIT, for the bodies the persona derive cannot see.**
         // (Phase B, 2026-07-29)
@@ -489,22 +519,6 @@ pub fn project_prepared_character_definitions(
                 crate::combat::components::DamageableVolumes::default(),
             ));
         }
-        // **The ACTION SET, which reached a worn player and never a seated one.**
-        // (campaign X9)
-        //
-        // Seating writes `ActionSet::default()` and its comment says the persona
-        // derive overwrites it "on the tick the worn character lands". The derive
-        // it means is `apply_worn_character_gameplay`, whose query requires
-        // `IdentityKit` and `BodyAbilities` — and `EnemyActorBundle` carries
-        // neither, so a seated body never matched it. This system is what serves
-        // a seated body, and it projected the moveset and the hurtbox doc and
-        // stopped there.
-        //
-        // The consequence was not cosmetic: the BRAIN reads `ActionSet` to decide
-        // whether it may press ranged or melee at all, so an authored ranged
-        // fighter stood holding a gun it did not believe in — its moves were
-        // projected and its capability to reach for them was not.
-        //
         // **The MOTION MODEL, on the same path and for the X9 reason.**
         //
         // The worn-player path resolves this in `apply_worn_character_kit`;

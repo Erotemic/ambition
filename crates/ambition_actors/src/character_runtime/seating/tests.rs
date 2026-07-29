@@ -946,6 +946,74 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     );
 }
 
+/// **Both fighters get the same movement capabilities.** (2026-07-29)
+///
+/// A SPAWNED seat's abilities come from `AncillaryMovementBundle` — the basic
+/// run-and-jump floor. The ADOPTED primary player brought whatever the session
+/// granted it, which in the shipped host is the sandbox dev kit: blink, fly,
+/// shield. So player one could teleport and FLY in a versus match while the
+/// opponent could not, and the on-screen control legend advertised it.
+///
+/// Found by capturing the stage and looking at it. No test asserted anything
+/// about it because nothing had thought to ask, which is the argument for looking
+/// at the screen and not only at the suite.
+#[test]
+fn an_adopted_seat_fights_with_the_same_abilities_as_a_spawned_one() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+
+    let mut sandbox_kit = ambition_engine_core::AbilitySet::basic();
+    sandbox_kit.fly = true;
+    sandbox_kit.blink = true;
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::avatar::PlayerSimulationBundle::from_scratch(
+                crate::avatar::primary_player_scratch(Vec2::new(0.0, 0.0), sandbox_kit),
+                ambition_characters::actor::Health::new(10),
+            ),
+            ambition_characters::actor::WornCharacter::new("duelist"),
+        ))
+        .id();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
+        ],
+        fighter_abilities: Some(ambition_engine_core::AbilitySet::basic()),
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let abilities = app
+        .world()
+        .get::<ambition_engine_core::BodyAbilities>(player)
+        .expect("the adopted body keeps its ability component");
+    assert!(
+        !abilities.abilities.fly && !abilities.abilities.blink,
+        "the adopted fighter carried the session's sandbox kit into the match: it \
+         can fly and teleport and its opponent cannot"
+    );
+    assert!(
+        abilities.abilities.jump,
+        "and it must still be able to JUMP — equalising must not disarm the floor \
+         every fighter needs"
+    );
+    // The BASE too, not only the effective set: the dev-tools sync recomputes
+    // `effective = base ∩ editable_mask` every frame for the primary player, so a
+    // fix that wrote only the effective set would be undone by a system doing its
+    // job correctly.
+    let base = app
+        .world()
+        .get::<ambition_engine_core::AbilityBase>(player)
+        .expect("the adopted body keeps its ability base");
+    assert!(
+        !base.abilities.fly && !base.abilities.blink,
+        "the intrinsic set still authorises flight, so the next dev-sync tick puts \
+         it back and the match is unfair again one frame later"
+    );
+}
+
 /// **An authored EXPLICIT body box is the seated fighter's box.** (Y″5)
 ///
 /// `BodySource::Explicit` had no consumer anywhere: a provider could author

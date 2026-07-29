@@ -217,6 +217,15 @@ pub fn versus_roster_from(
         // insert lands (GPT 5.6, 2026-07-29). The `Starting` arm reaching zero is
         // what takes it off, which is already the one place a round goes live.
         opens_suspended: true,
+        // **A FAIR FIGHT.** Seat 0 is the ADOPTED primary player and arrives
+        // carrying whatever the session granted it — in the shipped host, the
+        // sandbox dev kit (blink, fly, shield). Every other seat is spawned with
+        // the basic run-and-jump floor. So player one could teleport and fly and
+        // the opponent could not, and the control legend on screen said so.
+        //
+        // Stated by the match rather than assumed by seating: a stage that wants
+        // asymmetric fighters says something else here.
+        fighter_abilities: Some(ae::AbilitySet::basic()),
         seat_topology,
     }
 }

@@ -261,14 +261,36 @@ impl SceneCaptureConfig {
         // would mean inventing values that are then ignored, which is how a
         // flag ends up documented as "pass anything here".
         if let Some(route) = route.clone() {
-            let output = positional
-                .first()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(format!("/tmp/route_{route}.png")));
-            let size = positional
-                .get(1)
-                .and_then(|text| parse_image_size(text))
-                .unwrap_or(UVec2::new(1280, 720));
+            // **A ROUTE'S POSITIONALS ARE CLASSIFIED, NOT COUNTED.**
+            //
+            // Route mode takes no room id and no focus point, so its first
+            // positional is the OUTPUT — and a caller who reasonably typed the
+            // room-mode form (`<ROOM> <FOCUS> <OUT.png> <WxH> --route ...`) had
+            // the room id silently adopted as the output path. The tool then
+            // rendered the whole scene and failed at the very end with "the image
+            // format could not be determined", naming nothing the caller had
+            // typed. Found by running it (2026-07-29).
+            //
+            // Classifying instead of counting means an unexpected argument is
+            // NAMED, and named before any work happens rather than after.
+            let mut output: Option<PathBuf> = None;
+            let mut size: Option<UVec2> = None;
+            for value in &positional {
+                if let Some(parsed) = parse_image_size(value) {
+                    size = Some(parsed);
+                } else if looks_like_image_path(value) {
+                    output = Some(PathBuf::from(value));
+                } else {
+                    return Err(format!(
+                        "--route takes no ROOM_ID or focus point: the shell composes its own \
+                         surface and its own cameras. `{value}` is neither an output path \
+                         (*.png / *.jpg) nor a size (WIDTHxHEIGHT).\n  \
+                         usage: capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT]"
+                    ));
+                }
+            }
+            let output = output.unwrap_or_else(|| PathBuf::from(format!("/tmp/route_{route}.png")));
+            let size = size.unwrap_or(UVec2::new(1280, 720));
             return Ok(Self {
                 room_id: String::new(),
                 focus: ae::Vec2::ZERO,
@@ -737,6 +759,24 @@ fn parse_vec2(text: &str) -> Option<ae::Vec2> {
         x.trim().parse().ok()?,
         y.trim().parse().ok()?,
     ))
+}
+
+/// Does this argument name an image file the encoder can actually write?
+///
+/// Checked at PARSE time. The encoder infers its format from the extension, so a
+/// path without one fails only after the scene has rendered and the readback has
+/// come back — the most expensive possible moment to learn that an argument was
+/// wrong, and the error names the extension rather than the argument.
+fn looks_like_image_path(value: &str) -> bool {
+    std::path::Path::new(value)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "bmp" | "tga" | "webp"
+            )
+        })
 }
 
 fn parse_image_size(text: &str) -> Option<UVec2> {

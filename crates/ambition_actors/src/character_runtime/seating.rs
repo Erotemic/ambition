@@ -529,6 +529,32 @@ pub fn seat_match_participants(
     // Not narrowed — closed. These inserts flush with the spawns above, so no
     // schedule ordering, no first-tick exemption, and nothing for a future system
     // to run in between.
+    // **EVERY FIGHTER IN A MATCH HAS THE SAME MOVEMENT CAPABILITIES.**
+    //
+    // A SPAWNED seat's abilities come from `AncillaryMovementBundle` — the basic
+    // run-and-jump floor. The ADOPTED primary player brought whatever the session
+    // granted it, which in the shipped host is the sandbox dev kit: blink, fly,
+    // shield. So player one could teleport and FLY in a versus match while the
+    // opponent could not, and the on-screen control legend advertised it. Found
+    // by capturing the stage and looking at it (2026-07-29); no test had thought
+    // to ask.
+    //
+    // ⚠ **`AbilityBase` too, not only the effective set.** The effective set is
+    // `base ∩ editable_mask`, recomputed every frame for the primary player by the
+    // dev-tools sync — so writing only `BodyAbilities` would be undone on the next
+    // tick by a system that is behaving correctly. Read before it was tested.
+    //
+    // Declared by the ROSTER, like `opens_suspended`: what a fighter may do is a
+    // rule of the match, not something seating decides on its own. A match that
+    // says nothing leaves every body exactly as it found it.
+    if let Some(abilities) = roster.fighter_abilities {
+        for body in &seated_bodies {
+            commands.entity(*body).try_insert((
+                ambition_engine_core::BodyAbilities::new(abilities),
+                ambition_engine_core::AbilityBase::new(abilities),
+            ));
+        }
+    }
     if roster.opens_suspended {
         for body in seated_bodies {
             commands

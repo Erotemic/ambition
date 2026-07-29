@@ -209,6 +209,21 @@ pub struct MatchParticipantRoster {
     /// built first, so the stamp is what turns "they should match" into a
     /// question the code can ask (GPT 5.6, 2026-07-29).
     pub seat_topology: Option<u64>,
+    /// **What every fighter in this match may do, physically.**
+    ///
+    /// `None` leaves each body with whatever it already had — the right answer
+    /// for a roster that is not a fair fight (a scripted encounter, a boss).
+    ///
+    /// A versus match sets it, because the two seats arrive by different routes:
+    /// a SPAWNED seat gets the basic run-and-jump floor from its bundle, while the
+    /// ADOPTED primary player brings whatever the session granted it. In the
+    /// shipped host that is the sandbox dev kit, so player one could fly and
+    /// teleport and the opponent could not.
+    ///
+    /// It is a rule of the MATCH rather than something seating decides, for the
+    /// same reason `opens_suspended` is: the engine does not get an opinion about
+    /// what a fighter may do.
+    pub fighter_abilities: Option<ambition_engine_core::AbilitySet>,
 }
 
 impl MatchParticipantRoster {

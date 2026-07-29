@@ -243,6 +243,17 @@ pub fn seat_character(
                     ambition_characters::actor::attack_gesture::AttackGestureState::default(),
                     ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
                     ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
+                    // **THE AUTHORED MASS**, which reached nothing until now.
+                    //
+                    // `Mass` is real and has one consumer: the mount pair's
+                    // mass-weighted centre of gravity (ADR 0020) — a heavy mount
+                    // keeps the COG near itself so the lighter rider orbits it on
+                    // a gravity flip. It was populated from the ROSTER archetype
+                    // and never from the character definition, so
+                    // `Vitals.mass` was a second declaration of a fact only the
+                    // roster could state (GPT 5.6 flagged it as dead; it was not
+                    // dead, it was disconnected — 2026-07-29).
+                    crate::features::Mass(prepared.vitals.mass),
                 ),
             )
             .id(),

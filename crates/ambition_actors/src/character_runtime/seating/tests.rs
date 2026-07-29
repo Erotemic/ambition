@@ -1162,3 +1162,48 @@ fn activation_publishes_every_seated_body_in_seat_order() {
          `participants[i]` mean nothing"
     );
 }
+
+/// **A seated fighter carries the mass its character authored.** (Y″4)
+///
+/// `Vitals.mass` was reported as authored-and-unconsumed, and the field had no
+/// readers — but the CONCEPT did. `features::Mass` is rollback-registered and
+/// drives the mount pair's mass-weighted centre of gravity (ADR 0020): a heavy
+/// mount keeps the COG near itself, so the lighter rider orbits it on a gravity
+/// flip. It was fed from the ROSTER archetype and never from the character
+/// definition, which made `Vitals.mass` a second declaration of a fact only the
+/// roster could state.
+///
+/// So this is not "a dead field given a purpose"; it is a disconnected authority
+/// connected to the one it was always describing.
+#[test]
+fn a_seated_fighter_carries_its_authored_mass() {
+    let mut app = seating_app();
+    let mut heavy = CharacterDefinition::new("anvil", "Anvil", "demo");
+    heavy.vitals = crate::character_runtime::Vitals {
+        max_health: 40,
+        mass: 6.5,
+    };
+    app.register_character(heavy);
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("anvil")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        &crate::features::Mass,
+    )>();
+    let (_, mass) = bodies
+        .iter(world)
+        .next()
+        .expect("the fighter must be seated at all");
+    assert_eq!(
+        mass.0, 6.5,
+        "the seated fighter got the default mass instead of the one its \
+         definition authored, so a mounted pair computes its centre of gravity \
+         from a number nobody wrote"
+    );
+}

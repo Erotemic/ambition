@@ -153,16 +153,17 @@ pub struct Lineage {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Vitals {
     pub max_health: i32,
-    /// ⛔ **AUTHORED AND UNCONSUMED.** No production code reads this — verified by
-    /// grep on 2026-07-29, zero runtime reads. A provider can author a mass,
-    /// preparation carries it faithfully onto the published definition, and no
-    /// constructed body differs as a result.
+    /// Reaches a seated body as [`Mass`](crate::features::Mass), which drives the
+    /// mount pair's mass-weighted centre of gravity (ADR 0020): a heavy mount
+    /// keeps the COG near itself, so the lighter rider orbits it on a gravity
+    /// flip.
     ///
-    /// It is left in place rather than deleted because whether mass SHOULD drive
-    /// knockback, mounting, momentum or collision response is a product decision,
-    /// not a cleanup. What is not acceptable is a field in a "complete prepared
-    /// authority" that reads as authoritative and does nothing, so it says so
-    /// here. Tracked in the 24h queue (GPT 5.6, 2026-07-29).
+    /// ⚠ this said "AUTHORED AND UNCONSUMED — no production code reads this,
+    /// verified by grep". The grep was right about the FIELD and wrong about the
+    /// concept: `Mass` already existed, already rewound, and was populated from
+    /// the ROSTER archetype and never from here. So this was not a dead field, it
+    /// was a second declaration of a fact only the roster could state — and
+    /// "delete it" was very nearly the recommendation (2026-07-29).
     pub mass: f32,
 }
 

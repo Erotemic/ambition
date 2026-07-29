@@ -386,7 +386,6 @@ mod tests {
     }
 }
 
-
 /// A resolver closure that carries a snapshot of the authored sheets.
 ///
 /// Cloned rather than borrowed because the resolver outlives any system that

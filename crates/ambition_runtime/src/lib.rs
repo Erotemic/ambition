@@ -48,6 +48,7 @@ use bevy::time::{Fixed, Time};
 
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
+pub mod app_finalization;
 mod combat_schedule;
 pub mod content_identity;
 /// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
@@ -71,6 +72,7 @@ pub mod sandbox_reset;
 pub mod session_world;
 mod sim_core_resources;
 
+pub use app_finalization::{finalize, finalize_and_update};
 pub use combat_schedule::CombatSchedulePlugin;
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,

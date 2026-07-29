@@ -1062,7 +1062,9 @@ mod tests {
         let correct = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
         let correct_as_set =
             census_entity_set::<Rig>(&mut world, |rig| rig.0.iter().map(|(_, e)| *e).collect());
-        world.entity_mut(host).insert(Rig(vec![(0, right), (1, left)]));
+        world
+            .entity_mut(host)
+            .insert(Rig(vec![(0, right), (1, left)]));
         let swapped = census_entity_map::<Rig>(&mut world, |rig| rig.0.clone());
         let swapped_as_set =
             census_entity_set::<Rig>(&mut world, |rig| rig.0.iter().map(|(_, e)| *e).collect());

@@ -2585,9 +2585,7 @@ impl SnapshotState for ambition_characters::actor::attack_gesture::AttackGesture
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use ambition_characters::actor::attack_gesture::{
-            AttackGestureState, RecentAttackFlick,
-        };
+        use ambition_characters::actor::attack_gesture::{AttackGestureState, RecentAttackFlick};
         let flick_armed = r.bool()?;
         let recent_flick = if r.bool()? {
             Some(RecentAttackFlick {

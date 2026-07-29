@@ -110,12 +110,32 @@ defined as a `build`-phase operation. If contributions during `finish` ever
 become necessary, the barrier moves to `cleanup`, which runs after all `finish`
 calls.
 
-⚠ **Manually driven apps must be audited.** Bevy's runner finalizes, but code
-that drives `App::update` directly may need explicit `app.finish()` and
-`app.cleanup()`. Audit: headless test app builders, the external-consumer
-fixture, custom runners, tools calling `App::update`. Otherwise production gets
-a sealed registry while a test or tool silently retains only fragments. **Prefer
-one shared app-finalization helper over scattered manual calls.**
+⚠ **Manually driven apps must be audited — VERIFIED, not assumed** (read in
+`bevy_app` 0.18.1 on 2026-07-29):
+
+* `run_once`, the default runner, does `app.finish(); app.cleanup();
+  app.update();`
+* `ScheduleRunnerPlugin` calls `app.finish()` before its loop
+* **`App::update()` does NEITHER** — it checks no plugin is mid-build and runs
+  the sub-apps
+
+This repository drives `App::update` by hand almost everywhere: every rendered
+test, the external-consumer fixture, the rollback harnesses, the headless
+acceptance runners. `capture_scene` and the new `OffscreenGpu` mode are fine,
+because both go through `ScheduleRunnerPlugin` + `run()`.
+
+Today that costs nothing — nothing in the workspace implements `finish` (zero
+occurrences). It stops costing nothing the moment preparation seals its registry
+there: production would get a sealed complete registry while every test and tool
+kept only preparation fragments. Green tests, wrong game — and it would read as
+a preparation bug rather than a lifecycle one.
+
+✔ **LANDED AHEAD OF THE WORK THAT NEEDS IT:**
+`ambition_runtime::{finalize, finalize_and_update}`, with a test pinning that a
+hand-driven `update` leaves plugins unfinished. The audit now has one place to
+point at instead of scattered hand-written `finish()` calls, and if Bevy ever
+changes this the test says so rather than the helper silently becoming dead
+weight.
 
 ⚠ **`finish` solves INITIAL composition only, not hot reload.** A later catalog
 or provider change is a separate explicit transaction: new authoring generation

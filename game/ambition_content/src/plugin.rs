@@ -49,6 +49,13 @@ impl Plugin for AmbitionContentPlugin {
         // attack geometry all read the assembled resource explicitly.
         super::character_catalog::register(app);
 
+        // The protagonist's own lineage, registered as three characters rather
+        // than one with a version knob. `player_robot_lineage` is the generator;
+        // what it emits is three complete definitions that share nothing at
+        // runtime. See that module for why `Lineage::derived_from` is provenance
+        // and not an inheritance edge.
+        super::player_robot_lineage::register(app);
+
         // Publish this provider's world manifest (which .ldtk files exist +
         // the entry room) as an App-local resource, so in-schedule readers —
         // the tile-render spine's handle load, the hot-reload transaction,

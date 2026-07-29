@@ -1200,20 +1200,36 @@ impl PreparedCharacterRegistry {
     /// hatch a focused test uses when it wants a registry without an `App`.
     #[cfg(test)]
     pub(crate) fn insert_prepared(&mut self, prepared: PreparedCharacterDefinition) {
+        let generation = self.generation;
         self.insert(prepared);
+        // Each hatched insert is its own publication: a test using the hatch has
+        // no barrier to publish for it.
+        self.stamp_after(generation);
     }
 
     fn insert(&mut self, prepared: PreparedCharacterDefinition) -> Option<String> {
         let id = prepared.id.clone();
-        // The generation advances on every PUBLISHED change, including the
-        // replacement branch below — a cast whose contents were swapped is a
-        // different cast even though the count did not move, and a counter that
-        // only tracked insertions would report the two as identical.
-        self.generation = CharacterCatalogGeneration(self.generation.0 + 1);
         match self.by_id.insert(id.clone(), prepared) {
             Some(previous) => Some(previous.provider),
             None => None,
         }
+    }
+
+    /// **Stamp this registry as the publication that follows `previous`.**
+    ///
+    /// One generation per PUBLICATION, not one per character — the barrier
+    /// assembles the whole cast and publishes it once, so "how many characters
+    /// were inserted" stopped being a meaningful clock the day the fold moved
+    /// (2026-07-29).
+    ///
+    /// It takes the previous generation rather than starting from its own zero,
+    /// and that is the load-bearing part: a rebuilt registry is a fresh
+    /// `Default`, so without this a hot reload would republish generation 1 over
+    /// a body stamped with generation 1 from the PREVIOUS cast, and every
+    /// staleness check would read "still current". A monotonic counter that
+    /// restarts is worse than no counter, because it looks like one.
+    fn stamp_after(&mut self, previous: CharacterCatalogGeneration) {
+        self.generation = CharacterCatalogGeneration(previous.0 + 1);
     }
 }
 
@@ -1499,10 +1515,15 @@ fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
         .cloned();
     // TRANSACTIONAL: the whole cast is folded and only then published, so a
     // reader can never observe a registry that holds half of one generation.
+    let previous = world
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(PreparedCharacterRegistry::generation)
+        .unwrap_or_default();
     let mut registry = PreparedCharacterRegistry::default();
     for (_, overrides) in staged {
         registry.insert(finalize_character(overrides, catalog.as_ref()));
     }
+    registry.stamp_after(previous);
     world.insert_resource(registry);
 }
 

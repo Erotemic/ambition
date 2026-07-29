@@ -256,8 +256,25 @@ pub fn inherit_projectile_presentation_sources(
 /// one that authors none, ends with no moveset rather than its archetype's. Fixing
 /// that means storing the displaced value here — `IdentityKit`'s exact pattern —
 /// and no character needs it yet. Named rather than discovered.
+///
+/// # Why the generation is here (H6, 2026-07-29)
+///
+/// `CharacterCatalogGeneration` existed for a day with no production reader: X4
+/// was marked done on the strength of a counter nothing compared against. This
+/// component recorded only the id, and the projection early-exits when the id is
+/// unchanged — so replacing the CAST underneath a body left it wearing the
+/// previous cast's kit, with every check green, because the id it wore was still
+/// the id it wore. The most expensive kind of stale: correct-looking.
+///
+/// Stamping the generation makes "this body was built from a cast that no longer
+/// exists" a question the code can ASK, rather than one it answers by comparing
+/// values and guessing.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub struct ProjectedCharacterKit(pub String);
+pub struct ProjectedCharacterKit {
+    pub id: String,
+    /// The cast this body's projected kit was derived from.
+    pub generation: super::definition::CharacterCatalogGeneration,
+}
 
 /// **C3: a registered character's authored fight reaches a spawned BODY.**
 ///
@@ -295,7 +312,7 @@ pub struct ProjectedCharacterKit(pub String);
 pub fn project_prepared_character_definitions(
     mut commands: Commands,
     registry: Option<Res<PreparedCharacterRegistry>>,
-    bodies: Query<
+    changed_bodies: Query<
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
@@ -307,16 +324,39 @@ pub fn project_prepared_character_definitions(
             Added<crate::combat::CombatTuning>,
         )>,
     >,
+    // **The bodies a CAST REPLACEMENT invalidates.** (H6)
+    //
+    // A new cast changes nothing on a body, so the change-detection query above
+    // cannot see one — the worn id is still the worn id. That is exactly how a
+    // body kept a retired cast's moves with every check green. This query is
+    // walked ONLY on the tick the registry changes, which is startup and hot
+    // reload; the ordinary tick still pays only for identities that moved.
+    all_bodies: Query<(
+        Entity,
+        Option<&ambition_characters::actor::WornCharacter>,
+        Option<&crate::combat::CombatTuning>,
+        Option<&ProjectedCharacterKit>,
+    )>,
 ) {
     let Some(registry) = registry else {
         return;
     };
-    for (entity, worn, tuning, projected) in &bodies {
+    let candidates: Vec<_> = if registry.is_changed() {
+        all_bodies.iter().collect()
+    } else {
+        changed_bodies.iter().collect()
+    };
+    for (entity, worn, tuning, projected) in candidates {
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
             .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
         let resolved = character_id.filter(|id| registry.get(id).is_some());
-        if projected.map(|p| p.0.as_str()) == resolved {
+        // A mismatch in EITHER field re-projects. Same id, newer cast, is the
+        // case that used to slip through — see the component's docs.
+        let unchanged = projected.is_some_and(|projected| {
+            Some(projected.id.as_str()) == resolved && projected.generation == registry.generation()
+        });
+        if unchanged || (projected.is_none() && resolved.is_none()) {
             continue;
         }
         // RETRACT what the previous definition put here, before projecting the new
@@ -334,7 +374,7 @@ pub fn project_prepared_character_definitions(
         // same tick this runs. The routing markers that used to be removed here
         // are derived from the live moveset by
         // `reconcile_moveset_routing_markers`, so they follow whichever writer won.
-        if let Some(previous) = projected.and_then(|p| registry.get(&p.0)) {
+        if let Some(previous) = projected.and_then(|projected| registry.get(&projected.id)) {
             if previous.hurtboxes.is_some() {
                 commands.entity(entity).remove::<super::AuthoredHurtboxes>();
             }
@@ -355,9 +395,10 @@ pub fn project_prepared_character_definitions(
             }
             continue;
         };
-        commands
-            .entity(entity)
-            .insert(ProjectedCharacterKit(prepared.id.clone()));
+        commands.entity(entity).insert(ProjectedCharacterKit {
+            id: prepared.id.clone(),
+            generation: registry.generation(),
+        });
         if let Some(moveset) = prepared.kit.projectable_moveset().cloned() {
             // The routing markers are NOT set here. They are derived from the live
             // `ActorMoveset` by `reconcile_moveset_routing_markers` — deriving them

@@ -573,7 +573,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     assert_eq!(
         app.world()
             .get::<super::ProjectedCharacterKit>(body)
-            .map(|kit| kit.0.as_str()),
+            .map(|kit| kit.id.as_str()),
         Some("unarmed"),
         "the projection must record the CURRENT identity, or the next swap \
          retracts against the wrong definition"
@@ -653,5 +653,89 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
             .is_some(),
         "a moveset authoring `ranged` was not routed through the move timeline, so \
          the shot falls back to the flat emitter and never samples live aim"
+    );
+}
+
+/// **A body wearing the same character through a CAST REPLACEMENT rebuilds.**
+/// (H6, closed 2026-07-29)
+///
+/// `CharacterCatalogGeneration` existed for a day with no production reader — X4
+/// was marked done on the strength of a counter nothing compared against. The
+/// projection early-exits when the worn id is unchanged, so replacing the cast
+/// underneath a body left it wearing the PREVIOUS cast's moves while every check
+/// stayed green, because the id it wore was still the id it wore.
+///
+/// Same id, new cast, different moves: the exact case the id-only comparison
+/// could not see. This test fails on the version of `project_prepared_character_definitions`
+/// that compared ids alone — verified by reverting the comparison before trusting
+/// the green.
+#[test]
+fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
+    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
+
+    fn one_move(id: &str) -> MovesetContract {
+        MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                crate::combat::moveset::ATTACK_VERB.to_string(),
+                id.to_string(),
+            )]),
+            moves: vec![MoveSpec {
+                id: id.to_string(),
+                clip: ClipBinding {
+                    clip: id.to_string(),
+                    fallbacks: vec![],
+                },
+                duration_s: 0.2,
+                events: vec![],
+                windows: vec![],
+                gates: MoveGates { grounded: None },
+                start_impulse: None,
+                smash_charge_mult: 1.0,
+            }],
+        }
+    }
+
+    fn projected_move(app: &App, body: Entity) -> Option<String> {
+        app.world()
+            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .and_then(|moveset| moveset.0.moves.first())
+            .map(|spec| spec.id.clone())
+    }
+
+    let mut app = session_app();
+    app.register_character(
+        CharacterDefinition::new("hero", "Hero", "demo").with_moveset(one_move("old_swing")),
+    );
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("hero"))
+        .id();
+    settle(&mut app);
+    assert_eq!(
+        projected_move(&app, body).as_deref(),
+        Some("old_swing"),
+        "the first cast must reach the body at all, or the replacement below \
+         would pass vacuously"
+    );
+
+    // THE CAST IS REPLACED. Same id, same display name, different moves — a hot
+    // reload, or a second composition's registry landing on a running session.
+    let replacement = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("hero", "Hero", "demo").with_moveset(one_move("new_swing")),
+        &crate::character_runtime::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(replacement);
+    settle(&mut app);
+
+    assert_eq!(
+        projected_move(&app, body).as_deref(),
+        Some("new_swing"),
+        "the body kept the retired cast's moves. Its worn id never changed, so an \
+         id-only comparison reports 'already projected' — which is why the cast \
+         generation has to be part of what the body remembers, not merely a \
+         counter something could compare if it thought to"
     );
 }

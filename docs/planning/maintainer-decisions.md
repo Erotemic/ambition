@@ -31,3 +31,8 @@ when Jon states a decision or changes his confidence.
 The fuller multi-agent recon consensus, including accepted campaigns and explicit
 non-goals, is in
 [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md).
+
+Questions that are WAITING for a decision — scoped far enough that the choice is
+real and the work after it is small — are collected in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Nothing
+there is a decision; a row moves into the table above when one is made.

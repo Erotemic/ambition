@@ -663,17 +663,22 @@ fn apply_capture_snapshot(
     user_settings: Res<ambition::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition::platformer::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
+    // **THE SIM BODY, not the render visual.**
+    //
+    // This queried `BodyKinematics` `With<PlayerVisual>`, and `PlayerVisual` is a
+    // RENDER-side marker on a by-id render entity that carries no kinematics. So
+    // the query never matched, `player` focus fell back to `config.focus` — which
+    // is `Vec2::ZERO` in that mode — and every room capture photographed the origin
+    // while the player stood elsewhere.
+    //
+    // That is the whole of the "room mode renders an empty image" defect: the
+    // room stages fine (138 room visuals, a player body at (950, 904)) and the
+    // camera sat at (0, 120). Measured, after three wrong guesses (2026-07-29).
     player_q: Query<
         &ambition::platformer::body::BodyKinematics,
-        With<ambition::render::rendering::PlayerVisual>,
+        ambition::actors::actor::PrimaryPlayerOnly,
     >,
-    mut cameras: Query<
-        (&mut Transform, &mut Projection),
-        (
-            With<MainCamera>,
-            Without<ambition::render::rendering::PlayerVisual>,
-        ),
-    >,
+    mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
 ) {
     let active_spec = room_set.active_spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();

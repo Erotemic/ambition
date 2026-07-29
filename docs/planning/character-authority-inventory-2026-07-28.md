@@ -250,3 +250,55 @@ the ordering, not a rename.
 * **`ambition_characters/src/actor/character_catalog/` itself** (6 files). That
   is the catalog's own implementation. It stays; the question is who reads it.
 * **Diagnostics and audit paths.** They are supposed to see both sides.
+
+---
+
+## Fourth measurement — after the finalization barrier (2026-07-29)
+
+Same pipeline, verbatim, from the top of this file.
+
+| authority | baseline | after X8–X11 | before the barrier | **after the barrier** |
+|---|---:|---:|---:|---:|
+| `CharacterCatalog` | 349 | 355 | 357 | **365** |
+| `ActionSet` | 276 | 286 | 287 | **293** |
+| `ActorMoveset` | 57 | 57 | 57 | **57** |
+| `BodyPresentationSource` | 33 | 33 | 33 | **33** |
+| `PreparedCharacterRegistry` | 32 | — | 35 | **38** |
+| `PreparedCharacterDefinition` | 13 | — | 13 | **14** |
+| `PreparedCharacterOverrides` | — | — | — | **11 (1 file)** |
+
+**The raw counts went up again, and this time that is the WRONG number to look
+at** — which is the honest version of the excuse this document has offered three
+times running. Reference counts measure how much code mentions a type. The
+campaign is about how many places DECIDE, and mentions were never that.
+
+The number that moved is the last row. `PreparedCharacterOverrides` — the partial
+value, the one carrying `None`-means-ask-the-catalog — appears **11 times in
+exactly one file**, and cannot appear anywhere else: it is declared with no
+visibility modifier inside `character_runtime::definition`, so the compiler
+refuses. That is the first authority in this campaign whose confinement is not a
+convention, a contract, or a count, but a compile error.
+
+### The resolver table, fourth pass
+
+| site | resolves | status |
+|---|---|---|
+| `finalize_character` | prepared vs catalog, for the WHOLE cast, once | **the fold — this is where it lives now** |
+| `apply_worn_character_kit` | catalog only, for ids nothing registered | **residue** — the migration tail; no prepared value exists to disagree with |
+| `motion_model_spec_for_character` / `movement_tuning_for_character` | prepared (complete) first, catalog for unregistered ids | ✔ reads a resolved value |
+| `project_prepared_character_definitions` | reads `PreparedKit`, decides nothing | ✔ consumption |
+| `provider_of_character` | prepared vs catalog owners | open, confined, guarded (X12 reframed) |
+
+**4 of 7 → 1 fold plus 1 residue.** The exit criterion this document revised on
+2026-07-28 — *every remaining resolver is NAMED, has a documented precedence
+rule, is reachable from one file, and is pinned by an absence contract* — is met
+for the kit. What is NOT met is a stronger thing nobody claimed: the residue
+resolver still exists, and it exists because most of the legacy cast has never
+been registered. It shrinks as characters migrate onto the registration seam, and
+it disappears when the last one does. That is a content migration, not an
+architecture one, and it should not be counted as either finished or blocked.
+
+⚠ **`PreparedKit::HostCode` is a resolver that will never leave**, and pretending
+otherwise would be the "7 of 7" mistake again. The host's code kit is built from
+each BODY's own `AbilitySet`; no per-character value can hold it. It is named
+rather than hidden, which is the most this campaign can honestly buy.

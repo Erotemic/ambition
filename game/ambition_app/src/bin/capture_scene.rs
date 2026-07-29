@@ -161,13 +161,48 @@ fn main() {
             ambition::actors::avatar::StartingCharacter::new(character_id),
         ));
     }
+    // **THE SURFACE THIS RUN DRAWS TO.**
+    //
+    // There is no `Window` here, so the host's layout resolver found none and
+    // returned — leaving `ResolvedGameplayPresentation` at its DEFAULT, whose
+    // display rect is 1600x900. Every HUD position was therefore laid out for a
+    // 1600x900 screen and then rendered into whatever the capture size is: a card
+    // centred at x=800 lands right of centre in a 960-wide image, on top of a
+    // fighter (queue Z′8, measured 2026-07-29).
+    //
+    // A capture that cannot show a layout is worse than no capture, because it
+    // shows a DIFFERENT layout convincingly.
+    app.insert_resource(
+        ambition::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+        ),
+    );
     app.insert_resource(config);
     app.insert_resource(SceneCaptureRuntime::default());
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,
         SandboxPresentationPlugin,
+        // **THE LAYOUT RESOLVER**, which the sandbox plugins do not install.
+        //
+        // Without it `ResolvedGameplayPresentation` stays at its DEFAULT, whose
+        // display rect is `WINDOW_W x WINDOW_H` (1600x900) — so every HUD slot
+        // laid out for a 1600x900 screen and was then rendered into whatever the
+        // capture size is. A card centred at x=800 lands right of centre in a
+        // 960-wide image, on top of a fighter, and reads as a game bug that a
+        // window would not have (measured 2026-07-29).
+        //
+        // A capture that cannot show a layout is worse than no capture, because
+        // it shows a DIFFERENT layout convincingly.
     ));
+    // The layout resolver, if this composition does not already have it. Guarded
+    // because the two capture modes build their apps differently and only one of
+    // them goes through `build_visible_app`.
+    if !app
+        .is_plugin_added::<ambition::host::gameplay_presentation::HostGameplayPresentationPlugin>()
+    {
+        app.add_plugins(ambition::host::gameplay_presentation::HostGameplayPresentationPlugin);
+    }
     app.add_plugins(
         ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
@@ -356,6 +391,23 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     let mut app = ambition_app::app::build_visible_app(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
         true,
+    );
+    // **THE SURFACE THIS RUN DRAWS TO.** (queue Z′8)
+    //
+    // `OffscreenGpu` sets `primary_window: None`, so the host's layout resolver
+    // finds no window and `ResolvedGameplayPresentation` keeps its DEFAULT —
+    // whose display rect is `WINDOW_W x WINDOW_H`, 1600x900. Every HUD slot then
+    // lays out for a 1600x900 screen and is rendered into whatever the capture
+    // size is: a card declared `.centered()` centres at x=800 and lands right of
+    // centre in a 960-wide image, on top of a fighter. It reads as a game bug
+    // that a real window does not have (measured 2026-07-29).
+    //
+    // ⚠ the ROOM-mode builder below needs the same insert, and each mode builds
+    // its own app — which is exactly how the first attempt at this missed.
+    app.insert_resource(
+        ambition::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+        ),
     );
 
     let known: Vec<String> = {

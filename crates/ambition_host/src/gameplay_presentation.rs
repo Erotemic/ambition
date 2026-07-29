@@ -255,10 +255,29 @@ pub fn collect_screen_occupancy(
     }
 }
 
-/// Resolve this frame's layout from the window, the safe area, the active
-/// profile, and the collected occupancy.
+/// **The surface a windowless composition draws to.**
+///
+/// A capture tool, an offscreen render, a headless acceptance run: each has a
+/// real pixel rectangle and no `Window`. Without this the layout resolver below
+/// found no primary window and returned, leaving `ResolvedGameplayPresentation`
+/// at its default — so the viewport policy, the reserved surround, the HUD
+/// regions and the on-screen control placement were ALL silently inert.
+///
+/// The symptom was a screenshot with the touch stick in the top-left corner,
+/// which reads as a render bug and is not one: in a window the same code places
+/// it bottom-left correctly. The capture had simply never told anything how big
+/// it was (2026-07-29).
+///
+/// ⚠ a window, when there is one, still wins. This is the fallback for
+/// compositions that have no window at all, not an override.
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct HeadlessDisplaySurface(pub ae::Vec2);
+
+/// Resolve this frame's layout from the window (or the declared headless
+/// surface), the safe area, the active profile, and the collected occupancy.
 pub fn resolve_host_gameplay_presentation(
     windows: Query<&Window, With<PrimaryWindow>>,
+    headless: Option<Res<HeadlessDisplaySurface>>,
     profiles: Res<ActiveGameplayPresentationProfiles>,
     environment: Res<PresentationEnvironment>,
     insets: Res<DisplaySafeAreaInsets>,
@@ -266,11 +285,18 @@ pub fn resolve_host_gameplay_presentation(
     footprints: Res<ControlFootprints>,
     mut resolved: ResMut<ResolvedGameplayPresentation>,
 ) {
-    let Ok(window) = windows.single() else {
-        return;
+    // A window if there is one; otherwise the surface this composition declared.
+    // Neither means nothing is being drawn to, and resolving a layout for a
+    // surface that does not exist would be inventing one.
+    let display_px = match windows.single() {
+        Ok(window) => ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
+        Err(_) => match headless {
+            Some(surface) => ae::Vec2::new(surface.0.x.max(1.0), surface.0.y.max(1.0)),
+            None => return,
+        },
     };
     let next = resolve_gameplay_presentation(GameplayPresentationInput {
-        display_px: ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
+        display_px,
         safe_area_insets: insets.0,
         profile: profiles.0.for_environment(*environment),
         occlusions: &occupancy.0,

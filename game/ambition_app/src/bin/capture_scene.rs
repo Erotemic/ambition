@@ -16,6 +16,7 @@
 
 use std::path::PathBuf;
 
+use ambition::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStates};
 use ambition::engine_core as ae;
 use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition::platformer::schedule::GameMode;
@@ -93,6 +94,20 @@ struct SceneCaptureRuntime {
     /// How many cameras the route capture has adopted, so the count is
     /// announced when it CHANGES rather than once per frame.
     cameras_adopted: usize,
+    /// **Has the world this capture photographs finished being BUILT?**
+    ///
+    /// Warmup used to count from frame zero, and the world is constructed
+    /// asynchronously — assets stream, the room stages, the player spawns. So
+    /// `--warmup 60` meant "sixty frames after BOOT", of which an unpredictable
+    /// number happened before there was anything to simulate. The body ended up
+    /// on a slightly different tick of its own idle each run, and because
+    /// nameplate opacity is ranked by DISTANCE from the focus, a few pixels of
+    /// player drift re-ordered the labels and rewrote their text.
+    ///
+    /// That is the whole of the ~130px noise floor two identical runs used to
+    /// show (AC6). Counting from readiness makes N frames mean N ticks of a
+    /// world that exists.
+    world_ready: bool,
 }
 
 fn main() {
@@ -782,11 +797,52 @@ fn apply_capture_snapshot(
 /// and a false failure in a verification tool is as bad as a false success.
 const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 
+/// Whether there is a constructed world to start counting warmup against.
+///
+/// Two conditions, and the second one is the interesting half.
+///
+/// **The body exists.** A player-focused capture waits for the body it is going
+/// to centre on; a coordinate-focused one has nothing specific to wait for.
+///
+/// **Its ART has a terminal answer.** A decoded sheet RESIZES the body it
+/// belongs to — `SpritePosedBody` derives the collision box from the art — so a
+/// sheet that lands on frame 7 in one run and frame 11 in another gives the body
+/// a different shape for a different number of ticks while it is still falling
+/// toward the floor, and it settles a pixel or two apart. `character_reveal_ready`
+/// is the existing answer to "has every staged character finished loading, one
+/// way or the other" (§4.9 forbids the silent third state), so waiting on it
+/// removes the asynchrony rather than hoping it has passed.
+fn world_is_ready(
+    player_q: &Query<
+        &ambition::platformer::body::BodyKinematics,
+        ambition::actors::actor::PrimaryPlayerOnly,
+    >,
+    follow_player: bool,
+    art: Option<(&CharacterLoadDemand, &CharacterLoadStates)>,
+) -> bool {
+    if follow_player && player_q.iter().next().is_none() {
+        return false;
+    }
+    match art {
+        Some((demand, states)) => {
+            ambition::actors::character_runtime::character_reveal_ready(demand, states)
+        }
+        // A composition with no character-load seam has no art to wait for.
+        None => true,
+    }
+}
+
 fn request_capture(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
     target: Option<Res<SceneCaptureTarget>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
+    player_q: Query<
+        &ambition::platformer::body::BodyKinematics,
+        ambition::actors::actor::PrimaryPlayerOnly,
+    >,
+    art_demand: Option<Res<CharacterLoadDemand>>,
+    art_states: Option<Res<CharacterLoadStates>>,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -794,9 +850,34 @@ fn request_capture(
         }
         return;
     }
+    // **WARMUP COUNTS FROM A READY WORLD, not from boot.**
+    //
+    // Same distinction the route-camera check below draws — warmup is a
+    // duration, readiness is a fact — applied to the other end of the capture.
+    // Until the body being photographed exists there is nothing for a tick to
+    // advance, so frames spent waiting for it are not warmup, they are latency.
+    if !runtime.world_ready {
+        let art = art_demand.as_deref().zip(art_states.as_deref());
+        if !world_is_ready(&player_q, config.follow_player, art) {
+            return;
+        }
+        runtime.world_ready = true;
+    }
     runtime.frames += 1;
     if runtime.frames < config.warmup_frames.max(1) {
         return;
+    }
+    // **WHERE THE SUBJECT ACTUALLY IS**, printed once, at the tick the image is
+    // taken. A capture tool that reports the room and not the pose can tell you
+    // an image was written and nothing about whether two images should match —
+    // and comparing two captures is what this tool is FOR. It is also the
+    // measurement that separates a simulation difference from a rendering one
+    // (AC6, 2026-07-29).
+    if let Some(kin) = player_q.iter().next() {
+        println!(
+            "capture_scene: subject at ({:.4}, {:.4}) after {} warmup tick(s)",
+            kin.pos.x, kin.pos.y, runtime.frames
+        );
     }
     // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.** (GPT 5.6, 2026-07-29)
     //

@@ -798,3 +798,58 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
          nothing, so it removed nothing"
     );
 }
+
+/// **An authored `BodySource` reaches the body.** (Y″5, 2026-07-29)
+///
+/// `CharacterDefinition.body` has existed since §4.11 with no consumer anywhere
+/// in the repository: a provider could author `SpriteAuthored { world_per_pixel }`
+/// and receive a body of some other size entirely. `SpritePosedBody` — which
+/// carries exactly that number and drives the collision box, sprite quad and
+/// offset off the art every tick — was inserted from ONE place: a bespoke
+/// app-side system in the Mary-O snake matching on a display name. Body geometry
+/// was still declared through a second seam, which is the problem
+/// `register_character` exists to delete.
+#[test]
+fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
+    let mut app = session_app();
+    let mut shaped = CharacterDefinition::new("serpent", "Serpent", "demo").with_sheet("robot");
+    shaped.body = Some(crate::character_runtime::BodySource::SpriteAuthored {
+        world_per_pixel: 2.5,
+    });
+    app.register_character(shaped);
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo").with_sheet("robot"));
+
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::actor::WornCharacter::new("serpent"))
+        .id();
+    settle(&mut app);
+
+    let posed = app
+        .world()
+        .get::<crate::character_sprites::SpritePosedBody>(body)
+        .expect("an authored sprite body must reach the body it describes");
+    assert_eq!(
+        posed.target, "robot",
+        "the posed body reads the AUTHORED sheet"
+    );
+    assert_eq!(
+        posed.world_per_pixel, 2.5,
+        "and the authored scale, which is the whole of what this field says"
+    );
+
+    // And it is RETRACTED on a change of identity, like every other grant this
+    // system makes — otherwise a body that becomes a plain character keeps
+    // resolving its box off the previous one's art.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("plain"));
+    settle(&mut app);
+    assert!(
+        app.world()
+            .get::<crate::character_sprites::SpritePosedBody>(body)
+            .is_none(),
+        "the previous character's posed body survived an identity change, so the \
+         body keeps deriving its collision box from art it no longer wears"
+    );
+}

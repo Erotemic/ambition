@@ -177,18 +177,23 @@ impl Default for Vitals {
 
 /// Where a body's collision geometry comes from (§4.11, §5).
 ///
-/// ⛔ **AUTHORED AND UNCONSUMED.** No production code reads `CharacterDefinition
-/// .body` or the prepared field — verified by grep on 2026-07-29. Neither variant
-/// has any effect: `Explicit` half-extents are ignored, `SpriteAuthored`'s
-/// `world_per_pixel` is ignored, and no construction path selects its geometry
-/// from here. Seated fighters get the fixed `SEAT_BODY_PX` placeholder and are
-/// later resized by the independent sprite-pose pipeline, which is a DIFFERENT
-/// authority that happens to produce a plausible result.
+/// Both variants are CONSUMED, and each by the authority that owns the fact
+/// (wired 2026-07-29 — until then this field had no reader anywhere, so a
+/// provider could author a body and receive some other size entirely):
 ///
-/// A provider can author an explicit body and receive a body of another size.
-/// That is a genuine hole in "one character definition", and it is either
-/// consumed during complete body construction or removed in favour of the sheet
-/// authority — a decision, not a cleanup (GPT 5.6, 2026-07-29).
+/// * `SpriteAuthored { world_per_pixel }` becomes a
+///   [`SpritePosedBody`](crate::character_sprites::SpritePosedBody), installed by
+///   `project_prepared_character_definitions` and retracted with the rest of that
+///   system's grants. From there the existing per-tick sync derives the collision
+///   box, the sprite quad and its offset off the art, so a body that changes
+///   SHAPE between poses needs no bespoke per-state boxes.
+/// * `Explicit { half_extents }` is a SPAWN-time size, consumed by seating in
+///   place of its `SEAT_BODY_PX` placeholder.
+///
+/// ⚠ the split is not arbitrary. A projection that resized a LIVE body would be
+/// a second geometry authority beside the transit seam (ADR 0024); a spawn-time
+/// constant cannot express a silhouette that changes with the pose. Each variant
+/// goes to the authority that can actually honour it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BodySource {
     /// The sheet authors it, per pose (`SpritePosedBody`).

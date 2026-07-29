@@ -290,6 +290,36 @@ pub struct ProjectedCharacterKit {
     /// written down at grant time.
     pub granted_hurtboxes: bool,
     pub granted_movement_tuning: bool,
+    /// Whether this system installed a [`SpritePosedBody`] from the definition's
+    /// authored `body`. Same reason as the two above: retraction must remove what
+    /// was granted, and the new registry cannot be asked what the old one gave.
+    pub granted_posed_body: bool,
+}
+
+/// The sprite-posed body a definition's authored `body` asks for, if any.
+///
+/// ⚠ only `BodySource::SpriteAuthored` resolves here. `Explicit { half_extents }`
+/// is a SPAWN-TIME size and belongs to whoever constructs the body — writing a
+/// live body's box from a per-tick projection would be a second geometry
+/// authority beside the transit seam (ADR 0024), which is the exact shape of bug
+/// this module keeps finding.
+///
+/// Returns `None` when the character authored no sheet: the posed body reads its
+/// rectangles off a sheet manifest, so one without a target has nothing to pose
+/// against. Preparation already RESOLVES that target, so a typo is named at load
+/// rather than producing a body that silently never poses.
+fn posed_body_for(
+    prepared: &super::PreparedCharacterDefinition,
+) -> Option<crate::character_sprites::SpritePosedBody> {
+    match prepared.body.as_ref()? {
+        super::BodySource::SpriteAuthored { world_per_pixel } => {
+            Some(crate::character_sprites::SpritePosedBody::new(
+                prepared.sheet.as_deref()?,
+                *world_per_pixel,
+            ))
+        }
+        super::BodySource::Explicit { .. } => None,
+    }
 }
 
 /// **C3: a registered character's authored fight reaches a spawned BODY.**
@@ -429,6 +459,11 @@ pub fn project_prepared_character_definitions(
                     .entity(entity)
                     .remove::<ambition_engine_core::AuthoredMovementTuning>();
             }
+            if previous.granted_posed_body {
+                commands
+                    .entity(entity)
+                    .remove::<crate::character_sprites::SpritePosedBody>();
+            }
         }
         let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
             if projected.is_some() {
@@ -453,6 +488,7 @@ pub fn project_prepared_character_definitions(
             generation: registry.generation(),
             granted_hurtboxes: prepared.hurtboxes.is_some(),
             granted_movement_tuning: prepared.movement_tuning.is_some(),
+            granted_posed_body: posed_body_for(prepared).is_some(),
         });
         // **THE KIT, for the bodies the persona derive cannot see.**
         // (Phase B, 2026-07-29)
@@ -518,6 +554,22 @@ pub fn project_prepared_character_definitions(
                 super::ResolvedHurtboxes::default(),
                 crate::combat::components::DamageableVolumes::default(),
             ));
+        }
+        // **THE AUTHORED BODY, which had no consumer at all.**
+        //
+        // `CharacterDefinition.body` has existed since §4.11 and nothing read it:
+        // a provider could author `SpriteAuthored { world_per_pixel }` and receive
+        // a body of some other size entirely (GPT 5.6, 2026-07-29).
+        //
+        // `SpritePosedBody` is the live authority for a sprite-shaped body — it
+        // carries exactly this number, and `sync_sprite_posed_bodies` derives the
+        // collision box, the sprite quad and its offset from the art every tick.
+        // Until now it was inserted from ONE place in the repository: a bespoke
+        // app-side system in the Mary-O snake matching on a display name. So body
+        // geometry was still declared through a second seam, which is the problem
+        // `register_character` exists to delete.
+        if let Some(posed) = posed_body_for(prepared) {
+            commands.entity(entity).insert(posed);
         }
         // **The MOTION MODEL, on the same path and for the X9 reason.**
         //

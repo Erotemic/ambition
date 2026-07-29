@@ -92,7 +92,23 @@ pub fn seat_character(
     brain: ambition_entity_catalog::placements::CharacterBrain,
 ) -> Option<Entity> {
     let prepared = registry.get(character_id)?;
-    let aabb = ambition_engine_core::Aabb::new(at, SEAT_BODY_PX / 2.0);
+    // **THE AUTHORED BODY BOX, when the character declared one.**
+    //
+    // `SEAT_BODY_PX` is a placeholder ON PURPOSE and stays the answer for a
+    // character that authored nothing. But `BodySource::Explicit` had no consumer
+    // anywhere in the repository, so a provider could author half-extents and
+    // receive this constant instead (GPT 5.6, 2026-07-29).
+    //
+    // Spawn time is the right place for it: the box is a construction fact, and a
+    // per-tick projection writing a live body's size would be a second geometry
+    // authority beside the transit seam (ADR 0024).
+    let body_px = match prepared.body.as_ref() {
+        Some(super::BodySource::Explicit { half_extents }) => {
+            Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0)
+        }
+        _ => SEAT_BODY_PX,
+    };
+    let aabb = ambition_engine_core::Aabb::new(at, body_px / 2.0);
     // `new_in`, not the test-only `new`: production construction never has a
     // hidden catalog fallback, and a seated fighter resolves its sprite identity
     // from the SAME App-local catalog every other spawn path uses.
@@ -110,7 +126,7 @@ pub fn seat_character(
         ambition_characters::actor::Health::new(prepared.vitals.max_health.max(1)),
     );
     seed.kin.facing = facing;
-    let centered = ambition_engine_core::CenteredAabb::from_center_size(at, SEAT_BODY_PX);
+    let centered = ambition_engine_core::CenteredAabb::from_center_size(at, body_px);
     let motion_model = seed.config.tuning.motion_model();
     let (identity, _seed_disposition, combat, intent, cooldowns) =
         crate::features::ecs::enemy_component_snapshot(&seed);
@@ -159,7 +175,7 @@ pub fn seat_character(
                         identity,
                         disposition,
                         faction,
-                        crate::features::ActorPose::from_parts(at, SEAT_BODY_PX / 2.0, facing),
+                        crate::features::ActorPose::from_parts(at, body_px / 2.0, facing),
                         combat_kit,
                         crate::features::ActorAggression::hostile(),
                         combat,

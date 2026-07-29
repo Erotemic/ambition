@@ -945,3 +945,44 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         "and a seat starts full, adopted or spawned"
     );
 }
+
+/// **An authored EXPLICIT body box is the seated fighter's box.** (Y″5)
+///
+/// `BodySource::Explicit` had no consumer anywhere: a provider could author
+/// half-extents and receive `SEAT_BODY_PX`, the placeholder constant, instead.
+///
+/// Consumed at SEATING rather than in the per-tick projection, deliberately — the
+/// box is a construction fact, and a projection resizing a live body would be a
+/// second geometry authority beside the transit seam (ADR 0024).
+#[test]
+fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
+    let mut app = seating_app();
+    let mut chunky = CharacterDefinition::new("chunky", "Chunky", "demo");
+    chunky.body = Some(crate::character_runtime::BodySource::Explicit {
+        half_extents: (40.0, 60.0),
+    });
+    app.register_character(chunky);
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("chunky")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        &ambition_platformer_primitives::body::BodyKinematics,
+    )>();
+    let (_, kin) = bodies
+        .iter(world)
+        .next()
+        .expect("the fighter must be seated at all");
+    assert_eq!(
+        (kin.size.x, kin.size.y),
+        (80.0, 120.0),
+        "the seated fighter got the placeholder box instead of the one its \
+         definition authored — a provider can author an explicit body and receive \
+         some other size"
+    );
+}

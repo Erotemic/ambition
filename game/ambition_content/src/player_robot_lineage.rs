@@ -68,6 +68,12 @@ pub struct Incarnation {
     /// Provenance only — see the module doc. It exists so the lineage is a fact
     /// the code owns rather than a sentence in an authoring description.
     pub replaces: Option<&'static str>,
+    /// What it says when nothing more specific does.
+    ///
+    /// Each incarnation talks about its own place in the sequence, which is the
+    /// whole joke of preserving them: the Hall is a room full of drafts of you.
+    /// These are the FLOOR — a yarn node or a catalog bark pool still wins.
+    pub voice: &'static [&'static str],
 }
 
 /// **v0 — the original.** Its own bark: *"Version zero. Everything after me was
@@ -77,6 +83,11 @@ pub const V0: Incarnation = Incarnation {
     display_name: "Robot",
     sheet: "robot",
     replaces: None,
+    voice: &[
+        "Version zero. Everything after me was a patch note.",
+        "Beep. ...I don't actually beep. People expect it.",
+        "They kept the antenna. I consider that a win.",
+    ],
 };
 
 /// **v2 — the build that shipped before the SVG rig.**
@@ -88,6 +99,11 @@ pub const V2: Incarnation = Incarnation {
     display_name: "Player Robot v2",
     sheet: "player_robot_v2",
     replaces: Some(V0.id),
+    voice: &[
+        "I was the build that worked.",
+        "There is no v1. Ask someone else why.",
+        "Deprecated is not the same as wrong.",
+    ],
 };
 
 /// **v3 — the body you are playing right now.**
@@ -101,6 +117,11 @@ pub const V3: Incarnation = Incarnation {
     display_name: "Player Robot v3",
     sheet: "player_robot_v3",
     replaces: Some(V2.id),
+    voice: &[
+        "Currently shipping. Ask me again in a version.",
+        "I inherited the antenna and the debt.",
+        "Every version of you thinks it is the last one.",
+    ],
 };
 
 /// The whole lineage, oldest first.
@@ -117,7 +138,8 @@ pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
         incarnation.display_name,
         crate::AMBITION_CONTENT_PROVIDER,
     )
-    .with_sheet(incarnation.sheet);
+    .with_sheet(incarnation.sheet)
+    .with_voice(incarnation.voice.iter().copied());
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
         // Left `None` deliberately. These are hand-authored incarnations, not
@@ -211,6 +233,25 @@ mod tests {
                 incarnation.sheet,
             );
             seen.push(incarnation.sheet);
+        }
+    }
+
+    /// **Nobody in the lineage stands mute.**
+    ///
+    /// A registered character has no catalog row to hold bark pools, and the
+    /// Hall's ambient ticker skips whoever has nothing to say — so "registered"
+    /// and "silent on a pedestal" were the same state until definitions could
+    /// carry a voice.
+    #[test]
+    fn every_incarnation_says_something() {
+        for incarnation in LINEAGE {
+            let definition = definition(incarnation);
+            assert!(
+                !definition.voice.is_empty(),
+                "incarnation '{}' brought no lines, so it stands on its pedestal \
+                 saying nothing",
+                incarnation.id,
+            );
         }
     }
 

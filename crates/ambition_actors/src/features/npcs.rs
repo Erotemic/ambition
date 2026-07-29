@@ -182,12 +182,23 @@ pub(crate) fn npc_hostile_bark_line<'a>(
 /// cycles the pool.
 pub(crate) fn npc_ambient_bark_line<'a>(
     catalog: &'a CharacterCatalog,
+    // The prepared cast, when this composition has one. A REGISTERED-only
+    // character has no catalog row to hold pools, so without this it is mute —
+    // which is what four Hall pedestals were (Jon, 2026-07-29).
+    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     interactable: &Interactable,
     situation: BarkSituation,
     rotation: u32,
 ) -> Option<&'a str> {
     let cid = npc_character_id(interactable)?;
-    catalog.bark_line(cid, situation, rotation)
+    if let Some(line) = catalog.bark_line(cid, situation, rotation) {
+        return line.into();
+    }
+    // **THE FLOOR.** The catalog had nothing — either no pool for this
+    // situation and no `fallback_dialogue`, or no row for this character at all.
+    // A definition's own voice answers last, so a character another game
+    // registered still speaks in its own words rather than standing silent.
+    registry?.get(cid)?.voice_line(rotation)
 }
 
 pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {
@@ -333,6 +344,73 @@ mod tests {
         )
     }
 
+    /// One registered character, prepared and published, with no `App` around it.
+    fn registry_with(
+        definition: crate::character_runtime::CharacterDefinition,
+    ) -> crate::character_runtime::PreparedCharacterRegistry {
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    /// **A character with NO catalog row still speaks, if it brought a voice.**
+    ///
+    /// The Hall's ambient ticker skips whoever `npc_ambient_bark_line` answers
+    /// `None` for, so "registered but not in the catalog" and "mute on a
+    /// pedestal" were the same state — which is what four characters in the
+    /// gallery were (Jon, 2026-07-29). Every character another game brings is
+    /// registered-only, so this is the floor for consumers of the engine, not a
+    /// detail of Ambition's own cast.
+    #[test]
+    fn a_registered_only_character_speaks_its_own_voice() {
+        // A catalog that has never heard of this character.
+        let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
+        let npc = interactable();
+        let registry = registry_with(
+            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+                .with_voice(["only line", "second line"]),
+        );
+
+        assert_eq!(
+            npc_ambient_bark_line(&catalog, None, &npc, BarkSituation::Hall, 0),
+            None,
+            "vacuity check: without the registry this character is mute, which is \
+             the state this seam exists to fix"
+        );
+        assert_eq!(
+            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Hall, 0),
+            Some("only line"),
+        );
+        assert_eq!(
+            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Hall, 1),
+            Some("second line"),
+            "rotation cycles the pool, so a repeated bark varies"
+        );
+    }
+
+    /// The CATALOG still outranks a definition's voice: the voice is a floor,
+    /// not an override.
+    #[test]
+    fn an_authored_catalog_pool_outranks_the_definitions_voice() {
+        let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
+        let npc = interactable();
+        let registry = registry_with(
+            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+                .with_voice(["floor line"]),
+        );
+
+        assert_eq!(
+            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Idle, 0),
+            Some("first idle"),
+            "the catalog authored an Idle pool, so the definition's floor must not \
+             displace it"
+        );
+    }
+
     #[test]
     fn explicit_catalog_argument_is_the_bark_authority() {
         let first = CharacterCatalog::from_data(parse_catalog(FIRST));
@@ -344,11 +422,11 @@ mod tests {
         assert_eq!(npc_hostile_bark_line(&first, &npc), "first provoked");
         assert_eq!(npc_hostile_bark_line(&second, &npc), "second provoked");
         assert_eq!(
-            npc_ambient_bark_line(&first, &npc, BarkSituation::Idle, 0),
+            npc_ambient_bark_line(&first, None, &npc, BarkSituation::Idle, 0),
             Some("first idle")
         );
         assert_eq!(
-            npc_ambient_bark_line(&second, &npc, BarkSituation::Idle, 0),
+            npc_ambient_bark_line(&second, None, &npc, BarkSituation::Idle, 0),
             Some("second idle")
         );
     }

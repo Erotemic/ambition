@@ -251,6 +251,26 @@ pub struct CharacterDefinition {
     /// the catalog's concrete paths: two places declaring the same art is the
     /// split this campaign exists to remove.
     pub portrait: Option<String>,
+    /// **Lines this character says when nothing more specific does.**
+    ///
+    /// A newly registered character has no dialogue graph, no situation pools
+    /// and usually no writer — and standing on a pedestal saying nothing is
+    /// worse than saying something generic in its own voice. The catalog has
+    /// expressed exactly this for a while, on `fallback_dialogue`: *"a character
+    /// arrives from the sprite pipeline with a voice long before anyone writes
+    /// four separate pools for it … the fallback exists so a newly authored
+    /// character is never mute."*
+    ///
+    /// It could only say that about a character with a CATALOG ROW. A
+    /// registered-only character — which is every character another game brings
+    /// — had no way to carry a voice at all, so four of them stand mute on Hall
+    /// pedestals (Jon, 2026-07-29).
+    ///
+    /// ⚠ the LOWEST-precedence voice, not a dialogue system: a yarn node wins,
+    /// then the catalog row's situation pool, then its `fallback_dialogue`, then
+    /// this. It exists so the floor is "says something in character" rather than
+    /// silence.
+    pub voice: Vec<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
@@ -311,6 +331,7 @@ impl CharacterDefinition {
             lineage: None,
             sheet: None,
             portrait: None,
+            voice: Vec::new(),
             body: None,
             hurtboxes: None,
             vitals: Vitals::default(),
@@ -356,6 +377,17 @@ impl CharacterDefinition {
         self.hurtboxes = Some(doc);
         self
     }
+
+    /// Give this character a voice: lines it says when nothing more specific
+    /// does. See [`Self::voice`].
+    pub fn with_voice<I, S>(mut self, lines: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.voice = lines.into_iter().map(Into::into).collect();
+        self
+    }
 }
 
 /// **What one authored definition OVERRIDES, before the catalog is folded in.**
@@ -386,6 +418,8 @@ struct PreparedCharacterOverrides {
     lineage: Option<Lineage>,
     sheet: Option<String>,
     portrait: Option<String>,
+    /// The authored voice, carried through preparation unchanged.
+    voice: Vec<String>,
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
     vitals: Vitals,
@@ -497,6 +531,10 @@ pub struct PreparedCharacterDefinition {
     pub lineage: Option<Lineage>,
     pub sheet: Option<String>,
     pub portrait: Option<String>,
+    /// See [`CharacterDefinition::voice`]. Empty means this character brought no
+    /// lines of its own, which is different from "it has nothing to say" — the
+    /// catalog may still speak for it.
+    voice: Vec<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
@@ -567,6 +605,26 @@ impl PreparedCharacterDefinition {
     /// about whether the references are good.
     pub fn was_checked(&self, namespace: &str) -> bool {
         self.checked.iter().any(|name| *name == namespace)
+    }
+
+    /// **A line this character says when nothing more specific does.**
+    ///
+    /// `rotation` cycles the pool so a repeated bark varies. `None` means this
+    /// character brought no voice — the caller stays with whatever it had, which
+    /// is the engine-generic line or silence.
+    ///
+    /// Deliberately situation-BLIND, unlike the catalog's pools. A definition's
+    /// voice is the floor, and a floor that only covers some moments is not one.
+    pub fn voice_line(&self, rotation: u32) -> Option<&str> {
+        if self.voice.is_empty() {
+            return None;
+        }
+        Some(self.voice[(rotation as usize) % self.voice.len()].as_str())
+    }
+
+    /// Every line this character brought.
+    pub fn voice(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.voice.iter().map(String::as_str)
     }
 
     /// The token the engine materializer demands for this character's art.
@@ -905,6 +963,7 @@ fn prepare_character(
         lineage: definition.lineage,
         sheet: definition.sheet,
         portrait: definition.portrait,
+        voice: definition.voice,
         body: definition.body,
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
@@ -975,6 +1034,7 @@ fn finalize_character(
         lineage,
         sheet,
         portrait,
+        voice,
         body,
         hurtboxes,
         vitals,
@@ -1095,6 +1155,7 @@ fn finalize_character(
         lineage,
         sheet,
         portrait,
+        voice,
         body,
         hurtboxes,
         kit,

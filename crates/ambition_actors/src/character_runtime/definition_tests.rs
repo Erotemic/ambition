@@ -360,6 +360,7 @@ fn a_definition_carries_no_controller_binding() {
         lineage: _,
         sheet: _,
         portrait: _,
+        voice: _,
         body: _,
         hurtboxes: _,
         vitals: _,

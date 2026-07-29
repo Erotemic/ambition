@@ -553,12 +553,37 @@ pub fn install_sanic_content(app: &mut App) {
         use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `sanic_spritesheet.ron` declares
         // `target: "sanic"`, and the registry is keyed by the target.
-        for (id, display, sheet) in [
-            (SANIC_CHARACTER_ID, "Sanic", "sanic"),
-            (SUPER_SANIC_CHARACTER_ID, "Super Sanic", "super_sanic"),
+        // A VOICE, so neither stands mute on a Hall pedestal. A registered-only
+        // character has no catalog row to hold bark pools, and the Hall's
+        // ambient ticker skips anyone with nothing to say — so these two were
+        // silent in the gallery while every catalog character chattered
+        // (Jon, 2026-07-29). These are the FLOOR: a yarn node still wins.
+        for (id, display, sheet, voice) in [
+            (
+                SANIC_CHARACTER_ID,
+                "Sanic",
+                "sanic",
+                [
+                    "You're too slow. No offense. Some offense.",
+                    "I don't fight. I arrive, and then I've left.",
+                    "Momentum is just a promise you keep to yourself.",
+                ],
+            ),
+            (
+                SUPER_SANIC_CHARACTER_ID,
+                "Super Sanic",
+                "super_sanic",
+                [
+                    "The rings were the tutorial. I am the exam.",
+                    "Gravity had one job and it has been reassigned.",
+                    "I went so fast I met the version of me that was leaving.",
+                ],
+            ),
         ] {
             app.register_character(
-                CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE).with_sheet(sheet),
+                CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
+                    .with_sheet(sheet)
+                    .with_voice(voice),
             );
         }
     }

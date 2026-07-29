@@ -1052,13 +1052,35 @@ pub fn install_mary_o_content(app: &mut App) {
         use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `super_mary_o_spritesheet.ron`
         // declares `target: "super_mary_o"`, and the registry is keyed by the target.
-        for (id, display, sheet) in [
-            (provider::MARY_O_CHARACTER_ID, "Mary-O", "super_mary_o"),
-            ("mary_o_tall", "Mary-O (Tall)", "super_mary_o_tall"),
+        // A VOICE apiece — see the same note in the Sanic provider. Without one a
+        // registered-only character has no bark pool anywhere, and the Hall's
+        // ambient ticker skips whoever has nothing to say.
+        for (id, display, sheet, voice) in [
+            (
+                provider::MARY_O_CHARACTER_ID,
+                "Mary-O",
+                "super_mary_o",
+                [
+                    "Jump, land, repeat. It's honest work.",
+                    "The bricks owe me nothing and I break them anyway.",
+                    "Every pipe goes somewhere. That's the deal.",
+                ],
+            ),
+            (
+                "mary_o_tall",
+                "Mary-O (Tall)",
+                "super_mary_o_tall",
+                [
+                    "One mushroom. That's the whole story.",
+                    "Taller, yes. Braver, unclear.",
+                    "I can see the top of the flagpole from here.",
+                ],
+            ),
         ] {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
-                    .with_sheet(sheet),
+                    .with_sheet(sheet)
+                    .with_voice(voice),
             );
         }
     }

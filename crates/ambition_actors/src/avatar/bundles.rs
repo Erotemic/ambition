@@ -160,10 +160,10 @@ impl PlayerSimulationBundle {
             // overlay still has an honest un-granted baseline rather than an empty
             // one (an empty baseline would silently revoke the body's own kit the
             // first time it picked anything up).
-            identity_kit: ambition_characters::brain::action_set::IdentityKit {
-                action_set: action_set.clone(),
-                moveset: moveset.0.clone(),
-            },
+            identity_kit: ambition_characters::brain::action_set::IdentityKit::of(
+                action_set.clone(),
+                moveset.0.clone(),
+            ),
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
             primary_body: ambition_platformer_primitives::body::PrimaryBody,

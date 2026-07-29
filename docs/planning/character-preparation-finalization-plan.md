@@ -1,7 +1,8 @@
 # Character preparation: the finalization barrier (plan, 2026-07-28)
 
-**Status: PHASE A LANDED 2026-07-29.** Phases B and C are open. Written to
-survive compaction. This is
+**Status: PHASES A, B AND C LANDED 2026-07-29.** Written to survive compaction.
+What remains is named at the bottom under "Related, deliberately after" — match
+activation's repair half, and the `RangedExecution` switch. This is
 the settled outcome of a three-round argument with GPT-5.6 over how to close
 H1 — the finding that a catalog-playable character with no authored action set
 works as the worn player and gets an EMPTY kit when seated as player two.
@@ -283,13 +284,55 @@ error until it is handled — verified by adding a field and watching
 `E0027: pattern does not mention field`. The coupling was real, so it is enforced
 rather than remembered.
 
-▢ remaining: path-specific baseline insertion.
+✔ **path-specific baseline insertion is gone (2026-07-29), and PHASE B IS
+CLOSED.** Both paths built `IdentityKit { action_set, moveset }` as a struct
+literal — the spawn bundle and the persona derive. Harmless at two fields; the
+failure it invites is a THIRD field added in one place and defaulted in the other,
+and a defaulted baseline silently REVOKES the body's own kit the first time it
+picks anything up. The spawn site's own comment already warned about exactly that
+outcome. `IdentityKit::of` is the one constructor now.
 
-### Phase C — generation invalidation (folds in H6)
+### What Phase B actually consisted of, once the false step was removed
 
-Stamp bodies with `{ character_id, generation }`. A mismatch in EITHER triggers
-atomic baseline replacement plus equipment reapplication — not several
-projection systems patching selected fields.
+1. delete the second kit writer (the projection no longer writes persona kits);
+2. prove the seated `PreparedKit::HostCode` case, which slice 1 closed as a side
+   effect;
+3. a STRUCTURAL guard that a seated body matches every column the single writer
+   requires — the guard H1 needed;
+4. one construction for the host kit's moves;
+5. one record for what the projection granted, with retraction destructuring it so
+   a new fact cannot compile until it is handled;
+6. one constructor for the identity baseline.
+
+⛔ and NOT "delete the seating placeholders", which the step originally said and
+which would have reintroduced H1 — those placeholders are the required columns
+from (3).
+
+### ✔ Phase C — generation invalidation (folds in H6) — LANDED 2026-07-29
+
+Bodies are stamped with `{ character_id, generation }` and a mismatch in EITHER
+re-derives. Two records, not one, because two writers own two different things:
+`ProjectedCharacterKit` for the body facts the projection grants, and
+`avatar::PersonaBaseline` for the kit the persona derive applies.
+
+⚠ **that split IS the lesson.** The first version had the projection stamp a
+single marker for both — so a cast replacement recorded a persona body as CURRENT
+while the writer that owns its kit had not run and, filtered on
+`Changed<WornCharacter>`, never would. The body read as up to date and nothing
+revisited it, which is worse than a missed update. One writer, one record, each
+stamped only after its own work lands.
+
+⚠ **and the generation is per PUBLICATION, carried across rebuilds.** It used to
+advance per insert, which was fine while registration inserted one character at a
+time; the barrier publishes the whole cast into a fresh `Default` registry, so a
+counter starting from its own zero would republish generation 1 over a body
+stamped with generation 1 from the previous cast. A monotonic counter that
+restarts is worse than no counter, because it looks like one.
+
+⚠ **`PersonaBaseline` is rollback state**, registered and probed. A rewind that
+restores an earlier `WornCharacter` while leaving the record at the abandoned
+future's id makes the derive skip, and the resimulation runs a fighter with
+somebody else's moves.
 
 ## Related, deliberately after
 

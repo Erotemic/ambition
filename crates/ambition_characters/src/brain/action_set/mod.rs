@@ -72,6 +72,25 @@ pub struct IdentityKit {
     pub moveset: ambition_entity_catalog::MovesetContract,
 }
 
+impl IdentityKit {
+    /// **Publish what identity alone derived**, from the pair it derived.
+    ///
+    /// Both construction paths built this struct literally — the spawn bundle and
+    /// the persona derive — which is two places deciding what "the baseline"
+    /// contains. Harmless while it is two fields; the failure it invites is a
+    /// third field added in one place and defaulted in the other, and a defaulted
+    /// baseline silently REVOKES the body's own kit the first time it picks
+    /// anything up (the spawn site's comment already warns about exactly that).
+    ///
+    /// One constructor, so the pair that defines a baseline is stated once.
+    pub fn of(action_set: ActionSet, moveset: ambition_entity_catalog::MovesetContract) -> Self {
+        Self {
+            action_set,
+            moveset,
+        }
+    }
+}
+
 impl ActionSet {
     /// "I don't attack" baseline. Used for peaceful NPCs, puppy
     /// slugs, and other passive actors.

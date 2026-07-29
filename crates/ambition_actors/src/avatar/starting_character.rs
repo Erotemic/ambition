@@ -402,10 +402,8 @@ fn apply_worn_character_kit(
     // is what makes a granted verb revocable: without it, a consumed or downgraded
     // row could not take its verb back, because the live set no longer remembers
     // which half of it came from the body and which from a row.
-    *identity = ambition_characters::brain::action_set::IdentityKit {
-        action_set: set.clone(),
-        moveset: derived.clone(),
-    };
+    *identity =
+        ambition_characters::brain::action_set::IdentityKit::of(set.clone(), derived.clone());
     *moveset = ActorMoveset(derived);
     *action_set = set;
     charges_projectiles

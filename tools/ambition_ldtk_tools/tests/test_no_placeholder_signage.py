@@ -24,10 +24,16 @@ knowable, which is exactly when a guard beats attention.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[3]
-WORLDS = REPO / "game" / "ambition_content" / "assets" / "worlds"
+# ⚠ `default_worlds_dir`, NOT a path spelled here. The absence contract
+# `the-worlds-path-is-confined-to-ldtk-paths` exists because fifteen commands and
+# five test modules each recreated this path in three spellings, and when the
+# worlds moved out of `crates/ambition_actors/assets` every one of them broke.
+# The first draft of this file spelled it out and the contract caught me — which
+# is the guard working on the person who had just finished arguing for guards.
+from ambition_ldtk_tools.ldtk.paths import default_worlds_dir
+
+WORLDS = default_worlds_dir()
 
 #: Values that mean "nobody wrote this yet". `Label` and `Debug Label` are the
 #: LDtk entity definition's own defaults for `text` and `name`; the rest are the

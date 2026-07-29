@@ -1207,3 +1207,53 @@ fn a_seated_fighter_carries_its_authored_mass() {
          from a number nobody wrote"
     );
 }
+
+/// **A seated fighter whose character takes the HOST kit still gets one.**
+/// (Phase B remainder)
+///
+/// `PreparedKit::HostCode` is the one case a per-character value cannot hold: the
+/// host's code-side kit is built from the BODY's own `AbilitySet`. While the
+/// projection was the writer for seated bodies it could not build that — it has
+/// no body abilities — so a seated fighter resolving to `HostCode` got nothing.
+///
+/// Phase B routed seated bodies through `apply_worn_character_gameplay`, which
+/// DOES have the abilities. This asserts that actually closed the hole rather than
+/// merely making it plausible: a registered character with no authored action set
+/// and no catalog row resolves to `HostCode`, and the seated body must still come
+/// out able to act.
+#[test]
+fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
+    let mut app = seating_app();
+    // No authored action set, and the empty catalog has no row for it — the two
+    // conditions that make `finalize_character` choose `HostCode`.
+    app.register_character(CharacterDefinition::new("drifter", "Drifter", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("drifter")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        &ambition_characters::brain::ActionSet,
+        &crate::combat::moveset::ActorMoveset,
+    )>();
+    let (_, action_set, moveset) = bodies
+        .iter(world)
+        .next()
+        .expect("the fighter must be seated at all");
+    assert!(
+        action_set.melee.is_some(),
+        "a seated fighter on the host kit has no melee, so its brain will never \
+         press attack — the kit is built from the BODY's abilities and only the \
+         persona derive can see those"
+    );
+    assert!(
+        !moveset.0.moves.is_empty(),
+        "and it has no moves to play even if it did press: an action set without \
+         a timeline is a capability the body cannot perform"
+    );
+}

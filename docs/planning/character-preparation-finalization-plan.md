@@ -205,11 +205,34 @@ fighter cannot be one (seating requires the registry). Condition 5 of the design
 is about, and not yet for the migration tail. Both readers are named in
 `the-catalog-default-action-set-is-confined-to-one-file`.
 
-### Phase B — consolidate construction
+### ✔ Phase B slice 1 — LANDED 2026-07-29
 
-Only once both paths are behaviourally identical: extract the common body
-construction, then delete seating placeholders, the late-repair projection,
-path-specific baseline insertion, and per-field retraction.
+The second kit writer is gone. `project_prepared_character_definitions` wrote
+seated bodies' action sets and movesets because seated bodies were believed not to
+match `apply_worn_character_gameplay`.
+
+⛔ **that belief was FALSE and had been repeated into three places** — a source
+comment, the 24h queue, and the campaign inventory. `WornCharacter` is
+`#[require(IdentityKit)]` and `BodyAbilities` arrives with
+`AncillaryMovementBundle`, so both "missing" columns were present. Seated bodies
+always matched the single writer; the second one was built on a diagnosis nobody
+re-read.
+
+The projection now serves only the population the derive genuinely cannot see:
+bodies with NO `WornCharacter`, identified by `CombatTuning.sprite_character_id`.
+The gate is that system's exact required-column set, not a proxy.
+
+✔ **the `PreparedKit::HostCode` seated case is closed by this, and verified rather
+than assumed.** `HostCode` is the one kit a per-character value cannot hold — it is
+built from the BODY's `AbilitySet` — so while the projection was the writer a
+seated fighter resolving to it got nothing. The derive has the abilities.
+`a_seated_fighter_on_the_host_kit_is_not_left_empty_handed` drives it end to end
+and goes red when the derive is removed from the fixture.
+
+### Phase B remainder — consolidate construction
+
+Still open: extract the common body construction, then delete seating
+placeholders, path-specific baseline insertion, and per-field retraction.
 
 ### Phase C — generation invalidation (folds in H6)
 

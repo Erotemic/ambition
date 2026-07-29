@@ -226,6 +226,13 @@ fn main() {
     app.add_systems(
         Update,
         (
+            // ⚠ ROOM mode needs this as much as route mode does, and the first
+            // version wired it only into route mode — so `--dev-overlays` was
+            // silently ignored for half the tool's invocations. Same
+            // two-app-builders shape as the `--route` positional bug and the
+            // headless-surface insert; third time in one session, which is why
+            // this comment names it rather than just fixing it (2026-07-29).
+            silence_dev_overlays,
             apply_capture_snapshot
                 .after(camera_follow)
                 .before(sync_parallax_layers),

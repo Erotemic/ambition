@@ -52,6 +52,30 @@ of the game. Whatever the labels end up saying, an arrival point probably should
 not be announcing itself. Say the word and I will fix that half without waiting
 for the rest.
 
+⚠ **and it is bigger than that zone** (measured 2026-07-29, queue AC12). Labels
+drawn across things you need to see is not one bad arrival zone, it is the
+placement model. The screen carries at least THREE label families — authored
+`DebugLabel` signage, actor nameplates, door nameplates — each placed by its own
+system with no knowledge of the others:
+
+* `drain_alley`: the sign `[manhole — Bob route return]` renders straight through
+  the `npc_news_board` nameplate; both texts illegible.
+* `combat_calibration_lab`: `MAP_OFFICIAL: calibration route` renders over the
+  `lab_patrol_dummy` nameplate **and** over the player.
+
+The intra-family spacer (`ambition_ldtk_tools.edit.space_debug_labels`) is
+correct and useless here — it compares signage against signage, and reports "no
+overlapping DebugLabels found" for both rooms, truthfully.
+
+**The decision I need is which family YIELDS.** The nameplate system already
+owns ranking and fade machinery, so that is where a single pass over all three
+belongs; what it cannot decide on its own is whether a permanent authored sign
+outranks a transient actor plate, or the reverse. My weak preference is that the
+PLAYER is never occluded and authored signage yields to actor plates (a sign is
+still there when you step away; an actor may not be) — but that is a
+readability judgement about your game, and the wrong choice makes the intro's
+tutorial signs disappear behind whoever is standing near them.
+
 ---
 
 ## 2. Should a prompt advertise a verb that resolves to nothing? (queue Z′4)

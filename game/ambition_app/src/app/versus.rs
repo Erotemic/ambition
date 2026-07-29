@@ -181,6 +181,14 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// who may hit whom. A 2v2 is not a bigger 1v1; it is the first arrangement
 /// where the relation is load-bearing.
 pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
+    versus_roster_from(local_players, None)
+}
+
+/// The same, recording which frozen topology decided the seat count.
+pub fn versus_roster_from(
+    local_players: usize,
+    seat_topology: Option<u64>,
+) -> MatchParticipantRoster {
     // Two seats minimum (there is always an opponent, human or not) and four
     // maximum (the arena is one screen wide, and `SlotControls` holds four).
     let seats = local_players.clamp(2, MAX_VERSUS_SEATS);
@@ -209,6 +217,7 @@ pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
         // insert lands (GPT 5.6, 2026-07-29). The `Starting` arm reaching zero is
         // what takes it off, which is already the one place a round goes live.
         opens_suspended: true,
+        seat_topology,
     }
 }
 
@@ -222,6 +231,56 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 /// reads, so leaving it installed would seat two fighters into Mary-O's level the
 /// next time somebody played it. Removing it on exit also resets the seating
 /// latch, so returning to the stage seats a fresh match rather than an empty one.
+/// **The roster and the session must agree about who is playing, and now they
+/// can be asked.** (queue Y′9)
+///
+/// A route is entered before its rollback session starts, so the roster is built
+/// from LIVE device discovery and the topology is frozen later. A controller
+/// connecting in that gap leaves the roster seating N fighters into a session
+/// with M handles, with both citing "the connected controllers".
+///
+/// Before seating, a roster is only an INTENTION — nothing has a body yet — so
+/// the honest response is to rebuild it against the topology that won. After
+/// seating it is bodies on a stage, and silently reseating mid-match would be a
+/// worse bug than the disagreement; that case is reported instead.
+///
+/// ⚠ this is detection plus a safe early repair, not the full fix. The full fix
+/// is match ACTIVATION — validate every participant, activate the roster
+/// atomically, publish it, and start the countdown from THAT — which is written
+/// up in `character-preparation-finalization-plan.md` under "Related,
+/// deliberately after". Doing it here would mean building that seam inside a
+/// change about a counter.
+fn reconcile_roster_with_frozen_topology(
+    mut commands: Commands,
+    topology: Option<Res<ambition::input::LocalSeatTopology>>,
+    roster: Option<Res<MatchParticipantRoster>>,
+    seated: Res<ambition::actors::character_runtime::MatchSeated>,
+    mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
+) {
+    let (Some(topology), Some(roster)) = (topology, roster) else {
+        return;
+    };
+    if !topology.is_frozen() || roster.seat_topology == Some(topology.generation()) {
+        return;
+    }
+    if seated.0 {
+        bevy::log::warn_once!(
+            "the versus roster seats {} fighter(s) from seat topology {:?}, but the session \
+             froze topology {} with {} player(s). The match is already seated, so it is left \
+             alone — reseating bodies mid-match would be the worse bug. This is the case \
+             match ACTIVATION exists to make impossible.",
+            roster.participants.len(),
+            roster.seat_topology,
+            topology.generation(),
+            topology.players(),
+        );
+        return;
+    }
+    let rebuilt = versus_roster_from(topology.players(), Some(topology.generation()));
+    rebuilt.project_demand(&mut demand);
+    commands.insert_resource(rebuilt);
+}
+
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition::game_shell::ShellRouter>,
@@ -250,12 +309,12 @@ fn track_versus_roster(
             // would be citing "the connected controllers" (GPT 5.6,
             // 2026-07-28). Without a session — the shell's non-rollback
             // routes — the live order IS the answer.
-            let roster = versus_roster(
-                topology
-                    .as_ref()
-                    .filter(|topology| topology.is_frozen())
+            let frozen = topology.as_ref().filter(|topology| topology.is_frozen());
+            let roster = versus_roster_from(
+                frozen
                     .map(|topology| topology.players())
                     .unwrap_or_else(|| devices.devices().len().max(1)),
+                frozen.map(|topology| topology.generation()),
             );
             // Demand the art before the bodies exist: a fighter seated with no
             // decoded sheet draws a placeholder, and the whole point of a visible
@@ -448,5 +507,127 @@ pub fn compose_versus_experience(app: &mut App) {
     // A teardown that lives inside the thing it tears down can only ever run
     // while it is not needed. This reads the shell router and writes resources;
     // it is shell lifecycle, and the shell clock is where it belongs.
-    app.add_systems(Update, track_versus_roster);
+    app.add_systems(
+        Update,
+        (
+            track_versus_roster,
+            // AFTER, and in the same tick: the roster this built may have been
+            // decided before the session froze its seating.
+            reconcile_roster_with_frozen_topology,
+        )
+            .chain(),
+    );
+}
+
+#[cfg(test)]
+mod roster_topology_tests {
+    use super::*;
+    use ambition::actors::character_runtime::{CharacterLoadDemand, MatchSeated};
+    use ambition::input::{LocalDeviceOrder, LocalSeatTopology};
+    use bevy::prelude::*;
+
+    fn topology_of(pads: usize) -> LocalSeatTopology {
+        let mut topology = LocalSeatTopology::default();
+        topology.capture(&LocalDeviceOrder::from_devices(
+            (0..pads as u32).filter_map(Entity::from_raw_u32).collect(),
+        ));
+        topology
+    }
+
+    fn app_with(roster: MatchParticipantRoster, pads: usize, seated: bool) -> App {
+        let mut app = App::new();
+        app.insert_resource(roster);
+        app.insert_resource(topology_of(pads));
+        app.insert_resource(MatchSeated(seated));
+        app.init_resource::<CharacterLoadDemand>();
+        app.add_systems(Update, reconcile_roster_with_frozen_topology);
+        app
+    }
+
+    /// **A roster decided before the session froze its seating is rebuilt.**
+    ///
+    /// The real sequence, not a contrived one: a route is entered — and its
+    /// roster built from live device discovery — before its rollback session
+    /// exists. A controller connecting in that gap left the roster seating two
+    /// fighters into a session with three handles, both citing "the connected
+    /// controllers". Nothing has a body yet at that point, so the roster is only
+    /// an intention and rebuilding it costs nothing.
+    #[test]
+    fn a_roster_built_before_the_freeze_is_rebuilt_against_it() {
+        let mut app = app_with(versus_roster_from(2, None), 3, false);
+        app.update();
+        let roster = app.world().resource::<MatchParticipantRoster>();
+        assert_eq!(
+            roster.participants.len(),
+            3,
+            "the roster kept the seat count it guessed from live devices while \
+             the session had already frozen a different one"
+        );
+        assert_eq!(
+            roster.seat_topology,
+            Some(app.world().resource::<LocalSeatTopology>().generation()),
+            "a rebuilt roster must record WHICH topology it agreed with, or the \
+             next tick rebuilds it again forever"
+        );
+    }
+
+    /// A roster already built from this topology is left completely alone —
+    /// otherwise the reconciler rebuilds it every tick and the demand set grows
+    /// without end.
+    #[test]
+    fn an_agreeing_roster_is_not_touched() {
+        let topology = topology_of(2);
+        let mut app = app_with(versus_roster_from(2, Some(topology.generation())), 2, false);
+        let before = app.world().resource::<MatchParticipantRoster>().clone();
+        app.update();
+        assert_eq!(*app.world().resource::<MatchParticipantRoster>(), before);
+    }
+
+    /// **A topology that has decided nothing does not get to overrule live
+    /// discovery.**
+    ///
+    /// `generation == 0` means never captured — the resource exists, no session
+    /// has frozen its seating. Treating that as an answer would rebuild every
+    /// roster down to the two-seat floor. Written because removing the
+    /// `is_frozen` guard left the other three tests green: an unverified guard
+    /// is one that gets deleted by the next person who reads it as noise.
+    #[test]
+    fn an_unfrozen_topology_does_not_overrule_the_roster() {
+        let mut app = App::new();
+        app.insert_resource(versus_roster_from(4, None));
+        app.insert_resource(LocalSeatTopology::default());
+        app.insert_resource(MatchSeated(false));
+        app.init_resource::<CharacterLoadDemand>();
+        app.add_systems(Update, reconcile_roster_with_frozen_topology);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<MatchParticipantRoster>()
+                .participants
+                .len(),
+            4,
+            "a topology that has never been captured overruled a four-player \
+             roster and cut it to the two-seat floor"
+        );
+    }
+
+    /// **After seating it is bodies on a stage, and it is left alone.**
+    ///
+    /// Reseating mid-match would be a worse bug than the disagreement it fixes.
+    /// The disagreement is reported instead — this is the case match ACTIVATION
+    /// exists to make impossible, and pretending a rebuild is safe here would
+    /// hide the reason that work is still open.
+    #[test]
+    fn a_seated_match_is_never_reseated_underneath_itself() {
+        let mut app = app_with(versus_roster_from(2, None), 3, true);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<MatchParticipantRoster>()
+                .participants
+                .len(),
+            2,
+            "a seated match was rebuilt underneath its own bodies"
+        );
+    }
 }

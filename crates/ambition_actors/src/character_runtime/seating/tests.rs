@@ -655,6 +655,7 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("mary_o"), cpu("sanic")],
         opens_suspended: true,
+        ..Default::default()
     });
 
     finalize_and_update(&mut app);

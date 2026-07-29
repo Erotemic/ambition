@@ -197,6 +197,18 @@ pub struct MatchParticipantRoster {
     /// Taken off by whoever put the countdown up — for versus, the `Starting`
     /// arm reaching zero, which is the one place a round goes live.
     pub opens_suspended: bool,
+    /// **Which frozen seat topology this roster was built from.**
+    ///
+    /// `None` means it was built from live device discovery because no session
+    /// had decided its seating yet — the ordinary case, since a route is entered
+    /// before its rollback session starts.
+    ///
+    /// The roster, the GGRS handle count and the per-seat latches must agree
+    /// about how many people are playing, and freezing the topology made them
+    /// agree by construction ONLY for consumers that read it. This roster is
+    /// built first, so the stamp is what turns "they should match" into a
+    /// question the code can ask (GPT 5.6, 2026-07-29).
+    pub seat_topology: Option<u64>,
 }
 
 impl MatchParticipantRoster {

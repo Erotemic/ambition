@@ -21,6 +21,26 @@ use super::cli::cli_start_room_arg;
 #[derive(Resource, Clone, Debug)]
 pub struct StartRoomOverride(pub String);
 
+/// **Treat an unresolvable [`StartRoomOverride`] as FATAL.**
+///
+/// The ordinary behaviour is a warning and the authored start room, which is
+/// right for the game: a stale `--start-room` in someone's shell history should
+/// not stop them playing. It is wrong for a VERIFICATION TOOL, where quietly
+/// photographing a different room is the worst thing the tool can do — Z1 said
+/// so when `capture_scene` was first written (*"it should FAIL LOUDLY on an
+/// unknown room or route rather than falling back — a capture that silently
+/// photographs somewhere else is how a blind agent reports the wrong thing with
+/// confidence"*) and then it shipped without this.
+///
+/// It cost exactly what that row predicted: a sweep asked for
+/// `central_hub_basement` and `hall_of_bosses_arena`, got the hub twice, and a
+/// completely invented id (`definitely_not_a_room_xyz`) wrote a valid PNG and
+/// exited 0 (2026-07-29).
+///
+/// Opt-in, so nothing else changes behaviour.
+#[derive(bevy::prelude::Resource, Debug, Clone, Copy, Default)]
+pub struct StartRoomMustResolve;
+
 /// Host composition input selecting the character for the next prepared world.
 ///
 /// This resource is consumed during sandbox preparation and never becomes
@@ -194,6 +214,10 @@ pub fn init_sandbox_resources(app: &mut App) {
     // precedence over the CLI flag. Either one resolving by id wins;
     // the other is silently ignored. If neither matches, the LDtk
     // project's authored start room stays active.
+    let strict_start_room = app
+        .world_mut()
+        .remove_resource::<StartRoomMustResolve>()
+        .is_some();
     let resource_override = app
         .world_mut()
         .remove_resource::<StartRoomOverride>()
@@ -201,6 +225,22 @@ pub fn init_sandbox_resources(app: &mut App) {
     if let Some(start_room) = resource_override.or_else(cli_start_room_arg) {
         if room_set.set_start_by_id(&start_room) {
             eprintln!("[ambition] start room: {start_room}");
+        } else if strict_start_room {
+            // NAME WHAT IS AVAILABLE. The ids this resolves against are runtime
+            // room ids, which are NOT the LDtk level identifiers — reading the
+            // `.ldtk` file and using the level names it lists is how the sweep
+            // that found this asked for two rooms that do not exist. An error
+            // that only says "no" sends the reader back to the wrong file.
+            let mut available: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
+            available.sort_unstable();
+            panic!(
+                "start-room '{start_room}' did not match any room id/name. The caller asked \
+                 for a specific room and the boot would otherwise have silently used the \
+                 authored start room instead (see `StartRoomMustResolve`).\n\
+                 Available room ids ({}): {}",
+                available.len(),
+                available.join(", ")
+            );
         } else {
             eprintln!(
                 "[ambition] warning: start-room '{start_room}' did not match any room id/name"

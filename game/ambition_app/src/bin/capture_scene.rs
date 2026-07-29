@@ -166,6 +166,10 @@ fn main() {
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
+    // A capture that photographs a DIFFERENT room than the one asked for is the
+    // worst failure this tool has, and it had it: two real room ids and one
+    // invented one all produced the hub, each writing a valid PNG and exiting 0.
+    app.insert_resource(ambition_app::app::StartRoomMustResolve);
     // Optional "play as this character" override, inserted BEFORE the sandbox
     // preparation consumes it before publishing the exact session world.
     if let Some(character_id) = config.character.clone() {

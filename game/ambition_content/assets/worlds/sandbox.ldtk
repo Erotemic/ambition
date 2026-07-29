@@ -45960,7 +45960,7 @@
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [2,5],
+							"__grid": [5,5],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -45969,7 +45969,7 @@
 							"width": 620,
 							"height": 16,
 							"defUid": 2007,
-							"px": [44,86],
+							"px": [80,86],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "blink_run_intro", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
@@ -45981,7 +45981,7 @@
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],
-							"__worldX": -3284,
+							"__worldX": -3248,
 							"__worldY": 4694
 						}
 					]

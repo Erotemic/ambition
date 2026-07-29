@@ -222,7 +222,30 @@ pub fn init_sandbox_resources(app: &mut App) {
         .world_mut()
         .remove_resource::<StartRoomOverride>()
         .map(|r| r.0);
-    if let Some(start_room) = resource_override.or_else(cli_start_room_arg) {
+    // **A FLAG A HUMAN TYPED IS A REQUEST, NOT A PREFERENCE.**
+    //
+    // These two sources deserve different answers to "the room does not exist",
+    // and collapsing them meant `--start-room` — which the README documents by
+    // example — silently booted somewhere else (2026-07-29).
+    //
+    // * a PROGRAMMATIC override comes from a library caller (`SandboxSim`, the RL
+    //   harness) that may legitimately name a room outside this composition;
+    //   falling back is the tolerant, correct answer.
+    // * the CLI FLAG was typed, just now, by somebody who wanted that room. The
+    //   likeliest mistake is using an LDtk LEVEL name (`central_hub_main`) for a
+    //   runtime room id (`central_hub_complex`), which is exactly the error a
+    //   silent fallback hides — and the same one that cost the room sweep two
+    //   captures before `StartRoomMustResolve` existed.
+    //
+    // ⚠ the tolerant case the marker's doc argues for — *"a stale `--start-room`
+    // in someone's shell history should not stop them playing"* — is the one this
+    // does NOT change its mind about lightly. But a stale flag in history is still
+    // a flag the user is passing, and booting a different room without saying so
+    // is not playing: it is playing something else. The error lists every valid
+    // id, so recovering is reading one line rather than hunting a file.
+    let cli_start_room = cli_start_room_arg();
+    let strict_start_room = strict_start_room || cli_start_room.is_some();
+    if let Some(start_room) = resource_override.or(cli_start_room) {
         if room_set.set_start_by_id(&start_room) {
             eprintln!("[ambition] start room: {start_room}");
         } else if strict_start_room {
@@ -234,9 +257,12 @@ pub fn init_sandbox_resources(app: &mut App) {
             let mut available: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
             available.sort_unstable();
             panic!(
-                "start-room '{start_room}' did not match any room id/name. The caller asked \
+                "start-room '{start_room}' did not match any room id/name. Something asked \
                  for a specific room and the boot would otherwise have silently used the \
-                 authored start room instead (see `StartRoomMustResolve`).\n\
+                 authored start room instead — either `--start-room` on the command line or \
+                 `StartRoomMustResolve`.\n\
+                 ⚠ these are RUNTIME ROOM IDS, not LDtk level identifiers: `central_hub_main` \
+                 is a level, the room is `central_hub_complex`.\n\
                  Available room ids ({}): {}",
                 available.len(),
                 available.join(", ")

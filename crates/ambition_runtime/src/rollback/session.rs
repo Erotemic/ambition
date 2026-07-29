@@ -1188,7 +1188,6 @@ mod replay_pass_tests {
 mod multi_seat_input_tests {
     use super::*;
     use ambition_characters::brain::{PlayerSlot, SlotControls};
-    use bevy::prelude::*;
 
     fn frame_with_axis(axis_x: f32) -> ControlFrame {
         ControlFrame {

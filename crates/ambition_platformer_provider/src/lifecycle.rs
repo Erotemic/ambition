@@ -775,22 +775,62 @@ pub fn prepare_platformer_content(
             "active room and provider identities must not be empty",
         ));
     }
+    // **A SELECTION IS NOT A DEFAULT.** (2026-07-29)
+    //
+    // This used to require the effective starting character to EQUAL the
+    // provider's authored default, which made choosing any other character a
+    // fatal content error. `--character` has a usage example on
+    // `capture_scene` — `--character npc_pirate_admiral` — and it had never
+    // worked for any id: every one of them panicked here, including that one.
+    // Found by trying to photograph the player wearing an older incarnation of
+    // itself.
+    //
+    // Two different facts were wearing one check. The provider's DEFAULT is an
+    // authoring fact and is still validated: it must be non-empty and must name
+    // a character this composition actually has, or an untouched build spawns
+    // something nothing can describe. Which character a session SELECTED is a
+    // runtime choice, and the whole point of a playable cast is that it may be
+    // any member of it.
+    //
+    // What is checked now is the property that actually matters — the effective
+    // character RESOLVES. A selection that names nothing is still fatal here,
+    // which is the failure this check was reaching for.
     let effective_character = source
         .starting_character()
         .effective_id(authored.starting_character.as_str());
-    if effective_character != authored.starting_character.as_str()
-        || source.catalogs().audio_provider.as_str() != authored.audio_provider.as_str()
-    {
+    if source.catalogs().audio_provider.as_str() != authored.audio_provider.as_str() {
         return Err(ContentDiagnostic::new(
             "provider.defaults",
             format!(
-                "expected character '{}' and audio provider '{}', got '{}' and '{}'",
-                authored.starting_character,
+                "expected audio provider '{}', got '{}'",
                 authored.audio_provider,
-                effective_character,
                 source.catalogs().audio_provider,
             ),
         ));
+    }
+    // An assembly failure is not this check's to report — the caller already
+    // surfaces it — so a registry that will not assemble simply leaves the
+    // resolvability question unanswered rather than answering it wrongly.
+    if let Some(catalog) = character_registry
+        .map(|registry| registry.assemble())
+        .and_then(Result::ok)
+    {
+        let catalog = &catalog.catalog;
+        for (role, id) in [
+            ("authored default", authored.starting_character.as_str()),
+            ("selected starting character", effective_character),
+        ] {
+            if catalog.display_name(id).is_none() {
+                return Err(ContentDiagnostic::new(
+                    "provider.defaults",
+                    format!(
+                        "the {role} '{id}' names no character in this composition's \
+                         assembled catalog — a body would spawn wearing an identity \
+                         nothing can describe"
+                    ),
+                ));
+            }
+        }
     }
     for room in &source.room_set().rooms {
         if !room.placements.is_empty() && placement_lowering.is_none() {
@@ -1380,6 +1420,61 @@ mod tests {
             &mut epochs,
         )
         .unwrap()
+    }
+
+    /// **Choosing a character other than the default is not a content error.**
+    ///
+    /// Preparation used to require the effective starting character to EQUAL the
+    /// provider's authored default, so every alternative selection panicked the
+    /// direct-entry boot. `capture_scene --character <id>` has a usage example
+    /// in its own header — `--character npc_pirate_admiral` — and it had never
+    /// worked for any id, that one included (found 2026-07-29 by trying to
+    /// photograph the player wearing an older incarnation of itself).
+    ///
+    /// What preparation legitimately owns is that the selection RESOLVES, which
+    /// the second half of this asserts.
+    #[test]
+    fn a_starting_character_other_than_the_default_prepares() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema =
+            ambition_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
+
+        let prepare = |selected: &str| {
+            let base = fixture_source(128.0);
+            let source = PreparedPlatformerSource::new(
+                "same-provider",
+                base.room_set().clone(),
+                ambition_engine_core::RoomGeometry(base.room_set().active_world().clone()),
+                ambition_world::rooms::ActiveRoomMetadata(
+                    base.room_set().active_spec().metadata.clone(),
+                ),
+                ambition_actors::avatar::StartingCharacter::new(selected.to_string()),
+                ambition_actors::ldtk_world::LdtkRuntimeIndex::default(),
+            );
+            let mut epochs = ContentEpochSequence::default();
+            prepare_platformer_content(
+                source,
+                &authored,
+                Some(&characters),
+                None,
+                Some(&staging),
+                None,
+                snapshot_schema,
+                &mut epochs,
+            )
+        };
+
+        assert!(
+            prepare("beta").is_ok(),
+            "selecting a real character that is not the provider default must \
+             prepare — the whole point of a playable cast is that it has members \
+             other than the first one"
+        );
+        let rejected = prepare("no_such_character")
+            .expect_err("a selection that names nothing must still be fatal");
+        assert_eq!(rejected.section, "provider.defaults");
     }
 
     #[test]

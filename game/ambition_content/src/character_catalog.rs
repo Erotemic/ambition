@@ -43,8 +43,26 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// a renderable sheet. Deliberately hand-picked and small (not "every NPC") so
 /// it reads as an intentional playable roster — narrow + specific over wide +
 /// generic. Extend by adding a catalog id here.
+///
+/// ## The player robot's own lineage is IN the cast (2026-07-29)
+///
+/// `robot`, `npc_player_robot_v2` and `player` are three incarnations of the
+/// same character, and the catalog has always said so — v2's row records that
+/// *"`robot` is v0, the original. There is no v1 -- that is a joke, not a
+/// gap"*, and that Ambition *"wants old versions of yourself to be things you
+/// can meet, talk to, and fight"*.
+///
+/// Two of the three could be met and fought and neither could be WORN, so
+/// "play as the build that shipped before this one" was a content edit rather
+/// than a selection. They are each their own character with their own art and
+/// their own kit — v0 is peaceful, v2 swings the generic striker swipe the
+/// protagonist used to, v3 carries the host-code kit — so putting them in the
+/// cast is not a variant mechanism, it is three characters that happen to
+/// share a face.
 pub const PLAYABLE_ROSTER: &[&str] = &[
-    "player",                     // player robot (protagonist)
+    "player",                     // the player robot, v3 (current)
+    "npc_player_robot_v2",        // v2: the build before the SVG rig
+    "robot",                      // v0: the original
     "goblin",                     // melee striker
     "npc_pirate_admiral",         // pistol + cutlass
     "perfect_cellular_automaton", // the PCA (Fable extension target)

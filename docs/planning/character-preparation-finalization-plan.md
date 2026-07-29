@@ -403,6 +403,23 @@ somebody else's moves.
   `seats()` against `match_participants()` — but it is not gone. The fix remains
   route one: freeze the topology, prepare every fighter, construct the match,
   publish, and start the session afterward.
+  ⚠ **and here is the blast radius, measured rather than assumed.** Grepping every
+  caller of `start_sync_test_session` / `install_rebased_sync_test_session`: the
+  dev **rollback observatory**, the **hot-reload rebase** in `dev_runtime`, two
+  demo rollback-restore tests, the sim harness, and the external-effects tests.
+  **The versus route starts no rollback session** — consistent with the standing
+  decision that netplay waits for Smash. So a player cannot reach this today; a
+  developer with the observatory open on the versus stage can. That is the
+  difference between "the shipped game is broken" and "a dev tool can reach a
+  state the design has not shipped yet", and the row should not be read as the
+  first.
+  → whoever takes this: the reproduction is the observatory over
+  `versus_gameplay`, and the engine already documents the general principle one
+  level down — `warn_if_no_world_to_rewind` says outright that *"a rollback cannot
+  undo `Commands`, so the frames that build the room will mismatch on every
+  resimulation"*. Seating IS construction. The same sentence applies to it, and
+  the warning does not yet cover it because the rollback seam has no business
+  knowing what a match is.
   ⚠ and the Y′9 stamp repair runs in that same `Update`, on that same resource.
   It happens to be safe: it is idempotent and derives its value from the frozen
   topology, so it re-applies harmlessly after a rewind. That is a property worth

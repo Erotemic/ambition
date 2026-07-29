@@ -695,6 +695,56 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     }
 }
 
+/// **And the ADOPTED seat is suspended on that tick too.**
+///
+/// The test above seats two fighters by SPAWNING them, and a body that does not
+/// exist until the command queue flushes cannot act before its suspension lands
+/// — the property holds there almost by construction. Seat 0 is different: it
+/// ADOPTS the primary player, a body that already exists, is already in the
+/// brain's query, and was accepting input on the tick before the match began.
+///
+/// That is the body the "one simulation step first — a held direction carried in
+/// from the menu" sentence was actually about, and it was the one the test did
+/// not cover. Nothing had thought to ask, which is the same gap the abilities
+/// test below was written for on the same body.
+#[test]
+fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+
+    let player = app
+        .world_mut()
+        .spawn((
+            crate::avatar::PlayerSimulationBundle::from_scratch(
+                crate::avatar::primary_player_scratch(
+                    Vec2::new(0.0, 0.0),
+                    ambition_engine_core::AbilitySet::basic(),
+                ),
+                ambition_characters::actor::Health::new(10),
+            ),
+            ambition_characters::actor::WornCharacter::new("duelist"),
+        ))
+        .id();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
+        ],
+        opens_suspended: true,
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    assert!(
+        app.world()
+            .get::<ambition_characters::brain::ScriptedControl>(player)
+            .is_some(),
+        "the adopted body joined the match still answering input, so whatever the \
+         player was holding when the round opened moves the fighter before the \
+         countdown says go"
+    );
+}
+
 /// And a roster that says nothing does not get a suspension it never asked for.
 #[test]
 fn an_ordinary_roster_seats_fighters_that_can_act() {

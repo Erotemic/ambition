@@ -100,7 +100,39 @@ whole campaign has been removing.
 
 ---
 
-## 4. Keep or discard `wip/versus-reserved-surround`? (queue Z′10)
+## 4. What is DI worth on a fighter? (queue F0-J1)
+
+**The state.** `di_adjust` — directional influence, the input that lets a
+launched fighter steer their trajectory — is landed and pure. `di_max_angle` is
+`0.0` everywhere, so DI is off. The combat-model table says outright that turning
+it on is *"a feel number **Jon sets**"*, and suggests ≈0.31 rad / 18°.
+
+**Why it matters now and did not before.** Until the blast zones landed there was
+nothing to be launched INTO, so the number could not change anything. Now a
+launch can end a stock, and DI is the difference between a knock-off that is a
+coin flip and one that is a read.
+
+**What I need:** one number (or "yes, use 18°"). The wiring is done.
+
+---
+
+## 5. Does versus end on HP or on stocks? (queue F0-J2)
+
+**The state.** `DeathPolicy::Unbounded` works and is uncalled. Leaving it uncalled
+means versus has TWO win conditions — drain the HP bars, or throw them out — and
+that is what ships today.
+
+**The choice.** Selecting `Unbounded` makes damage purely a knockback multiplier
+and the blast zone the only way to win, which is the genre this stage is
+modelled on. Keeping both is a defensible place to stand; it is just a different
+game.
+
+This is a decision about what the mode IS, not a defect, which is why nothing
+has been done to it.
+
+---
+
+## 6. Keep or discard `wip/versus-reserved-surround`? (queue Z′10)
 
 **The branch** (`c90cff205`) reserves a top band on the versus stage and draws
 the scoreboard into it, instead of over the arena.

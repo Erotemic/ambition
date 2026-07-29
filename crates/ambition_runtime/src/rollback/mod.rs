@@ -835,6 +835,34 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "actor.identity_kit",
     )
+    // The MEMO that says the identity baseline above is current for this body.
+    //
+    // It looks like a cache and is not safe to treat as one. `apply_worn_character_gameplay`
+    // re-derives a persona when this record disagrees with the body's worn id or
+    // the cast generation — so a rewind that restores an EARLIER `WornCharacter`
+    // while leaving this at the abandoned future's id makes the record say
+    // "already applied" about a kit the body no longer wears. The derive skips,
+    // and the resimulation runs a fighter with somebody else's moves.
+    //
+    // Exactly the `IdentityKit` oversight one entry up, one level further out:
+    // registering a derived value and not the record of what derived it. Found by
+    // `every_component_in_a_boss_arena_is_registered_derived_or_waived` within
+    // minutes of the component existing (2026-07-29).
+    // PROBED over both fields, because a desync here is silent by construction:
+    // the wrong baseline does not corrupt a number, it makes the persona derive
+    // SKIP — and a presence-only probe would see the component and nothing about
+    // which cast it claims. The id is hashed rather than counted so two bodies
+    // that swapped identities during a rewound frame do not read as identical.
+    .rollback_component_clone_probed::<ambition_actors::avatar::PersonaBaseline>(
+        ENGINE,
+        "actor.persona_baseline",
+        |baseline| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            baseline.id.hash(&mut hasher);
+            hasher.finish() ^ baseline.generation.get().rotate_left(32)
+        },
+    )
     .rollback_component_clone::<ambition_characters::brain::BossCapability>(
         ENGINE,
         "boss.capability",

@@ -276,15 +276,37 @@ impl Plugin for RollbackObservatoryPlugin {
 /// [`finish_completed_proof_pulse`] immediately restores the baseline. The
 /// expensive N-frame resimulation is bounded to the proof request instead of
 /// continuing for the rest of gameplay.
-/// How many local handles the rollback session gets, from how many controllers
-/// are connected.
+/// **This gameplay session's frozen seating**, captured once and reused.
 ///
-/// A pure rule so it can be stated: ONE PER DEVICE, never fewer than one. The
-/// floor is not defensive rounding — a keyboard-only desktop has no device rows
-/// and still has a player, and a session with zero local handles would accept
-/// input from nobody.
-fn session_players(devices: usize) -> usize {
-    devices.max(1)
+/// Freezing is what makes the rollback session, the per-seat latches, the
+/// handle→device mapping and the versus roster the SAME answer rather than four
+/// samples of a live resource that usually agree. A controller connecting
+/// between two samples is otherwise enough to seat three fighters into a
+/// two-handle session with nothing saying so.
+///
+/// ⚠ Captured on the FIRST call of a gameplay session and never again while it
+/// lasts. Baseline starts, proof pulses and rebases are all *the same session
+/// restarted*: recapturing for one of them would make the topology stable only
+/// per GGRS sub-session, which is not the lifetime anything else uses. Pressing
+/// F9 after a controller connected would have grown the session while the
+/// already-constructed roster stayed as it was.
+///
+/// Released by `maintain_local_ggrs_session` when gameplay ends.
+fn local_seat_topology(world: &mut World) -> ambition::input::LocalSeatTopology {
+    if let Some(frozen) = world.get_resource::<ambition::input::LocalSeatTopology>() {
+        if frozen.is_frozen() {
+            return frozen.clone();
+        }
+    }
+    let order = world
+        .get_resource::<ambition::input::LocalDeviceOrder>()
+        .map(|devices| devices.devices().to_vec())
+        .unwrap_or_default();
+    let order = ambition::input::LocalDeviceOrder::from_devices(order);
+    let mut topology =
+        world.get_resource_or_insert_with(ambition::input::LocalSeatTopology::default);
+    topology.capture(&order);
+    topology.clone()
 }
 
 fn maintain_local_ggrs_session(world: &mut World) {
@@ -305,6 +327,14 @@ fn maintain_local_ggrs_session(world: &mut World) {
         if owns_session && ggrs_active {
             rollback::stop_session(world);
         }
+        // THE TOPOLOGY BELONGS TO THE GAMEPLAY SESSION, so it ends with it.
+        //
+        // Left standing, it would be the previous match's seating presented to
+        // the next one as a frozen fact — and the versus roster reads any frozen
+        // topology without asking whether a session owns it, so two people who
+        // played, quit, and came back with one controller would still seat two
+        // fighters (GPT 5.6, 2026-07-29).
+        world.remove_resource::<ambition::input::LocalSeatTopology>();
         let mut state = world.resource_mut::<RollbackProofState>();
         state.owns_session = false;
         state.session_mode = None;
@@ -360,18 +390,7 @@ fn maintain_local_ggrs_session(world: &mut World) {
     // session and nothing says so. Deciding it once at session start is what
     // makes them the same answer rather than two answers that usually match
     // (GPT 5.6, 2026-07-28).
-    let local_players = {
-        let order = world
-            .get_resource::<ambition::input::LocalDeviceOrder>()
-            .map(|devices| devices.devices().to_vec())
-            .unwrap_or_default();
-        let order = ambition::input::LocalDeviceOrder::from_devices(order);
-        let mut topology = world.get_resource_or_insert_with(
-            ambition::input::LocalSeatTopology::default,
-        );
-        topology.capture(&order);
-        topology.players()
-    };
+    let local_players = local_seat_topology(world).players();
     let session_settings = SyncTestSettings {
         check_distance: requested_mode.check_distance(settings),
         max_prediction_window: settings.max_prediction_window,
@@ -560,12 +579,24 @@ fn finish_completed_proof_pulse(world: &mut World) {
     if world.contains_resource::<AmbitionGgrsSession>() {
         rollback::stop_session(world);
     }
+    let players = local_seat_topology(world).players();
     match rollback::start_sync_test_session(
         world,
         SyncTestSettings {
             check_distance: OwnedSessionMode::Baseline.check_distance(settings),
             max_prediction_window: settings.max_prediction_window,
-
+            // THE PLAYER COUNT, which `..Default::default()` silently made ONE.
+            //
+            // Completing a proof pulse rebuilt the baseline session from
+            // prediction-window values alone, so a four-player match came back
+            // from F9 with a single GGRS handle while the frozen topology and
+            // the versus roster still described four. Exactly the defect that
+            // was repaired for initial startup and for hot reload, surviving in
+            // the third path that constructs a session (GPT 5.6, 2026-07-29).
+            //
+            // Every reconstruction reads the SAME frozen topology, which is
+            // what makes "the same session, restarted" true rather than hoped.
+            players,
             ..Default::default()
         },
     ) {
@@ -786,10 +817,21 @@ mod tests {
     /// marked closed on the strength of the harness.
     #[test]
     fn the_session_seats_one_handle_per_connected_controller() {
-        assert_eq!(session_players(2), 2, "two pads is a two-player session");
-        assert_eq!(session_players(4), 4, "four pads is a four-player session");
+        // Asked of `LocalSeatTopology`, which is the authority the session, the
+        // roster and the latches all read. This used to ask a private
+        // `session_players` helper in this file — a second copy of the same rule,
+        // and the copy the test watched was not the one the roster used.
+        let pads = |count: usize| {
+            let mut topology = ambition::input::LocalSeatTopology::default();
+            topology.capture(&ambition::input::LocalDeviceOrder::from_devices(
+                (0..count as u32).filter_map(Entity::from_raw_u32).collect(),
+            ));
+            topology.players()
+        };
+        assert_eq!(pads(2), 2, "two pads is a two-player session");
+        assert_eq!(pads(4), 4, "four pads is a four-player session");
         assert_eq!(
-            session_players(0),
+            pads(0),
             1,
             "a keyboard-only desktop has no device rows and still has a player; \
              a session with zero local handles accepts input from nobody"

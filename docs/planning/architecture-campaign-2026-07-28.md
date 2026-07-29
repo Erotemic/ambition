@@ -1,5 +1,35 @@
 # Architecture campaign — GPT-5.6 review, 2026-07-28
 
+> # ⛔ SUPERSEDED STATUS — READ THIS FIRST (2026-07-29)
+>
+> **The "Campaign 1 closeout" below is INVALID.** It reports the character
+> authority work as finished. It is not, and a reader who trusts it will build on
+> a seated-fighter baseline that was broken when the closeout was written.
+>
+> Specifically wrong in the text below:
+>
+> * **"The inventory is 7 of 7"** — it was 4 of 7. The false count is what let
+>   H1 ship: a catalog-playable character with no authored action set worked as
+>   the worn player and got an EMPTY kit when seated as player two.
+> * **X3 — "resolve at preparation, not wear time … would bake the value against
+>   ONE catalog, manufacturing the staleness X4 was added to detect."** This
+>   landed on 2026-07-29 anyway, and the objection was answered rather than
+>   ignored: the fold happens at a `Plugin::finish` BARRIER, after every
+>   provider's `build`, so during initial composition there is exactly one
+>   catalog to bake against and no ordering to get wrong. A later cast change is
+>   an explicit transaction, which is what `CharacterCatalogGeneration` is for.
+>   The objection was right about eager resolution; it was wrong that
+>   *preparation* had to mean *eager*.
+>
+> **The canonical current status is:**
+>
+> * [queue-24h-2026-07-26.md](queue-24h-2026-07-26.md) § H — the open rows
+> * [character-preparation-finalization-plan.md](character-preparation-finalization-plan.md)
+>   — the design, and what of it has landed
+>
+> Everything else in this file is kept for its REASONING, which is still good.
+> None of its status claims are.
+
 **Provenance.** Jon handed this over mid-run on 2026-07-28 with the instruction:
 *save it so it survives compaction; take it on next, after the immediate bugs;
 revise the plan based on your own understanding of the codebase.* The review text
@@ -36,7 +66,8 @@ review could not see from outside.
 > ✔ **SUPERSEDED 2026-07-28, and by X2 rather than by doing it.** No struct was
 > built, so "slice one touches the solver" never applied. `CharacterDefinition`
 > carries `motion_model` and `movement_tuning`, and both resolve
-> definition-first through named one-caller resolvers. The inventory is 7 of 7.
+> definition-first through named one-caller resolvers. ⛔ this said "the
+> inventory is 7 of 7"; it was 4 of 7, and the false count is why H1 shipped.
 > Left below because the REASONING is still the right reasoning for the next
 > campaign that wants to fold a solver-cadence field into an identity.
 
@@ -196,7 +227,10 @@ assume it is greenfield either.
 
 ---
 
-## Campaign 1 closeout — the reassessment the review asks for (2026-07-28)
+## ⛔ Campaign 1 closeout — INVALID, see the banner at the top of this file
+
+*(2026-07-28. Kept because the reasoning about each row is still worth reading;
+every status claim and every metric in this section is wrong.)*
 
 > *"Stop after Campaign 1 and reassess the repository before beginning rollback
 > relocation."*

@@ -416,9 +416,15 @@ pub fn populate_secondary_slot_controls(
 /// manufactures.
 ///
 /// The primary seat has no equivalent hazard because GGRS overwrites
-/// `ControlFrame` from the session's confirmed inputs after it drains; seats 1-3
-/// are not in the session at all (queue Y1), so for them the drain IS the value
-/// and it has to be guarded instead.
+/// `ControlFrame` from the session's confirmed inputs after it drains.
+///
+/// ⚠ this used to add "seats 1-3 are not in the session at all (queue Y1)". That
+/// stopped being true on 2026-07-28, when the visible host started sizing its
+/// GGRS session from the local seat topology and `publish_seat_controls_from_ggrs`
+/// began writing every handle's confirmed input into its seat. The guard below is
+/// still right, and now for a plainer reason: this system runs OUTSIDE the GGRS
+/// schedule, so on a replayed tick it would still consume live device input that
+/// the replay is not supposed to be reading.
 #[cfg(feature = "input")]
 pub fn publish_latched_slot_controls(
     replay: Option<Res<ambition_platformer_primitives::schedule::SimulationReplayState>>,

@@ -166,10 +166,21 @@ pub fn track_local_device_order(
 /// Runs in `PreUpdate` before leafwing resolves actions, so an association made
 /// this frame is honoured by this frame's `ActionState` — a seat that joins is
 /// playable on the tick it joins, not the one after.
+/// ⚠ **The mapping comes from the frozen topology while a session owns one.**
+/// `LocalDeviceOrder` is live, and a session that froze
+/// `handle 0 → keyboard, 1 → pad A, 2 → pad B` and then let a disconnect reorder
+/// the live list would keep its GGRS handle COUNT while quietly changing which
+/// physical device drives each handle. Freezing the count and not the mapping is
+/// freezing the easy half (GPT 5.6, 2026-07-29).
+///
+/// Live discovery still runs — it is what the NEXT session freezes — it just does
+/// not get to redecide this one.
 pub fn assign_local_seat_devices(
     order: Res<LocalDeviceOrder>,
+    topology: Option<Res<LocalSeatTopology>>,
     mut seats: Query<(&InputParticipant, &mut InputMap<SandboxAction>)>,
 ) {
+    let frozen = topology.filter(|topology| topology.is_frozen());
     // Solo: leave leafwing's any-pad behaviour exactly as it was.
     if seats.iter().len() < 2 {
         for (_, mut map) in &mut seats {
@@ -181,7 +192,11 @@ pub fn assign_local_seat_devices(
     }
 
     for (participant, mut map) in &mut seats {
-        let wanted = order.device_for_slot(participant.id.slot());
+        let slot = participant.id.slot();
+        let wanted = match frozen.as_ref() {
+            Some(topology) => topology.device_for_handle(slot as usize),
+            None => order.device_for_slot(slot),
+        };
         // Change detection is not cosmetic here: `InputMap` is a component, and
         // touching it every frame marks it changed for every observer of the
         // input map — including the settings UI, which rebuilds bindings when
@@ -230,6 +245,81 @@ mod tests {
             .get::<InputMap<SandboxAction>>()
             .expect("the seat keeps its input map")
             .gamepad()
+    }
+
+    /// **A frozen session's device mapping does not follow live discovery.**
+    ///
+    /// The topology froze the COUNT and, for a day, nothing else: the GGRS handle
+    /// count stayed put while `assign_local_seat_devices` kept reading the live
+    /// order, so a mid-match disconnect could hand handle 1 a different physical
+    /// controller than the one the session was built around — confirmed input
+    /// from one pad replayed as another's (GPT 5.6, 2026-07-29).
+    ///
+    /// Freezing the count and not the mapping is freezing the half that is easy
+    /// to test.
+    #[test]
+    fn a_frozen_session_keeps_its_device_mapping_when_a_pad_disconnects() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // The session starts and freezes what it found.
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture(app.world().resource::<LocalDeviceOrder>());
+            topology
+        };
+        app.insert_resource(frozen);
+
+        // Pad A drops out mid-match. Live discovery correctly reports one pad.
+        app.world_mut().entity_mut(pad_a).despawn();
+        app.update();
+
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b),
+            "seat two's controller was reassigned by a disconnect it was not \
+             involved in: with live order, pad B slides into slot 0 and seat two \
+             gets nothing"
+        );
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "handle 0 must keep pointing at the controller the session was built \
+             around, even though it is gone: that seat reads nothing, which is \
+             the truth. Promoting pad B into it would silently hand seat one's \
+             confirmed GGRS inputs to seat two's physical controller — the \
+             mapping is frozen precisely so a disconnect cannot do that. (A \
+             despawned entity is never recycled into an equal `Entity`; the \
+             generation moves, so a new pad cannot inherit this binding.)"
+        );
+    }
+
+    /// Without a frozen topology, live discovery is still the answer — that is
+    /// what the next session freezes.
+    #[test]
+    fn an_unfrozen_session_still_follows_live_discovery() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        app.world_mut().entity_mut(pad_a).despawn();
+        app.update();
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_b),
+            "with no session owning the seating, the live order is the authority"
+        );
     }
 
     #[test]
@@ -339,7 +429,9 @@ mod local_seat_topology_tests {
 
     fn order(count: usize) -> LocalDeviceOrder {
         LocalDeviceOrder::from_devices(
-            (0..count).map(|i| Entity::from_raw_u32(i as u32 + 1).unwrap()).collect(),
+            (0..count)
+                .map(|i| Entity::from_raw_u32(i as u32 + 1).unwrap())
+                .collect(),
         )
     }
 
@@ -353,10 +445,7 @@ mod local_seat_topology_tests {
     #[test]
     fn a_frozen_topology_does_not_follow_a_later_connection() {
         let mut topology = LocalSeatTopology::default();
-        assert!(
-            !topology.is_frozen(),
-            "nothing has decided the seating yet"
-        );
+        assert!(!topology.is_frozen(), "nothing has decided the seating yet");
 
         topology.capture(&order(2));
         assert_eq!(topology.players(), 2);

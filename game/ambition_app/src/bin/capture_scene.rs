@@ -591,6 +591,13 @@ fn apply_capture_snapshot(
     }
 }
 
+/// How long a route gets to produce a camera AFTER warmup, before this is called
+/// a failure rather than a slow start.
+///
+/// Generous on purpose: a route that loads assets can legitimately take a while,
+/// and a false failure in a verification tool is as bad as a false success.
+const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
+
 fn request_capture(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
@@ -605,6 +612,33 @@ fn request_capture(
     }
     runtime.frames += 1;
     if runtime.frames < config.warmup_frames.max(1) {
+        return;
+    }
+    // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.** (GPT 5.6, 2026-07-29)
+    //
+    // Warmup is a duration; readiness is a fact. With only the duration, a route
+    // that is slow, broken, or never builds a camera at all let this tool read
+    // back an untouched capture texture, write a blank PNG, and print success —
+    // in a tool whose entire purpose is to stop a verification from silently
+    // photographing the wrong thing.
+    //
+    // Rooms are exempt because their camera comes from the room setup this
+    // binary performs itself; a route's comes from the shell, asynchronously.
+    if config.route.is_some() && runtime.cameras_adopted == 0 {
+        if runtime.frames < config.warmup_frames.max(1) + ROUTE_CAMERA_GRACE_FRAMES {
+            return;
+        }
+        runtime.failed = true;
+        runtime.requested = true;
+        eprintln!(
+            "capture_scene: route '{}' adopted NO camera within {} frames. Nothing would \
+             have been drawn, so no image is written — a blank PNG reported as success is \
+             the failure this check exists for. Check that the route id is real and that \
+             its presentation actually builds a camera.",
+            config.route.as_deref().unwrap_or("<none>"),
+            config.warmup_frames.max(1) + ROUTE_CAMERA_GRACE_FRAMES,
+        );
+        commands.write_message(AppExit::from_code(2));
         return;
     }
     let Some(target) = target else {

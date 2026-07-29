@@ -97,11 +97,18 @@ pub struct SyncTestSettings {
     pub max_prediction_window: usize,
     /// How many players the session carries. (queue Y1)
     ///
-    /// One until 2026-07-28, which was invisible while the game was one-player
-    /// and became a coverage gap the week C4 shipped a 2–4 player couch versus
-    /// mode: the rollback oracle proved determinism for ONE input stream while
-    /// the game seated four. A desync in seat two's input handling had nowhere
-    /// to show up.
+    /// The FIELD arrived on 2026-07-28; the shipped host started setting it the
+    /// same day. Until then it was one — invisible while the game was one-player,
+    /// and a coverage gap the week C4 shipped a 2–4 player couch versus mode: the
+    /// rollback oracle proved determinism for ONE input stream while the game
+    /// seated four. A desync in seat two's input handling had nowhere to show up.
+    ///
+    /// ⚠ **every construction of this struct must set it.** `..Default::default()`
+    /// silently means one player, and the proof-pulse restore path was still doing
+    /// that a day after the other two paths were fixed — a four-player match came
+    /// back from F9 with one handle while the roster still held four fighters
+    /// (GPT 5.6, 2026-07-29). The value comes from the session's frozen
+    /// `LocalSeatTopology`, never from a fresh sample of live devices.
     ///
     /// Every player is `PlayerType::Local` — a sync test has no remote peer by
     /// definition. What it buys is not networking, it is that N input streams go
@@ -230,6 +237,31 @@ fn has_session_world_root(world: &World) -> bool {
         .unwrap_or(false)
 }
 
+/// **Replace the WHOLE input-authority cluster, atomically.**
+///
+/// Primary latch, per-seat latches, pending local input, pending seat inputs.
+/// They describe one rollback timeline between them, so preserving some across a
+/// session replacement and clearing the rest produces a session whose player one
+/// starts clean while players two through four carry the previous timeline's held
+/// levels — a jump or a direction edge captured just before a hot reload or a
+/// proof pulse, leaking into the new baseline (GPT 5.6, 2026-07-29).
+///
+/// `SlotControlLatches` was the one being preserved, which is the half a
+/// single-player test could never notice.
+///
+/// Each is reset only if the composition installed it: inserting one here would
+/// make this function a second authority on which latches exist.
+fn reset_input_authority(world: &mut World) {
+    world.insert_resource(PendingLocalInput::default());
+    world.insert_resource(PendingSeatInputs::default());
+    if world.contains_resource::<ControlFrameLatch>() {
+        world.insert_resource(ControlFrameLatch::default());
+    }
+    if world.contains_resource::<ambition_characters::brain::SlotControlLatches>() {
+        world.insert_resource(ambition_characters::brain::SlotControlLatches::default());
+    }
+}
+
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -243,11 +275,7 @@ pub fn install_rebased_sync_test_session(
     // from being mislabeled with the previous session's frame number.
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
-    world.insert_resource(PendingLocalInput::default());
-    world.insert_resource(PendingSeatInputs::default());
-    if world.contains_resource::<ControlFrameLatch>() {
-        world.insert_resource(ControlFrameLatch::default());
-    }
+    reset_input_authority(world);
 
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount
     // by calling Time::advance_to. Replacing a running session resets the frame
@@ -309,6 +337,12 @@ fn install_session_with_ownership(
 /// The generation counter intentionally survives: the next installation must
 /// receive a different identity even after the boundary itself is removed.
 pub fn stop_session(world: &mut World) {
+    // The input-authority cluster leaves WITH the session it belonged to.
+    //
+    // A latch holds levels and edges captured against the timeline that is being
+    // torn down. Leaving them installed means the next session's frame zero can
+    // begin with a jump nobody pressed in it.
+    reset_input_authority(world);
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionContract>();
     world.remove_resource::<RollbackSessionOwnership>();

@@ -262,6 +262,19 @@ removing one placeholder column.
 That guard makes the extraction safe to do later: if the shared constructor drops
 a column, a test says so instead of a fighter silently losing its persona.
 
+✔ **first extraction landed 2026-07-29: the HOST KIT's moves.**
+`PlayerSimulationBundle::from_scratch` built them inline and the persona derive
+built them again in `build_host_code_moveset` — two places deciding what the
+protagonist swings, agreeing only because a comment said so. Both call the one
+constructor now, pinned by
+`the_spawned_and_the_rewarn_host_kit_are_one_construction`.
+⚠ that test needed THREE attempts before it could fail: comparing move ids missed
+the SFX stamp entirely, comparing the whole contract was vacuous because
+`AbilitySet::basic()` grants no attack, and only granting attack made the probe go
+red. The divergence it now catches is the entire robot-blade cue family.
+▢ remaining: the rest of the shared construction — path-specific baseline
+insertion and per-field retraction.
+
 ### Phase C — generation invalidation (folds in H6)
 
 Stamp bodies with `{ character_id, generation }`. A mismatch in EITHER triggers

@@ -347,6 +347,41 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
                 sustain_effect: None,
                 motion_scale: 1.0,
             },
+            // **THE POKE MUST BE CANCELLABLE INTO THE MELEE FINISH.**
+            //
+            // The fighter brain's own comment states the intent: *"Fire WHILE
+            // closing, not instead of closing: a ranged poke advances toward the
+            // target (throwing the poke on the way in to the melee finish)
+            // rather than camping at range."* This prefab authored NO cancelable
+            // window, so nothing could ever interrupt it — and a move "plays to
+            // completion before another starts". A brain that pokes on the way in
+            // therefore starves its own melee: the press arrives, the trigger is
+            // reached, the gesture is armed, and `cancel_permits` says no.
+            //
+            // Measured on a hostile Perfect Cellular Automaton: it played
+            // `ranged` on every frame it pressed melee, and swung zero times in
+            // 240 frames (queue AB4, 2026-07-29).
+            //
+            // The window covers the SETTLE only, never the draw — a shot still
+            // commits once it is started, so this cannot cancel the fire event
+            // away. `OnWhiff` would be wrong here: the poke's projectile lands
+            // (or not) long after the settle, so its hit state says nothing about
+            // whether closing is the right follow-up.
+            MoveWindow {
+                start_s: windup,
+                end_s: duration,
+                tag: WindowTag::Cancelable {
+                    into: vec![
+                        ATTACK_VERB.to_string(),
+                        SMASH_VERB.to_string(),
+                        "any_attack".to_string(),
+                    ],
+                    condition: ambition_entity_catalog::CancelCondition::Always,
+                },
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
         ],
         events: vec![MoveEvent {
             at_s: windup,

@@ -252,6 +252,16 @@ second opinion — the projection writing kits — is already gone.
 The honest version of this step: extract the shared construction so both paths
 insert the same required columns in one place, rather than delete the columns.
 
+✔ **the GUARD for it landed first** (2026-07-29), because it is the part that
+would have caught H1:
+`a_seated_body_matches_every_column_the_persona_writer_requires` seats a fighter
+and asserts it matches a query with the derive's exact required-column set. It is
+STRUCTURAL on purpose — it does not ask whether the fighter got the right kit, it
+asks whether it is even VISIBLE to the writer that hands kits out. Red-probed by
+removing one placeholder column.
+That guard makes the extraction safe to do later: if the shared constructor drops
+a column, a test says so instead of a fighter silently losing its persona.
+
 ### Phase C — generation invalidation (folds in H6)
 
 Stamp bodies with `{ character_id, generation }`. A mismatch in EITHER triggers

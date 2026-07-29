@@ -1257,3 +1257,50 @@ fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
          a timeline is a capability the body cannot perform"
     );
 }
+
+/// **A seated body carries every column the persona writer requires.**
+///
+/// This is the guard that would have caught H1, and it is deliberately a
+/// STRUCTURAL assertion rather than a behavioural one: it does not ask whether
+/// the fighter got the right kit, it asks whether it is even VISIBLE to the
+/// single writer that hands out kits.
+///
+/// `apply_worn_character_gameplay` takes `Name`, `ActionSet`, `ActorMoveset`,
+/// `IdentityKit`, `BodyAbilities` and `MotionModel` as REQUIRED, non-`Option`
+/// query columns. A body missing any one of them silently stops matching — it
+/// wears a character and derives nothing from it, with no error anywhere. That is
+/// how a seated fighter came to need a second kit writer, and how a plan step came
+/// to say "delete the seating placeholders" (they are these columns).
+///
+/// ⚠ this list is coupled to that system's query. If a column is added there and
+/// not here, this goes red instead of a fighter silently losing its persona.
+#[test]
+fn a_seated_body_matches_every_column_the_persona_writer_requires() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("recruit", "Recruit", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("recruit")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut visible_to_the_derive = world.query_filtered::<Entity, (
+        With<ambition_characters::actor::WornCharacter>,
+        With<Name>,
+        With<ambition_characters::brain::ActionSet>,
+        With<crate::combat::moveset::ActorMoveset>,
+        With<ambition_characters::brain::action_set::IdentityKit>,
+        With<crate::actor::BodyAbilities>,
+        With<crate::features::MotionModel>,
+    )>();
+    assert_eq!(
+        visible_to_the_derive.iter(world).count(),
+        1,
+        "the seated fighter is missing a column `apply_worn_character_gameplay` \
+         requires, so it does not match the ONE writer that turns a worn character \
+         into a persona — it will wear a character and derive nothing from it, \
+         silently"
+    );
+}

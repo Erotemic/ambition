@@ -16,24 +16,41 @@ be the one choosing.
 
 ---
 
-## 1. What do the three doors in the hub say? (queue Z′13)
+## 1. What do the world's transitions say? (queue Z′13, and it is not three doors)
 
 **What you would see.** Standing in the central hub, the door nameplates read
 `military_tower_door`, `hall_of_bosses_door`, `pirate_cove_door`. These survive a
 capture with developer overlays off, so they are not debug text — a nameplate
 renders `zone.name`, and the authored LDtk zones set `name` to the id string.
 
-**Why it is yours.** [[feedback-entity-id-matches-label]] says the fix for
-label/id drift is to rename the IDS to match the label, in one commit across LDtk
-+ code + tests + docs, and to *surface it rather than silently introduce a third
-name*. Picking what three doors say to a player is authoring.
+⚠ **and it is not three.** Counted across every authored world: **130 of 151
+`LoadingZone`s carry an id-shaped name**, and that includes the game's OPENING
+room — a capture of `intro_wake_room` shows `wake_room_arrival` written across
+the player. So this was filed as "pick three strings" and it is not; at 130 it is
+a rule, not a naming session.
 
-**The engine is already ready.** `DoorNameplateSource` carries `id` and `label`
-separately; a real label needs no code change.
+**Three ways to take it, and they are genuinely different products:**
 
-**What I need:** three strings. ("Military Tower", "Hall of Bosses", "Pirate
-Cove" are the obvious readings, but "obvious" is exactly the kind of guess this
-file exists to stop.)
+* **Author them.** 130 display names, once, by hand.
+  [[feedback-entity-id-matches-label]] applies: rename the IDS to match the
+  labels in one commit across LDtk + code + tests + docs.
+* **Derive them.** A transition's label is the DESTINATION's display name — the
+  door to the Hall of Bosses says "Hall of Bosses" because that is what the room
+  is called. One rule, no per-zone authoring, and new content is named for free.
+  *This is my weak recommendation*, because 130 hand-written strings drift and a
+  derived one cannot.
+* **Show nothing** unless a zone explicitly authors a label, and let the door art
+  carry the meaning.
+
+**The engine is already ready** for any of them: `DoorNameplateSource` carries
+`id` and `label` separately, so a real label needs no code change.
+
+⚠ **and one of the 130 looks like a plain bug regardless of the naming
+decision.** `wake_room_arrival` is an ARRIVAL zone — the place you appear, not a
+thing you walk into — and its nameplate draws over the player on the first screen
+of the game. Whatever the labels end up saying, an arrival point probably should
+not be announcing itself. Say the word and I will fix that half without waiting
+for the rest.
 
 ---
 

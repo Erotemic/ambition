@@ -15028,7 +15028,7 @@
 							"px": [576,800],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "Debug Label", "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": "Label", "__tile": null, "defUid": 3016, "realEditorValues": [] },
+								{ "__identifier": "text", "__type": "String", "__value": "[overflow sump \u2014 mind the ripples]", "__tile": null, "defUid": 3016, "realEditorValues": [] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],
 							"__worldX": 4480,

@@ -93,8 +93,8 @@ embed_core_assets! {
 
     // ── Primary character spritesheets ──────────────────────────────
     SPRITE_PLAYER_URL =>
-        "ambition_actors/sprites/player_robot_spritesheet.png"
-        @ "../../../ambition_actors/assets/sprites/player_robot_spritesheet.png",
+        "ambition_actors/sprites/player_robot_v3_spritesheet.png"
+        @ "../../../ambition_actors/assets/sprites/player_robot_v3_spritesheet.png",
     SPRITE_ROBOT_URL =>
         "ambition_actors/sprites/robot_spritesheet.png"
         @ "../../../ambition_actors/assets/sprites/robot_spritesheet.png",

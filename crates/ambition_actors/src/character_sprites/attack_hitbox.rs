@@ -18,14 +18,14 @@ use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
 use std::sync::OnceLock;
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
-/// `player_robot` author `target: "robot"`, so the target-keyed registry
+/// `player_robot_v3` author `target: "robot"`, so the target-keyed registry
 /// can't tell them apart — we key by file root instead.
-const PLAYER_FILE_ROOT: &str = "player_robot";
+const PLAYER_FILE_ROOT: &str = "player_robot_v3";
 /// The player's catalog character id (drives the render-size spec lookup).
 const PLAYER_CHARACTER_ID: &str = "player";
 
 /// Baked sheets keyed by **file root** (not `record.target`), so the
-/// player's `player_robot` stays distinct from the enemy `robot`. Built
+/// player's `player_robot_v3` stays distinct from the enemy `robot`. Built
 /// once, lazily.
 ///
 /// §5 classification (per the old restructuring blueprint, folded into

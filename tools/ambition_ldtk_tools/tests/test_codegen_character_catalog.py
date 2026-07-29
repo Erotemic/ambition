@@ -20,10 +20,10 @@ from ambition_ldtk_tools.codegen_character_catalog import (  # noqa: E402
 )
 
 
-def test_character_id_aliases_player_robot_to_player():
-    """`player_robot` is the dedicated player sheet; the catalog id
-    stays as `player` (not `npc_player_robot`)."""
-    assert character_id_for("player_robot") == "player"
+def test_character_id_aliases_player_robot_v3_to_player():
+    """`player_robot_v3` is the dedicated player sheet; the catalog id
+    stays as `player` (not `npc_player_robot_v3`)."""
+    assert character_id_for("player_robot_v3") == "player"
 
 
 def test_character_id_aliases_absurd_general_to_npc_general():

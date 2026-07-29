@@ -138,7 +138,7 @@ CATEGORY: dict[str, str] = {
     "president_portrait": "stand_still",  # mounted portrait
     # ===== Player variants (catalog covers them so the
     #       coverage gate test holds; runtime uses Brain::Player).
-    "player_robot": "player",
+    "player_robot_v3": "player",
     "player_extended": "player",
     "player_combat_review": "player",
     "player_social_review": "player",
@@ -256,8 +256,8 @@ def character_id_for(target: str) -> str:
     register's existing convention. Bosses keep the trailing
     `_boss` so the id reads naturally.
     """
-    if target in ("player_robot",):
-        # player_robot is the dedicated player sheet; alias it to
+    if target in ("player_robot_v3",):
+        # player_robot_v3 is the dedicated player sheet; alias it to
         # `player`. The renderer keeps the longer name for clarity
         # in its target list.
         return "player"

@@ -539,11 +539,11 @@ impl SheetRegistry {
     /// (the table's first tuple element) instead of `record.target`.
     ///
     /// Several sheets legitimately share one `target` — e.g. `robot` and
-    /// `player_robot` are both authored against the `"robot"` adapter, so
+    /// `player_robot_v3` are both authored against the `"robot"` adapter, so
     /// `record.target == "robot"` for both and they collide in the
     /// target-keyed registry. File roots are unique (one per
     /// `*_spritesheet.ron`), so this keeps them distinct. Use it when you
-    /// need a specific sheet variant (the player's `player_robot`, not the
+    /// need a specific sheet variant (the player's `player_robot_v3`, not the
     /// enemy `robot`). Multi-record files keep only the first record.
     pub fn from_baked_table_by_file_root(table: &[(&str, &str)]) -> Self {
         let mut registry = Self::default();

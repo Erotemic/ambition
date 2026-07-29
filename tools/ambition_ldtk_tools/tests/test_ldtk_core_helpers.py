@@ -123,7 +123,7 @@ def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -
         / "ambition_actors"
         / "assets"
         / "sprites"
-        / "player_robot_spritesheet.png"
+        / "player_robot_v3_spritesheet.png"
     )
     ldtk.parent.mkdir(parents=True)
     sprite.parent.mkdir(parents=True)
@@ -131,7 +131,7 @@ def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -
     sprite.write_bytes(b"png")
 
     rel = rel_to_ldtk(ldtk, sprite)
-    assert rel == "../sprites/player_robot_spritesheet.png"
+    assert rel == "../sprites/player_robot_v3_spritesheet.png"
     assert path_from_ldtk(ldtk, rel) == sprite.resolve()
 
 

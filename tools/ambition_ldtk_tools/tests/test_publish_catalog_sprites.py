@@ -51,8 +51,8 @@ def test_underscore_target_names_round_trip():
     """Multi-word target names keep their underscores; the loop
     strips only the trailing `_spritesheet.png` suffix."""
     assert (
-        renderer_target_for_catalog_entry("sprites/player_robot_spritesheet.png")
-        == "player_robot"
+        renderer_target_for_catalog_entry("sprites/player_robot_v3_spritesheet.png")
+        == "player_robot_v3"
     )
     assert (
         renderer_target_for_catalog_entry(

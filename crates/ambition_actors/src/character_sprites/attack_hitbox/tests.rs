@@ -28,7 +28,7 @@ fn player_box(facing: f32) -> ae::Aabb {
         facing,
         down(),
     )
-    .expect("player_robot/attack_side has an authored manifest hitbox")
+    .expect("player_robot_v3/attack_side has an authored manifest hitbox")
     .bounds()
 }
 

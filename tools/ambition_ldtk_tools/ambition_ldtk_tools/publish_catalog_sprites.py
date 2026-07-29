@@ -75,7 +75,7 @@ def renderer_target_for_catalog_entry(spritesheet_path: str) -> str | None:
 
     Examples:
       "sprites/architect_spritesheet.png"        -> "architect"
-      "sprites/player_robot_spritesheet.png"     -> "player_robot"
+      "sprites/player_robot_v3_spritesheet.png"     -> "player_robot_v3"
       "sprites/gnu_ton_boss/gnu_ton_boss_*.png"  -> "gnu_ton_boss"
     """
     if not spritesheet_path.startswith("sprites/"):

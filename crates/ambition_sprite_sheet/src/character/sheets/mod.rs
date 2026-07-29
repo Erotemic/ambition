@@ -500,7 +500,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 }
 
 /// Player-specific compact robot sheet. Rendered from
-/// `tools/ambition_sprite2d_renderer/configs/player_robot.yaml`
+/// `tools/ambition_sprite2d_renderer/configs/player_robot_v3.yaml`
 /// (`archetype: player_compact`). Shares the same row order as
 /// `ROBOT_SHEET` so animation indexing is identical — only the
 /// per-frame geometry + anchor differ to match the shrunk

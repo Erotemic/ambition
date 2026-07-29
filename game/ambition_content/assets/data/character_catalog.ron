@@ -158,8 +158,8 @@
         "player": (
             sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
             display_name: "Player",
-            spritesheet: "sprites/player_robot_spritesheet.png",
-            manifest: "sprites/player_robot_spritesheet.ron",
+            spritesheet: "sprites/player_robot_v3_spritesheet.png",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,

@@ -58,4 +58,34 @@ fn every_registered_character_resolves_the_art_it_declares() {
         complaints.len(),
         complaints.join("\n"),
     );
+
+    // **EVERY SHIPPED PROVIDER'S STARTING CHARACTER IS ACTUALLY REGISTERED.**
+    //
+    // The check above only inspects characters that ARE in the registry, so a
+    // provider that never registers passes it by being absent. The comment at the
+    // top of this file has named Pocket as covered since it was written, and
+    // Pocket registered nothing at all — it declared a catalog fragment and
+    // stopped. Its runner was `UnknownCharacter` to the art pipeline and drew the
+    // marked placeholder: picking "Pocket" from the launcher showed a blue box
+    // standing on the platform, with this guard green (found by capturing the
+    // route, 2026-07-29).
+    //
+    // A guard that inspects a population cannot notice something missing FROM the
+    // population. This names the population instead.
+    for (provider, character) in [
+        ("Sanic", ambition_demo_sanic::SANIC_CHARACTER_ID),
+        (
+            "Mary-O",
+            ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID,
+        ),
+        ("Pocket", ambition_demo_pocket::POCKET_CHARACTER_ID),
+    ] {
+        assert!(
+            registry.get(character).is_some(),
+            "{provider}'s starting character `{character}` is not in the prepared \
+             registry, so the art pipeline calls it UnknownCharacter and the player \
+             body draws a placeholder rectangle. A catalog fragment declares what a \
+             character IS; `register_character` is what makes it exist"
+        );
+    }
 }

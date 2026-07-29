@@ -28,8 +28,8 @@ const POCKET_CATALOG_RON: &str = r#"(
     characters: {
         "pocket_runner": (
             display_name: "Pocket Runner",
-            spritesheet: "sprites/mary_o_spritesheet.png",
-            manifest: "sprites/mary_o_spritesheet.ron",
+            spritesheet: "sprites/super_mary_o_spritesheet.png",
+            manifest: "sprites/super_mary_o_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -105,6 +105,31 @@ pub fn install_pocket_content(app: &mut App) {
         )
         .expect("Pocket character catalog should be valid"),
     );
+    // **REGISTER THE CHARACTER, not only its catalog row.**
+    //
+    // Pocket was the one provider that never migrated to the registration seam.
+    // A catalog fragment declares what a character IS; `register_character` is
+    // what makes the art pipeline know it exists — `declare_registered_characters`
+    // reads the PREPARED REGISTRY, so a catalog-only character is
+    // `UnknownCharacter` to the materializer and draws the marked placeholder.
+    //
+    // Which is what it did: picking "Pocket" from the launcher showed a plain blue
+    // box standing on the platform. No test failed, because no test looked at the
+    // screen — and the art guard that names Pocket in its own comment inspects the
+    // registry, which Pocket was absent from (found by capturing the route,
+    // 2026-07-29).
+    //
+    // ⚠ the sheet TARGET, not the sheet FILE. `super_mary_o_spritesheet.ron`
+    // declares `target: "super_mary_o"` and the registry is keyed by that. The
+    // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
+    // exist in this repository at all, so even the legacy path had nothing to load.
+    {
+        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        app.register_character(
+            CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
+                .with_sheet("super_mary_o"),
+        );
+    }
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             POCKET_EXPERIENCE,

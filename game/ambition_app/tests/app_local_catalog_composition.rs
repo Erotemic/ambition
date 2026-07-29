@@ -91,12 +91,12 @@ fn three_real_providers_compose_independent_of_registration_order() {
     }
 
     let defaults = forward.world().resource::<CharacterCatalogDefaults>();
-    assert_eq!(defaults.for_provider("ambition"), Some("player"));
+    assert_eq!(defaults.for_provider("ambition"), Some("player_robot_v3"));
     assert_eq!(defaults.for_provider("sanic"), Some("sanic"));
     assert_eq!(defaults.for_provider("mary_o"), Some("mary_o"));
 
     let owners = forward.world().resource::<CharacterCatalogOwners>();
-    assert_eq!(owners.provider_for("player"), Some("ambition"));
+    assert_eq!(owners.provider_for("player_robot_v3"), Some("ambition"));
     assert_eq!(owners.provider_for("sanic"), Some("sanic"));
     assert_eq!(owners.provider_for("mary_o"), Some("mary_o"));
 

@@ -79,27 +79,33 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
             .join("\n"),
     );
 }
-/// The DEFAULT player character wears `player`, and the Hall's player
-/// pedestal IS `player`. So on the one interaction every playthrough is
-/// likeliest to make, the speaker is the listener — and the engine SUPPRESSES
-/// a self-conversation that has no `__self` branch
+/// The DEFAULT player character is the CURRENT incarnation, and the Hall has a
+/// pedestal for it. So on the one interaction every playthrough is likeliest to
+/// make, the speaker is the listener — and the engine SUPPRESSES a
+/// self-conversation that has no `__self` branch
 /// (`ambition_dialog::DialogueNodeIndex::entry_node`).
 ///
 /// Without this node the player's own pedestal would silently become
 /// un-talkable. The mirror scene is content; that it must exist is structure.
+///
+/// ⚠ the CHARACTER id moved to `player_robot_v3` when the incarnations were
+/// versioned; the DIALOGUE id did not. `hall_player` is a conversation key, not
+/// a character, and the pedestal binds the two separately — so the branch this
+/// guards is still named for the conversation.
 #[test]
 fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_player() {
     assert_eq!(
         crate::character_catalog::PLAYABLE_ROSTER[0],
-        "player",
-        "this guard assumes the default worn character",
+        crate::player_robot_lineage::V3.id,
+        "this guard assumes the default worn character is the current incarnation",
     );
     let known = known_dialogue_ids(&catalog());
     assert!(
         known.iter().any(|id| id == "hall_player__self"),
-        "hall.yarn must author `hall_player__self`: the default player wears \
-         `player`, so interacting with the `player` pedestal is self-talk, which \
-         the engine suppresses unless content authored the branch",
+        "hall.yarn must author `hall_player__self`: the default player wears the \
+         current incarnation, and the Hall gives it a pedestal, so talking to it \
+         is self-talk — which the engine suppresses unless content authored the \
+         branch",
     );
 }
 

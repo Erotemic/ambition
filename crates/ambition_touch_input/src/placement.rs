@@ -430,10 +430,24 @@ mod tests {
         );
     }
 
-    /// Controls that were not placed collapse instead of lingering at their
-    /// last rectangle, so a hidden HUD stops being tappable.
+    /// Controls that were not placed LEAVE THE LAYOUT instead of lingering at
+    /// their last rectangle, so a hidden HUD stops being tappable and stops
+    /// being drawn.
+    ///
+    /// ⚠ this asserted `width == 0 && height == 0` and passed for as long as the
+    /// bug existed. Collapsing a node to zero is not hiding it: the node still
+    /// lays out, and every child of these surfaces is `PositionType::Absolute`,
+    /// so the joystick art and its glyphs kept drawing at the collapsed origin —
+    /// the top-left corner of the screen. `mobile_touch` is in the default
+    /// desktop feature set, so every desktop run drew a virtual d-pad over the
+    /// HUD (2026-07-29).
+    ///
+    /// The assertion is on `display` now, which is the property that decides
+    /// whether the subtree renders at all. A test can only catch what it looks
+    /// at, and this one was looking at the size of something whose size was
+    /// never the problem.
     #[test]
-    fn an_unplaced_surface_collapses() {
+    fn an_unplaced_surface_leaves_the_layout() {
         let mut app = app_with(ResolvedGameplayPresentation::default());
         let root = app
             .world_mut()
@@ -442,8 +456,12 @@ mod tests {
         app.update();
 
         let node = app.world().entity(root).get::<Node>().unwrap();
-        assert_eq!(px(node.width), 0.0);
-        assert_eq!(px(node.height), 0.0);
+        assert_eq!(
+            node.display,
+            Display::None,
+            "a collapsed-but-displayed surface still draws its absolutely \
+             positioned children at the screen origin"
+        );
         assert_eq!(
             app.world().resource::<TouchControlPlacement>().menu_row,
             None

@@ -159,11 +159,27 @@ pub fn apply_touch_control_placement(
             TouchSurface::MenuRow => placement.menu_row,
         };
         let Some(rect) = rect else {
-            // Nothing published a footprint for this surface (controls hidden).
-            // Collapse rather than leaving it at a stale rectangle.
-            set_node_rect(&mut node, Vec2::ZERO, Vec2::ZERO);
+            // Nothing published a footprint for this surface: the controls are
+            // HIDDEN, and hiding has to mean hidden.
+            //
+            // ⚠ this collapsed the node to a zero rect and called it hidden. A
+            // zero-size node still LAYS OUT, and every child here is
+            // `PositionType::Absolute` — so the joystick art, the U/D/L/R glyphs
+            // and the action labels all kept drawing, at the collapsed node's
+            // origin, which is the top-left corner of the screen.
+            //
+            // That is what put a virtual d-pad over the versus scoreboard on
+            // every desktop run: `mobile_touch` is in the default feature set, a
+            // keyboard session publishes no touch footprint, and "hidden" drew a
+            // full control cluster in the corner (found 2026-07-29 by capturing
+            // the stage; Jon spotted it in the image).
+            //
+            // `Display::None` removes the subtree from layout entirely, which is
+            // the thing the old comment believed it was doing.
+            node.display = Display::None;
             continue;
         };
+        node.display = Display::Flex;
         set_node_rect(&mut node, rect.min, rect.size());
     }
 
@@ -1813,5 +1829,57 @@ mod prompt_tests {
             "hidden Attack must not emit a press edge"
         );
         assert!(state.jump.held, "an available button still registers");
+    }
+
+    /// **"Hidden" has to mean removed from layout, not resized to nothing.**
+    ///
+    /// When no footprint is published for a surface, this used to collapse the
+    /// node to a zero rect. A zero-size node still lays out, and every child of
+    /// these surfaces is `PositionType::Absolute` — so the joystick art, the
+    /// U/D/L/R glyphs and the action labels all kept drawing, at the collapsed
+    /// node's origin, which is the top-left corner of the screen.
+    ///
+    /// `mobile_touch` is in the default desktop feature set and a keyboard
+    /// session publishes no touch footprint, so every desktop run drew a virtual
+    /// d-pad in the corner — on top of the versus scoreboard, which is where it
+    /// was finally noticed (2026-07-29).
+    #[test]
+    fn an_unplaced_touch_surface_leaves_the_layout_entirely() {
+        let mut app = App::new();
+        app.init_resource::<crate::placement::TouchControlPlacement>();
+        app.add_systems(Update, apply_touch_control_placement);
+        let surface = app
+            .world_mut()
+            .spawn((TouchSurface::Movement, Node::default()))
+            .id();
+
+        // Nothing published a footprint: the default placement has no rects.
+        app.update();
+        assert_eq!(
+            app.world().get::<Node>(surface).unwrap().display,
+            Display::None,
+            "an unplaced surface was merely collapsed, so its absolutely-positioned \
+             children still draw at the screen origin"
+        );
+
+        // And a surface that IS placed comes back.
+        app.world_mut()
+            .resource_mut::<crate::placement::TouchControlPlacement>()
+            .movement = Some(
+            ambition_platformer_primitives::gameplay_presentation::ScreenRect::from_min_size(
+                Vec2::new(40.0, 300.0),
+                Vec2::new(160.0, 160.0),
+            ),
+        );
+        app.update();
+        let node = app.world().get::<Node>(surface).unwrap().clone();
+        assert_eq!(
+            node.display,
+            Display::Flex,
+            "hiding must be reversible: a surface that gains a footprint has to \
+             come back, or the controls vanish for the rest of the session"
+        );
+        assert_eq!(node.left, Val::Px(40.0));
+        assert_eq!(node.top, Val::Px(300.0));
     }
 }

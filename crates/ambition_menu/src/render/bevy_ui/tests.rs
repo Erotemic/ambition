@@ -495,3 +495,39 @@ fn scrollbar_fraction_maps_pointer_into_track() {
     // An unmeasured track (no layout pass yet) yields None.
     assert_eq!(scrollbar_fraction_from_rect(0.0, 0.0, 50.0), None);
 }
+
+/// **A CENTRED line is centred on its container, not anchored at the centre.**
+///
+/// A text node with no width shrinks to its content, so `left: Percent(50)` puts
+/// the node's LEFT EDGE at the middle and the line runs off to the right —
+/// `Justify::Center` then centres the line inside a box exactly as wide as the
+/// line, which does nothing. Every "centred" heading and footer in the shell was
+/// drawn to the RIGHT of where it was asked to be.
+///
+/// On the launcher — the first screen anybody sees — that put the game title on
+/// top of the first menu row and ran the key hint past the panel edge. Found by
+/// capturing the route and looking at it (2026-07-29).
+#[test]
+fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
+    use super::spawn::text_node;
+    use bevy::ui::Val;
+
+    let centred = text_node(50.0, 92.0, MenuTextAlign::Center);
+    assert_eq!(
+        (centred.left, centred.width),
+        (Val::Percent(0.0), Val::Percent(100.0)),
+        "a centred line must SPAN the container so justification has room to \
+         centre it; anchoring at 50% makes `Justify::Center` a no-op"
+    );
+
+    // Right-aligned spans up to its anchor, so the line ENDS there.
+    let right = text_node(90.0, 10.0, MenuTextAlign::Right);
+    assert_eq!(
+        (right.left, right.width),
+        (Val::Percent(0.0), Val::Percent(90.0))
+    );
+
+    // Left is the one case where the anchor genuinely is a left edge.
+    let left = text_node(12.0, 10.0, MenuTextAlign::Left);
+    assert_eq!(left.left, Val::Percent(12.0));
+}

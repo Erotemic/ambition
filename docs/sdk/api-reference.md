@@ -25,6 +25,7 @@ reference that drifts is worse than none, because a reader trusts it.
 | `without_gpu()` | full render graph, no wgpu backend — for CI and display-less boxes |
 | `with_game_assets()` | prepare art on a headless host (a window implies it) |
 | `start_at_launcher()` | boot into a launcher over all mounted experiences, not into the first |
+| `rollback(participants)` | compose for rollback, seating `participants` local players — see [Rollback](#rollback) |
 | `mount(module)` | fold in a `GameModule`; the FIRST mounted owns the host's home |
 | `try_build()` | the `App`, or a `CompositionError` listing every problem at once |
 | `build()` | same, panicking with those problems |
@@ -72,6 +73,94 @@ Useful field types the snippets use without naming: `BodyKinematics::pos` is a
 | `refusal()` | why — `&[String]` |
 | `route()` | the active route, if any — `Option<&str>` |
 
+## Rollback
+
+Rollback is a supported session mode as of slice F. ADR 0031 deferred it until
+it could carry six properties — frozen schema, complete authoritative baseline,
+stable participants, deterministic activation, lifecycle rebasing, confirmation
+boundaries — each of which now has a test in
+`fixtures/external_consumer/tests/rollback_is_a_promise.rs`.
+
+**Two halves, and they are separate on purpose.** `PlatformerApp::rollback(n)`
+composes the host. `ambition::rollback::start(&mut app, plan)` starts the
+session — it cannot happen at build time, because a session rebases frame zero
+onto a world that has to be CONSTRUCTED first.
+
+```rust
+let mut app = PlatformerApp::headless()
+    .rollback(2)
+    .mount(MyGame)
+    .build();
+
+let session = ambition::rollback::start(&mut app, RollbackPlan::new())?;
+assert_eq!(session.participants(), 2);
+```
+
+`start` activates the host, settles past activation, then rebases. Doing those
+in the wrong order produces a checksum mismatch several frames later, where it
+reads like a bug in your game — so the engine performs the sequence rather than
+documenting it.
+
+| `RollbackPlan` | Default |
+|---|---|
+| `new()` | 4 frames of comparison, 10 of prediction, 600-tick activation budget, 8 settle ticks |
+| `check_distance(frames)` | how far back the session re-simulates and compares |
+| `prediction_window(frames)` | how far ahead it may predict before stalling |
+| `activation_budget(ticks)` | how long `start` waits for the host to run |
+| `settle_ticks(ticks)` | quiet ticks after activation — ⚠ raise it, never lower it to zero |
+
+⚠ **The participant count is not on the plan.** It is declared once, at
+composition, so a restart reuses it instead of re-sampling. Every path that
+guessed this number guessed one, and the engine ran a rollback oracle over a
+single input stream for the week its versus mode seated four.
+
+| `RollbackSession` | |
+|---|---|
+| `participants()` | how many the session seated |
+| `encoded_types()` | how many kinds of authoritative state it carries — assert on this; a session over nothing passes |
+| `ticks_to_activation()` | how long the host took to start |
+
+`RollbackRefused` names the fix, not just the fault: `NotComposedForRollback`,
+`NeverActivated`, `NoAuthoritativeState`, `SessionRejected`.
+
+**Your own state joins the wire format** by implementing
+`ambition::rollback::SnapshotState` and registering it:
+
+```rust
+use ambition::rollback::AmbitionRollbackApp;
+app.rollback_component_canonical::<BeaconCharge>("mygame", "mygame.beacon");
+```
+
+No engine file lists your type, and nothing in `ambition` has heard of it. The
+registration is what puts it in the baseline — without it, your state silently
+does not roll back.
+
+⚠ **Registering a component is not enough if YOU spawned the entity.** A
+component only rolls back on an entity the session tracks, and the engine
+tracks its own entities (the player body, projectiles, encounter authorities,
+the room root) — not one your game created. Registration on an untracked entity
+is *accepted*, counted in `encoded_types()`, and does nothing.
+
+Declare the entity family too, once, with the component that identifies it:
+
+```rust
+app.require_rollback::<MyBeacon>("mygame", "entity:my_beacon");
+```
+
+Now any entity carrying `MyBeacon` is a rollback participant, and the
+components registered on it roll back.
+
+This is the one failure in this page with no error message behind it. Blind run
+7 hit it, applied the remedy this section already gave, watched the count go
+from 331 to 332, and still saw the component not roll back — and concluded a
+third-party game could only roll back resources. It can do more; it needed one
+more line, and the line was in rustdoc rather than here.
+
+**Attaching to an engine entity works without this.** If your component rides
+on the `PrimaryPlayer` body, that entity is already tracked. That is why the
+engine's own external fixture never hit the gap — a difference between two
+correct-looking programs that nothing in the API surfaces.
+
 ## Constants
 
 | Name | For |
@@ -89,6 +178,7 @@ Useful field types the snippets use without naming: `BodyKinematics::pos` is a
 | `ambition::sim` | `ControlFrame`, `drive_control_frame`, `WorldTime`, schedule sets |
 | `ambition::character` | catalogs, action sets, sheets, brains |
 | `ambition::view` | `GameAssets`, `SandboxAssetCatalog`, `RoomVisual` |
+| `ambition::rollback` | the rollback session mode, the snapshot vocabulary, and the registration verbs |
 | `ambition::bevy` | Bevy itself, re-exported |
 
 Anything else under `ambition::` is an implementation crate this facade mirrors,

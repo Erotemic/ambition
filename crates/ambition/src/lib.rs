@@ -69,6 +69,15 @@ pub mod actor {
     /// Who the body is.
     pub use ambition_platformer_primitives::markers::PrimaryPlayer;
 
+    /// How a body came to exist — ADR 0030's construction provenance.
+    ///
+    /// ⚠ A consumer used to reach this through `ambition::runtime::demo_fixture`,
+    /// which is a mirror of an implementation crate wearing a name that says
+    /// the opposite of "supported". A module called `demo_fixture` in a shipped
+    /// game's imports was the namespace confessing; construction is an ACTOR
+    /// concept and this is where a consumer looks for it (LEAK CLOSED, slice F).
+    pub use ambition_actors::construction::ActorConstructionRegistry;
+
     /// Where the body is, and how it moves.
     pub use ambition_engine_core::movement::{transit_body, TransitVelocity};
     pub use ambition_engine_core::BodyClusterQueryData;
@@ -109,12 +118,12 @@ pub mod actor {
 ///
 /// Closed list.
 pub mod character {
+    /// Registering a roster archetype (the enemy half of a cast).
+    pub use ambition_actors::features::CharacterRosterAppExt;
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
         parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
     };
-    /// Registering a roster archetype (the enemy half of a cast).
-    pub use ambition_actors::features::CharacterRosterAppExt;
 
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
@@ -178,6 +187,12 @@ pub mod view {
     /// presentation reads.
     pub use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 }
+
+/// **Rollback, as a supported session mode.**
+///
+/// The six properties ADR 0031 required before this could be a promise, and a
+/// test for each — see the module docs.
+pub mod rollback;
 
 /// **The authored world: rooms, geometry, placements, collision.**
 ///

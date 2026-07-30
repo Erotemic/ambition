@@ -33,7 +33,7 @@ fn main() {
     let mut missing: Vec<&str> = Vec::new();
 
     println!("== rollback registration schema ==");
-    match world.get_resource::<ambition::runtime::rollback::RollbackRegistry>() {
+    match world.get_resource::<ambition::rollback::RollbackRegistry>() {
         Some(registry) => {
             println!("{}", registry.deterministic_dump());
             println!("schema fingerprint: {:?}", registry.schema_fingerprint());
@@ -42,7 +42,7 @@ fn main() {
     }
 
     println!("== construction registry ==");
-    match world.get_resource::<ambition::runtime::demo_fixture::ActorConstructionRegistry>() {
+    match world.get_resource::<ambition::actor::ActorConstructionRegistry>() {
         Some(registry) => println!("{}", registry.deterministic_dump()),
         None => missing.push("ActorConstructionRegistry"),
     }

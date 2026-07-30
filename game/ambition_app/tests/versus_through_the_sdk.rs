@@ -1,15 +1,18 @@
-//! **Consumer-matrix row 5, the four fifths that do not need rollback.**
+//! **Consumer-matrix row 5: Smash.**
 //!
 //! Smash proves "participants, character selection, atomic match lifecycle,
-//! scoped rules, rollback". Rollback as a public knob is deferred by ADR 0031
-//! to its own slice, so the row cannot close — but four of its five properties
-//! are testable now, and testing them is how the row's remaining blocker stays
-//! honestly ONE thing rather than a vague five.
+//! scoped rules, rollback".
 //!
-//! ⚠ This is a PARTIAL proof and the matrix records it as such. The campaign
-//! has caught itself three times claiming a row on a test that quietly dropped
-//! part of it; naming the missing fifth is cheaper than discovering later that
-//! "Smash proven" meant "Smash minus the hard part".
+//! ⚠ This file was a PARTIAL proof for one day and the matrix recorded it as
+//! such — four fifths, with rollback named as the single missing property
+//! because ADR 0031 deferred it to its own slice. Slice F landed that slice, so
+//! `the_versus_stage_rolls_back_with_two_participants` closes the fifth and the
+//! row.
+//!
+//! Keeping the partial honest is what made this cheap. The campaign has caught
+//! itself three times claiming a row on a test that quietly dropped part of it;
+//! naming the missing fifth meant closing it was one test rather than a
+//! re-audit of what "Smash proven" had been taken to mean.
 
 use ambition::app::prelude::*;
 
@@ -85,3 +88,64 @@ fn the_versus_stage_composes_and_seats_two_participants() {
         "the versus route is not registered; got {routes:?}"
     );
 }
+
+/// **The fifth property: rollback, with TWO participants.**
+///
+/// ⚠ Two is the number that matters, and one would have been the easy version
+/// of this test. The defect this engine actually shipped was a rollback oracle
+/// proving determinism for ONE input stream during the week a 2–4 player couch
+/// versus mode seated four — every check green, and a desync in seat two with
+/// nowhere to appear. A single-participant Smash proof would reproduce exactly
+/// that blind spot in the test that exists to rule it out.
+///
+/// Participants are declared at COMPOSITION, so the count the session seats and
+/// the count the stage was built for are the same fact rather than two facts
+/// that usually agree.
+#[test]
+fn the_versus_stage_rolls_back_with_two_participants() {
+    use ambition::rollback::{RollbackPlan, RollbackRegistry};
+
+    let mut app = PlatformerApp::headless()
+        .rollback(2)
+        .mount(VersusModule)
+        .try_build()
+        .expect("the versus stage must compose for rollback through the public API");
+
+    let session = ambition::rollback::start(&mut app, RollbackPlan::new())
+        .expect("the versus stage must reach a running rollback session");
+
+    assert_eq!(
+        session.participants(),
+        2,
+        "the session seated {} participant(s) for a two-fighter stage — the \
+         exact shape of the bug this test exists to rule out",
+        session.participants()
+    );
+
+    // ATOMIC MATCH LIFECYCLE, under rollback: the match survives resimulation.
+    // A session that started and then stopped being live would pass everything
+    // above, because starting is the part that is easy.
+    for _ in 0..120 {
+        app.update();
+    }
+    assert!(
+        host_status(&app).is_running(),
+        "the versus match did not survive 120 rollback frames: {:?}",
+        host_status(&app)
+    );
+
+    // Non-vacuity: a session over an empty schema saves, rewinds and compares
+    // nothing, and passes.
+    let registered = app
+        .world()
+        .resource::<RollbackRegistry>()
+        .descriptors()
+        .count();
+    assert!(
+        registered > 1,
+        "the versus session carries {registered} rollback registration(s), so \
+         the 120 frames above proved nothing"
+    );
+}
+
+

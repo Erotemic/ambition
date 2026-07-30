@@ -575,11 +575,7 @@ impl ModuleDraft {
     /// several, "which one did that route attach to" has a wrong answer, and a
     /// route silently attached to nothing is precisely the empty host this
     /// campaign spent slice C making impossible.
-    fn on_current(
-        &mut self,
-        what: &str,
-        edit: impl FnOnce(&mut ExperienceDraft),
-    ) -> &mut Self {
+    fn on_current(&mut self, what: &str, edit: impl FnOnce(&mut ExperienceDraft)) -> &mut Self {
         let owner = self.defining.clone();
         match self.current.and_then(|i| self.experiences.get_mut(i)) {
             Some(experience) => edit(experience),
@@ -701,7 +697,7 @@ pub struct PlatformerApp {
     ///
     /// So: one composition authority, one publicly supported mode, and an
     /// escape hatch that is impossible to reach by accident.
-    rollback_unstable: bool,
+    rollback_participants: Option<usize>,
     game_assets: bool,
     start_at: StartAt,
     manifests: Vec<ModuleManifest>,
@@ -791,7 +787,7 @@ impl PlatformerApp {
         let Self {
             face,
             session: SessionMode::FixedStep,
-            rollback_unstable,
+            rollback_participants,
             game_assets,
             start_at,
             manifests,
@@ -902,8 +898,7 @@ impl PlatformerApp {
                 .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>();
             if let Some(roster) = roster {
                 if roster.get(definition.starting_character.as_str()).is_none() {
-                    let known: Vec<&str> =
-                        roster.iter().map(|(id, _)| id.as_str()).collect();
+                    let known: Vec<&str> = roster.iter().map(|(id, _)| id.as_str()).collect();
                     let known = if known.is_empty() {
                         "none — the declared roster is empty".to_string()
                     } else {
@@ -922,8 +917,11 @@ impl PlatformerApp {
         }
 
         // ── Rule 5 ── engine, then host, then shell.
-        if rollback_unstable {
+        if let Some(participants) = rollback_participants {
             app.add_plugins(crate::engine::PlatformerEnginePlugins::rollback());
+            // The declaration travels with the composition, so a restart reads
+            // the count the game stated rather than re-sampling live devices.
+            app.insert_resource(crate::rollback::DeclaredParticipants(participants));
         } else {
             app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
         }
@@ -967,7 +965,10 @@ impl PlatformerApp {
             primary_launcher.clone(),
             primary_gameplay,
         )
-        .install(app, DeclaredCapabilities(std::sync::Mutex::new(capabilities)));
+        .install(
+            app,
+            DeclaredCapabilities(std::sync::Mutex::new(capabilities)),
+        );
 
         // ── The start policy ──
         //
@@ -1019,13 +1020,12 @@ impl PlatformerApp {
                         )
                     })
                     .chain(
-                        (!available.iter().any(|known| known == &primary_launcher))
-                            .then(|| {
-                                format!(
-                                    "the launcher route `{primary_launcher}` is not \
+                        (!available.iter().any(|known| known == &primary_launcher)).then(|| {
+                            format!(
+                                "the launcher route `{primary_launcher}` is not \
                                      registered by any mounted capability"
-                                )
-                            }),
+                            )
+                        }),
                     )
                     .collect();
                 if !missing.is_empty() {
@@ -1105,7 +1105,7 @@ impl PlatformerApp {
             // 180. LEAK, found 2026-07-30 by migrating the fixture onto this
             // builder; the rule existed only in a comment on the code being
             // deleted.
-            let frame_dt = if rollback_unstable {
+            let frame_dt = if rollback_participants.is_some() {
                 std::time::Duration::from_nanos(
                     1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64,
                 )
@@ -1150,22 +1150,26 @@ impl PlatformerApp {
         self
     }
 
-    /// Compose the same game under a GGRS rollback host instead of the fixed
-    /// tick.
+    /// **Compose this host for rollback**, seating `participants` local
+    /// players.
     ///
-    /// ⚠ **Not public API.** [`SessionMode`] exposes fixed-step only and that is
-    /// the promise; this exists so the engine's own rollback fixtures compose
-    /// through the SAME builder as everything else rather than keeping a second
-    /// hand-ordered path alive beside it.
+    /// ADR 0031 deferred rollback-as-a-public-knob deliberately: it is "a far
+    /// larger promise than a clock — frozen schema, complete authoritative
+    /// baseline, stable participants, deterministic activation, lifecycle
+    /// rebasing, confirmation boundaries. Its own slice, its own acceptance
+    /// tests." Slice F is that slice; see [`crate::rollback`] for how each of
+    /// the six is kept.
     ///
-    /// Making it a supported knob is its own slice with its own acceptance
-    /// tests, because it is a far larger promise than a clock: frozen schema,
-    /// complete authoritative baseline, stable participants, deterministic
-    /// activation, lifecycle rebasing, confirmation boundaries. See the
-    /// campaign's Deferred section.
-    #[doc(hidden)]
-    pub fn unstable_rollback_session(mut self) -> Self {
-        self.rollback_unstable = true;
+    /// This is the COMPOSITION half only. It selects the GGRS host and freezes
+    /// the participant count; it does not start a session, because a session
+    /// rebases frame zero onto a world that has to be CONSTRUCTED first. Call
+    /// [`crate::rollback::start`] on the built app.
+    ///
+    /// ⚠ `participants` is asked for rather than defaulted. Every path that
+    /// guessed it guessed ONE, and the engine ran a rollback oracle over a
+    /// single input stream for the week its couch versus mode seated four.
+    pub fn rollback(mut self, participants: usize) -> Self {
+        self.rollback_participants = Some(participants);
         self
     }
 
@@ -1173,7 +1177,7 @@ impl PlatformerApp {
         Self {
             face,
             session: SessionMode::FixedStep,
-            rollback_unstable: false,
+            rollback_participants: None,
             game_assets: false,
             start_at: StartAt::PrimaryGameplay,
             manifests: Vec::new(),
@@ -1200,12 +1204,8 @@ fn register_declared_cast(
         Some(CharacterContent::DeclaredEmpty) => EMPTY_CHARACTER_ROSTER_RON,
         None => return Ok(()),
     };
-    let fragment = CharacterCatalogFragment::from_ron(
-        experience.id.clone(),
-        None::<String>,
-        ron,
-    )
-    .map_err(|error| CompositionError {
+    let fragment = CharacterCatalogFragment::from_ron(experience.id.clone(), None::<String>, ron)
+        .map_err(|error| CompositionError {
         problems: vec![format!(
             "the character roster declared by `{}` did not parse: {error}",
             experience.id
@@ -1264,10 +1264,7 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
             label.clone(),
             description.clone(),
             format!("Prepare {id}"),
-            crate::provider::AuthoredCatalogFragments::new(
-                starting_character.clone(),
-                id.clone(),
-            ),
+            crate::provider::AuthoredCatalogFragments::new(starting_character.clone(), id.clone()),
         )
         .install(app, move || prepared.clone());
     }))

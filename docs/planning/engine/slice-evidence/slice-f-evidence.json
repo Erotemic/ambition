@@ -1,0 +1,128 @@
+{
+  "_comment": [
+    "api-growth-method.md §2's five evidence sources, collected at the end of",
+    "slice F. AUTHORED from measurements taken with the repo's own instruments;",
+    "every number below is reproducible by the command named beside it.",
+    "",
+    "⚠ Slice F is the terminal slice: all three §4 conditions hold after it. §6",
+    "convergence and §4 are recorded here, and §3's derivation of a slice G is",
+    "deliberately NOT performed — see `after_the_terminal_condition`."
+  ],
+  "slice": "F",
+  "name": "rollback as a public promise",
+  "collected_on": "2026-07-30",
+  "2a_contract_diff": {
+    "instrument": "python3 scripts/check_absence_contracts.py --allowlist-open-count",
+    "outlander_forbidden_modules": {
+      "before": 1,
+      "after": 0
+    },
+    "minimal_game_forbidden_modules": {
+      "before": 0,
+      "after": 0
+    },
+    "what_closed": [
+      "`ambition::runtime` — all of it rollback. 10 uses across src/ and bin/: SnapshotState, Reader, put_f32, put_u32, RollbackRegistry, AmbitionRollbackApp, SyncTestSettings, start_sync_test_session.",
+      "`ambition::runtime::demo_fixture::ActorConstructionRegistry` — the last non-rollback use, and a separate leak wearing the loudest possible name. A module called `demo_fixture` in a shipped game's imports was the namespace mirror confessing. Re-published as `ambition::actor::ActorConstructionRegistry`: construction provenance is an ACTOR concept (ADR 0030), and that is where a consumer looks for it."
+    ],
+    "what_was_ADDED_to_the_allowed_set": {
+      "module": "rollback",
+      "⚠": "This is a compatibility COMMITMENT, and the instrument cannot tell it apart from making the ratchet green. The review is the gate. It is justified only because slice F built the six properties ADR 0031 named and gave each one a test — not because the ratchet was at 1."
+    }
+  },
+  "2b_fixture_leak_log": {
+    "instrument": "the diff, and `git show HEAD~1` for the before",
+    "outlander_rollback_startup_lines": {
+      "before": 49,
+      "after": 27
+    },
+    "what_the_22_lines_were": "Ordering, and every line of it was a hazard the engine had already hit: activate before the session exists, because preparation and the session-world commit build the room and the body through `Commands` and a rollback cannot undo construction; then settle, because activation completing is not the same fact as the next tick being quiet. The first draft skipped both, started the session on update #1, and watched GGRS report a checksum mismatch on frames 2, 3 and 4 forever.",
+    "why_this_is_the_measurement_that_matters": "The line count is a proxy. What the deletion proves is that the ordering is the ENGINE's to get right: a consumer who has never read that comment now gets the same startup. A third party could not have derived those two steps from anything published — they were learned by desyncing.",
+    "still_open": [
+      "`SyncTestSettings` is no longer named by Outlander at all; `RollbackPlan` covers the two fields it actually set. The remaining fields (`players`) moved to composition, which is the point.",
+      "Prose in three fixture comments still SAYS `ambition::runtime::rollback` while describing history. Left deliberately: the SDK guards check CODE BLOCKS, and rewriting accurate history to satisfy a grep is how `api-prototype.md` §5 came to deny that a real module existed."
+    ]
+  },
+  "2c_blind_agent_run": {
+    "latest": "run 6 — zero engine files opened, 23 tool calls, first compile clean",
+    "status_after_slice_F": "NOT re-run. §4.2 was satisfied by run 6 and slice F adds public surface, so the honest position is that the condition holds for the surface run 6 saw and the rollback surface is UNTESTED by a blind author.",
+    "⚠": "This is recorded as a gap rather than assumed closed. A blind run over `ambition::rollback` is the first thing a slice G would do — see `after_the_terminal_condition`."
+  },
+  "2d_deletion_criteria": {
+    "deleted_in_this_slice": [
+      "`PlatformerApp::unstable_rollback_session` — the `#[doc(hidden)]` knob that existed so the engine's own rollback fixture could compose through the same builder as everything else. Replaced by `rollback(participants)`, which asks the question the hidden version could not.",
+      "`INTENTIONALLY_UNDOCUMENTED` in `test_sdk_api_reference_is_current.py` — its single entry was `unstable_rollback_session`. A waiver outliving its subject is precisely the stale entry the sibling ratchets forbid, so it went to an empty set rather than being left as a convenient home for the next awkward method.",
+      "`ambition_runtime/src/rollback/motion_codec.rs` — moved whole to the floor.",
+      "2348 lines of `codecs.rs` (2688 → 340), which were never a design decision: the orphan rule forced them into one file."
+    ],
+    "became_deletable_and_was_NOT_deleted": [
+      {
+        "thing": "`CanonicalCodecStrategy` staying in `ambition_runtime`",
+        "verdict": "NOT deletable, and the reason is a constraint rather than a preference. It implements `bevy_ggrs::Strategy`. Pulling `bevy_ggrs` into `ambition_engine_core` would put the patched fork underneath every domain crate — and the floor's entire value is that a domain can reach it, which is true because it is small (zero workspace deps, `bevy_ecs` + `bevy_math` rather than the `bevy` umbrella)."
+      },
+      {
+        "thing": "`RollbackRefused::NoAuthoritativeState`",
+        "verdict": "KEPT, limits stated at the variant and in the test. It catches a broken COMPOSITION, not a consumer typo — the engine registers its own state, so a real rollback host is never empty. The consumer-facing half of the property is tested positively instead (`the_baseline_includes_state_the_engine_never_heard_of`)."
+      }
+    ],
+    "written_and_deleted_before_shipping": {
+      "thing": "`RollbackRefused::ParticipantsDisagree`",
+      "what_it_did": "Compared the declared participant count against `LocalSeatTopology` and refused when they differed.",
+      "why_it_looked_right": "The shipped host reads the seat topology; a consumer declaring 'I am single-player' states something the engine cannot verify for it. Two sources that usually agree is the shape the observatory's own comments warn about.",
+      "why_it_went": "It could never fire. A probe on a host composed through `PlatformerApp::rollback` found `LocalSeatTopology` ABSENT — the resource is inserted by the dev observatory's session path, not by the builder. So the check had no population on the public path.",
+      "⚠": "Found by probing rather than by reading, and only because the variant shipped untested and that was noticed. An unreachable refusal reads as protection; this campaign's own header calls that an instrument that measures nothing and reports the success condition. The property it claimed to defend is enforced structurally instead — the count is not passable per session, so there is no second value to disagree with.",
+      "cost_of_the_lesson": "One variant, ~30 lines, deleted the same day. The cost had it shipped is a future reader trusting a guard that cannot fire."
+    }
+  },
+  "2e_capability_footprint": {
+    "instrument": "python3 scripts/check_absence_contracts.py (capability-footprint-may-not-grow)",
+    "ambition_closure": 41,
+    "unwanted_by_a_movement_only_game": 19,
+    "change_from_slice_F": 0,
+    "note": "Unchanged, as expected: slice F moved code between crates and added a facade module, neither of which alters what depending on `ambition` links. The floor gained one inbound edge (`ambition_time` → `ambition_engine_core`) and that crate was already in the closure.",
+    "⚠": "This counter has not moved across the whole campaign, and it is the one §4 decomposition trigger that never fired. Recorded plainly rather than framed as stable: 19 crates a movement-only game never asked for is a real cost, it is measured, and no consumer has yet been unable to do something because of it."
+  },
+  "§4_terminal_conditions": {
+    "4.1_ratchet_at_zero": {
+      "holds": true,
+      "evidence": "Outlander 0 of 18, minimal_game 0 of 0"
+    },
+    "4.2_blind_run_opens_no_engine_file": {
+      "holds": true,
+      "evidence": "run 6: zero engine files, 23 tool calls, first compile clean",
+      "caveat": "predates the rollback surface — see 2c"
+    },
+    "4.3_every_matrix_category_proven": {
+      "holds": true,
+      "evidence": "6 of 6 in consumer-matrix.json, each naming a test"
+    }
+  },
+  "§6_convergence": {
+    "note": "§6: every slice must strictly reduce at least one of five counters. Slice F reduced two and is the only slice that could reduce the first to zero.",
+    "forbidden_paths_named_by_a_consumer": "Outlander 1 → 0; minimal_game 0 → 0",
+    "open_fixture_findings": "blind run 6 named none; the rollback surface is unexamined by a blind author (recorded, not closed)",
+    "engine_files_a_blind_author_must_open": "0, unchanged",
+    "undeleted_compensating_mechanisms": "6 → 4 (`unstable_rollback_session` and the SDK waiver that concealed it)",
+    "unwanted_linked_capabilities": "19 → 19, unchanged"
+  },
+  "after_the_terminal_condition": {
+    "⚠": "§4 holding is not the same fact as the API being finished, and the campaign's own instruction is that a slice looking done means the next one needs deriving. What §4 says is that the three things the campaign chose to measure are satisfied — it does not say the measurements were sufficient.",
+    "known_gaps_that_a_slice_G_would_rank": [
+      {
+        "gap": "no blind run has seen `ambition::rollback`",
+        "cost": "The newest public surface is the one most likely to send an author into `crates/`, and it is the only surface never put to the test §4.2 exists for. Cheapest of the three and the most likely to find something.",
+        "route": "§3b: closeable + owned → the strongest slice-G candidate."
+      },
+      {
+        "gap": "19 unwanted linked crates, unchanged across six slices",
+        "cost": "The one §4 decomposition trigger that never fired. Still unfelt by any consumer, which is why it never won a ranking — and 'never felt' is itself six slices of evidence now, not an absence of data.",
+        "route": "§3b: closeable + owned, and it is the last big structural question the campaign identified and did not answer."
+      },
+      {
+        "gap": "the consumer matrix is proven by consumers I wrote",
+        "cost": "Every row is an in-tree fixture or an in-tree game. Outlander is external in dependency shape and internal in authorship. The matrix's own argument — an API proven against one consumer is shaped like that consumer — applies to authorship as well as count, and nothing in §4 measures it.",
+        "route": "Not closeable by a slice. Recorded because it is the strongest reservation about the terminal condition and the campaign should not be read as having ruled it out."
+      }
+    ]
+  }
+}

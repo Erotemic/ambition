@@ -329,13 +329,13 @@ impl BeaconCharge {
 // The snapshot codec, written by the consumer for the consumer's own type. The
 // engine cannot supply this: it has never seen `BeaconCharge`. `put_f32`
 // canonicalizes NaN so two peers that computed the same value byte-agree.
-impl ambition::runtime::rollback::SnapshotState for BeaconCharge {
+impl ambition::rollback::SnapshotState for BeaconCharge {
     fn encode(&self, out: &mut Vec<u8>) {
-        ambition::runtime::rollback::put_f32(out, self.seconds);
-        ambition::runtime::rollback::put_u32(out, self.ticks);
+        ambition::rollback::put_f32(out, self.seconds);
+        ambition::rollback::put_u32(out, self.ticks);
     }
 
-    fn decode(reader: &mut ambition::runtime::rollback::Reader<'_>) -> Option<Self> {
+    fn decode(reader: &mut ambition::rollback::Reader<'_>) -> Option<Self> {
         Some(Self {
             seconds: reader.f32()?,
             ticks: reader.u32()?,
@@ -461,7 +461,7 @@ impl Plugin for OutlanderExperiencePlugin {
         // by design (the registration vocabulary gates installation on host
         // kind), so this one line is correct for BOTH Outlander hosts.
         {
-            use ambition::runtime::rollback::AmbitionRollbackApp;
+            use ambition::rollback::AmbitionRollbackApp;
             app.rollback_component_canonical::<BeaconCharge>(
                 "outlander::beacon",
                 "outlander.beacon_charge",
@@ -576,52 +576,30 @@ pub fn build_outlander_app() -> App {
 ///
 /// `ambition::app` states the rule now, for both faces.
 pub fn build_outlander_rollback_app() -> Result<App, String> {
-    // `unstable_rollback_session` is deliberately not public API — rollback is
-    // not a knob slice A promises. It exists so this composition goes through
-    // the SAME builder as the other two instead of keeping a second
-    // hand-ordered path alive, which is what would actually end the slice with
-    // two paths.
+    // Rollback is a supported session mode as of slice F, and Outlander says
+    // how many people are playing — one. The count is declared HERE, at
+    // composition, so a restart reuses it instead of re-sampling live devices.
     let mut app = ambition::app::PlatformerApp::headless()
-        .unstable_rollback_session()
+        .rollback(1)
         .mount(OutlanderModule)
         .build();
 
-    // Boot and ACTIVATE before the session exists. This ordering is the whole
-    // lesson of the first draft, which started the session on update #1 and then
-    // watched GGRS report a checksum mismatch on frames 2, 3 and 4 forever: the
-    // shell's preparation and the session-world commit build the room and the
-    // body through `Commands`, and a rollback cannot undo construction. Rewinding
-    // across it is a guaranteed divergence, and the sync test says so immediately
-    // — correctly. `start_sync_test_session` rebases onto the CURRENT live world
-    // as frame zero, so the fix is to let construction finish first.
-    activate_outlander(&mut app)?;
-    // A few settled frames past activation, for the same reason: activation
-    // completing is not the same fact as the tick after it being quiet.
-    for _ in 0..8 {
-        app.update();
-    }
-    ambition::runtime::rollback::start_sync_test_session(
-        app.world_mut(),
-        // A SPREAD rather than every field, deliberately: this is a THIRD PARTY
-        // constructing an engine settings struct, and it should name only what it
-        // cares about. Spelling every field out is how a consumer breaks on an
-        // engine's internal addition — which is exactly what happened when
-        // `players` landed (queue Y1) and this fixture was the only build in the
-        // repo that noticed.
-        //
-        // ⚠ and the spread used to be `..Default::default()`, which took that
-        // ergonomic argument one field too far: it also defaulted HOW MANY PEOPLE
-        // ARE PLAYING, and a guess about topology is not a convenience. The base
-        // is now a constructor that asks. Outlander is single-player, and now says
-        // so (2026-07-29).
-        ambition::runtime::rollback::SyncTestSettings {
-            check_distance: 4,
-            max_prediction_window: 10,
-            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
-        },
-    )
-    .map_err(|error| format!("failed to start the Outlander sync-test session: {error}"))?;
-    app.update();
+    // ⚠ This function used to be forty lines of ordering, and every line was a
+    // hazard the engine had already hit: activate before the session exists,
+    // because preparation and the session-world commit build the room and the
+    // body through `Commands` and a rollback cannot undo construction; then
+    // settle, because activation completing is not the same fact as the next
+    // tick being quiet. The first draft skipped both, started the session on
+    // update #1, and watched GGRS report a checksum mismatch on frames 2, 3
+    // and 4 forever.
+    //
+    // `ambition::rollback::start` performs that sequence. What Outlander
+    // proves by no longer containing it is that the ordering is the ENGINE's
+    // to get right — a consumer who has never seen this comment gets the same
+    // startup, and the wrong orderings are unreachable rather than warned
+    // about.
+    ambition::rollback::start(&mut app, ambition::rollback::RollbackPlan::new())
+        .map_err(|refused| format!("Outlander could not start rollback: {refused}"))?;
     Ok(app)
 }
 

@@ -1,21 +1,71 @@
 # API 1.0 campaign
 
-**Status: slices A–E CLOSED, slice F derived and BLOCKED on one decision
-(2026-07-30).**
+**Status: slices A–F CLOSED. §4.1 and §4.3 hold; §4.2 REGRESSED the same day,
+on purpose, and the regression is the most useful thing here (2026-07-30).**
 
 | §4 terminal condition | State |
 |---|---|
-| the allowlist ratchet is at ZERO | Outlander **1 of 18** · minimal_game **0** — the one left is `ambition::runtime`, all rollback |
-| a blind run opens NO engine file | five runs: **8 → 4 → 4 → 2** surfaces; every named reason closed |
-| every consumer-matrix category proven | **5 of 6** — the sixth is Smash, which needs rollback |
+| the allowlist ratchet is at ZERO | Outlander **0 of 18** · minimal_game **0** |
+| a blind run opens NO engine file | Script A run 6: **zero**. Script B run 7: **three** — ⚠ RED |
+| every consumer-matrix category proven | **6 of 6**, each naming a test |
 
-**All three remaining items are the same deferred thing.** Nothing steered them
-there; each was reached independently, and the destination is the boundary
-ADR 0031 drew before any of this was built.
+**§4.2 went red because a new surface was measured for the first time, and that
+is the gate working.** All six earlier runs used Script A, whose task is
+standing a game up. Slice F published `ambition::rollback`, which Script A's
+task cannot reach — a minimal game that boots never starts a session. So six
+green runs said nothing about the newest public surface, and
+[Script B](slice-evidence/blind-agent-runs/SCRIPT.md) was added as a NEW SERIES
+rather than an edit, leaving runs 1–6 comparable.
+
+Run 7's baseline is three engine files, which is what a first run of a new
+series looks like — Script A's own first run opened eight. It also found five
+reachable defects on the far side of `start()`, four of them silent, and one of
+them ([finding a](slice-evidence/blind-agent-runs/2026-07-30-slice-g-run7.json))
+is the sharpest thing this campaign has produced: a registration the SDK tells
+you to make is *accepted, counted, and inert* on an entity your own game
+spawned.
+
+⚠ **It also reported a severe engine desync that does not reproduce**, and the
+next slice was nearly aimed at it. A subagent's conclusion is evidence to
+check, not a result to act on; the check is recorded beside the claim.
+
+**The last three items were the same deferred thing, and it stayed deferred
+until it was earned.** Nothing steered them there; each was reached
+independently, and the destination was the boundary ADR 0031 drew before any of
+this was built.
+
+**Two standing reservations, at the top rather than in an appendix**, because
+"all three conditions hold" is a claim about the three things this campaign
+chose to measure and not about the API being finished:
+
+* **Every consumer-matrix row is proven by a consumer written in this repo.**
+  The matrix's own argument is that an API proven against one consumer is
+  shaped like that consumer — and that applies to authorship as well as count.
+  Outlander is external in *dependency shape* and internal in *authorship*.
+  Nothing in §4 measures this, the blind-agent runs are a deliberate proxy for
+  it, and it is not closeable by a slice.
+* **The capability footprint never moved.** Depending on `ambition` links 41
+  crates, 19 of which a movement-only game never asked for, and that number is
+  identical to slice A's. It is the one §4 decomposition trigger that never
+  fired. Six slices of "no consumer has been unable to do something because of
+  it" is now evidence rather than an absence of data, which is exactly what
+  makes it slice G rather than a footnote.
+
+Slice F is the one the campaign could have faked. `ambition::rollback` could
+have been curated and the baseline pruned in an afternoon, at any point across
+slices C, D and E, and the ratchet would have read zero. The shortcut publishes
+the same module name over the same implementation; what it omits is everything
+that makes the name a promise. What closed it instead was ADR 0031's own
+prescription — `SnapshotState` carved down to the floor so a consumer's types
+can implement it without naming an engine crate, the six properties given a
+test each, and Outlander's forty-line hand-ordered startup collapsed into one
+call. The rejected shortcut is still recorded at the contract entry, because
+"we reached zero" is not the same claim as "there is nothing left to leak".
 
 Executable plan for
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md) and
-[ADR 0032](../../adr/0032-authoring-is-declarative.md), both *Proposed*.
+[ADR 0032](../../adr/0032-authoring-is-declarative.md), both **Accepted**
+on 2026-07-30 once this campaign reached its terminal condition.
 
 ### What each slice closed
 
@@ -609,14 +659,31 @@ The first draft of ADR 0032 conflated them; it has been corrected.
 
 ## Deferred, with reasons
 
-* **`Simulation::Rollback` as a public knob.** A far larger promise than a
-  clock: frozen schema, complete authoritative baseline, stable participants,
-  deterministic activation, lifecycle rebasing, confirmation boundaries. Its
-  hazards are recorded and real — an un-rebased `world_mut` write replays a
-  world that never had it; seating completes on the session's first frame so
-  activation lands on GGRS frame 1 where nothing can rewind across it; a
-  confirmed lifecycle commit rebases mid-run and resets execution counters.
-  Its own slice, its own acceptance tests.
+* ~~**`Simulation::Rollback` as a public knob.**~~ **DELIVERED, slice F,
+  2026-07-30.** It was deferred for the right reason and stayed deferred for
+  four slices while it was the only thing between the campaign and §4.1 — the
+  pressure to curate a module and call it done was real and continuous, and
+  `slice-d-selection.json` records the refusal as "closeable: Yes, trivially
+  and WRONGLY".
+
+  The six properties are now `ambition::rollback`, with a test each in
+  `fixtures/external_consumer/tests/rollback_is_a_promise.rs`. The named
+  hazards are structural rather than documented: `start` activates and settles
+  before rebasing frame zero, so the un-rebased write and the
+  activation-on-frame-1 cases are unreachable from the public path; the
+  participant count is declared at composition, so a restart cannot re-sample
+  it. `PlatformerApp::rollback(participants)` replaced the `#[doc(hidden)]`
+  `unstable_rollback_session`, and the waiver that hid it from the SDK
+  reference was deleted with it.
+
+  ⚠ The prerequisite was an internal carve, and it was not visible from the API
+  side. `SnapshotState` sat in `ambition_runtime`, above every crate whose
+  types it encoded, so the orphan rule had forced ~100 foreign impls into one
+  2688-line file — and no consumer could implement it for their own type
+  without naming an engine crate. Moving it to `ambition_engine_core::snapshot`
+  is what made the public promise expressible at all. §4's carve authorisation
+  covered it exactly: a leak that cannot be closed without moving code between
+  crates authorises the boundary the leak names.
 * **Any `ambition_actors` decomposition.** See
   [api-growth-method.md](api-growth-method.md) §4 for the two conditions that
   authorise it.

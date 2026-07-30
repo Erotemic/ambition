@@ -1,0 +1,86 @@
+{
+  "_comment": [
+    "Blind run 7 — the FIRST run of Script B (rollback). Script A's runs 1-6 are",
+    "a separate, still-comparable series; see SCRIPT.md for why this is a new",
+    "series rather than an edit.",
+    "",
+    "⚠ Read the `verified` field on every finding. This run reported a severe",
+    "engine defect that did NOT reproduce, and several real ones that did. Taking",
+    "the report at face value would have sent the next slice after a bug that is",
+    "not there while the actual leak sat in finding (a)."
+  ],
+  "run": 7,
+  "script": "B (rollback)",
+  "date": "2026-07-30",
+  "slice": "F (post-hoc) / G (input)",
+  "completed": "PARTIALLY. Session started, two participants, consumer resource rolled back — all from prose alone, first try. The consumer's own COMPONENT did not roll back until it reached outside the SDK.",
+  "first_engine_file_opened": "fixtures/external_consumer/tests/rollback_is_a_promise.rs",
+  "engine_files_opened": [
+    {
+      "file": "fixtures/external_consumer/tests/rollback_is_a_promise.rs",
+      "why": "whether the engine's own acceptance tests ever run a session far enough to see the freeze it hit"
+    },
+    {
+      "file": "crates/ambition_runtime/src/rollback/session.rs",
+      "why": "whether the engine pumps GGRS local inputs itself (it does)"
+    },
+    {
+      "file": "crates/ambition_host/src/lib.rs",
+      "why": "same question, incidental grep hits"
+    }
+  ],
+  "⚠_engine_files_opened_is_NOT_the_headline_here": "Three, and all three were reached only while diagnosing a freeze — the agent got to a running two-player session with its own state in the wire format having opened NONE. §4.2 measures the FIRST open; by that measure this run is worse than run 6 and the reason is that Script B goes somewhere Script A never went.",
+  "grey_area_the_agent_reported_itself": "It used `cargo doc -p ambition --no-deps` heavily. api-reference.md's own header counts that as an engine open, because blind run 4's two opens were exactly that. Its account: EVERY question after the first ten minutes was answered by rustdoc, not by docs/sdk/ — naming SnapshotState's signature, Reader, put_i32, the other 25 AmbitionRollbackApp verbs, SimScheduleExt, SandboxSet and drive_control_frame's caveat as rustdoc-only.",
+  "findings": [
+    {
+      "id": "a",
+      "claim": "`rollback_component_canonical` on a GAME-SPAWNED entity silently does nothing. Registration is accepted, counted in `encoded_types()`, and the component does not roll back.",
+      "verified": "YES — and the diagnosis was the only part that was wrong. The agent concluded the entity needs `bevy_ggrs::Rollback`, which the facade does not export, and added the patched fork as a direct dependency to prove it — breaking the 'a game depends on `ambition` and nothing else' promise to do so.",
+      "what_it_actually_needs": "`AmbitionRollbackApp::require_rollback::<T>(owner, name)` — already on the trait the facade already exports. The capability was reachable; nothing said so. `register_engine_rollback_state` uses it for exactly this purpose on six engine families.",
+      "severity": "HIGHEST of the run. Silent, no error message, and the SDK's own remedy ('register it') had already been applied. The count going 331 -> 332 actively confirmed the wrong thing.",
+      "why_the_engine_fixture_never_hit_it": "Outlander attaches `BeaconCharge` to the engine-spawned `PrimaryPlayer` body, which is already tracked. Two correct-looking programs, one of which works, and nothing in the API surfaces the difference. A second consumer would not have found it either — `minimal_game` does not use rollback at all.",
+      "closed": "docs/sdk/api-reference.md now documents `require_rollback` at the point of failure, states that attaching to an engine entity works without it, and names this run."
+    },
+    {
+      "id": "b",
+      "claim": "The engine's own rollback session desyncs at GGRS frame 6 with NO consumer code in it — `SyncTestMismatch { mismatched_frames: [2,3,4] }` forever, sim frozen, with the agent's game systems disabled.",
+      "verified": "NO. DID NOT REPRODUCE.",
+      "how_it_was_checked": "A module composed the documented way (`PlatformerApp::headless().rollback(2).mount(…)`, then `ambition::rollback::start`) run for 200 updates: `RollbackSessionStatus.mismatch_frames` is EMPTY, `invalidation` is None, and `RollbackFrameCount` reached 201 — one frame per update, exactly. Outlander's `consumer_owned_authoritative_state_survives_real_resimulation` independently drives a full walkthrough under GGRS and reaches byte-identical state to the fixed-tick host.",
+      "⚠": "This was the run's most alarming claim and it is not an engine defect. Recorded rather than dropped, because the agent was not careless — it ran a real session and read a real event. Something about its composition put its systems outside the rollback schedule (its own finding (e) is the likely cause: naming `Update` literally). The lesson is about the REPORT, not the reporter: a subagent's conclusion is evidence to check, not a result to act on.",
+      "also_refuted": "Finding (d), 'under rollback `app.update()` is a frame not a tick, 197 updates gave 5 sim frames' — the frame count advanced 1:1 with updates here."
+    },
+    {
+      "id": "c",
+      "claim": "Nothing in the SDK can see a desync. `host_status` reported `Running { prepared: true }` for 4300 updates while the sim was frozen; `RollbackSession` exposes only startup facts.",
+      "verified": "YES, as a GAP, independent of (b) being unreproducible. `RollbackSessionStatus` (mismatch_frames + invalidation) exists and is NOT reachable through the facade — confirmed by compile error when the fixture tried to name it. A consumer has no way to ask 'is my session still healthy?'.",
+      "severity": "HIGH. It is what made (b) un-diagnosable from outside, and it would make a REAL desync equally invisible.",
+      "status": "OPEN — slice G."
+    },
+    {
+      "id": "e",
+      "claim": "There is no documented way to add a gameplay system. `capability(plugin)` is listed but not what a plugin may do; naming `Update` puts gameplay outside rollback entirely. The recipe (`app.sim_schedule()` + `SandboxSet`) is rustdoc-only.",
+      "verified": "YES. `docs/sdk/` contains no schedule recipe. The agent calls this 'the single most load-bearing missing paragraph' for a rollback SDK and it is probably also the cause of (b).",
+      "status": "OPEN — slice G, and it should go first."
+    },
+    {
+      "id": "f",
+      "claim": "Under rollback there is no way to supply input. `drive_control_frame`'s own rustdoc says `ControlFrame` is an OUTPUT under GGRS and `PendingLocalInput` is the input side — and `PendingLocalInput` is not exported anywhere in the facade.",
+      "verified": "PLAUSIBLE, unverified. The SDK documents exactly one input verb and, by its own rustdoc, it is the wrong one in the mode this script is about.",
+      "status": "OPEN — slice G."
+    },
+    {
+      "id": "g",
+      "claim": "Two participants get ONE body and no way to address either; `.rollback(1)`, `(2)` and `(4)` were accepted identically with one body each time.",
+      "verified": "YES, and it indicts this campaign's own Smash proof. `the_versus_stage_rolls_back_with_two_participants` asserts `session.participants() == 2` — which is the DECLARATION, not the seating. Two input streams into one character satisfies it.",
+      "severity": "HIGH, and self-inflicted. The test was written specifically to avoid the one-stream blind spot and it reproduced a subtler version of it.",
+      "status": "OPEN — slice G, and the matrix's Smash row should be re-read in this light."
+    },
+    {
+      "id": "h",
+      "claim": "`ambition::rollback`'s module doc opens with `ambition::world`'s text, and its property table cites `RollbackPlan::for_participants`, which does not exist.",
+      "verified": "PARTLY. The doc-comment bug was REAL and is fixed — inserting `pub mod rollback;` between `world`'s doc comment and `world` gave rollback the wrong docs, and rustdoc showed it. The `for_participants` reference had already been corrected before the run's report landed.",
+      "⚠": "The staleness guards could not catch either. They check module paths and method names in `docs/sdk/`; neither is a doc comment in a `.rs` file attached to the wrong item."
+    }
+  ],
+  "what_went_right": "The agent's own summary: the Cargo.toml/config preamble is accurate and saved the whole class of failure it describes; the room recipe, `no_audio()`, `playable()` and the `my_hero` note were correct first try; and it guessed `RollbackPlan::new()`, `start`, `AmbitionRollbackApp` and `rollback_component_canonical` from prose alone and they all compiled. Its verdict on where the defects live is the useful frame: 'all on the far side of `start()` — in what happens AFTER a session exists, which is the half the SDK currently does not describe.'"
+}

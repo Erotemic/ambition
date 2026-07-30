@@ -2,7 +2,14 @@
 
 ## Status
 
-**Proposed** (2026-07-30). Extends [ADR 0026](0026-immutable-prepared-content-and-exact-session-identity.md)
+**Accepted** (2026-07-30), after the API 1.0 campaign implemented it across six
+slices and proved it against six consumer-matrix categories. Its central claim —
+"module inclusion is a MERGE, not an ordering" — was tested by two real modules
+in slice D, and the identity half ("Sanic standalone and Sanic embedded produce
+the same content and rollback-schema identities") is
+`sanic_has_the_same_identities_standalone_and_embedded`.
+
+Extends [ADR 0026](0026-immutable-prepared-content-and-exact-session-identity.md)
 (immutable prepared content and exact session identity) from the *internal*
 lifecycle to the *public authoring surface*, and extends
 [ADR 0017](0017-rust-behavior-ron-content-ldtk-space.md) (Rust holds behavior;

@@ -35,20 +35,38 @@ REPO = Path(
 )
 
 APP_RS = REPO / "crates/ambition/src/app.rs"
+ROLLBACK_RS = REPO / "crates/ambition/src/rollback.rs"
 REFERENCE = REPO / "docs/sdk/api-reference.md"
+
+# Every public type the reference documents, and the file it is defined in.
+#
+# ⚠ This used to be a hardcoded read of `app.rs` alone. Slice F published
+# `ambition::rollback`, and the both-ways check immediately reported its methods
+# as invented — correctly, since it could not see them. The fix is to teach the
+# guard the file, NOT to waive the names: a waiver would have turned the sharper
+# half of this test (the reference naming something that does not exist) off for
+# the newest surface, which is the one most likely to drift.
+DOCUMENTED_TYPES = {
+    "PlatformerApp": APP_RS,
+    "ModuleDraft": APP_RS,
+    "HostStatus": APP_RS,
+    "RollbackPlan": ROLLBACK_RS,
+    "RollbackSession": ROLLBACK_RS,
+}
 
 # Methods deliberately absent from the reference, each with a reason. Anything
 # not listed here must be documented — the default is "public means documented".
-INTENTIONALLY_UNDOCUMENTED = {
-    # `#[doc(hidden)]`, and documenting it would be making the promise ADR 0031
-    # reserves for its own slice.
-    "unstable_rollback_session",
-}
+# ⚠ EMPTY as of slice F. Its one entry was `unstable_rollback_session`, hidden
+# because documenting it would have made the promise ADR 0031 reserved for its
+# own slice. Slice F made that promise properly and the method is gone, so the
+# waiver went with it — a waiver outliving its subject is the stale entry this
+# file's sibling ratchets exist to forbid.
+INTENTIONALLY_UNDOCUMENTED: set[str] = set()
 
 
 def public_methods(type_name: str) -> set[str]:
     """`pub fn` names in `impl <type_name> { … }`."""
-    source = APP_RS.read_text(encoding="utf-8")
+    source = DOCUMENTED_TYPES[type_name].read_text(encoding="utf-8")
     start = source.index(f"impl {type_name} {{")
     depth = 0
     for index in range(start, len(source)):
@@ -76,7 +94,7 @@ def test_the_parser_finds_a_real_surface():
 def test_every_public_builder_method_is_documented():
     text = referenced()
     missing: dict[str, list[str]] = {}
-    for type_name in ("PlatformerApp", "ModuleDraft", "HostStatus"):
+    for type_name in DOCUMENTED_TYPES:
         absent = sorted(
             method
             for method in public_methods(type_name)
@@ -97,9 +115,7 @@ def test_the_reference_names_no_method_that_does_not_exist():
     """The other direction, and the more damaging one."""
     text = referenced()
     real = (
-        public_methods("PlatformerApp")
-        | public_methods("ModuleDraft")
-        | public_methods("HostStatus")
+        set().union(*(public_methods(name) for name in DOCUMENTED_TYPES))
         # Named in the reference and defined outside those impls: the free
         # function, the constructors, the `GameModule` trait methods, and
         # Bevy's own `App::update` — which the reference mentions because "one
@@ -112,6 +128,10 @@ def test_the_reference_names_no_method_that_does_not_exist():
             "manifest",
             "asset_source",
             "update",
+            # `ambition::rollback`'s free function and the registration verb a
+            # consumer calls on its own `App`.
+            "start",
+            "rollback_component_canonical",
         }
     )
     named = set(re.findall(r"`([a-z_][a-z0-9_]*)\(", text))
@@ -120,4 +140,100 @@ def test_the_reference_names_no_method_that_does_not_exist():
         f"the SDK reference names methods that do not exist: {invented}. A "
         "reader writes them, they do not compile, and nothing else on the page "
         "is trusted afterwards."
+    )
+
+
+# Public enums the SDK reference names variants of, and where they are defined.
+#
+# ⚠ Added 2026-07-30, after `RollbackRefused::ParticipantsDisagree` was deleted
+# from the code and stayed in the reference. Every method check in this file
+# passed: the method guards read `pub fn`, and a variant is not a function. The
+# defect was caught by a grep that happened to be run for another reason, which
+# is not a control.
+#
+# This is the FOURTH instance of the family's founding failure — a document
+# describing something that does not exist — and the third syntactic category
+# it has appeared in (module paths, methods, now variants). The lesson the first
+# three were supposed to teach was "check it mechanically", and each time the
+# check was written narrowly enough that the next instance slipped past a
+# different edge.
+DOCUMENTED_ENUMS = {
+    "RollbackRefused": ROLLBACK_RS,
+    "HostStatus": APP_RS,
+}
+
+
+def variants(enum_name: str) -> set[str]:
+    """Variant names in `pub enum <enum_name> { … }`."""
+    source = DOCUMENTED_ENUMS[enum_name].read_text(encoding="utf-8")
+    start = source.index(f"pub enum {enum_name} {{")
+    depth = 0
+    for index in range(start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                block = source[start : index + 1]
+                break
+    # Variants are the CamelCase names at the head of a line inside the block,
+    # skipping doc comments and attributes.
+    return {
+        match
+        for match in re.findall(r"^\s{4}([A-Z][A-Za-z0-9]*)", block, re.M)
+    }
+
+
+def test_the_variant_parser_finds_a_real_enum():
+    """Non-vacuity: an empty variant set passes every assertion below."""
+    found = variants("RollbackRefused")
+    assert len(found) >= 3, sorted(found)
+    assert "NeverActivated" in found, sorted(found)
+
+
+def test_the_reference_names_no_variant_that_does_not_exist():
+    text = referenced()
+    invented: dict[str, list[str]] = {}
+    for enum_name in DOCUMENTED_ENUMS:
+        real = variants(enum_name)
+        # Only variants of THIS enum that the reference spells in backticks.
+        named = {
+            match
+            for match in re.findall(r"`([A-Z][A-Za-z0-9]*)`", text)
+            if match not in real
+        }
+        # A backticked CamelCase word could be any type name, so only flag one
+        # that looks like a variant of this enum: it must have been a variant
+        # at some point, which we cannot know — so instead require that the
+        # reference's own refusal list is exact.
+        del named
+        listed = re.search(
+            rf"`{enum_name}` names the fix[^\n]*(?:\n[^\n]+)*?\.", text
+        )
+        if not listed:
+            continue
+        spelled = set(re.findall(r"`([A-Z][A-Za-z0-9]*)`", listed.group(0)))
+        spelled.discard(enum_name)
+        missing = sorted(spelled - real)
+        if missing:
+            invented[enum_name] = missing
+    assert not invented, (
+        f"the SDK reference names enum variants that do not exist: {invented}. "
+        "A reader matches on them and it does not compile. This check exists "
+        "because `RollbackRefused::ParticipantsDisagree` was deleted from the "
+        "code and left in the reference, and every method guard in this file "
+        "passed — a variant is not a `pub fn`."
+    )
+
+
+def test_every_refusal_variant_is_documented():
+    """The other direction: a refusal a reader cannot look up sends them into `crates/`."""
+    text = referenced()
+    undocumented = sorted(
+        variant for variant in variants("RollbackRefused") if f"`{variant}`" not in text
+    )
+    assert not undocumented, (
+        f"these refusals are not named in the SDK reference: {undocumented}. "
+        "A consumer who hits one has no way to find out what it means without "
+        "reading the engine."
     )

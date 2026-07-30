@@ -521,7 +521,31 @@ MODULE_ALLOWLISTS: list[dict] = [
         # `app` (slice A), `world` (slice C, once the facade stopped mirroring
         # it), and `actor`/`sim`/`view` (slice C) — each a CLOSED list, not a
         # crate re-export. `bevy` is the facade's documented re-export.
-        "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
+        #
+        # ⚠ `rollback` (slice F) is the one name here that ADR 0031 explicitly
+        # REFUSED to let arrive this way. Its Deferred section reserved
+        # rollback-as-a-public-knob for "its own slice, its own acceptance
+        # tests", calling it "a far larger promise than a clock: frozen schema,
+        # complete authoritative baseline, stable participants, deterministic
+        # activation, lifecycle rebasing, confirmation boundaries."
+        #
+        # For four slices the correct move was to leave the ratchet at 1 rather
+        # than take it to zero by curating a module — the shortcut is recorded
+        # in `slice-d-selection.json` as "closeable: Yes, trivially and
+        # WRONGLY". What changed is not the pressure to finish; it is that
+        # slice F built the six properties and each has a test named in
+        # `fixtures/external_consumer/tests/rollback_is_a_promise.rs`. The entry is the
+        # promise, so it may only appear alongside the thing that earns it.
+        "allowed": {
+            "actor",
+            "app",
+            "bevy",
+            "character",
+            "rollback",
+            "sim",
+            "view",
+            "world",
+        },
         # Measured 2026-07-30 by this script, not transcribed from the campaign.
         # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
         # names. There are eighteen. Both documents were corrected in the commit
@@ -569,7 +593,23 @@ MODULE_ALLOWLISTS: list[dict] = [
         #
         # This is the one entry that must NOT be closed by the technique that
         # closed the other seventeen.
-        "baseline": {"runtime"},
+        #
+        # ⚠ 1 -> 0, slice F, 2026-07-30 — and NOT by that technique. The
+        # paragraph above stands as written: curating `ambition::rollback` and
+        # pruning this entry would have taken the ratchet to zero in an
+        # afternoon, at any point over the previous four slices, and it would
+        # have been wrong every time. What closed it is the slice ADR 0031
+        # reserved. `SnapshotState` moved to the floor so a consumer's own
+        # types can implement it without naming `ambition_runtime`
+        # (`ambition_engine_core::snapshot`, part 1); `ambition::rollback`
+        # publishes the six properties with a test each; and Outlander's
+        # forty-line hand-ordered startup — activate, settle, rebase, all
+        # hazards it had hit — collapsed to one call.
+        #
+        # The distinction is not ceremony. The rejected shortcut publishes the
+        # SAME module name over the SAME implementation; what it omits is the
+        # thing that makes the name a promise instead of a mirror.
+        "baseline": set(),
         "reason": (
             "A game depends on `ambition`, and `ambition` is currently the list "
             "of crates the engine happens to be built from — so a consumer's "

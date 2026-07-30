@@ -19,7 +19,7 @@ incomparable, which is the failure it exists to prevent.
   *whether* and *which first* — a prohibition would produce a clean number and
   no information.
 
-## The prompt
+## Script A — standing a game up (runs 1–6)
 
 > You are a third-party game developer. You have just added the `ambition` game
 > engine as a dependency and you want to stand up a minimal game on it.
@@ -38,6 +38,41 @@ incomparable, which is the failure it exists to prevent.
 >    `tools/`, **in the order you opened them**;
 > 2. for each, one sentence on what you were trying to find out;
 > 3. whether you achieved the headless boot and the windowed boot;
+> 4. anything the documentation should have told you and did not.
+>
+> Be honest about failure. A report that says "I could not work out X without
+> reading Y" is worth more than a report that says it succeeded.
+
+## Script B — rollback (run 7 onward)
+
+⚠ **Added 2026-07-30, for slice G, and it is a NEW SERIES rather than an edit.**
+Script A is unchanged and runs 1–6 stay comparable with each other. Slice F
+published `ambition::rollback`, and Script A's task cannot reach it — a minimal
+game that boots does not start a session, so six green runs say nothing about
+the newest public surface. Editing Script A to cover it would have made the
+existing series incomparable to answer a question about a surface that did not
+exist when the series began.
+
+The preconditions and contamination note above apply unchanged.
+
+> You are a third-party game developer. You have a small game running on the
+> `ambition` engine and you now want it to use **rollback**: a deterministic
+> session that saves, rewinds and re-simulates, with **two** local players.
+>
+> Your goal: **get a rollback session running, with your own game state
+> included in what rolls back, and report whether you got there.**
+>
+> Start from `docs/sdk/README.md`. Work the way you normally would.
+>
+> Write your game at `<SCRATCH>/blind_run_7/`. Try to actually build and run
+> it, and report what happened.
+>
+> Keep a log as you go, and include it in your final report:
+>
+> 1. every file you opened that lives under `crates/`, `game/`, `fixtures/` or
+>    `tools/`, **in the order you opened them**;
+> 2. for each, one sentence on what you were trying to find out;
+> 3. whether the session started, and whether your own state rolled back;
 > 4. anything the documentation should have told you and did not.
 >
 > Be honest about failure. A report that says "I could not work out X without

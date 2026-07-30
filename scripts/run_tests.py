@@ -303,6 +303,25 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
 
+        # ⚠ ADDED 2026-07-30. `minimal_game` is the campaign's SECOND sentinel
+        # consumer and it had never run here — for the same structural reason
+        # Outlander needs its own job (own workspace, own lockfile, outside
+        # `cargo test --workspace`), minus the job.
+        #
+        # Two consumer-matrix rows rest on its 16 tests:
+        # `movement-only-minimal-game` and `noncombat-actor`. Both were recorded
+        # as PROVEN, and the proofs were never executed by the suite — a row
+        # naming a test nobody runs is the same defect as a row naming no test,
+        # and the matrix cannot tell them apart.
+        #
+        # It was ratcheted the whole time (`minimal-game-names-only-the-public-sdk`,
+        # baseline zero), which is what made the gap easy to miss: a green
+        # contract about the consumer's IMPORTS says nothing about whether the
+        # consumer still boots.
+        jobs.append(Job("external consumer: minimal game",
+                        [CARGO, "test"],
+                        cwd=str(REPO / "fixtures" / "minimal_game")))
+
     # The WEB build, as a compile CHECK rather than a test run: there is no wasm
     # runner here, and a check is what the failure mode needs anyway. The web
     # target sat broken for at least four days (see docs/planning/repair_wasm.md)

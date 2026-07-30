@@ -1,0 +1,113 @@
+{
+  "_comment": [
+    "The §3 derivation of slice G from slice F's five evidence sources.",
+    "AUTHORED, not generated. Read with api-growth-method.md §3a/§3b/§3c and §4.",
+    "",
+    "⚠ Slice F closed the campaign's THREE §4 terminal conditions. This file",
+    "exists because §4 holding is not the same fact as the API being finished:",
+    "it says the three things the campaign chose to measure are satisfied, not",
+    "that the measurements were sufficient. Deriving G is the method's own",
+    "instruction — a slice looking done means the next one needs deriving.",
+    "",
+    "⚠ SUPERSEDED IN PART, SAME DAY, BY BLIND RUN 7. The ranking below was written",
+    "BEFORE the run returned. It chose the capability footprint on the grounds that",
+    "nothing else was left that a consumer could FEEL. Run 7 found four things a",
+    "consumer felt within an hour. §3a ranks by cost to a consumer, so the ranking",
+    "is now wrong and `slice_g` below is superseded by `slice_g_revised`."
+  ],
+  "derived": true,
+  "derived_on": "2026-07-30",
+  "from_slice": "F",
+  "⚠_the_campaign_is_at_its_terminal_condition": {
+    "what_that_licenses": "Declaring API 1.0 against the three conditions §4 names, with every consumer-matrix row naming a test.",
+    "what_it_does_not_license": "Reading the counters as complete. Two of the five §6 counters never moved across six slices, and one of them (unwanted linked capabilities, 19) is the §4 decomposition trigger that never fired. A campaign that ends with a counter it declared important and never reduced should say so at the top, not in an appendix."
+  },
+  "ranked_candidates": [
+    {
+      "leak": "39 of 39 facade dependencies are unconditional; a movement-only game links 19 crates it never asked for",
+      "source": "2e",
+      "cost": "HIGH and now WELL-EVIDENCED. It was deferred from slice D as 'HIGH but still UNFELT', on the correct grounds that §2e is measured per sentinel consumer and there were two, both single-module games I designed. There are now SIX consumer-matrix categories and the counter has not moved once. 'Never felt across six consumers' is a measurement; it was an absence of data when the deferral was written.",
+      "closeable": "Untested, and the experiment is contained: make the facade's edges optional, re-measure the closure. §4's decomposition trigger is written for exactly this.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> SLICE G. It is the last structural question the campaign identified and did not answer, and every reason to defer it has now expired."
+    },
+    {
+      "leak": "no blind run has seen `ambition::rollback`",
+      "source": "2c",
+      "cost": "The newest public surface is the likeliest to send an author into `crates/`, and §4.2 was satisfied by run 6, which predates it. The condition holds for the surface it examined; it does not hold for the surface that shipped after.",
+      "closeable": "YES, cheaply — one run.",
+      "owned": "YES.",
+      "route": "3b: rides ALONGSIDE slice G, as every blind run has ridden alongside a slice. ⚠ Not a slice of its own: §3c warns against promoting a recurring measurement into a slice, and each run names its own next fix rather than being scoped in advance. It goes FIRST in G, because a run over a surface the slice is about to change measures the wrong thing."
+    },
+    {
+      "leak": "every consumer-matrix row is proven by a consumer I wrote",
+      "source": "the matrix itself",
+      "cost": "The matrix's own argument is that an API proven against one consumer is shaped like that consumer. That argument is about authorship as much as count, and Outlander — the row named 'external' — is external in DEPENDENCY SHAPE and internal in authorship. Nothing in §4 measures this.",
+      "closeable": "NO, not by a slice. It needs a consumer this repo did not write, which is a recruiting problem rather than an engineering one. The blind-agent runs are the closest available proxy and they deliberately simulate authorship, not ownership.",
+      "owned": "NO.",
+      "route": "3b: not closeable -> not a slice. Recorded at the top of the campaign as the strongest standing reservation about the terminal condition, so 'six of six' is never read as more than it is."
+    }
+  ],
+  "slice_g": {
+    "name": "the facade's edges, made optional",
+    "one_leak": "depending on `ambition` links 41 crates, 19 of which a movement-only game never asked for. A perfectly semantic API can hide this completely — no consumer names a forbidden path, the ratchet reads zero, and the footprint is still wrong.",
+    "why_now_and_not_earlier": [
+      "Deferred from D because §2e is measured per sentinel consumer and there were two, both designed for the SDK. Measuring optional-dependency reduction against that population would have answered 'can a game I designed avoid linking menus'.",
+      "Deferred through E and F because both had a closeable leak a consumer could FEEL, and §3a ranks by cost to a consumer.",
+      "Neither reason survives. Six categories are proven, the counter has not moved, and there is no remaining leak a consumer has named."
+    ],
+    "exit_criteria_sketch": [
+      "a blind run over `ambition::rollback` FIRST, before the dependency graph changes underneath it;",
+      "the facade's dependency edges become optional features, with the default feature set preserving today's behaviour exactly;",
+      "`minimal_game` builds with a reduced feature set and its closure is MEASURED, not asserted;",
+      "the capability-footprint ratchet's baseline is re-measured downward and PRUNED in the same commit (invariant 2), so the counter that never moved finally does;",
+      "if the experiment shows the edges cannot be cut without breaking a consumer, that is a RESULT and gets written down as one — §4's trigger is a condition to test, not a target to hit;",
+      "§2 re-collected."
+    ],
+    "⚠_the_failure_mode_to_avoid": "Cutting edges until the number looks good. The counter is a proxy for 'a small game pays for a small engine'; a feature flag that makes the graph smaller while making the SDK conditional would trade a measured cost for an unmeasured one. If `minimal_game` needs a feature to keep passing its 16 tests, that feature is not optional, and saying so is the honest outcome."
+  },
+  "revised_on": "2026-07-30",
+  "what_the_run_changed": {
+    "the_error": "I derived slice G from five evidence sources with 2c's entry reading 'NOT re-run — the rollback surface is UNTESTED by a blind author', and then ranked as though that gap were informational. It was the only source that could produce a new leak, and I ranked the other four against each other while it was still open.",
+    "why_it_mattered": "The footprint won on 'nothing else is closeable that a consumer has named'. That premise was an artifact of not having run the measurement — §2c's whole purpose is to name the next leak from the population the API is for, and it named four.",
+    "the_method_was_right": "api-growth-method.md §3c says a blind run RIDES ALONGSIDE each slice and names its own next fix. My own slice-G file said the run should go FIRST 'because a run over a surface the slice is about to change measures the wrong thing'. That was correct and I wrote the ranking before honouring it."
+  },
+  "slice_g_revised": {
+    "name": "the far side of `start()` — what happens AFTER a session exists",
+    "one_leak": "The SDK describes composing and starting a rollback session and stops there. Every defect run 7 found is downstream of `start()` returning Ok: a consumer's own entity cannot join the baseline, a consumer cannot see whether the session is still healthy, cannot learn where to put a gameplay system, and cannot supply input under GGRS.",
+    "ranked_by_cost_to_a_consumer": [
+      {
+        "id": "a",
+        "leak": "a consumer's own entity cannot join the rollback baseline",
+        "cost": "HIGHEST — silent, and the SDK's own remedy confirms the wrong thing",
+        "state": "CLOSED as documentation, 2026-07-30. `require_rollback` existed and was reachable; nothing said so. ⚠ Left OPEN as a design question: a registration that is accepted and does nothing is a bad shape even when documented, and the campaign's rule is to make the wrong thing unrepresentable rather than warned about."
+      },
+      {
+        "id": "e",
+        "leak": "no documented way to add a gameplay system; naming `Update` puts gameplay outside rollback",
+        "cost": "HIGH — the agent calls it the single most load-bearing missing paragraph, and it is the likely cause of the freeze it misdiagnosed as an engine desync",
+        "state": "OPEN, and it should go first: it is cheap and it is upstream of the confusion that produced finding (b)."
+      },
+      {
+        "id": "c",
+        "leak": "no consumer-visible session health; `RollbackSessionStatus` is not in the facade",
+        "cost": "HIGH — a real desync would be exactly as invisible as the unreproducible one",
+        "state": "OPEN"
+      },
+      {
+        "id": "g",
+        "leak": "N participants, one body, no seat-keyed input or query",
+        "cost": "HIGH, and it indicts this campaign's own Smash proof — `participants()` reports the DECLARATION, not the seating",
+        "state": "OPEN"
+      },
+      {
+        "id": "f",
+        "leak": "the one documented input verb is, by its own rustdoc, the wrong one under GGRS; `PendingLocalInput` is unexported",
+        "cost": "MEDIUM-HIGH, unverified",
+        "state": "OPEN"
+      }
+    ],
+    "the_capability_footprint_moves_to_slice_H": "Still real, still 19, still the §4 trigger that never fired — and still unfelt by any consumer after seven blind runs. It loses to five things a consumer hit in one session. The reason to do it has not weakened; the reason to do it FIRST has.",
+    "⚠_what_this_says_about_the_terminal_condition": "§4's three conditions held before run 7 and still hold after it. The run did not break them — it demonstrated that they can all hold while the newest public surface has five reachable defects, four of them silent. That is not an argument against the conditions; it is the standing reservation already recorded at the top of the campaign, arriving with evidence."
+  }
+}

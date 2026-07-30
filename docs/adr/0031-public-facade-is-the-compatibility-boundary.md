@@ -2,8 +2,29 @@
 
 ## Status
 
-**Proposed** (2026-07-30). Nothing here is implemented. It records a decision
-reached across a maintainer conversation and three rounds of external review
+**Accepted** (2026-07-30). Proposed and accepted the same day, which is not the
+usual shape and is worth stating plainly: it was proposed before the first
+slice was built, and accepted after the campaign it specified reached its
+terminal condition — six slices, all three §4 conditions holding, every
+consumer-matrix category naming a test.
+
+What that means for this document is that it can now be read as a record rather
+than a plan. Every mechanism it describes exists:
+`scripts/check_absence_contracts.py` enforces the allowlist at zero, the
+blind-agent gate has been run six times, and the Deferred section's largest
+item — rollback as a public knob — was delivered by slice F with the six
+properties it demanded, each carrying its own acceptance test.
+
+⚠ One prediction it got wrong, recorded because the correction is more useful
+than the score: it framed the `ambition_actors` decomposition as the carve most
+likely to be authorised. The carve the campaign actually needed was
+`SnapshotState` down to `ambition_engine_core` — invisible from the API side,
+and reachable only by asking why a consumer had to name `ambition_runtime` to
+encode its OWN type. §4's carve condition covered it exactly; the ADR's guess
+at WHICH boundary did not.
+
+It records a decision reached across a maintainer conversation and three rounds
+of external review
 ([`../reviews/gpt56-jon-conv-2026-07-29.md`](../reviews/gpt56-jon-conv-2026-07-29.md),
 [`../reviews/gpt56-reply-2026-07-29-v2.md`](../reviews/gpt56-reply-2026-07-29-v2.md),
 [`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)),

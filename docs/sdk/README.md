@@ -39,9 +39,12 @@ ambition = { path = "../path/to/ambition/crates/ambition" }
 # not satisfy that. Otherwise `ambition::bevy` is enough.
 bevy = "0.18"
 
-# ⚠ If disk is tight: a default debug build links ~250 crates and blind run 4
-# blew an 11 GB budget, dying in `rust-lld` with SIGBUS and an LLVM stack dump
-# that never mentions disk. `[profile.dev] debug = 0` fixes it.
+# ⚠ Budget ~6 GB of disk even with the settings below, and expect ~2 min for
+# `cargo check` / ~3 min for `cargo build` warm (~250 crates). Without
+# `debug = 0` a default build blew an 11 GB budget and died in `rust-lld` with
+# SIGBUS and an LLVM stack dump that never mentions disk.
+[profile.dev]
+debug = 0
 
 # ⚠ REQUIRED. Ambition builds against a fork of bevy_ggrs (a backported
 # `GgrsFrameTiming` accessor). Cargo patch tables do NOT cross a workspace
@@ -51,7 +54,22 @@ bevy = "0.18"
 bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }
 ```
 
-Without it a fresh lockfile resolves `bevy_ggrs` from crates.io and the build
+**And a `.cargo/config.toml`**, for the same reason the patch table is needed —
+it does not cross a workspace boundary either:
+
+```toml
+# The engine repo uses these; a slow default linker on a ~250-crate graph is the
+# difference between a 3-minute build and a 15-minute one.
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+```
+
+Blind run 5 had to open the engine's own `.cargo/config.toml` to find this —
+the same class of leak as the patch table, and the last file any blind run has
+needed.
+
+Without the patch table a fresh lockfile resolves `bevy_ggrs` from crates.io and the build
 dies in `ambition_runtime` with `cannot find type GgrsFrameTiming in crate
 bevy_ggrs` — an error with no visible connection to a patch table you have never
 seen.
@@ -141,6 +159,11 @@ facade exposes ~30 more; the ones a game reaches for first:
 | `desktop_platform` / `web_platform` / `android_platform` | target selection |
 | `audio` | sound (you still declare `no_audio()` if you author none) |
 
+`ambition::app::prelude` re-exports `PlatformerApp`, `GameModule`,
+`ModuleManifest`, `ModuleDraft`, `AssetSource`, `SessionMode`, `StartAt`,
+`CompositionError`, `HostStatus`, `host_status`, `RoomSpec`, `RoomMetadata`,
+`EMPTY_CHARACTER_ROSTER_RON` and `MINIMAL_CHARACTER_ROSTER_RON`.
+
 **The full surface is [api-reference.md](api-reference.md)** — every method on
 `PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
 the source by a test in both directions.
@@ -159,6 +182,7 @@ close that gap:
 
 ```rust
 use ambition::actor::{BodyKinematics, PrimaryPlayer};
+use ambition::bevy::prelude::With;          // Bevy's query filter
 use ambition::sim::{drive_control_frame, ControlFrame};
 
 // where is my character?
@@ -249,9 +273,15 @@ the first one mounted.
 `App::update` is exactly one simulation tick. Both faces mount the same module
 and install the same engine in the same order.
 
-They are not yet fully interchangeable, though — see *Known gaps* below. The
-visible face also prepares art, which currently requires content a minimal
-module does not have.
+The visible face additionally prepares art, which needs a character roster —
+declare one with `characters(MINIMAL_CHARACTER_ROSTER_RON)` and a minimal module
+reaches it fine.
+
+⚠ This paragraph claimed the two faces were "not yet fully interchangeable" and
+that the windowed face "requires content a minimal module does not have". That
+was true before slice B and false afterwards, and blind run 5 disproved it by
+booting a minimal module on the windowed face while the sentence was still here.
+Second time this document has advertised a gap it no longer had.
 
 **The reference to copy is `fixtures/minimal_game`** — the smallest thing that
 is still a game: one room, one walker, no combat, no art, no plugin of its own.

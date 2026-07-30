@@ -1,0 +1,102 @@
+{
+  "_comment": [
+    "\u00a72c run 5, same fixed script.",
+    "",
+    "\u26a0 THIS RUN PASSES \u00a74.2'S LETTER AND I AM RECORDING IT AS A FAIL. It opened NO",
+    "file under crates/, game/, fixtures/ or tools/ and ran no `cargo doc` \u2014 ADR",
+    "0031's condition is worded as 'never opening a file under crates/', so the",
+    "literal gate is met.",
+    "",
+    "It also opened `.cargo/config.toml` because it NEEDED to: the engine's linker",
+    "configuration does not cross a workspace boundary, exactly like the",
+    "[patch.crates-io] table, and nothing in docs/sdk/ said so. The agent called",
+    "that 'THE ONE REAL LEAK' itself and declined to claim a clean run.",
+    "",
+    "Declaring \u00a74.2 satisfied on a directory-list technicality that the SUBJECT",
+    "refused to take would be the exact false green this campaign exists to catch.",
+    "`first_engine_file_opened` therefore records the config file. The leak is",
+    "closed in the same commit, so the next run can pass on the merits."
+  ],
+  "slice": "F",
+  "date": "2026-07-30",
+  "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+  "harness": "fresh general-purpose subagent, no inherited conversation context",
+  "completed": {
+    "headless_boot": true,
+    "windowed_boot": true,
+    "minimal_game": true,
+    "notes": "\u2b50 FIRST COMPILE CLEAN. `cargo check --all-targets` passed on the very first attempt \u2014 Cargo.toml, lib.rs, main.rs and bin/headless.rs written straight from the two SDK docs with NO iteration, no compiler-driven API discovery, no engine source reading. Headless reaches Running{prepared:true} in 2 ticks; the body walks 64->189 under drive_control_frame and settles at y=296; 300 idle ticks leave it at exactly 296.0. Windowed composes with art (4/4 parallax layers)."
+  },
+  "first_engine_file_opened": ".cargo/config.toml",
+  "first_engine_file_reason": "The linker configuration (`clang` + `-fuse-ld=mold`). It does not cross a workspace boundary \u2014 same class as the patch table \u2014 and docs/sdk/ warned about the 11 GB link failure without ever saying the engine avoids it with a config file. CLOSED the same day.",
+  "engine_api_surfaces_read": [],
+  "watched_directories_opened": [],
+  "other_engine_repo_files_opened": [
+    {
+      "path": "Cargo.toml (workspace root)",
+      "why": "to confirm the bevy_ggrs patch rev \u2014 the README inlines it and it matched exactly, so the open was REDUNDANT. Caused by the README's phrasing 'copy the current value from the engine's workspace-root Cargo.toml', which invites a lookup it does not need."
+    },
+    {
+      "path": ".cargo/config.toml",
+      "why": "the linker config. A real leak, now documented."
+    }
+  ],
+  "elapsed_context": {
+    "subagent_tokens": 78035,
+    "tool_uses": 95,
+    "duration_ms": 581520
+  },
+  "compared_to_baseline": {
+    "baseline": "2026-07-30-slice-a-baseline.json",
+    "engine_surfaces_read": "8 -> 4 -> 4 -> 2 -> 0",
+    "watched_dir_files_opened": "1 -> 1 -> 1 -> 0 -> 0",
+    "first_compile_clean": "no -> no -> no -> no -> YES",
+    "reading": "Five runs. Engine API surfaces went 8 to zero, and run 5 wrote a working game from documentation alone with no iteration. What remains is not API discovery at all \u2014 it is two build-configuration files that do not cross a workspace boundary."
+  },
+  "findings": [
+    {
+      "id": "the-linker-config-does-not-cross-a-workspace-boundary",
+      "severity": "the one real leak",
+      "closed": true,
+      "summary": "`.cargo/config.toml` sets `linker = clang` and `-C link-arg=-fuse-ld=mold`. docs/sdk/ told the story of blind run 4's 11 GB link death without saying the engine repo itself avoids it. Same class as the patch table; now a copy-pasteable block in the README.",
+      "agents_words": "This is the same class of defect as the patch table and deserves the same treatment."
+    },
+    {
+      "id": "the-README-advertised-a-gap-it-no-longer-had-AGAIN",
+      "severity": "high",
+      "closed": true,
+      "summary": "\"They are not yet fully interchangeable... the visible face requires content a minimal module does not have.\" False since slice B. Run 5 disproved it by booting a minimal module on the windowed face while the sentence was still there.",
+      "why_it_matters": "SECOND time this exact failure, and the README apologises for the FIRST one two paragraphs earlier. The four staleness guards added this session check module names and method lists; none of them can check a claim about CAPABILITY, which is what both instances were. The guards' limit is now demonstrated rather than theorised."
+    },
+    {
+      "id": "prelude-contents-were-guessable-but-unstated",
+      "severity": "medium",
+      "closed": true,
+      "summary": "The reference listed methods and modules but never which NAMES live in app::prelude. Six guesses, all correct, all guesses. Now listed."
+    },
+    {
+      "id": "the-query-snippet-did-not-compile-as-printed",
+      "severity": "medium",
+      "closed": true,
+      "summary": "The 'where is my character?' example uses `With<PrimaryPlayer>` with no import for `With`. Guessed `ambition::bevy::prelude::With` correctly. Now in the snippet."
+    },
+    {
+      "id": "disk-and-build-time-understated",
+      "severity": "low",
+      "closed": true,
+      "summary": "Even WITH debug=0 and mold the build consumed ~5.8 GB. Now states ~6 GB and ~2/3 min check/build."
+    },
+    {
+      "id": "windowed-verification-on-a-headless-box-is-ambiguous",
+      "severity": "low",
+      "closed": false,
+      "summary": "The agent notes a reader could report 'windowed boot achieved' having never exercised a window. `without_gpu()` proves composition and art preparation, not winit/wgpu. Worth stating plainly."
+    }
+  ],
+  "what_worked": [
+    "FIRST COMPILE CLEAN, from documentation alone. The strongest single result the campaign has produced.",
+    "The patch-table, playable()/no_audio(), +y-down/min-corner and composed-is-not-running warnings each pre-empted a failure the agent says it would otherwise have hit.",
+    "The min-corner warning talked it into writing a 300-idle-tick settle check it would not otherwise have written \u2014 the doc transferred a lesson, not just a fact."
+  ],
+  "verdict": "Zero API surfaces and a clean first compile. \u00a74.2 recorded as FAILING on the strict reading, because the only files opened were build configuration the SDK should have contained \u2014 and that is now fixed rather than argued away."
+}

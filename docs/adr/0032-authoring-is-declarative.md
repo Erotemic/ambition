@@ -280,3 +280,31 @@ builds. The sharpened acceptance test is that **adding a character requires no
 Rust compilation to validate** — and its negative half, that a character naming
 a missing schema or unregistered preset must *fail* validation rather than boot
 with a silently missing facet.
+
+## Current implications for agents
+
+- **Inside `define`, never mutate `App`.** Content accumulates into an inert
+  `ModuleDraft`; capability is *declared* (`capability(plugin)`) and lowered by
+  the engine in canonical order. The consumer's own `main` keeps its ordinary
+  Bevy `App` — the restriction is scoped to module construction.
+- **Gameplay systems a capability installs go in `app.sim_schedule()`, never
+  `Update`.** `Update` puts gameplay outside the rollback simulation entirely;
+  asking for the schedule is what makes one plugin correct on both hosts. See
+  "Where your gameplay systems go" in `docs/sdk/api-reference.md`.
+- **Completeness is a return value.** Do not add `finish()` hooks, `PreStartup`
+  backstops, or idempotence flags to reconstruct "all contributions" from a
+  mutation stream — that apparatus is what this ADR exists to delete, and its
+  deletion criteria in §Consequences are the scoreboard. Work claiming to
+  advance this ADR should say which criterion it made deletable.
+- **A demand a module cannot meet is refused with a structured error naming
+  the fixes** (`characters(ron)` vs `no_characters()`), never satisfied by a
+  silent default — a silently substituted empty catalog is how a game ships
+  its bosses drawn as the fallback body.
+- **A raw string is never a runtime authority.** Unresolved refs resolve at
+  validation, before assembly and the fingerprint; generated constants are a
+  convenience over an already-validated graph, never the safety mechanism.
+- **Content revision and session transition are different transactions.** A
+  room transition selects from existing prepared content; it does not edit a
+  draft or mint a content fingerprint. Do not cite the session lifecycle
+  machinery as the content verb — that conflation was corrected in this ADR
+  once already.

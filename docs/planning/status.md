@@ -46,6 +46,7 @@ These are foundations to preserve, not active decomposition tracks.
 | Fighter-brain L3 rollouts | **DESIGN CORRECTION REQUIRED.** The current proposal combines a wall-clock budget with deterministic authoritative simulation and proposes rollouts from a live snapshot despite the delayed `Perceived` contract. | Choose a deterministic work budget or recorded-input model, and define a rollout state built only from allowed perceived facts before implementation. |
 | Character authority — the preparation barrier | **PHASE A DONE (2026-07-29); B and C OPEN.** `prepare_character` produces `PreparedCharacterOverrides`, a type declared with NO visibility modifier inside `character_runtime::definition` — so the seated projection, seating, and the worn path (all siblings of that module) physically cannot read a partial value, and the phase split is a compile error rather than a review convention. `CharacterPreparationPlugin::finish` folds the catalog in once for the whole cast; both construction paths read the complete `PreparedKit`. This closed H1, where a catalog-playable character with no authored action set worked as the worn player and got an EMPTY kit when seated as player two. ⚠ two things it did NOT close, stated so a reader does not infer them: ids nothing REGISTERED still fold at wear time (the migration tail — no prepared value exists to disagree with), and `PreparedKit::HostCode` is a resolver that will never leave, because the host kit is built from each BODY's `AbilitySet`. | Phase B: one construction both the seated and worn paths use, which is what would let a seated body wearing a `HostCode` character get a kit at all. Phase C is folded in and done (H6 — bodies carry `{ character_id, generation }`). Plan: [`character-preparation-finalization-plan.md`](character-preparation-finalization-plan.md); ledger: [`queue-24h-2026-07-26.md`](queue-24h-2026-07-26.md) §H. |
 | Local multiplayer topology | **MECHANISMS DONE, ACTIVATION OPEN (2026-07-29).** The GGRS session sizes itself from `LocalSeatTopology`, frozen once per gameplay session and released when it ends; every reconstruction — startup, hot reload, proof-pulse restore — reads the same frozen value rather than resampling live devices; the handle→device MAPPING comes from it too, not just the count; and the whole input-authority cluster (primary latch, seat latches, pending local and seat inputs) is replaced atomically on session rebase and stop. The versus roster records which topology decided its seat count and is rebuilt against a later freeze while it is still only an intention. | Match ACTIVATION — validate every participant, activate the roster atomically, publish it, start the countdown from that. Until it exists, a roster that has ALREADY seated and then disagrees with the session is reported rather than repaired, which is loud but not impossible. Ledger: [`queue-24h-2026-07-26.md`](queue-24h-2026-07-26.md) §Y′. |
+| Public API 1.0 (SDK) | **CAMPAIGN CLOSED at §4's terminal condition (2026-07-30).** Slices A–G; ADRs 0031/0032 Accepted; allowlist ratchet 18 → 0; eight blind runs, the last (Script B run 8) opening zero engine files; six consumer-matrix categories each naming a test. Two standing reservations stay recorded at the top of the campaign doc: every matrix row is proven by a consumer authored in this repo, and the capability footprint (19 of 41 facade crates a movement-only game never asked for) never moved. | Findings carried out of the campaign, per [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) §Slice G: **(g)** seat-keyed input and query — `participants()` is the declaration and the stage's seating is an independent fact nothing reconciles, so a composition can declare four and seat two with no error, and no public seam drives input to a NAMED seat (couch-versus is not yet expressible through the SDK; related to the match-activation gap in the row above); **(a)** an accepted-but-inert rollback registration (`rollback_component_canonical` without `require_rollback`) should be unrepresentable, not documented; **slice H** — make the facade's 41 unconditional dependency edges optional and re-measure the closure. |
 | Boss animator residue | **BOUNDED.** The execution/body path is converged; remaining residue is animation vocabulary/projection (`BossAnim`→`CharacterAnim`, obsolete target mirrors where still live). | Complete the bounded animator fold. Do not reopen the already-shared body integration path. |
 
 ## Rollback terminology
@@ -72,6 +73,24 @@ hot reload still use canonical construction. GGRS rewinds the ECS world directly
 Direct maintainer confidence belongs in
 [`maintainer-decisions.md`](maintainer-decisions.md), not inferred from this
 status summary.
+
+## Standing red instrument: `check_agent_kb.py` (2026-07-30)
+
+`scripts/check_agent_kb.py` exits 1 at HEAD, and was already red before the API
+campaign began (verified by running it at `c737ddfd6~1`) — the campaign's suite
+gates did not include it. Two mechanical items were fixed in the 2026-07-30
+review pass (the `SCRIPT.md` relative link; `## Current implications for
+agents` sections for ADRs 0031/0032). What remains needs review, not typing:
+
+- **34 source files carry a ≥200-line inline `#[cfg(test)]` module with no
+  inline-test review marker in this file.** The check's own contract: review
+  each module and record a `planning-evidence: inline-test` marker with a
+  `kind` finding and `disposition=maintainer-review-pending` (or extract the
+  tests). Run the script for the current list; it spans `ambition_actors`,
+  `ambition_characters`, `ambition_runtime/rollback`, the demo crates, and
+  others.
+- **`AGENTS.md` is 193 lines against its 180 budget** — route content to docs
+  rather than trimming meaning.
 
 ## Mechanically recomputed evidence
 

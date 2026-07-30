@@ -206,3 +206,29 @@ deriving it *from* the migrations is
 Rejected: that is a doc marker, and this repository has been burned three times
 by absences asserted in prose. A boundary nothing enforces is a boundary that
 erodes at the first deadline.
+
+## Current implications for agents
+
+- **A consumer names only the reviewed public surface.** `MODULE_ALLOWLISTS`
+  in `scripts/check_absence_contracts.py` enforces this at module-path
+  granularity over `fixtures/external_consumer/`, with the baseline at zero.
+  When consumer code needs a new `ambition::` module, the module is reviewed
+  into `allowed` — the baseline never grows.
+- **Assembly goes through `PlatformerApp`** (`crates/ambition/src/app.rs`).
+  Never hand-order asset source, engine plugin groups, host groups, shell,
+  asset preparation and presentation in a consumer or fixture; every ordering
+  rule the engine knows is stated once, in the builder.
+  `outlander-does-not-hand-order-its-own-composition` guards the regression.
+- **The facade owns no behavior.** A leaf system added to `crates/ambition`
+  belongs in a domain crate; the facade holds assembly contexts and
+  re-exported contracts only. If it grows behavior, this ADR has failed.
+- **The blind-agent gate is a series, not a score.** Each run uses the fixed
+  script in `docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md`,
+  a FRESH agent, and `docs/sdk/` only; the record names which engine file was
+  opened first. Reading a crate's rendered rustdoc counts as opening that
+  crate. A new public surface gets a new script series, not an edit to an old
+  one.
+- **The SDK reference is guarded both ways.**
+  `scripts/tests/test_sdk_api_reference_is_current.py` cross-checks
+  `docs/sdk/api-reference.md` against the facade's exports — extend the doc in
+  the same commit that grows the surface.

@@ -1,13 +1,16 @@
 # API 1.0 campaign
 
-**Status: slices A–F CLOSED. §4.1 and §4.3 hold; §4.2 REGRESSED the same day,
-on purpose, and the regression is the most useful thing here (2026-07-30).**
+**Status: slices A–G CLOSED; all three §4 conditions hold (2026-07-30). §4.2
+regressed for exactly one commit when a new blind-run series first measured the
+rollback surface, and the regression was the most useful thing here. Two
+engine-work findings and slice H are carried out of the campaign — see
+[§Slice G](#slice-g--closed-and-what-it-leaves-open).**
 
 | §4 terminal condition | State |
 |---|---|
 | the allowlist ratchet is at ZERO | Outlander **0 of 18** · minimal_game **0** |
-| a blind run opens NO engine file | Script A run 6: **zero**. Script B run 7: **three** — ⚠ RED |
-| every consumer-matrix category proven | **6 of 6**, each naming a test |
+| a blind run opens NO engine file | Script A run 6: **zero** · Script B run 8: **zero** (run 7, the series' first: three) |
+| every consumer-matrix category proven | **6 of 6**, each naming a test — the Smash row now states what its participants half does NOT prove |
 
 **§4.2 went red because a new surface was measured for the first time, and that
 is the gate working.** All six earlier runs used Script A, whose task is
@@ -17,7 +20,7 @@ green runs said nothing about the newest public surface, and
 [Script B](slice-evidence/blind-agent-runs/SCRIPT.md) was added as a NEW SERIES
 rather than an edit, leaving runs 1–6 comparable.
 
-Run 7's baseline is three engine files, which is what a first run of a new
+Run 7's baseline was three engine files, which is what a first run of a new
 series looks like — Script A's own first run opened eight. It also found five
 reachable defects on the far side of `start()`, four of them silent, and one of
 them ([finding a](slice-evidence/blind-agent-runs/2026-07-30-slice-g-run7.json))
@@ -25,9 +28,23 @@ is the sharpest thing this campaign has produced: a registration the SDK tells
 you to make is *accepted, counted, and inert* on an entity your own game
 spawned.
 
-⚠ **It also reported a severe engine desync that does not reproduce**, and the
-next slice was nearly aimed at it. A subagent's conclusion is evidence to
-check, not a result to act on; the check is recorded beside the claim.
+**Run 8 (Script B run 2) closed the regression: zero engine files.** The
+single change that did it was documenting `require_rollback` at the point of
+failure — the agent's verdict: *"that warning saved me; it is the single most
+valuable paragraph in the SDK."* It also proved finding (a) closed with a
+control run 7 could not make work: its own entity, spawned in `Startup`,
+registered, held 1:1 with the frame count while the same binary with
+registration toggled off over-counted ~4.95× — and the over-count is the
+proof, because a 1:1 result alone is also what a frozen session produces. That
+control is now the acceptance test
+`a_rewound_counter_does_not_out_count_the_frames_it_ran` in
+`fixtures/external_consumer/tests/rollback_is_a_promise.rs`.
+
+⚠ **Run 7 also reported a severe engine desync that does not reproduce**, and
+the next slice was nearly aimed at it; two of its five findings did not survive
+checking. A subagent's conclusion is evidence to check, not a result to act on;
+each check is recorded beside the claim in
+[`slice-g-selection.json`](slice-evidence/slice-g-selection.json).
 
 **The last three items were the same deferred thing, and it stayed deferred
 until it was earned.** Nothing steered them there; each was reached
@@ -47,9 +64,11 @@ chose to measure and not about the API being finished:
 * **The capability footprint never moved.** Depending on `ambition` links 41
   crates, 19 of which a movement-only game never asked for, and that number is
   identical to slice A's. It is the one §4 decomposition trigger that never
-  fired. Six slices of "no consumer has been unable to do something because of
-  it" is now evidence rather than an absence of data, which is exactly what
-  makes it slice G rather than a footnote.
+  fired. Seven slices of "no consumer has been unable to do something because
+  of it" is now evidence rather than an absence of data — which is exactly what
+  made it the slice-G candidate, and what run 7 outranked: it lost to five
+  things a consumer felt in one session, and is now **slice H** rather than a
+  footnote.
 
 Slice F is the one the campaign could have faked. `ambition::rollback` could
 have been curated and the baseline pruned in an afternoon, at any point across
@@ -76,6 +95,8 @@ on 2026-07-30 once this campaign reached its terminal condition.
 | **C** | the engine refuses a game and drops the reason | `HostStatus::Refused`; a route hold was suppressing failure reporting |
 | **D** | a composition holds ONE experience; the shipped host has four | multi-experience drafts; matrix row 4 |
 | **E** | the builder boots only into a game; the shipped host boots into a launcher | `start_at_launcher()`; matrix row 6 |
+| **F** | rollback is not a public promise; `SnapshotState` sat above the domains it encodes | `ambition::rollback` + `PlatformerApp::rollback(n)`; the vocabulary carved to `ambition_engine_core::snapshot`; ratchet 1 → 0; ADRs 0031/0032 Accepted |
+| **G** | the SDK stops at `start()` returning Ok | `sim_schedule` documented, `rollback::health`, `MatchSeat`; Script B run 8 at zero engine files |
 
 ### The shape that recurred three times
 
@@ -90,6 +111,9 @@ measurement rather than assertion — a stronger case for ADR 0031's sequencing
 than the ADR itself makes.
 
 ### Slice F, derived and blocked
+
+*(Derivation record — F LANDED 2026-07-30 in two parts; see §Deferred for what
+delivery looked like.)*
 
 **Rollback as a public promise.** The only candidate left, and the campaign's
 §4 carve trigger FIRED while scoping it: rollback ownership cannot be federated
@@ -116,6 +140,71 @@ zero in twenty minutes and makes, through the back door, exactly the promise
 ADR 0031 reserves for its own slice. The allowlist contract carries that
 reasoning at the entry, because "one away from zero" is when somebody reaches
 for it.
+
+### Slice G — closed, and what it leaves open
+
+Derivation and per-finding verdicts:
+[`slice-g-selection.json`](slice-evidence/slice-g-selection.json). The slice
+was re-aimed the day it was derived: the ranking chose the capability footprint
+BEFORE blind run 7 returned, and run 7 found five things a consumer felt in an
+hour, so the footprint moved to slice H and G became **the far side of
+`start()`** — what happens after a session exists.
+
+**Closed (2026-07-30):** (e) where gameplay systems go — `app.sim_schedule()`,
+never `Update`, now the phase-table section of `docs/sdk/api-reference.md`;
+(c) session liveness — `ambition::rollback::health`, whose docs state the limit
+a single sample cannot see (a frozen session reports Healthy forever, so
+liveness is a property of TWO observations); (f) REFUTED —
+`drive_control_frame` is correct under GGRS, proven by Outlander's
+byte-identical parity walk; (a) closed as documentation — `require_rollback`
+at the point of failure; (g) partly — `ambition::actor::MatchSeat` is the
+query half of seating. Run 8's four findings, all documentation (a
+`SnapshotState` worked example with the field-ORDER warning; "`rollback(n)`
+does not create n characters"; `encoded_types()` is a DELTA assertion, not an
+absolute; "spawn your rollback entities in `Startup`"), closed the same day.
+
+**Open findings that need ENGINE work, carried out of the campaign:**
+
+1. **(g) Seat-keyed input and query.** `session.participants()` is the
+   DECLARATION — how many input streams GGRS checksum-compares. The seating
+   comes from the stage and its devices. **Nothing reconciles them**: a
+   composition can declare four participants and seat two, and no error says
+   so. `MatchSeat` answers "which seat is this body" but no public seam drives
+   input to a NAMED seat, so two independent input streams cannot be shown to
+   reach two bodies and a couch-versus game is not yet expressible through the
+   SDK. The Smash matrix row carries the limit explicitly
+   (`⚠_what_the_participants_half_does_NOT_prove` in
+   [`consumer-matrix.json`](slice-evidence/consumer-matrix.json)); the test
+   claims only what it proves
+   (`the_match_has_two_distinct_seats_and_simulates_with_both`).
+2. **(a) An inert registration should be unrepresentable.**
+   `rollback_component_canonical` on an entity the consumer spawned is
+   accepted, counted by `encoded_types()`, and inert until
+   `require_rollback::<T>` is also called. Closed as documentation, and the
+   documentation demonstrably works (it is what took run 8 to zero) — but this
+   campaign's own rule elsewhere is to make the wrong thing unrepresentable
+   rather than warned about, e.g. by refusing at registration time when no
+   entity family is declared.
+
+⚠ **Three assertions passed for the wrong reason in one day**, none caught by
+reading, all three by probing: a refusal whose precondition never occurs
+(`ParticipantsDisagree` — deleted), `is_running()` used as a liveness check on
+a sim that can freeze while reporting Running (both slice-F tests now require
+the frame to ADVANCE), and a two-seat test that also passed with its gamepads
+deleted, because the versus stage seats two fighters on its own. The instance
+count is recorded on the matrix row rather than in commit messages nobody
+greps.
+
+### Slice H, derived — the facade's edges, made optional
+
+Unchanged in content from the superseded slice-G ranking (the `slice_g` object
+in [`slice-g-selection.json`](slice-evidence/slice-g-selection.json), including
+its exit-criteria sketch and the failure mode to avoid — cutting edges until
+the number looks good). Depending on `ambition` links 41 crates, 19 of which a
+movement-only game never asked for; it is the one §4 decomposition trigger
+that never fired, and it is still unfelt by any consumer after eight blind
+runs. The reason to do it has not weakened; the reason to do it FIRST has,
+twice.
 
 ---
 

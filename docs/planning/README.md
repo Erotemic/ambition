@@ -29,8 +29,9 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
   legacy-to-shadow-to-SVG migration with raster-equivalence checks.
   The **public API 1.0 campaign** — build and mechanically enforce the consumer
   surface *before* decomposing `ambition_actors` — is
-  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) (slice 1, concrete
-  and executable) plus [`engine/api-growth-method.md`](engine/api-growth-method.md),
+  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) (slices A–G closed
+  2026-07-30 at §4's terminal condition; two engine-work findings and slice H
+  carried open) plus [`engine/api-growth-method.md`](engine/api-growth-method.md),
   which is the PROCEDURE for deriving each next slice from what the previous one
   measured, and which defines the condition that finally authorises the
   decomposition. Its durable decisions are

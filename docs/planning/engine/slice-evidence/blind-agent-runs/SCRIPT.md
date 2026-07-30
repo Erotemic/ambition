@@ -1,6 +1,6 @@
 # The blind-agent script — fixed, so runs are comparable
 
-[api-growth-method.md §2c](../../../planning/engine/api-growth-method.md) requires
+[api-growth-method.md §2c](../../api-growth-method.md) requires
 a **fixed script**. A prompt improvised per run measures the prompt.
 
 Change this file only with a recorded reason, and note the change in the run

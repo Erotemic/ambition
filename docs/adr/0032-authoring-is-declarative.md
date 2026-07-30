@@ -1,0 +1,237 @@
+# ADR 0032: Authoring is declarative — content is a value, capability is declared, only the engine lowers into `App`
+
+## Status
+
+**Proposed** (2026-07-30). Extends [ADR 0026](0026-immutable-prepared-content-and-exact-session-identity.md)
+(immutable prepared content and exact session identity) from the *internal*
+lifecycle to the *public authoring surface*, and extends
+[ADR 0017](0017-rust-behavior-ron-content-ldtk-space.md) (Rust holds behavior;
+RON authors content) to cover federated capability schemas.
+
+Reached across three rounds of external review; see
+[`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)
+§8–§11. The executable plan is
+[`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
+
+## Context
+
+The obvious shape for a game-authoring API is a builder holding the app:
+
+```rust
+pub struct ExperienceBuilder<'a> {
+    app: &'a mut App,
+    // …
+}
+```
+
+It is the shape most Bevy-adjacent libraries use, and it is wrong here for a
+reason specific to this engine.
+
+**ADR 0026 already fixed the lifecycle, and it puts authored input at a stage
+before live mutation:**
+
+```text
+provider-owned fragments + prepared world source
+    -> structured validation          (rejects bad input WITHOUT live mutation)
+    -> deterministic assembly         (normalises semantically unordered input)
+    -> immutable PreparedContent
+    -> ContentFingerprint + ContentEpoch
+    -> exact prepared-session publication
+    -> lowering onto the canonical SessionRoot
+```
+
+A builder that mutates `App` collapses validation, assembly, preparation and
+activation into "whatever the provider's `build()` did." It puts the public API
+one stage past the point the engine's own contract says authored input is still
+inert.
+
+**Today's type is already pure.** `PlatformerExperienceAuthoring` is a plain
+struct — ids, `AuthoredCatalogFragments`, optional specs, no `App`. Handing
+providers a mutable `App` would be a regression, not an improvement.
+
+**Order-independence is required and unobtainable from a mutation stream.**
+ADR 0026: fingerprints *"never hash `Debug`, insertion order, randomized maps,
+entity ids, handles, addresses, timestamps, readiness, or mutable requests …
+Equivalent provider or registry insertion orders produce the same fingerprint."*
+You cannot compute that over a sequence of `App` mutations without first
+buffering them into a value and canonicalising it — and that buffer *is* the
+pure definition. `&mut App` does not remove it; it hides it in a staging
+resource and makes "is content complete yet?" unanswerable. That is not
+academic: `RollbackSessionContract` compares content identity every frame and
+invalidates the session when it changes.
+
+**The decisive evidence is the machinery `Plugin::build` already forced us to
+write.** `CharacterPreparationPlugin` needs three mechanisms, each paid for in a
+real defect:
+
+1. `fn finish()`, to fold the staged cast after every provider's `build`;
+2. a `PreStartup` backstop, because **`App::update` does not run `finish`** and
+   this repository drives `update` by hand nearly everywhere — every headless
+   test, the external fixture, the rollback harnesses, the tools. Its own
+   comment records the symptom: *"every character silently falls back to the
+   host's compatibility kit, so a consumer's peaceful wanderer comes out
+   swinging the protagonist's sword … it is what the outlander fixture reported
+   within an hour of the barrier landing"*;
+3. an idempotence flag, because **`App::finish` re-runs every plugin's `finish`
+   every time it is called** — without it, a second call republished an *empty*
+   registry.
+
+All three exist to reconstruct *"the complete set of contributions"* from a
+stream that has no completion signal. `Plugin::build` cannot tell you it was the
+last one.
+
+## Decision
+
+**1. Content is a pure value. Authoring never mutates `App`.**
+
+A module's content methods accumulate into an inert draft. Nothing a provider
+writes is live when its `define` returns. The engine — which calls `define` —
+seals the draft, validates it, assembles it deterministically, and fingerprints
+it before anything is installed.
+
+**Completeness becomes a `->` in a signature.** No `finish`, no `PreStartup`
+backstop, no idempotence flag, no ordering hazard.
+
+**2. Capability is code, and code is *declared*, then lowered by the engine.**
+
+You cannot serialise a Bevy system into a content document, so capability
+registration must eventually touch `App`. It does so through named methods that
+record declarations, and an engine-owned installer applies them in a canonical
+order. Preparation therefore produces two products:
+
+```text
+PreparedContent          — validated, canonical, fingerprinted authored data
+PreparedCapabilityPlan   — ordered plugin installation + declared schema
+```
+
+Staging needs no new machinery: `bevy_app::plugin_group` already holds
+`Box<dyn Plugin>` and installs in a canonical order.
+
+**3. The `App` restriction is scoped to module construction, not to the process.**
+
+Inside `define`, mutation is staged. In the game's own `main`, the consumer has
+an ordinary Bevy `App` and may do anything — its own asset loader, render
+pipeline, inspector, any third-party plugin. Per
+[ADR 0031](0031-public-facade-is-the-compatibility-boundary.md), `PlatformerApp`
+is a plugin group, not a runtime that owns your app.
+
+**4. Named content is data; Rust names reusable behavior and exceptions.**
+
+This is [ADR 0017](0017-rust-behavior-ron-content-ldtk-space.md), and it is
+already true at scale: `character_catalog.ron` is 2,733 lines and 141 character
+rows, while `CharacterDefinition::new` appears in four places (two versus
+duelists, Sanic, Mary-O, the robot lineage). A module registers *content
+sources*; it does not enumerate the cast.
+
+0017 predates capability federation, so two things are added:
+
+* **Facet schemas are federated.** A capability registers the schemas its
+  content may use (`module.content_schemas().register::<T>()`). Without this the
+  content format is a closed world the engine owns, and every new capability
+  needs an engine edit — the monolith in a different file format.
+* **Rust authoring remains for four reasons, not three.** Tests, procedural
+  generation and unrepresentable schemas are the obvious ones. The fourth is the
+  one this repository actually has: **the character's behavior is supplied by
+  host code as a deliberate authoring choice** — `PlayableKitSource::HostCode`,
+  the protagonist whose combat is a runtime `AbilitySet` concern. Content must
+  be able to *say* that, or the protagonist stays in Rust forever and the rule
+  keeps an exception nobody can close.
+
+**5. A raw string is never a runtime authority.**
+
+Static Rust consumers use references generated from validated content
+(`content::characters::MALLORY`). Dynamic content — tools, editors, mods — uses
+authored identifiers converted at validation:
+
+```text
+UnresolvedContentRef<T>  --(pack validation)-->  ResolvedContentRef<T>
+```
+
+Resolution happens at ADR 0026's **validation** stage: before assembly, before
+the fingerprint. Generated constants are a convenience over an already-validated
+graph, never the safety mechanism — content authored by a tool or loaded as a
+mod must be as safe as content someone wrote in Rust.
+
+This repository deleted its String-keyed lookups (`row_index_of` and both
+String-keyed art maps) for exactly this reason: **a bad id fails silently.** The
+shipped gate for the same class is
+`game/ambition_app/tests/declared_art_resolves.rs`, whose notes record why: *"a
+declared image naming no file is indistinguishable from a bolt nobody skinned."*
+
+**6. Content transactions are a first-class verb, not a later addition.**
+
+The lifecycle is not `compose → run`. This engine already commits content
+*during* a run: LDtk reload builds a replacement `PreparedContent` candidate
+through the same assembly path; room transitions defer to a confirmed frame via
+`PendingLifecycleCommit`; `commit_confirmed_lifecycle` then rebases the rollback
+session.
+
+So the API exposes `candidate → validate → commit → new epoch` from the start,
+and **the draft type used at composition time and at commit time is the same
+type.** Otherwise there are two content paths, which is the failure the
+construction campaign exists to end.
+
+Content is immutable *within* a session and replaced *transactionally* between
+them. It is not frozen after compilation.
+
+## Consequences
+
+**Deletion criteria — the campaign is not done until these are true.** A new
+abstraction earns its place by making an old compensating mechanism unnecessary:
+
+* the `PreStartup` character-preparation backstop is **deletable**;
+* provider plugin ordering no longer determines content completeness;
+* repeated `App::finish()` cannot republish or alter prepared content;
+* headless and visible hosts consume the same prepared-content fingerprint;
+* Sanic standalone and Sanic embedded produce the same module-content and
+  rollback-schema identities;
+* no runtime character consumer reads a fallback authoring catalog.
+
+**Errors arrive once, structured, at a known point.** A draft yields one build
+error listing every conflict in the experience. `&mut App` yields a
+resource-missing panic three plugins later — the failure `ShellComposition` was
+created to end.
+
+**Module inclusion is a merge, not an ordering.** `include(SanicModule)` over a
+draft is a merge with transactional conflict detection, which the registries
+already implement (byte-identical fragments idempotent; opaque room-stager
+closures reject duplicate ownership). Over `&mut App` it is "did Sanic's plugin
+run before Mary-O's".
+
+**One open question this ADR does not close**, deliberately, because it is
+unproven: **what happens when a content document names a facet schema that no
+installed capability claims.** *Ignore* recreates the prepared-but-unconsumed
+portrait field at scale, and "state that looks accounted for and is not" is this
+repository's single most recurring defect class — six of eleven fixes in the last
+campaign. The campaign's working answer is: the pack declares its required
+capability profile, an unclaimed facet is a hard validation error, and the
+symmetric check runs too (a registered schema no consumer reads is also an
+error). That becomes ADR material once a slice has proven it.
+
+**A version-space obligation.** A versioned facet schema (`ambition.body.sprite@1`)
+must be deliberately related to the existing version spaces —
+`SnapshotSchemaFingerprint`, `GGRS_ROLLBACK_SCHEMA_VERSION`, and ADR 0026's
+fingerprint-schema version — because that relation decides whether yesterday's
+save loads today. Ask it before `@1` is minted; the first migration is when it
+gets expensive.
+
+## Alternatives considered
+
+**`ExperienceBuilder { app: &mut App }`** (the conventional shape). Rejected:
+contradicts ADR 0026's validation stage, regresses from the pure
+`PlatformerExperienceAuthoring` that exists today, makes order-independent
+fingerprinting impossible without a hidden buffer, and keeps every piece of the
+`finish`/`PreStartup`/idempotence apparatus.
+
+**Pure content *and* pure capability — no `App` access at all.** Rejected: a
+system is not data. Restricting capabilities to an engine-known closed set would
+buy purity by forbidding third-party capabilities, which is the federation
+property the whole design depends on.
+
+**Enumerate content in Rust** (`module.characters().define(mallory())?`).
+Rejected: contradicts ADR 0017, contradicts the existing 2,733-line catalog, and
+makes every content row a recompilation concern in a workspace with ~10-minute
+builds. The sharpened acceptance test is that **adding a character requires no
+Rust compilation to validate** — and its negative half, that a character naming
+a missing schema or unregistered preset must *fail* validation rather than boot
+with a silently missing facet.

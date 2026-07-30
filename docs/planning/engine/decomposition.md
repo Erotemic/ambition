@@ -29,6 +29,15 @@ This ruling does not protect misplaced named content or prevent a later split
 that a real second consumer demonstrates. In particular, boss decomposition is
 reassessed only after boss execution converges onto the canonical moveset path.
 
+**The trigger above now has a defined mechanism** (2026-07-30). "A real second
+consumer demonstrates" is not a judgement call: it is the terminal condition in
+[`api-growth-method.md`](api-growth-method.md) § 4 — the campaign carves
+`ambition_actors` when, and only when, the highest-cost remaining consumer leak
+cannot be closed without moving code between crates. The carve is then designed
+from the leak (which names the boundary a consumer could not be given) rather
+than from the module list (which names today's internal topology). See
+[ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md).
+
 ## E4 — one-way observation boundary
 
 Simulation owns authoritative mutable state. `ambition_sim_view` publishes

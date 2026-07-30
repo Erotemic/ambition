@@ -1,0 +1,156 @@
+# ADR 0031: The public facade is the compatibility boundary, and it is enforced
+
+## Status
+
+**Proposed** (2026-07-30). Nothing here is implemented. It records a decision
+reached across a maintainer conversation and three rounds of external review
+([`../reviews/gpt56-jon-conv-2026-07-29.md`](../reviews/gpt56-jon-conv-2026-07-29.md),
+[`../reviews/gpt56-reply-2026-07-29-v2.md`](../reviews/gpt56-reply-2026-07-29-v2.md),
+[`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)),
+so the constraint is agreed before the first slice is built rather than
+discovered during it.
+
+The executable plan is
+[`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
+This ADR moves to *Accepted; implemented* when that campaign's slice 1 lands and
+its dependency contract is green.
+
+## Context
+
+`crates/ambition/src/lib.rs` is 114 lines. Fifty of them are `pub use`, and
+roughly forty are `pub use ambition_x as x`.
+
+**The public API of this engine is currently the list of crates it happens to be
+built from.** That is not a facade; it is a namespace mirror. It means:
+
+* the compatibility surface changes whenever the crate graph changes, which is
+  whenever anyone reorganises anything;
+* a consumer's imports encode our implementation topology, so we cannot move an
+  implementation without breaking them;
+* and there is no answer to "what is public?" other than "everything".
+
+The external-consumer fixture measures the consequence. Outlander depends only
+on `ambition` and Bevy — which was the point — and reaches through it into
+`ambition::actors::features` (7 uses), `ambition::runtime::rollback` (6),
+`ambition::platformer::markers` (5), `ambition::characters::actor::character_catalog`,
+`ambition::runtime::demo_fixture`, and `ambition::runtime::rollback::put_f32`.
+A third party building a game is naming an internal serialisation helper.
+
+The same fixture shows the cost at the composition level. `build_windowed_app`
+is ~65 lines a consumer must write in a specific order: register your asset
+source *before* `DefaultPlugins` (Bevy seals asset sources when `AssetPlugin`
+builds), then `init_engine_states`, then `PlatformerEnginePlugins::fixed_tick()`,
+then `PlatformerHostPlugins`, then the shell, then `PlatformerAssetsPlugin` —
+after the content that registers the catalogs it reads and before the
+presentation that draws from what it installs.
+
+**This engine has closed two leaks of exactly this shape and won both times.**
+
+* `ShellComposition` replaced *"seven hand-written steps whose ORDER is enforced
+  by a resource-missing panic … two of whose omissions are silent"* with one
+  call. LEAK CLOSED 2026-07-28.
+* `drive_control_frame` replaced *"`PendingLocalInput` under GGRS, the
+  `ControlFrame` resource under fixed tick … writing the wrong one is silently
+  ignored: the walk runs, the body never moves, nothing says why"* with one
+  seam. LEAK CLOSED 2026-07-27.
+
+Both were found by Outlander. Both are the same shape: **a rule the engine knew
+and made the consumer re-derive.** This ADR generalises that method to the API
+itself.
+
+It is also what
+[`../planning/engine/decomposition.md`](../planning/engine/decomposition.md)
+already anticipated. Its settled "no size-driven `ambition_actors` carve" ruling
+ends: *"This ruling does not protect misplaced named content or prevent a later
+split that **a real second consumer demonstrates**."* Building the public API
+first is how that consumer gets a voice; it is the mechanism that ruling named,
+not a reversal of it.
+
+## Decision
+
+**1. `ambition` is a semantic API, not a crate re-export list.** Public modules
+are named for roles, not for implementation crates:
+
+```text
+ambition::app        ambition::experience   ambition::character
+ambition::actor      ambition::world        ambition::combat
+ambition::sim        ambition::lifecycle    ambition::effects
+ambition::view       ambition::test         ambition::prelude
+```
+
+**2. The compatibility promise is made at that surface and nowhere else.** Inner
+crates remain independently usable by engine developers and carry no stability
+promise. A game depends on `ambition`.
+
+**3. Implementation-shaped module paths are forbidden in game code, and the
+prohibition is executable.** `scripts/check_absence_contracts.py` already owns
+this class: `DEPENDENCY_CONTRACTS` is a transitive, Cargo-metadata-backed table
+of `{crate, forbidden, reason}` with four live rows, including
+`engine-crates-do-not-consume-the-umbrella-facade`. The extension needed is
+module-path granularity, not a new mechanism.
+
+The contract lands **red, before the facade exists**, so the campaign has a
+gradient and a finish line that is an exit status rather than a claim.
+
+**4. The engine owns composition ordering.** A consumer states policy —
+windowed or headless, fixed-step or rollback session, which experience, where it
+starts. It does not sequence asset sources, engine plugin groups, host groups,
+shell composition, asset preparation and presentation. Every ordering constraint
+the engine knows is a rule the engine states once.
+
+**5. `PlatformerApp` is a Bevy plugin group, not a runtime.** A studio with an
+existing Bevy `App` must be able to add it without surrendering the `App`. The
+engine owns ordering *within its own installation*, not the consumer's process.
+
+## Consequences
+
+**A facade that owns no behavior.** It re-exports public contracts and provides
+assembly contexts. Character behavior stays in the character domain, world
+behavior in world, combat in combat. If the facade ever grows a leaf system, it
+has become the next monolith and this ADR has failed.
+
+**Two acceptance tests, both mechanical, neither prose.**
+
+* the dependency contract above; and
+* **the blind agent test** — can an agent implement a character, a room and a
+  mechanic with only `docs/sdk/` and `ambition::prelude` in context, never
+  opening a file under `crates/`? It must be run with **no prior context of this
+  repository**, or it measures the agent's memory rather than the API, and the
+  recorded result includes *which engine file it had to open first*. That field
+  names the next leak the way Outlander's comments do.
+
+**The `ambition_actors` decomposition is deferred, deliberately, and gains a
+trigger.** The diagnosis that it has become a gravitational sink is accepted —
+it owns audio, menu content, persistence compatibility, LDtk loading, session
+lifecycle, cutscene playback and boss orchestration alongside actor simulation.
+But the split designed today would fit today's *internal* topology. The API
+campaign exists to find out which boundaries a *consumer* can feel, and those
+are the ones worth paying for. See
+[`../planning/engine/api-growth-method.md`](../planning/engine/api-growth-method.md)
+for the condition that authorises the carve.
+
+**A versioning obligation.** A compatibility promise needs a version and a test
+that the inner crates have not leaked back through the facade. Both are campaign
+work, not decided here.
+
+## Alternatives considered
+
+**Split `ambition_actors` first, then design the API over the result.** Rejected
+on sequencing, not on merit. It designs boundaries from the inside, and the
+stated objective is an engine another game can be built on — a property only a
+consumer can measure. It also risks weeks of refactor during which new features
+gravitate to whatever the new integration crate is.
+
+**Write a capability-composition doctrine document first.** Rejected on
+evidence. The previous large architecture document
+([`../planning/architecture-campaign-2026-07-28.md`](../planning/architecture-campaign-2026-07-28.md))
+is eight days old and now opens with a SUPERSEDED banner: its reasoning survived,
+every status claim rotted within a week. A growth law written after three real
+migrations is a description; written before, it is a prediction. The method for
+deriving it *from* the migrations is
+[`../planning/engine/api-growth-method.md`](../planning/engine/api-growth-method.md).
+
+**Keep the namespace mirror and document which modules are "really" public.**
+Rejected: that is a doc marker, and this repository has been burned three times
+by absences asserted in prose. A boundary nothing enforces is a boundary that
+erodes at the first deadline.

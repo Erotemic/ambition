@@ -42,3 +42,5 @@ Use an ADR when a decision:
 - [0028: Dialogue presentation is provider-selected](0028-dialogue-presentation-is-provider-selected.md)
 - [0029: Direct gameplay reveal is readiness-gated](0029-direct-gameplay-reveal-is-readiness-gated.md)
 - [0030: Spawn provenance is data, and construction is planned before mutation](0030-spawn-provenance-is-data.md)
+- [0031: The public facade is the compatibility boundary, and it is enforced](0031-public-facade-is-the-compatibility-boundary.md) — **Proposed**
+- [0032: Authoring is declarative — content is a value, capability is declared, only the engine lowers into `App`](0032-authoring-is-declarative.md) — **Proposed**

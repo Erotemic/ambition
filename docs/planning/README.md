@@ -27,6 +27,15 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
   [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md):
   editable SVG component scenes, freeform Python animation, and a gradual
   legacy-to-shadow-to-SVG migration with raster-equivalence checks.
+  The **public API 1.0 campaign** — build and mechanically enforce the consumer
+  surface *before* decomposing `ambition_actors` — is
+  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) (slice 1, concrete
+  and executable) plus [`engine/api-growth-method.md`](engine/api-growth-method.md),
+  which is the PROCEDURE for deriving each next slice from what the previous one
+  measured, and which defines the condition that finally authorises the
+  decomposition. Its durable decisions are
+  [ADR 0031](../adr/0031-public-facade-is-the-compatibility-boundary.md) and
+  [ADR 0032](../adr/0032-authoring-is-declarative.md).
   The active construction campaign and its remaining closure are recorded in
   [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
   Its room-lifecycle customer is

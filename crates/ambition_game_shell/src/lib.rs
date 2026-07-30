@@ -30,7 +30,9 @@ pub use frontend::*;
 pub use id::*;
 pub use input::*;
 pub use launcher::*;
-pub use plugin::{AmbitionGameShellPlugin, ShellLauncherPlugin, ShellSequencePlugin};
+pub use plugin::{
+    AmbitionGameShellPlugin, ShellFailureLog, ShellLauncherPlugin, ShellSequencePlugin,
+};
 pub use preparation::*;
 pub use router::*;
 pub use sequence::*;

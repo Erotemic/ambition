@@ -113,6 +113,14 @@ pub enum HostStatus {
     /// A route is being prepared. Normal for a few frames after boot; a host
     /// stuck here is a preparation that never completed.
     Activating { route: String },
+    /// Routing REFUSED this host, and this is why.
+    ///
+    /// ⚠ Before slice C this state was indistinguishable from
+    /// [`HostStatus::Activating`]: the reason existed, reached `error!`, and
+    /// never reached the consumer. A headless test with no log subscriber saw a
+    /// host that simply never started, and the campaign burned a whole slice
+    /// discovering that on its own new consumer.
+    Refused { reasons: Vec<String> },
     /// A route is live.
     ///
     /// ⚠ `prepared == false` is the quiet failure: the router is pointing at a
@@ -133,6 +141,23 @@ impl HostStatus {
     /// here would make this read-model agree with the bug it exists to expose.
     pub fn is_running(&self) -> bool {
         matches!(self, Self::Running { prepared: true, .. })
+    }
+
+    /// Routing refused this host. A poll loop should STOP rather than spin.
+    ///
+    /// The distinction `Activating` could not make. Spinning 600 ticks on a
+    /// decision the engine reached on tick 3 is not patience, it is a consumer
+    /// with no way to know.
+    pub fn is_refused(&self) -> bool {
+        matches!(self, Self::Refused { .. })
+    }
+
+    /// Why routing refused, if it did.
+    pub fn refusal(&self) -> &[String] {
+        match self {
+            Self::Refused { reasons } => reasons,
+            _ => &[],
+        }
     }
 
     /// The active route, if any.
@@ -158,6 +183,19 @@ pub fn host_status(app: &App) -> HostStatus {
             experience: active.experience_id.as_str().to_string(),
             prepared: active.prepared_session.is_some(),
         };
+    }
+    // A recorded refusal outranks "still pending": the router can hold a
+    // pending route whose load already failed, which is exactly the state that
+    // used to read as `Activating` forever.
+    if let Some(failures) = app
+        .world()
+        .get_resource::<crate::game_shell::ShellFailureLog>()
+    {
+        if !failures.is_empty() {
+            return HostStatus::Refused {
+                reasons: failures.reasons().to_vec(),
+            };
+        }
     }
     if let Some(pending) = router.pending.as_ref() {
         return HostStatus::Activating {

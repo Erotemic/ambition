@@ -38,6 +38,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellRouter>()
             .init_resource::<PreparedSessionRegistry>()
             .init_resource::<ShellRouteHolds>()
+            .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
             .add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>()
@@ -277,18 +278,113 @@ fn cleanup_scoped_entities(
 /// system is what makes them observable. Logging is purely additive: it never
 /// suppresses the user-facing presentation, it only guarantees the developer
 /// detail reaches the log wherever the sim runs.
-fn log_shell_routing_failures(mut events: MessageReader<ShellEvent>) {
+/// The reasons routing has refused this host, kept where a consumer can READ
+/// them.
+///
+/// ⚠ **These reasons already existed and already reached the log. That was not
+/// enough, and slice B paid for finding out.** A movement-only game composed,
+/// booted, and sat in `Activating` for 600 ticks: preparation had refused it
+/// over a missing audio fragment, `log_shell_rejection` said so at `error!`,
+/// and the consumer — a headless test with no log subscriber — saw a host that
+/// simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment
+/// already recorded the shape of this: without the carried failures "the route
+/// appeared to stall forever with no diagnosable cause". Carrying them into a
+/// message and logging them fixed the *engine's* view; a consumer polling for
+/// "did my game start" still had nothing.
+///
+/// A log line is an operator affordance. This is the API one.
+#[derive(bevy::prelude::Resource, Default, Debug, Clone)]
+pub struct ShellFailureLog {
+    reasons: Vec<String>,
+}
+
+impl ShellFailureLog {
+    /// Every refusal recorded, oldest first.
+    pub fn reasons(&self) -> &[String] {
+        &self.reasons
+    }
+
+    /// The most recent refusal, which is what a poll loop wants to print.
+    pub fn latest(&self) -> Option<&str> {
+        self.reasons.last().map(String::as_str)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.reasons.is_empty()
+    }
+
+    fn record(&mut self, reason: String) {
+        self.reasons.push(reason);
+    }
+}
+
+/// One reader of `ShellEvent` for failures, recording AND logging.
+///
+/// Deliberately not two systems. A second `MessageReader<ShellEvent>` would
+/// have its own cursor, and the failure mode of two cursors over one stream is
+/// that they silently disagree about what happened — which is precisely the
+/// class of bug this whole recorder exists to surface.
+fn log_shell_routing_failures(
+    mut events: MessageReader<ShellEvent>,
+    mut failures: ResMut<ShellFailureLog>,
+) {
     for event in events.read() {
         match event {
-            ShellEvent::CommandRejected(rejection) => log_shell_rejection(rejection),
+            ShellEvent::CommandRejected(rejection) => {
+                log_shell_rejection(rejection);
+                if let Some(reason) = describe_rejection(rejection) {
+                    failures.record(reason);
+                }
+            }
             ShellEvent::ExperienceFailed {
                 activation_id,
                 message,
             } => {
                 error!("shell experience {activation_id:?} failed: {message}");
+                failures.record(format!("experience failed: {message}"));
             }
             _ => {}
         }
+    }
+}
+
+/// A refusal as one line a consumer can act on, or `None` for the routine
+/// non-faults.
+///
+/// Cancellation and supersession are terminal without being wrong — they are
+/// ordinary navigation — so recording them would fill the log with noise and
+/// teach readers to ignore it, which is how a guard becomes decoration.
+fn describe_rejection(rejection: &ShellCommandRejection) -> Option<String> {
+    match rejection {
+        ShellCommandRejection::LoadFailed { readiness, failures } => {
+            if failures.is_empty() {
+                return None;
+            }
+            Some(format!(
+                "route load {readiness:?}: {}",
+                failures
+                    .iter()
+                    .map(|failure| format!(
+                        "{} ({})",
+                        failure.player_message, failure.developer_detail
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ))
+        }
+        ShellCommandRejection::HostNotConfigured => {
+            Some("the host names no initial route, so nothing was prepared".to_string())
+        }
+        ShellCommandRejection::UnknownRoute(route) => {
+            Some(format!("unknown route `{}`", route.as_str()))
+        }
+        ShellCommandRejection::PreparedSessionUnavailable(_) => {
+            Some("a route activated with no prepared session behind it".to_string())
+        }
+        ShellCommandRejection::LoadCommitRejected(rejection) => {
+            Some(format!("load commit rejected: {rejection:?}"))
+        }
+        ShellCommandRejection::StaleActivation(_) => None,
     }
 }
 

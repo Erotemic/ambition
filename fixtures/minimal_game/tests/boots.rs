@@ -217,3 +217,77 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
     // hollow, so the distinction must not cost the caller that information.
     assert_eq!(hollow.route(), Some("r"));
 }
+
+/// **A game that will never start says WHY, instead of hanging.**
+///
+/// This is slice B's failure, turned into the check that should have caught it.
+///
+/// A module that declares no audio is refused by preparation validation. Before
+/// slice C the refusal reached `error!` and stopped there: a headless consumer
+/// with no log subscriber saw `Activating` forever, and a poll loop spun 600
+/// ticks on a decision the engine had reached on tick 3. That cost this
+/// campaign a whole slice and a falsely-"proven" consumer-matrix row.
+///
+/// `ShellCommandRejection::LoadFailed`'s own doc comment had already recorded
+/// the shape — without its carried failures "the route appeared to stall
+/// forever with no diagnosable cause" — so the reasons existed. They were just
+/// never anywhere a consumer could read them. A log line is an operator
+/// affordance; this is the API one.
+#[test]
+fn a_game_that_will_never_start_reports_why() {
+    struct Voiceless;
+
+    impl GameModule for Voiceless {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("voiceless")
+        }
+
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience(minimal_game::MINIMAL_EXPERIENCE)
+                .launcher_route(minimal_game::MINIMAL_LAUNCHER_ROUTE)
+                .gameplay_route(minimal_game::MINIMAL_GAMEPLAY_ROUTE)
+                .characters(minimal_game::minimal_experience::MINIMAL_ROSTER_RON)
+                .playable(
+                    "voiceless",
+                    "declares no audio, so preparation will refuse it",
+                    minimal_game::minimal_experience::MINIMAL_CHARACTER_ID,
+                    minimal_game::minimal_experience::MINIMAL_ROOM_ID,
+                    vec![minimal_game::minimal_experience::minimal_room()],
+                );
+            // and never says `no_audio()`
+        }
+    }
+
+    let mut app = PlatformerApp::headless().mount(Voiceless).build();
+
+    let mut status = host_status(&app);
+    let mut ticks = 0;
+    // A poll loop that can STOP. That is the affordance under test — the
+    // previous version of this loop had no exit but exhaustion.
+    for _ in 0..600 {
+        app.update();
+        ticks += 1;
+        status = host_status(&app);
+        if status.is_running() || status.is_refused() {
+            break;
+        }
+    }
+
+    assert!(
+        status.is_refused(),
+        "a host that can never start must SAY so; after {ticks} ticks it reported \
+         {status:?}"
+    );
+    assert!(
+        ticks < 600,
+        "the refusal must arrive promptly — spinning the full budget is the \
+         silent hang wearing a new type"
+    );
+    let reasons = status.refusal().join(" | ");
+    assert!(
+        reasons.contains("audio"),
+        "the refusal must name the missing thing, not merely report failure; \
+         got {reasons:?}"
+    );
+}

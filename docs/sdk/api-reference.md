@@ -183,11 +183,33 @@ composition, so a restart reuses it instead of re-sampling. Every path that
 guessed this number guessed one, and the engine ran a rollback oracle over a
 single input stream for the week its versus mode seated four.
 
+⚠ **`rollback(n)` sizes the GGRS input streams. It does not create n
+characters.** These are independent facts today and nothing reconciles them:
+the count decides how many streams are checksum-compared; the *seating* comes
+from the stage and its devices. A headless composition seats one body no matter
+what you declare, and no error says so. Check what you actually got by querying
+`ambition::actor::MatchSeat`.
+
+And there is **no public seam for driving input to a named seat** —
+`drive_control_frame` writes one frame for the whole composition. So a
+two-player couch game is not yet expressible: you can size the session for two
+and you cannot yet feed them separately. Both blind runs of this script
+believed they had two players and had one; the second only found out by
+querying the seats.
+
 | `RollbackSession` | |
 |---|---|
 | `participants()` | how many the session seated |
-| `encoded_types()` | how many kinds of authoritative state it carries — assert on this; a session over nothing passes |
+| `encoded_types()` | how many kinds of authoritative state the session carries |
 | `ticks_to_activation()` | how long the host took to start |
+
+⚠ **Assert on the DELTA of `encoded_types()`, not its value.** It counts the
+engine's registrations too — 331 in blind run 8 — so the absolute number means
+nothing to you and drifts with every engine release. What is stable is that it
+goes up by one per registration verb you call. Run 8 measured 331 registered
+against 329 unregistered and that difference of two is the assertion worth
+writing; this page previously said "assert on this", which is true and
+unusable.
 
 `RollbackRefused` names the fix, not just the fault: `NotComposedForRollback`,
 `NeverActivated`, `NoAuthoritativeState`, `SessionRejected`.
@@ -222,8 +244,35 @@ what a stall looks like is a `frame()` that stops advancing. Sample it before
 and after a batch of updates — the engine cannot decide for you how long a
 quiet frame is allowed to be.
 
-**Your own state joins the wire format** by implementing
-`ambition::rollback::SnapshotState` and registering it:
+### Putting your own state in the wire format
+
+⚠ **`SnapshotState` is two methods, and they were missing from this page until
+blind run 8 got them out of the compiler.** It wrote an empty impl, read
+`E0046`'s list of missing items, then generated rustdoc for `Reader`'s
+accessors — its verdict: "that worked, but it is a trick, not documentation."
+
+```rust
+use ambition::rollback::{put_u32, Reader, SnapshotState};
+
+impl SnapshotState for BeaconCharge {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.ticks);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { ticks: r.u32()? })
+    }
+}
+```
+
+The primitives are `put_bool`, `put_u8`, `put_u32`, `put_u64`, `put_i32`,
+`put_f32`, `put_vec2`, `put_str`, `put_opt_str`, with matching `Reader`
+accessors (`r.u32()`, `r.f32()`, `r.vec2()`, …).
+
+⚠ **Encode and decode must read the same fields in the same ORDER.** This is a
+wire format: a field added to one side and not the other, or read out of order,
+does not fail to compile — it decodes garbage.
+
+Then register it:
 
 ```rust
 use ambition::rollback::AmbitionRollbackApp;
@@ -233,6 +282,14 @@ app.rollback_component_canonical::<BeaconCharge>("mygame", "mygame.beacon");
 No engine file lists your type, and nothing in `ambition` has heard of it. The
 registration is what puts it in the baseline — without it, your state silently
 does not roll back.
+
+⚠ **Spawn your rollback entities BEFORE `start()`.** `Startup` is the right
+place. `start` rebases frame zero onto the world it finds, so an entity that
+exists by then is part of the baseline. (The module docs are emphatic that
+rewinding across construction desyncs — that is about construction the session
+would have to rewind *through*, not about spawning before it begins. Blind run
+8 guessed right and reported being unsure, which means the docs made a hazard
+vivid without saying which side of the line a consumer's own spawns fall on.)
 
 ⚠ **Registering a component is not enough if YOU spawned the entity.** A
 component only rolls back on an entity the session tracks, and the engine

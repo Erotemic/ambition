@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "Blind run 8 — Script B (rollback), second run. Run 7's baseline was three",
+    "engine files; this is zero.",
+    "",
+    "⚠ CLASSIFICATION, stated so it can be disagreed with. This run read the",
+    "FACADE's own rustdoc (`cargo doc -p ambition --no-deps`) for six items. I am",
+    "NOT counting that as an engine surface, and the rule I am applying is:",
+    "reading `ambition`'s own generated docs is reading the public API; reading an",
+    "ENGINE CRATE's docs is a leak. Blind run 4's two opens were",
+    "`cargo doc -p ambition -p ambition_world` — the `ambition_world` half is what",
+    "made it a finding. Every rustdoc item this run read is listed below so a",
+    "reader who draws the line differently can re-score it without rerunning."
+  ],
+  "run": 8,
+  "script": "B (rollback)",
+  "date": "2026-07-30",
+  "slice": "G",
+  "completed": "YES. Two-participant rollback session, consumer's own entity in the wire format, PROVEN by a control run rather than asserted.",
+  "first_engine_file_opened": null,
+  "engine_files_opened": [],
+  "engine_api_surfaces_read": [],
+  "facade_rustdoc_read": {
+    "command": "cargo doc -p ambition --no-deps",
+    "items": [
+      "rollback::Reader",
+      "rollback::SnapshotState",
+      "the rollback module index",
+      "sim::drive_control_frame",
+      "PlatformerApp::rollback",
+      "actor::MatchSeat"
+    ],
+    "why_it_is_a_finding_anyway": "Every one of these was reached because docs/sdk/ does not contain it. See finding (a): `SnapshotState`'s two methods are on the critical path for the run's whole task and appear nowhere in the SDK. The run got them by writing an empty impl and reading E0046.",
+    "compiler_pointed_at": "crates/ambition_runtime/src/rollback/registry.rs:287 in a trait-bound error. The run read the path in the error text and did NOT open the file."
+  },
+  "measured": {
+    "participants": 2,
+    "encoded_types": 331,
+    "ticks_to_activation": 2,
+    "health": "Healthy { frame: 1 } -> Healthy { frame: 301 } over 300 updates"
+  },
+  "⚠_run_7_finding_a_is_CLOSED_and_this_is_the_proof": {
+    "what_the_run_built": "Its own entity (`Beacon` + `BeaconCharge`), spawned in Startup — NOT on an engine entity, which is exactly the case run 7 could not make work — incremented every tick in `SandboxSet::PlayerSimulation`.",
+    "the_control": "Ran the same binary with the registration toggled off. THIS is the half that makes it a proof rather than a green run.",
+    "registered": "encoded_types 331, frames advanced 300, charge advanced 300 — 1:1, so every re-simulation was correctly rewound.",
+    "unregistered": "encoded_types 329, frames advanced 300, charge advanced 1484 — about 4.95x, i.e. `check_distance` 4 means each confirmed frame is re-simulated ~5 times and the unrewound counter counts them all.",
+    "why_the_control_matters": "A 1:1 result alone is also what a FROZEN session produces. The over-count is what proves re-simulation was genuinely happening, so 1:1 means rollback rather than nothing. I did not think to ask for this and it is a better proof than the acceptance test I wrote.",
+    "the_agent_on_the_fix": "'Both registration lines were needed, exactly as api-reference.md warns... That warning saved me; it is the single most valuable paragraph in the SDK.'"
+  },
+  "findings": [
+    {
+      "id": "a",
+      "claim": "`SnapshotState`'s shape is nowhere in docs/sdk/. The reference says 'implementing `ambition::rollback::SnapshotState`' and then shows only the registration line — never the two methods, never `Reader`, never the `put_*` primitives.",
+      "verified": "YES, and it is squarely on the critical path for this script's whole task. The run got the signature by writing an empty impl and letting E0046 enumerate the missing items, then generating rustdoc for `Reader`'s accessors. Its own words: 'that worked, but it is a trick, not documentation.'",
+      "severity": "HIGHEST of this run — it is the sole reason rustdoc was needed at all.",
+      "status": "CLOSED 2026-07-30"
+    },
+    {
+      "id": "b",
+      "claim": "'Two local players' is not what `.rollback(2)` gives you, and only rustdoc says so. The run's world had ZERO `MatchSeat` components and one `PrimaryPlayer` while `participants()` reported 2.",
+      "verified": "YES — and it INDEPENDENTLY CONFIRMS the sharpened finding from the same day. I reached it by red-probing my own test (it passed with the gamepads deleted); this run reached it from the outside, on a different game, without seeing that work. Two routes to the same conclusion.",
+      "the_agent_s_framing": "'a third-party dev asked to build couch versus will report success on a one-player game' — which is what run 7 did with 1, 2 and 4.",
+      "asked_for": "The reference to say plainly: `rollback(n)` sizes the GGRS input streams; it does not create n characters, and you cannot yet drive them independently.",
+      "status": "DOCUMENTED 2026-07-30. The underlying reconciliation is still ENGINE work."
+    },
+    {
+      "id": "c",
+      "claim": "`encoded_types()` is advertised as the thing to assert on, but the absolute number (331 vs 329) is meaningless to a consumer and drifts with every engine release. The stable assertion is the DELTA — one per registration verb called.",
+      "verified": "YES, and it indicts my own advice. `api-reference.md` said 'assert on this; a session over nothing passes', which is true and unusable: a consumer cannot know what number to expect.",
+      "status": "CLOSED 2026-07-30"
+    },
+    {
+      "id": "d",
+      "claim": "Where to spawn a rollback entity is unstated. The run guessed `Startup` and it worked, but the module docs are emphatic that rewinding across construction is a guaranteed desync, which left it genuinely unsure.",
+      "verified": "YES — and the doubt is one this campaign CREATED. Slice F's docs make the construction hazard vivid precisely so a consumer respects it, without ever saying which side of `start()` their own spawns belong on.",
+      "status": "CLOSED 2026-07-30"
+    },
+    {
+      "id": "e",
+      "claim": "The Cargo.toml / .cargo/config.toml preamble is excellent and worked verbatim; patch rev matched, build warm and fast.",
+      "verified": "Second consecutive run to say so. That leak is closed and stays closed."
+    }
+  ],
+  "what_this_says_about_the_series": "Script B run 1 -> run 2: three engine files -> zero, and the single change that did it was documenting `require_rollback` at the point of failure. Script A took six runs to reach zero. The difference is that run 7 named its blocker precisely enough to fix in one commit — which is what §2c is for."
+}

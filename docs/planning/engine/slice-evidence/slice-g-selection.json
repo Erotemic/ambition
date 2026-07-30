@@ -120,6 +120,18 @@
       "(g) seat-keyed input and query — N participants currently reach one body; no consumer can express otherwise.",
       "(a) making an inert registration unrepresentable rather than documented — e.g. refusing at registration time when no entity family is declared."
     ],
-    "⚠_two_of_five_findings_did_not_survive_checking": "(b) the frame-6 desync and (f) the wrong input verb. Both were reported confidently, both are wrong, and one of them nearly set the direction of this slice. The other three were real and one of them (a) is the sharpest defect the campaign has produced. That ratio is the argument for recording a subagent's claims BESIDE their verification rather than adopting them."
+    "⚠_two_of_five_findings_did_not_survive_checking": "(b) the frame-6 desync and (f) the wrong input verb. Both were reported confidently, both are wrong, and one of them nearly set the direction of this slice. The other three were real and one of them (a) is the sharpest defect the campaign has produced. That ratio is the argument for recording a subagent's claims BESIDE their verification rather than adopting them.",
+    "closed_by_run_8": {
+      "run": 8,
+      "result": "ZERO engine files. §4.2 green again after one commit — Script B run 1 -> run 2, three files -> zero.",
+      "the_single_change_that_did_it": "Documenting `require_rollback` at the point of failure. The agent's words: 'that warning saved me; it is the single most valuable paragraph in the SDK.'",
+      "it_proved_finding_a_closed_with_a_CONTROL_i_did_not_think_to_run": "Its own entity, spawned in Startup, not on an engine entity — the exact case run 7 could not make work. Registered: 300 frames / 300 charge, 1:1. Unregistered: 300 frames / 1484 charge, ~4.95x. A 1:1 result alone is also what a FROZEN session produces; the over-count is what proves re-simulation was genuinely happening. That control is now an acceptance test (`a_rewound_counter_does_not_out_count_the_frames_it_ran`).",
+      "four_new_findings_all_closed_same_day": {
+        "a": "`SnapshotState`'s two methods were nowhere in docs/sdk/ — the sole reason rustdoc was needed at all. Now a worked example with the primitive list and the field-ORDER warning.",
+        "b": "`rollback(n)` does not create n characters. INDEPENDENTLY CONFIRMS the finding I reached the same day by red-probing my own test — two routes, one from inside and one from outside, to the same conclusion.",
+        "c": "`encoded_types()`'s absolute value is meaningless to a consumer and drifts per release; the DELTA is the stable assertion. My own advice ('assert on this') was true and unusable.",
+        "d": "Where to spawn a rollback entity was unstated, and the doubt was one this campaign created — slice F made the construction hazard vivid without saying which side of `start()` a consumer's own spawns fall on."
+      }
+    }
   }
 }

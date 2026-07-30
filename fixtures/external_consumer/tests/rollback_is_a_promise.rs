@@ -313,3 +313,61 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
         ambition::rollback::health(&app)
     );
 }
+
+/// **The control run: prove re-simulation is HAPPENING, not just agreeing.**
+///
+/// ⚠ Blind run 8 built this and it is a better proof than anything I wrote for
+/// this file. Its shape: a counter that ticks once per sim tick either tracks
+/// the frame count 1:1 (rewound correctly) or over-counts by roughly
+/// `check_distance + 1` (never rewound, so every re-simulation of a confirmed
+/// frame counted again).
+///
+/// **A 1:1 result on its own is also what a FROZEN session produces.** That is
+/// why the over-count matters: the run measured 300 frames / 300 charge
+/// registered against 300 frames / 1484 charge unregistered — 4.95x, with
+/// `check_distance` 4. The second number is what proves the first one means
+/// rollback rather than nothing.
+///
+/// Here the same logic runs against the ENGINE's own consumer fixture: the
+/// beacon must not out-count the frames the session actually advanced.
+#[test]
+fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
+    use ambition::bevy::prelude::*;
+
+    let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
+    let before_frame = ambition::rollback::health(&app).frame().expect("a frame");
+
+    // Walk the body onto the beacon so the counter is actually ticking — a
+    // counter that never increments passes any ratio.
+    for _ in 0..240 {
+        outlander::drive_control_frame(
+            &mut app,
+            ambition::sim::ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
+
+    let health = ambition::rollback::health(&app);
+    assert!(health.is_healthy(), "the session desynced: {health:?}");
+    let frames = health.frame().expect("a frame") - before_frame;
+
+    let world = app.world_mut();
+    let mut query = world.query::<&outlander::BeaconCharge>();
+    let ticks = query.iter(world).map(|b| b.ticks).max().unwrap_or(0);
+
+    assert!(
+        ticks > 0,
+        "the beacon never charged, so the ratio below compares nothing — this \
+         is the vacuity the control run exists to rule out"
+    );
+    assert!(
+        i64::from(ticks) <= i64::from(frames),
+        "the beacon counted {ticks} ticks across {frames} simulated frames. A \
+         counter that out-counts its own timeline was re-simulated without \
+         being rewound, which is precisely the silent failure registration is \
+         supposed to prevent."
+    );
+}

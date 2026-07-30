@@ -78,6 +78,14 @@ pub struct SessionRoomVisualsPlugin;
 
 impl Plugin for SessionRoomVisualsPlugin {
     fn build(&self, app: &mut App) {
+        // `spawn_room_visuals` below spawns SIGNAGE and FIXTURE world labels, so
+        // the composition that spawns them is the composition that must install
+        // the pass which places, fades and typefaces them. Leaving that to
+        // `ActorNameplatePresentationPlugin` made the AC12/AC20 policy true of
+        // the full Ambition app only: the external consumer, Mary-O and Sanic
+        // drew the same labels at raw anchors in Bevy's fallback font. Adding it
+        // twice is a no-op — see `WorldLabelLayoutPlugin`.
+        app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
         app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.add_systems(

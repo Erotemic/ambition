@@ -28,7 +28,7 @@ it is why `DeathPolicy::Unbounded` stays uncalled there.
 
 | Piece | Where | State |
 |---|---|---|
-| smash PERCENT (meter never kills; the world does) | `DeathPolicy::Unbounded` | ✔ lands, **uncalled** |
+| smash PERCENT (meter never kills; the world does) | `DeathPolicy::Unbounded` | ⛔ **NOT lands** — see part 0 below |
 | blast zones / OOB death | queue F0 | ✔ |
 | DI | `SandboxFeelTuning::di_max_angle`, `VERSUS_DI_MAX_ANGLE` | ✔ on for the fighting stage |
 | 1–4 local players from device discovery | `LocalSeatTopology` | ✔ |
@@ -39,13 +39,67 @@ it is why `DeathPolicy::Unbounded` stays uncalled there.
 | route-keyed declared HUD | the `with_hud` seam | ✔ |
 | character portraits | `CharacterCatalog::portrait_ref` + registry | ◐ resolver being built (Y″6) |
 
-**So the missing pieces are the RULE and the two screens**, not the fighting.
+**So the missing pieces are the DAMAGE MODEL, the RULE, and the two screens.**
+
+⚠ this line read *"the missing pieces are the RULE and the two screens, not the
+fighting"* until 2026-07-30, on the strength of the ✔ above it. Both were wrong,
+and the row was checked the way a row gets wrongly checked: `DeathPolicy` exists,
+compiles, has a test, and is named "smash percent" in its own doc comment. What
+nobody did was ask the meter to count past 100 (GPT 5.6, 2026-07-30 — the finding
+holds).
 
 ---
 
-## The five parts, in dependency order
+## The parts, in dependency order
 
-### 1. STOCKS — the rule that makes it Smash ▢ FIRST
+### 0. THE DAMAGE MODEL — percent has to be able to EXCEED the pool ▢ FIRST
+
+`DeathPolicy::Unbounded` suppresses one consequence — a meter-kill no longer
+kills. It does not make the meter unbounded, and the meter is the thing smash
+percent *is*:
+
+* `Health::damage` clamps: `self.current = (self.current - amount).max(0)`;
+* `BodyHealth::damage_taken()` is `(max - current).max(0)`, so it **saturates at
+  `max`** — 100% is the ceiling, not a display normalizer;
+* `Health::alive()` is `current > 0`, and `resolve_body_hit` returns `Ignored`
+  for a body that is not alive. So an `Unbounded` fighter at zero HP stops taking
+  hits entirely: it cannot be damaged, cannot be launched further, and cannot be
+  knocked off the stage by the one mechanism that is allowed to kill it.
+
+Knockback growth scales off `damage_taken()`
+(`knockback + kb_growth * victim.damage_taken() / victim.weight`), so the
+saturation is not cosmetic — at the exact point a smash match becomes decidable,
+every fighter's launch distance stops growing and the body becomes an inert,
+unkillable punching bag. That is the opposite of the mode.
+
+⚠ **the reason none of this showed up is that nothing in production selects
+`Unbounded`.** The enum's own tests assert `kills_at_max()` for both variants,
+which is true and proves nothing about the meter. `Unbounded` has exactly one
+consumer (`actor_hit.rs`) and it reads only the death flag.
+
+**What the mode needs**, and it is one authority, not three patches:
+
+```text
+accumulated damage        counts UP, no ceiling — the smash-percent axis
+death by threshold        HpDepleted: the meter reaching the pool kills
+death by the world        blast zone / OOB — already engine-owned, already unstoppable
+```
+
+Today the first two are one clamped `i32` and the policy that separates them
+lives in `actor_tuning`, where the resolver cannot see it. Consequences to settle
+when this is built:
+
+* `alive()` is currently a fact about the meter. Under `Unbounded` it must be a
+  fact about the BODY, so the policy has to travel with the health component
+  (`DeathPolicy` lives in `ambition_combat`, `Health` in `ambition_characters`,
+  and `ambition_combat` depends on `ambition_characters` — so the enum moves
+  down, it cannot be a field where it is);
+* the ADOPTED controlled-body path takes the same route and is not separately
+  handled;
+* the HUD reads a percent that can print `188%`, which `Health::ratio()`
+  (clamped to 1.0) cannot express.
+
+### 1. STOCKS — the rule that makes it Smash ▢
 
 A fighter has N stocks (3). A blast-zone death spends one. At zero it is
 **eliminated** — out, not respawned. The match ends when one fighter remains.
@@ -55,8 +109,16 @@ reset both fighters; stocks are per-fighter, asymmetric, and never reset. A
 2-stock fighter versus a 3-stock fighter is a legal, common mid-match state and
 the round model cannot express it.
 
-⚠ **it must compose with `DeathPolicy::Unbounded`**, or the percent meter kills
-first and stocks never get consulted.
+⚠ **it must compose with part 0**, or the percent meter kills first and stocks
+never get consulted — and with part 0 as it stands today, a fighter at 100%
+simply stops being hittable and no stock is ever spent either. Stocks after the
+damage model, not before: a stock rule built on a saturating meter would look
+correct in every test that never reaches 100%.
+
+`FighterStocks` is vocabulary only right now — no runtime consumer, no
+stock-loss rule, no respawn lifecycle, no rollback registration, no elimination
+flow. All five land together with the rule; a stock count that is not registered
+rollback state is a stock count that un-spends itself on a rewind.
 
 ### 2. The 3-platform stage ▢
 

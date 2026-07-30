@@ -234,8 +234,17 @@ pub(crate) struct LabelPlacement {
     /// Full drawn size of the text.
     pub size: Vec2,
     pub owner_opacity: f32,
-    /// Resolved position. Equals `anchor` unless the label had to yield.
-    pub placed: Vec2,
+    /// Resolved position — `Some(anchor)` unless the label had to yield, and
+    /// **`None` when there was nowhere to stand at all**.
+    ///
+    /// ⚠ an `Option`, not a position plus a "did it fit" flag, and that is the
+    /// whole point: a flag sitting next to a stale coordinate is a value the
+    /// apply phase can read without noticing it must not. It did — an
+    /// unplaceable label had `placed == anchor`, so the transform snapped back
+    /// INTO the collision it had just lost and eased its opacity to zero from
+    /// there, stacking visibly for the length of the fade. `None` makes that
+    /// unwriteable.
+    pub placed: Option<Vec2>,
     /// Resolved opacity. Zero means "could not be placed" or "the owner asked
     /// for nothing".
     pub opacity: f32,
@@ -261,7 +270,7 @@ pub(crate) fn resolve_label_layout(
 
     let mut occupied: Vec<LabelBox> = Vec::with_capacity(labels.len());
     for label in labels.iter_mut() {
-        label.placed = label.anchor;
+        label.placed = Some(label.anchor);
         label.opacity = label.owner_opacity;
         if label.opacity <= 0.0 {
             // An already-invisible label reserves no space. Letting it push a
@@ -286,22 +295,25 @@ pub(crate) fn resolve_label_layout(
             }
         }
 
-        match resolved {
+        let placed = match resolved {
             Some(candidate) => {
-                label.placed = candidate.center;
+                label.placed = Some(candidate.center);
                 occupied.push(candidate);
+                candidate.center
             }
             None => {
                 // Nowhere to stand. Hiding beats stacking: the wall of garbled
                 // text this pass exists to prevent is exactly what "place it
-                // anyway" produces.
+                // anyway" produces — and `None` is what makes that true of the
+                // TRANSITION as well, not only of the steady state.
+                label.placed = None;
                 label.opacity = 0.0;
                 continue;
             }
-        }
+        };
 
         let body = LabelBox {
-            center: label.placed,
+            center: placed,
             half,
         };
         if subjects
@@ -470,7 +482,7 @@ pub fn layout_world_labels(
                 &settings,
             ),
             owner_opacity: label.owner_opacity,
-            placed: anchor,
+            placed: Some(anchor),
             opacity: label.owner_opacity,
         });
     }
@@ -490,7 +502,20 @@ pub fn layout_world_labels(
         let Some(placement) = resolved.get(label.owner_id.as_str()) else {
             continue;
         };
-        transform.translation = placement.placed.extend(label.anchor.z);
+        let Some(placed) = placement.placed else {
+            // Unplaceable. Cut to hidden THIS frame and leave the transform
+            // alone — a label that lost every candidate position must not be
+            // moved into the collision it lost, and must not linger there
+            // easing out for ~0.3s. The ease exists to stop the subject fade
+            // popping; it has no business smoothing a disappearance whose
+            // whole purpose is that the text is not on screen.
+            label.rendered_opacity = 0.0;
+            *visibility = Visibility::Hidden;
+            *text_color = TextColor(with_opacity(label.text_color, 0.0));
+            paint_outlines(&mut outline_colors, children, &label, 0.0);
+            continue;
+        };
+        transform.translation = placed.extend(label.anchor.z);
         // Position snaps, opacity eases. A displaced label has to be where it
         // belongs THIS frame (its anchor is already moving with its actor);
         // only the fade would read as a pop.
@@ -543,6 +568,54 @@ fn paint_outlines(
     }
 }
 
+#[derive(Resource)]
+struct WorldLabelLayoutInstalled;
+
+/// **The generic world-label capability**: the settings, the placement pass, and
+/// the typeface pass. Anything that spawns a [`WorldLabel`] needs this plugin,
+/// and only this plugin.
+///
+/// ## Why it is not part of the nameplate plugin
+///
+/// It was, for one commit, and that made the AC12/AC20 policy true of exactly
+/// one composition. `spawn_room_visuals` — which lives in the GENERIC
+/// [`SessionRoomVisualsPlugin`](crate::platformer_presentation::SessionRoomVisualsPlugin),
+/// not in Ambition — spawns signage and fixture labels; the systems that give
+/// those components meaning were installed only by
+/// [`ActorNameplatePresentationPlugin`](super::nameplates::ActorNameplatePresentationPlugin),
+/// which the demos and the external consumer do not add. So the external
+/// consumer, Mary-O and Sanic kept drawing static labels at their raw anchors,
+/// in Bevy's fallback typeface, with no subject fade — the mechanism existed and
+/// one production composition still ran the old behaviour
+/// ([[feedback-presentation-binding-fails-silently]]).
+///
+/// Adding it twice is a no-op rather than a crash, for the same reason
+/// `AmbitionLoadPlugin` is: a full app composes room visuals AND nameplates, and
+/// both legitimately need it. The guard is a marker resource, not
+/// `is_plugin_added::<Self>()`, because Bevy has already registered the name by
+/// the time `build` runs.
+pub struct WorldLabelLayoutPlugin;
+
+impl Plugin for WorldLabelLayoutPlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
+    fn build(&self, app: &mut App) {
+        if app.world().contains_resource::<WorldLabelLayoutInstalled>() {
+            return;
+        }
+        app.insert_resource(WorldLabelLayoutInstalled);
+        app.init_resource::<WorldLabelLayoutSettings>().add_systems(
+            Update,
+            (apply_world_label_fonts, layout_world_labels)
+                .chain()
+                .in_set(WorldLabelLayoutSet)
+                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+        );
+    }
+}
+
 pub(crate) fn with_opacity(color: Color, opacity: f32) -> Color {
     let srgba = color.to_srgba();
     Color::srgba(
@@ -574,7 +647,7 @@ mod tests {
             anchor,
             size,
             owner_opacity: 1.0,
-            placed: anchor,
+            placed: Some(anchor),
             opacity: 1.0,
         }
     }
@@ -618,15 +691,15 @@ mod tests {
         let sign = labels.iter().find(|l| l.owner_id == "sign").unwrap();
         let plate = labels.iter().find(|l| l.owner_id == "plate").unwrap();
         // The static, authored label held its ground; the moving one yielded.
-        assert_eq!(sign.placed, Vec2::new(0.0, 0.0));
-        assert_ne!(plate.placed, plate.anchor);
+        assert_eq!(sign.placed, Some(Vec2::new(0.0, 0.0)));
+        assert_ne!(plate.placed, Some(plate.anchor));
         assert!(!LabelBox {
-            center: sign.placed,
+            center: sign.placed.unwrap(),
             half: sign.size * 0.5,
         }
         .overlaps(
             &LabelBox {
-                center: plate.placed,
+                center: plate.placed.unwrap(),
                 half: plate.size * 0.5,
             },
             0.0
@@ -656,6 +729,12 @@ mod tests {
         resolve_label_layout(&mut labels, &[], &cfg);
         let plate = labels.iter().find(|l| l.owner_id == "plate").unwrap();
         assert_eq!(plate.opacity, 0.0);
+        // And it reports NO position, which is the half that matters to the
+        // apply phase: given the anchor back it would snap the transform into
+        // the collision the label just lost and fade out from there — stacking
+        // for the length of the ease, which is what "hiding beats stacking"
+        // exists to forbid.
+        assert_eq!(plate.placed, None);
     }
 
     /// A body somebody is driving is never shoved aside and never covered: the
@@ -675,7 +754,7 @@ mod tests {
             Vec2::new(300.0, 16.0),
         )];
         resolve_label_layout(&mut labels, &[subject], &cfg);
-        assert_eq!(labels[0].placed, labels[0].anchor);
+        assert_eq!(labels[0].placed, Some(labels[0].anchor));
         assert!(labels[0].opacity > 0.0);
         assert!(labels[0].opacity < 1.0);
     }
@@ -766,7 +845,7 @@ mod tests {
         ];
         resolve_label_layout(&mut labels, &[], &cfg);
         let plate = labels.iter().find(|l| l.owner_id == "plate").unwrap();
-        assert_eq!(plate.placed, plate.anchor);
+        assert_eq!(plate.placed, Some(plate.anchor));
         assert_eq!(plate.opacity, 1.0);
     }
 

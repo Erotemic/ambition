@@ -255,15 +255,33 @@ impl Default for CombatTuning {
 /// percent and Ambition's HP are the SAME quantity read through two policies:
 /// the meter itself is `BodyHealth` (`damage_taken()`); this enum only decides
 /// whether reaching the pool max KILLS.
+///
+/// ⚠ **this is one third of smash percent, not smash percent.** Read the
+/// `Unbounded` variant's own note before building on it: the meter it is a
+/// policy over still saturates, so "the meter never kills" is true and
+/// insufficient. `docs/planning/smash-siblings-plan.md` part 0 carries the rest.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DeathPolicy {
     /// Dies when the meter reaches `max` — Ambition today. THE DEFAULT, so every
     /// existing archetype is unchanged.
     #[default]
     HpDepleted,
-    /// The meter never kills on its own (`max` is a display normalizer only);
-    /// death comes from the WORLD — the blast-zone / OOB / fell-out gate the
-    /// engine already owns. This is smash percent, and it costs one enum.
+    /// The meter never kills on its own; death comes from the WORLD — the
+    /// blast-zone / OOB / fell-out gate the engine already owns.
+    ///
+    /// ⛔ **NOT usable as smash percent yet, and the gap is in the meter, not
+    /// here** (found 2026-07-30). `max` is described above as "a display
+    /// normalizer only" and it is not one: `Health::damage` clamps `current` at
+    /// zero, so `BodyHealth::damage_taken()` saturates at `max`, and
+    /// `Health::alive()` then goes false — at which point `resolve_body_hit`
+    /// returns `Ignored` for every subsequent hit. An `Unbounded` body at 100%
+    /// therefore stops taking damage, stops growing its knockback (which scales
+    /// off `damage_taken()`), and can no longer be launched off the stage by the
+    /// one mechanism this variant reserves the right to kill it.
+    ///
+    /// Selecting it today buys an immortal punching bag. Nothing in production
+    /// does, which is why the shipped tests — `kills_at_max()` for both variants
+    /// — are green and silent about all of the above.
     Unbounded,
 }
 

@@ -124,6 +124,65 @@ fn the_demo_spawns_the_rooms_static_visuals() {
     );
 }
 
+/// **The world-label placement pass is part of the GENERIC face, not of
+/// Ambition's composition.**
+///
+/// `spawn_room_visuals` — engine code, called by the plugin under test — spawns
+/// `WorldLabel` components for authored signage and fixture plates. For one
+/// batch the systems that give those components meaning (placement, the subject
+/// fade, the typeface) were installed only by
+/// `ActorNameplatePresentationPlugin`, which lives in `ambition_app`'s plugin
+/// list and in no demo. So AC12/AC20's "one ranked placement pass over every
+/// world-space text label" was a policy of the full Ambition app, and this demo,
+/// Sanic and the external consumer all still drew labels at raw anchors in
+/// Bevy's fallback font (GPT 5.6, 2026-07-30).
+///
+/// Asserted by the POLICY, not by the plugin list: two labels from two families
+/// are spawned on top of each other, and the pass must separate them. A test
+/// that looked for the plugin would go green on a plugin that had stopped
+/// working [[feedback-a-green-guardrail-proves-nothing]].
+#[test]
+fn the_generic_presentation_face_places_world_labels() {
+    use ambition::render::rendering::{WorldLabel, WorldLabelFamily};
+
+    let mut app = drawn_demo();
+    settle(&mut app);
+
+    let anchor = Vec3::new(96.0, 96.0, 40.0);
+    let spawn_label = |app: &mut App, id: &str, family: WorldLabelFamily| {
+        app.world_mut()
+            .spawn((
+                Text2d::new("PLACEMENT PROBE"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Transform::from_translation(anchor),
+                WorldLabel::new(id, family, anchor),
+            ))
+            .id()
+    };
+    let sign = spawn_label(&mut app, "probe:sign", WorldLabelFamily::Signage);
+    let plate = spawn_label(&mut app, "probe:plate", WorldLabelFamily::Actor);
+    settle(&mut app);
+
+    let at = |app: &App, entity: Entity| app.world().get::<Transform>(entity).unwrap().translation;
+    assert_eq!(
+        at(&app, sign),
+        anchor,
+        "authored signage is the family that never yields — if this moved, the \
+         ranking is upside down rather than absent"
+    );
+    assert_ne!(
+        at(&app, plate),
+        anchor,
+        "two world labels from two families were left drawn through each other: \
+         the placement pass is not scheduled in this composition, which is the \
+         whole of the AC12 defect and not a demo-only cosmetic"
+    );
+}
+
 /// The camera the host's `camera_follow` drives. Before OV1 the app spawned it;
 /// a demo that added the host group got follow logic pointed at nothing.
 #[test]

@@ -119,12 +119,20 @@ pub struct ActorNameplateOutlineVisual;
 pub struct ActorNameplateSet;
 
 /// Render-layer plugin for player-facing actor/door labels.
+///
+/// It **publishes candidates** into the shared world-label placement pass; it
+/// does not own that pass. The pass is
+/// [`WorldLabelLayoutPlugin`](super::label_layout::WorldLabelLayoutPlugin),
+/// which this plugin composes so a game that wants nameplates gets placement
+/// without knowing the split — and which the generic room-visuals plugin adds
+/// too, because signage is a world label whether or not anything in the
+/// composition draws nameplates.
 pub struct ActorNameplatePresentationPlugin;
 
 impl Plugin for ActorNameplatePresentationPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(super::label_layout::WorldLabelLayoutPlugin);
         app.init_resource::<ActorNameplateSettings>()
-            .init_resource::<super::label_layout::WorldLabelLayoutSettings>()
             .configure_sets(
                 Update,
                 ActorNameplateSet
@@ -134,6 +142,10 @@ impl Plugin for ActorNameplatePresentationPlugin {
             // The placement pass runs AFTER every family has published its
             // anchor for the frame. It is a hard ordering, not a preference:
             // placing before the plates move is placing against last frame.
+            //
+            // Configured HERE rather than in the layout plugin because it is a
+            // fact about this family: only a composition that publishes actor
+            // plates has an `ActorNameplateSet` for the pass to wait on.
             .configure_sets(
                 Update,
                 super::label_layout::WorldLabelLayoutSet.after(ActorNameplateSet),
@@ -142,16 +154,6 @@ impl Plugin for ActorNameplatePresentationPlugin {
                 Update,
                 sync_actor_nameplates
                     .in_set(ActorNameplateSet)
-                    .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
-            )
-            .add_systems(
-                Update,
-                (
-                    super::label_layout::apply_world_label_fonts,
-                    super::label_layout::layout_world_labels,
-                )
-                    .chain()
-                    .in_set(super::label_layout::WorldLabelLayoutSet)
                     .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
             );
     }

@@ -79,7 +79,7 @@ pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
-    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutSet,
+    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
     WorldLabelLayoutSettings,
 };
 pub use nameplates::{

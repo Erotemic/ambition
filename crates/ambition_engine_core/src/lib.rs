@@ -38,6 +38,7 @@ pub mod control_frame;
 pub mod frame;
 pub mod geo_id;
 pub mod geometry;
+pub mod hit_response;
 pub mod input_stream;
 pub mod kinematic_path;
 pub mod ledge_grab;

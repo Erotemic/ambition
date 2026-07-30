@@ -118,5 +118,39 @@
     "still_one_atomic_commit": "The orphan rule is unchanged: the moment the trait leaves `ambition_runtime`, all 57 non-engine_core impls become orphans. Trait move + 57 impl moves are one commit. What changed is the size of the rest — no crate, no edges, five impls already home.",
     "instruments_already_watching": "The central-rollback ratchet (319 stable names + 62 codecs, frozen as a SET) and the capability-footprint ratchet (41 crates, 19 unwanted). Both were built before this plan existed, so the migration is measurable from its first commit.",
     "how_the_correction_was_found": "By counting where the impls belong instead of assuming they were scattered. The same technique that corrected the 'easy four' estimate an hour earlier: the dependency graph says what depends on what; only counting says how much."
+  },
+  "the_atomic_set_MEASURED": {
+    "on": "2026-07-30",
+    "note": "Third measurement of the same work, and each one grew it. Recording the sequence because the pattern is the lesson: every estimate that was not a count was low.",
+    "estimate_history": [
+      "1st: 'rollback/codec.rs is 234 lines with ZERO imports — the vocabulary is clean, the cost is entirely in the 62 impls.' True about the vocabulary, silent about everything the impls depend on.",
+      "2nd: '57 impl moves across 8 crates' — counted the impls, missed what they share.",
+      "3rd (this one, by parsing the file): the atomic set is larger and better shaped than either."
+    ],
+    "the_actual_atomic_set": {
+      "hand_written_impl_blocks": 65,
+      "macro_generated_impl_sites": 37,
+      "macros_that_must_move_to_the_floor": [
+        "snapshot_pod!",
+        "snapshot_unit_enum!",
+        "snapshot_marker!",
+        "— each expands to `impl SnapshotState`, so they are orphan-rule bound to the trait and must be `#[macro_export]`ed from wherever it lives"
+      ],
+      "private_helpers_that_must_move": [
+        "the `PasteEncode` trait and its primitive impls (8 uses) — private to `rollback/codecs.rs` today, vocabulary in truth"
+      ],
+      "file_size": "2688 lines, 254 top-level blocks",
+      "stays_in_runtime": "CanonicalCodecStrategy (bevy_ggrs bridge), SimId minting, relationship repair"
+    },
+    "the_macros_are_good_news": "37 of the ~100 impl sites are one-line macro invocations — `snapshot_pod!(Type)` — which relocate trivially once the macros are exported from the floor. The hand-written 65 are the real work.",
+    "why_it_was_not_attempted_in_this_session": "Two carve attempts were made and one was backed out on the orphan rule. A third attempt at ~100 impl sites plus macros plus a private trait, in one commit that must compile or `main` goes red, is not something to start without room to finish it. Rule 5 forbids landing it half-done and 'it is nearly working' does not override that — which is the same judgement that backed out the first attempt.",
+    "what_the_next_attempt_has_that_this_session_did_not": [
+      "the boundary: `ambition_engine_core`, not a new crate — it is already the floor and 8 of 9 owning crates already depend on it",
+      "the constraint: ONE commit, proven by E0117 rather than argued",
+      "the size: ~100 impl sites, 3 macros, 1 private trait, 2688 lines",
+      "what must NOT move: CanonicalCodecStrategy, or the floor gains the patched bevy_ggrs fork",
+      "five of the impls are already engine_core's own types and move nowhere",
+      "both ratchets already watching, so progress is measurable from commit one"
+    ]
   }
 }

@@ -54,6 +54,47 @@ pub use ambition_time as time;
 pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 pub use ambition_vfx as vfx;
+/// **Bodies: what a game queries, moves and transits.**
+///
+/// A curated domain module, second of the set ADR 0031's decision 1 lists. It
+/// exists because the two sentinel consumers had to reach into
+/// `ambition::engine_core` — an IMPLEMENTATION crate the facade mirrors — for
+/// `transit_body`, `TransitVelocity` and `BodyClusterQueryData`, and into
+/// `ambition::platformer` for the marker and kinematics types you need to ask
+/// "where is the player".
+///
+/// Closed list, like [`world`]. Adding a type to a mirrored crate does not
+/// silently become public API.
+pub mod actor {
+    /// Who the body is.
+    pub use ambition_platformer_primitives::markers::PrimaryPlayer;
+
+    /// Where the body is, and how it moves.
+    pub use ambition_engine_core::movement::{transit_body, TransitVelocity};
+    pub use ambition_engine_core::BodyClusterQueryData;
+    pub use ambition_platformer_primitives::body::BodyKinematics;
+}
+
+/// **The simulation schedule a game joins its own systems to.**
+///
+/// A game never names a literal Bevy schedule: it asks for the sim schedule and
+/// a semantic set, so the same system runs under the fixed tick and a GGRS host
+/// alike. That indirection is the engine's rule, and before this the only way
+/// to reach it was `ambition::platformer::schedule` — the crate mirror.
+pub mod sim {
+    pub use ambition_platformer_primitives::schedule::{
+        GameMode, SandboxSet, SimSchedule, SimScheduleExt,
+    };
+}
+
+/// **What is drawn, as a game observes it.**
+///
+/// Deliberately thin. A consumer reads the presented world; it does not own the
+/// render path.
+pub mod view {
+    pub use ambition_platformer_primitives::lifecycle::RoomVisual;
+}
+
 /// **The authored world: rooms, geometry, placements, collision.**
 ///
 /// ⚠ A CURATED MODULE, not a crate mirror — and the difference is the whole

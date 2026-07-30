@@ -25,13 +25,12 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
+use ambition::world::prelude::*;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
 use ambition::runtime::PreparedPlatformerSource;
-use ambition::world::rooms::RoomSpec;
 
 /// This fixture's OWN asset tree — `fixtures/external_consumer/assets`.
 ///
@@ -160,23 +159,23 @@ const OUTLANDER_ROSTER_RON: &str = r#"{
 /// and an upper ledge only the gate reaches (so the transition is load-bearing
 /// for the fixture's acceptance walk, not decoration).
 pub fn outlander_room() -> RoomSpec {
-    let size = ae::Vec2::new(960.0, 540.0);
+    let size = Vec2::new(960.0, 540.0);
     let floor_top = 492.0;
     let ledge_top = 220.0;
-    let world = ae::World::new(
+    let world = AuthoredWorld::new(
         "Outlander Ridge",
         size,
-        ae::Vec2::new(96.0, floor_top - 64.0),
+        Vec2::new(96.0, floor_top - 64.0),
         vec![
-            ae::Block::solid(
+            Block::solid(
                 "ridge_floor",
-                ae::Vec2::new(0.0, floor_top),
-                ae::Vec2::new(size.x, 48.0),
+                Vec2::new(0.0, floor_top),
+                Vec2::new(size.x, 48.0),
             ),
-            ae::Block::solid(
+            Block::solid(
                 "gate_ledge",
-                ae::Vec2::new(600.0, ledge_top),
-                ae::Vec2::new(280.0, 24.0),
+                Vec2::new(600.0, ledge_top),
+                Vec2::new(280.0, 24.0),
             ),
         ],
     );
@@ -188,16 +187,16 @@ pub fn outlander_room() -> RoomSpec {
 /// Where the §transition gate stands on the lower floor, and where it delivers
 /// the body on the upper ledge.
 pub const GATE_ENTRY_X: f32 = 840.0;
-pub const GATE_EXIT: ae::Vec2 = ae::Vec2::new(700.0, 180.0);
+pub const GATE_EXIT: Vec2 = Vec2::new(700.0, 180.0);
 
 // ── §enemy (staging half) ───────────────────────────────────────────────────
-fn sentry_spawn_requests(spawn: ae::Vec2) -> Vec<ambition::actors::features::SpawnActorRequest> {
+fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actors::features::SpawnActorRequest> {
     use ambition::actors::features::{ActorFaction, SpawnActorKind, SpawnActorRequest};
     vec![SpawnActorRequest {
         id: "outlander_sentry_0".to_string(),
         name: "Outlander Sentry".to_string(),
-        pos: ae::Vec2::new(420.0, spawn.y),
-        half_size: ae::Vec2::new(14.0, 16.0),
+        pos: Vec2::new(420.0, spawn.y),
+        half_size: Vec2::new(14.0, 16.0),
         faction: ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
@@ -364,10 +363,10 @@ pub fn beacon_charge_system(
     time: Res<ambition::time::WorldTime>,
     mut bodies: Query<
         (
-            &ambition::platformer::body::BodyKinematics,
+            &ambition::actor::BodyKinematics,
             &mut BeaconCharge,
         ),
-        With<ambition::platformer::markers::PrimaryPlayer>,
+        With<ambition::actor::PrimaryPlayer>,
     >,
 ) {
     for (kin, mut charge) in &mut bodies {
@@ -390,7 +389,7 @@ pub fn attach_beacon_charge(
     bodies: Query<
         Entity,
         (
-            With<ambition::platformer::markers::PrimaryPlayer>,
+            With<ambition::actor::PrimaryPlayer>,
             Without<BeaconCharge>,
         ),
     >,
@@ -412,11 +411,11 @@ pub fn attach_beacon_charge(
 pub fn ridge_gate_system(
     mut bodies: Query<
         (
-            ae::BodyClusterQueryData,
+            ambition::actor::BodyClusterQueryData,
             &mut ambition::actors::features::MotionModel,
             Option<&BeaconCharge>,
         ),
-        With<ambition::platformer::markers::PrimaryPlayer>,
+        With<ambition::actor::PrimaryPlayer>,
     >,
 ) {
     for (clusters, mut model, charge) in &mut bodies {
@@ -427,11 +426,11 @@ pub fn ridge_gate_system(
         let mut clusters = item.as_clusters_mut();
         let pos = clusters.kinematics.pos;
         if pos.x >= GATE_ENTRY_X && pos.y > 300.0 {
-            ae::movement::transit_body(
+            ambition::actor::transit_body(
                 &mut model,
                 &mut clusters,
                 GATE_EXIT,
-                ae::movement::TransitVelocity::Zero,
+                ambition::actor::TransitVelocity::Zero,
             );
         }
     }
@@ -448,7 +447,7 @@ impl Plugin for OutlanderExperiencePlugin {
         // names a literal schedule, so the same system runs under the fixed
         // tick and a GGRS host alike.
         {
-            use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
+            use ambition::sim::{SandboxSet, SimScheduleExt};
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
@@ -673,7 +672,7 @@ pub struct OutlanderRunReport {
     /// onto the upper ledge.
     pub ticks_to_gate: usize,
     /// Player position after the gate delivered it (upper-ledge coordinates).
-    pub player_pos: ae::Vec2,
+    pub player_pos: Vec2,
     /// The consumer-owned authoritative state at the end of the walk. Reported
     /// rather than merely asserted so a rollback run can compare it against the
     /// fixed-tick run: the two hosts must produce the same number, and a report
@@ -687,7 +686,7 @@ pub struct OutlanderRunReport {
 /// ridge gate transits the body onto the upper ledge. Errors name the first
 /// broken claim so the binary and the integration test fail identically.
 pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, String> {
-    use ambition::platformer::markers::PrimaryPlayer;
+    use ambition::actor::PrimaryPlayer;
     use bevy::prelude::With;
 
     // 1. The session activates: the shell prepares the route, the provider's
@@ -700,7 +699,7 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     {
         let world = app.world_mut();
         let mut players = world
-            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<&ambition::actor::BodyKinematics, With<PrimaryPlayer>>();
         let player_count = players.iter(world).count();
         if player_count != 1 {
             return Err(format!(
@@ -781,7 +780,7 @@ fn walk_outlander_to_the_ledge(
     app: &mut App,
     ticks_to_activate: usize,
 ) -> Result<OutlanderRunReport, String> {
-    use ambition::platformer::markers::PrimaryPlayer;
+    use ambition::actor::PrimaryPlayer;
     use bevy::prelude::With;
 
     // 3. The ridge gate is load-bearing: hold right on the engine's input seam
@@ -798,7 +797,7 @@ fn walk_outlander_to_the_ledge(
         app.update();
         let world = app.world_mut();
         let mut players = world
-            .query_filtered::<&ambition::platformer::body::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<&ambition::actor::BodyKinematics, With<PrimaryPlayer>>();
         let pos = players
             .single(world)
             .map(|kin| kin.pos)
@@ -818,7 +817,7 @@ fn walk_outlander_to_the_ledge(
 
     let world = app.world_mut();
     let mut players = world.query_filtered::<(
-        &ambition::platformer::body::BodyKinematics,
+        &ambition::actor::BodyKinematics,
         Option<&BeaconCharge>,
     ), With<PrimaryPlayer>>();
     let (player_pos, beacon) = players
@@ -845,7 +844,7 @@ fn walk_outlander_to_the_ledge(
 /// The provider's authored source for the shared preparation lifecycle.
 fn outlander_prepared_session_world() -> PreparedPlatformerSource {
     let room = outlander_room();
-    let geometry = ae::RoomGeometry(room.world.clone());
+    let geometry = RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
     PreparedPlatformerSource::new(
         OUTLANDER_EXPERIENCE,

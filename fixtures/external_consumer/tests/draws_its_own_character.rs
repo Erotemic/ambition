@@ -133,7 +133,7 @@ fn the_consumers_room_is_drawn_by_the_engine_and_not_by_the_consumer() {
 
     let mut visuals = app
         .world_mut()
-        .query::<&ambition::platformer::lifecycle::RoomVisual>();
+        .query::<&ambition::view::RoomVisual>();
     let drawn_blocks = visuals.iter(app.world()).count();
     assert!(
         drawn_blocks > 0,

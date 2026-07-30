@@ -57,7 +57,7 @@ pub const MINIMAL_ROSTER_RON: &str = r#"(
 pub fn minimal_room() -> RoomSpec {
     let size = Vec2::new(640.0, 360.0);
     let floor_top = 320.0;
-    let world = World::new(
+    let world = AuthoredWorld::new(
         "Minimal Room",
         size,
         Vec2::new(64.0, floor_top - 64.0),

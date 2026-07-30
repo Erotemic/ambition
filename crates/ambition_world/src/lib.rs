@@ -33,7 +33,22 @@ pub use debug_label::{DebugLabel, DebugLabelKind};
 /// about which four matter.
 pub mod prelude {
     pub use crate::rooms::{RoomMetadata, RoomSpec};
-    pub use ambition_engine_core::{Block, RoomGeometry, Vec2, World};
+    pub use ambition_engine_core::{Block, RoomGeometry, Vec2};
+
+    /// The authored world IR, under a name that does not collide with Bevy.
+    ///
+    /// ⚠ Exported as `AuthoredWorld`, not `World`, and the rename is the whole
+    /// reason this line is separate. `ambition_engine_core::World` and
+    /// `bevy::prelude::World` are different types with the same name, and
+    /// essentially every Bevy game writes `use bevy::prelude::*`. A glob prelude
+    /// that cannot sit beside that one is a prelude nobody can use.
+    ///
+    /// Found by migrating the SECOND consumer: Outlander imports both, and the
+    /// collision turned `World::new(name, size, spawn, blocks)` into a
+    /// type error against Bevy's zero-argument `World::new`. The minimal game
+    /// never noticed because it imports no Bevy at all — which is exactly the
+    /// blind spot a single consumer leaves.
+    pub use ambition_engine_core::World as AuthoredWorld;
 }
 
 // The world-IR dependency-purity ratchet moved to the workspace-policy package

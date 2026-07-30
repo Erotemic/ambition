@@ -513,7 +513,15 @@ MODULE_ALLOWLISTS: list[dict] = [
         # exist and is deliberately NOT pre-registered here. An allowlist entry
         # for a module nothing names is exactly the stale entry invariant 2
         # forbids.
-        "allowed": {"app"},
+        # The reviewed SDK surface, kept IDENTICAL across consumers — a module
+        # that is a promise to one game is a promise to all of them, and a
+        # per-consumer allowlist would let the same name be public here and a
+        # leak there.
+        #
+        # `app` (slice A), `world` (slice C, once the facade stopped mirroring
+        # it), and `actor`/`sim`/`view` (slice C) — each a CLOSED list, not a
+        # crate re-export. `bevy` is the facade's documented re-export.
+        "allowed": {"actor", "app", "bevy", "sim", "view", "world"},
         # Measured 2026-07-30 by this script, not transcribed from the campaign.
         # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
         # names. There are eighteen. Both documents were corrected in the commit
@@ -532,21 +540,27 @@ MODULE_ALLOWLISTS: list[dict] = [
         # module granularity is a coarse unit that reports progress late. That is
         # the right direction for a gate to err in; §2a of the growth method
         # carries the per-path counts beside it for the finer picture.
+        # ⚠ 14 -> 11, slice C. `engine_core` and `platformer` RETIRED into the
+        # curated `actor`/`sim`/`view` modules; `world` moved to `allowed` once
+        # the facade stopped mirroring the crate. Pruned in the migrating
+        # commit, because invariant 2 went STALE-red and named both.
+        #
+        # What is left is not composition. `runtime` is 13 uses of
+        # `rollback::*` — the session knob ADR 0031 defers to its own slice —
+        # and the rest is content and gameplay vocabulary that needs its own
+        # derivation rather than the same treatment applied eleven times.
         "baseline": {
             "actors",
             "asset_manager",
             "audio",
             "characters",
-            "engine_core",
             "entity_catalog",
             "game_shell",
             "input",
-            "platformer",
             "provider",
             "runtime",
             "sprite_sheet",
             "time",
-            "world",
         },
         "reason": (
             "A game depends on `ambition`, and `ambition` is currently the list "

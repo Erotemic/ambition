@@ -865,3 +865,161 @@ improvement or a regression, because the failure it prevents is silent. Promote
 `register_schema` to a headline property (10d), make `ContentPack` a value so
 reload and modding come free (10e), and name the host-kit case so the
 protagonist can leave Rust too (10c).
+
+---
+
+## 11. Round 5 — two concessions, one measurement that changed my mind, and the question the facet design has not answered
+
+### 11a. Both qualifications are right; I overstated two things
+
+**`Box<dyn GameModule>` is not a requirement, and I implied it was.** My claim was
+correct *about the previous round's design* — `ExperienceSpec { modules:
+Vec<Box<dyn GameModule>> }` needs object safety, so `const ID` conflicted with
+it. But that is an argument against that field, not for object safety in
+general. A generic `experience.mount(SanicModule { difficulty })?` that erases
+into `PreparedModule` is better than either, and it makes the whole question
+moot: live trait objects never need to be retained. Adopt that.
+
+One consequence worth writing down rather than discovering: **if modules can
+never be trait objects, a mod can add content but not capabilities or schemas.**
+That is probably the right boundary — Bevy cannot dynamically load plugins
+safely anyway — but it means the modding story is "data only, against schemas
+the shipped binary already registers." A mod that wants a new facet type needs a
+recompile. Name it in the docs now; it is the kind of limit that reads as a bug
+if a modder discovers it themselves.
+
+**"Generated typed references must not be optional" was imprecise.** The
+static/dynamic split is correct and my sentence did not survive contact with
+runtime-loaded content. The rule as GPT states it is the right one:
+
+> Raw string lookup is never a runtime authority. Static content may use
+> generated typed constants; dynamic content must be converted into validated
+> resolved references before assembly.
+
+`UnresolvedContentRef<T> → ResolvedContentRef<T>` at validation is exactly where
+ADR 0026 puts resolution, and it covers the case generated Rust cannot reach.
+
+### 11b. A measurement that changed my mind, and makes the worked example misleading
+
+I was going to argue that `preset:` indirection is a smell worth linting — a
+preset used by one character pays nothing. I measured the catalog first:
+
+```text
+141 character rows
+  8 action-set presets
+      peaceful        83 characters
+      striker_swipe   35
+      brute_lunge      9
+      ranger_arrow     7
+      sandbag_punch    3
+      peaceful_slither 2
+      pirate_pistol    1
+      peaceful_float   1
+```
+
+So the preset layer is **heavily** load-bearing — 141 characters over 8 presets,
+one of which covers 59% of the cast. My concern was wrong and the indirection
+must survive into the new format.
+
+But that measurement makes the worked example actively misleading:
+
+```ron
+( schema: "ambition.combat.action-access@1", value: ( preset: "mallory" ) ),
+```
+
+A per-character preset is 2 of 8 cases in reality, and it is the *worse* two. An
+agent shown that example will write one preset per character by default, and the
+sharing collapses into 141 presets that each name one row. The documentation
+example should be `preset: "peaceful"` — the shape 83 characters actually use —
+because for an agent-facing API the example **is** the specification.
+
+### 11c. The question the facet design has not answered, and it is the most important one
+
+```ron
+facets: [
+    ( schema: "ambition.combat.action-access@1", value: ( … ) ),
+]
+```
+
+**What happens when no installed capability claims that schema?**
+
+Three answers, and they are not close to equivalent:
+
+* **error** — safe, but content cannot be shared across capability profiles;
+* **ignore** — the facet silently does nothing;
+* **warn** — ignore, with a line in a log nobody reads.
+
+"Ignore" is the *portrait bug at scale*, and GPT's own first document named that
+bug as the thing 1.0 must prevent: *"A public field should either reach a real
+preparation and runtime consumer, or be rejected as unsupported. The current
+prepared-but-unconsumed portrait field is exactly what the 1.0 API must
+prevent."*
+
+The facet list reintroduces the same hazard in a new shape, and worse — the
+whole point of facets is that content is open and extensible, and openness is
+exactly what makes "nobody consumes this" possible. A character with an
+authored hurtbox facet and no combat capability installed looks completely
+correct in the file and is inert in the game.
+
+This is not a hypothetical failure mode here. It is *the* recurring one: six of
+the eleven defects fixed in the last campaign were the same shape — **state that
+looks accounted for and is not** (`ProjectileOwner` registered as a lie,
+`BossAnimFrame` swallowed by a waiver, authored hurtboxes published into a
+component no damage path read, cues tagged with a source nothing authorized).
+
+**The answer I would write:**
+
+1. a pack **declares its required capability profile** in its manifest;
+2. validation runs **against the installed profile**, and a facet whose schema no
+   installed capability claims is a **hard error** — never ignored, never warned;
+3. the **symmetric** check also runs: a registered schema that no consumer reads
+   is an error too. That is the portrait rule, and it is the half that keeps the
+   schema registry honest as capabilities come and go.
+
+Both directions, or the open format becomes a very tidy way to write content
+that does nothing.
+
+### 11d. `@1` opens a version space that has to be related to an existing one
+
+`"ambition.body.sprite@1"` implies schema evolution. That is right, and it means
+answering: when the engine ships `@2`, does a pack fingerprinted under `@1` have
+the same fingerprint? Different? Does it still load?
+
+This matters because **there is already a version space here** —
+`SnapshotSchemaFingerprint`, `GGRS_ROLLBACK_SCHEMA_VERSION`, and ADR 0026's
+"fingerprint-schema version" — and a save carries content fingerprint + schema
+version + snapshot schema fingerprint. If the content-schema version and the
+fingerprint-schema version are not deliberately related, they drift, and the
+thing that breaks is whether yesterday's save loads today.
+
+The machinery to answer it exists (there is already a named test that an older
+build never overwrites a save it cannot understand). The question just has to be
+asked before `@1` is minted, because the first migration is when it gets
+expensive.
+
+### 11e. `ambition content validate` must be a test first and a CLI second
+
+The agent instruction list ends with *"Run `ambition content validate`"*. Good —
+but a validator an agent has to remember to run is the doc-marker problem
+wearing a CLI. It has to be a **test in the suite**, with the CLI as the fast
+local path to the same predicate. One authority, two front doors.
+
+The repo already does exactly this: `declared_art_resolves.rs` is the gate, and
+`ambition_ldtk_tools` is the convenience. Same pattern, and it is why that class
+of leak stopped recurring.
+
+### 11f. The acceptance test is right; it needs its negative half
+
+> Adding Mallory must require only a content edit and content validation — not a
+> Rust identifier, central registration line, or ten-minute rebuild.
+
+Agreed, and this is the right headline. But a validator that accepts everything
+satisfies it. Pair it:
+
+> **And adding a character that names a missing schema, an unregistered preset,
+> or an uninstalled capability must FAIL validation — not boot with a silently
+> missing facet.**
+
+The first half is the product promise. The second is the one that decides
+whether the data-first format is an improvement over a Rust constructor, which
+at least had a compiler.

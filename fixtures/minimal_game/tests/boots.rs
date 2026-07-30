@@ -744,3 +744,80 @@ fn a_multi_game_host_can_start_at_its_launcher() {
         "the two policies must differ, or the flag is being ignored"
     );
 }
+
+/// **The SDK's worked room example compiles and runs.**
+///
+/// ⚠ This test exists because the SDK has now gone stale in the expensive
+/// direction THREE times, and each time prose was the only thing holding it
+/// true:
+///
+/// * the README's "Known gaps" advertised gaps slices B and C had closed;
+/// * `api-prototype.md` §5 published `ambition::experience`, which never existed;
+/// * §5 then DENIED `ambition::world::prelude` exists, after slice C shipped it —
+///   which cost blind run 4 two engine crates, and is the whole reason its
+///   headline finding was a documentation defect rather than an API one.
+///
+/// A doc example nothing executes is a claim, and this campaign's own rule is
+/// "name a test, never a doc marker". So the README's room snippet is
+/// reproduced here VERBATIM — same imports, same shape — and run. If the
+/// vocabulary moves again, this fails instead of a reader failing.
+#[test]
+fn the_sdk_worked_room_example_compiles_and_runs() {
+    // Exactly the README's imports for a room: the domain prelude, nothing else.
+    use ambition::world::prelude::*;
+
+    fn my_room() -> RoomSpec {
+        let size = Vec2::new(640.0, 360.0);
+        let world = AuthoredWorld::new(
+            "My Room",
+            size,
+            Vec2::new(64.0, 256.0),
+            vec![Block::solid(
+                "floor",
+                Vec2::new(0.0, 320.0),
+                Vec2::new(size.x, 40.0),
+            )],
+        );
+        RoomSpec::new("my_room", world)
+    }
+
+    struct FromTheReadme;
+
+    impl GameModule for FromTheReadme {
+        fn manifest(&self) -> ModuleManifest {
+            // No AssetSource — the README says one is optional, so the test
+            // that proves the README must not quietly add one.
+            ModuleManifest::new("from_the_readme")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("from_the_readme")
+                .launcher_route("from_the_readme/menu")
+                .gameplay_route("from_the_readme/play")
+                .characters(MINIMAL_CHARACTER_ROSTER_RON)
+                .no_audio()
+                // `my_hero` is the id MINIMAL_CHARACTER_ROSTER_RON declares —
+                // the connection the README now states and this pins.
+                .playable("From The Readme", "…", "my_hero", "my_room", vec![my_room()]);
+        }
+    }
+
+    let mut app = PlatformerApp::headless()
+        .mount(FromTheReadme)
+        .try_build()
+        .expect("the SDK's own worked example must compose");
+
+    let mut status = host_status(&app);
+    for _ in 0..600 {
+        app.update();
+        status = host_status(&app);
+        if status.is_running() || status.is_refused() {
+            break;
+        }
+    }
+    assert!(
+        status.is_running(),
+        "the SDK's worked example must RUN, not merely compile; got {status:?} / {:?}",
+        status.refusal()
+    );
+}

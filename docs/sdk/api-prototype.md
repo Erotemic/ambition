@@ -239,8 +239,22 @@ ambition::app::prelude all of the above, plus RoomSpec/RoomMetadata
 > measured has to be measured.
 
 **Domain preludes, not one root prelude** (campaign §A2). `ambition::app::prelude`
-carries what a `main` needs. `ambition::world::prelude` and
-`ambition::character::prelude` are slice-B surfaces and are not invented here.
+carries what a `main` needs.
+
+> ⚠ **Corrected 2026-07-30.** This paragraph said `ambition::world::prelude` and
+> `ambition::character::prelude` "are slice-B surfaces and are not invented
+> here." `ambition::world::prelude` was invented in slice C, has been the
+> documented home of the room vocabulary since, and blind run 4 opened TWO
+> engine crates because this sentence pointed away from it. `ambition::character`
+> also exists now.
+>
+> Written in slice A, made false in slice C, read by a consumer in slice F. The
+> SDK's most trustworthy-looking list — §5 is explicitly an OUTPUT read off the
+> call sites — is the third document in this campaign to go stale in the
+> expensive direction, and the pattern is now the finding: **a doc that
+> enumerates what does NOT exist has to be re-read every time something starts
+> existing, and nothing enforces that.**
+
 One enormous root prelude is a discovery problem for an agent, not a
 convenience — an agent that imports 300 names has been told nothing about which
 40 matter.

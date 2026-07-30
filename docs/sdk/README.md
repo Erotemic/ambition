@@ -39,6 +39,10 @@ ambition = { path = "../path/to/ambition/crates/ambition" }
 # not satisfy that. Otherwise `ambition::bevy` is enough.
 bevy = "0.18"
 
+# ⚠ If disk is tight: a default debug build links ~250 crates and blind run 4
+# blew an 11 GB budget, dying in `rust-lld` with SIGBUS and an LLVM stack dump
+# that never mentions disk. `[profile.dev] debug = 0` fixes it.
+
 # ⚠ REQUIRED. Ambition builds against a fork of bevy_ggrs (a backported
 # `GgrsFrameTiming` accessor). Cargo patch tables do NOT cross a workspace
 # boundary, so you must repeat this one yourself — copy the current value from
@@ -110,6 +114,10 @@ assert!(host_status(&app).is_running(), "{:?}", host_status(&app));
 `HostStatus::Refused { reasons }` tells you why a host will never start, so a
 poll loop can stop instead of spinning. Use `is_refused()` as the other exit.
 
+The same poll applies to the windowed face — `without_gpu().build()` returns an
+`App` you step exactly like the headless one, and "composed" is not "running"
+there either.
+
 **On a machine with no display** — CI, a container, a headless box — the
 windowed face still composes and runs:
 
@@ -155,6 +163,45 @@ let pos = bodies.single(app.world_mut()).unwrap().pos;
 // make it walk right for a frame
 drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..Default::default() });
 ```
+
+### A room, in full
+
+The room vocabulary lives in **`ambition::world::prelude`** — not in
+`ambition::app::prelude`, which carries `RoomSpec` but not `Block` or
+`AuthoredWorld`. `use ambition::world::*` resolves to nothing; you want the
+prelude.
+
+```rust
+use ambition::world::prelude::*;
+
+fn my_room() -> RoomSpec {
+    let size = Vec2::new(640.0, 360.0);
+    let world = AuthoredWorld::new(
+        "My Room",
+        size,                          // room extent
+        Vec2::new(64.0, 256.0),        // where the character spawns
+        vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 320.0),     // MIN corner
+            Vec2::new(size.x, 40.0),   // size
+        )],
+    );
+    RoomSpec::new("my_room", world)
+}
+```
+
+`AuthoredWorld` is the authored world IR, exported under that name because
+`bevy::prelude::World` is a different type and every Bevy game imports it.
+
+**If you use `MINIMAL_CHARACTER_ROSTER_RON`, your starting character id is
+`my_hero`** — that is the character it declares, and a starting character no
+roster contains is refused at build.
+
+`RoomSpec` is not `Copy`. If you pass both `.room(room.metadata.clone())` and
+`.playable(.., vec![room])`, clone the metadata.
+
+**`AssetSource` is optional.** You need one only if your game ships its own art;
+a module that declares none still resolves the engine's own assets.
 
 ### Room coordinates
 

@@ -38,7 +38,7 @@ fn settle(app: &mut App) {
         app.update();
         if app
             .world()
-            .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+            .get_resource::<ambition::view::GameAssets>()
             .map(|assets| assets.characters.sheet_state("outlander_wanderer").is_ready())
             .unwrap_or(false)
         {
@@ -54,18 +54,18 @@ fn the_consumers_character_draws_from_the_consumers_own_art() {
 
     let assets = app
         .world()
-        .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+        .get_resource::<ambition::view::GameAssets>()
         .expect("the umbrella asset install put `GameAssets` in the world");
     let state = assets.characters.sheet_state("outlander_wanderer");
     let ready = match state {
-        ambition::sprite_sheet::character::CharacterSheetState::Ready(asset) => asset,
-        ambition::sprite_sheet::character::CharacterSheetState::Declared { .. } => {
+        ambition::character::CharacterSheetState::Ready(asset) => asset,
+        ambition::character::CharacterSheetState::Declared { .. } => {
             // The engine records WHY a decode failed. Reporting it beats
             // "it did not work", which is the diagnostic quality this fixture
             // exists to hold the engine to in the first place.
             let states = app
                 .world()
-                .get_resource::<ambition::actors::character_runtime::CharacterLoadStates>();
+                .get_resource::<ambition::character::CharacterLoadStates>();
             let outcome = states.and_then(|states| states.outcome("outlander_wanderer"));
             let failures: Vec<String> = states
                 .map(|states| {
@@ -81,7 +81,7 @@ fn the_consumers_character_draws_from_the_consumers_own_art() {
                  outcome={outcome:?} failures={failures:?}"
             )
         }
-        ambition::sprite_sheet::character::CharacterSheetState::Unknown => panic!(
+        ambition::character::CharacterSheetState::Unknown => panic!(
             "the engine does not know this character at all, so the catalog \
              fragment this crate registers is not reaching the decode"
         ),

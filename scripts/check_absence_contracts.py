@@ -521,7 +521,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # `app` (slice A), `world` (slice C, once the facade stopped mirroring
         # it), and `actor`/`sim`/`view` (slice C) — each a CLOSED list, not a
         # crate re-export. `bevy` is the facade's documented re-export.
-        "allowed": {"actor", "app", "bevy", "sim", "view", "world"},
+        "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
         # Measured 2026-07-30 by this script, not transcribed from the campaign.
         # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
         # names. There are eighteen. Both documents were corrected in the commit
@@ -549,17 +549,19 @@ MODULE_ALLOWLISTS: list[dict] = [
         # `rollback::*` — the session knob ADR 0031 defers to its own slice —
         # and the rest is content and gameplay vocabulary that needs its own
         # derivation rather than the same treatment applied eleven times.
+        # ⚠ 11 -> 7. `actors`, `characters`, `sprite_sheet` and `entity_catalog`
+        # RETIRED into the curated `character`/`actor`/`view` modules. Authoring
+        # ONE character used to mean naming four mirrored crates — the catalog
+        # in one, its runtime load state in another, its art in a third, its
+        # brain in a fourth — because those are the engine's internal
+        # boundaries and the facade published them.
         "baseline": {
-            "actors",
             "asset_manager",
             "audio",
-            "characters",
-            "entity_catalog",
             "game_shell",
             "input",
             "provider",
             "runtime",
-            "sprite_sheet",
             "time",
         },
         "reason": (
@@ -597,7 +599,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # on purpose. That is the difference between a promise and an accident,
         # and it is what makes this entry honest rather than a way to make the
         # number smaller.
-        "allowed": {"app", "bevy", "world"},
+        "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
         # Measured 2026-07-30 against the crate as first written. FOUR, against
         # Outlander's fourteen — and the four are not a smaller sample of the
         # same problem, they are one specific hole: `PlatformerExperienceAuthoring`

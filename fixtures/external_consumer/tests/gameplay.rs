@@ -139,7 +139,7 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 
     let assets = app
         .world()
-        .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+        .get_resource::<ambition::view::GameAssets>()
         .expect("the plugin did not install GameAssets");
     assert!(
         !assets.entities.is_empty(),
@@ -220,7 +220,7 @@ fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
 /// 'outlander' names missing default character 'typo_id'" is a diagnostic.
 #[test]
 fn authoring_mistakes_name_the_thing_the_author_must_fix() {
-    use ambition::characters::actor::character_catalog::CharacterCatalogFragment;
+    use ambition::character::CharacterCatalogFragment;
 
     // A catalog that parses and names a default character it does not contain —
     // the single most common authoring slip, a typo in one id.
@@ -284,7 +284,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
     // a second file naming ids the catalog owns, which is precisely where a
     // rename goes wrong.
     {
-        use ambition::actors::features::CharacterRosterFragment;
+        use ambition::actor::CharacterRosterFragment;
         let broken = CharacterRosterFragment::from_ron(
             "outlander",
             None::<String>,
@@ -319,7 +319,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
              is the clause this test exists for: {mistyped}"
         );
 
-        use ambition::actors::features::CharacterRosterFragment as Roster;
+        use ambition::actor::CharacterRosterFragment as Roster;
         let broken = Roster::from_ron_at(source, "outlander", None::<String>, "( roster: {")
             .expect_err("truncated roster RON must be refused");
         assert!(
@@ -355,8 +355,8 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 /// frame size this crate authored.
 #[test]
 fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
-    use ambition::sprite_sheet::character::sheets::AuthoredSheets;
-    use ambition::sprite_sheet::AuthoredSheetAppExt;
+    use ambition::character::AuthoredSheets;
+    use ambition::character::AuthoredSheetAppExt;
     use bevy::prelude::App;
 
     let mut app = App::new();
@@ -379,12 +379,12 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 
     // And the engine's own resolution path finds it — the assertion that
     // distinguishes "a registry accepted my RON" from "my character resolves".
-    let catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
-        ambition::characters::actor::character_catalog::parse_catalog(
+    let catalog = ambition::character::CharacterCatalog::from_data(
+        ambition::character::parse_catalog(
             outlander::outlander_catalog_ron(),
         ),
     );
-    let spec = ambition::actors::character_sprites::sheet_for_declared_character(
+    let spec = ambition::character::sheet_for_declared_character(
         authored,
         &catalog,
         None,
@@ -519,14 +519,14 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
 /// against the design), proved here by somebody outside it.
 #[test]
 fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
-    use ambition::characters::brain::ActionSet;
+    use ambition::character::ActionSet;
 
     let mut app = outlander::build_outlander_app();
     outlander::run_outlander_walkthrough(&mut app)
         .unwrap_or_else(|error| panic!("the Outlander walkthrough failed: {error}"));
 
     let world = app.world_mut();
-    let mut bodies = world.query::<(&ambition::characters::actor::WornCharacter, &ActionSet)>();
+    let mut bodies = world.query::<(&ambition::character::WornCharacter, &ActionSet)>();
     let outlanders: Vec<&ActionSet> = bodies
         .iter(world)
         .filter(|(worn, _)| worn.id() == outlander::OUTLANDER_CHARACTER_ID)

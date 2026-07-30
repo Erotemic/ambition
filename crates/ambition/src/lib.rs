@@ -73,6 +73,53 @@ pub mod actor {
     pub use ambition_engine_core::movement::{transit_body, TransitVelocity};
     pub use ambition_engine_core::BodyClusterQueryData;
     pub use ambition_platformer_primitives::body::BodyKinematics;
+
+    /// What a game spawns and configures.
+    pub use ambition_actors::features::{
+        ActorConfig, ActorFaction, CharacterRosterFragment, MotionModel, SpawnActorKind,
+        SpawnActorRequest,
+    };
+
+    /// What a room stages when it opens.
+    pub use ambition_actors::features::RoomContentStagingRegistry;
+}
+
+/// **Characters: the cast, its art, and what it can do.**
+///
+/// The fourth curated domain module, and the one that absorbs the largest
+/// remaining spread. Before this a consumer authoring a single character had to
+/// name FOUR mirrored crates — `ambition::characters` for the catalog,
+/// `ambition::actors` for its runtime load state, `ambition::sprite_sheet` for
+/// what it looks like, and `ambition::entity_catalog` for how it thinks —
+/// which is the namespace mirror at its most legible: the cast of one game
+/// spread across the engine's internal crate boundaries because those
+/// boundaries are what the facade published.
+///
+/// Closed list.
+pub mod character {
+    /// The cast, as authored content.
+    pub use ambition_characters::actor::character_catalog::{
+        parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+    /// Registering a roster archetype (the enemy half of a cast).
+    pub use ambition_actors::features::CharacterRosterAppExt;
+
+    /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
+    /// tests, procedural generation, unrepresentable schemas, and a cast whose
+    /// behavior is supplied by host code as a deliberate authoring choice.
+    pub use ambition_actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+    pub use ambition_characters::actor::WornCharacter;
+
+    /// What a character can do, and how it decides.
+    pub use ambition_characters::brain::ActionSet;
+    pub use ambition_entity_catalog::placements::CharacterBrain;
+
+    /// What a character looks like, and whether its art has arrived.
+    pub use ambition_actors::character_runtime::CharacterLoadStates;
+    pub use ambition_actors::character_sprites::sheet_for_declared_character;
+    pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
+    pub use ambition_sprite_sheet::character::CharacterSheetState;
+    pub use ambition_sprite_sheet::AuthoredSheetAppExt;
 }
 
 /// **The simulation schedule a game joins its own systems to.**
@@ -93,6 +140,9 @@ pub mod sim {
 /// render path.
 pub mod view {
     pub use ambition_platformer_primitives::lifecycle::RoomVisual;
+
+    /// The decoded art the presentation draws from.
+    pub use ambition_sprite_sheet::game_assets::GameAssets;
 }
 
 /// **The authored world: rooms, geometry, placements, collision.**

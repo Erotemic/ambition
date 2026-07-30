@@ -190,8 +190,8 @@ pub const GATE_ENTRY_X: f32 = 840.0;
 pub const GATE_EXIT: Vec2 = Vec2::new(700.0, 180.0);
 
 // ── §enemy (staging half) ───────────────────────────────────────────────────
-fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actors::features::SpawnActorRequest> {
-    use ambition::actors::features::{ActorFaction, SpawnActorKind, SpawnActorRequest};
+fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actor::SpawnActorRequest> {
+    use ambition::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
     vec![SpawnActorRequest {
         id: "outlander_sentry_0".to_string(),
         name: "Outlander Sentry".to_string(),
@@ -200,7 +200,7 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actors::features::SpawnAc
         faction: ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
-            brain: ambition::entity_catalog::placements::CharacterBrain::Custom(
+            brain: ambition::character::CharacterBrain::Custom(
                 OUTLANDER_ENEMY_BRAIN_KEY.to_string(),
             ),
         },
@@ -208,10 +208,9 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actors::features::SpawnAc
 }
 
 pub fn install_outlander_content(app: &mut App) {
-    use ambition::actors::features::{
-        CharacterRosterAppExt, CharacterRosterFragment, RoomContentStagingRegistry,
-    };
-    use ambition::characters::actor::character_catalog::{
+    use ambition::actor::{CharacterRosterFragment, RoomContentStagingRegistry};
+    use ambition::character::CharacterRosterAppExt;
+    use ambition::character::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -233,7 +232,7 @@ pub fn install_outlander_content(app: &mut App) {
     // and WHAT THEY LOOK LIKE through two registrations, neither of which
     // requires touching the engine's asset tree (queue U1).
     {
-        use ambition::sprite_sheet::AuthoredSheetAppExt;
+        use ambition::character::AuthoredSheetAppExt;
         app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
     }
     // **The character-DEFINITION seam, exercised from outside the workspace.**
@@ -252,9 +251,7 @@ pub fn install_outlander_content(app: &mut App) {
     // through to the row — whose `playable_kit: HostCode` rebuilds the HOST
     // protagonist's kit — and hand a third party's wanderer Ambition's sword.
     {
-        use ambition::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition::character::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(
                 OUTLANDER_CHARACTER_ID,
@@ -262,7 +259,7 @@ pub fn install_outlander_content(app: &mut App) {
                 OUTLANDER_EXPERIENCE,
             )
             .with_sheet("outlander")
-            .with_action_set(ambition::characters::brain::ActionSet::default()),
+            .with_action_set(ambition::character::ActionSet::default()),
         );
     }
     app.register_character_roster_fragment(
@@ -412,7 +409,7 @@ pub fn ridge_gate_system(
     mut bodies: Query<
         (
             ambition::actor::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
+            &mut ambition::actor::MotionModel,
             Option<&BeaconCharge>,
         ),
         With<ambition::actor::PrimaryPlayer>,
@@ -706,7 +703,7 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
                 "expected exactly one primary player after activation, found {player_count}"
             ));
         }
-        let mut actors = world.query::<&ambition::actors::features::ActorConfig>();
+        let mut actors = world.query::<&ambition::actor::ActorConfig>();
         if !actors
             .iter(world)
             .any(|config| config.id == OUTLANDER_SENTRY_ID)

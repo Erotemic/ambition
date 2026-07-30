@@ -222,12 +222,21 @@ boundaries. Its own slice, its own acceptance tests.
 Per ADR 0031, this is an **output**. Everything §2 and §3 name:
 
 ```text
-ambition::app          PlatformerApp, SessionMode, AssetSource
-ambition::experience   GameModule, ModuleManifest, ModuleDraft
-ambition::app::prelude the two above, and nothing else
+ambition::app          PlatformerApp, SessionMode, AssetSource,
+                       GameModule, ModuleManifest, ModuleDraft,
+                       HostStatus, host_status
+ambition::app::prelude all of the above, plus RoomSpec/RoomMetadata
 ```
 
-Three modules, one prelude, for the whole of host composition.
+> ⚠ **Corrected 2026-07-30.** This listed a separate `ambition::experience`
+> holding `GameModule`/`ModuleManifest`/`ModuleDraft`. **That module does not
+> exist** — they are in `ambition::app`, beside `PlatformerApp`, because
+> splitting three types away from the builder that consumes them bought nothing.
+>
+> Blind run 3 caught it and its complaint is the right one: §5 is explicitly
+> framed as an OUTPUT read off the call sites, which makes it the most
+> trustworthy list in the SDK, and it was wrong. A list that claims to be
+> measured has to be measured.
 
 **Domain preludes, not one root prelude** (campaign §A2). `ambition::app::prelude`
 carries what a `main` needs. `ambition::world::prelude` and

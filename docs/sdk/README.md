@@ -34,6 +34,11 @@ it could ask a single API question:
 [dependencies]
 ambition = { path = "../path/to/ambition/crates/ambition" }
 
+# Only if you `#[derive(Component)]` or `#[derive(Resource)]` yourself — the
+# derive macros resolve `::bevy_ecs` through YOUR manifest and a re-export does
+# not satisfy that. Otherwise `ambition::bevy` is enough.
+bevy = "0.18"
+
 # ⚠ REQUIRED. Ambition builds against a fork of bevy_ggrs (a backported
 # `GgrsFrameTiming` accessor). Cargo patch tables do NOT cross a workspace
 # boundary, so you must repeat this one yourself — copy the current value from
@@ -70,6 +75,25 @@ fn main() {
 }
 ```
 
+Your module's `define` needs at least this much, and the last two are not
+optional in practice:
+
+```rust
+fn define(&self, module: &mut ModuleDraft) {
+    module
+        .experience("my_game")
+        .launcher_route("my_game/menu")
+        .gameplay_route("my_game/play")
+        .characters(MY_ROSTER_RON)   // or `.no_characters()`
+        .no_audio()                  // or register a real audio fragment
+        .playable("My Game", "…", "my_hero", "my_room", vec![my_room()]);
+}
+```
+
+⚠ **`playable()` is what registers the gameplay route**, and **`no_audio()` is
+not cosmetic** — preparation refuses an experience that declares neither audio
+nor silence, and the host then sits in `Activating` until it is refused.
+
 ⚠ **Check that it started.** Composing successfully is not the same fact as
 running, and blind run 2 caught itself shipping a binary that exited `0` with a
 host that had never started:
@@ -98,6 +122,34 @@ nor WAYLAND_SOCKET nor DISPLAY is set`, a message that never mentions Ambition.
 
 **Reading the API:** `cargo doc -p ambition -p ambition_world --no-deps --open`.
 Both crates, or the room types render as unlinked text.
+
+## Asking your game what it is doing
+
+`host_status` answers *did the engine start*. It does not answer *is my game
+playable* — blind run 3 shipped a build reporting `Running { prepared: true }`
+for 600 ticks while its character fell out of the world on a loop. Four names
+close that gap:
+
+```rust
+use ambition::actor::{BodyKinematics, PrimaryPlayer};
+use ambition::sim::{drive_control_frame, ControlFrame};
+
+// where is my character?
+let mut bodies = app.world_mut()
+    .query_filtered::<&BodyKinematics, With<PrimaryPlayer>>();
+let pos = bodies.single(app.world_mut()).unwrap().pos;
+
+// make it walk right for a frame
+drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..Default::default() });
+```
+
+### Room coordinates
+
+**+y points DOWN**, and `Block::solid(name, min, size)` takes a **MIN CORNER,
+not a centre**. Getting that wrong puts your floor somewhere else in the room,
+your character falls past it, and nothing reports anything — the host is running
+correctly, the content is wrong. The reference fixture itself had this bug until
+2026-07-30 and its own tests could not see it.
 
 `PlatformerApp::headless()` is the same game with no display, where one
 `App::update` is exactly one simulation tick. Both faces mount the same module

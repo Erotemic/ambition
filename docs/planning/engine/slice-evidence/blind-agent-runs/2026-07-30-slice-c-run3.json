@@ -1,0 +1,104 @@
+{
+  "_comment": [
+    "\u00a72c run 3, same fixed script. Contamination unchanged (AGENTS.md inherited)."
+  ],
+  "slice": "C/D",
+  "date": "2026-07-30",
+  "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+  "harness": "fresh general-purpose subagent, no inherited conversation context",
+  "completed": {
+    "headless_boot": true,
+    "windowed_boot": true,
+    "minimal_game": true,
+    "notes": "BOTH faces, and it went further than any prior run: verified the host is POPULATED (4 entities, 1 PrimaryPlayer, 69 components) and then that it is a GAME \u2014 the body falls, lands on the authored floor with vel.y==0, walks 64->462 under drive_control_frame, jumps, lands on a ledge. 3/3 of its own tests green."
+  },
+  "first_engine_file_opened": "crates/ambition/Cargo.toml",
+  "first_engine_file_reason": "The cargo FEATURE list. docs/sdk/README.md's manifest section covers the bevy_ggrs patch and says nothing about the facade's ~30 features. Not an API question \u2014 a packaging one, same class as run 1's Cargo.lock.",
+  "engine_api_surfaces_read": [
+    {
+      "crate": "ambition",
+      "via": "cargo doc",
+      "looking_for": "the whole API \u2014 ModuleDraft's nine methods, PlatformerApp's eight, HostStatus, CompositionError"
+    },
+    {
+      "crate": "ambition_world",
+      "via": "cargo doc",
+      "looking_for": "AuthoredWorld/Block/RoomSpec/RoomMetadata signatures"
+    },
+    {
+      "crate": "fixtures/minimal_game",
+      "via": "source",
+      "looking_for": "the character-roster RON schema \u2014 the one place it could not proceed from docs"
+    },
+    {
+      "crate": "fixtures/minimal_game/tests",
+      "via": "source",
+      "looking_for": "the name of the player marker component"
+    }
+  ],
+  "elapsed_context": {
+    "subagent_tokens": 120099,
+    "tool_uses": 65,
+    "duration_ms": 1682103
+  },
+  "compared_to_baseline": {
+    "baseline": "2026-07-30-slice-a-baseline.json",
+    "headless": "false -> TRUE",
+    "windowed": "false -> TRUE",
+    "engine_surfaces_read": "8 -> 4 -> 4",
+    "first_file_opened": "Cargo.lock (cannot compile) -> ambition_world/src/lib.rs (cannot find a type) -> ambition/Cargo.toml (cannot find the feature list)",
+    "reading": "Three runs, three different first files, each a smaller question than the last: cannot build it, cannot find one type, cannot find the feature list. \u00a74.2 still fails \u2014 the gate is ZERO."
+  },
+  "findings": [
+    {
+      "id": "the-reference-fixture-had-a-geometry-bug-and-its-own-tests-could-not-see-it",
+      "severity": "highest \u2014 the docs tell third parties to copy this file",
+      "closed": true,
+      "summary": "`Block::solid(name, MIN, size)` takes a min corner; fixtures/minimal_game passed a CENTRE, so the floor sat at x 320..960 in a 640-wide room while the walker spawned at x=64. The walker fell past it, blast-died, respawned, and fell again \u2014 forever \u2014 at a steady `Running { prepared: true }`.",
+      "why_it_matters": "ELEVEN tests were green on that game. Every one asked `host_status`, which answers 'did the engine start' and was answering it correctly. 'Is the game playable' is a different question and needs a position, settling. A suite that only asks the engine about itself passes over any amount of broken content.",
+      "fix": "Geometry corrected; `the_walker_lands_on_the_floor_instead_of_falling_through_it` asserts the body settles within 2px over 50 ticks. Seen red against the original geometry (y ranged 256..546)."
+    },
+    {
+      "id": "api-prototype-5-published-a-module-that-does-not-exist",
+      "severity": "doc defect",
+      "closed": true,
+      "summary": "\u00a75 listed `ambition::experience` holding GameModule/ModuleManifest/ModuleDraft. They are in `ambition::app`. \u00a75 is framed as an OUTPUT read off the call sites, which makes it the most trustworthy list in the SDK."
+    },
+    {
+      "id": "coordinate-conventions-documented-nowhere",
+      "severity": "doc gap",
+      "closed": true,
+      "summary": "+y down, min-corner blocks, AuthoredWorld::new argument order \u2014 all derived by printing positions over 300 ticks. Now in the README."
+    },
+    {
+      "id": "no_audio-and-playable-absent-from-the-README-example",
+      "severity": "doc gap",
+      "closed": true,
+      "summary": "`playable()` is what registers the gameplay route and `no_audio()` is effectively mandatory; the four-line snippet showed neither, so following it produces a host stuck in Activating."
+    },
+    {
+      "id": "no-way-to-ask-whether-the-game-is-PLAYABLE",
+      "severity": "doc gap",
+      "closed": true,
+      "summary": "PrimaryPlayer, BodyKinematics, drive_control_frame, ControlFrame \u2014 none in the prelude, none in docs/sdk/. Found by trawling rustdoc and the fixture's tests. Now a README section."
+    },
+    {
+      "id": "one-character-roster-schema-still-undocumented",
+      "severity": "doc gap",
+      "closed": false,
+      "summary": "EMPTY_CHARACTER_ROSTER_RON solved the case nobody needs. Brute-forcing the non-empty case costs one build per missing field and DEAD-ENDS at the first enum-typed field (`tier`), because variant names cannot be guessed. The README's remedy is 'copy the fixture' \u2014 i.e. the documented fix for the leak is to open an engine file."
+    },
+    {
+      "id": "cargo-features-invisible",
+      "severity": "doc gap",
+      "closed": false,
+      "summary": "~30 facade features, none documented; the feature list was the first engine file this run opened."
+    }
+  ],
+  "what_worked": [
+    "Build-time refusals: 'starts as character `blind_hero`, which no declared roster contains ... Characters available: none \u2014 the declared roster is empty'. The agent credits these with the run taking hours not days.",
+    "The patch-table warning saved the GgrsFrameTiming dead end entirely \u2014 blind run 1's top finding, closed, confirmed closed twice.",
+    "It reached a PLAYING game: fall, land, walk, jump, land."
+  ],
+  "verdict": "Best run yet and the one that found the worst bug \u2014 in the fixture the SDK tells people to copy, invisible to eleven passing tests."
+}

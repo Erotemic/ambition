@@ -72,9 +72,20 @@ pub fn minimal_room() -> RoomSpec {
         "Minimal Room",
         size,
         Vec2::new(64.0, floor_top - 64.0),
+        // ⚠ `Block::solid(name, MIN, size)` — a MIN CORNER, not a centre.
+        //
+        // This passed a centre until 2026-07-30, so the floor sat at x 320..960
+        // in a 640-wide room while the walker spawned at x=64. The walker fell
+        // straight past it, blast-died, respawned and fell again, forever —
+        // and `host_status` reported `Running { prepared: true }` the whole
+        // time, because the host WAS running. It was the game that was broken.
+        //
+        // Found by blind run 3, which copied this fixture verbatim because
+        // `docs/sdk/README.md` says to, and spent its longest debugging episode
+        // on a bug it had inherited from the reference.
         vec![Block::solid(
             "floor",
-            Vec2::new(size.x * 0.5, floor_top + 20.0),
+            Vec2::new(0.0, floor_top),
             Vec2::new(size.x, 40.0),
         )],
     );

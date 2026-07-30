@@ -512,3 +512,60 @@ fn two_modules_declaring_an_experience_conflict_and_the_error_names_both() {
         );
     }
 }
+
+/// **The walker LANDS.** (and the reason this test exists is worse than the bug)
+///
+/// Every other test in this file asserted that the host was `Running`. The host
+/// WAS running. The game was broken: the floor was authored with a centre where
+/// `Block::solid(name, MIN, size)` wants a min corner, so it sat at x 320..960
+/// in a 640-wide room, the walker spawned at x=64, fell straight past it,
+/// blast-died, respawned, and fell again — forever, at a steady
+/// `Running { prepared: true }`.
+///
+/// Blind run 3 found it by copying this fixture verbatim, which
+/// `docs/sdk/README.md` tells third parties to do. It cost that run its longest
+/// debugging episode, on a bug it had inherited from the reference.
+///
+/// ⚠ **`host_status` cannot see this and was never going to.** It answers "did
+/// the engine start", which is exactly what it was built for and what slice C
+/// needed. "Is the game playable" is a different question and needs a different
+/// assertion: a POSITION, settling. A suite that only ever asks the engine about
+/// itself will pass over any amount of broken content.
+#[test]
+fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
+    use ambition::bevy::prelude::With;
+
+    let mut app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .build();
+    for _ in 0..600 {
+        app.update();
+        if host_status(&app).is_running() {
+            break;
+        }
+    }
+    assert!(host_status(&app).is_running(), "the host must start first");
+
+    // Long enough to fall, land, and settle — and long enough that a body which
+    // is falling-dying-respawning has gone round that loop several times.
+    let mut samples = Vec::new();
+    for _ in 0..300 {
+        app.update();
+        let world = app.world_mut();
+        let mut bodies = world
+            .query_filtered::<&ambition::actor::BodyKinematics, With<ambition::actor::PrimaryPlayer>>();
+        if let Ok(kin) = bodies.single(world) {
+            samples.push(kin.pos.y);
+        }
+    }
+    assert!(samples.len() > 200, "lost the body mid-run");
+
+    let last_fifty = &samples[samples.len() - 50..];
+    let lo = last_fifty.iter().cloned().fold(f32::INFINITY, f32::min);
+    let hi = last_fifty.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        (hi - lo) < 2.0,
+        "the walker never settled: y ranged {lo}..{hi} over the last 50 ticks, \
+         which is what falling through the floor and respawning looks like"
+    );
+}

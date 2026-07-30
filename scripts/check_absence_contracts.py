@@ -576,7 +576,14 @@ MODULE_ALLOWLISTS: list[dict] = [
         # something: it needs NO `bevy` entry in its manifest at all, because it
         # derives nothing. Outlander does. That difference is only visible with
         # two consumers.
-        "allowed": {"app", "bevy"},
+        # `world` JOINED 2026-07-30, and only after the facade stopped mirroring
+        # it. `pub use ambition_world as world` published every submodule the
+        # crate happened to have; `pub mod world { ... }` publishes a CLOSED
+        # list, so a new submodule is an internal change until somebody adds it
+        # on purpose. That is the difference between a promise and an accident,
+        # and it is what makes this entry honest rather than a way to make the
+        # number smaller.
+        "allowed": {"app", "bevy", "world"},
         # Measured 2026-07-30 against the crate as first written. FOUR, against
         # Outlander's fourteen — and the four are not a smaller sample of the
         # same problem, they are one specific hole: `PlatformerExperienceAuthoring`
@@ -624,17 +631,26 @@ MODULE_ALLOWLISTS: list[dict] = [
         # 2 -> 1. `audio` retired with `ModuleDraft::no_audio()`: declaring
         # silence is a word on the draft now, not a hand-registered fragment.
         #
-        # ONE left, and it is `world` — held in the baseline on purpose rather
-        # than promoted to `allowed`, because the facade still re-exports the
-        # whole crate. See the note in `allowed` above: a ratchet you can
-        # satisfy by editing the allowlist is not a ratchet.
-        "baseline": {"world"},
+        # ⚠ EMPTY. The movement-only minimal game names ONLY reviewed SDK
+        # surface: `ambition::app`, `ambition::world`, and the facade's
+        # documented `bevy` re-export.
+        #
+        # This is §4's first terminal condition reached for ONE consumer. It is
+        # not the campaign's terminal condition — Outlander still names 14, and
+        # four consumer-matrix categories are unproven — but it is the first
+        # evidence that "consumers name only the SDK" is a reachable state
+        # rather than an aspiration.
+        #
+        # Zero here means the ratchet now guards a PROPERTY instead of tracking
+        # a migration: any new `ambition::` module this game names is a
+        # regression, full stop.
+        "baseline": set(),
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
             "structurally cannot fill: it asks for almost nothing, so whatever it "
             "still has to name is a floor on what EVERY game must know. Four "
             "modules, all of them the room/experience declaration path — since "
-            "reduced to ONE by slices B and C. The set "
+            "reduced to ZERO by slices B and C. The set "
             "may not GAIN a member, and it may not KEEP one this game stops "
             "naming."
         ),

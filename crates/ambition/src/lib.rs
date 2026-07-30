@@ -54,7 +54,26 @@ pub use ambition_time as time;
 pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 pub use ambition_vfx as vfx;
-pub use ambition_world as world;
+/// **The authored world: rooms, geometry, placements, collision.**
+///
+/// ⚠ A CURATED MODULE, not a crate mirror — and the difference is the whole
+/// point of ADR 0031. `pub use ambition_world as world` made the compatibility
+/// surface change whenever the crate did: a new submodule became public API by
+/// existing. This list is CLOSED, so adding one to `ambition_world` is an
+/// internal change until somebody adds it here on purpose.
+///
+/// `ron_room` is deliberately absent. It is an authoring backend, nothing
+/// outside the engine reaches for it, and the mirror was publishing it anyway.
+///
+/// This is the first module to get the treatment; the rest of the crate mirrors
+/// in this file are still mirrors, and each is a leak the campaign's ratchets
+/// still count.
+pub mod world {
+    /// Everything needed to author a room, in one import.
+    pub use ambition_world::prelude;
+
+    pub use ambition_world::{collision, debug_label, placements, platforms, rooms};
+}
 // Re-exported so a game can name bevy TYPES through `ambition::bevy::…`. NOTE:
 // this does NOT let a crate `#[derive(Component)]`/`#[derive(Resource)]` through
 // the umbrella alone — bevy's derive macros resolve `::bevy_ecs` via the

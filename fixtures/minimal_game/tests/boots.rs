@@ -445,3 +445,70 @@ fn a_noncombat_character_gets_no_combat_state() {
          anyway, so `actor` is combat-shaped: {combat:?}"
     );
 }
+
+/// **Two modules that both declare an experience are REFUSED, naming both.**
+///
+/// The first real test of ADR 0032's central claim: *"module inclusion is a
+/// MERGE, not an ordering. `include(SanicModule)` over a draft is a merge with
+/// transactional conflict detection... Over `&mut App` it is did Sanic's plugin
+/// run before Mary-O's."*
+///
+/// `ModuleDraft::claim` was written in slice A to detect exactly this and has
+/// never been exercised by two modules until now. It holds: the second
+/// declaration does not silently win, does not silently lose, and the error
+/// names BOTH claimants and BOTH values — which is the difference between
+/// "conflict" and a conflict you can fix.
+///
+/// ⚠ What this ALSO establishes, and it is the finding rather than the feature:
+/// a composition currently holds exactly ONE experience. Mounting two real
+/// games side by side is not expressible, because the second module's
+/// `experience()` collides rather than being namespaced under it. ADR 0032
+/// anticipates module-qualified namespaces for precisely this and defers them;
+/// this test is the evidence that the deferral has a cost and what the cost is.
+#[test]
+fn two_modules_declaring_an_experience_conflict_and_the_error_names_both() {
+    struct First;
+    struct Second;
+
+    impl GameModule for First {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("first_game")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("first_game")
+                .launcher_route(minimal_game::MINIMAL_LAUNCHER_ROUTE)
+                .gameplay_route(minimal_game::MINIMAL_GAMEPLAY_ROUTE);
+        }
+    }
+
+    impl GameModule for Second {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("second_game")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module.experience("second_game");
+        }
+    }
+
+    let error = PlatformerApp::headless()
+        .mount(First)
+        .mount(Second)
+        .try_build()
+        .expect_err("two modules cannot both own the experience id");
+    let reported = error.to_string();
+
+    for expected in [
+        "first_game",
+        "second_game",
+        // The MODULE ids as well as the values: "two modules disagree" is
+        // useless without knowing which two.
+        "experience",
+    ] {
+        assert!(
+            reported.contains(expected),
+            "the conflict must name {expected:?} so it can be fixed without a \
+             debugger; got {reported:?}"
+        );
+    }
+}

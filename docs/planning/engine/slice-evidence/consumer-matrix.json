@@ -56,8 +56,11 @@
       "proves": "reusable module + namespace identity; the SAME content and schema fingerprints both ways",
       "proven": false,
       "proof": null,
-      "slice": null,
-      "note": "Both halves required. Standalone alone proves nothing about identity."
+      "slice": "D (in progress)",
+      "note": "Both halves required. Standalone alone proves nothing about identity.",
+      "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all — the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
+      "what_would_prove_it": "An in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` standalone AND alongside another module, with content and rollback-schema identities compared across the two compositions by a TEST. The second half is blocked on module-qualified namespaces, which ADR 0032 defers.",
+      "blocked_on": "module-qualified namespaces. ⚠ This is the evidence that the deferral has a COST and what the cost is — which is what the deferral was waiting for. A namespace scheme designed before the collision would have been a guess; the collision now exists and is reproducible."
     },
     {
       "id": "smash",

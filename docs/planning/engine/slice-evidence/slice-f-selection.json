@@ -77,5 +77,20 @@
     "§4_routing": "NOT closeable without moving code between crates + OWNED -> DECOMPOSITION EVIDENCE, which §4 says AUTHORISES a carve. ⚠ And §4's constraint applies in full: 'Do not let a single leak authorise a full decomposition. Carve exactly the boundary the leak NAMES, migrate its consumers, delete the displaced path, guard the absence — then return to §2.' The boundary this leak names is the vocabulary extraction, and NOTHING ELSE. It is not licence for the `ambition_actors` split, whose own trigger was measured earlier and did NOT fire — 39 of 39 facade dependencies are unconditional, so that footprint is unreduced rather than irreducible.",
     "why_this_is_the_good_ending": "§4 calls this 'the interesting end' and says it is the whole point: a carve authorised WITH AN ARGUMENT, where the leak names the boundary, the contract diff names the paths, the fixture log names what a consumer had to know, and the blind run names what an author had to learn. All four exist. The carve this campaign ends up authorising is not the one anybody proposed at the start — that was `ambition_actors`, argued from size — and it is a boundary no amount of reading the module list would have produced.",
     "ratchet_now_watching_it": "The second ratchet (319 names, 62 codecs) was built one commit before this was measured, so the federation has an instrument from its first day rather than from whenever somebody notices it needs one."
+  },
+  "carve_attempted_and_backed_out": {
+    "on": "2026-07-30",
+    "what_was_tried": "Extract the snapshot vocabulary (`SnapshotState`, encode/decode, checksums, the put_*/take_* helpers) from `ambition_runtime::rollback::codec` into a new foundation crate `ambition_snapshot` depending only on `bevy_math` — the exact boundary §4's trigger named.",
+    "what_the_compiler_proved": "⚠ E0117, THE ORPHAN RULE. The 62 `impl SnapshotState for <foreign type>` blocks in `rollback/codecs.rs` are legal ONLY while the trait is local to `ambition_runtime`. Move the trait to a floor crate and every one of them becomes an orphan impl — both trait and type foreign — and stops compiling.",
+    "why_that_is_a_RESULT_not_a_setback": "It converts the finding from an argument into a compiler-enforced fact. Before this, 'the vocabulary must move below the domains' was a well-supported inference from the dependency graph. Now it is checked: the carve and the federation are ONE ATOMIC CHANGE. You cannot extract the vocabulary and migrate the 62 impls in separate commits, because the intermediate state does not compile. Any plan that assumed otherwise — including the one written an hour earlier in this file — was wrong about the sequencing.",
+    "second_finding": "`CanonicalCodecStrategy` implements `bevy_ggrs::Strategy`, so it is a GGRS BRIDGE rather than vocabulary and must stay behind. Pulling it into the floor would make every domain depend on the PATCHED bevy_ggrs fork — the same fork whose `[patch.crates-io]` entry is this engine's highest-cost consumer leak. A floor that drags the hardest dependency in the tree behind it is not a floor.",
+    "backed_out_because": "The atomic change is a 62-impl migration across ~20 domain crates, each of which must also gain a dependency on the new floor. That is a slice, not the tail of one, and landing it half-done would leave `main` red — which rule 5 forbids and which no amount of 'it is nearly working' justifies.",
+    "what_the_next_attempt_should_know": [
+      "One commit, not two: extract the vocabulary AND move all 62 impls to their owning domains together.",
+      "`CanonicalCodecStrategy` stays in `ambition_runtime`; only the pure vocabulary moves.",
+      "The floor needs `bevy_math` and nothing else from the workspace; a dependency contract should pin that the day it lands.",
+      "The second ratchet (319 names, 62 codecs) is already watching, so the migration's progress is measurable from its first commit.",
+      "`rollback/codec.rs` is 234 lines with ZERO imports — the vocabulary itself is genuinely clean. The cost is entirely in the 62 impls, not in the extraction."
+    ]
   }
 }

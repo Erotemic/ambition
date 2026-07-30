@@ -675,12 +675,20 @@ the discipline §9 already pinned.
 * **`l3_earns_its_depth`** — the ladder rig plays level N with L3 on against
   the same row with `rollout_k = 0`; L3 ships only if it wins ≥ 60%. "An
   upgrade, not a dependency" becomes a measured claim instead of a promise.
-* **The fidelity instrument** — over §8's eight scenario fixtures, when the
-  shadow model predicts a candidate lands within the horizon, a real
-  fixed-tick sim of the same situation confirms it in ≥ 70% of cases
-  (authored floor, calibrated like a weight). This is the boring-baseline
-  discipline from `motion_quality`: the instrument that tells us when a
-  §12.3 omission starts lying hard enough that argmax is noise.
+* **The fidelity instrument** — shadow prediction versus the REAL sim.
+  As landed (2026-07-30): the shipped versus stage seats its two fighters,
+  the attacker's swing is captured from the sim's own `MovePlayback` (so the
+  shadow predicts the move the fighter actually throws), and at four authored
+  gaps — touching, in reach, out, far out — the shadow model and a real swing
+  each answer "does this land?"; floor: agreement on ≥ 3 of 4, the reach-edge
+  case being allowed to disagree because two hit tests never share a boundary
+  pixel. ⚠ The original sketch said "over §8's eight scenario fixtures" —
+  wrong instrument shape: the fixtures are abstract views with no real-sim
+  counterpart room, and fidelity is a claim about agreement WITH THE REAL
+  SIM, so it must be measured where the real sim plays. This is the
+  boring-baseline discipline from `motion_quality`: the instrument that
+  tells us when a §12.3 omission starts lying hard enough that argmax is
+  noise.
 * **The bench pin** — worst shipped `rollout_k × depth` decision costs
   < 100 µs on the CI floor, asserted in a benchmark test, so D2's "wall-clock
   is an assertion, not a knob" is enforced rather than hoped.
@@ -689,11 +697,11 @@ the discipline §9 already pinned.
 
 | # | Slice | Grade |
 |---|---|---|
-| FB6a | `MoveFrameData.max_damage`/`max_knockback` derivation + L2's `expected_payoff` feature (§12.5) | [opus] |
-| FB6b | `ShadowState`/`shadow_step` + unit properties (phase clocks, hit windows, ballistic projectiles, KO, determinism; a compile test that the constructor's only world input is `Perceived`). **Includes the §12.3 kernel decision** — default to route 1 (carve the hit-response kernel to `ambition_engine_core`); route 2 only if the carve turns out to drag non-pure state, and record why | [opus] |
-| FB6c | D3's predicted-opponent policy over `HabitModel` (modal-vs-prior gate, `Continue` fallback) | [opus] |
-| FB6d | `refine_by_rollout` + baseline delta + degradation identity (`None` at zero) + profile wiring | [opus] |
-| FB6e | §12.6's four instruments; ladder rows may then author nonzero `rollout_k`/`rollout_depth` | [opus] |
+| FB6a | ~~`MoveFrameData.max_damage`/`max_knockback` derivation + L2's `expected_payoff` feature (§12.5)~~ ✅ **LANDED 2026-07-30** — `the_smash_outbids_the_jab_on_a_punish_it_fits` pins the recorded scenario both ways | [opus] |
+| FB6b | ~~`ShadowState`/`shadow_step` + unit properties~~ ✅ **LANDED 2026-07-30**, route 1 taken: the hit-response kernel (types + `di_adjust` + `knockback_velocity` + `hitstun_duration`) carved to `ambition_engine_core::hit_response`, `damage_apply` and the shadow model call ONE formula, and `the_hit_response_is_the_authoritative_kernel_not_an_imitation` goes red if a private copy reappears. Ballistic projectiles are in v1 | [opus] |
+| FB6c | ~~D3's predicted-opponent policy~~ ✅ **LANDED 2026-07-30** — `predicted_foe_intent`: modal habit only when it strictly beats the uniform prior AND `read_weight > 0`; otherwise inertia; no RNG | [opus] |
+| FB6d | ~~`refine_by_rollout`~~ ✅ **LANDED 2026-07-30** — re-ranks L2's top k against a do-nothing baseline; `None` at zero k/depth; the marquee test re-ranks a whiffing jab under a connecting lunge | [opus] |
+| FB6e | §12.6's instruments. Landed 2026-07-30: `l3_decides_identically_twice`, the bench pin (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`, 100 worst-case decisions < 100 ms), and the fidelity instrument (`the_shadow_model_agrees_with_the_real_sim_about_what_lands` in `app_it` — shadow prediction vs a REAL versus-stage swing at four gaps, frame data captured from the sim's own `MovePlayback`, floor 3 of 4). **Still owed to FB4's rig:** `l3_earns_its_depth` and the GGRS-resimulation half of determinism; ladder rows keep `rollout_depth: 0` until the ladder gate exists | [opus] |
 
 FB6a–FB6d are pure-module work implementable today. FB6e's `l3_earns_its_depth`
 and the resimulation half of the determinism test require FB4's owed decision
@@ -708,3 +716,80 @@ carries `damage`/`knockback` (`ambition_entity_catalog/src/lib.rs`);
 it); `AttackOption` carries `MoveFrameData` and score-sorted, id-tie-broken
 order; every shipped ladder row has `rollout_depth = 0` today. If any of
 those is no longer true, surface the mismatch instead of adapting silently.
+
+---
+
+## 13. FB4b — the decision rig (fable spec, 2026-07-30; opus executes)
+
+The one thing between FB1–FB6 and a fighter that PLAYS: a brain variant that
+emits inputs. Everything below it exists and is pure; the rig is plumbing plus
+three genuinely careful pieces (cadence, APM, noise), each of which is
+rollback state. Design decisions, made here so execution is mechanical:
+
+**1. It is a `StateMachineCfg` variant, not a new `Brain` arm.**
+`StateMachineCfg::Fighter { cfg: FighterCfg, state: FighterState }`, beside
+`Smash` and `BossPattern` — ticked from
+`tick_state_machine_with_actions`, which already threads
+`Option<&WorldView>`, and snapshot into the existing
+`SnapshotCursor for Brain` arm set (`snapshot_impls.rs`), which is the
+derive-memo rule applied in advance: EVERY field of `FighterState` gates
+behaviour, so every field is rollback state, not cache.
+
+- `FighterCfg`: the `FighterBrainProfile` row, a `ShadowTuning`, and
+  `decision_interval_ticks` (§5's 10–20 Hz; default 5 at 60 Hz).
+- `FighterState`: the `DelayedPerception` buffer; the `HabitModel`; the HELD
+  `ActorControlFrame` intent; ticks-until-next-decision; the APM ledger (press
+  count + elapsed ticks, two integers — a rate, not a log); the pending
+  jittered press (`Option<u32>` ticks-until-press); the noise stream (one
+  `u64`, SplitMix64-stepped, advanced ONLY when consumed — `BossPatternState.
+  rng_seed` is the precedent and the cursor already rewinds that one).
+
+**2. The kit rides the snapshot.** L2 needs `Vec<AttackCandidate>` and the
+brain cannot see the body's moveset (`ambition_combat` depends on
+`ambition_characters`, not the reverse — same wall §12.3 hit).
+`BrainSnapshot` gains `attack_kit: Vec<AttackCandidate>` filled by the
+actors-side snapshot builder from the body's real `ActorMoveset` (the
+component `trigger_moveset_moves` reads; `spec.frame_data()` per attack row)
+— body-derived truth in the world-in port, exactly like `actor_aerial`. ⚠ Build it ONCE per moveset change if
+profiling complains, but correctness first: the builder fills it every tick
+like every other snapshot field.
+
+**3. The tick pipeline.** Every tick: `observe()` the fresh view into the
+delay buffer (the integration layer already holds the view — it is the
+`perception` argument); emit the HELD intent; decrement clocks; if a pending
+jittered press matures, stamp it onto the emitted frame and spend an APM
+token. On a DECISION tick (`ticks_until_decision == 0`): `perceive()` →
+`classify` → `generate_options` → `refine_by_rollout` (profile-gated, §12) →
+translate the winner into a new held intent. Movement verbs map to
+`locomotion`/jump/shield fields; an attack becomes a PENDING press, delayed
+by `round(|noise| × execution_noise × decision_interval)` ticks where
+`noise` is the next stream sample in `[-1, 1)` — timing jitter only, no aim
+noise in v1 (the moveset aims the melee).
+
+**4. APM is enforced at the ONE emission point.** A press with no token in
+the ledger (`presses × 60 × 60 / elapsed_ticks ≥ apm_cap`) is DROPPED and the
+held movement stays — the humanity histogram then measures what the brain
+DID, not what it wanted. §3's check becomes: run any fixture N ticks, assert
+`presses / minutes ≤ apm_cap`, and assert the reaction distribution matches
+the delay-buffer depth (both readable from `FighterState`).
+
+**5. Habit observation is part of the decision tick.** `FighterState` keeps
+the previous perceived foe sample; at each decision the foe's observable
+choice since last time (phase went Startup/Active → `Attack`; left the
+ground → `Jump`; `shield_raised` → `Shield`; else velocity sign toward/away
+→ `Approach`/`Retreat`/`Wait`) is `observe()`d into the `HabitModel` under
+the CURRENT `Situation`. This closes FB5's open loop — the model finally has
+a writer that is not a test.
+
+**What this unblocks, in order:** the ladder self-play rig (level N vs N−1
+over §8's scenarios — survival % and damage ratio were always waiting on a
+brain that emits inputs); the APM/reaction humanity checks (§3); and FB6e's
+`l3_earns_its_depth` (same row, `rollout_k` 0 vs 4, ≥60%) — after which, and
+only after which, ladder rows author nonzero rollout fields.
+
+**Stop-at-mismatch facts:** `tick_state_machine_with_actions` threads
+`Option<&WorldView>`; `SnapshotCursor for Brain` exists in
+`ambition_characters/src/snapshot_impls.rs` with `BossPattern` and `Smash`
+arms; `BossPatternState` carries a rewound `rng_seed`; `ActorControlFrame`
+has `melee_pressed`/`melee_held`/`melee_released`. If any is no longer true,
+surface it.

@@ -560,6 +560,9 @@ pub struct ShadowFighter {
     pub damage: i32, pub health_max: i32,
     pub shield_raised: bool, pub invulnerable: bool,
 }
+/// In-flight projectiles, ballistic. `PerceivedProjectile` carries
+/// `pos`/`vel`/`damage`, which is everything this models.
+pub struct ShadowProjectile { pub pos: Vec2, pub vel: Vec2, pub damage: i32 }
 pub fn shadow_step(s: &mut ShadowState, dt: f32,
                    my_intent: &ShadowIntent, foe_intent: &ShadowIntent)
                    -> Vec<ShadowEvent>;   // Hit{by,damage,kb} | KO{who}
@@ -575,21 +578,44 @@ its facing is ≤ `reach` + the victim's half-extent and the victim is neither
 invulnerable nor (shielding while grounded); a landed hit applies
 `max_damage`/`max_knockback` (§12.5), puts the victim in
 `Hitstun { remaining: hitstun_s(kb, victim.damage) }`, and sets its velocity
-to the knockback impulse along the launch direction; (4) test KO — a body in
-hitstun outside `stage` bounds emits `KO`.
+to the knockback impulse along the launch direction; (3b) hostile
+projectiles advance ballistically, and one overlapping a non-invulnerable,
+non-shielding fighter applies its `damage` and is removed — projectiles ARE
+v1, because §8's fidelity fixtures include the projectile camper and an
+instrument that fails its own v1 scope on day one is a scope bug, not a
+finding; (4) test KO — a body in hitstun outside `stage` bounds emits `KO`.
 
-`hitstun_s(knockback, victim_damage)` is one authored pure function beside the
-model, named here as a CALIBRATION POINT: v1 is linear in applied knockback,
-and FB4's ladder is the instrument that tunes it, per §FB6's own doctrine that
-weights are not divined up front.
+**`hitstun_s` and the knockback response are NOT a free calibration point —
+the real formula already exists, and the fork is whether to SHARE it.** The
+authoritative response is pure math in
+`ambition_actors::features::ecs::damage_apply`:
+`hitstun_timer = feel.{boss|enemy}_hitstun_time ×
+knockback_reaction_scale(kb).max(0.35)`, velocity from
+`resolved_body_knockback_velocity`, plus the carried-momentum rule. The brain
+cannot name any of it: `ambition_actors` AND `ambition_combat` both depend on
+`ambition_characters` (verified in both Cargo.tomls), so the kernel sits
+above the crate that wants to speak it — the slice-F shape exactly. Two ways
+out, and FB6b must pick one:
 
-**Stated omissions (v1 models NONE of these, on purpose):** projectiles,
-terrain other than the stage box, platforms and drop-through, portals, DI,
-shield damage/break, move cancels, charge scaling, more than one hostile.
-The list is closed so nobody mistakes coverage: a rollout in a projectile
-fight is scored on the fists alone, and §12.6's fidelity instrument is what
-tells us when an omission starts costing decisions. Extending the model is a
-new slice with a new fidelity measurement, not a patch.
+1. **Carve the pure hit-response kernel** (the two functions plus the feel
+   constants they read) down to `ambition_engine_core`, and have
+   `damage_apply` and the shadow model call ONE function. Fidelity on the
+   hit-response axis becomes exact by construction instead of calibrated.
+   Recommended — the orphan-rule precedent says let the dependency graph
+   answer, and it just did.
+2. A `ShadowTuning` value passed into `refine_by_rollout` carrying the
+   constants, with the three-line formula duplicated. Cheaper today, and a
+   drift risk the fidelity instrument would eventually pay for.
+
+**Stated omissions (v1 models NONE of these, on purpose):** FUTURE projectile
+fire (in-flight ones are modeled; whether the camper fires again is an
+opponent-policy question, D3's, and v1's policy does not spawn), projectile
+knockback (damage only), terrain other than the stage box, platforms and
+drop-through, portals, DI, shield damage/break, move cancels, charge scaling,
+more than one hostile. The list is closed so nobody mistakes coverage, and
+§12.6's fidelity instrument is what tells us when an omission starts costing
+decisions. Extending the model is a new slice with a new fidelity
+measurement, not a patch.
 
 ### 12.4 What L3 does with it
 
@@ -664,7 +690,7 @@ the discipline §9 already pinned.
 | # | Slice | Grade |
 |---|---|---|
 | FB6a | `MoveFrameData.max_damage`/`max_knockback` derivation + L2's `expected_payoff` feature (§12.5) | [opus] |
-| FB6b | `ShadowState`/`shadow_step` + unit properties (phase clocks, hit windows, KO, determinism; a compile test that the constructor's only world input is `Perceived`) | [opus] |
+| FB6b | `ShadowState`/`shadow_step` + unit properties (phase clocks, hit windows, ballistic projectiles, KO, determinism; a compile test that the constructor's only world input is `Perceived`). **Includes the §12.3 kernel decision** — default to route 1 (carve the hit-response kernel to `ambition_engine_core`); route 2 only if the carve turns out to drag non-pure state, and record why | [opus] |
 | FB6c | D3's predicted-opponent policy over `HabitModel` (modal-vs-prior gate, `Continue` fallback) | [opus] |
 | FB6d | `refine_by_rollout` + baseline delta + degradation identity (`None` at zero) + profile wiring | [opus] |
 | FB6e | §12.6's four instruments; ladder rows may then author nonzero `rollout_k`/`rollout_depth` | [opus] |
@@ -675,7 +701,10 @@ rig (the brain that emits inputs); the fidelity instrument and bench pin do
 not. **Stop-at-mismatch facts** each slice was specced against: `HitVolume`
 carries `damage`/`knockback` (`ambition_entity_catalog/src/lib.rs`);
 `Perceived` is a private-field wrapper minted only by
-`DelayedPerception::perceive`; `AttackOption` carries `MoveFrameData` and
-score-sorted, id-tie-broken order; every shipped ladder row has
-`rollout_depth = 0` today. If any of those is no longer true, surface the
-mismatch instead of adapting silently.
+`DelayedPerception::perceive`; `PerceivedProjectile` carries
+`pos`/`vel`/`damage`; the hit-response kernel lives in
+`ambition_actors::features::ecs::damage_apply` and is unreachable from
+`ambition_characters` (both `ambition_actors` and `ambition_combat` depend on
+it); `AttackOption` carries `MoveFrameData` and score-sorted, id-tie-broken
+order; every shipped ladder row has `rollout_depth = 0` today. If any of
+those is no longer true, surface the mismatch instead of adapting silently.

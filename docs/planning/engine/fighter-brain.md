@@ -1,12 +1,14 @@
 # The Advanced Fighter Brain — a level-9 CPU that doesn't cheat
 
-> **FB6 is UNIMPLEMENTABLE as written (2026-07-19).** Every FB6 reference to
-> "the snapshot seam", "netcode N3.1", and `snapshot.take/restore` names the
-> custom rollback engine that ADR 0027 DELETED — GGRS/bevy_ggrs is the sole
-> rollback authority now, and it snapshots the live world, not a scratch one.
-> `tracks.md` #6 [fable] owns the redesign (fixed work budget, and a rollout
-> state built solely from allowed `Perceived` facts). FB1–FB5 below remain
-> accurate and verified against source. Do not implement FB6 from this text.
+> **FB6 was UNIMPLEMENTABLE as written; the redesign is §12 (fable,
+> 2026-07-30).** The original FB6 named the custom rollback engine ADR 0027
+> DELETED, priced its budget in wall-clock milliseconds inside a deterministic
+> sim, and proposed seeding a scratch world from a view that cannot reconstruct
+> one. §12 replaces all three: rollouts run on a **shadow model built only from
+> `Perceived` facts**, under an **exact step budget** that is data, with a
+> **deterministic predicted opponent**. FB1–FB5 below remain accurate and
+> verified against source. Implement FB6 from §12 only — §5's pinned budget
+> contract is superseded and kept for the record.
 
 **Authored by fable, 2026-07-05.** The plan for an opponent that plays like
 a top-level Smash CPU while obeying the same constraints as a human: it
@@ -141,7 +143,8 @@ The perception delay-buffer is a `VecDeque<WorldView>` of length
 `reaction_ms / tick_ms` wrapped around the ONE view read — assert in
 tests that no L1/L2/L3 code path reads the live view directly.
 
-**FB6 budget contract (pinned 2026-07-06):** rollouts run on a SCRATCH
+**FB6 budget contract (pinned 2026-07-06 — SUPERSEDED by §12, kept for the
+record of what was wrong):** rollouts run on a SCRATCH
 sim world (never the live one), horizon 5–20 ticks, `top_k ≤ 4`, and a
 **wall-clock cap of 2 ms per decision tick** (decisions at 10–20 Hz, so
 ≤ 4% of a 60 Hz frame worst-case); when the cap trips mid-evaluation the
@@ -168,7 +171,7 @@ this track.
 | FB3 | ~~L1 classifier + scenario fixture suite~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | FB4 | 🟡 **(1) profiles + (2) the reaction/delay-buffer humanity check DONE 2026-07-10** — see §10. (2)'s APM histogram and (3) the ladder rig need a brain that emits inputs | [opus] |
 | FB5 | ~~Opponent-model memory (bucketed frequencies, decay)~~ ✅ **DONE 2026-07-10** — see §11 | [opus] |
-| FB6 | L3 rollouts on the snapshot seam (after netcode N3.1) with compute budget + degradation | **[fable design, opus execute]** |
+| FB6 | L3 rollouts — redesigned in **§12** (shadow model over `Perceived`, exact step budget, deterministic prediction); slices FB6a–FB6e there | **[opus, fable-specced — §12 is the spec]** |
 
 Sequencing: FB1–FB4 need only landed systems + CM7 and deliver a credible
 mid-level CPU; FB5 makes it scary; FB6 makes it level 9. SSB demo ships
@@ -459,6 +462,220 @@ multiplication.
 
 The sketch says `counts: HashMap<(u16, u16), f32>` with the note *"NOT iterated in
 sim order — read-only lookups, determinism-safe."* That is true of the LOOKUP and
-false of any iteration, and a trace, a snapshot (N3.1 registers brain memory), and
-FB6's rollouts all iterate. It is a `BTreeMap` (ADR 0023), and the keys are the
-enums themselves rather than opaque `u16`s, so a trace reads as English.
+false of any iteration, and a trace, a rollback snapshot (brain memory rides the
+`SnapshotCursor for Brain` in `snapshot_impls.rs`), and FB6's rollouts all
+iterate. It is a `BTreeMap` (ADR 0023), and the keys are the enums themselves
+rather than opaque `u16`s, so a trace reads as English.
+
+---
+
+## 12. FB6, redesigned — rollouts on a shadow model (fable, 2026-07-30)
+
+### 12.1 The three faults in FB6-as-written, stated precisely
+
+1. **It named a deleted engine.** `snapshot.take/restore` on a scratch sim was
+   netcode N3.1's custom rollback engine; ADR 0027 deleted it. GGRS/bevy_ggrs
+   is the sole rollback authority, and it snapshots the LIVE world — there is
+   no scratch-world seam to run a rollout on, and building one (a second `App`
+   with prepared content, stepped mid-frame inside a brain system) would be a
+   parallel sim lifecycle nobody polices.
+2. **A wall-clock budget inside a deterministic sim is a desync generator.**
+   "2 ms per decision, and when the cap trips use the best fully-evaluated
+   option" makes the DECISION a function of machine speed and scheduler
+   jitter. Brains run inside the simulation; under GGRS a resimulated decision
+   tick must reproduce the original decision bit-for-bit, and a replay on a
+   slower machine must not play a different fight. ADR 0023 already forbids
+   this class; the old contract wrote it down anyway.
+3. **"Seed the scratch world from the delayed view's reconstruction" is
+   unimplementable in both directions.** The real sim needs full component
+   state the view does not carry, so the reconstruction is underdetermined —
+   and anything that closed the gap by copying the live world would carry
+   unperceived facts (exact cooldowns, hidden internal state, the opponent's
+   real controller) into the brain, violating the no-cheat contract by
+   construction.
+
+The common root: FB6 wanted THE sim to be the brain's imagination. The sim is
+authoritative, stateful, and omniscient; an imagination must be cheap, pure,
+and exactly as ignorant as its owner. Those are different machines.
+
+### 12.2 The three decisions
+
+**D1 — The rollout runs on a SHADOW MODEL, not the sim.** A `ShadowState` is
+built from a `Perceived` view and stepped by a pure function at the sim tick
+rate. The forward model is the frame data plus the kinematics the view already
+exposes — which is exactly what a human who "read the frame data" mentally
+simulates. FB4a's type-level enforcement carries over unchanged: the
+constructor's only world input is `Perceived` (private field, minted only by
+`DelayedPerception::perceive`), so the rollout physically cannot contain a
+fact the brain could not see. The fidelity gap against the real sim is OWNED
+as a measured property (§12.6), not hidden: the model is the brain's read of
+the fight, and a human's read is not the sim either. This decision also
+deletes the entire scratch-world problem — nothing persists across a
+decision, so there is nothing for GGRS to snapshot and no second world to
+keep coherent.
+
+**D2 — The budget is an EXACT step count, and it is data.** Work per decision
+is exactly `rollout_k × (1 + rollout_depth)` shadow steps (one predicted-
+opponent baseline plus k candidate lines, §12.4) — the profile's two existing
+fields ARE the budget. No cap, no early exit, no "best so far": the same
+decision costs the same steps on every machine and under every resimulation.
+Wall-clock becomes an assertion instead of a knob: a shadow step is O(actors
+modeled) = O(2), so the worst shipped case (k = 4, depth = 20) is ~100 cheap
+struct updates per decision at 10–20 Hz — a benchmark test pins it (§12.6),
+and if a platform ever cannot afford it the fix is an authored profile row,
+never a runtime clock.
+
+**D3 — The predicted opponent is deterministic. No RNG in L3, ever.** The
+predicted policy is a pure function of the view and the `HabitModel`:
+
+* an opponent mid-move COMPLETES it per its frame data (commitment is real);
+* otherwise, if the model holds a genuine read for the current
+  `(Situation, _)` bucket — its modal choice strictly exceeds the uniform
+  prior — the opponent takes that modal choice, ties broken by `Choice` enum
+  order;
+* otherwise `Continue`: hold current velocity and phase. Ignorance predicts
+  inertia, not behavior.
+
+§1's "level-9 reads = sampling the model" becomes *arg-max, gated by
+evidence*, and `read_weight = 0` rows never consult the model at all, so low
+levels predict pure inertia. Execution noise (§4) stays in FB4's execution
+layer with its own seeded stream; it never enters the rollout.
+
+### 12.3 The shadow model, v1 — a closed list, and its stated omissions
+
+`ambition_characters::brain::fighter::rollout` (new module, pure, no Bevy).
+
+```rust
+/// Everything the rollout knows. Built ONLY from `Perceived` + frame data.
+pub struct ShadowState {
+    pub me: ShadowFighter,
+    pub foe: ShadowFighter,
+    pub stage: StageView,          // copied from the view
+    pub gravity_down: Vec2,        // from SelfView
+}
+pub struct ShadowFighter {
+    pub pos: Vec2, pub vel: Vec2, pub facing: f32, pub half_extent: Vec2,
+    pub on_ground: bool,
+    pub phase: ShadowPhase,        // Idle | Move { frames: MoveFrameData, t: f32 } | Hitstun { remaining: f32 }
+    pub damage: i32, pub health_max: i32,
+    pub shield_raised: bool, pub invulnerable: bool,
+}
+pub fn shadow_step(s: &mut ShadowState, dt: f32,
+                   my_intent: &ShadowIntent, foe_intent: &ShadowIntent)
+                   -> Vec<ShadowEvent>;   // Hit{by,damage,kb} | KO{who}
+```
+
+One step, in order: (1) advance both phase clocks (`t += dt`; hitstun counts
+down; a move past `total_s` returns to `Idle`); (2) integrate — airborne
+bodies accelerate along `gravity_down` by the one authored constant
+`SHADOW_GRAVITY` and everyone advances `pos += vel * dt`; grounded bodies
+follow their intent's lateral velocity; (3) resolve hits — a fighter whose
+move has an open Active span (`active_spans` vs `t`) lands iff the gap along
+its facing is ≤ `reach` + the victim's half-extent and the victim is neither
+invulnerable nor (shielding while grounded); a landed hit applies
+`max_damage`/`max_knockback` (§12.5), puts the victim in
+`Hitstun { remaining: hitstun_s(kb, victim.damage) }`, and sets its velocity
+to the knockback impulse along the launch direction; (4) test KO — a body in
+hitstun outside `stage` bounds emits `KO`.
+
+`hitstun_s(knockback, victim_damage)` is one authored pure function beside the
+model, named here as a CALIBRATION POINT: v1 is linear in applied knockback,
+and FB4's ladder is the instrument that tunes it, per §FB6's own doctrine that
+weights are not divined up front.
+
+**Stated omissions (v1 models NONE of these, on purpose):** projectiles,
+terrain other than the stage box, platforms and drop-through, portals, DI,
+shield damage/break, move cancels, charge scaling, more than one hostile.
+The list is closed so nobody mistakes coverage: a rollout in a projectile
+fight is scored on the fists alone, and §12.6's fidelity instrument is what
+tells us when an omission starts costing decisions. Extending the model is a
+new slice with a new fidelity measurement, not a patch.
+
+### 12.4 What L3 does with it
+
+```rust
+pub fn refine_by_rollout(
+    view: Perceived<'_>, situation: Situation, options: &OptionSet,
+    habits: &HabitModel, profile: &FighterBrainProfile,
+) -> Option<RefinedChoice>   // None ⇢ caller uses L2's order unchanged
+```
+
+Take L2's top `rollout_k` attacks (already score-sorted, ties already broken
+by move id). For each: build `ShadowState` from the view, drive `me` with the
+candidate's frame timeline and `foe` with D3's predicted policy, step
+`rollout_depth` ticks, and score the terminal state with the SAME
+`UtilityWeights` vocabulary — `Δ(foe.damage) − Δ(me.damage)` priced by
+`kill_potential`, KO events as the kill bonus, terminal stage position priced
+by `stage_risk`. One extra baseline line (both fighters on predicted policy,
+no candidate) makes the score a DELTA against doing nothing, so a rollout
+cannot credit a move for damage the opponent was going to take anyway.
+Re-rank the k candidates by rollout score, ties broken by L2 score then move
+id; options below the top k keep L2's order. `rollout_k == 0` or
+`rollout_depth == 0` ⇒ return `None` — the existing
+`the_whole_shipped_ladder_plays_without_l3` pin keeps meaning what it says.
+
+**Rollback obligations: L3 adds NOTHING.** The rollout is a pure function of
+`(Perceived, HabitModel, profile)`; no state survives the call. What must be
+in the envelope is what FB4's decision cadence already owes when a fighter
+`Brain` variant lands: the `DelayedPerception` buffer, the `HabitModel`, the
+held intent, and the decision-phase counter all join `SnapshotCursor for
+Brain` (`snapshot_impls.rs`) — a resimulated tick that re-decides from
+un-rewound memory is the "already applied" derive-memo class of bug: a brain
+memory gates behaviour, so it is rollback state, not a cache.
+
+### 12.5 Prerequisite slice — price the payoff (closes §9's recorded gap)
+
+§9 found that no L2 feature reads a move's POWER, could not price it
+(`MoveFrameData` carries no damage), and recorded two ways out. FB6 is the
+customer that forces route (1): extend the CM7 derivation with
+
+```rust
+pub max_damage: i32,      // max over Active volumes' `damage`
+pub max_knockback: f32,   // max over Active volumes' `knockback` (flat part)
+```
+
+— a pure derivation over `HitVolume { damage, knockback, .. }` exactly like
+`reach`, no storage, no new state. The rollout needs it to apply hits
+(§12.3); L2 gets its fifth feature `expected_payoff` in the same slice so
+both horizons price power through one vocabulary. Adding the FEATURE is
+structural; its WEIGHT starts at a v1 value and FB4's ladder calibrates it —
+the discipline §9 already pinned.
+
+### 12.6 What §3's harness gains
+
+* **`l3_decides_identically_twice`** — same `Perceived` + model + profile ⇒
+  bit-identical `RefinedChoice`, asserted across two calls and (once FB4's
+  rig exists) across a GGRS resimulation of the deciding tick.
+* **`l3_earns_its_depth`** — the ladder rig plays level N with L3 on against
+  the same row with `rollout_k = 0`; L3 ships only if it wins ≥ 60%. "An
+  upgrade, not a dependency" becomes a measured claim instead of a promise.
+* **The fidelity instrument** — over §8's eight scenario fixtures, when the
+  shadow model predicts a candidate lands within the horizon, a real
+  fixed-tick sim of the same situation confirms it in ≥ 70% of cases
+  (authored floor, calibrated like a weight). This is the boring-baseline
+  discipline from `motion_quality`: the instrument that tells us when a
+  §12.3 omission starts lying hard enough that argmax is noise.
+* **The bench pin** — worst shipped `rollout_k × depth` decision costs
+  < 100 µs on the CI floor, asserted in a benchmark test, so D2's "wall-clock
+  is an assertion, not a knob" is enforced rather than hoped.
+
+### 12.7 Slices
+
+| # | Slice | Grade |
+|---|---|---|
+| FB6a | `MoveFrameData.max_damage`/`max_knockback` derivation + L2's `expected_payoff` feature (§12.5) | [opus] |
+| FB6b | `ShadowState`/`shadow_step` + unit properties (phase clocks, hit windows, KO, determinism; a compile test that the constructor's only world input is `Perceived`) | [opus] |
+| FB6c | D3's predicted-opponent policy over `HabitModel` (modal-vs-prior gate, `Continue` fallback) | [opus] |
+| FB6d | `refine_by_rollout` + baseline delta + degradation identity (`None` at zero) + profile wiring | [opus] |
+| FB6e | §12.6's four instruments; ladder rows may then author nonzero `rollout_k`/`rollout_depth` | [opus] |
+
+FB6a–FB6d are pure-module work implementable today. FB6e's `l3_earns_its_depth`
+and the resimulation half of the determinism test require FB4's owed decision
+rig (the brain that emits inputs); the fidelity instrument and bench pin do
+not. **Stop-at-mismatch facts** each slice was specced against: `HitVolume`
+carries `damage`/`knockback` (`ambition_entity_catalog/src/lib.rs`);
+`Perceived` is a private-field wrapper minted only by
+`DelayedPerception::perceive`; `AttackOption` carries `MoveFrameData` and
+score-sorted, id-tie-broken order; every shipped ladder row has
+`rollout_depth = 0` today. If any of those is no longer true, surface the
+mismatch instead of adapting silently.

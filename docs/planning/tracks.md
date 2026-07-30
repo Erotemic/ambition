@@ -18,10 +18,12 @@ design — execute it verbatim and STOP at the first factual mismatch;
 a step is hard or looks unnecessary; deviation is legitimate only when the code
 contradicts the plan's factual assumptions — surface the mismatch.
 
-**Standing fable-hard list:** the FB6 rollout redesign (track 6); the
-falling-sand solver correctness pass (pooling/termination — Jon: "getting
-falling sand to work right is part of the engine"); boss-fight *quality*
-grammar beyond validation (boss-design.md's open iteration loop).
+**Standing fable-hard list:** ~~the FB6 rollout redesign (track 6)~~ **DONE
+2026-07-30** — fighter-brain.md §12; what remains of FB6 is [opus,
+fable-specced] execution; the falling-sand solver correctness pass
+(pooling/termination — Jon: "getting falling sand to work right is part of
+the engine"); boss-fight *quality* grammar beyond validation (boss-design.md's
+open iteration loop).
 
 ## Hardest UNBLOCKED work, ranked (survey 2026-07-23)
 
@@ -50,8 +52,14 @@ by hardness × payoff; every item below is executable today per its own doc.
    `Vec<LoadFailure>`) + a host-agnostic `log_shell_routing_failures` system,
    instead of a route stalling silently. Remaining: the visible run (needs a
    display) and the quantitative workflow measurements.
-2. **FB6 rollout redesign** (track 6, [fable]) — the design task is unblocked;
-   the implementation stays blocked until it lands.
+2. ~~**FB6 rollout redesign** (track 6, [fable]) — the design task is
+   unblocked; the implementation stays blocked until it lands.~~ **DESIGN
+   LANDED 2026-07-30** (fighter-brain.md §12): shadow model over `Perceived`,
+   exact step budget as profile data, deterministic predicted opponent.
+   Implementation is UNBLOCKED as [opus, fable-specced] — slices FB6a–FB6d
+   are pure-module work today; FB6e's ladder gate waits on FB4's owed
+   decision rig (§10 "What FB4 still owes"), which is the remaining [fable]
+   question in this track only if the rig's design proves hard.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

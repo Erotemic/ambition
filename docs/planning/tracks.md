@@ -52,14 +52,16 @@ by hardness × payoff; every item below is executable today per its own doc.
    `Vec<LoadFailure>`) + a host-agnostic `log_shell_routing_failures` system,
    instead of a route stalling silently. Remaining: the visible run (needs a
    display) and the quantitative workflow measurements.
-2. ~~**FB6 rollout redesign** (track 6, [fable]) — the design task is
-   unblocked; the implementation stays blocked until it lands.~~ **DESIGN
-   LANDED 2026-07-30** (fighter-brain.md §12): shadow model over `Perceived`,
-   exact step budget as profile data, deterministic predicted opponent.
-   Implementation is UNBLOCKED as [opus, fable-specced] — slices FB6a–FB6d
-   are pure-module work today; FB6e's ladder gate waits on FB4's owed
-   decision rig (§10 "What FB4 still owes"), which is the remaining [fable]
-   question in this track only if the rig's design proves hard.
+2. ~~**FB6 rollout redesign** (track 6, [fable])~~ **DESIGNED AND
+   IMPLEMENTED 2026-07-30** (fighter-brain.md §12, slices FB6a–e): the
+   shadow-model rollout stack is in `brain::fighter::rollout`, striking with
+   the hit-response kernel carved to `ambition_engine_core::hit_response`,
+   with the determinism, bench, and real-sim fidelity instruments beside it.
+   **Remaining in this track: FB4b, the decision rig — specced as
+   fighter-brain.md §13, [opus, fable-specced].** It is what unlocks the
+   ladder self-play rig, the APM/reaction humanity checks, and FB6e's
+   `l3_earns_its_depth`; ladder rows keep `rollout_depth: 0` until that gate
+   exists.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

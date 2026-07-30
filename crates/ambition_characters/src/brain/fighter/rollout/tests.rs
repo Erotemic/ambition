@@ -341,6 +341,51 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
     );
 }
 
+/// FB6e's bench pin (§12.6): the worst shipped budget is a NON-EVENT. D2
+/// demoted wall-clock from a runtime knob to an assertion — this is the
+/// assertion. 100 decisions at k=4 × depth=20 (the worst §12.3 contemplates
+/// shipping) must clear 100 ms total, i.e. <1 ms per decision with an order
+/// of magnitude of CI-noise headroom over the ~100 µs target. If this ever
+/// goes red, the fix is an authored profile row or a cheaper model — never a
+/// clock in the decision path.
+#[test]
+fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
+    let view = view_with(300.0, 380.0);
+    let options = OptionSet {
+        movement: Vec::new(),
+        attacks: vec![
+            attack("jab", frames(0.08, 40.0, 4, 0.0)),
+            attack("lunge", frames(0.2, 100.0, 8, 300.0)),
+            attack("smash", frames(0.3, 90.0, 20, 700.0)),
+            attack("sweep", frames(0.15, 70.0, 6, 150.0)),
+        ],
+    };
+    let mut habits = HabitModel::new(0.5);
+    for _ in 0..4 {
+        habits.observe(Situation::Neutral, Choice::Approach);
+    }
+    let p = profile(4, 20, 1.0);
+    let tuning = ShadowTuning::default();
+    let started = std::time::Instant::now();
+    for _ in 0..100 {
+        let refined = refine_by_rollout(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &options,
+            &habits,
+            &p,
+            &tuning,
+            60.0,
+        );
+        assert!(refined.is_some());
+    }
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed.as_millis() < 100,
+        "100 worst-case decisions took {elapsed:?}; the budget stopped being free"
+    );
+}
+
 /// FB6e's determinism half, at the unit level: the SAME inputs produce the
 /// bit-identical choice, twice. No clock, no RNG, no allocator luck.
 #[test]

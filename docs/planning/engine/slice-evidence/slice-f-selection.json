@@ -1,0 +1,73 @@
+{
+  "_comment": [
+    "The §3 derivation of slice F. AUTHORED, not generated.",
+    "",
+    "⚠ This one is short, and the shortness is the result. Slices A-E closed every",
+    "leak that was closeable without touching rollback. What remains — all three of",
+    "it — is ONE deferred thing wearing three names.",
+    "",
+    "Read with api-growth-method.md §3a/§3b/§4 and ADR 0031's Deferred section."
+  ],
+
+  "derived": true,
+  "derived_on": "2026-07-30",
+  "from_slice": "E",
+
+  "the_convergence": {
+    "note": "Every remaining terminal condition reduces to rollback, and none of them was steered there — each was reached independently.",
+    "§4.1 the ratchet is at 1": "The single entry is `ambition::runtime`, and all ten of its uses are `rollback::*`.",
+    "§4.3 the last matrix row": "Smash needs 'participants, character selection, atomic match lifecycle, scoped rules, rollback'.",
+    "row 4's weak half": "`sanic_has_the_same_identities_standalone_and_embedded` compares a rollback schema fingerprint that is ENGINE-WIDE rather than module-scoped, so it is equal partly because there is nothing per-module for it to differ from.",
+    "reading": "Three independent paths, one destination. That is the campaign telling the truth about where its boundary is, rather than a plan predicting it."
+  },
+
+  "ranked_candidates": [
+    {
+      "leak": "rollback is not a public knob, so a consumer that needs it names `ambition::runtime::rollback` directly",
+      "source": "2a, 2c, and the consumer matrix",
+      "cost": "It is ALL THREE remaining terminal conditions. Nothing else is left.",
+      "closeable": "YES, but not cheaply and not as a re-export. ADR 0031 enumerates what the promise actually costs: frozen schema, complete authoritative baseline, stable participants, deterministic activation, lifecycle rebasing, confirmation boundaries.",
+      "owned": "YES — and DEFERRED BY DECISION rather than by oversight. ADR 0031's Deferred section reserves it for 'its own slice, its own acceptance tests'.",
+      "route": "3b: Closeable + Owned -> SLICE F, and it is the only candidate left.",
+      "⚠": "The cheap version — curate `ambition::rollback` as a closed module, prune the baseline, declare §4.1 met — is available tonight and would be FRAUD against the ADR. The technique that closed seventeen entries does not apply to the eighteenth, and the contract entry says so at the entry precisely because 'one away from zero' is when somebody reaches for it."
+    }
+  ],
+
+  "slice_f": {
+    "name": "rollback as a public promise",
+    "one_leak": "a consumer whose game owns authoritative state must name `ambition::runtime::rollback` — an implementation module — because the engine has no public way to say 'this session rewinds'.",
+    "scope_from_ADR_0031": [
+      "frozen schema — the rollback registration set and its codecs, ratcheted the way the module allowlist is;",
+      "a complete authoritative baseline;",
+      "stable participants;",
+      "deterministic activation — ⚠ 'seating completes on the session's first frame so activation lands on GGRS frame 1 where nothing can rewind across it';",
+      "lifecycle rebasing — ⚠ 'a confirmed lifecycle commit rebases mid-run and resets execution counters';",
+      "confirmation boundaries — ⚠ 'an un-rebased `world_mut` write replays a world that never had it'."
+    ],
+    "why_it_is_not_a_re_export": [
+      "ADR 0031: rollback as a public knob is 'a far larger promise than a clock'. The hazards above are recorded and REAL — each is a defect this repository has already had.",
+      "The campaign has an existing instrument for the schema half: the ratchets doc's second row already specifies freezing the central registration and codec SETS by stable schema name, with the warning that a COUNT is not a ratchet. That row has never been built.",
+      "And `PlatformerApp::unstable_rollback_session` already exists as the deliberate escape hatch, `#[doc(hidden)]`, carrying the deferral in its own doc comment. Slice F is what replaces it — deleting it is part of the slice, not a side effect."
+    ],
+    "unlocks_in_order": [
+      "the second ratchet from the campaign's §Ratchets table (central registrations + codecs, frozen by SET);",
+      "`ambition::runtime` leaving the allowlist baseline — §4.1 at zero;",
+      "consumer-matrix row 5, Smash;",
+      "row 4's identity comparison becoming load-bearing instead of trivially true."
+    ],
+    "not_in_this_slice": [
+      "the `ambition_actors` decomposition — §4's carve trigger did NOT fire (39 of 39 facade dependencies are unconditional, so the footprint is unreduced rather than irreducible);",
+      "the facade-optionality experiment, which is the measurement that would settle that;",
+      "migrating `game/ambition_app`'s production binary — row 6 is proven on its experiences, and the surrounding app shell is named as remaining."
+    ]
+  },
+
+  "convergence_check": {
+    "note": "§6: every slice reduces at least one of five counters. D and E reduced two between them.",
+    "forbidden_paths_named_by_a_consumer": "1 (unchanged — the last one is slice F's)",
+    "open_fixture_findings": "blind run 3's roster-schema and cargo-feature gaps closed; run 4 in flight",
+    "engine_files_a_blind_author_must_open": "run 3 opened 1 source file + 4 surfaces; every reason it gave is now closed",
+    "undeleted_compensating_mechanisms": "6 -> 6",
+    "unwanted_linked_capabilities": "41 -> 41; the experiment that would move it is deliberately after a consumer the API author did not design"
+  }
+}

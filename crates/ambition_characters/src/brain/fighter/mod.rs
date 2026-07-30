@@ -25,17 +25,30 @@
 //!   inspectable, decayed, and deterministic. `read_weight = 0` on levels 1–3
 //!   means the model, however confident, contributes nothing.
 //!
+//! - **FB6's L3** — [`rollout`], forward rollouts on a SHADOW MODEL
+//!   (fighter-brain.md §12): a pure imagination built only from a `Perceived`,
+//!   stepped under an exact `rollout_k × (1 + rollout_depth)` budget against a
+//!   deterministic predicted opponent, striking with the REAL hit-response
+//!   kernel (`ambition_engine_core::hit_response` — the same one
+//!   `damage_apply` resolves authoritative hits with).
+//!
 //! Still owed: FB4's ladder self-play rig and APM enforcement (both need a brain
-//! that emits inputs), and L3's forward rollouts (FB6, on N3.1's snapshot seam).
+//! that emits inputs), which also gate FB6e's `l3_earns_its_depth` ladder gate —
+//! ladder rows keep `rollout_depth: 0` until that instrument exists.
 
 pub mod habit;
 pub mod options;
 pub mod profile;
+pub mod rollout;
 pub mod scenarios;
 pub mod situation;
 
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{FighterBrainLadder, FighterBrainProfile};
+pub use rollout::{
+    refine_by_rollout, shadow_step, RefinedChoice, ShadowEvent, ShadowIntent, ShadowState,
+    ShadowTuning,
+};
 pub use scenarios::{suite, Scenario};
 pub use situation::{classify, Situation};

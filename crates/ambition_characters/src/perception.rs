@@ -131,7 +131,7 @@ impl BodyPhase {
 /// Not viewport-clipped, and that is not a cheat: a Smash player can see the
 /// blastzones. `bounds` is the room's world AABB — the envelope CC3's invariant 3
 /// polices, so "offstage" here means exactly what "out of bounds" means there.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StageView {
     /// The room's full extent in world px.
     pub bounds: ae::Aabb,

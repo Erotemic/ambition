@@ -115,8 +115,17 @@ def contract_diff() -> dict:
             "baseline_open": still_open,
             "open_count": len(still_open),
             "recorded_baseline": RECORDED_BASELINE,
-            "predicted_after_a4": PREDICTED_AFTER_A4,
-            "prediction_confirmed": len(still_open) == PREDICTED_AFTER_A4,
+            # ⚠ Slice A's prediction, kept as a HISTORICAL record and no longer
+            # re-checked as pass/fail. A2 §5 predicted 14 after A4 and the
+            # instrument printed 14 — that exercise is complete and it
+            # succeeded. Continuing to compare every later slice against it
+            # reported `confirmed=False` at an open count of ONE, i.e. it
+            # flagged doing far better than predicted as a failed prediction.
+            # A metric that reads improvement as failure trains people to
+            # ignore it.
+            "slice_a_predicted_after_a4": PREDICTED_AFTER_A4,
+            "slice_a_prediction_was_confirmed": True,
+            "reduction_since_baseline": RECORDED_BASELINE - len(still_open),
             "retired_by_this_slice": sorted(
                 set(str(m) for m in _RETIRED_BY_A4)
             ),
@@ -585,9 +594,8 @@ def main() -> int:
             print(f"  2a {name}: {row['open_count']} open")
     print(
         f"  2a contract diff        : {contract['open_count']} open "
-        f"(baseline {contract['recorded_baseline']}, predicted "
-        f"{contract['predicted_after_a4']}, confirmed="
-        f"{contract['prediction_confirmed']})"
+        f"(from a recorded baseline of {contract['recorded_baseline']}; "
+        f"-{contract['reduction_since_baseline']})"
     )
     print(
         f"  2b fixture leak log     : {evidence['fixture_leak_log']['total']} entries, "

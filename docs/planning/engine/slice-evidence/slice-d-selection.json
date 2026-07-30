@@ -1,0 +1,90 @@
+{
+  "_comment": [
+    "The §3 derivation of slice D from slice C's five evidence sources.",
+    "AUTHORED, not generated. Read with api-growth-method.md §3a/§3b/§3c and §4.",
+    "",
+    "⚠ Slice C is where the campaign's cheap wins ran out. Slices A-C took the",
+    "ratchet from 18 to 1 by a technique that works exactly once per mirrored",
+    "crate: curate a closed module, migrate, prune. Everything below is a",
+    "different shape, and the temptation to keep applying the technique is the",
+    "thing §3a's ranking exists to overrule."
+  ],
+
+  "derived": true,
+  "derived_on": "2026-07-30",
+  "from_slice": "C",
+
+  "ranked_candidates": [
+    {
+      "leak": "no module has been proven to stand up STANDALONE and EMBEDDED with the same identities",
+      "source": "2c + the consumer matrix",
+      "cost": "HIGH, and structurally so. It is one of three remaining unproven matrix categories and the only one that tests COMPOSITION of modules rather than a single game. Every claim the campaign makes about `mount()` merging rather than ordering is untested with two modules.",
+      "closeable": "PROBABLY, without moving code: Sanic and Mary-O exist in-tree and `PlatformerApp::mount` already takes any `GameModule`. The unknown is whether their content survives being mounted beside another module, which is exactly what the row is for.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> SLICE D."
+    },
+    {
+      "leak": "the ratchet's last entry is rollback, deferred by ADR 0031",
+      "source": "2a",
+      "cost": "It is the ONLY thing between the campaign and §4.1.",
+      "closeable": "Yes, trivially and WRONGLY. Curating `ambition::rollback` would take the ratchet to zero tonight.",
+      "owned": "NO — ADR 0031's Deferred section reserves rollback-as-public-knob for its own slice with its own acceptance tests, calling it 'a far larger promise than a clock'.",
+      "route": "3b: NOT owned -> not a slice. ⚠ This is the candidate most likely to be taken by a future reader looking at '1 away from zero'. The contract entry says why not, at the entry.",
+      "action": "blocked on the deferred rollback slice, not on effort"
+    },
+    {
+      "leak": "39 of 39 facade dependencies are unconditional; a movement-only game links 19 crates it never asked for",
+      "source": "2e",
+      "cost": "HIGH but still UNFELT — no consumer has been unable to do something because of it.",
+      "closeable": "Untested. The experiment that would settle it (make the edges optional, re-measure) is contained in one manifest.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> strong slice-E candidate, and the one that decides whether §4's decomposition trigger ever fires. Deliberately after D, because D adds a SECOND sentinel to measure the footprint against and a footprint measured on one consumer is the same mistake as an API proven against one consumer."
+    },
+    {
+      "leak": "the blind run still opens engine files",
+      "source": "2c",
+      "cost": "It is §4.2, a terminal condition.",
+      "closeable": "Partly, and it is not a slice on its own — each run names ONE next thing and the fix is usually small (run 2's was a missing prelude re-export, closed same day).",
+      "owned": "YES.",
+      "route": "3b: rides alongside every slice. Re-run at the end of each; the run names its own next fix."
+    }
+  ],
+
+  "slice_d": {
+    "name": "one module, standalone and embedded",
+    "one_leak": "nothing proves a module composes WITH another module — `mount()` is claimed to be a merge with conflict detection rather than an ordering, and that claim has never had two modules put to it.",
+    "why_this_and_not_the_footprint": [
+      "The footprint experiment is cheaper and more dramatic, and it should still wait. §2e is measured PER SENTINEL CONSUMER, and there are two — both of which are single-module games written by me. Measuring optional-dependency reduction against that population would answer 'can a game I designed avoid linking menus', not 'can a game'.",
+      "Slice D adds the first consumer I did not design for the SDK: an in-tree demo that predates it. That is the closest thing available to an independent consumer, and §4's carve decision should be taken against it rather than before it.",
+      "It is also the last matrix row that is plausibly reachable without new engine subsystems. Smash needs rollback (deferred) and `ambition-itself` is the full integration, so D is where the matrix can still move."
+    ],
+    "why_it_is_the_real_test_of_ADR_0032": [
+      "ADR 0032: 'module inclusion is a MERGE, not an ordering. `include(SanicModule)` over a draft is a merge with transactional conflict detection... Over `&mut App` it is did Sanic's plugin run before Mary-O's.'",
+      "Every module mounted so far has been alone. `ModuleDraft::claim` already refuses a second experience/route declaration and names both claimants — written in slice A, never exercised by two real modules.",
+      "And the identity half is the sharper claim: ADR 0032's deletion criteria require that 'Sanic standalone and Sanic embedded produce the same content and rollback-schema identities'. Nothing has ever compared them."
+    ],
+    "not_in_this_slice": [
+      "module-qualified namespaces and pack identity — B's deferred content design. D should find out whether they are NEEDED by trying to embed without them; a namespace scheme designed before the collision is a guess.",
+      "the facade optionality experiment (slice E, deliberately after D so it has a consumer I did not design)",
+      "rollback as a public knob, and therefore Smash",
+      "the ambition_actors decomposition"
+    ],
+    "exit_criteria_sketch": [
+      "one in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` STANDALONE and boots;",
+      "the same module mounts ALONGSIDE the minimal game and both boot;",
+      "content and schema identities are compared across the two compositions and the comparison is a TEST, not a printout;",
+      "a genuine conflict (two modules claiming one experience id) is refused, naming both claimants — the `claim` path finally exercised by two real modules;",
+      "the module gets its own allowlist ratchet with a measured baseline, like every consumer before it;",
+      "§2 re-collected, slice E derived."
+    ]
+  },
+
+  "convergence_check": {
+    "note": "§6: every slice must strictly reduce at least one of five counters. Slice C reduced three.",
+    "forbidden_paths_named_by_a_consumer": "Outlander 7 -> 1; minimal_game 2 -> 0",
+    "open_fixture_findings": "blind run 2's list: the stale-docs finding, the prelude gap and the unauthored-starting-character hang all closed",
+    "engine_files_a_blind_author_must_open": "8 surfaces + 1 lockfile -> 4 surfaces + 1 source file; run 3 in flight",
+    "undeleted_compensating_mechanisms": "6 -> 6, still correctly untouched",
+    "unwanted_linked_capabilities": "41 -> 41; the experiment that could move it is slice E"
+  }
+}

@@ -1,0 +1,511 @@
+{
+  "slice": "C",
+  "campaign": "docs/planning/engine/api-1.0-campaign.md",
+  "method": "docs/planning/engine/api-growth-method.md",
+  "generated_by": "scripts/collect_slice_evidence.py",
+  "contract_diff": {
+    "outlander-names-only-the-public-sdk": {
+      "allowed_sdk_modules": [
+        "actor",
+        "app",
+        "bevy",
+        "character",
+        "sim",
+        "view",
+        "world"
+      ],
+      "baseline_open": [
+        "runtime"
+      ],
+      "open_count": 1,
+      "recorded_baseline": 18,
+      "slice_a_predicted_after_a4": 14,
+      "slice_a_prediction_was_confirmed": true,
+      "reduction_since_baseline": 17,
+      "retired_by_this_slice": [
+        "engine",
+        "game_assets",
+        "presentation",
+        "windowed_host"
+      ],
+      "uses_per_module": {
+        "actor": 19,
+        "app": 12,
+        "character": 19,
+        "runtime": 10,
+        "sim": 5,
+        "view": 6,
+        "world": 2
+      },
+      "files_per_module": {
+        "actor": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "app": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/composition.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "character": [
+          "fixtures/external_consumer/src/bin/dump.rs",
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/draws_its_own_character.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "runtime": [
+          "fixtures/external_consumer/src/bin/dump.rs",
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "sim": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "view": [
+          "fixtures/external_consumer/tests/draws_its_own_character.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "world": [
+          "fixtures/external_consumer/src/lib.rs"
+        ]
+      },
+      "multi_file_modules": [
+        "actor",
+        "app",
+        "character",
+        "runtime",
+        "view"
+      ],
+      "violations": {
+        "new": [],
+        "stale": []
+      }
+    },
+    "minimal-game-names-only-the-public-sdk": {
+      "allowed_sdk_modules": [
+        "actor",
+        "app",
+        "bevy",
+        "character",
+        "sim",
+        "view",
+        "world"
+      ],
+      "baseline_open": [],
+      "open_count": 0,
+      "recorded_baseline": 18,
+      "slice_a_predicted_after_a4": 14,
+      "slice_a_prediction_was_confirmed": true,
+      "reduction_since_baseline": 18,
+      "retired_by_this_slice": [
+        "engine",
+        "game_assets",
+        "presentation",
+        "windowed_host"
+      ],
+      "uses_per_module": {
+        "actor": 1,
+        "app": 2,
+        "bevy": 3,
+        "world": 1
+      },
+      "files_per_module": {
+        "actor": [
+          "fixtures/minimal_game/tests/boots.rs"
+        ],
+        "app": [
+          "fixtures/minimal_game/src/lib.rs",
+          "fixtures/minimal_game/tests/boots.rs"
+        ],
+        "bevy": [
+          "fixtures/minimal_game/tests/boots.rs"
+        ],
+        "world": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ]
+      },
+      "multi_file_modules": [
+        "app"
+      ],
+      "violations": {
+        "new": [],
+        "stale": []
+      }
+    }
+  },
+  "fixture_leak_log": {
+    "entries": [
+      {
+        "file": "fixtures/external_consumer/src/bin/dump.rs",
+        "line": 6,
+        "kind": "recorded leak #4",
+        "text": "recorded leak #4.)"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 20,
+        "kind": "recorded leak #2",
+        "text": "recorded leak #2)."
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 24,
+        "kind": "recorded leak #1",
+        "text": "recorded leak #1."
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 61,
+        "kind": "LEAK",
+        "text": "LEAK #3 CLOSED, both halves (2026-07-28). This used to read \"reuses an"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 481,
+        "kind": "LEAK CLOSED",
+        "text": "LEAK CLOSED 2026-07-30 \u2014 slice A of the API 1.0 campaign, and this fixture is"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 555,
+        "kind": "LEAK CLOSED",
+        "text": "# LEAK CLOSED 2026-07-30 \u2014 the ninth, and this builder is where it hid"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 647,
+        "kind": "LEAK CLOSED",
+        "text": "LEAK CLOSED 2026-07-27. This used to carry its own branch \u2014 `PendingLocalInput`"
+      }
+    ],
+    "total": 7,
+    "closed": 3,
+    "open_recorded": 4
+  },
+  "blind_agent_run": {
+    "collected": true,
+    "record": "docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-b-run2.json",
+    "missing_fields": [],
+    "run": {
+      "_comment": [
+        "\u00a72c run 2, at the end of slice C. Same fixed script as the baseline",
+        "(blind-agent-runs/SCRIPT.md), so the two are comparable.",
+        "",
+        "\u26a0 Contamination, unchanged and still biasing TOWARD competence: the subagent",
+        "inherits AGENTS.md through its system prompt. NEW this run: the live checkout",
+        "was being edited underneath it, which broke its first `cargo doc`; it worked",
+        "around that by building against a read-only `git archive` of HEAD. That is an",
+        "environment artifact, not an engine defect, and it is recorded because a",
+        "measurement whose interference is written down is worth more than one that",
+        "looks clean."
+      ],
+      "slice": "B/C",
+      "date": "2026-07-30",
+      "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+      "harness": "fresh general-purpose subagent, no inherited conversation context",
+      "engine_head_at_run": "b62790d37",
+      "completed": {
+        "headless_boot": true,
+        "windowed_boot": true,
+        "minimal_game": true,
+        "notes": "BOTH faces, against baseline's headless-only. Windowed proven in the GPU-less form the engine documents; a real window is impossible on this box (no display server). The build was clean FIRST TRY \u2014 the patch-table instructions were correct and sufficient \u2014 and it needed no `bevy` dependency, confirming slice B's claim."
+      },
+      "first_engine_file_opened": "crates/ambition_world/src/lib.rs",
+      "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
+      "engine_api_surfaces_read": [
+        {
+          "crate": "ambition",
+          "via": "cargo doc",
+          "looking_for": "the real method list, because api-prototype.md \u00a73 says its own example is illustrative \u2014 this is where it learned no_characters/no_audio/playable/host_status exist at all"
+        },
+        {
+          "crate": "ambition_world",
+          "via": "cargo doc",
+          "looking_for": "where RoomSpec/RoomMetadata live (did not answer it)"
+        },
+        {
+          "crate": "ambition_world",
+          "via": "source",
+          "looking_for": "the answer: `pub mod prelude`"
+        },
+        {
+          "crate": "fixtures/minimal_game",
+          "via": "source",
+          "looking_for": "why its host hung, and the character-roster RON schema"
+        }
+      ],
+      "elapsed_context": {
+        "subagent_tokens": 125233,
+        "tool_uses": 88,
+        "duration_ms": 2371118
+      },
+      "compared_to_baseline": {
+        "baseline": "2026-07-30-slice-a-baseline.json",
+        "headless": "false -> TRUE",
+        "windowed": "false -> TRUE (GPU-less form)",
+        "engine_surfaces_read": "8 -> 4",
+        "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_world/src/lib.rs (an API question)",
+        "reading": "The first-file field moved from 'I cannot compile this' to 'I cannot find one type', which is the campaign working: the blocker got smaller and more specific. \u00a74.2 still fails \u2014 the gate is ZERO engine files."
+      },
+      "findings": [
+        {
+          "id": "sdk-docs-were-eight-commits-stale-in-the-EXPENSIVE-direction",
+          "severity": "highest \u2014 cost the run real time",
+          "closed": true,
+          "summary": "docs/sdk/ was last touched at c01d771bd while slices B and C landed no_characters/no_audio/playable/host_status/EMPTY_CHARACTER_ROSTER_RON/world::prelude/minimal_game. Its 'Known gaps' actively claimed a minimal module CANNOT reach a windowed host and that there is NO way to ask whether the game started. Both were false at HEAD.",
+          "agents_words": "a doc advertising gaps that no longer exist does the same thing",
+          "why_it_matters": "The README's own thesis is that hiding gaps sends readers into crates/. Advertising phantom gaps is the same defect wearing the opposite sign, and it was introduced by the campaign that wrote the thesis."
+        },
+        {
+          "id": "playable-with-an-unauthored-starting-character-hangs-forever",
+          "severity": "silent failure",
+          "closed": true,
+          "summary": "A `starting_character` no roster contained was accepted by try_build; 120 ticks ran, the process exited 0, the host never started. The agent flagged it as a FALSE POSITIVE against itself and only caught it by adding host_status.",
+          "agents_words": "the exact silent-failure shape slice A closed for routes, left open for characters",
+          "fix": "Validated at build; refusal names the character and lists the ones that exist. Test: a_starting_character_no_roster_contains_is_refused_at_build."
+        },
+        {
+          "id": "the-route-error-named-the-wrong-lever-and-leaked-indentation",
+          "severity": "diagnostic quality",
+          "closed": "partly",
+          "summary": "'not registered by any mounted capability' sent the agent looking for how to write a capability plugin; the actual fix is `playable()`. The message also carried ~30 spaces of source indentation into its output.",
+          "fix": "Indentation fixed. Naming `playable` as the likely fix is still open."
+        },
+        {
+          "id": "castless-games-cannot-be-expressed",
+          "severity": "gap",
+          "closed": false,
+          "summary": "no_characters() exists but playable() requires a starting character, and without playable() no gameplay route is registered. A menu-only app cannot compose. Now stated in the SDK's Known gaps and asserted by declaring_no_cast_and_a_starting_character_is_refused."
+        },
+        {
+          "id": "component-names-are-invisible-to-consumers",
+          "severity": "tooling",
+          "closed": false,
+          "summary": "`ambition::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
+        },
+        {
+          "id": "non-empty-roster-schema-undocumented",
+          "severity": "doc gap",
+          "closed": false,
+          "summary": "EMPTY_CHARACTER_ROSTER_RON covers the empty case; a game with ONE character is the actual minimal case and every required field is undocumented. The agent copied a fixture verbatim."
+        }
+      ],
+      "what_worked": [
+        "The patch-table paragraph: 'accurate, prominent, and load-bearing \u2014 my build resolved and compiled first try because of it.' That was blind run 1's top finding, closed, and confirmed closed by run 2.",
+        "try_build's composition errors: 'genuinely good (three problems named at once, each with its consequence)'.",
+        "A minimal game needs exactly one dependency. The claim held under an independent build."
+      ],
+      "verdict": "Both faces reached, engine surfaces read halved, and the blocker moved from 'cannot compile' to 'cannot locate one type'. \u00a74.2 still fails: the gate is ZERO engine files and this run opened one."
+    }
+  },
+  "deletion_criteria": {
+    "criteria": [
+      {
+        "criterion": "prestartup-character-preparation-backstop",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "Untouched, and NOT slice A's to touch. The barrier is process-global: Mary-O, Sanic, the versus fighters and the robot lineage all still stage through it, so an Outlander-only slice cannot make it deletable. This is the criterion whose misplacement forced the campaign's A-D split."
+      },
+      {
+        "criterion": "provider-plugin-ordering-decides-content-completeness",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "\u26a0 RECLASSIFIED 2026-07-30. Previously marked composition/deletable on the strength of the green hand-ordering contract. That contract is about HOST composition order; this criterion is about CONTENT completeness, which is still decided by `Plugin::build` running `install_outlander_content` and by the finish/PreStartup apparatus slice A never went near. `define` accumulating into a draft is the shape that will close it, but the draft holds routes and a room in slice A, not content."
+      },
+      {
+        "criterion": "repeated-app-finish-can-republish-prepared-content",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "content-model criterion; the idempotence flag is untouched (slice B+)"
+      },
+      {
+        "criterion": "headless-and-visible-share-a-prepared-content-fingerprint",
+        "domain": "composition",
+        "in_scope_for_slice_a": true,
+        "became_deletable": false,
+        "evidence": "\u26a0 MOVED AWAY from deletable, and this is the sharpest thing slice A measured. `PlatformerApp` gained `with_game_assets`, OFF by default on headless and always on for windowed \u2014 so the two faces now consume different prepared art unless the consumer says otherwise. That was a deliberate correction (the first draft installed assets on both faces citing THIS criterion, and the fixture's rollback parity test caught it: under GGRS the extra asset frames are frames the sim does not advance, and the two hosts landed twelve `update()` calls apart). Preparing art is also not free \u2014 boot decode was measured at 627MP/2.5GB. So the knob is right and the criterion is further away, which is a real finding rather than a regression: the criterion wants ONE FINGERPRINT, and slice A has no content fingerprint to share. Slice B owns closing it, and must close it without collapsing the policy back into the face."
+      },
+      {
+        "criterion": "sanic-standalone-and-embedded-agree-on-identities",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "content-model criterion; no module-qualified namespaces exist yet (slice B)"
+      },
+      {
+        "criterion": "a-runtime-character-consumer-reads-a-fallback-catalog",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "content-model criterion; the fallback catalog is untouched (slice B)"
+      }
+    ],
+    "in_scope": 1,
+    "became_deletable": 0,
+    "in_scope_but_not_deletable": [
+      "headless-and-visible-share-a-prepared-content-fingerprint"
+    ],
+    "verdict_column_is_tautological": false
+  },
+  "capability_footprint": {
+    "collected": true,
+    "sentinel": "fixtures/external_consumer/Cargo.toml",
+    "declared_dependencies": [
+      "ambition",
+      "bevy"
+    ],
+    "transitive_ambition_closure": [
+      "ambition",
+      "ambition_actors",
+      "ambition_asset_manager",
+      "ambition_audio",
+      "ambition_characters",
+      "ambition_combat",
+      "ambition_cutscene",
+      "ambition_dev_tools",
+      "ambition_dialog",
+      "ambition_encounter",
+      "ambition_engine_core",
+      "ambition_entity_catalog",
+      "ambition_game_shell",
+      "ambition_gameplay_trace",
+      "ambition_host",
+      "ambition_input",
+      "ambition_interaction",
+      "ambition_inventory_ui",
+      "ambition_items",
+      "ambition_ldtk_map",
+      "ambition_load",
+      "ambition_load_presentation",
+      "ambition_menu",
+      "ambition_persistence",
+      "ambition_platformer_primitives",
+      "ambition_platformer_provider",
+      "ambition_portal",
+      "ambition_portal_presentation",
+      "ambition_projectiles",
+      "ambition_render",
+      "ambition_runtime",
+      "ambition_settings_menu",
+      "ambition_sfx",
+      "ambition_sfx_bank",
+      "ambition_sim_view",
+      "ambition_sprite_sheet",
+      "ambition_time",
+      "ambition_touch_input",
+      "ambition_ui_nav",
+      "ambition_vfx",
+      "ambition_world"
+    ],
+    "transitive_ambition_count": 41,
+    "direct_ambition_edges_per_crate": {
+      "ambition": 39,
+      "ambition_actors": 28,
+      "ambition_runtime": 20,
+      "ambition_render": 17,
+      "ambition_sim_view": 16,
+      "ambition_platformer_provider": 13,
+      "ambition_host": 10,
+      "ambition_touch_input": 9,
+      "ambition_combat": 8,
+      "ambition_game_shell": 8,
+      "ambition_projectiles": 8,
+      "ambition_sprite_sheet": 7,
+      "ambition_dialog": 5,
+      "ambition_ldtk_map": 5,
+      "ambition_dev_tools": 4,
+      "ambition_encounter": 4,
+      "ambition_load_presentation": 4,
+      "ambition_interaction": 3,
+      "ambition_portal_presentation": 3,
+      "ambition_vfx": 3,
+      "ambition_world": 3,
+      "ambition_characters": 2,
+      "ambition_gameplay_trace": 2,
+      "ambition_items": 2,
+      "ambition_persistence": 2,
+      "ambition_portal": 2,
+      "ambition_settings_menu": 2,
+      "ambition_audio": 1,
+      "ambition_input": 1,
+      "ambition_inventory_ui": 1,
+      "ambition_platformer_primitives": 1,
+      "ambition_sfx": 1,
+      "ambition_ui_nav": 1,
+      "ambition_asset_manager": 0,
+      "ambition_cutscene": 0,
+      "ambition_engine_core": 0,
+      "ambition_entity_catalog": 0,
+      "ambition_load": 0,
+      "ambition_menu": 0,
+      "ambition_sfx_bank": 0,
+      "ambition_time": 0
+    },
+    "widest_fan_out": [
+      [
+        "ambition",
+        39
+      ],
+      [
+        "ambition_actors",
+        28
+      ],
+      [
+        "ambition_runtime",
+        20
+      ]
+    ],
+    "note": "The consumer declares two dependencies (`ambition`, `bevy`) and links the whole engine closure. A module allowlist cannot see this: slice A's ratchet went from 18 to 14 while this number did not move at all, which is precisely the blind spot \u00a72e exists to record.",
+    "sentinels": {
+      "outlander": {
+        "manifest": "fixtures/external_consumer/Cargo.toml",
+        "declared_dependencies": [
+          "ambition",
+          "bevy"
+        ],
+        "ambition_crates_linked": 41
+      },
+      "minimal_game": {
+        "manifest": "fixtures/minimal_game/Cargo.toml",
+        "declared_dependencies": [
+          "ambition"
+        ],
+        "ambition_crates_linked": 41,
+        "linked_but_never_asked_for": [
+          "ambition_audio",
+          "ambition_cutscene",
+          "ambition_dialog",
+          "ambition_encounter",
+          "ambition_inventory_ui",
+          "ambition_items",
+          "ambition_ldtk_map",
+          "ambition_menu",
+          "ambition_persistence",
+          "ambition_portal",
+          "ambition_portal_presentation",
+          "ambition_projectiles",
+          "ambition_render",
+          "ambition_settings_menu",
+          "ambition_sfx",
+          "ambition_sfx_bank",
+          "ambition_touch_input",
+          "ambition_ui_nav",
+          "ambition_vfx"
+        ],
+        "unwanted_count": 19,
+        "verdict": "The consumer-matrix question \u2014 does a small game link menus, persistence, audio, bosses? \u2014 is answered YES. A movement-only game with one room, one walker and no combat links 41 Ambition crates, 19 of which it never asked for: menus, persistence, cutscenes, encounters, inventory UI, portals, projectiles, LDtk, settings menus and touch input among them.",
+        "authorises_a_carve": "NOT YET. \u00a74 authorises an internal carve when a sentinel consumer's footprint cannot be reduced WITHOUT moving code between crates. This measurement shows the footprint is large; it does not show it is irreducible, because feature-gating has not been attempted. Trying that is the cheap experiment that either closes this or converts it into the carve argument \u2014 and \u00a74 warns explicitly not to let a single leak authorise a full decomposition."
+      }
+    }
+  },
+  "selects_slice_d": {
+    "derived": true,
+    "selection": "docs/planning/engine/slice-evidence/slice-d-selection.json",
+    "slice_b": null,
+    "one_leak": null,
+    "candidates_ranked": 4,
+    "first_engine_file_opened": null
+  }
+}

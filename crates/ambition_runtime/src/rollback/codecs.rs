@@ -283,6 +283,63 @@ impl SnapshotState for ambition_actors::features::ActorStatus {
     }
 }
 
+// ── A live MATCH's per-body state (AA2 / AC2) ────────────────────────────────
+//
+// Which seat a body is, which team it fights for, and who owns its death. All
+// three are decided at match activation, all three are read by the rules every
+// tick, and none of them was rollback state — because no swept population had
+// a match in it until `every_component_in_a_live_match_is_registered_derived_or_waived`
+// existed. A rewind across activation restored the fighters and left these
+// behind, which is a body that comes back with no seat, no team, and the
+// exploration death policy in the middle of a round.
+impl SnapshotState for ambition_actors::character_runtime::MatchSeat {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0 as u64);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_actors::character_runtime::MatchSeat(
+            r.u64()? as usize
+        ))
+    }
+}
+
+impl SnapshotState for ambition_combat::targeting::MatchTeam {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.as_str());
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_combat::targeting::MatchTeam::new(r.str()?))
+    }
+}
+
+impl SnapshotState for ambition_combat::components::RulesetOwnsDeath {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_combat::components::RulesetOwnsDeath)
+    }
+}
+
+/// The activation latch itself. Plain data with no identity in it — a seat count
+/// and the frozen topology that decided it — which is what makes it snapshotable
+/// at all: the BODIES are derived from `MatchSeat` and rewind on their own.
+impl SnapshotState for ambition_actors::character_runtime::ActiveMatch {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.seats() as u64);
+        match self.seat_topology() {
+            None => put_bool(out, false),
+            Some(generation) => {
+                put_bool(out, true);
+                put_u64(out, generation);
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let seats = r.u64()? as usize;
+        let seat_topology = if r.bool()? { Some(r.u64()?) } else { None };
+        Some(ambition_actors::character_runtime::ActiveMatch::from_snapshot(seats, seat_topology))
+    }
+}
+
 impl SnapshotState for ambition_combat::components::ActorIntent {
     fn encode(&self, out: &mut Vec<u8>) {
         self.0.encode(out);

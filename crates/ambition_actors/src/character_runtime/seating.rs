@@ -427,6 +427,28 @@ impl ActiveMatch {
             seat_topology,
         }
     }
+
+    /// Rebuild an activation from a rollback snapshot.
+    ///
+    /// A second constructor rather than reusing `for_test`, because the two say
+    /// different things to a reader and one of them is production. This is the
+    /// ONLY non-seating production path that may produce an `ActiveMatch`, and
+    /// it reproduces one that seating already published.
+    ///
+    /// ⚠ **what makes registering this correct is that `bevy_ggrs` restores
+    /// ABSENCE**: `ResourceSnapshotPlugin::load` maps `(Some(_), None)` to
+    /// `remove_resource`. So a rewind to a frame before activation does not
+    /// merely stale the latch, it deletes it — seating sees no active match,
+    /// re-runs, and rebuilds the roster. Registration would have been decorative
+    /// if the plugin only overwrote a present value, which is worth stating
+    /// because that is the assumption the fix rests on (AA2 / AC2).
+    #[doc(hidden)]
+    pub fn from_snapshot(seats: usize, seat_topology: Option<u64>) -> Self {
+        Self {
+            seats,
+            seat_topology,
+        }
+    }
 }
 
 /// Seat every CPU participant in [`MatchParticipantRoster`], once.
@@ -621,7 +643,10 @@ pub fn seat_match_participants(
                     super::BaselineBoundary::Construction,
                     &mut adopted,
                     Some(&mut health),
-                    Some(&mut clusters.kinematics.size),
+                    Some(super::BodyGeometry {
+                        live: &mut clusters.kinematics.size,
+                        base: &mut clusters.base_size.base_size,
+                    }),
                 );
             } else {
                 // No prepared character to speak for it; a seat still opens full.

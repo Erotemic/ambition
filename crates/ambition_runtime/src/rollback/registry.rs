@@ -404,6 +404,29 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource + SnapshotState;
 
+    /// Canonical snapshot for a resource that legitimately COMES AND GOES.
+    ///
+    /// [`Self::rollback_resource_canonical`] cannot serve one: it installs
+    /// `bevy_ggrs`'s `ResourceChecksumPlugin`, whose system takes `Res<T>` and
+    /// therefore panics on any frame the resource is absent — *"Parameter
+    /// `Res<'_, ActiveMatch>` failed validation: Resource does not exist"*. The
+    /// SNAPSHOT half already handles absence correctly (`ResourceSnapshotPlugin`
+    /// maps `(Some(_), None)` to `remove_resource`), so the gap was only ever in
+    /// the checksum.
+    ///
+    /// This supplies a checksum over `Option<T>`: absence hashes to a distinct
+    /// constant, so "the match had not activated yet" and "the match activated
+    /// with these seats" are different checksums rather than one of them being
+    /// unrepresentable. That distinction IS the state for a latch whose whole
+    /// job is to exist (AA2 / AC2).
+    fn rollback_resource_optional_canonical<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState;
+
     fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Resource + Clone + SnapshotCursor;
@@ -877,6 +900,64 @@ impl AmbitionRollbackApp for App {
         {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_resource(self, state_checksum::<T>);
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::rollback::census_resource_state::<T>,
+                ),
+            );
+        }
+        self
+    }
+
+    fn rollback_resource_optional_canonical<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ResourceCanonical,
+                "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
+            // Ambition's own checksum system rather than
+            // `RollbackApp::checksum_resource`, which installs the `Res<T>` one.
+            // Absent hashes to a fixed sentinel; present hashes the canonical
+            // encoding — so the ABSENT→PRESENT edge, which is the whole content
+            // of an activation latch, moves the aggregate checksum.
+            let update = move |mut commands: Commands,
+                               resource: Option<Res<T>>,
+                               mut checksum: Query<
+                &mut bevy_ggrs::ChecksumPart,
+                (
+                    Without<bevy_ggrs::RollbackId>,
+                    With<bevy_ggrs::ChecksumFlag<T>>,
+                ),
+            >| {
+                const ABSENT: u128 = 0x4142_5345_4E54_u128;
+                let part = bevy_ggrs::ChecksumPart(
+                    resource.map_or(ABSENT, |value| state_checksum(value.as_ref()) as u128),
+                );
+                if let Ok(mut existing) = checksum.single_mut() {
+                    *existing = part;
+                } else {
+                    commands.spawn((part, bevy_ggrs::ChecksumFlag::<T>::default()));
+                }
+            };
+            self.add_systems(
+                bevy_ggrs::SaveWorld,
+                update.in_set(bevy_ggrs::SaveWorldSystems::Checksum),
+            );
             record_probe(
                 self,
                 crate::rollback::ChecksumProbe::new(

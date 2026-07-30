@@ -128,16 +128,30 @@ impl PhysicalBaseline {
     /// cannot write that", which is a different claim from "leave it alone", and
     /// only the caller knows which is true.
     ///
-    /// `size` must be the body's kinematic size and the caller is responsible for
-    /// what follows it: seating passes it and then transits the body to its seat,
-    /// which re-resolves the pose. A caller with nowhere to transit to passes
-    /// `None` and gets [`BaselineBoundary::Replacement`]'s narrowing.
+    /// `geometry` must be the body's LIVE kinematic size and its IDENTITY base
+    /// size, together. The caller is responsible for what follows: seating passes
+    /// them and then transits the body to its seat, which re-resolves the pose. A
+    /// caller with nowhere to transit to passes `None` and gets
+    /// [`BaselineBoundary::Replacement`]'s narrowing.
+    ///
+    /// ⚠ **both, or the size does not survive the first lifecycle transition.**
+    /// This wrote only the live collider (GPT 5.6, 2026-07-29). `BodyBaseSize` is
+    /// the identity-derived canonical shape: a round reset restores the collider
+    /// FROM it, and every body-mode transition (crouch, stand, morph) computes
+    /// its target shape FROM it. So an adopted fighter began round one at its
+    /// authored size and reverted to the exploration player's shape at the first
+    /// reset or crouch — while a spawned opponent, whose bundle establishes both,
+    /// kept its own. The two seats diverged again one lifecycle transition after
+    /// the seam that exists to stop them diverging.
+    ///
+    /// Match activation is a CONSTRUCTION boundary, and at a construction
+    /// boundary an explicit identity size IS the body's new base.
     pub fn apply_to_body(
         &self,
         boundary: BaselineBoundary,
         entity: &mut EntityCommands,
         health: Option<&mut ambition_characters::actor::BodyHealth>,
-        size: Option<&mut Vec2>,
+        geometry: Option<BodyGeometry<'_>>,
     ) {
         if let Some(health) = health {
             if let Some(max) = self.max_health {
@@ -160,9 +174,22 @@ impl PhysicalBaseline {
             entity.try_insert(crate::features::Mass(mass));
         }
         if boundary == BaselineBoundary::Construction {
-            if let (Some(authored), Some(size)) = (self.explicit_size, size) {
-                *size = authored;
+            if let (Some(authored), Some(geometry)) = (self.explicit_size, geometry) {
+                *geometry.live = authored;
+                *geometry.base = authored;
             }
         }
     }
+}
+
+/// The two sizes a body carries, passed together because writing one without
+/// the other is the defect this type exists to prevent.
+///
+/// `live` is the collider the movement seam sweeps this frame. `base` is the
+/// IDENTITY size a reset restores to and a body-mode transition derives from.
+/// They are separate fields on purpose — a crouching body's live size is
+/// legitimately not its base — but an identity CHANGE has to move both.
+pub struct BodyGeometry<'a> {
+    pub live: &'a mut Vec2,
+    pub base: &'a mut Vec2,
 }

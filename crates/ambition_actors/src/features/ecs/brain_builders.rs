@@ -26,6 +26,9 @@ pub(super) fn enemy_combat_kit_for_spec(spec: &CharacterArchetypeSpec) -> Combat
     CombatKit {
         innate_melee: spec.melee_spec(),
         innate_ranged: spec.ranged_spec(),
+        // An archetype authors no special today; the field exists so a kit built
+        // from an ActionSet round-trips one (see `CombatKit::from_action_set`).
+        innate_special: None,
         move_style: spec.move_style(),
     }
 }

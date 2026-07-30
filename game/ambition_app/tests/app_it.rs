@@ -72,6 +72,7 @@ mod rollback_coverage;
 mod rollback_exit_oracle;
 mod rollback_full_reset;
 mod rollback_lifecycle_reset;
+mod rollback_match_activation;
 mod rollback_room_transition;
 mod room_replay_seam;
 mod room_spatial_integrity;

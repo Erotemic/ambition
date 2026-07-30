@@ -277,6 +277,19 @@ impl Default for ActorTarget {
 pub struct CombatKit {
     pub innate_melee: Option<ambition_characters::brain::MeleeActionSpec>,
     pub innate_ranged: Option<ambition_characters::brain::RangedActionSpec>,
+    /// The innate SPECIAL, and it has to be here for the same reason the other
+    /// two are (GPT 5.6, 2026-07-29).
+    ///
+    /// ⚠ this field was missing while the type was documented as *the durable
+    /// source of capability*, and `to_action_set` rebuilt the rest of the set
+    /// through `..Default::default()` — so `special` came back `None`. Three
+    /// production paths reconstruct a live `ActionSet` from this baseline
+    /// (autonomous/peaceful reconciliation, brain command-mode changes, and
+    /// mount/dismount), and each of them silently revoked a character's special
+    /// the first time it ran. The `ActorMoveset` timeline survived, so the move
+    /// still EXISTED and the brain simply stopped knowing it could press it —
+    /// a capability loss with no error and no missing animation.
+    pub innate_special: Option<ambition_characters::brain::SpecialActionSpec>,
     pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
 
@@ -285,6 +298,7 @@ impl CombatKit {
         Self {
             innate_melee: actions.melee,
             innate_ranged: actions.ranged.clone(),
+            innate_special: actions.special.clone(),
             move_style: actions.move_style,
         }
     }
@@ -296,6 +310,7 @@ impl CombatKit {
         let mut actions = ambition_characters::brain::ActionSet {
             melee: self.innate_melee,
             ranged: self.innate_ranged.clone(),
+            special: self.innate_special.clone(),
             move_style: self.move_style,
             ..Default::default()
         };
@@ -796,5 +811,50 @@ impl bevy::ecs::entity::MapEntities for ActorAggression {
         if let Some(entity) = self.grudge.as_mut() {
             *entity = mapper.get_mapped(*entity);
         }
+    }
+}
+
+#[cfg(test)]
+mod combat_kit_tests {
+    use super::*;
+    use ambition_characters::brain::{
+        ActionSet, MeleeActionSpec, MoveStyleSpec, SpecialActionSpec, SwipeSpec,
+    };
+
+    /// **The durable baseline must survive a round trip, all of it.**
+    ///
+    /// `CombatKit` is documented as *the durable ECS/gameplay source of
+    /// capability*, and three production paths rebuild a live `ActionSet` from
+    /// it (autonomous/peaceful reconciliation, brain command-mode changes,
+    /// mount/dismount). It carried melee, ranged and move style — and silently
+    /// dropped `special`, because `to_action_set` filled the rest of the struct
+    /// with `..Default::default()`.
+    ///
+    /// The failure had no symptom to look for: the `ActorMoveset` timeline
+    /// survives, so the special still exists and merely stops being pressed.
+    /// Asserting the whole round trip is the only shape that catches the NEXT
+    /// field somebody adds to `ActionSet` and forgets here.
+    #[test]
+    fn the_durable_kit_round_trips_every_capability_including_the_special() {
+        let authored = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                windup_s: 0.1,
+                active_s: 0.1,
+                recover_s: 0.1,
+                damage: 3,
+                reach_px: 40.0,
+            })),
+            ranged: None,
+            move_style: MoveStyleSpec::Walk,
+            special: Some(SpecialActionSpec::Special("bubble_shield".to_string())),
+        };
+
+        let restored = CombatKit::from_action_set(&authored).to_action_set(None);
+
+        assert_eq!(
+            restored, authored,
+            "a capability was lost crossing the durable baseline; the brain would \
+             stop using it while the moveset still contained it"
+        );
     }
 }

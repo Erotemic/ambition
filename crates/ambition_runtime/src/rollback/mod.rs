@@ -318,6 +318,28 @@ pub fn register_engine_rollback_state(app: &mut App) {
 
     // Global authoritative resources.
     app.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
+        // **The match activation latch.** (AA2 / AC2)
+        //
+        // Published from inside the sim schedule on the tick the last seat is
+        // filled, and it GATES two behaviours: seating returns early while it
+        // exists, and the countdown treats it as proof the match is live. Left
+        // unregistered, a rewind across activation restored the fighters — or
+        // un-spawned them — and left the latch pointing at a future in which
+        // they existed, so seating refused to rebuild the roster it had just
+        // lost while the countdown carried on.
+        //
+        // Correct because `bevy_ggrs` restores ABSENCE as well as value: a
+        // rewind to before activation REMOVES this, seating sees no match, and
+        // the roster is reconstructed from the same authored inputs.
+        //
+        // ⚠ this closes the rewind hole; it does not make activation a
+        // transaction. Fighters are still constructed seat-by-seat over several
+        // ticks and only the latch is atomic. That remains open as AA2's
+        // lifecycle half.
+        .rollback_resource_optional_canonical::<ambition_actors::character_runtime::ActiveMatch>(
+            ENGINE,
+            "resource.active_match",
+        )
         .rollback_resource_canonical::<ambition_time::WorldTime>(ENGINE, "resource.world_time")
         .rollback_resource_canonical::<ambition_actors::features::GameplayElapsed>(
             ENGINE,
@@ -594,6 +616,22 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_component_canonical::<ambition_characters::actor::body::BodyCombat>(
             ENGINE,
             "actor.body_combat",
+        )
+        // A live match's per-body state. Registered together because they are
+        // one decision — match activation — landing on a body, and a rewind that
+        // kept some and dropped others would produce a fighter that is half in
+        // the match (AA2 / AC2, both GPT 5.6 reviews, 2026-07-29).
+        .rollback_component_canonical::<ambition_actors::character_runtime::MatchSeat>(
+            ENGINE,
+            "actor.match_seat",
+        )
+        .rollback_component_canonical::<ambition_combat::targeting::MatchTeam>(
+            ENGINE,
+            "actor.match_team",
+        )
+        .rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
+            ENGINE,
+            "actor.ruleset_owns_death",
         )
         .rollback_component_canonical::<ambition_engine_core::geometry::CenteredAabb>(
             ENGINE,

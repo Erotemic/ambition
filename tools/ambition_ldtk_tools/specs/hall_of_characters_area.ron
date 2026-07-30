@@ -475,7 +475,7 @@
                 48,
             ],
             fields: (
-                character_id: "player",
+                character_id: "player_robot_v3",
                 prompt: "Inspect",
                 dialogue_id: "hall_player",
                 patrol_radius: 0,
@@ -2617,7 +2617,7 @@
                 48,
             ],
             fields: (
-                character_id: "npc_player_robot_v2",
+                character_id: "player_robot_v2",
                 prompt: "Inspect",
                 dialogue_id: "",
                 patrol_radius: 0,

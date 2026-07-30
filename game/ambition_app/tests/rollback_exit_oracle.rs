@@ -1066,7 +1066,11 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 /// a rewind has to reproduce, so the census walks every frame and unions.
 /// The first harness frame on which the simulation advanced and the GGRS
 /// session did not, with everything known about the session at that moment.
+// Every field is read by the `{:?}` in the failure message — which is the
+// entire point of the struct — but a derived Debug is ignored by dead-code
+// analysis, so say so rather than deleting the fields that carry the diagnosis.
 #[derive(Debug)]
+#[allow(dead_code)]
 struct GgrsStall {
     frame: usize,
     stats: Option<ambition::runtime::rollback::RollbackExecutionStats>,

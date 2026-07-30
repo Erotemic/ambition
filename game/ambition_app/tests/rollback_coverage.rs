@@ -644,6 +644,102 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     );
 }
 
+/// Seat a two-CPU match through the PRODUCTION seating system and step until it
+/// activates. Returns the tick the last seat landed on.
+///
+/// Two CPU seats, so neither depends on the harness having a primary player
+/// wearing the right character. A seat that silently fails to adopt is how a
+/// match sweep ends up inspecting an empty roster and reporting success.
+///
+/// ⚠ the robot lineage, not the arena duelists. A plain `SandboxSim` prepares
+/// exactly `["player_robot_v2", "player_robot_v3", "robot"]` — the duelists are
+/// versus-ROUTE content — and `seat_character` returns `None` for an unprepared
+/// id, silently. The vacuity guard is what said so; the first version of this
+/// named the duelists and swept nothing.
+fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
+    use ambition::actors::character_runtime::{
+        ControllerBinding, MatchParticipant, MatchParticipantRoster,
+    };
+
+    let cpu = |character: &str, team: &str| {
+        MatchParticipant::new(character)
+            .driven_by(ControllerBinding::Cpu {
+                brain_profile: Some("medium_striker".to_string()),
+            })
+            .on_team(team)
+    };
+    sim.world_mut().insert_resource(MatchParticipantRoster {
+        participants: vec![
+            cpu("player_robot_v3", "blue"),
+            cpu("player_robot_v2", "red"),
+        ],
+        opens_suspended: true,
+        seat_topology: Some(7),
+        fighter_abilities: None,
+    });
+    // A direct world mutation is setup, not gameplay: it becomes frame zero.
+    sim.rebase_rollback_history()
+        .expect("the roster insert becomes the rollback baseline");
+
+    for tick in 0..90 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .get_resource::<ambition::actors::character_runtime::ActiveMatch>()
+            .is_some()
+        {
+            return tick;
+        }
+    }
+    panic!(
+        "no roster seat ever produced a live match in 90 ticks, so every sweep \
+         built on this helper would inspect a world with no match in it and pass \
+         for the wrong reason"
+    );
+}
+
+/// **A LIVE MATCH, which nothing swept.** (AA2 / AC2)
+///
+/// Two independent GPT 5.6 reviews named `ActiveMatch` and `MatchSeat` as
+/// simulation-critical state outside rollback, and both were right. What is
+/// worth recording is why neither this instrument nor any other caught it
+/// first: **no swept population contained a match.** That is the exact shape
+/// A19 already hit — `PogoTarget`, `ChestFeature` and `PortalHostScanned` were
+/// not unregistered-and-missed, they were never in the population — and the
+/// lesson evidently did not generalise on its own. A sweep answers only the
+/// question its population asks.
+///
+/// So the guard comes before the fix. This seats a real two-CPU roster through
+/// the production `seat_match_participants` and sweeps every tick of the match's
+/// life, including the activation tick, which is the one the reviews say a
+/// rewind crosses badly.
+#[test]
+fn every_component_in_a_live_match_is_registered_derived_or_waived() {
+    use ambition::actors::character_runtime::MatchSeat;
+
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    seat_a_two_cpu_match(&mut sim);
+    // The activation tick itself is already behind us, and it is swept below on
+    // the way through: seating publishes on the tick the last seat lands, and
+    // the match then lives for the rest of this loop.
+    let seat_count = |sim: &mut SandboxSim| -> usize {
+        let world = sim.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        q.iter(world).count()
+    };
+    assert_eq!(
+        seat_count(&mut sim),
+        2,
+        "the match activated without two seated bodies, so this sweeps something \
+         other than what it is named for"
+    );
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+        assert_components_accounted(&mut sim, "a live versus match");
+    }
+}
+
 /// **The falling-sand room, which nothing swept.** (A20)
 ///
 /// The sand grid itself is deliberately outside rollback (see the
@@ -722,9 +818,50 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // no-op, and demand order is a `BTreeSet`. If materialization ever gains a
     // gameplay consequence — art-derived hitboxes would be exactly that, and
     // §4.11 forbids it for this reason — this waiver becomes wrong.
+    //
+    // ⚠ **NARROWED from the module family `ambition_actors::character_runtime::`
+    // on 2026-07-29, and the widening was the whole bug.** That waiver was
+    // written when the module held art-load bookkeeping and nothing else. The
+    // module then grew SEATING — `ActiveMatch`, the latch that decides whether a
+    // match is live and whether seating may run — and the waiver silently
+    // covered it, so the resource sweep reported green over simulation-critical
+    // state for as long as both existed. Two GPT 5.6 reviews found it by
+    // reading; this instrument could not, because it had already excused it.
+    //
+    // Third instance of this exact class: `BossAnimFrame` was swallowed by a
+    // crate-prefix waiver reading "sprite metadata / asset binding" (A9/A18),
+    // and `::enemies::CharacterRoster` shadowed `CharacterRosterRegistry` before
+    // anchored matching landed. **A module-family waiver is a standing bet that
+    // nobody will ever put simulation state in that module.** Prefer one entry
+    // per type; if a family entry is genuinely right, it has to be re-earned
+    // every time the module grows.
     (
-        "ambition_actors::character_runtime::",
+        "::character_runtime::CharacterLoadStates",
         "character art load bookkeeping; decoded-ness has no simulation consequence",
+    ),
+    (
+        "::character_runtime::CharacterLoadDemand",
+        "which sheets have been ASKED for; idempotent, and a decode has no simulation consequence",
+    ),
+    (
+        "::character_runtime::CharacterMaterializationService",
+        "the art materializer seam itself; holds no per-frame simulation state",
+    ),
+    (
+        "::character_runtime::definition::PreparedCharacterRegistry",
+        "prepared authored definitions; immutable within a session and bound by PreparedContentIdentity",
+    ),
+    (
+        "::character_runtime::definition::StagedCharacterOverrides",
+        "preparation-private staging input, resolved before the session's first simulated frame",
+    ),
+    // The ROSTER, not the activation. It is authored by whoever entered the
+    // route, before the match exists, and seating only reads it — so a rewind
+    // inside a match cannot move it. `ActiveMatch`, which IS written from inside
+    // the sim schedule, is registered rather than waived.
+    (
+        "::character_runtime::staging::MatchParticipantRoster",
+        "the match's authored request; written at route entry, read-only for the match's life",
     ),
     // The room-transition transaction, engine-side since 2026-07-25. Under a
     // rollback host `detect_room_transition_system` DEFERS the crossing to the
@@ -1034,6 +1171,11 @@ fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
+    // ...and then SEAT A MATCH, because a resource that only exists while a
+    // match is live is invisible to a sweep of a world with no match in it.
+    // `ActiveMatch` is exactly that resource, and this sweep reported green
+    // over it for as long as both existed (AA2 / AC2).
+    seat_a_two_cpu_match(&mut sim);
 
     let unaccounted = unaccounted_resources(sim.world());
 
@@ -1146,8 +1288,8 @@ mod render_frame_poison {
 #[test]
 fn the_render_frame_sweep_actually_catches_a_write_from_outside_the_sim() {
     let mut sim = sim_with_a_stopped_clock();
-    let type_name = std::any::type_name::<render_frame_poison::WrittenOffTheSimSchedule>()
-        .to_string();
+    let type_name =
+        std::any::type_name::<render_frame_poison::WrittenOffTheSimSchedule>().to_string();
     sim.world_mut()
         .insert_resource(render_frame_poison::WrittenOffTheSimSchedule::default());
 

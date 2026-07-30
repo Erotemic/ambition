@@ -60,7 +60,7 @@
       "note": "Both halves required. Standalone alone proves nothing about identity.",
       "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all — the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
       "what_would_prove_it": "An in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` standalone AND alongside another module, with content and rollback-schema identities compared across the two compositions by a TEST. The second half is blocked on module-qualified namespaces, which ADR 0032 defers.",
-      "blocked_on": "module-qualified namespaces. ⚠ This is the evidence that the deferral has a COST and what the cost is — which is what the deferral was waiting for. A namespace scheme designed before the collision would have been a guess; the collision now exists and is reproducible.",
+      "blocked_on": "multi-experience composition — the same gap as `ambition-itself`, and the measurement is above. Module-qualified namespaces are the CONTENT half of it; the COMPOSITION half is that a draft cannot hold two experiences at all, which is the part that blocks both rows.",
       "standalone_half": {
         "proven": true,
         "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
@@ -85,7 +85,9 @@
       "proven": false,
       "proof": null,
       "slice": null,
-      "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule."
+      "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule.",
+      "measured": "⚠ BLOCKED ON THE SAME GAP AS ROW 4, measured 2026-07-30: `ModuleDraft` holds exactly ONE experience, and the shipped host registers FOUR (Ambition, Mary-O, Sanic, Pocket). So `PlatformerApp` cannot express a multi-experience host at all. The SHELL is not the limitation — `ShellRouteCatalog` and `ShellExperienceRegistry` already hold many, and `game/ambition_app` composes them today by hand. The limitation is the draft's single-owner `claim`, written in slice A when one experience was the only case anyone had.",
+      "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots, with its four experiences intact and reachable. Needs multi-experience composition first."
     }
   ]
 }

@@ -7,13 +7,12 @@
     "ratchet from 18 to 1 by a technique that works exactly once per mirrored",
     "crate: curate a closed module, migrate, prune. Everything below is a",
     "different shape, and the temptation to keep applying the technique is the",
-    "thing §3a's ranking exists to overrule."
+    "thing §3a's ranking exists to overrule.",
+    "⚠ SHARPENED 2026-07-30, after measuring the shipped host: TWO remaining matrix rows (module-standalone-and-embedded, ambition-itself) are blocked on ONE gap — a draft holds one experience, the shipped app has four. That is a better-grounded selection than the footprint experiment and it was found by trying the row rather than planning it."
   ],
-
   "derived": true,
   "derived_on": "2026-07-30",
   "from_slice": "C",
-
   "ranked_candidates": [
     {
       "leak": "no module has been proven to stand up STANDALONE and EMBEDDED with the same identities",
@@ -49,7 +48,6 @@
       "route": "3b: rides alongside every slice. Re-run at the end of each; the run names its own next fix."
     }
   ],
-
   "slice_d": {
     "name": "one module, standalone and embedded",
     "one_leak": "nothing proves a module composes WITH another module — `mount()` is claimed to be a merge with conflict detection rather than an ordering, and that claim has never had two modules put to it.",
@@ -76,9 +74,15 @@
       "a genuine conflict (two modules claiming one experience id) is refused, naming both claimants — the `claim` path finally exercised by two real modules;",
       "the module gets its own allowlist ratchet with a measured baseline, like every consumer before it;",
       "§2 re-collected, slice E derived."
-    ]
+    ],
+    "sharpened": {
+      "on": "2026-07-30",
+      "finding": "`ModuleDraft` is single-experience; `game/ambition_app` registers four experience plugins. The shell already supports many — `ShellRouteCatalog` and `ShellExperienceRegistry` hold them and the app composes them by hand today — so this is a limitation of the DRAFT, introduced in slice A when one experience was the only case that existed.",
+      "why_it_reshapes_D": "D was 'one module, standalone and embedded'. The embedded half is not a content or namespace problem first — it is that two experiences cannot coexist in a composition at all. Namespaces are the content half of the same gap and matter only once the composition half exists.",
+      "what_D_becomes": "Multi-experience composition: a draft that holds several experiences, each owning its own routes, with `claim` conflicts scoped PER EXPERIENCE rather than globally. Proven by `game/ambition_app` — the one consumer that already needs it and is currently the reason the campaign cannot reach its own terminal condition.",
+      "how_it_was_found": "By attempting row 4 instead of planning it. The two-module conflict test was written to check ADR 0032's merge claim; it passed, and its passing is what exposed that the merge cannot include two experiences. A slice chosen from the roadmap would have said 'namespaces'."
+    }
   },
-
   "convergence_check": {
     "note": "§6: every slice must strictly reduce at least one of five counters. Slice C reduced three.",
     "forbidden_paths_named_by_a_consumer": "Outlander 7 -> 1; minimal_game 2 -> 0",

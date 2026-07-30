@@ -53,6 +53,7 @@ pub(super) fn test_world() -> World {
 }
 
 mod ability_gates;
+mod adhesive_crawler;
 mod blast_zone;
 mod blink;
 mod c4_reaction_seams;

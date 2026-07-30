@@ -650,7 +650,7 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
         ..CrawlerParams::default()
     });
     let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
-    let body_thick = scratch.kinematics.size.y * 0.5;
+    let half = scratch.kinematics.size * 0.5;
 
     let mut seen: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
     for _ in 0..2000 {
@@ -668,20 +668,28 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
             continue;
         };
         seen.insert((normal.x.round() as i32, normal.y.round() as i32));
-        // Seated: the body sits ~half a thickness off the clung face, for
-        // EVERY face — the seat rule is basis-relative, not a floor special
-        // case. (The face coordinate along the normal axis.)
+        // Seated: the body sits half its OWN extent along that face's normal off
+        // the face — the seat rule is basis-relative, not a floor special case.
+        //
+        // ⚠ That expectation used to read `size.y * 0.5` for all four faces,
+        // which is a floor special case wearing the words of a general rule: the
+        // AABB does not rotate with the attachment, so on a VERTICAL face the
+        // standoff is the body's half-WIDTH. For this 24 x 16 body the old
+        // expectation put the centre 8 px off a wall while the body reaches 12 px
+        // — the crawler was seated 4 px INSIDE the island it was clinging to, and
+        // this test asserted that it should be.
         let pos = scratch.kinematics.pos;
-        let face_coord = match (normal.x.round() as i32, normal.y.round() as i32) {
-            (0, -1) => 600.0 - pos.y, // top face: distance above y=600
-            (1, 0) => pos.x - 600.0,  // right face at x=600
-            (0, 1) => pos.y - 800.0,  // underside at y=800
-            (-1, 0) => 400.0 - pos.x, // left face at x=400
+        let (face_coord, want) = match (normal.x.round() as i32, normal.y.round() as i32) {
+            (0, -1) => (600.0 - pos.y, half.y), // top face: distance above y=600
+            (1, 0) => (pos.x - 600.0, half.x),  // right face at x=600
+            (0, 1) => (pos.y - 800.0, half.y),  // underside at y=800
+            (-1, 0) => (400.0 - pos.x, half.x), // left face at x=400
             other => panic!("unexpected attachment normal {other:?}"),
         };
         assert!(
-            (face_coord - body_thick).abs() <= 2.0,
-            "seated {face_coord:.2}px off the {normal:?} face (want ~{body_thick})"
+            (face_coord - want).abs() <= 2.0,
+            "seated {face_coord:.2}px off the {normal:?} face (want ~{want}); \
+             a body seated closer than its own extent is INSIDE the geometry"
         );
         if seen.len() == 4 {
             break;

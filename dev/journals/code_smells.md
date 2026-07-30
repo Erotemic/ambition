@@ -1267,3 +1267,93 @@ test-harness extraction under a red suite is how a fix stops being reviewable.
 Transferable: when a bug is found in a file that has a twin, the SECOND question
 is "where is the other copy" — and if the answer is a feature-gated target, the
 suite you have been reading does not cover it.
+
+## A crawler's collision box does not rotate with its attachment (2026-07-29)
+
+Found while measuring puppy-slug motion in the sandbox `vertical_shaft` (Jon:
+"they get stuck on corners and jerk around wildly"). Two real defects came out
+and are fixed; a third is a DESIGN decision and is left open here.
+
+The crawler is glued to a surface, so it has a surface frame — but
+`BodyKinematics::size` is a world-axis AABB that never changes. So "how long is
+the body along the surface" and "how thick is it across the surface" are
+questions about the SURFACE, and `adhesive_crawler` read them off the world axes
+(`size.x`, `size.y`) once per tick and used them for probes about faces pointing
+every direction. Right on floors and ceilings, transposed on every vertical face.
+Fixed by `body_extents_for`, which resolves both against the face being probed.
+
+What stays open: even with the extents right, a non-rotating 48 x 22 box cannot
+lie along BOTH faces of a 90° convex corner — the two placements share no
+position — so a wrap must move the centre by roughly `half.x - half.y` per axis.
+Measured 25 px in one tick against a 0.67 px crawl step. `movement::tests::
+adhesive_crawler::a_slug_wrapping_a_ledge_end_pivots_once_and_keeps_going` bounds
+it at 26 px and says why, so it guards a regression without claiming the pop is
+gone. The three candidate cures are a choice about the character, not a bug fix:
+
+* orient the crawler's collision volume by its attachment (the SPRITE already
+  rotates to the surface normal — `FeatureView::rotation_rad` — so the art and
+  the box currently disagree on a wall, which is its own latent smell);
+* give crawlers a square-ish body, making the pivot small;
+* spread the transit across several ticks as an animation.
+
+Transferable, and the reason this sat unseen: **every assertion that existed
+passed.** The slug was in the world, on a surface, at plausible coordinates, with
+plausible velocity, every tick. Worse, `the_crawler_circumnavigates_an_island_
+gluing_to_all_four_faces` asserted the WRONG seat — its doc says "basis-relative,
+not a floor special case" while its expectation was `size.y * 0.5` for all four
+faces, i.e. the floor special case in the words of the general rule. It was green
+while the crawler sat 4 px inside the island it clung to. A test can encode the
+bug it is named for; when a fix turns one red, read its expectation before its
+subject.
+
+The instrument that found all of it is `motion_quality`: per-tick positions in,
+jerk / reversals / straightness out. It is character-agnostic on purpose — the
+same measurement applies to any body in any situation, and the flat-ground
+baseline is what exposed the worst of it (a permanent 0.5 px, 30 Hz shimmer under
+EVERY slug at all times, from a seat the integer probe march could never reach).
+
+⚠ Follow-up in the same family, deliberately NOT changed here: `crawl_chain` seats
+against a `SurfaceChain` with a bare `size.y * 0.5` too, so an oblique or vertical
+chain segment transposes the standoff exactly as the block path did.
+`body_extents_for` generalizes correctly to an oblique normal (its projection sum
+is the AABB extent that clears the surface), so the fix is one call — but it moves
+the expectation of `the_crawler_circumnavigates_a_rotated_chain_island`, and the
+shaft that prompted this report is IntGrid geometry with no chains. Doing both in
+one change would have meant two oracles moving for reasons a reader has to
+untangle.
+
+## Puppy-slug CONTACT is wrong, and the crawler's unrotated box is the suspect (2026-07-29)
+
+Reported by Jon (2026-07-29) after the crawl-motion fixes above landed: slug MOTION
+now reads correctly, but their CONTACT does not. Flagged, not attacked — recorded
+here with the candidate mechanisms so whoever picks it up starts from the code
+rather than from scratch. **None of these is confirmed; the symptom was observed,
+not yet diagnosed.**
+
+⚠ **First, a fact about the fix that landed, not a theory:** seating is now exact,
+so a slug clinging to a VERTICAL face sits `half.x` (24 px) off it instead of
+`half.y` (11 px) — it used to be 13 px INSIDE the wall. Slug positions on every
+vertical face therefore moved outward by 13 px, and anything that resolves contact
+by overlap legitimately behaves differently there now. Whether the reported contact
+bug predates that change is unverified, and answering it is the first step: check a
+slug on a FLOOR (where the fix moved nothing) against one on a wall.
+
+Candidate mechanisms, in the order they are worth checking:
+
+* **the collision box does not rotate with the attachment.** `kinematics.size`
+  stays 48 x 22 in WORLD axes whatever the slug is clung to, while the sprite
+  rotates to the surface normal (`FeatureView::rotation_rad`). On a vertical face
+  the drawn slug is vertical and its hurtbox is horizontal — they disagree by 90°,
+  so contact fires from the wrong side and at the wrong reach. This is the same
+  root as the open convex-pivot item above, which is why fixing that one properly
+  (orient the volume by the attachment) would likely close both.
+* **the stomp classifier's notion of "on top of".** Resting on a head IS a stomp
+  and there is ONE authority for it, but "top" is a world-axis face; a crawler on a
+  wall has no world-axis top that corresponds to its own up. Worth reading
+  `stomp.rs` against a wall-clung slug specifically.
+* **`publish_attachment_contact`'s point.** It is now frame-relative (it was
+  `size.y * 0.5` unconditionally), so the contact point moved on vertical faces
+  too — correctly, but it moved.
+
+Transferable: a motion fix that changes where a body SITS is a contact change,
+whether or not that was the intent. Say so in the same breath as the fix.

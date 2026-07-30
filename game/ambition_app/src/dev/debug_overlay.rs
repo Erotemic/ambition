@@ -108,6 +108,11 @@ pub(crate) fn draw_debug_overlay(
             Option<&ambition::characters::actor::BodyHealth>,
             &ambition::actors::actor::BodyMelee,
             &ambition::characters::actor::WornCharacter,
+            // The frame-clock position the sprite is drawn at. The overlay must
+            // sample the SAME clock as the camera it is drawn through, or the box
+            // shakes against a world that looks perfectly stable — see
+            // `draw_player_debug`'s `draw_pos`.
+            Option<&ambition::sim_view::PresentedPose>,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -141,14 +146,26 @@ pub(crate) fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((player_entity, mut cluster_item, motion_model, player_health, attack, worn_character)) =
-        player_q.single_mut()
+    let Ok((
+        player_entity,
+        mut cluster_item,
+        motion_model,
+        player_health,
+        attack,
+        worn_character,
+        presented,
+    )) = player_q.single_mut()
     else {
         return;
     };
     // Both debug-overlay helpers (`draw_player_debug`,
     // `draw_health_bars`) take cluster refs directly.
     let clusters = cluster_item.as_clusters_mut();
+    // Where the body is DRAWN this frame. Falls back to the tick pose when there
+    // is no history yet (the frame the body first appears), exactly as every other
+    // body-anchored visual does.
+    let player_draw_pos =
+        presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
@@ -190,6 +207,7 @@ pub(crate) fn draw_debug_overlay(
         &feature_q.authored_attack_volumes,
         worn_character.id(),
         &clusters,
+        player_draw_pos,
         motion_model,
         &platform_set.0,
         attack.swing.as_ref(),

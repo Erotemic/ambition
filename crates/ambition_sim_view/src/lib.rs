@@ -49,6 +49,7 @@ pub use pose_view::{
 };
 pub use presented_pose::{
     PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
+    PresentedPoseStage,
 };
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,

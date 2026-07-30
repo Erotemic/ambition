@@ -489,11 +489,25 @@ impl Plugin for DebugVizPlugin {
             // may still opt in explicitly for a dedicated diagnostic build.
             dev_state.debug = start_enabled;
         });
+        // `.after(PresentedPoseSet)`: the overlay draws bodies and features at
+        // their PRESENTED positions, so the resample must have happened first.
+        //
+        // Without the edge this system merely CONFLICTED with the resample (it
+        // reads `PresentedPose`, the resample writes it), and Bevy answers a
+        // conflict by choosing an order — stably, and in this case stably wrong.
+        // The box was drawn from last frame's presented pose while the camera it
+        // is drawn through had already advanced to this frame's, so the two
+        // disagreed by one frame of motion, every frame: the collision box
+        // visibly shook while the sprite beside it sat still. That is a missing
+        // ordering edge, not a smoothing problem, and no amount of correct
+        // extrapolation upstream could have fixed it.
         app.add_systems(
             Update,
             (
                 toggle_debug_viz,
-                draw_debug_viz.run_if(session_world_exists),
+                draw_debug_viz
+                    .after(ambition_sim_view::PresentedPoseSet)
+                    .run_if(session_world_exists),
             )
                 .chain(),
         );

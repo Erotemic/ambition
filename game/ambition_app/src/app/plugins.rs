@@ -736,6 +736,13 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
             ambition::render::rendering::projectile_visuals::sync_projectile_charge_visuals
                 .after(ambition::runtime::projectile_schedule::step_projectiles),
         )
+            // Both passes hang art off the PRESENTED body pose (the charge orb
+            // tracks the hand; a projectile's origin tracks the firer), so the
+            // frame-clock resample must already have run. Without this edge they
+            // read last frame's presented pose while the camera is on this one,
+            // and the art shears away from the body it belongs to by a frame of
+            // motion — the same missing-edge shape as the debug collision box.
+            .after(ambition::sim_view::PresentedPoseSet)
             .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
     // VFX + debris subscribe on the visible binary only. Audio's

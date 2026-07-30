@@ -100,14 +100,17 @@ impl Plugin for AmbitionRollbackPlugin {
             .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize));
 
         // Publish the rollback host's intra-tick phase for the presented-pose
-        // layer. Same set, same consumer, same ordering as the fixed-tick
-        // sampler `ambition_sim_view` installs for itself — only the clock's
-        // hiding place differs.
+        // layer. Same set as the fixed-tick sampler `ambition_sim_view` installs
+        // for itself — only the clock's hiding place differs.
+        //
+        // Joining `SamplePhase` is the whole contract: the set is ordered before
+        // every resampler by the owning plugin. This used to name ONE resampler
+        // with a `.before`, which silently left the feature/actor poses racing
+        // the phase they were supposed to be resampled against.
         app.add_systems(
             Update,
             sample_ggrs_accumulator_phase
-                .in_set(ambition_sim_view::PresentedPoseSet)
-                .before(ambition_sim_view::presented_pose::advance_presented_body_poses),
+                .in_set(ambition_sim_view::presented_pose::PresentedPoseStage::SamplePhase),
         );
 
         // Ambition's gameplay schedule is composed from explicit ordered phase

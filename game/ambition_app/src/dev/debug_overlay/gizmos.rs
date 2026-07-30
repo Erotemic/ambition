@@ -263,6 +263,23 @@ pub(crate) fn draw_player_debug(
     authored_attack_volumes: &ambition::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
     clusters: &ae::BodyClustersMut<'_>,
+    // **Where the body is DRAWN this frame** — the frame-clock presented
+    // position, not `clusters.kinematics.pos`.
+    //
+    // The overlay is drawn through a camera that eases every RENDERED frame,
+    // while the cluster pose advances only on SIM TICKS. Placing the box at the
+    // tick pose therefore makes it a step function sampled by a smoothly moving
+    // observer: the box shakes at the tick rate while the simulation behind it is
+    // perfectly regular, and while the SPRITE beside it — which does read the
+    // presented pose — sits still. Reported by Jon (2026-07-29) as the player
+    // collision box stuttering; the engine's own `draw_debug_viz` had already
+    // been moved onto this clock, and this richer app-side overlay had not.
+    //
+    // It costs no truthfulness. The box's size, shape, and relationship to the
+    // art are unchanged — only its sub-tick sampling phase now matches its
+    // viewer's. `PresentedPose::authoritative` is still there for an overlay that
+    // deliberately wants to SHOW the extrapolation lead.
+    draw_pos: ae::Vec2,
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
     motion_model: &ae::MotionModel,
@@ -274,7 +291,9 @@ pub(crate) fn draw_player_debug(
     gravity_dir: ae::Vec2,
     labels: &mut DebugOverlayLabels,
 ) {
-    let pos = clusters.kinematics.pos;
+    // Everything this function PLACES rides the frame clock; the facts it
+    // reports (velocity, stance, contacts) still come from the clusters.
+    let pos = draw_pos;
     let vel = clusters.kinematics.vel;
     let size = clusters.kinematics.size;
     let facing = clusters.kinematics.facing;
@@ -289,7 +308,10 @@ pub(crate) fn draw_player_debug(
     // parallel computation that could drift. Identity under vertical gravity.
     let body = ambition::actors::features::collision_aabb(
         &ambition::actors::features::SimpleActorGeometry {
-            pos: clusters.kinematics.pos,
+            // The presented centre, with the size/facing/frame the sim published:
+            // the shared-geometry guarantee above is about the SHAPE, and moving
+            // the centre onto the render clock leaves that untouched.
+            pos,
             size: clusters.kinematics.size,
             facing: clusters.kinematics.facing,
             frame_down: gravity_dir,

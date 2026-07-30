@@ -41,6 +41,7 @@ pub mod geometry;
 pub mod input_stream;
 pub mod kinematic_path;
 pub mod ledge_grab;
+pub mod motion_quality;
 pub mod movement;
 pub mod player_state;
 pub mod reference_frame;

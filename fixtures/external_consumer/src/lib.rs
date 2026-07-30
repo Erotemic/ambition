@@ -26,11 +26,7 @@
 use bevy::prelude::*;
 
 use ambition::world::prelude::*;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
-};
-use ambition::runtime::PreparedPlatformerSource;
+use ambition::world::rooms::RoomSet;
 
 /// This fixture's OWN asset tree — `fixtures/external_consumer/assets`.
 ///
@@ -282,18 +278,14 @@ pub fn install_outlander_content(app: &mut App) {
             |spec| sentry_spawn_requests(spec.world.spawn),
         )
         .expect("sentry staging registration is unique");
-    // DELIBERATE SILENCE, declared. Preparation validation refuses an
-    // experience whose provider registered no explicit audio fragment
-    // ("provider registered no explicit audio fragment" — a good message that
-    // a headless host surfaced NOWHERE; recorded in the Phase-6 error-quality
-    // account). The empty fragment is the declaration.
-    {
-        use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-        app.register_audio_catalog_fragment(
-            AudioCatalogFragment::new(OUTLANDER_EXPERIENCE, None, None)
-                .expect("the silent Outlander audio fragment is valid"),
-        );
-    }
+    // DELIBERATE SILENCE used to be declared HERE, by hand-registering an empty
+    // `AudioCatalogFragment`, because preparation validation refuses an
+    // experience whose provider registered none — "a good message that a
+    // headless host surfaced NOWHERE".
+    //
+    // Both halves are closed now. The refusal is legible (slice C gave it
+    // `HostStatus::Refused`), and the declaration is a word on the draft:
+    // `no_audio()`. See §host.
 }
 
 // ── §authority ──────────────────────────────────────────────────────────────
@@ -357,7 +349,7 @@ impl ambition::runtime::rollback::SnapshotState for BeaconCharge {
 /// tick must add exactly what the original tick added, and wall-clock dt does
 /// not repeat.
 pub fn beacon_charge_system(
-    time: Res<ambition::time::WorldTime>,
+    time: Res<ambition::sim::WorldTime>,
     mut bodies: Query<
         (
             &ambition::actor::BodyKinematics,
@@ -475,15 +467,11 @@ impl Plugin for OutlanderExperiencePlugin {
                 "outlander.beacon_charge",
             );
         }
-        PlatformerExperienceAuthoring::new(
-            OUTLANDER_EXPERIENCE,
-            OUTLANDER_GAMEPLAY_ROUTE,
-            "Outlander",
-            "External-consumer architecture proof",
-            "Prepare Outlander",
-            AuthoredCatalogFragments::new(OUTLANDER_CHARACTER_ID, OUTLANDER_EXPERIENCE),
-        )
-        .install(app, outlander_prepared_session_world);
+        // The experience used to be assembled HERE — `PlatformerExperienceAuthoring`
+        // wrapped around a hand-built `PreparedPlatformerSource`, six arguments
+        // of engine vocabulary in a third party's file. `ModuleDraft::playable`
+        // took ownership of that in slice B; Outlander is migrated onto it in
+        // slice C. See §host.
     }
 }
 
@@ -530,6 +518,16 @@ impl ambition::app::GameModule for OutlanderModule {
             .launcher_route(OUTLANDER_LAUNCHER_ROUTE)
             .gameplay_route(OUTLANDER_GAMEPLAY_ROUTE)
             .room(outlander_room().metadata)
+            // Declared silence, on the draft — Outlander authors no sound and
+            // now has a word for saying so.
+            .no_audio()
+            .playable(
+                "Outlander",
+                "External-consumer architecture proof",
+                OUTLANDER_CHARACTER_ID,
+                OUTLANDER_ROOM_ID,
+                vec![outlander_room()],
+            )
             .capability(OutlanderExperiencePlugin);
     }
 }
@@ -651,12 +649,12 @@ pub fn build_windowed_app(gpu: bool) -> App {
 /// running its game under both hosts had to know both, and writing the wrong one
 /// is silently ignored: the walk runs, the body never moves, nothing says why.
 /// That is a rule the engine can state once, and now does
-/// (`ambition::runtime::rollback::drive_control_frame`).
+/// (`ambition::sim::drive_control_frame`).
 ///
 /// Kept as a one-line wrapper rather than deleted, because the binaries and the
 /// walkthrough all call it and the name says what it is FOR.
-pub fn drive_control_frame(app: &mut App, frame: ambition::input::ControlFrame) {
-    ambition::runtime::rollback::drive_control_frame(app.world_mut(), frame);
+pub fn drive_control_frame(app: &mut App, frame: ambition::sim::ControlFrame) {
+    ambition::sim::drive_control_frame(app.world_mut(), frame);
 }
 
 /// What the acceptance walk proved, for the binary to print and tests to pin.
@@ -739,26 +737,20 @@ pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
         // Name where the shell actually got stuck — the difference between
         // "misconfigured route", "preparation never finished", and "activated
         // into the wrong room" is the whole diagnosis.
+        //
+        // This used to reach into `ShellRouter` and `ActiveGameplaySession`
+        // directly and format their fields by hand. `ambition::app::host_status`
+        // is the supported answer now, and it says strictly more: a REFUSED host
+        // carries the reasons preparation rejected it, which is exactly the
+        // state this fixture's hand-rolled version reported as "pending: true"
+        // and left the reader to guess about.
+        let status = ambition::app::host_status(app);
+        let router = format!("{status:?}");
+        let session = match &status {
+            ambition::app::HostStatus::Running { prepared, .. } => prepared.to_string(),
+            _ => "no active session".to_string(),
+        };
         let world = app.world_mut();
-        let router = world
-            .get_resource::<ambition::game_shell::ShellRouter>()
-            .map(|router| {
-                format!(
-                    "initialized: {}, active route: {:?}, pending: {}, prepared session: {:?}",
-                    router.is_initialized(),
-                    router.active.as_ref().map(|active| active.route_id.clone()),
-                    router.pending.is_some(),
-                    router
-                        .active
-                        .as_ref()
-                        .map(|active| active.prepared_session.is_some()),
-                )
-            })
-            .unwrap_or_else(|| "<no ShellRouter resource>".to_string());
-        let session = world
-            .get_resource::<ambition::game_shell::ActiveGameplaySession>()
-            .map(|session| format!("{:?}", session.0.is_some()))
-            .unwrap_or_else(|| "<no ActiveGameplaySession resource>".to_string());
         let mut rooms = world.query::<&RoomSet>();
         let active_rooms: Vec<String> = rooms
             .iter(world)
@@ -786,7 +778,7 @@ fn walk_outlander_to_the_ledge(
     for tick in 0..1200 {
         drive_control_frame(
             app,
-            ambition::input::ControlFrame {
+            ambition::sim::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
             },
@@ -838,17 +830,10 @@ fn walk_outlander_to_the_ledge(
     })
 }
 
-/// The provider's authored source for the shared preparation lifecycle.
-fn outlander_prepared_session_world() -> PreparedPlatformerSource {
-    let room = outlander_room();
-    let geometry = RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
-    PreparedPlatformerSource::new(
-        OUTLANDER_EXPERIENCE,
-        RoomSet::from_parts(OUTLANDER_ROOM_ID, vec![room], Vec::new()),
-        geometry,
-        metadata,
-        StartingCharacter::new(OUTLANDER_CHARACTER_ID),
-        LdtkRuntimeIndex::default(),
-    )
-}
+// The provider's authored source for the shared preparation lifecycle.
+// `outlander_prepared_session_world` stood here: RoomSet, RoomGeometry,
+// ActiveRoomMetadata, StartingCharacter and LdtkRuntimeIndex assembled by hand
+// out of `ambition::runtime::demo_fixture`. A module named `demo_fixture` in a
+// shipped game's imports was the namespace mirror confessing.
+//
+// DELETED 2026-07-30. `ModuleDraft::playable` assembles it.

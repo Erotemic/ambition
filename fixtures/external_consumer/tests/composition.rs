@@ -141,8 +141,14 @@ fn a_declared_route_no_capability_registers_is_refused() {
         reported.contains("ghost/gameplay"),
         "the refusal must name the route that does not exist; got {reported:?}"
     );
+    // ⚠ The route named as available is the LAUNCHER, not the gameplay route,
+    // and that changed under this test rather than being got wrong once.
+    // Since slice C, `playable()` is what registers a gameplay route; this
+    // module never calls it, so the only registered route is the one
+    // `ShellComposition` installs. Asserting on the gameplay route here would
+    // be asserting that a thing this module never declared exists anyway.
     assert!(
-        reported.contains(outlander::OUTLANDER_GAMEPLAY_ROUTE),
+        reported.contains(outlander::OUTLANDER_LAUNCHER_ROUTE),
         "the refusal must list the routes that DO exist, or it is a puzzle \
          rather than a fix; got {reported:?}"
     );

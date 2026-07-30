@@ -51,7 +51,7 @@ fn main() {
     // `PreparedContent` is not a bare resource — the provider lifecycle owns
     // it per prepared route, so a dump BEFORE launch reports the authored
     // catalog registry instead (the pre-preparation truth).
-    match world.get_resource::<ambition::provider::PlatformerAuthoredCatalogRegistry>() {
+    match world.get_resource::<ambition::character::PlatformerAuthoredCatalogRegistry>() {
         Some(authored) => println!("{}", authored.deterministic_dump()),
         None => missing.push("PlatformerAuthoredCatalogRegistry"),
     }

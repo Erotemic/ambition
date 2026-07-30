@@ -555,15 +555,21 @@ MODULE_ALLOWLISTS: list[dict] = [
         # in one, its runtime load state in another, its art in a third, its
         # brain in a fourth — because those are the engine's internal
         # boundaries and the facade published them.
-        "baseline": {
-            "asset_manager",
-            "audio",
-            "game_shell",
-            "input",
-            "provider",
-            "runtime",
-            "time",
-        },
+        # ⚠ 18 -> 1 across slices A-C. What is left is `ambition::runtime`, and
+        # every one of its ten uses is `rollback::*`.
+        #
+        # It stays. ADR 0031's Deferred section is explicit that rollback as a
+        # public knob is "a far larger promise than a clock — frozen schema,
+        # complete authoritative baseline, stable participants, deterministic
+        # activation, lifecycle rebasing, confirmation boundaries", with its own
+        # slice and its own acceptance tests. Curating it into
+        # `ambition::rollback` would make exactly that promise through the back
+        # door, and the ratchet reaching zero is not a good enough reason to
+        # make a promise the campaign deliberately deferred.
+        #
+        # This is the one entry that must NOT be closed by the technique that
+        # closed the other seventeen.
+        "baseline": {"runtime"},
         "reason": (
             "A game depends on `ambition`, and `ambition` is currently the list "
             "of crates the engine happens to be built from — so a consumer's "

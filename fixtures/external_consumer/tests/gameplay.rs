@@ -123,14 +123,14 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 
     let catalog = app
         .world()
-        .get_resource::<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>()
+        .get_resource::<ambition::view::SandboxAssetCatalog>()
         .expect(
             "the plugin did not install a SandboxAssetCatalog, so every asset path \
              policy the presentation reads is missing",
         );
     assert!(
         catalog
-            .path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank())
+            .path_for(&ambition::view::ids::sfx_bank())
             .is_some(),
         "the installed catalog resolves no paths at all, so it was built from \
          nothing — the composition-order failure this plugin is supposed to make \

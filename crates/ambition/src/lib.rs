@@ -104,6 +104,10 @@ pub mod character {
     /// Registering a roster archetype (the enemy half of a cast).
     pub use ambition_actors::features::CharacterRosterAppExt;
 
+    /// What providers have authored, for a game that wants to inspect its own
+    /// content before a session exists.
+    pub use ambition_platformer_provider::PlatformerAuthoredCatalogRegistry;
+
     /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
     /// tests, procedural generation, unrepresentable schemas, and a cast whose
     /// behavior is supplied by host code as a deliberate authoring choice.
@@ -132,6 +136,20 @@ pub mod sim {
     pub use ambition_platformer_primitives::schedule::{
         GameMode, SandboxSet, SimSchedule, SimScheduleExt,
     };
+
+    /// Simulation time. Not wall time — a game reads the clock the sim advances.
+    pub use ambition_time::WorldTime;
+
+    /// One frame of input, and the one seam that delivers it.
+    ///
+    /// ⚠ `drive_control_frame` lives in `ambition_runtime::rollback` and that is
+    /// where a consumer used to reach for it — which meant driving INPUT
+    /// required naming the ROLLBACK module even on a fixed-tick host. It is
+    /// re-exported here because it is a simulation seam, not a rollback one:
+    /// its whole purpose (LEAK CLOSED 2026-07-27) is that a consumer no longer
+    /// has to know which host it is on.
+    pub use ambition_input::ControlFrame;
+    pub use ambition_runtime::rollback::drive_control_frame;
 }
 
 /// **What is drawn, as a game observes it.**
@@ -143,6 +161,10 @@ pub mod view {
 
     /// The decoded art the presentation draws from.
     pub use ambition_sprite_sheet::game_assets::GameAssets;
+
+    /// Where the art comes from: every asset path/source policy the
+    /// presentation reads.
+    pub use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 }
 
 /// **The authored world: rooms, geometry, placements, collision.**

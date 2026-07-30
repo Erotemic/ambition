@@ -60,7 +60,14 @@
       "note": "Both halves required. Standalone alone proves nothing about identity.",
       "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all — the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
       "what_would_prove_it": "An in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` standalone AND alongside another module, with content and rollback-schema identities compared across the two compositions by a TEST. The second half is blocked on module-qualified namespaces, which ADR 0032 defers.",
-      "blocked_on": "module-qualified namespaces. ⚠ This is the evidence that the deferral has a COST and what the cost is — which is what the deferral was waiting for. A namespace scheme designed before the collision would have been a guess; the collision now exists and is reproducible."
+      "blocked_on": "module-qualified namespaces. ⚠ This is the evidence that the deferral has a COST and what the cost is — which is what the deferral was waiting for. A namespace scheme designed before the collision would have been a guess; the collision now exists and is reproducible.",
+      "standalone_half": {
+        "proven": true,
+        "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
+        "why_it_matters": "Sanic PREDATES the SDK. Outlander and the minimal game were written or rewritten against `ambition::app`; Sanic was not, and it carries presentation profiles, a declared HUD, music, procedural SFX and packed SFX. It is the closest thing to an independent consumer available, which is what §4's carve decision needs — a footprint measured only against games the API author designed answers a weaker question.",
+        "what_it_says_about_playable": "Sanic mounts as a `capability`, not through `playable()`, because `playable` carries no presentation profiles or HUD declaration. That is recorded as evidence about where `playable` stops rather than patched by inventing parameters from one caller."
+      },
+      "no_ratchet_note": "⚠ Sanic gets NO allowlist ratchet, deliberately. The allowlist is scoped to `fixtures/` (Jon, 2026-07-30); extending it to `game/` would answer the deferred `ambition_content`-depends-on-the-facade question by accident, in a row about something else. In-tree consumers are measured when that question is actually taken."
     },
     {
       "id": "smash",

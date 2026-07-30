@@ -7,11 +7,9 @@
     "",
     "Read with api-growth-method.md §3a (rank), §3b (route), §3c (size), §4."
   ],
-
   "derived": true,
   "derived_on": "2026-07-30",
   "from_slice": "B",
-
   "ranked_candidates": [
     {
       "leak": "the engine knows why your game did not start and will not tell you",
@@ -27,8 +25,16 @@
       "cost": "HIGH and structural. 41 crates reachable from one declared dependency; 19 are menus, persistence, cutscenes, encounters, inventory UI, portals, projectiles, LDtk, settings menus, touch input. The consumer-matrix question is now ANSWERED — yes, a small game links all of it.",
       "closeable": "UNKNOWN, and that is the finding rather than an excuse. §4 authorises a carve when a footprint cannot be reduced WITHOUT moving code. This shows the footprint is large; it does not show it is irreducible, because FEATURE-GATING HAS NOT BEEN TRIED. The closure was measured from the workspace graph, which ignores features, so it is an upper bound.",
       "owned": "YES.",
-      "route": "3b: not-yet-known -> a cheap MEASUREMENT first, not a slice. Build the minimal game with `default-features = false` and re-measure. If the 19 drop, this is a documentation and defaults problem. If they do not, it becomes the strongest carve argument this campaign has produced, and §4's second terminal condition fires. ⚠ §4: 'do not let a single leak authorise a full decomposition' — carve exactly the boundary the leak names.",
-      "action": "queue as the first experiment of slice C, before its main work"
+      "route": "3b: measurement ran, and it ROUTED THE CANDIDATE AWAY from decomposition. Closeable + Owned -> a facade-optionality slice, candidate for D.",
+      "action": "queue as the first experiment of slice C, before its main work",
+      "experiment_result": {
+        "ran": "2026-07-30",
+        "finding": "39 of 39 direct `ambition_*` dependencies of the facade are UNCONDITIONAL. Zero are `optional = true`. `default = []` is cosmetic: the feature table gates behaviour flags, never the dependency edges.",
+        "verdict": "THE CARVE TRIGGER DOES NOT FIRE.",
+        "why": "§4 authorises an internal carve when a sentinel consumer's capability footprint cannot be reduced WITHOUT MOVING CODE BETWEEN CRATES. The footprint here is not irreducible — it has simply never been reduced. Making 19 dependency edges optional and gating their re-exports is entirely within the facade, moves no code, and is the obvious first attempt nobody has made. A decomposition argued on this evidence would have been arguing that a door is welded shut without trying the handle.",
+        "what_it_becomes_instead": "A facade optionality slice — cheap, contained, and measurable by the same instrument. If 19 optional features still cannot shrink the closure (because the re-exports are load-bearing through `ambition_actors`, which carries 27 direct ambition dependencies of its own), THAT result is the carve argument — and it will name the boundary instead of guessing at one.",
+        "why_this_matters_beyond_the_number": "This is the measurement overruling the appealing structural conclusion. 'A minimal game links 19 crates it never asked for' reads as proof that the monolith must be split, and ADR 0031 deferred exactly that split because 'the split designed today would fit today's INTERNAL topology'. One `grep optional` was the difference between an evidence-backed slice and weeks of refactor justified by a number nobody interrogated."
+      }
     },
     {
       "leak": "every game must register an empty audio fragment to declare silence",
@@ -55,7 +61,6 @@
       "route": "3b: needs its own derivation once the domain-module pattern from the row above exists. Attacking it before that pattern is chosen would produce fourteen ad-hoc decisions."
     }
   ],
-
   "slice_c": {
     "name": "make failure legible",
     "one_leak": "the engine validates a game's content, refuses it, and drops the reason — so a consumer sees a host that runs forever and does nothing.",
@@ -63,7 +68,8 @@
       "The footprint (19 unwanted crates) is the bigger STRUCTURAL finding and it is deliberately not slice C. §4 authorises a carve only when the footprint cannot be reduced without moving code, and nobody has tried features yet. Choosing a decomposition on an unmeasured premise is the exact failure ADR 0031 rejected when it deferred the `ambition_actors` split: 'the split designed today would fit today's INTERNAL topology.'",
       "So the feature experiment runs FIRST, inside slice C, as a measurement. It is cheap and it either dissolves the candidate or promotes it to the strongest carve argument the campaign has.",
       "Meanwhile the silent-failure leak is the highest-cost CLOSEABLE one by §3a's own arithmetic, and it is the leak that already cost this campaign a false 'proven' on a consumer-matrix row.",
-      "It is also a precondition for the blind-agent gate. §4.2 requires a run that opens NO engine file; an author who cannot find out why their game will not start WILL open engine files. Closing this is how that condition becomes reachable rather than aspirational."
+      "It is also a precondition for the blind-agent gate. §4.2 requires a run that opens NO engine file; an author who cannot find out why their game will not start WILL open engine files. Closing this is how that condition becomes reachable rather than aspirational.",
+      "⚠ RESOLVED 2026-07-30, and against the interesting answer: the experiment ran and the carve trigger does NOT fire. Zero of the facade's 39 direct ambition dependencies are optional, so the footprint is not irreducible — it is unreduced. See candidate 2's `experiment_result`."
     ],
     "not_in_this_slice": [
       "the ambition_actors decomposition, and any crate move at all",

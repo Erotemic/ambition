@@ -679,6 +679,61 @@ MODULE_ALLOWLISTS: list[dict] = [
     },
 ]
 
+# ── The campaign's SECOND ratchet: central rollback ownership ────────────────
+#
+# api-1.0-campaign.md §Ratchets specified this when the campaign was written and
+# it was never built. Slice F needs it, because federating rollback ownership
+# without a ratchet is a migration with nothing watching it.
+#
+# Same two invariants as the module allowlist, for the same reason:
+#
+#   1. current ⊆ frozen  — no NEW stable name or codec may enter the CENTRAL
+#                          registration. New domain state registers itself.
+#   2. frozen ⊆ current  — a name that has left must be PRUNED, or the baseline
+#                          is a budget and the vacated slot fills silently.
+#
+# ⚠ Frozen as a SET, never as a count. The campaign's own words: "Freezing only
+# the NUMBER of central rollback registrations permits deleting one and adding
+# another." Zero means `ambition_runtime` is no longer the implementation owner
+# of every domain's snapshot — the state
+# `impl SnapshotState for ambition_actors::…::MatchSeat` describes today.
+ROLLBACK_SCHEMA_BASELINE = (
+    "docs/planning/engine/slice-evidence/rollback-schema-baseline.json"
+)
+
+
+def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
+    """The stable schema names and codecs `ambition_runtime` owns today."""
+    registration = (
+        root / "crates/ambition_runtime/src/rollback/mod.rs"
+    ).read_text(errors="replace")
+    codecs = (
+        root / "crates/ambition_runtime/src/rollback/codecs.rs"
+    ).read_text(errors="replace")
+    return {
+        "stable_schema_names": sorted(
+            set(re.findall(r'"([a-z_]+\.[a-z_.]+)"', registration))
+        ),
+        "central_codecs": sorted(
+            set(re.findall(r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", codecs))
+        ),
+    }
+
+
+def rollback_schema_violations(root: Path) -> tuple[list[str], list[str]]:
+    """`new, stale` — invariant 1's breaches and invariant 2's."""
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    current = rollback_schema_usage(root)
+    new: list[str] = []
+    stale: list[str] = []
+    for key in ("stable_schema_names", "central_codecs"):
+        frozen = set(baseline[key])
+        live = set(current[key])
+        new.extend(f"{key}: {item}" for item in sorted(live - frozen))
+        stale.extend(f"{key}: {item}" for item in sorted(frozen - live))
+    return new, stale
+
+
 _LINE_COMMENT = re.compile(r"//.*$")
 _HASH_COMMENT = re.compile(r"#(?!\[).*$")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -1077,8 +1132,35 @@ def main() -> int:
             summary = "  ".join(f"{module}:{count}" for count, module in ranked)
             print(f"       still named — {summary}")
 
+    new, stale = rollback_schema_violations(root)
+    if not new and not stale:
+        baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+        print(
+            f"  ok   central-rollback-ownership-may-not-grow  "
+            f"({baseline['stable_schema_name_count']} stable names, "
+            f"{baseline['central_codec_count']} codecs still centrally owned)"
+        )
+    else:
+        broken += 1
+        print("  RED  central-rollback-ownership-may-not-grow")
+        print(
+            "       `ambition_runtime` is the implementation owner of every "
+            "domain's snapshot, and the campaign's second ratchet freezes that "
+            "SET so it can only shrink as ownership federates outward."
+        )
+        for item in new:
+            print(f"       NEW    {item} entered the CENTRAL registration")
+        for item in stale:
+            print(
+                f"       STALE  {item} left the central registration but is "
+                f"still in the baseline — PRUNE it in this commit"
+            )
+
     total = (
-        len(ABSENCE_CONTRACTS) + len(DEPENDENCY_CONTRACTS) + len(MODULE_ALLOWLISTS)
+        len(ABSENCE_CONTRACTS)
+        + len(DEPENDENCY_CONTRACTS)
+        + len(MODULE_ALLOWLISTS)
+        + 1
     )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")

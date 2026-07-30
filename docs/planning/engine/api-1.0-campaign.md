@@ -74,8 +74,15 @@ Three, identical in shape. Each lands **green against a recorded baseline**, so
 | Ratchet | Baseline | Invariant | Zero means |
 |---|---|---|---|
 | **Module allowlist violations** | every `ambition::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member, **and may not keep one the consumer stopped naming** | consumers name only the SDK |
-| **Central rollback registrations + codecs** | the current explicit set of stable schema names in `register_engine_rollback_state` and the codecs in `rollback/codecs.rs` | `current ⊆ frozen_legacy`; **no new stable name may enter** | rollback ownership is federated |
+| **Central rollback registrations + codecs** — **BUILT 2026-07-30**, baseline **319 stable names + 62 codecs** in `slice-evidence/rollback-schema-baseline.json` | the explicit set of stable schema names in `register_engine_rollback_state` and the `impl SnapshotState` blocks in `rollback/codecs.rs` | `current ⊆ frozen`, **and** `frozen ⊆ current` so a federating migration must prune | rollback ownership is federated |
 | **Undeleted compensating mechanisms** | ADR 0032's deletion criteria | the list may not gain a member | the seams took ownership |
+
+> ⚠ **This row cited the wrong file for three days.** It said "the codecs in
+> `rollback/codecs.rs`", and that file's `pub fn`s are four reconciliation
+> helpers — the codecs are its 65 `impl SnapshotState` blocks. Nobody re-read
+> the citation between writing it and building the ratchet against it, which is
+> precisely the class `check_roadmap_evidence.py` exists for and precisely what
+> `feedback_docs_describe_nonexistent_smell` warns about.
 
 ⚠ **A count is not a ratchet.** Freezing only the *number* of central rollback
 registrations permits deleting one and adding another. Freeze the **set**, by

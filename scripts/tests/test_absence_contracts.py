@@ -379,3 +379,96 @@ def test_the_allowlist_baseline_is_not_silently_empty(contract):
         "campaign is over, or the instrument is broken — check the second one "
         "first."
     )
+
+
+# ── The central-rollback-ownership ratchet ──────────────────────────────────
+
+from check_absence_contracts import (  # noqa: E402
+    ROLLBACK_SCHEMA_BASELINE,
+    rollback_schema_usage,
+    rollback_schema_violations,
+)
+
+
+def test_the_rollback_ratchet_holds_against_the_live_tree():
+    root = Path(__file__).resolve().parents[2]
+    new, stale = rollback_schema_violations(root)
+    assert not new and not stale, f"new={new} stale={stale}"
+
+
+def test_the_rollback_ratchet_is_not_silently_empty():
+    """A measurement bug reads exactly like a finished federation.
+
+    If the extraction stopped matching — a moved file, a changed spelling — both
+    invariants pass and the campaign's second ratchet reports ZERO centrally
+    owned schema, which is its SUCCESS condition. Green in the direction that
+    feels good, so it is asserted.
+    """
+    root = Path(__file__).resolve().parents[2]
+    current = rollback_schema_usage(root)
+    assert len(current["stable_schema_names"]) > 100, current["stable_schema_names"][:5]
+    assert len(current["central_codecs"]) > 20, current["central_codecs"][:5]
+
+
+def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monkeypatch):
+    """Invariant 1: central ownership may not GROW.
+
+    Federating rollback means moving schema OUT of `ambition_runtime`. A new
+    stable name appearing there is the migration running backwards.
+    """
+    import json
+
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    shrunk = dict(baseline)
+    shrunk["stable_schema_names"] = baseline["stable_schema_names"][:-1]
+    dropped = baseline["stable_schema_names"][-1]
+
+    fake = tmp_path / "baseline.json"
+    fake.write_text(json.dumps(shrunk))
+    monkeypatch.setattr(
+        contracts, "ROLLBACK_SCHEMA_BASELINE", str(fake.relative_to(tmp_path))
+    )
+    # `root` is only used to resolve the two source files plus the baseline, so
+    # point the baseline lookup at the temp copy by faking the whole root.
+    monkeypatch.setattr(
+        contracts,
+        "rollback_schema_usage",
+        lambda _root: rollback_schema_usage(root),
+    )
+    new, stale = contracts.rollback_schema_violations(tmp_path)
+    assert new == [f"stable_schema_names: {dropped}"], new
+    assert stale == []
+
+
+def test_the_rollback_ratchet_catches_an_unpruned_baseline(tmp_path, monkeypatch):
+    """Invariant 2: a name that LEFT must be pruned in the migrating commit.
+
+    Without this the baseline is a budget: federate one component out, leave it
+    listed, and the freed slot can be reoccupied while the count still reads
+    319.
+    """
+    import json
+
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    grown = dict(baseline)
+    grown["stable_schema_names"] = baseline["stable_schema_names"] + ["ghost.never_existed"]
+
+    fake = tmp_path / "baseline.json"
+    fake.write_text(json.dumps(grown))
+    monkeypatch.setattr(
+        contracts, "ROLLBACK_SCHEMA_BASELINE", str(fake.relative_to(tmp_path))
+    )
+    monkeypatch.setattr(
+        contracts,
+        "rollback_schema_usage",
+        lambda _root: rollback_schema_usage(root),
+    )
+    new, stale = contracts.rollback_schema_violations(tmp_path)
+    assert stale == ["stable_schema_names: ghost.never_existed"], stale
+    assert new == []

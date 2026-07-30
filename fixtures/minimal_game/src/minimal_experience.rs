@@ -8,14 +8,9 @@
 
 use ambition::app::prelude::App;
 use ambition::engine_core as ae;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
-};
-use ambition::runtime::PreparedPlatformerSource;
 use ambition::world::rooms::RoomSpec;
 
-use crate::{MINIMAL_EXPERIENCE, MINIMAL_GAMEPLAY_ROUTE};
+use crate::MINIMAL_EXPERIENCE;
 
 /// The one body in the game.
 pub const MINIMAL_CHARACTER_ID: &str = "minimal_walker";
@@ -74,45 +69,23 @@ pub fn minimal_room() -> RoomSpec {
     RoomSpec::new(MINIMAL_ROOM_ID, world)
 }
 
-fn prepared_session_world() -> PreparedPlatformerSource {
-    let room = minimal_room();
-    let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
-    PreparedPlatformerSource::new(
-        MINIMAL_EXPERIENCE,
-        RoomSet::from_parts(MINIMAL_ROOM_ID, vec![room], Vec::new()),
-        geometry,
-        metadata,
-        StartingCharacter::new(MINIMAL_CHARACTER_ID),
-        LdtkRuntimeIndex::default(),
-    )
-}
-
 pub fn register(app: &mut App) {
     // ⚠ DELIBERATE SILENCE, DECLARED — and a movement-only game has to declare
     // it too. Preparation validation refuses an experience whose provider
     // registered no explicit audio fragment.
     //
-    // Found here the way the campaign is supposed to find things: the host sat
-    // in `HostStatus::Activating` for 600 ticks and never started. Outlander's
-    // own comment already knew — "a good message that a headless host surfaced
-    // NOWHERE" — so this is a KNOWN error-quality gap that a second consumer
-    // walked straight into. The read-model at least names the stuck state now;
-    // the reason is still swallowed. That is slice-C material.
-    {
-        use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-        app.register_audio_catalog_fragment(
-            AudioCatalogFragment::new(MINIMAL_EXPERIENCE, None, None)
-                .expect("the silent minimal-game audio fragment is valid"),
-        );
-    }
-    PlatformerExperienceAuthoring::new(
-        MINIMAL_EXPERIENCE,
-        MINIMAL_GAMEPLAY_ROUTE,
-        "Minimal Game",
-        "Movement only — the smallest thing that is still a game",
-        "Prepare the minimal game",
-        AuthoredCatalogFragments::new(MINIMAL_CHARACTER_ID, MINIMAL_EXPERIENCE),
-    )
-    .install(app, prepared_session_world);
+    // Found the way the campaign is supposed to find things: the host sat in
+    // `HostStatus::Activating` for 600 ticks and never started. Outlander's own
+    // comment already knew — "a good message that a headless host surfaced
+    // NOWHERE" — so a KNOWN error-quality gap was sitting there and a second
+    // consumer walked straight into it. `HostStatus` names the stuck state now;
+    // the REASON is still swallowed, which is slice-C material.
+    //
+    // This is the LAST thing this game registers by hand. Everything else moved
+    // onto `ModuleDraft::playable`.
+    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    app.register_audio_catalog_fragment(
+        AudioCatalogFragment::new(MINIMAL_EXPERIENCE, None, None)
+            .expect("the silent minimal-game audio fragment is valid"),
+    );
 }

@@ -267,6 +267,26 @@ type CapabilityInstaller = Box<dyn FnOnce(&mut App) + Send + 'static>;
 pub const EMPTY_CHARACTER_ROSTER_RON: &str =
     "(brain_presets: {}, action_set_presets: {}, characters: {})";
 
+/// A playable experience, as a value.
+///
+/// ⚠ **This exists because the SECOND consumer measured what the first could
+/// not.** The movement-only minimal game named five `ambition::` modules, and
+/// four of them were here: it had to build a `PreparedPlatformerSource` by hand
+/// (`ambition::runtime`), wrap it in `PlatformerExperienceAuthoring`
+/// (`ambition::provider`), and construct the room and geometry to put in it
+/// (`ambition::world`, `ambition::engine_core`). A game could COMPOSE through
+/// the SDK and still could not DECLARE what it was.
+///
+/// Outlander names all four for other reasons too, so with one consumer this
+/// hole was invisible. That is the consumer matrix earning its place.
+struct ExperienceDefinition {
+    label: String,
+    description: String,
+    starting_character: String,
+    rooms: Vec<crate::world::rooms::RoomSpec>,
+    starting_room: String,
+}
+
 /// What a module says about its cast.
 ///
 /// An `Option<CharacterContent>` rather than a bare `Option<&str>` so that
@@ -297,6 +317,7 @@ pub struct ModuleDraft {
     gameplay_route: Option<(String, String)>,
     room: Option<RoomMetadata>,
     characters: Option<CharacterContent>,
+    experience_definition: Option<ExperienceDefinition>,
     capabilities: Vec<CapabilityInstaller>,
     conflicts: Vec<String>,
 }
@@ -363,6 +384,30 @@ impl ModuleDraft {
     /// The room whose metadata picks block and biome art at `Startup`.
     pub fn room(&mut self, room: RoomMetadata) -> &mut Self {
         self.room = Some(room);
+        self
+    }
+
+    /// Declare the playable experience this module contributes.
+    ///
+    /// The engine registers the authoring, tags the prepared world with the
+    /// experience id, and installs the preparation step — the sequence a
+    /// consumer used to write out of `ambition::provider` and
+    /// `ambition::runtime`.
+    pub fn playable(
+        &mut self,
+        label: impl Into<String>,
+        description: impl Into<String>,
+        starting_character: impl Into<String>,
+        starting_room: impl Into<String>,
+        rooms: Vec<crate::world::rooms::RoomSpec>,
+    ) -> &mut Self {
+        self.experience_definition = Some(ExperienceDefinition {
+            label: label.into(),
+            description: description.into(),
+            starting_character: starting_character.into(),
+            rooms,
+            starting_room: starting_room.into(),
+        });
         self
     }
 
@@ -653,12 +698,70 @@ impl PlatformerApp {
             app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
         }
         app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
+        // The declared experience, lowered. Installed through the SAME
+        // `PlatformerExperienceAuthoring` seam a provider plugin would have
+        // used — the draft removes the BOILERPLATE, not the authority.
+        let experience_definition = draft.experience_definition;
+        let gameplay_route_for_definition = gameplay_route.clone();
+        let experience_for_definition = experience.clone();
+        let definition_installer: CapabilityInstaller = Box::new(move |app: &mut App| {
+            let Some(definition) = experience_definition else {
+                return;
+            };
+            // The engine assembles the prepared source. A consumer used to
+            // write these six arguments itself, which is how
+            // `ambition::runtime::demo_fixture` ended up in a third party's
+            // imports — a module named `demo_fixture` in a shipped game's
+            // dependency list is the namespace mirror confessing.
+            use crate::runtime::demo_fixture::{
+                ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+            };
+            let Some(first) = definition.rooms.first().cloned() else {
+                return;
+            };
+            let starting = definition
+                .rooms
+                .iter()
+                .find(|room| room.id == definition.starting_room)
+                .cloned()
+                .unwrap_or(first);
+            let geometry =
+                crate::engine_core::RoomGeometry(starting.world.clone());
+            let metadata = ActiveRoomMetadata(starting.metadata.clone());
+            let prepared = crate::runtime::PreparedPlatformerSource::new(
+                experience_for_definition.clone(),
+                RoomSet::from_parts(
+                    definition.starting_room.clone(),
+                    definition.rooms.clone(),
+                    Vec::new(),
+                ),
+                geometry,
+                metadata,
+                StartingCharacter::new(definition.starting_character.clone()),
+                LdtkRuntimeIndex::default(),
+            );
+            crate::provider::PlatformerExperienceAuthoring::new(
+                experience_for_definition.clone(),
+                gameplay_route_for_definition,
+                definition.label,
+                definition.description,
+                format!("Prepare {}", experience_for_definition),
+                crate::provider::AuthoredCatalogFragments::new(
+                    definition.starting_character,
+                    experience_for_definition,
+                ),
+            )
+            .install(app, move || prepared.clone());
+        });
+        let mut capabilities = draft.capabilities;
+        capabilities.push(definition_installer);
+
         crate::provider::ShellComposition::new(
             experience.clone(),
             launcher_route.clone(),
             gameplay_route.clone(),
         )
-        .install(app, DeclaredCapabilities(std::sync::Mutex::new(draft.capabilities)));
+        .install(app, DeclaredCapabilities(std::sync::Mutex::new(capabilities)));
 
         // ── Rule 7, ACTUALLY enforced ──
         //

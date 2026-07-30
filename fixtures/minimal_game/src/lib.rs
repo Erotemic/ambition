@@ -58,6 +58,13 @@ impl GameModule for MinimalModule {
             .launcher_route(MINIMAL_LAUNCHER_ROUTE)
             .gameplay_route(MINIMAL_GAMEPLAY_ROUTE)
             .characters(minimal_experience::MINIMAL_ROSTER_RON)
+            .playable(
+                "Minimal Game",
+                "Movement only — the smallest thing that is still a game",
+                minimal_experience::MINIMAL_CHARACTER_ID,
+                minimal_experience::MINIMAL_ROOM_ID,
+                vec![minimal_experience::minimal_room()],
+            )
             .capability(MinimalExperiencePlugin);
     }
 }

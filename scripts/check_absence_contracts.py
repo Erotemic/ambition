@@ -599,7 +599,17 @@ MODULE_ALLOWLISTS: list[dict] = [
         # a compiling one it reads low, and reads low in the flattering
         # direction. The ratchet caught the growth on its first live use, which
         # is the only reason this is a corrected number rather than a wrong one.
-        "baseline": {"audio", "engine_core", "provider", "runtime", "world"},
+        # 5 -> 3. `provider` and `runtime` retired when `ModuleDraft::playable`
+        # absorbed the experience declaration: the engine assembles the
+        # `PreparedPlatformerSource` and installs the authoring, so a game no
+        # longer writes `ambition::runtime::demo_fixture` into its own imports.
+        # (A module literally named `demo_fixture` in a shipped game's
+        # dependency list is the namespace mirror confessing.)
+        #
+        # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point —
+        # it went STALE-red and named both, so the slots cannot be reoccupied
+        # silently.
+        "baseline": {"audio", "engine_core", "world"},
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
             "structurally cannot fill: it asks for almost nothing, so whatever it "

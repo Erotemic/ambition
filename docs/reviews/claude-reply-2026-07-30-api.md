@@ -309,3 +309,193 @@ the ones worth paying for.
    Those have different lifetimes — respawn policy is a rule of the *match* in a
    fighter and a rule of the *room* in a metroidvania. Worth pressure-testing
    against Smash before it hardens.
+
+---
+
+## 8. Follow-up (Jon, 2026-07-30): should `ExperienceBuilder` produce a pure validated definition, or is `&mut App` mutation part of the 1.0 contract?
+
+**Pure validated definition, for content. And this is not a taste call — the
+proposed `ExperienceBuilder { app: &'a mut App, .. }` contradicts an ADR this
+engine already accepted, and would be a regression from the type the repo has
+today.**
+
+### 8a. The lifecycle is already decided, and the builder is at the wrong stage
+
+ADR 0026 (*Accepted; implemented*, 2026-07-18) names the authoritative pipeline:
+
+```text
+provider-owned fragments + prepared world source
+    -> structured validation
+    -> deterministic assembly
+    -> immutable PreparedContent
+    -> ContentFingerprint + ContentEpoch
+    -> exact prepared-session publication
+    -> lowering onto the canonical SessionRoot
+```
+
+and defines the stages so they cannot be conflated:
+
+> **validation** rejects malformed or conflicting authored input **without live
+> mutation**;
+> **deterministic assembly** normalizes semantically unordered input;
+> **preparation** validates and assembles a **complete** candidate publication;
+> **activation** consumes that exact publication and lowers its immutable source
+> into mutable live components.
+
+An `ExperienceBuilder` holding `&mut App` collapses all four into "whatever the
+provider's `build()` happened to do to the App." The public API would then sit
+one stage past the point where the engine's own contract says authored input is
+still supposed to be inert.
+
+### 8b. Today's type is already pure — the proposal would move backwards
+
+`crates/ambition_platformer_provider/src/authoring.rs:395`:
+
+```rust
+pub struct PlatformerExperienceAuthoring {
+    pub experience_id: String,
+    pub route_id: String,
+    pub label: String,
+    pub description: String,
+    pub preparation_label: String,
+    pub catalogs: AuthoredCatalogFragments,
+    pub loading: Option<LoadExperienceSpec>,
+    pub presentation: Option<GameplayPresentationProfiles>,
+    pub hud: Option<HudDeclaration>,
+}
+```
+
+Plain data. No `App`. The 1.0 API's job is to make this *nicer to author* —
+better names, typed ids, domain extension traits, no `preparation_label` — not
+to hand providers a mutable App they did not previously have.
+
+### 8c. Fingerprints require order-independence, which a mutation stream cannot give you
+
+ADR 0026 again:
+
+> Fingerprints use BLAKE3 over versioned, length-delimited canonical sections.
+> They never hash `Debug`, **insertion order**, randomized maps, entity ids,
+> handles, addresses, timestamps, readiness, or mutable requests. **Equivalent
+> provider or registry insertion orders produce the same fingerprint.**
+
+You cannot compute an order-independent fingerprint over a sequence of App
+mutations without first buffering them into a value and canonicalising it. That
+buffer **is** the pure definition. `&mut App` does not remove it; it only hides
+it in a staging resource and makes "is it complete yet?" unanswerable.
+
+This matters more than it sounds. `RollbackSessionContract` compares content
+identity every frame and calls `invalidate_session` when it changes. "When is
+content complete" is not an aesthetic question here — it is the predicate the
+rollback session is defined against.
+
+### 8d. The decisive argument: the barrier machinery exists *only* because content arrives through `Plugin::build`
+
+This is the part I'd put in front of anyone who prefers the `&mut App` version.
+
+`CharacterPreparationPlugin` needs **all three** of the following, and each was
+paid for:
+
+1. `fn finish()` — to fold the staged cast after every provider's `build`;
+2. a `PreStartup` backstop, because **`App::update` does not run `finish`** and
+   this repo drives `update` by hand nearly everywhere. Its comment records the
+   failure: *"every character silently falls back to the host's compatibility
+   kit, so a consumer's peaceful wanderer comes out swinging the protagonist's
+   sword. That is not hypothetical — it is what the outlander fixture reported
+   within an hour of the barrier landing"*;
+3. an idempotence flag, because **`App::finish` re-runs EVERY plugin's `finish`
+   every time it is called** — without the flag, a second call republished an
+   **empty** registry.
+
+Every one of those exists to reconstruct *"the complete set of contributions"*
+from a stream that has no completion signal. `Plugin::build` cannot tell you it
+was the last one.
+
+**An `Experience::build()` that the ENGINE calls has that signal for free: the
+function returned.** No `finish`, no `PreStartup` backstop, no idempotence flag,
+no ordering hazard — completeness becomes a `->` in a signature.
+
+That gives the design a falsifiable acceptance test, which is what §3c asks for
+generally:
+
+> **The `PreStartup` backstop in `CharacterPreparationPlugin` can be deleted.**
+
+If it can't, the Experience seam did not actually take ownership of content
+completeness, and we have added a facade over the old problem. That is a
+deletion, which is what the campaign thesis demands: *introduce one authority,
+migrate all production consumers, delete the displaced authority, guard the
+absence.*
+
+### 8e. But be honest about the split: content is data, capability is code
+
+You cannot put a system in a struct. So the builder genuinely has two halves,
+and ADR 0026 already distinguishes them — it has **two** fingerprints:
+
+| Builder surface | Kind | Where it goes | Completeness point |
+| --- | --- | --- | --- |
+| `character`, `world`, `archetype`, `audio`, placements | **content — data** | pure draft, validated, assembled, fingerprinted | `build()` returns |
+| `rules(P)`, `capability(G)`, `rollback().component::<T>()` | **capability — code + schema** | the App | snapshot-schema fingerprint, before session start |
+
+So the answer to the question as posed is: **the content half must be pure; the
+capability half must touch the App, and that is fine and honest.** What is not
+fine is one `&mut App` field making both look like the same act.
+
+Note this does *not* cost GPT's federation property, which is the best idea in
+the proposal. Domain extension traits work exactly as well over a draft:
+
+```rust
+impl CharacterAuthoringExt for ContentDraft { .. }
+impl WorldAuthoringExt     for ContentDraft { .. }
+```
+
+The API still grows downstream, from the owning domain, without a central switch.
+It federates over a *value* instead of over an App — and the existing registries
+(`CharacterCatalogRegistry`, `RoomContentStagingRegistry`,
+`PlacementLoweringRegistry`) are already exactly that: domain-specific typed
+sections with shared owner/source/schema metadata, transactional conflict
+behavior, and explicit fingerprint contributions. The draft is those registries
+with a completion point.
+
+### 8f. Two things the pure version buys that are easy to miss
+
+**Module nesting stops being an ordering problem.** `game.include(SanicModule)`
+over a draft is a merge with transactional conflict detection — which the
+registries already implement, including the rule that byte-identical fragments
+are idempotent while opaque room-stager closures reject duplicate ownership. Over
+`&mut App`, nesting is "did Sanic's plugin run before or after Mary-O's", which
+is the class of question the `ShellComposition` leak was about.
+
+**Errors arrive once, structured, at a known point.** A draft yields one
+`ExperienceBuildError` listing every conflict in the whole experience. `&mut App`
+yields a resource-missing panic three plugins later — literally the
+*"seven hand-written steps whose ORDER is enforced by a resource-missing panic"*
+failure that `ShellComposition` was created to end.
+
+### 8g. What I'd write
+
+```rust
+pub trait Experience: Send + Sync + 'static {
+    fn manifest(&self) -> ExperienceManifest;
+
+    fn build(&self, game: &mut ExperienceBuilder<'_>) -> Result<(), ExperienceBuildError>;
+}
+
+pub struct ExperienceBuilder<'a> {
+    /// Authored CONTENT accumulates here. Inert until the engine seals it —
+    /// nothing a provider writes is live when `build` returns.
+    content: ContentDraft,
+    /// CAPABILITY installation, because a system is not data. Deliberately not
+    /// `pub`: reachable only through `rules`/`capability`/`rollback`, so the
+    /// two halves cannot be confused at a call site.
+    app: &'a mut App,
+    experience: ExperienceId,
+    namespace: ContentNamespace,
+}
+```
+
+Same call sites as GPT's proposal — `game.character(..)?`, `game.rules(..)` —
+and the author never sees the distinction. The engine does, and gets its barrier
+back.
+
+**One-line answer:** the definition should be pure because *the engine already
+requires it to be* — and the pile of `finish`/`PreStartup`/idempotence machinery
+around character preparation is the receipt for what it costs when it isn't.

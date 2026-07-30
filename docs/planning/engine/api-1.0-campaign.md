@@ -429,6 +429,72 @@ awaiting-maintainer-decision, not a slice.
 
 ---
 
+## Slice B — the movement-only minimal game (IN PROGRESS, 2026-07-30)
+
+**Derived, not sketched.** The ranking is in
+[`slice-evidence/slice-b-selection.json`](slice-evidence/slice-b-selection.json);
+the sketch below (§B) said content-model-first, and the evidence said
+consumer-first. Both agree on the domain, and §3 warns that agreement is
+confirmation rather than derivation.
+
+**The leak:** a consumer cannot stand up a SMALL game. The visible host demanded
+content a minimal module had no way to supply, and nothing told you whether the
+host came up.
+
+### What landed
+
+`fixtures/minimal_game` — its own workspace and lockfile, exactly like
+Outlander, so what compiles is what a third party gets.
+
+* **`ModuleDraft::characters(ron)` / `no_characters()`.** ⚠ The fix is NOT an
+  empty default. `PlatformerAssetsPlugin`'s refusal is deliberate — *"silently
+  substituting an empty catalog is how a game ships with its bosses drawn as the
+  fallback body and nobody notices"* — so slice B made the true answer
+  **sayable** rather than making the demand disappear. Saying nothing while
+  preparing art is now a structured `CompositionError` naming both fixes.
+  `EMPTY_CHARACTER_ROSTER_RON` is published because the blind agent had to
+  recover it by feeding the parser `"()"` and reading the errors back.
+* **`ambition::app::host_status`** — the read-model the blind agent went looking
+  for. `Running { prepared }` is two facts, and `is_running()` requires both, so
+  the type cannot agree with the empty host it exists to expose.
+
+### What it measured
+
+**5 modules against Outlander's 14** — and they are not a smaller sample of the
+same problem. Four are one hole: `PlatformerExperienceAuthoring`,
+`PreparedPlatformerSource`, `RoomSpec`, `engine_core` geometry. **A minimal game
+can COMPOSE through the SDK and still cannot DECLARE a room or an experience
+through it.** The fifth is `audio`.
+
+It needs **no `bevy` dependency at all** — it derives nothing. Outlander does.
+Invisible with one consumer, and it is why the SDK README's blanket "you also
+need bevy" was wrong.
+
+### ⚠ Two failures worth more than the feature
+
+**The read-model found a bug in the commit before it.** Slice B's first boot
+tests asserted `try_build` succeeded and a `FixedUpdate` schedule existed. *They
+never ran a tick.* The first test that stepped the host found it stuck in
+`Activating` for 600 ticks — the game composed, booted, and never started. That
+is the blind agent's empty host, reproduced in our own new consumer, one commit
+after the matrix row was marked proven.
+
+The cause: preparation validation refuses an experience whose provider
+registered no explicit audio fragment. **Outlander's own comment already knew,
+including the worst part — *"a good message that a headless host surfaced
+NOWHERE"*.** A known error-quality gap sat there and the second consumer walked
+into it. `HostStatus` now names the stuck state; the REASON is still swallowed,
+and that is slice-C material.
+
+**The baseline was measured against a game that did not work.** Recorded as 4,
+corrected to 5 when the game actually ran. The number is not the lesson — the
+instrument is: *a consumer's baseline must be measured against a WORKING
+consumer*, because measured against a compiling one it reads low, in the
+flattering direction. The ratchet caught the growth unprompted on its first live
+use, at the exact file and line.
+
+---
+
 ## Slices B–D — sketched, not specified
 
 Re-derived before starting. Recorded here so the shape of the whole is legible

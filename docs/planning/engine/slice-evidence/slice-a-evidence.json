@@ -121,6 +121,72 @@
         "new": [],
         "stale": []
       }
+    },
+    "minimal-game-names-only-the-public-sdk": {
+      "allowed_sdk_modules": [
+        "app",
+        "bevy"
+      ],
+      "baseline_open": [
+        "audio",
+        "engine_core",
+        "provider",
+        "runtime",
+        "world"
+      ],
+      "open_count": 5,
+      "recorded_baseline": 18,
+      "predicted_after_a4": 14,
+      "prediction_confirmed": false,
+      "retired_by_this_slice": [
+        "engine",
+        "game_assets",
+        "presentation",
+        "windowed_host"
+      ],
+      "uses_per_module": {
+        "app": 3,
+        "audio": 1,
+        "bevy": 3,
+        "engine_core": 1,
+        "provider": 1,
+        "runtime": 2,
+        "world": 1
+      },
+      "files_per_module": {
+        "app": [
+          "fixtures/minimal_game/src/lib.rs",
+          "fixtures/minimal_game/src/minimal_experience.rs",
+          "fixtures/minimal_game/tests/boots.rs"
+        ],
+        "audio": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ],
+        "bevy": [
+          "fixtures/minimal_game/src/lib.rs",
+          "fixtures/minimal_game/tests/boots.rs"
+        ],
+        "engine_core": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ],
+        "provider": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ],
+        "runtime": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ],
+        "world": [
+          "fixtures/minimal_game/src/minimal_experience.rs"
+        ]
+      },
+      "multi_file_modules": [
+        "app",
+        "bevy"
+      ],
+      "violations": {
+        "new": [],
+        "stale": []
+      }
     }
   },
   "fixture_leak_log": {

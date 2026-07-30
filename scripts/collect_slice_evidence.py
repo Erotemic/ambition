@@ -59,8 +59,20 @@ REPO = Path(__file__).resolve().parents[1]
 # from, and an instrument the subject can read is not an instrument. Moved
 # 2026-07-30; see the module docstring.
 EVIDENCE = REPO / "docs" / "planning" / "engine" / "slice-evidence"
-OUT = EVIDENCE / "slice-a-evidence.json"
-SELECTION = EVIDENCE / "slice-b-selection.json"
+# Per-slice, because the induction runs to a terminal condition and every slice
+# owes §2 the same five sources. A collector hardcoded to one slice makes the
+# NEXT slice's evidence a copy-paste job, and a copy-pasted measurement is the
+# taste-based selection §3 exists to prevent.
+def evidence_path(slice_id: str) -> Path:
+    return EVIDENCE / f"slice-{slice_id.lower()}-evidence.json"
+
+
+def selection_path(next_slice: str) -> Path:
+    return EVIDENCE / f"slice-{next_slice.lower()}-selection.json"
+
+
+OUT = evidence_path("a")
+SELECTION = selection_path("b")
 BLIND_RUNS = EVIDENCE / "blind-agent-runs"
 
 # The consumer this slice is measured against. Slice A is BOUNDED to the external
@@ -454,6 +466,13 @@ def selects_slice_b(evidence: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--slice",
+        default="a",
+        help="which slice's evidence to collect (a, b, c, ...). Each slice owes "
+        "§2 the same five sources; the selection file it writes toward is the "
+        "NEXT slice's.",
+    )
+    parser.add_argument(
         "--print",
         action="store_true",
         dest="to_stdout",
@@ -461,8 +480,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    slice_id = args.slice.lower()
+    next_slice = chr(ord(slice_id) + 1)
+    global OUT, SELECTION
+    OUT = evidence_path(slice_id)
+    SELECTION = selection_path(next_slice)
+
     evidence = {
-        "slice": "A",
+        "slice": slice_id.upper(),
         "campaign": "docs/planning/engine/api-1.0-campaign.md",
         "method": "docs/planning/engine/api-growth-method.md",
         "generated_by": "scripts/collect_slice_evidence.py",
@@ -472,7 +497,7 @@ def main() -> int:
         "deletion_criteria": deletion_criteria(),
         "capability_footprint": capability_footprint(),
     }
-    evidence["selects_slice_b"] = selects_slice_b(evidence)
+    evidence[f"selects_slice_{next_slice}"] = selects_slice_b(evidence)
     rendered = json.dumps(evidence, indent=2, sort_keys=False) + "\n"
     if args.to_stdout:
         sys.stdout.write(rendered)
@@ -481,6 +506,9 @@ def main() -> int:
     OUT.write_text(rendered, encoding="utf-8")
     print(f"wrote {OUT.relative_to(REPO)}")
     contract = evidence["contract_diff"]["outlander-names-only-the-public-sdk"]
+    for name, row in sorted(evidence["contract_diff"].items()):
+        if name != "outlander-names-only-the-public-sdk":
+            print(f"  2a {name}: {row['open_count']} open")
     print(
         f"  2a contract diff        : {contract['open_count']} open "
         f"(baseline {contract['recorded_baseline']}, predicted "

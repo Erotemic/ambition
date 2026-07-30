@@ -52,15 +52,14 @@
     },
     {
       "id": "module-standalone-and-embedded",
-      "consumer": "Sanic or Mary-O",
+      "consumer": "game/ambition_demo_sanic",
       "proves": "reusable module + namespace identity; the SAME content and schema fingerprints both ways",
-      "proven": false,
-      "proof": null,
-      "slice": "D (in progress)",
+      "proven": true,
+      "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — `sanic_stands_up_standalone_through_the_public_api` (reaches a RUNNING host) and `sanic_has_the_same_identities_standalone_and_embedded` (authored content and rollback schema identical when mounted beside an unrelated module, with a non-vacuity guard on the content rows).",
+      "slice": "D",
       "note": "Both halves required. Standalone alone proves nothing about identity.",
       "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all — the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
       "what_would_prove_it": "An in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` standalone AND alongside another module, with content and rollback-schema identities compared across the two compositions by a TEST. The second half is blocked on module-qualified namespaces, which ADR 0032 defers.",
-      "blocked_on": "the IDENTITY half only: ADR 0032's criterion is that a module standalone and embedded produce the same content and rollback-schema identities, and nothing compares them yet. Composition no longer blocks it.",
       "standalone_half": {
         "proven": true,
         "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
@@ -73,7 +72,8 @@
         "on": "2026-07-30",
         "proof": "fixtures/minimal_game/tests/boots.rs — `two_modules_with_distinct_experiences_compose_together` (they do, and the FIRST mounted owns the host's initial route) and `two_modules_claiming_one_experience_id_conflict_and_the_error_names_both`.",
         "what_changed": "`ModuleDraft` holds a Vec of experiences keyed by id instead of one global set of fields. Coexistence and collision are now DIFFERENT outcomes; before slice D every second experience was a collision, which made the conflict detector look right for the wrong reason."
-      }
+      },
+      "honest_caveat": "⚠ The two halves are NOT equally strong, and the weaker one is a finding. The CONTENT comparison is real: it filters the authored registry to Sanic's own rows and would catch embedding changing them. The ROLLBACK SCHEMA comparison is weaker than it looks, because rollback registrations are ENGINE-WIDE rather than module-scoped — so 'Sanic's schema fingerprint' is really the whole app's, and it is equal partly because there is no per-module schema for it to differ from. The criterion passes; the thing it names is not yet federated. That is precisely what the campaign's rollback-federation work exists to change, and this test will become genuinely load-bearing the day it does."
     },
     {
       "id": "smash",

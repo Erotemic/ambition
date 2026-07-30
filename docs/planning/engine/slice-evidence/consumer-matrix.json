@@ -92,8 +92,9 @@
       "proof": null,
       "slice": null,
       "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule.",
-      "measured": "⚠ BLOCKED ON THE SAME GAP AS ROW 4, measured 2026-07-30: `ModuleDraft` holds exactly ONE experience, and the shipped host registers FOUR (Ambition, Mary-O, Sanic, Pocket). So `PlatformerApp` cannot express a multi-experience host at all. The SHELL is not the limitation — `ShellRouteCatalog` and `ShellExperienceRegistry` already hold many, and `game/ambition_app` composes them today by hand. The limitation is the draft's single-owner `claim`, written in slice A when one experience was the only case anyone had.",
-      "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots, with its four experiences intact and reachable. Needs multi-experience composition first."
+      "measured": "⚠ NO LONGER blocked on multi-experience composition — slice D closed that. Measured 2026-07-30, the remaining gap is HOST POLICY: `PlatformerApp` boots into the primary experience's GAMEPLAY route (that is what `ShellComposition::new(experience, launcher, gameplay)` does, and why Outlander launches 'DIRECTLY into the gameplay route'). `game/ambition_app` boots into a LAUNCHER that lists every registered experience, and it configures that by hand: it registers a plain shell experience as the home route and writes `ShellHostConfiguration.spec` itself.",
+      "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots to its launcher with all four experiences reachable. Needs a host-policy choice on the builder — boot into the primary's gameplay route, or into a launcher over all mounted experiences — rather than the single hardcoded policy `ShellComposition` carries.",
+      "why_it_is_the_same_shape_as_every_other_finding": "The SDK expresses ONE shape and the shipped host is another, and nothing said so until a consumer tried. Single face -> two faces (slice A). One experience -> four (slice D). One host policy -> two (here). Each was invisible while only the games written against the SDK were consulted."
     }
   ]
 }

@@ -103,9 +103,9 @@
         "windowed_host"
       ],
       "uses_per_module": {
-        "actor": 1,
+        "actor": 3,
         "app": 2,
-        "bevy": 3,
+        "bevy": 4,
         "world": 1
       },
       "files_per_module": {
@@ -183,118 +183,111 @@
   },
   "blind_agent_run": {
     "collected": true,
-    "record": "docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-b-run2.json",
+    "record": "docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-c-run3.json",
     "missing_fields": [],
     "run": {
       "_comment": [
-        "\u00a72c run 2, at the end of slice C. Same fixed script as the baseline",
-        "(blind-agent-runs/SCRIPT.md), so the two are comparable.",
-        "",
-        "\u26a0 Contamination, unchanged and still biasing TOWARD competence: the subagent",
-        "inherits AGENTS.md through its system prompt. NEW this run: the live checkout",
-        "was being edited underneath it, which broke its first `cargo doc`; it worked",
-        "around that by building against a read-only `git archive` of HEAD. That is an",
-        "environment artifact, not an engine defect, and it is recorded because a",
-        "measurement whose interference is written down is worth more than one that",
-        "looks clean."
+        "\u00a72c run 3, same fixed script. Contamination unchanged (AGENTS.md inherited)."
       ],
-      "slice": "B/C",
+      "slice": "C/D",
       "date": "2026-07-30",
       "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
       "harness": "fresh general-purpose subagent, no inherited conversation context",
-      "engine_head_at_run": "b62790d37",
       "completed": {
         "headless_boot": true,
         "windowed_boot": true,
         "minimal_game": true,
-        "notes": "BOTH faces, against baseline's headless-only. Windowed proven in the GPU-less form the engine documents; a real window is impossible on this box (no display server). The build was clean FIRST TRY \u2014 the patch-table instructions were correct and sufficient \u2014 and it needed no `bevy` dependency, confirming slice B's claim."
+        "notes": "BOTH faces, and it went further than any prior run: verified the host is POPULATED (4 entities, 1 PrimaryPlayer, 69 components) and then that it is a GAME \u2014 the body falls, lands on the authored floor with vel.y==0, walks 64->462 under drive_control_frame, jumps, lands on a ledge. 3/3 of its own tests green."
       },
-      "first_engine_file_opened": "crates/ambition_world/src/lib.rs",
-      "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
+      "first_engine_file_opened": "crates/ambition/Cargo.toml",
+      "first_engine_file_reason": "The cargo FEATURE list. docs/sdk/README.md's manifest section covers the bevy_ggrs patch and says nothing about the facade's ~30 features. Not an API question \u2014 a packaging one, same class as run 1's Cargo.lock.",
       "engine_api_surfaces_read": [
         {
           "crate": "ambition",
           "via": "cargo doc",
-          "looking_for": "the real method list, because api-prototype.md \u00a73 says its own example is illustrative \u2014 this is where it learned no_characters/no_audio/playable/host_status exist at all"
+          "looking_for": "the whole API \u2014 ModuleDraft's nine methods, PlatformerApp's eight, HostStatus, CompositionError"
         },
         {
           "crate": "ambition_world",
           "via": "cargo doc",
-          "looking_for": "where RoomSpec/RoomMetadata live (did not answer it)"
-        },
-        {
-          "crate": "ambition_world",
-          "via": "source",
-          "looking_for": "the answer: `pub mod prelude`"
+          "looking_for": "AuthoredWorld/Block/RoomSpec/RoomMetadata signatures"
         },
         {
           "crate": "fixtures/minimal_game",
           "via": "source",
-          "looking_for": "why its host hung, and the character-roster RON schema"
+          "looking_for": "the character-roster RON schema \u2014 the one place it could not proceed from docs"
+        },
+        {
+          "crate": "fixtures/minimal_game/tests",
+          "via": "source",
+          "looking_for": "the name of the player marker component"
         }
       ],
       "elapsed_context": {
-        "subagent_tokens": 125233,
-        "tool_uses": 88,
-        "duration_ms": 2371118
+        "subagent_tokens": 120099,
+        "tool_uses": 65,
+        "duration_ms": 1682103
       },
       "compared_to_baseline": {
         "baseline": "2026-07-30-slice-a-baseline.json",
         "headless": "false -> TRUE",
-        "windowed": "false -> TRUE (GPU-less form)",
-        "engine_surfaces_read": "8 -> 4",
-        "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_world/src/lib.rs (an API question)",
-        "reading": "The first-file field moved from 'I cannot compile this' to 'I cannot find one type', which is the campaign working: the blocker got smaller and more specific. \u00a74.2 still fails \u2014 the gate is ZERO engine files."
+        "windowed": "false -> TRUE",
+        "engine_surfaces_read": "8 -> 4 -> 4",
+        "first_file_opened": "Cargo.lock (cannot compile) -> ambition_world/src/lib.rs (cannot find a type) -> ambition/Cargo.toml (cannot find the feature list)",
+        "reading": "Three runs, three different first files, each a smaller question than the last: cannot build it, cannot find one type, cannot find the feature list. \u00a74.2 still fails \u2014 the gate is ZERO."
       },
       "findings": [
         {
-          "id": "sdk-docs-were-eight-commits-stale-in-the-EXPENSIVE-direction",
-          "severity": "highest \u2014 cost the run real time",
+          "id": "the-reference-fixture-had-a-geometry-bug-and-its-own-tests-could-not-see-it",
+          "severity": "highest \u2014 the docs tell third parties to copy this file",
           "closed": true,
-          "summary": "docs/sdk/ was last touched at c01d771bd while slices B and C landed no_characters/no_audio/playable/host_status/EMPTY_CHARACTER_ROSTER_RON/world::prelude/minimal_game. Its 'Known gaps' actively claimed a minimal module CANNOT reach a windowed host and that there is NO way to ask whether the game started. Both were false at HEAD.",
-          "agents_words": "a doc advertising gaps that no longer exist does the same thing",
-          "why_it_matters": "The README's own thesis is that hiding gaps sends readers into crates/. Advertising phantom gaps is the same defect wearing the opposite sign, and it was introduced by the campaign that wrote the thesis."
+          "summary": "`Block::solid(name, MIN, size)` takes a min corner; fixtures/minimal_game passed a CENTRE, so the floor sat at x 320..960 in a 640-wide room while the walker spawned at x=64. The walker fell past it, blast-died, respawned, and fell again \u2014 forever \u2014 at a steady `Running { prepared: true }`.",
+          "why_it_matters": "ELEVEN tests were green on that game. Every one asked `host_status`, which answers 'did the engine start' and was answering it correctly. 'Is the game playable' is a different question and needs a position, settling. A suite that only asks the engine about itself passes over any amount of broken content.",
+          "fix": "Geometry corrected; `the_walker_lands_on_the_floor_instead_of_falling_through_it` asserts the body settles within 2px over 50 ticks. Seen red against the original geometry (y ranged 256..546)."
         },
         {
-          "id": "playable-with-an-unauthored-starting-character-hangs-forever",
-          "severity": "silent failure",
+          "id": "api-prototype-5-published-a-module-that-does-not-exist",
+          "severity": "doc defect",
           "closed": true,
-          "summary": "A `starting_character` no roster contained was accepted by try_build; 120 ticks ran, the process exited 0, the host never started. The agent flagged it as a FALSE POSITIVE against itself and only caught it by adding host_status.",
-          "agents_words": "the exact silent-failure shape slice A closed for routes, left open for characters",
-          "fix": "Validated at build; refusal names the character and lists the ones that exist. Test: a_starting_character_no_roster_contains_is_refused_at_build."
+          "summary": "\u00a75 listed `ambition::experience` holding GameModule/ModuleManifest/ModuleDraft. They are in `ambition::app`. \u00a75 is framed as an OUTPUT read off the call sites, which makes it the most trustworthy list in the SDK."
         },
         {
-          "id": "the-route-error-named-the-wrong-lever-and-leaked-indentation",
-          "severity": "diagnostic quality",
-          "closed": "partly",
-          "summary": "'not registered by any mounted capability' sent the agent looking for how to write a capability plugin; the actual fix is `playable()`. The message also carried ~30 spaces of source indentation into its output.",
-          "fix": "Indentation fixed. Naming `playable` as the likely fix is still open."
+          "id": "coordinate-conventions-documented-nowhere",
+          "severity": "doc gap",
+          "closed": true,
+          "summary": "+y down, min-corner blocks, AuthoredWorld::new argument order \u2014 all derived by printing positions over 300 ticks. Now in the README."
         },
         {
-          "id": "castless-games-cannot-be-expressed",
-          "severity": "gap",
-          "closed": false,
-          "summary": "no_characters() exists but playable() requires a starting character, and without playable() no gameplay route is registered. A menu-only app cannot compose. Now stated in the SDK's Known gaps and asserted by declaring_no_cast_and_a_starting_character_is_refused."
+          "id": "no_audio-and-playable-absent-from-the-README-example",
+          "severity": "doc gap",
+          "closed": true,
+          "summary": "`playable()` is what registers the gameplay route and `no_audio()` is effectively mandatory; the four-line snippet showed neither, so following it produces a host stuck in Activating."
         },
         {
-          "id": "component-names-are-invisible-to-consumers",
-          "severity": "tooling",
-          "closed": false,
-          "summary": "`ambition::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
+          "id": "no-way-to-ask-whether-the-game-is-PLAYABLE",
+          "severity": "doc gap",
+          "closed": true,
+          "summary": "PrimaryPlayer, BodyKinematics, drive_control_frame, ControlFrame \u2014 none in the prelude, none in docs/sdk/. Found by trawling rustdoc and the fixture's tests. Now a README section."
         },
         {
-          "id": "non-empty-roster-schema-undocumented",
+          "id": "one-character-roster-schema-still-undocumented",
           "severity": "doc gap",
           "closed": false,
-          "summary": "EMPTY_CHARACTER_ROSTER_RON covers the empty case; a game with ONE character is the actual minimal case and every required field is undocumented. The agent copied a fixture verbatim."
+          "summary": "EMPTY_CHARACTER_ROSTER_RON solved the case nobody needs. Brute-forcing the non-empty case costs one build per missing field and DEAD-ENDS at the first enum-typed field (`tier`), because variant names cannot be guessed. The README's remedy is 'copy the fixture' \u2014 i.e. the documented fix for the leak is to open an engine file."
+        },
+        {
+          "id": "cargo-features-invisible",
+          "severity": "doc gap",
+          "closed": false,
+          "summary": "~30 facade features, none documented; the feature list was the first engine file this run opened."
         }
       ],
       "what_worked": [
-        "The patch-table paragraph: 'accurate, prominent, and load-bearing \u2014 my build resolved and compiled first try because of it.' That was blind run 1's top finding, closed, and confirmed closed by run 2.",
-        "try_build's composition errors: 'genuinely good (three problems named at once, each with its consequence)'.",
-        "A minimal game needs exactly one dependency. The claim held under an independent build."
+        "Build-time refusals: 'starts as character `blind_hero`, which no declared roster contains ... Characters available: none \u2014 the declared roster is empty'. The agent credits these with the run taking hours not days.",
+        "The patch-table warning saved the GgrsFrameTiming dead end entirely \u2014 blind run 1's top finding, closed, confirmed closed twice.",
+        "It reached a PLAYING game: fall, land, walk, jump, land."
       ],
-      "verdict": "Both faces reached, engine surfaces read halved, and the blocker moved from 'cannot compile' to 'cannot locate one type'. \u00a74.2 still fails: the gate is ZERO engine files and this run opened one."
+      "verdict": "Best run yet and the one that found the worst bug \u2014 in the fixture the SDK tells people to copy, invisible to eleven passing tests."
     }
   },
   "deletion_criteria": {

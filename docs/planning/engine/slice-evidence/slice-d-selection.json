@@ -90,5 +90,15 @@
     "engine_files_a_blind_author_must_open": "8 surfaces + 1 lockfile -> 4 surfaces + 1 source file; run 3 in flight",
     "undeleted_compensating_mechanisms": "6 -> 6, still correctly untouched",
     "unwanted_linked_capabilities": "41 -> 41; the experiment that could move it is slice E"
+  },
+  "slice_e_candidate": {
+    "name": "host policy: boot into a launcher, not only into a game",
+    "derived_on": "2026-07-30",
+    "from": "attempting consumer-matrix row 6 after slice D removed the multi-experience blocker",
+    "leak": "`PlatformerApp` can only boot into the primary experience's gameplay route. The shipped host boots into a launcher listing all four of its experiences and writes `ShellHostConfiguration.spec` by hand to do it — the last piece of host composition a real consumer still assembles itself.",
+    "cost": "It is the whole of consumer-matrix row 6, which is the last matrix row not gated on deferred rollback. Every multi-game host needs it and there is exactly one such host, which is why no earlier consumer surfaced it.",
+    "closeable": "YES, inside the builder. The shell already supports it; the builder does not offer it.",
+    "owned": "YES.",
+    "not_to_be_confused_with": "the ratchet's last entry or Smash — both of those are rollback, deferred by ADR 0031, and neither is closeable without the slice that ADR reserves."
   }
 }

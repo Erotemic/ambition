@@ -557,6 +557,30 @@ pub fn build_outlander_app() -> App {
 /// The host switch is one builder call versus [`build_outlander_app`]. That is
 /// the claim: a consumer does not restructure its game to become
 /// rollback-capable.
+///
+/// # LEAK CLOSED 2026-07-30 — the ninth, and this builder is where it hid
+///
+/// The A2 inventory found eight ordering rules in this fixture's hand-composed
+/// hosts. Migrating to the builder found a NINTH, which had been sitting in
+/// this function's own comment and nowhere else:
+///
+/// > "Under GGRS the sim advances only through session requests, so the frame
+/// > dt must be the tick dt exactly (integer nanos, no drift)."
+///
+/// `Time::<Fixed>::from_hz(60.0)` rounds to `16_666_667`ns. GGRS wants the
+/// truncated `16_666_666`. Composing this host with the obvious value — the
+/// one the fixed-tick face correctly uses — cost **12 frames**: the parity walk
+/// below took 192 `update()` calls to reach a world state the fixed-tick host
+/// reached in 180, while every GGRS checksum still agreed.
+///
+/// That is the silent class. A consumer who wrote the obvious thing got a host
+/// that runs, simulates correctly, agrees on every checksum, and quietly needs
+/// 7% more frames — with nothing to grep for and no failure to read. It
+/// surfaced only because `consumer_owned_authoritative_state_survives_real_resimulation`
+/// compares the two hosts' timelines and went red on a change that looked
+/// unrelated to either. The canary earned its keep.
+///
+/// `ambition::app` states the rule now, for both faces.
 pub fn build_outlander_rollback_app() -> Result<App, String> {
     // `unstable_rollback_session` is deliberately not public API — rollback is
     // not a knob slice A promises. It exists so this composition goes through

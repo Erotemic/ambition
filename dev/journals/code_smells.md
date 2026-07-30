@@ -1357,3 +1357,27 @@ Candidate mechanisms, in the order they are worth checking:
 
 Transferable: a motion fix that changes where a body SITS is a contact change,
 whether or not that was the intent. Say so in the same breath as the fix.
+
+---
+
+## FLAKY: `shell_host_lifecycle::the_full_multi_game_lifecycle_is_leak_free` (2026-07-30)
+
+Failed once in a full `./run_tests.sh --fast` (239 passed, 1 failed), then
+passed **in isolation** and passed again on a full `--test app_it` rerun with
+byte-identical code — 240/240. So it is intermittent, not a break.
+
+Recorded rather than shrugged off because of what it guards: a leak-freedom
+assertion across a multi-game lifecycle is exactly the kind of test whose
+intermittency is *itself the finding*. Either the lifecycle really does leak on
+some interleaving and the test is right one run in N, or the test shares state
+with a neighbour in the same binary and is measuring the neighbour. Both are
+worth knowing and they are opposite bugs.
+
+⚠ Do not "fix" this by rerunning until green. The next person to see it red
+should capture the assertion message BEFORE rerunning — a full-suite run is
+where it reproduces, and the output that mattered was lost to a truncated log
+the first time. The cheap next step is `--test-threads=1` on the full target: if
+it never reproduces serially, the sharing hypothesis is the live one.
+
+Found while landing API campaign slice A3/A4, which touches none of
+`ambition_app` — the suite was green at 23:48 on the same tree.

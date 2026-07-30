@@ -19,8 +19,19 @@ pub const MINIMAL_ROOM_ID: &str = "minimal_room";
 
 /// One character, no combat, no art.
 ///
-/// ⚠ **`playable_kit: HostCode` and a `spritesheet` are both required fields**,
-/// and neither is a thing a movement-only game has an opinion about. The sheet
+/// ⚠ **`playable_kit` is a required field whose two values mean opposite
+/// things, and the wrong one ARMS YOUR PEACEFUL CHARACTER.**
+///
+/// `HostCode` means "give this body the host protagonist's kit", so the engine
+/// calls `default_player_action_set` and the authored `melee: None` is ignored
+/// entirely. `Authored` means "my action set is the authority".
+///
+/// This game shipped `HostCode` for a day because it was copied out of
+/// Outlander — which is a protagonist and wants it — and blind run 2 recorded
+/// doing exactly the same copy for exactly the same reason. Nothing documents
+/// the difference. The consumer-matrix test
+/// `a_noncombat_character_gets_no_combat_state` is what caught it, by asking
+/// the live body rather than the RON what it could do. The sheet
 /// named here does not exist; the engine degrades to a placeholder body, which
 /// is the correct behaviour for a game that ships no art and is also exactly
 /// the "declared image indistinguishable from an unskinned bolt" hazard the
@@ -47,7 +58,7 @@ pub const MINIMAL_ROSTER_RON: &str = r#"(
             composition: None,
             default_brain: "still",
             default_action_set: "walk_only",
-            playable_kit: HostCode,
+            playable_kit: Authored,
             tags: ["player"],
         ),
     },

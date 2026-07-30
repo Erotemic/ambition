@@ -43,11 +43,18 @@
     },
     {
       "id": "noncombat-actor",
-      "consumer": null,
+      "consumer": "fixtures/minimal_game (attempted)",
       "proves": "\"actor\" is not secretly combat-shaped",
       "proven": false,
       "proof": null,
-      "slice": null
+      "slice": null,
+      "measured": "ATTEMPTED AND FAILED 2026-07-30, which is the informative outcome. The minimal game's walker declares `melee: None, ranged: None, special: None` and the live body's `AbilityBase` — the AUTHORED intrinsic kit, not the maskable effective set — comes back with `attack` enabled. So `actor` is combat-shaped: a noncombat game pays for a fight it never has, and the authored declaration is decorative at the point the body is built.",
+      "ruled_out": [
+        "`playable_kit: Authored` instead of `HostCode` — no change, so this is not the host-protagonist kit override in `resolve_playable_action_set`.",
+        "`AbilitySet::sandbox_all()` in `avatar/bundles.rs` — that call is `#[cfg(test)]`."
+      ],
+      "what_would_prove_it": "A body whose character authored no combat verbs has no combat verb in its `AbilityBase`, asserted on a LIVE body of a RUNNING host — not on a constructed component, which would only test the test's own arithmetic.",
+      "not_pinned": "Deliberately no test. A passing assertion that `attack == true` would pin unpolished behaviour and would go green the day somebody fixes it."
     },
     {
       "id": "module-standalone-and-embedded",

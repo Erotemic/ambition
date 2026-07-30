@@ -1381,3 +1381,40 @@ it never reproduces serially, the sharing hypothesis is the live one.
 
 Found while landing API campaign slice A3/A4, which touches none of
 `ambition_app` — the suite was green at 23:48 on the same tree.
+
+---
+
+## `actor` is combat-shaped: an authored `melee: None` still gets `attack` (2026-07-30)
+
+Found by the API campaign's consumer-matrix row 3, which exists to ask exactly
+this: is "actor" a general concept, or a combat concept wearing a general name?
+
+`fixtures/minimal_game`'s walker declares `melee: None, ranged: None, special:
+None`. The live body's `AbilityBase` — the AUTHORED intrinsic kit, the one whose
+whole purpose is to survive session masking — comes back with `attack` enabled.
+
+Two obvious explanations were measured and ruled out:
+
+* `playable_kit: Authored` instead of `HostCode` changes nothing. So this is not
+  `resolve_playable_action_set` handing out the host protagonist's kit, which
+  was the first and most plausible guess (`HostCode` genuinely does mean "give
+  this body the host kit", and the minimal game had copied that value out of
+  Outlander — a real doc trap in its own right, since `playable_kit` is a
+  required field whose two values mean opposite things and neither is
+  documented).
+* The `AbilitySet::sandbox_all()` grant in `avatar/bundles.rs:327` is inside a
+  `#[cfg(test)]` module.
+
+⚠ **No test pins this.** A passing assertion that `attack == true` would pin
+unpolished behaviour and would go green the day somebody fixes it, which is
+worse than no test. The consumer-matrix row stays UNPROVEN with the measurement
+attached, and that unproven row is itself a campaign terminal condition, so it
+cannot be quietly forgotten.
+
+What would prove the category: a body whose character authored no combat verbs
+has no combat verb in its `AbilityBase`, asserted on a LIVE body of a RUNNING
+host. Asserting on a constructed `AbilitySet` would only test the test.
+
+Transferable: the check that found this asked the RUNNING WORLD what the body
+could do, not the RON what it said. Those disagreed, and only one of them is
+what ships.

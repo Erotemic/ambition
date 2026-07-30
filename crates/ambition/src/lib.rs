@@ -82,6 +82,18 @@ pub mod actor {
 
     /// What a room stages when it opens.
     pub use ambition_actors::features::RoomContentStagingRegistry;
+
+    /// What a body can reach for.
+    ///
+    /// A capability MASK, not a promise of combat: an actor with an empty
+    /// ability set is an ordinary actor, and a game should be able to check
+    /// that its cast is not secretly armed.
+    pub use ambition_engine_core::abilities::AbilitySet;
+
+    /// The body's INTRINSIC kit as authored, and the EFFECTIVE set the movement
+    /// kernel reads. `effective = base ∩ session_mask`, so a game checking what
+    /// its cast can actually do wants the base.
+    pub use ambition_engine_core::body_clusters::{AbilityBase, BodyAbilities};
 }
 
 /// **Characters: the cast, its art, and what it can do.**

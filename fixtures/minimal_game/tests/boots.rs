@@ -369,3 +369,27 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
     // A diagnosis needs to know WHICH route is hollow.
     assert_eq!(hollow.route(), Some("r"));
 }
+
+// **The actor IS secretly combat-shaped, and the proof attempt is recorded
+// rather than pinned.**
+//
+// Consumer-matrix row 3 asks whether the ENGINE forces combat state onto a body
+// regardless of what its content declared. The test that asked lived here and
+// FAILED: this game's walker declares `melee: None, ranged: None, special:
+// None` and its `AbilityBase` — the authored intrinsic kit, not the maskable
+// effective set — comes back with `attack` enabled.
+//
+// It is deleted rather than inverted. A passing test asserting `attack == true`
+// would pin unpolished behavior, which AGENTS.md forbids, and would go green on
+// the day somebody fixes it. A failing test cannot land on main. So the finding
+// lives where findings live: the consumer-matrix row stays UNPROVEN with the
+// measurement attached, and `slice-evidence/consumer-matrix.json` names what
+// has to become true.
+//
+// ⚠ Do not re-add this test until the behaviour changes. Re-adding it as a
+// characterisation of the bug is how the bug becomes a requirement.
+//
+// Two things were ruled out while measuring, so the next person does not repeat
+// them: `playable_kit: Authored` (vs `HostCode`) does not change it, and the
+// `sandbox_all()` grant in `avatar/bundles.rs` is `#[cfg(test)]`.
+

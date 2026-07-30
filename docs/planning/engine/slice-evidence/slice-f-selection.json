@@ -8,11 +8,9 @@
     "",
     "Read with api-growth-method.md §3a/§3b/§4 and ADR 0031's Deferred section."
   ],
-
   "derived": true,
   "derived_on": "2026-07-30",
   "from_slice": "E",
-
   "the_convergence": {
     "note": "Every remaining terminal condition reduces to rollback, and none of them was steered there — each was reached independently.",
     "§4.1 the ratchet is at 1": "The single entry is `ambition::runtime`, and all ten of its uses are `rollback::*`.",
@@ -20,7 +18,6 @@
     "row 4's weak half": "`sanic_has_the_same_identities_standalone_and_embedded` compares a rollback schema fingerprint that is ENGINE-WIDE rather than module-scoped, so it is equal partly because there is nothing per-module for it to differ from.",
     "reading": "Three independent paths, one destination. That is the campaign telling the truth about where its boundary is, rather than a plan predicting it."
   },
-
   "ranked_candidates": [
     {
       "leak": "rollback is not a public knob, so a consumer that needs it names `ambition::runtime::rollback` directly",
@@ -32,7 +29,6 @@
       "⚠": "The cheap version — curate `ambition::rollback` as a closed module, prune the baseline, declare §4.1 met — is available tonight and would be FRAUD against the ADR. The technique that closed seventeen entries does not apply to the eighteenth, and the contract entry says so at the entry precisely because 'one away from zero' is when somebody reaches for it."
     }
   ],
-
   "slice_f": {
     "name": "rollback as a public promise",
     "one_leak": "a consumer whose game owns authoritative state must name `ambition::runtime::rollback` — an implementation module — because the engine has no public way to say 'this session rewinds'.",
@@ -61,7 +57,6 @@
       "migrating `game/ambition_app`'s production binary — row 6 is proven on its experiences, and the surrounding app shell is named as remaining."
     ]
   },
-
   "convergence_check": {
     "note": "§6: every slice reduces at least one of five counters. D and E reduced two between them.",
     "forbidden_paths_named_by_a_consumer": "1 (unchanged — the last one is slice F's)",
@@ -69,5 +64,18 @@
     "engine_files_a_blind_author_must_open": "run 3 opened 1 source file + 4 surfaces; every reason it gave is now closed",
     "undeleted_compensating_mechanisms": "6 -> 6",
     "unwanted_linked_capabilities": "41 -> 41; the experiment that would move it is deliberately after a consumer the API author did not design"
+  },
+  "blocking_finding": {
+    "measured_on": "2026-07-30",
+    "finding": "ROLLBACK CANNOT BE FEDERATED WITHOUT MOVING CODE BETWEEN CRATES, and this is the structural reason ownership has stayed central. The registration vocabulary — `AmbitionRollbackApp` (rollback/registry.rs) and `SnapshotState` (rollback/codec.rs) — lives in `ambition_runtime`. `ambition_runtime` depends on TWENTY domain crates; none of them depends on it. So a domain registering its own rollback state would need a trait from a crate above it, which is a cycle.",
+    "verified": [
+      "ambition_runtime/Cargo.toml depends on ambition_portal; ambition_portal does not depend on ambition_runtime.",
+      "Same direction for ambition_combat, ambition_projectiles, ambition_encounter — none depends on ambition_runtime.",
+      "319 stable schema names and 62 codecs are all registered centrally, in ambition_runtime."
+    ],
+    "what_the_leak_NAMES": "The boundary is not 'split ambition_actors'. It is: the rollback REGISTRATION VOCABULARY must sit BELOW the domains that need it — a foundation crate holding `SnapshotState`, `AmbitionRollbackApp` and the codec helpers, which every domain may depend on and which depends on none of them. That is ADR 0032's `RollbackSchemaFragment` with its precondition made explicit.",
+    "§4_routing": "NOT closeable without moving code between crates + OWNED -> DECOMPOSITION EVIDENCE, which §4 says AUTHORISES a carve. ⚠ And §4's constraint applies in full: 'Do not let a single leak authorise a full decomposition. Carve exactly the boundary the leak NAMES, migrate its consumers, delete the displaced path, guard the absence — then return to §2.' The boundary this leak names is the vocabulary extraction, and NOTHING ELSE. It is not licence for the `ambition_actors` split, whose own trigger was measured earlier and did NOT fire — 39 of 39 facade dependencies are unconditional, so that footprint is unreduced rather than irreducible.",
+    "why_this_is_the_good_ending": "§4 calls this 'the interesting end' and says it is the whole point: a carve authorised WITH AN ARGUMENT, where the leak names the boundary, the contract diff names the paths, the fixture log names what a consumer had to know, and the blind run names what an author had to learn. All four exist. The carve this campaign ends up authorising is not the one anybody proposed at the start — that was `ambition_actors`, argued from size — and it is a boundary no amount of reading the module list would have produced.",
+    "ratchet_now_watching_it": "The second ratchet (319 names, 62 codecs) was built one commit before this was measured, so the federation has an instrument from its first day rather than from whenever somebody notices it needs one."
   }
 }

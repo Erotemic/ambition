@@ -34,6 +34,12 @@ VIOLATING_LINE = {
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",
     "fight-tests-do-not-hand-roll-damage": "    mary_hp -= 12;",
+    # The line that really stood in `src/bin/dump.rs` until A4 retired it — and
+    # the one that made the deleted path worth guarding rather than merely
+    # tidying: it installed the WINDOWED host in a HEADLESS dump, and nothing
+    # noticed, because the registries the dump prints do not come from the host.
+    "outlander-does-not-hand-order-its-own-composition":
+        "    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);",
     "the-catalog-default-action-set-is-confined-to-one-file":
         "    let authored = catalog.build_default_action_set(id);",
     "the-provider-resolver-is-confined-to-one-file":

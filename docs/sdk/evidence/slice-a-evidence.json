@@ -1,0 +1,347 @@
+{
+  "slice": "A",
+  "campaign": "docs/planning/engine/api-1.0-campaign.md",
+  "method": "docs/planning/engine/api-growth-method.md",
+  "generated_by": "scripts/collect_slice_evidence.py",
+  "contract_diff": {
+    "outlander-names-only-the-public-sdk": {
+      "allowed_sdk_modules": [
+        "app"
+      ],
+      "baseline_open": [
+        "actors",
+        "asset_manager",
+        "audio",
+        "characters",
+        "engine_core",
+        "entity_catalog",
+        "game_shell",
+        "input",
+        "platformer",
+        "provider",
+        "runtime",
+        "sprite_sheet",
+        "time",
+        "world"
+      ],
+      "open_count": 14,
+      "recorded_baseline": 18,
+      "predicted_after_a4": 14,
+      "prediction_confirmed": true,
+      "retired_by_this_slice": [
+        "engine",
+        "game_assets",
+        "presentation",
+        "windowed_host"
+      ],
+      "uses_per_module": {
+        "actors": 10,
+        "app": 9,
+        "asset_manager": 2,
+        "audio": 1,
+        "characters": 7,
+        "engine_core": 1,
+        "entity_catalog": 1,
+        "game_shell": 2,
+        "input": 2,
+        "platformer": 11,
+        "provider": 2,
+        "runtime": 13,
+        "sprite_sheet": 9,
+        "time": 1,
+        "world": 1
+      },
+      "files_per_module": {
+        "actors": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/draws_its_own_character.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "app": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "asset_manager": [
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "audio": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "characters": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "engine_core": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "entity_catalog": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "game_shell": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "input": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "platformer": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/draws_its_own_character.rs"
+        ],
+        "provider": [
+          "fixtures/external_consumer/src/bin/dump.rs",
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "runtime": [
+          "fixtures/external_consumer/src/bin/dump.rs",
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "sprite_sheet": [
+          "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/draws_its_own_character.rs",
+          "fixtures/external_consumer/tests/gameplay.rs"
+        ],
+        "time": [
+          "fixtures/external_consumer/src/lib.rs"
+        ],
+        "world": [
+          "fixtures/external_consumer/src/lib.rs"
+        ]
+      },
+      "multi_file_modules": [
+        "actors",
+        "app",
+        "characters",
+        "platformer",
+        "provider",
+        "runtime",
+        "sprite_sheet"
+      ],
+      "violations": {
+        "new": [],
+        "stale": []
+      }
+    }
+  },
+  "fixture_leak_log": {
+    "entries": [
+      {
+        "file": "fixtures/external_consumer/src/bin/dump.rs",
+        "line": 6,
+        "kind": "recorded leak #4",
+        "text": "recorded leak #4.)"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 20,
+        "kind": "recorded leak #2",
+        "text": "recorded leak #2)."
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 24,
+        "kind": "recorded leak #1",
+        "text": "recorded leak #1."
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 66,
+        "kind": "LEAK",
+        "text": "LEAK #3 CLOSED, both halves (2026-07-28). This used to read \"reuses an"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 497,
+        "kind": "LEAK CLOSED",
+        "text": "LEAK CLOSED 2026-07-30 \u2014 slice A of the API 1.0 campaign, and this fixture is"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 629,
+        "kind": "LEAK CLOSED",
+        "text": "LEAK CLOSED 2026-07-27. This used to carry its own branch \u2014 `PendingLocalInput`"
+      }
+    ],
+    "total": 6,
+    "closed": 2,
+    "open_recorded": 4
+  },
+  "blind_agent_run": {
+    "collected": false,
+    "reason": "No blind-agent run recorded. \u00a72c requires a FRESH agent: one resumed from a session that touched engine internals measures its own memory, and \u00a72c names that the single easiest way to get a falsely green result. The session that landed slice A read the movement kernel, the sim-view seam and the render cluster, so it is exactly the disqualified population and did not self-report a baseline. Drop a record in docs/sdk/evidence/blind-agent-runs/ and re-run this script.",
+    "required_fields": [
+      "completed",
+      "first_engine_file_opened",
+      "elapsed_context"
+    ]
+  },
+  "deletion_criteria": {
+    "criteria": [
+      {
+        "criterion": "prestartup-character-preparation-backstop",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+      },
+      {
+        "criterion": "provider-plugin-ordering-decides-content-completeness",
+        "domain": "composition",
+        "in_scope_for_slice_a": true,
+        "became_deletable": true,
+        "evidence": "contract outlander-does-not-hand-order-its-own-composition is green; the fixture's hand-ordered builders and dump are deleted"
+      },
+      {
+        "criterion": "repeated-app-finish-can-republish-prepared-content",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+      },
+      {
+        "criterion": "headless-and-visible-share-a-prepared-content-fingerprint",
+        "domain": "composition",
+        "in_scope_for_slice_a": true,
+        "became_deletable": true,
+        "evidence": "contract outlander-does-not-hand-order-its-own-composition is green; the fixture's hand-ordered builders and dump are deleted"
+      },
+      {
+        "criterion": "sanic-standalone-and-embedded-agree-on-identities",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+      },
+      {
+        "criterion": "a-runtime-character-consumer-reads-a-fallback-catalog",
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+      }
+    ],
+    "in_scope": 2,
+    "became_deletable": 2,
+    "in_scope_but_not_deletable": []
+  },
+  "capability_footprint": {
+    "collected": true,
+    "sentinel": "fixtures/external_consumer/Cargo.toml",
+    "declared_dependencies": [
+      "ambition",
+      "bevy"
+    ],
+    "transitive_ambition_closure": [
+      "ambition",
+      "ambition_actors",
+      "ambition_asset_manager",
+      "ambition_audio",
+      "ambition_characters",
+      "ambition_combat",
+      "ambition_cutscene",
+      "ambition_dev_tools",
+      "ambition_dialog",
+      "ambition_encounter",
+      "ambition_engine_core",
+      "ambition_entity_catalog",
+      "ambition_game_shell",
+      "ambition_gameplay_trace",
+      "ambition_host",
+      "ambition_input",
+      "ambition_interaction",
+      "ambition_inventory_ui",
+      "ambition_items",
+      "ambition_ldtk_map",
+      "ambition_load",
+      "ambition_load_presentation",
+      "ambition_menu",
+      "ambition_persistence",
+      "ambition_platformer_primitives",
+      "ambition_platformer_provider",
+      "ambition_portal",
+      "ambition_portal_presentation",
+      "ambition_projectiles",
+      "ambition_render",
+      "ambition_runtime",
+      "ambition_settings_menu",
+      "ambition_sfx",
+      "ambition_sfx_bank",
+      "ambition_sim_view",
+      "ambition_sprite_sheet",
+      "ambition_time",
+      "ambition_touch_input",
+      "ambition_ui_nav",
+      "ambition_vfx",
+      "ambition_world"
+    ],
+    "transitive_ambition_count": 41,
+    "direct_ambition_edges_per_crate": {
+      "ambition": 39,
+      "ambition_actors": 28,
+      "ambition_runtime": 20,
+      "ambition_render": 17,
+      "ambition_sim_view": 16,
+      "ambition_platformer_provider": 13,
+      "ambition_host": 10,
+      "ambition_touch_input": 9,
+      "ambition_combat": 8,
+      "ambition_game_shell": 8,
+      "ambition_projectiles": 8,
+      "ambition_sprite_sheet": 7,
+      "ambition_dialog": 5,
+      "ambition_ldtk_map": 5,
+      "ambition_dev_tools": 4,
+      "ambition_encounter": 4,
+      "ambition_load_presentation": 4,
+      "ambition_interaction": 3,
+      "ambition_portal_presentation": 3,
+      "ambition_vfx": 3,
+      "ambition_world": 3,
+      "ambition_characters": 2,
+      "ambition_gameplay_trace": 2,
+      "ambition_items": 2,
+      "ambition_persistence": 2,
+      "ambition_portal": 2,
+      "ambition_settings_menu": 2,
+      "ambition_audio": 1,
+      "ambition_input": 1,
+      "ambition_inventory_ui": 1,
+      "ambition_platformer_primitives": 1,
+      "ambition_sfx": 1,
+      "ambition_ui_nav": 1,
+      "ambition_asset_manager": 0,
+      "ambition_cutscene": 0,
+      "ambition_engine_core": 0,
+      "ambition_entity_catalog": 0,
+      "ambition_load": 0,
+      "ambition_menu": 0,
+      "ambition_sfx_bank": 0,
+      "ambition_time": 0
+    },
+    "widest_fan_out": [
+      [
+        "ambition",
+        39
+      ],
+      [
+        "ambition_actors",
+        28
+      ],
+      [
+        "ambition_runtime",
+        20
+      ]
+    ],
+    "note": "The consumer declares two dependencies (`ambition`, `bevy`) and links the whole engine closure. A module allowlist cannot see this: slice A's ratchet went from 18 to 14 while this number did not move at all, which is precisely the blind spot \u00a72e exists to record."
+  },
+  "selects_slice_b": {
+    "derived": false,
+    "blocked_on": "2c",
+    "reason": "Four of five sources are collected; \u00a72c is not, and it is the one that names the next leak from the population the API is for. Deriving B from the other four would choose it by taste, which the slice's own exit criteria forbid.",
+    "constraints_from_the_collected_four": [
+      "the ratchet's remaining 14 modules are content/gameplay vocabulary, not composition \u2014 so B is a content-model slice, which is what the campaign sketch already says; that is a confirmation, not a derivation",
+      "the heaviest remaining leaks by use count are [('runtime', 13), ('platformer', 11), ('actors', 10), ('app', 9)]",
+      "modules named from more than one file (a rule re-derived independently, \u00a72a): ['actors', 'app', 'characters', 'platformer', 'provider', 'runtime', 'sprite_sheet']",
+      "\u00a72e is untouched by slice A: the consumer still links 41 ambition crates from two declared dependencies, and no module allowlist can see that"
+    ]
+  }
+}

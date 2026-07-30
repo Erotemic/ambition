@@ -11,9 +11,9 @@
 //!
 //! So this builds the SAME app `src/bin/visible.rs` runs — one function, no
 //! test-only composition — with the full render graph against no wgpu backend
-//! (`RenderMode::Headless`, the standard Bevy recipe the in-repo demos use in
+//! (`without_gpu`, the standard Bevy recipe the in-repo demos use in
 //! `ov1_draws_the_world`). It observes ENTITIES and ASSET PATHS, not pixels; a
-//! real window changes one enum value.
+//! real window changes one argument.
 //!
 //! The assertion that matters is the last one: the texture the engine chose for
 //! this character resolves through the `game://` source, which is the
@@ -24,10 +24,10 @@
 
 use bevy::prelude::*;
 
-use outlander::{build_windowed_app, RenderMode};
+use outlander::build_windowed_app;
 
 fn drawn() -> App {
-    build_windowed_app(RenderMode::Headless)
+    build_windowed_app(false)
 }
 
 /// Long enough for shell routing, session activation, asset binding and the

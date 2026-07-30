@@ -107,29 +107,18 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
 /// precisely "it composes and draws nothing".
 #[test]
 fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    // The visible binary's composition minus the window: the asset plugin
-    // pointed at the ENGINE's tree (recorded leak #3 — a consumer that forgets
-    // this line gets bare boxes), states, then the engine group.
-    app.add_plugins(bevy::MinimalPlugins);
-    app.add_plugins(bevy::state::app::StatesPlugin);
-    app.add_plugins(bevy::asset::AssetPlugin {
-        file_path: ambition::asset_manager::actors_desktop_asset_root(),
-        ..Default::default()
-    });
-    app.init_asset::<Image>();
-    app.init_asset::<TextureAtlasLayout>();
-    ambition::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    outlander::compose_outlander_shell(&mut app);
-    app.add_plugins(
-        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
-            outlander::OUTLANDER_EXPERIENCE,
-        )
-        .with_room(outlander::outlander_room().metadata),
-    );
+    // The REAL composition, not a hand-rolled subset of it. This used to
+    // reassemble eleven lines of "the visible binary's composition minus the
+    // window", which is a test asserting that a composition only the test knows
+    // works — and it drifted from the binary the moment either changed.
+    //
+    // `with_game_assets` because that is exactly the subject: a display-less
+    // host that still prepares art. It is policy rather than a face, and the
+    // default is off — preparing art is not free.
+    let mut app = ambition::app::PlatformerApp::headless()
+        .with_game_assets()
+        .mount(outlander::OutlanderModule)
+        .build();
     app.update();
 
     let catalog = app
@@ -177,13 +166,12 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
     use bevy::prelude::*;
 
-    let mut app = App::new();
-    app.add_plugins(bevy::MinimalPlugins);
-    outlander::register_outlander_asset_source(&mut app);
-    app.add_plugins(bevy::asset::AssetPlugin {
-        file_path: ambition::asset_manager::actors_desktop_asset_root(),
-        ..Default::default()
-    });
+    // Through the game's real composition: the `game://` source is DECLARED on
+    // the module and installed by the engine before `AssetPlugin` seals its
+    // sources. A test that registered it by hand would be asserting that the
+    // test can call `register_asset_source`, not that a consumer's declaration
+    // reaches the AssetServer.
+    let app = outlander::build_outlander_app();
 
     // Through the real `AssetServer`, which is what every load path uses — not
     // a hand-built reader that would only prove this test can construct one.
@@ -362,7 +350,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 /// resolved no spec and drew the placeholder rectangle.
 ///
 /// This asserts the seam from where it matters: an App composed exactly as
-/// `compose_outlander_shell` composes it, asking the ENGINE's own resolution
+/// `OutlanderModule` declares it, asking the ENGINE's own resolution
 /// function for a character the ENGINE has never heard of, and getting back the
 /// frame size this crate authored.
 #[test]
@@ -484,13 +472,12 @@ fn the_consumers_own_art_is_a_real_png_matching_the_sheet_it_authored() {
 fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
     use bevy::prelude::*;
 
-    let mut app = App::new();
-    app.add_plugins(bevy::MinimalPlugins);
-    outlander::register_outlander_asset_source(&mut app);
-    app.add_plugins(bevy::asset::AssetPlugin {
-        file_path: ambition::asset_manager::actors_desktop_asset_root(),
-        ..Default::default()
-    });
+    // Through the game's real composition: the `game://` source is DECLARED on
+    // the module and installed by the engine before `AssetPlugin` seals its
+    // sources. A test that registered it by hand would be asserting that the
+    // test can call `register_asset_source`, not that a consumer's declaration
+    // reaches the AssetServer.
+    let app = outlander::build_outlander_app();
 
     // Through the real `AssetServer`, like its sibling test: a hand-built
     // reader would only prove this test can construct one.

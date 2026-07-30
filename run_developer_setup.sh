@@ -520,6 +520,18 @@ install_tool_project() {
     (
         cd "$project"
         uv pip install --python "$project/.venv/bin/python" -e "$editable_target"
+        # A tool project that ships `tests/` has them RUN by
+        # `scripts/run_tests.py`, in this venv (the package and its deps live
+        # here, not in the repo-root one). Nothing declared pytest — not as a
+        # dependency, not as an optional group — so the LDtk authoring suite,
+        # 149 tests over the path every room in the game is built through,
+        # could not be collected on any machine this script set up
+        # (2026-07-30). Installed unconditionally: harmless for a project
+        # without tests, and one less thing to keep in sync with which ones have
+        # them.
+        if [ -d "$project/tests" ]; then
+            uv pip install --python "$project/.venv/bin/python" pytest
+        fi
     )
     "$project/.venv/bin/python" -c "import $import_name" \
         || fatal "$relative_project installed but '$import_name' is not importable"
@@ -588,9 +600,21 @@ install_scripts_env() {
         uv venv --python "$requested_python" "$venv_dir"
     fi
     log "installing scripts/ dependencies"
-    uv pip install --python "$venv_dir/bin/python" tree_sitter tree_sitter_rust
+    # `pytest` belongs here for the same reason `tree_sitter_rust` does, and its
+    # absence was worse. `scripts/run_tests.py` runs the repo's TWO Python suites
+    # as `sys.executable -m pytest` — the goal guard, the test runner, the
+    # package-asset guard, the architectural absence contracts, and the whole
+    # 149-test LDtk authoring toolchain — and nothing installed it. So on any
+    # machine set up by THIS script both jobs failed instantly with "No module
+    # named pytest", which `run_tests.py` reports as two red jobs at 0.0s among
+    # twenty green ones: a suite whose first line is "if the thing that decides
+    # whether the suite is honest is broken, that is the answer" could never run
+    # the thing that decides it (found 2026-07-30).
+    uv pip install --python "$venv_dir/bin/python" pytest tree_sitter tree_sitter_rust
     "$venv_dir/bin/python" -c "import tree_sitter_rust" \
         || fatal "scripts/.venv installed but 'tree_sitter_rust' is not importable"
+    "$venv_dir/bin/python" -c "import pytest" \
+        || fatal "scripts/.venv installed but 'pytest' is not importable — the repo's own Python suites cannot run"
 }
 
 regenerate_assets() {

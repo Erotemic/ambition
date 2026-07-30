@@ -147,6 +147,58 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        # Campaign A4's GUARD leg. A slice ends with one path, not two — and
+        # "migrated" is a claim about what no longer exists, which is exactly the
+        # kind of claim this file is for.
+        "id": "outlander-does-not-hand-order-its-own-composition",
+        # Bounded to the external fixture for the same reason the allowlist row
+        # is: in-repo apps composing by hand is a MEASUREMENT question the
+        # campaign defers, not a rule, and widening this would answer it by
+        # accident in a row whose subject is one consumer.
+        "paths": ["fixtures/external_consumer/"],
+        # The fixture's tests ARE the consumer — a third party exercising the
+        # public API — so a test that rebuilds the composition by hand is exactly
+        # the second path this forbids, not an exemption from it.
+        "include_tests": True,
+        "patterns": [
+            # The engine ordering rules `ambition::app` now owns. Each of these
+            # names is one rule a consumer used to have to know and get right:
+            # engine foundation before the groups, engine before host before
+            # shell, assets after the content that registers the catalogs and
+            # before the presentation that draws them. Between them the fixture's
+            # three hand-rolled builders encoded EIGHT such rules, four of which
+            # failed SILENTLY when wrong (see `lib.rs`'s builder docs).
+            r"\badd_headless_foundation\b",
+            r"\binit_engine_states\b",
+            r"\bPlatformerEnginePlugins\b",
+            r"\bPlatformerHostPlugins\b",
+            r"\bPlatformerAssetsPlugin\b",
+            r"\bPlatformerPresentationPlugin\b",
+            r"\bMinimalShellPlugins\b",
+            # Bevy's own group: `PlatformerApp` decides windowed-vs-headless and
+            # which five plugins a GPU-less window disables. A consumer adding
+            # `DefaultPlugins` itself has taken that decision back.
+            r"\bDefaultPlugins\b",
+        ],
+        "reason": (
+            "The fixture had three hand-ordered builders totalling ~110 lines "
+            "(`build_outlander_app`, `build_outlander_rollback_app`, "
+            "`build_windowed_app`) plus two shared helpers, and between them they "
+            "restated eight engine ordering rules — four of which failed "
+            "silently: an asset source registered after `AssetPlugin` sealed its "
+            "sources, a GPU-less window missing one of five disables, engine "
+            "groups before `init_engine_states`, a host naming no initial route "
+            "and therefore preparing nothing. All three now go through "
+            "`ambition::app::PlatformerApp`, and `src/bin/dump.rs` — the last "
+            "hand-ordered path, which also installed the WINDOWED host in a "
+            "headless dump — was retired with it. Reintroducing any of these "
+            "names in the consumer means a second composition exists, which is "
+            "the state slice A4 is defined as ending. Retiring them is also what "
+            "closed `ambition::engine` and `ambition::windowed_host` on the A1 "
+            "ratchet, so a regression here shows up in two places."
+        ),
+    },
+    {
         "id": "rollback-exit-oracle-is-not-quarantined",
         # The one contract whose SUBJECT is a test file. Everything else is about
         # production code, so tests are excluded by default — see `violations`.
@@ -443,31 +495,57 @@ MODULE_ALLOWLISTS: list[dict] = [
         # counts, and the counts are §2a's cost proxy.
         "include_tests": True,
         "facade": "ambition",
-        "allowed": set(),
+        # THE PUBLIC SDK, as of slice A. `ambition::app` is the host-composition
+        # facade `docs/sdk/api-prototype.md` §5 specifies (`PlatformerApp`,
+        # `SessionMode`, `AssetSource`, `GameModule`, `ModuleManifest`,
+        # `ModuleDraft`, and `app::prelude`). It is the one name a consumer may
+        # reach for that is a PROMISE rather than a mirror of our crate list —
+        # which is the whole distinction this contract measures.
+        #
+        # ⚠ Adding a name here is a compatibility commitment, not a way to make
+        # the ratchet green. The test that reads this table cannot tell the two
+        # apart, so the review is the gate: a module belongs here only once
+        # `docs/sdk/api-prototype.md` names it as SDK surface.
+        #
+        # §5 also lists `ambition::experience`; the implementation put
+        # `GameModule`/`ModuleManifest`/`ModuleDraft` in `ambition::app` beside
+        # `PlatformerApp` instead of splitting them, so `experience` does not
+        # exist and is deliberately NOT pre-registered here. An allowlist entry
+        # for a module nothing names is exactly the stale entry invariant 2
+        # forbids.
+        "allowed": {"app"},
         # Measured 2026-07-30 by this script, not transcribed from the campaign.
         # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
         # names. There are eighteen. Both documents were corrected in the commit
         # that added this table; the instrument is the authority for its own
         # baseline, because a baseline copied out of prose is a ratchet nobody
         # measured.
+        # ⚠ MEASURED after each migration, never edited to make a run green.
+        # Slice A4 retired exactly the four `docs/sdk/api-prototype.md` §5
+        # predicted — `engine`, `game_assets`, `presentation`, `windowed_host` —
+        # taking 18 to 14. The prediction was written down BEFORE A4 ran and the
+        # instrument reported the same number, which is the only version of that
+        # exercise worth anything: 14 against a remembered guess of 12 would have
+        # taught nothing.
+        #
+        # Six of `asset_manager`'s eight uses closed and the module STAYS, because
+        # module granularity is a coarse unit that reports progress late. That is
+        # the right direction for a gate to err in; §2a of the growth method
+        # carries the per-path counts beside it for the finer picture.
         "baseline": {
             "actors",
             "asset_manager",
             "audio",
             "characters",
-            "engine",
             "engine_core",
             "entity_catalog",
-            "game_assets",
             "game_shell",
             "input",
             "platformer",
-            "presentation",
             "provider",
             "runtime",
             "sprite_sheet",
             "time",
-            "windowed_host",
             "world",
         },
         "reason": (

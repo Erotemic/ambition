@@ -1,0 +1,101 @@
+//! **Campaign A3: `PlatformerApp` stands the fixture up on BOTH faces.**
+//!
+//! The other test files in this fixture assert what Outlander DOES — it
+//! activates, it walks, its gate transits a body, its character is drawn. This
+//! one asserts only that the composition RESOLVES, on each host face, from one
+//! mounted module. That is a different claim and it belongs in its own file:
+//! `gameplay.rs` going green tells you the headless face composes and says
+//! nothing whatsoever about the windowed one, which is exactly the asymmetry
+//! that let three hand-ordered builders drift apart before A4 deleted them.
+//!
+//! # What "one path" is measured as here
+//!
+//! Not "both faces work" — both faces worked before, via separate builders that
+//! each restated the engine's ordering rules and disagreed about four of them.
+//! The claim is that ONE mounted [`OutlanderModule`] reaches both faces, so the
+//! only difference between a windowed Outlander and a headless one is the
+//! builder call that selects the face. A test that constructed a different
+//! module per face would pass while proving nothing.
+//!
+//! # Scope discipline
+//!
+//! This file is inside the `include_tests` scope of BOTH slice-A contracts
+//! (`outlander-names-only-the-public-sdk` and
+//! `outlander-does-not-hand-order-its-own-composition`) — the fixture's tests
+//! ARE the consumer. So it names `ambition::app` and nothing else, and it must
+//! not reach for a plugin group to check its own work. Everything asserted below
+//! is observable through the public surface or through the `App` itself.
+
+use ambition::app::prelude::*;
+use outlander::OutlanderModule;
+
+/// Both faces come from ONE module, so the test cannot accidentally prove that
+/// two different games compose.
+fn the_one_module() -> OutlanderModule {
+    OutlanderModule
+}
+
+/// **Headless composes, and one update is one sim tick.**
+///
+/// `try_build` rather than `build`: a panic tells a reader that something failed,
+/// while a [`CompositionError`] tells them WHICH rule — and A3's whole subject is
+/// whether the builder can state its own failures.
+#[test]
+fn platformer_app_composes_the_fixture_headless() {
+    let app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .try_build()
+        .expect("the headless face composes the fixture's one module");
+    // A composed app is not an empty one. The sim schedule is what the module's
+    // own systems joined through `sim_schedule()`, so its absence would mean the
+    // face installed no engine at all — the failure mode a "did it panic?" test
+    // cannot distinguish from success.
+    assert!(
+        app.get_schedule(bevy::prelude::FixedUpdate).is_some(),
+        "the headless face pins the sim to a fixed step (rule 8), so FixedUpdate \
+         must exist in the composed app"
+    );
+}
+
+/// **The windowed face composes the same module, with no GPU.**
+///
+/// `without_gpu` is the engine owning rule 3 — the five plugin disables a
+/// display-less window needs. A consumer re-deriving them was recorded leak
+/// material; that it is one builder call is the thing under test.
+///
+/// Deliberately NOT gated on the `visible` feature. The face selection lives in
+/// `ambition::app` with no `cfg` on it, so if this ever stops compiling under
+/// default features that is a real change in what a consumer can reach for, and a
+/// gate here would hide it.
+#[test]
+fn platformer_app_composes_the_fixture_windowed_without_a_gpu() {
+    let app = PlatformerApp::windowed("Outlander — composition proof")
+        .without_gpu()
+        .mount(the_one_module())
+        .try_build()
+        .expect("the windowed face composes the fixture's one module");
+    assert!(
+        app.get_schedule(bevy::prelude::FixedUpdate).is_some(),
+        "the windowed face runs the same fixed-step simulation; only the face differs"
+    );
+}
+
+/// **`without_gpu` on a headless face is a stated conflict, not a silent no-op.**
+///
+/// The builder collects reasons and reports all of them, which is the affordance
+/// that makes `try_build` worth having over a panic. A headless face has no
+/// render graph to build against no backend, and answering that with silence is
+/// how a consumer ends up debugging an absence.
+#[test]
+fn a_face_that_cannot_honor_a_request_says_so() {
+    let error = PlatformerApp::headless()
+        .without_gpu()
+        .mount(the_one_module())
+        .try_build()
+        .expect_err("`without_gpu` is meaningless on a headless face");
+    let reported = error.to_string();
+    assert!(
+        reported.contains("without_gpu"),
+        "the error must NAME the request it could not honor; got {reported:?}"
+    );
+}

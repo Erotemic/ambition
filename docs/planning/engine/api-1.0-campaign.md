@@ -1,8 +1,14 @@
 # API 1.0 campaign
 
-**Status:** not started (2026-07-30). Executable plan for
+**Status:** slice A in progress (2026-07-30) — **A1–A4 landed, A5 open.**
+Executable plan for
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md) and
 [ADR 0032](../../adr/0032-authoring-is-declarative.md), both *Proposed*.
+
+The allowlist ratchet stands at **14 of 18**; the four modules host composition
+owned are retired and `ambition::app` is the first allowed SDK name. What remains
+in slice A is the blind-agent baseline and the §2 evidence collection that
+selects slice B.
 
 **How slices after A are chosen:** by the procedure in
 [api-growth-method.md](api-growth-method.md), from what the previous slice
@@ -171,7 +177,7 @@ Two constraints, cheap now and expensive later:
   `ambition::world::prelude`. One enormous root prelude is a discovery problem
   for an agent, not a convenience.
 
-### A3 — implement `PlatformerApp`
+### A3 — implement `PlatformerApp` — **LANDED 2026-07-30**
 
 Over current machinery; no crate moves. It owns asset-source install,
 foundation, simulation host, platformer runtime, window/device host, shell,
@@ -181,9 +187,66 @@ the one correct order.
 `Simulation`/`SessionMode` exposes **fixed-step only**. Rollback is not a public
 knob in A — see §Deferred.
 
-### A4 — migrate Outlander, delete its composition path
+**Landed as `crates/ambition/src/app.rs`.** The umbrella is where it belongs and
+there is precedent in the same crate: `game_assets` lives there because it spans
+two layers that may not depend on each other, and its module docs say so. A
+builder that sequences installs is assembly, not the leaf system ADR 0031 warns
+about.
 
-Windowed and headless. **Delete, not deprecate.**
+Acceptance: `fixtures/external_consumer/tests/composition.rs` — one mounted
+module reaches BOTH faces, and a request a face cannot honor is a stated error
+rather than a silent no-op.
+
+Two decisions A2 §7 left open, resolved by building it:
+
+* **The rollback variation** — resolved as proposed. `unstable_rollback_session`
+  is `#[doc(hidden)]` and `SessionMode` still has exactly one public arm, so the
+  promise is unchanged while the fixture's third composition goes through the
+  same builder instead of staying a fork.
+* **Asset preparation is POLICY, not a face** (`with_game_assets`). This one was
+  got wrong twice before the fixture settled it — see the leak below.
+
+### A4 — migrate Outlander, delete its composition path — **LANDED 2026-07-30**
+
+Windowed and headless. **Delete, not deprecate.** Done: `build_outlander_app`,
+`build_outlander_rollback_app` and `build_windowed_app` are one builder call
+each; `compose_outlander_shell`, `register_outlander_asset_source` and
+`RenderMode` are gone; the three test sites that rebuilt composition subsets by
+hand now use the real thing; and `src/bin/dump.rs` — the last hand-ordered path,
+which had been installing the WINDOWED host in a headless dump — went with them.
+
+Guarded by `outlander-does-not-hand-order-its-own-composition`, and **seen red**:
+reintroducing `add_headless_foundation` + `PlatformerHostPlugins` in the fixture
+takes it red with exit 1, and takes the A1 ratchet red too, because those module
+names are pruned and invariant 1 now rejects them. Two independent guards on one
+regression, which is what pruning bought.
+
+**Result: 18 → 14, exactly the four A2 §5 predicted** (`engine`, `game_assets`,
+`presentation`, `windowed_host`). `ambition::app` is the first entry in the
+allowlist's `allowed` set — the first name in this engine that is a promise
+rather than a mirror of the crate list.
+
+#### ⚠ The ninth leak, found BY the migration
+
+A2 §1 inventoried eight rules. The migration found a ninth, and it is the
+sharpest evidence in the slice for why migration is not a formality:
+
+> **Under GGRS the frame dt must be integer nanoseconds, and
+> `Time::<Fixed>::from_hz(60.0)` does not give them.** It rounds to
+> `16_666_667`ns; GGRS needs the truncated `16_666_666`. Feeding it the rounded
+> value costs real frames — the fixture's parity walk took **192 `update()`
+> calls to reach a world state the fixed-tick host reached in 180**, while every
+> checksum still agreed.
+
+The rule existed, in a comment on the fixture's hand-composed rollback app
+("the frame dt must be the tick dt exactly (integer nanos, no drift)"), and
+nowhere else. A consumer who wrote the obvious thing got a host that runs,
+simulates correctly, agrees on every checksum, and quietly needs 7% more frames.
+That is the silent class §3a prices at triple, and it survived only because one
+fixture had already been bitten.
+
+It was found because the parity test went red on a change that looked
+unrelated — which is what a canary is for.
 
 ### A5 — first blind agent run (baseline)
 
@@ -195,12 +258,44 @@ it is not expected to succeed at authoring content, which does not exist yet.
 ### Slice A exit criteria
 
 * [x] allowlist ratchet green, baseline 18 *(A1, 2026-07-30)*;
-* [ ] open-leak count **strictly lower** than 18
-      (`scripts/check_absence_contracts.py --allowlist-open-count`);
-* [ ] Outlander's composition is policy, not ordering;
-* [ ] Outlander's manual composition path deleted;
-* [ ] blind-agent baseline recorded;
-* [ ] §2 evidence collected per the growth method.
+* [x] open-leak count **strictly lower** than 18
+      (`scripts/check_absence_contracts.py --allowlist-open-count`) — **14**,
+      retiring `engine`, `game_assets`, `presentation`, `windowed_host`. §5
+      predicted exactly those four and exactly 14, recorded BEFORE A4 ran
+      *(A4, 2026-07-30)*;
+* [x] Outlander's composition is policy, not ordering *(A3/A4, 2026-07-30)*;
+* [x] Outlander's manual composition path deleted, and the absence guarded
+      *(A4, 2026-07-30)* — `src/bin/dump.rs` was the last one, and it installed
+      the WINDOWED host in a headless dump, which nothing noticed because the
+      registries it prints do not come from the host;
+* [ ] blind-agent baseline recorded — **NOT DONE, and deliberately not
+      self-reported.** §2c disqualifies an agent that has touched engine
+      internals: it "measures its own memory", and the result is falsely green
+      "in the direction that feels good". The session that landed A1–A4 read the
+      movement kernel, the sim-view seam and the render cluster, so it IS that
+      population. Needs a fresh agent given `docs/sdk/` + the facade only; drop
+      the record in `docs/sdk/evidence/blind-agent-runs/` and re-run
+      `scripts/collect_slice_evidence.py`;
+* [~] §2 evidence collected per the growth method — **four of five**, by
+      `scripts/collect_slice_evidence.py` into
+      `docs/sdk/evidence/slice-a-evidence.json`. 2a/2b/2d/2e measured; 2c is the
+      row above. ⚠ the goal check for this row tests KEY PRESENCE only, so it
+      reads green while 2c is uncollected — the JSON's own `collected: false` is
+      the authority, not the gate.
+
+**Slice B is therefore NOT derived, deliberately.** §2c's first-engine-file-opened
+field is the one that "names the next leak … from the population the API is *for*",
+so picking B from the other four would be picking it by taste — which this
+campaign's method forbids. What the collected four CONSTRAIN B to is recorded in
+`selects_slice_b.constraints_from_the_collected_four`, so the eventual derivation
+gets checked against evidence that predates it.
+
+⚠ **The most valuable number slice A's evidence produced is not the ratchet.**
+§2e: the consumer declares TWO dependencies and links **41** `ambition_*` crates,
+and that figure did not move at all while the ratchet went 18 → 14. A module
+allowlist cannot see the capability footprint — which is precisely the blind spot
+§2e exists to record, and it says the semantic surface improving is not evidence
+that the linked surface did.
 
 ---
 

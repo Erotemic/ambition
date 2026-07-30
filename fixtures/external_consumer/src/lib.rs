@@ -46,21 +46,13 @@ pub fn outlander_asset_root() -> String {
     concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string()
 }
 
-/// Register the consumer's `game://` source: this fixture's art first, the
-/// engine's tree for everything it did not author.
-///
-/// Must run BEFORE `AssetPlugin` builds — Bevy seals its sources there, which is
-/// why this is a free function a consumer calls rather than a plugin.
-pub fn register_outlander_asset_source(app: &mut bevy::prelude::App) {
-    use bevy::asset::AssetApp as _;
-    app.register_asset_source(
-        "game",
-        ambition::asset_manager::consumer_source::layered_asset_source(
-            outlander_asset_root(),
-            ambition::asset_manager::actors_desktop_asset_root(),
-        ),
-    );
-}
+// `register_outlander_asset_source` stood here: a free function rather than a
+// plugin, because it "must run BEFORE `AssetPlugin` builds — Bevy seals its
+// sources there". That sentence is an engine rule, and a consumer holding it in
+// a free function is a consumer being trusted to call it at the right moment.
+//
+// DELETED 2026-07-30. The source is DECLARED on `OutlanderModule::manifest`
+// now, and the engine installs it at the only correct moment. See §host.
 
 pub const OUTLANDER_EXPERIENCE: &str = "outlander";
 pub const OUTLANDER_GAMEPLAY_ROUTE: &str = "outlander_gameplay";
@@ -445,6 +437,7 @@ pub fn ridge_gate_system(
     }
 }
 
+#[derive(Clone)]
 pub struct OutlanderExperiencePlugin;
 
 impl Plugin for OutlanderExperiencePlugin {
@@ -499,28 +492,57 @@ impl Plugin for OutlanderExperiencePlugin {
 }
 
 // ── §host ───────────────────────────────────────────────────────────────────
-/// Assemble Outlander under a standalone headless shell host, launched
-/// DIRECTLY into the gameplay route — the same composition the in-repo
-/// standalone demo shells use (`build_demo_app` in `ambition_demo_mary_o_app`):
-/// foundation + engine + host + minimal shell + THIS crate's provider, an
-/// initial route naming [`OUTLANDER_GAMEPLAY_ROUTE`], and a launcher home so
-/// `QuitToHome` has somewhere to land. Zero engine edits.
+/// **Outlander, declared.** Everything the engine needs to stand this game up.
 ///
-/// The route wiring is load-bearing: `ShellHostConfiguration::default()`
-/// carries `spec: None`, and a host that never names an initial route never
-/// prepares or activates ANY experience — an earlier draft of the headless
-/// binary "ran" 120 ticks of exactly that empty host (GPT 5.6 review finding).
-pub fn build_outlander_app() -> App {
-    let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    compose_outlander_shell(&mut app);
+/// LEAK CLOSED 2026-07-30 — slice A of the API 1.0 campaign, and this fixture is
+/// why it was found. What stood here was three hand-ordered compositions
+/// totalling ~110 lines: `build_outlander_app`, `build_outlander_rollback_app`
+/// and `build_windowed_app`, plus `compose_outlander_shell` and
+/// `register_outlander_asset_source` for them to share. Between them they
+/// encoded EIGHT engine ordering rules, of which four failed silently:
+///
+/// > the consumer's asset source registers before `DefaultPlugins` (Bevy seals
+/// > its sources when `AssetPlugin` builds); `AssetPlugin.file_path` is the
+/// > engine's own root; a GPU-less window needs five specific disables;
+/// > `init_engine_states` before the engine groups; engine before host before
+/// > shell; `PlatformerAssetsPlugin` after the content that registers the
+/// > catalogs it reads and before the presentation that draws them; a host that
+/// > names no initial route prepares nothing; manual stepping pins the frame dt
+/// > to the tick dt read back out of the world.
+///
+/// A third party had to get all eight right by reading two in-repo demos. They
+/// are the engine's rules and the engine states them once now, in
+/// `ambition::app`. What is left here is what a consumer should still be
+/// DECIDING: its id, its asset tree, its routes, its room, its content.
+#[derive(Default)]
+pub struct OutlanderModule;
 
-    // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
-    let timestep = app.world().resource::<Time<Fixed>>().timestep();
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
-    app
+impl ambition::app::GameModule for OutlanderModule {
+    fn manifest(&self) -> ambition::app::ModuleManifest {
+        ambition::app::ModuleManifest::new(OUTLANDER_EXPERIENCE).asset_source(
+            // This fixture's OWN art first, the engine's tree for everything it
+            // did not author. Recorded SDK leak #3 said "consumer-owned art has
+            // no home"; a fixture whose whole job is to be a third party has to
+            // exercise the answer.
+            ambition::app::AssetSource::at("game", outlander_asset_root()),
+        )
+    }
+
+    fn define(&self, module: &mut ambition::app::ModuleDraft) {
+        module
+            .experience(OUTLANDER_EXPERIENCE)
+            .launcher_route(OUTLANDER_LAUNCHER_ROUTE)
+            .gameplay_route(OUTLANDER_GAMEPLAY_ROUTE)
+            .room(outlander_room().metadata)
+            .capability(OutlanderExperiencePlugin);
+    }
+}
+
+/// Outlander under a headless fixed-tick host. One `update()` is one sim tick.
+pub fn build_outlander_app() -> App {
+    ambition::app::PlatformerApp::headless()
+        .mount(OutlanderModule)
+        .build()
 }
 
 /// The SAME game under a GGRS rollback host, with a sync-test session.
@@ -532,20 +554,20 @@ pub fn build_outlander_app() -> App {
 /// not round-trip, or its encoder dropped a field, or the charge system read
 /// wall-clock time, that comparison is what notices.
 ///
-/// The host switch is one line versus [`build_outlander_app`]. That is the
-/// claim: a consumer does not restructure its game to become rollback-capable.
+/// The host switch is one builder call versus [`build_outlander_app`]. That is
+/// the claim: a consumer does not restructure its game to become
+/// rollback-capable.
 pub fn build_outlander_rollback_app() -> Result<App, String> {
-    let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::rollback());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    compose_outlander_shell(&mut app);
+    // `unstable_rollback_session` is deliberately not public API — rollback is
+    // not a knob slice A promises. It exists so this composition goes through
+    // the SAME builder as the other two instead of keeping a second
+    // hand-ordered path alive, which is what would actually end the slice with
+    // two paths.
+    let mut app = ambition::app::PlatformerApp::headless()
+        .unstable_rollback_session()
+        .mount(OutlanderModule)
+        .build();
 
-    // Under GGRS the sim advances only through session requests, so the frame dt
-    // must be the tick dt exactly (integer nanos, no drift).
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64),
-    ));
     // Boot and ACTIVATE before the session exists. This ordering is the whole
     // lesson of the first draft, which started the session on update #1 and then
     // watched GGRS report a checksum mismatch on frames 2, 3 and 4 forever: the
@@ -585,118 +607,21 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
     Ok(app)
 }
 
-/// The shell wiring the headless and visible hosts SHARE — one provider, one
-/// route table, one session lifecycle, exactly the "visibly and headlessly
-/// from the same content" claim.
-pub fn compose_outlander_shell(app: &mut App) {
-    // LEAK CLOSED 2026-07-28, and this fixture is why it was found.
-    //
-    // These were seven hand-written steps whose ORDER is enforced by a
-    // resource-missing panic, whose load-coordinator rule was documented only in
-    // the comments of hosts that had already been bitten by it, and two of whose
-    // omissions are silent (no frontend audio profile and the launcher inherits
-    // somebody else's cached sound; no host spec and the app boots to a router
-    // pointing nowhere). A third party outside the workspace had to get all
-    // seven right by reading two in-repo demos.
-    //
-    // `ShellComposition` is the answer, and this fixture is its customer: what a
-    // consumer still writes by hand below is what a consumer should still be
-    // DECIDING — its asset source, its foundation, its host group, its own
-    // experience plugin. Outlander authors no sounds, so the default frontend
-    // profile keeps launcher and loading frames silent.
-    ambition::provider::ShellComposition::new(
-        OUTLANDER_EXPERIENCE,
-        OUTLANDER_LAUNCHER_ROUTE,
-        OUTLANDER_GAMEPLAY_ROUTE,
-    )
-    .install(app, OutlanderExperiencePlugin);
-}
-
-/// Whether the windowed face opens a real window or runs the full render graph
-/// against no wgpu backend.
-///
-/// The in-repo demos carry this same enum for the same reason: a test that
-/// asserts "the consumer's character is DRAWN" has to build the drawing app,
-/// and CI has no GPU. `Headless` changes one enum value and nothing else — if
-/// it needed a second difference, the test would be observing a composition
-/// nothing ships.
-#[cfg(feature = "visible")]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RenderMode {
-    Windowed,
-    Headless,
-}
+/// The window title the visible binary and the render test share.
+pub const OUTLANDER_WINDOW_TITLE: &str = "Outlander — external consumer proof";
 
 /// **Outlander, drawn.** The composition `src/bin/visible.rs` runs and the
 /// render test observes — one function, so they cannot drift.
 ///
-/// This lived inside `main()` until the render test needed it (queue T2's last
-/// half). A `main` a test cannot call is a composition nothing verifies, which
-/// is the same shape as the leaks this fixture exists to record.
+/// `gpu: false` builds the full render graph against no wgpu backend, which is
+/// how a test asserts "the consumer's character is DRAWN" on CI that has none.
+/// It is one builder call and nothing else — if it needed a second difference,
+/// the test would be observing a composition nothing ships.
 #[cfg(feature = "visible")]
-pub fn build_windowed_app(render: RenderMode) -> App {
-    use bevy::render::settings::{RenderCreation, WgpuSettings};
-    use bevy::render::RenderPlugin;
-    use bevy::window::{ExitCondition, Window, WindowPlugin};
-
-    let mut app = App::new();
-    // BEFORE `DefaultPlugins`: Bevy seals its asset sources when `AssetPlugin`
-    // builds, so a consumer's own tree has to be registered first.
-    register_outlander_asset_source(&mut app);
-    let plugins = DefaultPlugins
-        .set(bevy::asset::AssetPlugin {
-            file_path: ambition::asset_manager::actors_desktop_asset_root(),
-            ..Default::default()
-        })
-        .set(WindowPlugin {
-            primary_window: match render {
-                RenderMode::Windowed => Some(Window {
-                    title: "Outlander — external consumer proof".into(),
-                    ..Default::default()
-                }),
-                RenderMode::Headless => None,
-            },
-            exit_condition: match render {
-                RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::Headless => ExitCondition::DontExit,
-            },
-            close_when_requested: matches!(render, RenderMode::Windowed),
-            ..Default::default()
-        });
-    match render {
-        RenderMode::Windowed => app.add_plugins(plugins),
-        // Same disables the in-repo demos use, and for the same reasons: a
-        // `backends: None` renderer has no RenderApp, and process-global
-        // logging/Ctrl+C handlers belong to an executable rather than to a
-        // manually stepped fixture.
-        RenderMode::Headless => app.add_plugins(
-            plugins
-                .disable::<bevy::log::LogPlugin>()
-                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
-                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-                .set(RenderPlugin {
-                    render_creation: RenderCreation::Automatic(WgpuSettings {
-                        backends: None,
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                })
-                .disable::<bevy::winit::WinitPlugin>(),
-        ),
-    };
-    ambition::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    compose_outlander_shell(&mut app);
-    // AFTER the content, which registers the catalogs this reads, and BEFORE the
-    // presentation, which draws from what it installs.
-    app.add_plugins(
-        ambition::game_assets::PlatformerAssetsPlugin::for_experience(OUTLANDER_EXPERIENCE)
-            .with_room(outlander_room().metadata),
-    );
-    app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
-    app
+pub fn build_windowed_app(gpu: bool) -> App {
+    let composed = ambition::app::PlatformerApp::windowed(OUTLANDER_WINDOW_TITLE);
+    let composed = if gpu { composed } else { composed.without_gpu() };
+    composed.mount(OutlanderModule).build()
 }
 
 /// Drive one frame of input, through the engine's own driver seam.

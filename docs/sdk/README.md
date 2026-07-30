@@ -19,15 +19,31 @@ it lacks sends a reader into `crates/` with no warning.
 
 | Area | Status |
 |---|---|
-| Host composition — standing up a game, visible and headless | **[api-prototype.md](api-prototype.md)** — designed, not yet implemented (A2 done, A3 next) |
+| Host composition — standing up a game, visible and headless | **IMPLEMENTED** — `ambition::app`, designed in [api-prototype.md](api-prototype.md) |
 | Declaring content — characters, rooms, packs | not started (slice B) |
 | Capabilities and rollback schema | not started (slice C) |
 | Revising content at runtime | not started (slice D) |
 
-Until a row says implemented, the engine is composed by hand. The worked
-example of the hand-composed form is `fixtures/external_consumer` — the
-external-consumer fixture, a complete tiny game built from outside the
-workspace through the `ambition` umbrella alone.
+Standing a game up is four lines:
+
+```rust
+use ambition::app::prelude::*;
+
+fn main() {
+    PlatformerApp::windowed("My Game")
+        .mount(MyModule::default())
+        .run();
+}
+```
+
+`PlatformerApp::headless()` is the same game with no display, where one
+`App::update` is exactly one simulation tick. Both faces mount the same module;
+the face is the only difference.
+
+For everything a row above says is not started, the engine is still composed by
+hand. The worked example of both — the declarative host composition and the
+hand-composed remainder — is `fixtures/external_consumer`, a complete tiny game
+built from outside the workspace through the `ambition` umbrella alone.
 
 ## The compatibility promise
 

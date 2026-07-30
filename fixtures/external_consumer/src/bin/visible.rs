@@ -1,8 +1,8 @@
 //! Outlander in a window — the "visibly" half of Phase 6's "runs visibly and
 //! headlessly from the same content". The provider, routes, and session
-//! lifecycle are byte-for-byte the headless binary's (`compose_outlander_shell`);
-//! only the host face differs: `DefaultPlugins` with a window, the engine's
-//! generic presentation plugin, and the standard input path.
+//! lifecycle are byte-for-byte the headless binary's — both mount the same
+//! `OutlanderModule`; only the host FACE differs, and that is now one builder
+//! call rather than a composition this binary had to spell out.
 //!
 //! BOTH recorded SDK findings are CLOSED (2026-07-27), and this binary is the
 //! caller that proves each one.
@@ -27,5 +27,5 @@ fn main() {
     // The composition lives in the lib so the headless render test builds the
     // SAME app (queue T2). A `main` a test cannot call is a composition nothing
     // verifies.
-    outlander::build_windowed_app(outlander::RenderMode::Windowed).run();
+    outlander::build_windowed_app(true).run();
 }

@@ -232,9 +232,25 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # `ldtk level set-field` opened a file that had not existed for weeks.
         # The lesson is the same one the job above records: a suite nobody
         # executes stops being a suite and becomes a document about the past.
+        # ⚠ Its OWN interpreter, not `sys.executable`. `run_developer_setup.sh`
+        # installs each tool project into a venv beside it (`install_tool_project`
+        # → `uv pip install -e .`), so the LDtk package and its dependencies —
+        # `pyron` among them — live in `tools/ambition_ldtk_tools/.venv` and are
+        # NOT importable from the repo-root `.venv` this runner happens to be
+        # executing under. Running the suite with the root interpreter collapsed
+        # all 149 tests into `ModuleNotFoundError: pyron` at collection time.
+        #
+        # That was invisible for as long as the root venv had no `pytest` either:
+        # the job died one step EARLIER, for a different reason, and fixing the
+        # first exposed the second (2026-07-30). Falls back to this interpreter
+        # when the tool venv is absent, so a partially set-up clone reports the
+        # real import error rather than a missing-file error about python.
+        ldtk = REPO / "tools" / "ambition_ldtk_tools"
+        ldtk_python = ldtk / ".venv" / "bin" / "python"
         jobs.append(Job("ldtk authoring tools (tools/ambition_ldtk_tools)",
-                        [sys.executable, "-m", "pytest", "tests", "-q"],
-                        cwd=str(REPO / "tools" / "ambition_ldtk_tools")))
+                        [str(ldtk_python) if ldtk_python.exists() else sys.executable,
+                         "-m", "pytest", "tests", "-q"],
+                        cwd=str(ldtk)))
 
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)

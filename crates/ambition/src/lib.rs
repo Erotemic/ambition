@@ -6,6 +6,7 @@
 //! host, renderer, model, and vocabulary crates without depending on any named
 //! game content or the `ambition_app` shell.
 
+pub mod app;
 pub mod game_assets;
 pub mod prelude;
 pub mod session_world;

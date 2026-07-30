@@ -21,6 +21,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         reach,
         max_damage,
         max_knockback,
+        start_impulse: (0.0, 0.0),
     }
 }
 
@@ -221,6 +222,43 @@ fn ballistic_projectiles_strike_the_body_they_are_flying_at() {
     );
     assert_eq!(s.me.damage, 6);
     assert_eq!(s.projectiles.len(), 1, "the landed projectile is spent");
+}
+
+/// The fidelity instrument's first finding, pinned at the unit level: a real
+/// swing carries its authored start impulse, so a lunge's EFFECTIVE range is
+/// reach plus travel. The same move without its impulse whiffs from here.
+#[test]
+fn a_lunge_reaches_past_its_static_reach_because_the_body_travels() {
+    let tuning = ShadowTuning::default();
+    let gap = 160.0; // far beyond 51 + extents
+    let mut swing = frames(0.25, 51.0, 8, 0.0);
+
+    let mut s = state(300.0, 300.0 + gap);
+    s.me.phase = ShadowPhase::Idle;
+    let start = ShadowIntent::StartMove {
+        frames: swing.clone(),
+    };
+    let mut events = shadow_step(&mut s, DT, &start, &ShadowIntent::Hold, &tuning);
+    events.extend(run(&mut s, 30, &ShadowIntent::Hold, &tuning));
+    assert!(events.is_empty(), "without the impulse it whiffs: {events:?}");
+
+    swing.start_impulse = (600.0, 0.0);
+    let mut s = state(300.0, 300.0 + gap);
+    let start = ShadowIntent::StartMove {
+        frames: swing.clone(),
+    };
+    let mut events = shadow_step(&mut s, DT, &start, &ShadowIntent::Hold, &tuning);
+    events.extend(run(&mut s, 30, &ShadowIntent::Hold, &tuning));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, ShadowEvent::Hit { on_me: false, .. })),
+        "the lunge travels ~{}px over the move and connects: {events:?}",
+        600.0 * swing.total_s
+    );
+    // And the impulse dies with the move: the first idle Hold eats it.
+    run(&mut s, 5, &ShadowIntent::Hold, &tuning);
+    assert_eq!(s.me.vel.x, 0.0, "ground friction ends the lunge");
 }
 
 #[test]

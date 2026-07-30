@@ -89,6 +89,15 @@ fn hp(app: &mut App, body: Entity) -> i32 {
 /// (±8 px), then release the stick and let it come to rest.
 fn walk_to_gap(app: &mut App, pad: Entity, attacker: Entity, victim: Entity, target_gap: f32) {
     for _ in 0..900 {
+        // A knockout mid-walk freezes the controls until the next round; a
+        // walker that keeps pressing into the freeze burns its whole budget
+        // standing still (run 3's case 3: target 234, arrived at 95).
+        if !matches!(
+            app.world().resource::<VersusMatch>().phase,
+            MatchPhase::Fighting
+        ) {
+            settle_into_a_live_round(app);
+        }
         let a = kin(app, attacker);
         let v = kin(app, victim);
         let gap = (v.pos.x - a.pos.x).abs();
@@ -110,8 +119,18 @@ fn walk_to_gap(app: &mut App, pad: Entity, attacker: Entity, victim: Entity, tar
     }
     pad_set(app, pad, GamepadButton::DPadLeft, 0.0);
     pad_set(app, pad, GamepadButton::DPadRight, 0.0);
-    for _ in 0..12 {
+    // Settle to TRUE rest, not a tick count: the instrument's question is
+    // "does this swing land from HERE", and a body still sliding out of its
+    // walk carries the answer somewhere else — run 3 disagreed at 102px
+    // because the real attacker kept closing during the swing while the
+    // shadow's view said everyone stood still.
+    for _ in 0..240 {
         app.update();
+        let a = kin(app, attacker);
+        let v = kin(app, victim);
+        if a.vel.length() < 2.0 && v.vel.length() < 2.0 {
+            break;
+        }
     }
 }
 
@@ -125,7 +144,7 @@ fn view_of(app: &mut App, attacker: Entity, victim: Entity) -> WorldView {
     WorldView {
         self_view: SelfView {
             pos: a.pos,
-            vel: ae::Vec2::ZERO,
+            vel: a.vel,
             facing,
             half_extent: a.size * 0.5,
             gravity_down: ae::Vec2::new(0.0, 1.0),
@@ -143,7 +162,7 @@ fn view_of(app: &mut App, attacker: Entity, victim: Entity) -> WorldView {
         actors: vec![PerceivedActor {
             id: "victim".to_string(),
             pos: v.pos,
-            vel: ae::Vec2::ZERO,
+            vel: v.vel,
             facing: -facing,
             half_extent: v.size * 0.5,
             faction: ActorFaction::Enemy,

@@ -682,7 +682,17 @@ the discipline §9 already pinned.
   gaps — touching, in reach, out, far out — the shadow model and a real swing
   each answer "does this land?"; floor: agreement on ≥ 3 of 4, the reach-edge
   case being allowed to disagree because two hit tests never share a boundary
-  pixel. ⚠ The original sketch said "over §8's eight scenario fixtures" —
+  pixel. **GREEN (2026-07-30), and its first red was the instrument doing its
+  job**: run 2 disagreed on 2 of 4 gaps, and the diagnosis split three ways —
+  a REAL model omission (a move's authored `start_impulse`; the model now
+  applies it exactly as `trigger_moveset_moves` does, `MoveFrameData` carries
+  it, and `a_lunge_reaches_past_its_static_reach_because_the_body_travels`
+  pins it) plus two fixture bugs (the comparison ran while the attacker was
+  still sliding out of its walk, so the real swing carried momentum the view
+  denied having; and a knockout mid-walk froze the controls while the walker
+  burned its budget pressing into the freeze). The comparison now happens at
+  TRUE rest and the walker is phase-guarded. ⚠ The original sketch said
+  "over §8's eight scenario fixtures" —
   wrong instrument shape: the fixtures are abstract views with no real-sim
   counterpart room, and fidelity is a claim about agreement WITH THE REAL
   SIM, so it must be measured where the real sim plays. This is the

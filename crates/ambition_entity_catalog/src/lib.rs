@@ -932,6 +932,7 @@ impl MoveSpec {
             reach,
             max_damage,
             max_knockback,
+            start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
         }
     }
 }
@@ -973,6 +974,12 @@ pub struct MoveFrameData {
     /// Highest flat `knockback` any Active volume applies (the `kb_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
+    /// The move's authored self-motion at trigger, body-local (`+x` toward
+    /// facing, `+y` per the authoring convention), `(0, 0)` when none. A
+    /// lunge's EFFECTIVE range is `reach` plus the travel this buys — the
+    /// fighter brain's shadow model learned that from its own fidelity
+    /// instrument on day one (FB6e: a 51px-reach swing landed from 102px).
+    pub start_impulse: (f32, f32),
 }
 
 // ---------------------------------------------------------------------------

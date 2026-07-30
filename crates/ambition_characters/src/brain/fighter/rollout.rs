@@ -422,7 +422,16 @@ fn apply_intent(
         return;
     }
     match intent {
-        ShadowIntent::Hold => {}
+        // A grounded body that is not driving STOPS — platformer ground
+        // friction is strong, and this is also what ends a lunge: the move's
+        // start impulse carries exactly for the move's duration (intents are
+        // ignored while committed), then the first idle Hold eats it. An
+        // airborne body is ballistic and keeps everything.
+        ShadowIntent::Hold => {
+            if f.on_ground {
+                f.vel -= side * f.vel.dot(side);
+            }
+        }
         ShadowIntent::Drive { lateral } => {
             if f.on_ground {
                 let lateral = lateral.clamp(-1.0, 1.0);
@@ -456,6 +465,20 @@ fn apply_intent(
         ShadowIntent::StartMove { frames } => {
             f.facing = if toward_opponent < 0.0 { -1.0 } else { 1.0 };
             f.shield_raised = false;
+            // The move's authored self-motion, applied EXACTLY as the real
+            // trigger seam does (`trigger_moveset_moves`): body-local,
+            // x mirrored by facing, rotated through the gravity frame, ADDED
+            // to velocity. A lunge's effective range is reach plus this —
+            // the fidelity instrument's first finding.
+            let (ix, iy) = frames.start_impulse;
+            if ix != 0.0 || iy != 0.0 {
+                let frame = ae::AccelerationFrame::new(down);
+                let world = frame.to_world(ae::Vec2::new(ix * f.facing, iy));
+                f.vel += world;
+                if world.dot(down) < -1e-3 {
+                    f.on_ground = false;
+                }
+            }
             f.phase = ShadowPhase::Move {
                 frames: frames.clone(),
                 t: 0.0,

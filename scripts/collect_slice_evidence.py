@@ -358,6 +358,79 @@ def _cargo_json(args: list[str]) -> dict | None:
     return json.loads(out)
 
 
+# Capabilities a MOVEMENT-ONLY game plainly never asked for. Named explicitly
+# rather than derived by a heuristic, because the consumer-matrix row asks a
+# specific question — "does a small game link menus, persistence, audio,
+# bosses?" — and a fuzzy match would let the answer drift.
+_UNASKED_BY_A_MOVEMENT_ONLY_GAME = (
+    "menu", "persist", "audio", "sfx", "boss", "ldtk", "cutscene", "dialog",
+    "inventory", "portal", "settings", "ui_nav", "touch", "encounter", "items",
+    "projectile", "vfx", "render",
+)
+
+
+def sentinel_closures() -> dict:
+    """Per-sentinel `ambition_*` closure, from the WORKSPACE GRAPH.
+
+    ⚠ `cargo tree` on an out-of-workspace consumer hangs here — it re-resolves
+    682 packages against a git-patched dependency — so the closure is taken from
+    the workspace manifest graph instead. Both sentinels declare `ambition` and
+    nothing else from this workspace, so the facade's reachable set IS their
+    closure.
+
+    It is an UPPER BOUND: the graph ignores feature gating, so a capability that
+    would drop out under `default-features = false` still counts here. Stated
+    rather than papered over — §4 authorises a carve when a footprint cannot be
+    reduced WITHOUT MOVING CODE, and "we never tried features" is not that.
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from check_absence_contracts import reachable, workspace_graph
+
+    graph = workspace_graph(REPO)
+    closure = sorted(
+        {c for c in reachable(graph, "ambition") if c.startswith("ambition")}
+        | {"ambition"}
+    )
+    unasked = [
+        c for c in closure if any(k in c for k in _UNASKED_BY_A_MOVEMENT_ONLY_GAME)
+    ]
+    return {
+        "outlander": {
+            "manifest": "fixtures/external_consumer/Cargo.toml",
+            "declared_dependencies": ["ambition", "bevy"],
+            "ambition_crates_linked": len(closure),
+        },
+        "minimal_game": {
+            "manifest": "fixtures/minimal_game/Cargo.toml",
+            "declared_dependencies": ["ambition"],
+            "ambition_crates_linked": len(closure),
+            "linked_but_never_asked_for": unasked,
+            "unwanted_count": len(unasked),
+            "verdict": (
+                "The consumer-matrix question — does a small game link menus, "
+                "persistence, audio, bosses? — is answered YES. A movement-only "
+                "game with one room, one walker and no combat links "
+                f"{len(closure)} Ambition crates, {len(unasked)} of which it "
+                "never asked for: menus, persistence, cutscenes, encounters, "
+                "inventory UI, portals, projectiles, LDtk, settings menus and "
+                "touch input among them."
+            ),
+            "authorises_a_carve": (
+                "NOT YET. §4 authorises an internal carve when a sentinel "
+                "consumer's footprint cannot be reduced WITHOUT moving code "
+                "between crates. This measurement shows the footprint is large; "
+                "it does not show it is irreducible, because feature-gating has "
+                "not been attempted. Trying that is the cheap experiment that "
+                "either closes this or converts it into the carve argument — and "
+                "§4 warns explicitly not to let a single leak authorise a full "
+                "decomposition."
+            ),
+        },
+    }
+
+
 def capability_footprint() -> dict:
     """§2e — the evidence a clean facade can hide.
 
@@ -497,6 +570,7 @@ def main() -> int:
         "deletion_criteria": deletion_criteria(),
         "capability_footprint": capability_footprint(),
     }
+    evidence["capability_footprint"]["sentinels"] = sentinel_closures()
     evidence[f"selects_slice_{next_slice}"] = selects_slice_b(evidence)
     rendered = json.dumps(evidence, indent=2, sort_keys=False) + "\n"
     if args.to_stdout:
@@ -534,10 +608,11 @@ def main() -> int:
         "crates linked from 2 declared dependencies"
     )
     print(
-        f"  slice B derived         : {evidence['selects_slice_b']['derived']}"
+        f"  slice {next_slice.upper()} derived         : "
+        f"{evidence[f'selects_slice_{next_slice}']['derived']}"
         + (
-            f" (blocked on §{evidence['selects_slice_b']['blocked_on']})"
-            if evidence["selects_slice_b"].get("blocked_on")
+            f" (blocked on §{evidence[f'selects_slice_{next_slice}']['blocked_on']})"
+            if evidence[f"selects_slice_{next_slice}"].get("blocked_on")
             else ""
         )
     )

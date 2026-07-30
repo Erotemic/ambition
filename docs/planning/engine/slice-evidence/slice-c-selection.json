@@ -1,0 +1,83 @@
+{
+  "_comment": [
+    "The §3 derivation of slice C from slice B's five evidence sources.",
+    "AUTHORED, not generated — ranking by cost/closeable/owned is a judgment, and",
+    "a script that produced one would be manufacturing the taste-based selection",
+    "§3 exists to prevent. `collect_slice_evidence.py` reads this file.",
+    "",
+    "Read with api-growth-method.md §3a (rank), §3b (route), §3c (size), §4."
+  ],
+
+  "derived": true,
+  "derived_on": "2026-07-30",
+  "from_slice": "B",
+
+  "ranked_candidates": [
+    {
+      "leak": "the engine knows why your game did not start and will not tell you",
+      "source": "2c, and slice B's own failure",
+      "cost": "HIGHEST, because it is SILENT and §3a triples silent. The minimal game composed, booted, and sat in `HostStatus::Activating` for 600 ticks with no message: preparation validation had refused it for registering no audio fragment. Outlander's comment already recorded the gap AND its worst property — 'a good message that a headless host surfaced NOWHERE' — so a KNOWN defect sat there and the second consumer walked straight into it. Every consumer will.",
+      "closeable": "YES. The validation already produces a message; nothing carries it to a place a consumer can read. A `HostStatus::Failed { reason }` arm plus a published preparation diagnostic closes it without moving code between crates.",
+      "owned": "YES. The engine performs the validation, holds the reason, and drops it.",
+      "route": "3b: Closeable + Owned -> SLICE C."
+    },
+    {
+      "leak": "a movement-only game links 19 Ambition crates it never asked for",
+      "source": "2e",
+      "cost": "HIGH and structural. 41 crates reachable from one declared dependency; 19 are menus, persistence, cutscenes, encounters, inventory UI, portals, projectiles, LDtk, settings menus, touch input. The consumer-matrix question is now ANSWERED — yes, a small game links all of it.",
+      "closeable": "UNKNOWN, and that is the finding rather than an excuse. §4 authorises a carve when a footprint cannot be reduced WITHOUT moving code. This shows the footprint is large; it does not show it is irreducible, because FEATURE-GATING HAS NOT BEEN TRIED. The closure was measured from the workspace graph, which ignores features, so it is an upper bound.",
+      "owned": "YES.",
+      "route": "3b: not-yet-known -> a cheap MEASUREMENT first, not a slice. Build the minimal game with `default-features = false` and re-measure. If the 19 drop, this is a documentation and defaults problem. If they do not, it becomes the strongest carve argument this campaign has produced, and §4's second terminal condition fires. ⚠ §4: 'do not let a single leak authorise a full decomposition' — carve exactly the boundary the leak names.",
+      "action": "queue as the first experiment of slice C, before its main work"
+    },
+    {
+      "leak": "every game must register an empty audio fragment to declare silence",
+      "source": "2b, 2c",
+      "cost": "MODERATE, every game, once. Loud once you know; invisible before — it presents as the silent hang above rather than as an audio error.",
+      "closeable": "YES, the same way slice B closed the character version: make the true answer sayable on the draft rather than defaulting it silently.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> rides inside slice C. It is the same leak wearing a different noun, and closing it separately would be two slices for one lesson."
+    },
+    {
+      "leak": "`ambition::world` is still a whole-crate re-export, so it cannot be promoted to reviewed SDK surface",
+      "source": "2a",
+      "cost": "LOW as felt pain — the minimal game already reaches only the curated prelude. It is a BLOCKER on the ratchet reaching zero, though, which is §4's first terminal condition.",
+      "closeable": "YES. Turn the facade's `pub use ambition_world as world` into a curated module.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> slice D candidate. Deferred because it is the same shape for every domain module and doing one in isolation invents a pattern the other domains then have to match; the doctrine ADR 0031 defers to the END is exactly this."
+    },
+    {
+      "leak": "Outlander still names 14 modules — runtime 13, platformer 11, actors 10, sprite_sheet 9, characters 7",
+      "source": "2a",
+      "cost": "HIGH by count, but the counts are gameplay and content vocabulary, not composition.",
+      "closeable": "Partly, and not by one seam.",
+      "owned": "YES.",
+      "route": "3b: needs its own derivation once the domain-module pattern from the row above exists. Attacking it before that pattern is chosen would produce fourteen ad-hoc decisions."
+    }
+  ],
+
+  "slice_c": {
+    "name": "make failure legible",
+    "one_leak": "the engine validates a game's content, refuses it, and drops the reason — so a consumer sees a host that runs forever and does nothing.",
+    "why_this_and_not_the_footprint": [
+      "The footprint (19 unwanted crates) is the bigger STRUCTURAL finding and it is deliberately not slice C. §4 authorises a carve only when the footprint cannot be reduced without moving code, and nobody has tried features yet. Choosing a decomposition on an unmeasured premise is the exact failure ADR 0031 rejected when it deferred the `ambition_actors` split: 'the split designed today would fit today's INTERNAL topology.'",
+      "So the feature experiment runs FIRST, inside slice C, as a measurement. It is cheap and it either dissolves the candidate or promotes it to the strongest carve argument the campaign has.",
+      "Meanwhile the silent-failure leak is the highest-cost CLOSEABLE one by §3a's own arithmetic, and it is the leak that already cost this campaign a false 'proven' on a consumer-matrix row.",
+      "It is also a precondition for the blind-agent gate. §4.2 requires a run that opens NO engine file; an author who cannot find out why their game will not start WILL open engine files. Closing this is how that condition becomes reachable rather than aspirational."
+    ],
+    "not_in_this_slice": [
+      "the ambition_actors decomposition, and any crate move at all",
+      "curating the facade's domain modules (slice D — it needs one pattern for all domains, not one precedent)",
+      "Outlander's remaining 14",
+      "the bevy_ggrs patch table — deferred by maintainer decision pending upstream",
+      "pack identity, namespaces, content fingerprints, the PreStartup backstop"
+    ],
+    "exit_criteria_sketch": [
+      "a game whose content fails validation gets a NAMED reason through the public surface, and a test asserts the reason names the missing thing;",
+      "`HostStatus` distinguishes 'still preparing' from 'refused', so a poll loop can stop instead of spinning 600 ticks;",
+      "declaring silence is a draft call, not a hand-registered fragment, and `ambition::audio` leaves the minimal game's baseline;",
+      "the feature-gating experiment is RECORDED with a number either way — that measurement is the deliverable even if it changes nothing;",
+      "§2 re-collected and slice D derived."
+    ]
+  }
+}

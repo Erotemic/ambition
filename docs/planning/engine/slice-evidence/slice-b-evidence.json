@@ -1,5 +1,5 @@
 {
-  "slice": "A",
+  "slice": "B",
   "campaign": "docs/planning/engine/api-1.0-campaign.md",
   "method": "docs/planning/engine/api-growth-method.md",
   "generated_by": "scripts/collect_slice_evidence.py",
@@ -591,12 +591,12 @@
       }
     }
   },
-  "selects_slice_b": {
+  "selects_slice_c": {
     "derived": true,
-    "selection": "docs/planning/engine/slice-evidence/slice-b-selection.json",
-    "slice_b": "the movement-only minimal game",
-    "one_leak": "a consumer cannot stand up a SMALL game \u2014 the visible host demands content a minimal module has no way to supply, and there is no way to check whether the host came up at all.",
-    "candidates_ranked": 4,
+    "selection": "docs/planning/engine/slice-evidence/slice-c-selection.json",
+    "slice_b": null,
+    "one_leak": null,
+    "candidates_ranked": 5,
     "first_engine_file_opened": null
   }
 }

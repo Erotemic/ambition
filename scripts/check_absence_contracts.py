@@ -697,6 +697,33 @@ MODULE_ALLOWLISTS: list[dict] = [
 # another." Zero means `ambition_runtime` is no longer the implementation owner
 # of every domain's snapshot — the state
 # `impl SnapshotState for ambition_actors::…::MatchSeat` describes today.
+# ── The capability-footprint ratchet ─────────────────────────────────────────
+#
+# §2e's subject, made non-increasing. A clean facade can hide this entirely: no
+# consumer names a forbidden path and the footprint is still wrong, because
+# depending on `ambition` links 41 crates and a movement-only game asked for 22
+# of them.
+#
+# ⚠ ONE invariant, not two, and the asymmetry is deliberate. The set may not
+# GROW. It does NOT require pruning as it shrinks, because unlike a module
+# allowlist there is no vacated SLOT here — a crate leaving the closure cannot
+# be silently replaced by a different one without the count moving. The other
+# two ratchets need both halves; copying that here would add a rule with no
+# failure behind it, which is how a guard becomes ceremony.
+CAPABILITY_FOOTPRINT_BASELINE = (
+    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json"
+)
+
+
+def capability_footprint_violations(root: Path) -> list[str]:
+    """Crates the sentinel links that were not in the frozen closure."""
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    graph = workspace_graph(root)
+    live = {c for c in reachable(graph, "ambition") if c.startswith("ambition")}
+    live.add("ambition")
+    return sorted(live - set(baseline["ambition_closure"]))
+
+
 ROLLBACK_SCHEMA_BASELINE = (
     "docs/planning/engine/slice-evidence/rollback-schema-baseline.json"
 )
@@ -1132,6 +1159,26 @@ def main() -> int:
             summary = "  ".join(f"{module}:{count}" for count, module in ranked)
             print(f"       still named — {summary}")
 
+    grown = capability_footprint_violations(root)
+    if not grown:
+        footprint = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+        print(
+            f"  ok   capability-footprint-may-not-grow  "
+            f"({footprint['closure_size']} crates linked, "
+            f"{footprint['never_asked_for_count']} a movement-only game never asked for)"
+        )
+    else:
+        broken += 1
+        print("  RED  capability-footprint-may-not-grow")
+        print(
+            "       Depending on `ambition` links these too. §2e: a perfectly "
+            "semantic API can still force a movement-only game to compile and "
+            "link every unrelated gameplay domain — no forbidden path is named "
+            "and the footprint is still wrong."
+        )
+        for crate in grown:
+            print(f"       NEW    {crate} entered the consumer's closure")
+
     new, stale = rollback_schema_violations(root)
     if not new and not stale:
         baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
@@ -1160,7 +1207,7 @@ def main() -> int:
         len(ABSENCE_CONTRACTS)
         + len(DEPENDENCY_CONTRACTS)
         + len(MODULE_ALLOWLISTS)
-        + 1
+        + 2
     )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")

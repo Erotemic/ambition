@@ -472,3 +472,60 @@ def test_the_rollback_ratchet_catches_an_unpruned_baseline(tmp_path, monkeypatch
     new, stale = contracts.rollback_schema_violations(tmp_path)
     assert stale == ["stable_schema_names: ghost.never_existed"], stale
     assert new == []
+
+
+# ── The capability-footprint ratchet ────────────────────────────────────────
+
+from check_absence_contracts import (  # noqa: E402
+    CAPABILITY_FOOTPRINT_BASELINE,
+    capability_footprint_violations,
+)
+
+
+def test_the_footprint_ratchet_holds_against_the_live_tree():
+    root = Path(__file__).resolve().parents[2]
+    assert not capability_footprint_violations(root)
+
+
+def test_the_footprint_ratchet_catches_a_new_linked_crate(tmp_path, monkeypatch):
+    """The one invariant: the closure may not GROW.
+
+    A new dependency edge anywhere under the facade enlarges what EVERY consumer
+    links, and §2e exists because nothing else notices — no forbidden path is
+    named and the module allowlist stays green.
+    """
+    import json
+
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    # Capture the real graph BEFORE patching, or the stub recurses into itself.
+    real_graph = contracts.workspace_graph(root)
+
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    dropped = baseline["ambition_closure"][-1]
+    shrunk = dict(baseline, ambition_closure=baseline["ambition_closure"][:-1])
+
+    fake = tmp_path / "footprint.json"
+    fake.write_text(json.dumps(shrunk))
+    monkeypatch.setattr(
+        contracts, "CAPABILITY_FOOTPRINT_BASELINE", str(fake.relative_to(tmp_path))
+    )
+    monkeypatch.setattr(contracts, "workspace_graph", lambda _root: real_graph)
+
+    assert contracts.capability_footprint_violations(tmp_path) == [dropped]
+
+
+def test_the_footprint_baseline_is_not_silently_empty():
+    """A measurement bug reads as a finished decomposition.
+
+    If the graph walk ever returns nothing, the ratchet passes and the campaign's
+    §2e counter reports ZERO unwanted crates — its success condition. Green in
+    the flattering direction, so it is asserted.
+    """
+    import json
+
+    root = Path(__file__).resolve().parents[2]
+    baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
+    assert baseline["closure_size"] > 20, baseline["closure_size"]
+    assert baseline["never_asked_for_count"] > 0, baseline["never_asked_for_count"]

@@ -101,6 +101,14 @@ Three, identical in shape. Each lands **green against a recorded baseline**, so
 | **Module allowlist violations** | every `ambition::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member, **and may not keep one the consumer stopped naming** | consumers name only the SDK |
 | **Central rollback registrations + codecs** — **BUILT 2026-07-30**, baseline **319 stable names + 62 codecs** in `slice-evidence/rollback-schema-baseline.json` | the explicit set of stable schema names in `register_engine_rollback_state` and the `impl SnapshotState` blocks in `rollback/codecs.rs` | `current ⊆ frozen`, **and** `frozen ⊆ current` so a federating migration must prune | rollback ownership is federated |
 | **Undeleted compensating mechanisms** | ADR 0032's deletion criteria | the list may not gain a member | the seams took ownership |
+| **Capability footprint** — **BUILT 2026-07-30**, baseline **41 crates, 19 unwanted** in `slice-evidence/capability-footprint-baseline.json` | the transitive `ambition_*` closure a consumer links by depending on the facade alone | the closure may not GROW (one invariant, not two — see below) | a game links only what it asked for |
+
+⚠ **The footprint ratchet has ONE invariant on purpose.** The other two need
+`baseline ⊆ current` as well, because a retired member leaves a SLOT that can be
+silently reoccupied. A crate leaving a dependency closure leaves no slot — it
+cannot be replaced without the count moving. Copying the second invariant here
+would add a rule with no failure behind it, which is how a guard becomes
+ceremony.
 
 > ⚠ **This row cited the wrong file for three days.** It said "the codecs in
 > `rollback/codecs.rs`", and that file's `pub fn`s are four reconciliation

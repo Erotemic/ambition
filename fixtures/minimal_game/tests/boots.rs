@@ -446,65 +446,96 @@ fn a_noncombat_character_gets_no_combat_state() {
     );
 }
 
-/// **Two modules that both declare an experience are REFUSED, naming both.**
+/// **Two modules with DISTINCT experiences COEXIST.** (slice D)
 ///
-/// The first real test of ADR 0032's central claim: *"module inclusion is a
-/// MERGE, not an ordering. `include(SanicModule)` over a draft is a merge with
-/// transactional conflict detection... Over `&mut App` it is did Sanic's plugin
-/// run before Mary-O's."*
+/// The composition half of consumer-matrix row 4, and the thing that blocked it
+/// and `ambition-itself` together: until slice D a draft held ONE experience, so
+/// the second module's `experience()` collided with the first instead of sitting
+/// beside it. The shipped host registers four.
 ///
-/// `ModuleDraft::claim` was written in slice A to detect exactly this and has
-/// never been exercised by two modules until now. It holds: the second
-/// declaration does not silently win, does not silently lose, and the error
-/// names BOTH claimants and BOTH values — which is the difference between
-/// "conflict" and a conflict you can fix.
+/// ADR 0032: *"module inclusion is a MERGE, not an ordering."* It is now a merge
+/// in both senses — conflicts are detected (below) AND non-conflicting modules
+/// compose.
 ///
-/// ⚠ What this ALSO establishes, and it is the finding rather than the feature:
-/// a composition currently holds exactly ONE experience. Mounting two real
-/// games side by side is not expressible, because the second module's
-/// `experience()` collides rather than being namespaced under it. ADR 0032
-/// anticipates module-qualified namespaces for precisely this and defers them;
-/// this test is the evidence that the deferral has a cost and what the cost is.
+/// The FIRST mounted experience is the host's home. That is a rule a consumer
+/// can predict without a second knob to set, and it matches what the shell
+/// already does with an initial route.
 #[test]
-fn two_modules_declaring_an_experience_conflict_and_the_error_names_both() {
-    struct First;
+fn two_modules_with_distinct_experiences_compose_together() {
     struct Second;
-
-    impl GameModule for First {
-        fn manifest(&self) -> ModuleManifest {
-            ModuleManifest::new("first_game")
-        }
-        fn define(&self, module: &mut ModuleDraft) {
-            module
-                .experience("first_game")
-                .launcher_route(minimal_game::MINIMAL_LAUNCHER_ROUTE)
-                .gameplay_route(minimal_game::MINIMAL_GAMEPLAY_ROUTE);
-        }
-    }
 
     impl GameModule for Second {
         fn manifest(&self) -> ModuleManifest {
             ModuleManifest::new("second_game")
         }
         fn define(&self, module: &mut ModuleDraft) {
-            module.experience("second_game");
+            module
+                .experience("second_game")
+                .gameplay_route("second_game/play")
+                .characters(MINIMAL_CHARACTER_ROSTER_RON)
+                .no_audio()
+                .playable(
+                    "Second Game",
+                    "mounted beside the minimal game",
+                    "my_hero",
+                    minimal_game::minimal_experience::MINIMAL_ROOM_ID,
+                    vec![minimal_game::minimal_experience::minimal_room()],
+                );
+        }
+    }
+
+    let mut app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .mount(Second)
+        .try_build()
+        .expect("two modules with distinct experiences must compose");
+
+    let mut status = host_status(&app);
+    for _ in 0..600 {
+        app.update();
+        status = host_status(&app);
+        if status.is_running() || status.is_refused() {
+            break;
+        }
+    }
+    assert!(
+        status.is_running(),
+        "the composition must still reach a running host; got {status:?} / {:?}",
+        status.refusal()
+    );
+    assert_eq!(
+        status.route(),
+        Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
+        "the FIRST mounted experience owns the host's initial route"
+    );
+}
+
+/// **Two modules claiming the SAME experience id are refused, naming both.**
+///
+/// The conflict half. `ModuleDraft::experience` keys by id, so coexistence and
+/// collision are now different outcomes rather than the same one — before slice
+/// D every second experience was a collision, which made the conflict detector
+/// look right for the wrong reason.
+#[test]
+fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
+    struct Squatter;
+
+    impl GameModule for Squatter {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("squatter")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module.experience(minimal_game::MINIMAL_EXPERIENCE);
         }
     }
 
     let error = PlatformerApp::headless()
-        .mount(First)
-        .mount(Second)
+        .mount(the_one_module())
+        .mount(Squatter)
         .try_build()
-        .expect_err("two modules cannot both own the experience id");
+        .expect_err("two modules cannot own one experience id");
     let reported = error.to_string();
-
-    for expected in [
-        "first_game",
-        "second_game",
-        // The MODULE ids as well as the values: "two modules disagree" is
-        // useless without knowing which two.
-        "experience",
-    ] {
+    for expected in [minimal_game::MINIMAL_EXPERIENCE, "squatter"] {
         assert!(
             reported.contains(expected),
             "the conflict must name {expected:?} so it can be fixed without a \

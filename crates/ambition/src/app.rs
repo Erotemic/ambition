@@ -389,6 +389,32 @@ pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
     },
 )"#;
 
+/// One experience, as declared by one module.
+///
+/// ⚠ **A composition holds MANY of these, and it did not until slice D.** The
+/// draft carried a single global `experience`, so mounting two games side by
+/// side was impossible — the second module's `experience()` collided with the
+/// first instead of sitting beside it. That blocked two consumer-matrix rows at
+/// once: `module-standalone-and-embedded` (embedded MEANS coexisting) and
+/// `ambition-itself` (the shipped host registers four).
+///
+/// The shell was never the limitation. `ShellRouteCatalog` and
+/// `ShellExperienceRegistry` already hold many, and `game/ambition_app`
+/// composes four by hand today. The limitation was this struct being a set of
+/// loose fields on the draft, written in slice A when one experience was the
+/// only case that existed.
+struct ExperienceDraft {
+    /// Which module declared it, so a collision can name both sides.
+    owner: String,
+    id: String,
+    launcher_route: Option<String>,
+    gameplay_route: Option<String>,
+    room: Option<RoomMetadata>,
+    characters: Option<CharacterContent>,
+    definition: Option<ExperienceDefinition>,
+    declared_silence: bool,
+}
+
 /// What a module says about its cast.
 ///
 /// An `Option<CharacterContent>` rather than a bare `Option<&str>` so that
@@ -414,109 +440,103 @@ pub struct ModuleDraft {
     /// Which module is currently being defined, so a conflict can name both
     /// sides rather than just reporting that one exists.
     defining: String,
-    experience: Option<(String, String)>,
-    launcher_route: Option<(String, String)>,
-    gameplay_route: Option<(String, String)>,
-    room: Option<RoomMetadata>,
-    characters: Option<CharacterContent>,
-    experience_definition: Option<ExperienceDefinition>,
-    declared_silence: bool,
+    /// Every declared experience, in declaration order. The FIRST is the host's
+    /// initial route — a host starts somewhere, and "the first one mounted"
+    /// is a rule a consumer can predict without a second knob to set.
+    experiences: Vec<ExperienceDraft>,
+    /// Which experience subsequent calls apply to.
+    current: Option<usize>,
     capabilities: Vec<CapabilityInstaller>,
     conflicts: Vec<String>,
 }
 
 impl ModuleDraft {
-    /// The experience id this game registers content under.
+    /// Begin declaring an experience. Subsequent calls apply to it.
+    ///
+    /// A composition may hold several. Declaring the SAME id twice is a
+    /// conflict naming both modules; declaring a different one starts a new
+    /// experience beside the first.
     pub fn experience(&mut self, id: impl Into<String>) -> &mut Self {
-        self.claim("experience", id.into(), |draft| &mut draft.experience);
+        let id = id.into();
+        let owner = self.defining.clone();
+        if let Some(existing) = self.experiences.iter().find(|e| e.id == id) {
+            self.conflicts.push(format!(
+                "two modules declare the experience `{id}`: `{}` and `{owner}`. \
+                 Experiences are keyed by id, so two modules may coexist only \
+                 with distinct ids.",
+                existing.owner
+            ));
+            return self;
+        }
+        self.experiences.push(ExperienceDraft {
+            owner,
+            id,
+            launcher_route: None,
+            gameplay_route: None,
+            room: None,
+            characters: None,
+            definition: None,
+            declared_silence: false,
+        });
+        self.current = Some(self.experiences.len() - 1);
         self
     }
 
     /// Where the host starts, and what `QuitToHome` resolves to.
     pub fn launcher_route(&mut self, route: impl Into<String>) -> &mut Self {
-        self.claim("launcher route", route.into(), |draft| {
-            &mut draft.launcher_route
-        });
-        self
+        let route = route.into();
+        self.on_current("launcher route", move |e| {
+            e.launcher_route = Some(route);
+        })
     }
 
-    /// The route the experience registered for its session.
-    ///
-    /// Required — rule 7. A host that never names one prepares and activates
-    /// nothing, and does it silently.
+    /// The route this experience registers for its session. Required — rule 7.
     pub fn gameplay_route(&mut self, route: impl Into<String>) -> &mut Self {
-        self.claim("gameplay route", route.into(), |draft| {
-            &mut draft.gameplay_route
-        });
-        self
+        let route = route.into();
+        self.on_current("gameplay route", move |e| {
+            e.gameplay_route = Some(route);
+        })
     }
 
-    /// Declare this module's character roster, as catalog RON.
-    ///
-    /// The engine registers it through the same fragment seam every in-repo
-    /// provider uses, so there is one assembly path and modules merge rather
-    /// than overwrite.
+    /// Declare this experience's character roster, as catalog RON.
     pub fn characters(&mut self, catalog_ron: &'static str) -> &mut Self {
-        self.characters = Some(CharacterContent::Ron(catalog_ron));
-        self
+        self.on_current("characters", move |e| {
+            e.characters = Some(CharacterContent::Ron(catalog_ron));
+        })
     }
 
-    /// Declare, explicitly, that this module authors **no** characters.
+    /// Declare, explicitly, that this experience authors **no** characters.
     ///
-    /// ⚠ **This exists instead of a silent default, and the difference is the
-    /// whole design.** `PlatformerAssetsPlugin` refuses to substitute an empty
-    /// catalog for a missing one, and its comment says why: *"silently
-    /// substituting an empty catalog is how a game ships with its bosses drawn
-    /// as the fallback body and nobody notices."* That judgement is right and
-    /// this does not overturn it.
-    ///
-    /// What it changes is WHO says the catalog is empty. A game with no cast is
-    /// an ordinary thing — ADR 0032: *"an installed schema with zero authored
-    /// instances is VALID"* — and before this there was no way to say so. The
-    /// 2026-07-30 blind agent needed a `CharacterCatalog` to reach the windowed
-    /// face, found no `Default` and no documented schema, and recovered the
-    /// empty value by feeding the parser `"()"` and scripting a loop over the
-    /// resulting *"Unexpected missing field named X"* errors.
-    ///
-    /// So: still not silent — the module states it — and no longer a puzzle.
+    /// ⚠ Instead of a silent default. `PlatformerAssetsPlugin` refuses to
+    /// substitute an empty catalog — *"silently substituting an empty catalog
+    /// is how a game ships with its bosses drawn as the fallback body and
+    /// nobody notices"* — and that judgement is right. What this changes is WHO
+    /// says the catalog is empty. See [`EMPTY_CHARACTER_ROSTER_RON`].
     pub fn no_characters(&mut self) -> &mut Self {
-        self.characters = Some(CharacterContent::DeclaredEmpty);
-        self
+        self.on_current("characters", |e| {
+            e.characters = Some(CharacterContent::DeclaredEmpty);
+        })
     }
 
     /// The room whose metadata picks block and biome art at `Startup`.
     pub fn room(&mut self, room: RoomMetadata) -> &mut Self {
-        self.room = Some(room);
-        self
+        self.on_current("room", move |e| e.room = Some(room))
     }
 
-    /// Declare, explicitly, that this module authors **no sound**.
+    /// Declare, explicitly, that this experience authors **no sound**.
     ///
-    /// ⚠ Same shape as [`ModuleDraft::no_characters`], and for the same reason:
-    /// preparation validation REFUSES an experience whose provider registered
-    /// no audio fragment, so silence has always been mandatory paperwork —
-    /// there was simply no word for it on the public surface.
-    ///
-    /// The refusal is right (a game that meant to have sound and lost it should
-    /// not boot quietly), but its cost was measured in slice B: the minimal game
-    /// composed, booted, and sat in `HostStatus::Activating` for 600 ticks with
-    /// no message, because the reason never reached the consumer. Outlander's
-    /// own comment already knew — *"a good message that a headless host surfaced
-    /// NOWHERE"*.
-    ///
-    /// A game WITH sound still registers a real fragment through
-    /// `ambition::audio`; this is only the word for meaning it.
+    /// Preparation REFUSES an experience whose provider registered no audio
+    /// fragment, so silence has always been mandatory paperwork — there was
+    /// simply no word for it on the public surface.
     pub fn no_audio(&mut self) -> &mut Self {
-        self.declared_silence = true;
-        self
+        self.on_current("audio", |e| e.declared_silence = true)
     }
 
-    /// Declare the playable experience this module contributes.
+    /// Declare the playable content of this experience.
     ///
-    /// The engine registers the authoring, tags the prepared world with the
-    /// experience id, and installs the preparation step — the sequence a
-    /// consumer used to write out of `ambition::provider` and
-    /// `ambition::runtime`.
+    /// The engine assembles the prepared source and installs the authoring
+    /// through the same `PlatformerExperienceAuthoring` seam a provider plugin
+    /// would use — the draft removes the boilerplate, not the authority.
     pub fn playable(
         &mut self,
         label: impl Into<String>,
@@ -525,21 +545,22 @@ impl ModuleDraft {
         starting_room: impl Into<String>,
         rooms: Vec<crate::world::rooms::RoomSpec>,
     ) -> &mut Self {
-        self.experience_definition = Some(ExperienceDefinition {
+        let definition = ExperienceDefinition {
             label: label.into(),
             description: description.into(),
             starting_character: starting_character.into(),
             rooms,
             starting_room: starting_room.into(),
-        });
-        self
+        };
+        self.on_current("playable content", move |e| {
+            e.definition = Some(definition);
+        })
     }
 
     /// Declare a capability. Installed by the engine, in its own order.
     ///
-    /// No `Clone` bound: a capability is installed exactly once, so requiring
-    /// it to be duplicable was an artefact of the first implementation rather
-    /// than a property of capabilities. See [`CapabilityInstaller`].
+    /// Capabilities belong to the COMPOSITION rather than to one experience: a
+    /// plugin installs systems into an `App`, and an App has one schedule.
     pub fn capability<M>(&mut self, plugin: impl Plugins<M> + Send + 'static) -> &mut Self {
         self.capabilities.push(Box::new(move |app: &mut App| {
             app.add_plugins(plugin);
@@ -547,26 +568,27 @@ impl ModuleDraft {
         self
     }
 
-    /// Record a single-owner claim, or a conflict naming both claimants.
+    /// Apply an edit to the experience currently being declared.
     ///
-    /// ADR 0032: *"module inclusion is a merge, not an ordering"* — over `&mut
-    /// App` the question is "did Sanic's plugin run before Mary-O's", and over
-    /// a value it is a conflict with two names in it.
-    fn claim(
+    /// ⚠ Declaring anything before `experience()` is a CONFLICT, not a silent
+    /// no-op. With one global experience the ordering did not matter; with
+    /// several, "which one did that route attach to" has a wrong answer, and a
+    /// route silently attached to nothing is precisely the empty host this
+    /// campaign spent slice C making impossible.
+    fn on_current(
         &mut self,
         what: &str,
-        value: String,
-        slot: impl Fn(&mut Self) -> &mut Option<(String, String)>,
-    ) {
+        edit: impl FnOnce(&mut ExperienceDraft),
+    ) -> &mut Self {
         let owner = self.defining.clone();
-        if let Some((held_by, held)) = slot(self).clone() {
-            self.conflicts.push(format!(
-                "two modules declare the {what}: `{held_by}` says `{held}`, \
-                 `{owner}` says `{value}`"
-            ));
-            return;
+        match self.current.and_then(|i| self.experiences.get_mut(i)) {
+            Some(experience) => edit(experience),
+            None => self.conflicts.push(format!(
+                "`{owner}` declared a {what} before naming an experience; call \
+                 `experience(id)` first so the {what} has an owner"
+            )),
         }
-        *slot(self) = Some((owner, value));
+        self
     }
 }
 
@@ -757,29 +779,50 @@ impl PlatformerApp {
             .collect();
 
         let mut problems = draft.conflicts.clone();
-        if draft.experience.is_none() {
+        if draft.experiences.is_empty() {
             problems.push("no module declared an experience id".into());
         }
-        if draft.gameplay_route.is_none() {
-            // Rule 7, as a type rather than as a comment.
-            problems.push(
-                "no module declared a gameplay route; a host that names none prepares and \
-                 activates nothing, and does it silently"
-                    .into(),
-            );
+        for experience in &draft.experiences {
+            if experience.gameplay_route.is_none() {
+                // Rule 7, as a type rather than as a comment.
+                problems.push(format!(
+                    "experience `{}` declared no gameplay route; a host that names \
+                     none prepares and activates nothing, and does it silently",
+                    experience.id
+                ));
+            }
         }
-        if draft.launcher_route.is_none() {
-            problems.push(
-                "no module declared a launcher route; `QuitToHome` would have nowhere to land"
-                    .into(),
-            );
+        // Only the PRIMARY needs a launcher: it is the host's home, and a host
+        // has one. Requiring one per experience would be inventing a rule the
+        // shell does not have.
+        if let Some(primary) = draft.experiences.first() {
+            if primary.launcher_route.is_none() {
+                problems.push(format!(
+                    "experience `{}` is first and therefore the host's home, but \
+                     declared no launcher route; `QuitToHome` would have nowhere \
+                     to land",
+                    primary.id
+                ));
+            }
+        }
+        let prepares_art = matches!(face, Face::Windowed { .. }) || game_assets;
+        for experience in &draft.experiences {
+            if let Some(definition) = experience.definition.as_ref() {
+                if definition.rooms.is_empty() {
+                    problems.push(format!(
+                        "experience `{}` is playable but declares no rooms",
+                        experience.id
+                    ));
+                }
+            }
         }
         if !sources.is_empty() && app.is_plugin_added::<bevy::asset::AssetPlugin>() {
             for source in &sources {
                 problems.push(format!(
-                    "asset source `{}://` was declared, but `AssetPlugin` has already built in \
-                     this App and Bevy seals its sources there. Let `PlatformerApp::build` own \
-                     the whole stack, or register the source before adding `DefaultPlugins`.",
+                    "asset source `{}://` was declared, but `AssetPlugin` has already \
+                     built in this App and Bevy seals its sources there. Let \
+                     `PlatformerApp::build` own the whole stack, or register the \
+                     source before adding `DefaultPlugins`.",
                     source.name
                 ));
             }
@@ -788,16 +831,7 @@ impl PlatformerApp {
             return Err(CompositionError { problems });
         }
 
-        let experience = draft.experience.expect("checked above").1;
-        let launcher_route = draft.launcher_route.expect("checked above").1;
-        let gameplay_route = draft.gameplay_route.expect("checked above").1;
-
         // ── Rule 1 ── before any AssetPlugin, in every face.
-        //
-        // The fixture only did this on its windowed path. Headless got away
-        // with it because it draws nothing — which is not the same fact as it
-        // being correct, and is exactly the kind of "works today" a consumer
-        // cannot distinguish from a rule.
         for source in sources {
             use bevy::asset::AssetApp as _;
             app.register_asset_source(
@@ -815,272 +849,36 @@ impl PlatformerApp {
             Face::Windowed { title, gpu } => install_windowed_foundation(app, title, *gpu),
         }
 
-        // ── Rule 5 ── engine, then host, then shell.
-        if rollback_unstable {
-            app.add_plugins(crate::engine::PlatformerEnginePlugins::rollback());
-        } else {
-            app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
-        }
-        app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
-        // The declared experience, lowered. Installed through the SAME
-        // `PlatformerExperienceAuthoring` seam a provider plugin would have
-        // used — the draft removes the BOILERPLATE, not the authority.
-        // Captured before the definition moves into its installer closure.
-        let declared_starting_character = draft
-            .experience_definition
-            .as_ref()
-            .map(|definition| definition.starting_character.clone());
-        let experience_definition = draft.experience_definition;
-        let gameplay_route_for_definition = gameplay_route.clone();
-        let experience_for_definition = experience.clone();
-        let definition_installer: CapabilityInstaller = Box::new(move |app: &mut App| {
-            let Some(definition) = experience_definition else {
-                return;
-            };
-            // The engine assembles the prepared source. A consumer used to
-            // write these six arguments itself, which is how
-            // `ambition::runtime::demo_fixture` ended up in a third party's
-            // imports — a module named `demo_fixture` in a shipped game's
-            // dependency list is the namespace mirror confessing.
-            use crate::runtime::demo_fixture::{
-                ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
-            };
-            let Some(first) = definition.rooms.first().cloned() else {
-                return;
-            };
-            let starting = definition
-                .rooms
-                .iter()
-                .find(|room| room.id == definition.starting_room)
-                .cloned()
-                .unwrap_or(first);
-            let geometry =
-                crate::engine_core::RoomGeometry(starting.world.clone());
-            let metadata = ActiveRoomMetadata(starting.metadata.clone());
-            let prepared = crate::runtime::PreparedPlatformerSource::new(
-                experience_for_definition.clone(),
-                RoomSet::from_parts(
-                    definition.starting_room.clone(),
-                    definition.rooms.clone(),
-                    Vec::new(),
-                ),
-                geometry,
-                metadata,
-                StartingCharacter::new(definition.starting_character.clone()),
-                LdtkRuntimeIndex::default(),
-            );
-            crate::provider::PlatformerExperienceAuthoring::new(
-                experience_for_definition.clone(),
-                gameplay_route_for_definition,
-                definition.label,
-                definition.description,
-                format!("Prepare {}", experience_for_definition),
-                crate::provider::AuthoredCatalogFragments::new(
-                    definition.starting_character,
-                    experience_for_definition,
-                ),
-            )
-            .install(app, move || prepared.clone());
-        });
-        let mut capabilities = draft.capabilities;
-        capabilities.push(definition_installer);
-
-        crate::provider::ShellComposition::new(
-            experience.clone(),
-            launcher_route.clone(),
-            gameplay_route.clone(),
-        )
-        .install(app, DeclaredCapabilities(std::sync::Mutex::new(capabilities)));
-
-        // ── Rule 7, ACTUALLY enforced ──
-        //
-        // The capability plugins have built by now, so the routes they register
-        // exist and a declared route can be checked against them.
-        //
-        // ⚠ This module used to CLAIM rule 7 was enforced "by TYPE, so the empty
-        // host is unreachable rather than merely documented". It was not. What
-        // was enforced is that a STRING was supplied. The 2026-07-30 blind run
-        // declared `gameplay_route("blind_run/gameplay")` naming a route no
-        // experience registered, and got a host that built clean, ran 60 ticks
-        // and spawned ZERO entities — precisely the failure rule 7 names. The
-        // agent found it only because it independently counted entities.
-        //
-        // An overclaimed guarantee is worse than an absent one: it tells a
-        // consumer to stop looking. `ShellRouteCatalog::ids` exists so "a
-        // refusal can NAME what was available", which is exactly this refusal.
-        let unknown: Vec<(&str, &String)> = {
-            let catalog = app
-                .world()
-                .get_resource::<crate::game_shell::ShellRouteCatalog>();
-            match catalog {
-                Some(catalog) => [("gameplay", &gameplay_route), ("launcher", &launcher_route)]
-                    .into_iter()
-                    .filter(|(_, route)| {
-                        !catalog.contains(&crate::game_shell::ShellRouteId::from(route.as_str()))
-                    })
-                    .collect(),
-                // No catalog at all means the shell did not install, which rule
-                // 5 already covers; do not invent a second diagnosis for it.
-                None => Vec::new(),
-            }
-        };
-        if !unknown.is_empty() {
-            let available: Vec<String> = app
-                .world()
-                .get_resource::<crate::game_shell::ShellRouteCatalog>()
-                .map(|catalog| catalog.ids().map(str::to_string).collect())
-                .unwrap_or_default();
-            let available = if available.is_empty() {
-                "none — no capability registered any route".to_string()
-            } else {
-                available.join(", ")
-            };
-            return Err(CompositionError {
-                problems: unknown
-                    .into_iter()
-                    .map(|(kind, route)| {
-                        format!(
-                            "the declared {kind} route `{route}` is not registered by any mounted capability, so the host would prepare and activate NOTHING while appearing to run. Registered routes: {available}"
-                        )
-                    })
-                    .collect(),
-            });
-        }
-
-        // ── The cast must EXIST by now, and "nobody said" is the failure ──
-        //
-        // Capabilities have built, so a module that registered its roster
-        // through one has already done it. What is left is the module that
-        // said nothing at all.
-        //
-        // `PlatformerAssetsPlugin` panics on a missing catalog, deliberately:
-        // "silently substituting an empty catalog is how a game ships with its
-        // bosses drawn as the fallback body and nobody notices." That judgement
-        // stands. What changes is WHERE the consumer meets it — a structured
-        // refusal here naming both fixes, instead of a panic from inside a
-        // plugin three installs later, which is the failure `ShellComposition`
-        // was created to end (ADR 0032: errors arrive once, structured, at a
-        // known point).
-        let prepares_art = matches!(face, Face::Windowed { .. }) || game_assets;
-        if prepares_art
-            && draft.characters.is_none()
-            && app
-                .world()
-                .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>()
-                .is_none()
-        {
-            return Err(CompositionError {
-                problems: vec![format!(
-                    "this composition prepares art and no character roster exists. \
-                     `{experience}` declared none and no mounted capability registered \
-                     one. Either declare a roster with `characters(..)`, or say \
-                     `no_characters()` if this game genuinely has no cast — an empty \
-                     roster is valid, but the engine will not GUESS that you meant \
-                     one, because a game whose cast silently vanished looks exactly \
-                     like a game that never had one."
-                )],
-            });
-        }
-
-        // ── Rule 6 ── assets after the content that fills their catalogs,
-        // before the presentation that draws them.
-        //
-        // In BOTH faces, deliberately. The fixture used to install these only
-        // on its windowed path, which made a headless host and a visible host
-        // consume different content — and ADR 0032's deletion criteria require
-        // the opposite ("headless and visible hosts consume the same
-        // prepared-content fingerprint"). A face decides what is DRAWN, not
-        // what exists.
-        // ── The cast, DECLARED ──
-        //
-        // Registered through `register_character_catalog_fragment`, the same
-        // seam every in-repo provider uses, so modules merge into one assembled
-        // catalog rather than racing to insert a resource. Inserting
-        // `CharacterCatalog` directly here would be a second authority on what
-        // the cast is, which is the bifurcation this repo's most expensive bugs
-        // all start as.
-        match draft.characters {
-            Some(CharacterContent::Ron(catalog_ron)) => {
-                let fragment = crate::characters::actor::character_catalog::registry::
-                    CharacterCatalogFragment::from_ron(
-                        experience.clone(),
-                        None::<String>,
-                        catalog_ron,
-                    )
+        // ── The cast and the silence, per experience, through the seams a
+        // provider plugin would have used.
+        for experience in &draft.experiences {
+            register_declared_cast(app, experience)?;
+            if experience.declared_silence {
+                use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+                let fragment = AudioCatalogFragment::new(experience.id.clone(), None, None)
                     .map_err(|error| CompositionError {
                         problems: vec![format!(
-                            "the character roster declared by `{experience}` did not \
-                             parse: {error}"
+                            "`{}` declared silence and the empty audio fragment was \
+                             rejected: {error}",
+                            experience.id
                         )],
                     })?;
-                use crate::characters::actor::character_catalog::registry::
-                    CharacterCatalogAppExt as _;
-                app.try_register_character_catalog_fragment(fragment)
-                    .map_err(|error| CompositionError {
-                        problems: vec![format!(
-                            "the character roster declared by `{experience}` conflicts \
-                             with one already registered: {error}"
-                        )],
-                    })?;
+                app.register_audio_catalog_fragment(fragment);
             }
-            Some(CharacterContent::DeclaredEmpty) => {
-                // Through the SAME seam, so an explicitly empty roster is an
-                // ordinary fragment rather than a special case with its own
-                // path into the resource.
-                let fragment = crate::characters::actor::character_catalog::registry::
-                    CharacterCatalogFragment::from_ron(
-                        experience.clone(),
-                        None::<String>,
-                        EMPTY_CHARACTER_ROSTER_RON,
-                    )
-                    .expect("EMPTY_CHARACTER_ROSTER_RON is a compile-time constant \
-                             this crate owns; a parse failure here is a bug in it");
-                use crate::characters::actor::character_catalog::registry::
-                    CharacterCatalogAppExt as _;
-                app.try_register_character_catalog_fragment(fragment)
-                    .map_err(|error| CompositionError {
-                        problems: vec![format!(
-                            "`{experience}` declared no characters, but a roster is \
-                             already registered: {error}. Remove the `no_characters()` \
-                             declaration — it contradicts a capability that authored \
-                             one."
-                        )],
-                    })?;
-            }
-            None => {}
         }
 
-        // Declared silence, registered through the same audio seam a provider
-        // plugin would use.
-        if draft.declared_silence {
-            use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-            let fragment = AudioCatalogFragment::new(experience.clone(), None, None)
-                .map_err(|error| CompositionError {
-                    problems: vec![format!(
-                        "`{experience}` declared silence and the empty audio fragment \
-                         was rejected: {error}"
-                    )],
-                })?;
-            app.register_audio_catalog_fragment(fragment);
-        }
-
-        // ── A starting character nobody authored ──
-        //
-        // ⚠ Blind run 2 hit this and called it right: "the exact silent-failure
-        // shape slice A closed for routes, left open for characters". A
-        // `playable(starting_character = X)` where no roster contains X built
-        // clean, ran 120 ticks, exited 0 — and the host had never started. It
-        // sat in `Activating` because preparation refused it, which is the leak
-        // slice C closed; but the refusal should never have been needed. The
-        // draft holds BOTH the roster and the id, so it can answer at build
-        // time with the same quality of message the route check already gives.
-        if let Some(starting_character) = declared_starting_character.as_deref() {
+        // A starting character nobody authored: refuse at build, do not hang.
+        for experience in &draft.experiences {
+            let Some(definition) = experience.definition.as_ref() else {
+                continue;
+            };
             let roster = app
                 .world()
                 .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>();
             if let Some(roster) = roster {
-                if roster.get(starting_character).is_none() {
-                    let known: Vec<&str> = roster.iter().map(|(id, _)| id.as_str()).collect();
+                if roster.get(definition.starting_character.as_str()).is_none() {
+                    let known: Vec<&str> =
+                        roster.iter().map(|(id, _)| id.as_str()).collect();
                     let known = if known.is_empty() {
                         "none — the declared roster is empty".to_string()
                     } else {
@@ -1088,36 +886,159 @@ impl PlatformerApp {
                     };
                     return Err(CompositionError {
                         problems: vec![format!(
-                            "`{experience}` starts as character \
-                             `{starting_character}`, which no declared roster contains, so \
-                             the host would prepare NOTHING and wait forever. Characters \
-                             available: {known}"
+                            "`{}` starts as character `{}`, which no declared roster \
+                             contains, so the host would prepare NOTHING and wait \
+                             forever. Characters available: {known}",
+                            experience.id, definition.starting_character
                         )],
                     });
                 }
             }
         }
 
+        // ── Rule 5 ── engine, then host, then shell.
+        if rollback_unstable {
+            app.add_plugins(crate::engine::PlatformerEnginePlugins::rollback());
+        } else {
+            app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
+        }
+        app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
+
+        // Every experience's authoring, lowered into one capability bundle so
+        // installation order is the engine's rather than the mount order's.
+        let mut capabilities = draft.capabilities;
+        for experience in &draft.experiences {
+            if let Some(installer) = experience_installer(experience) {
+                capabilities.push(installer);
+            }
+        }
+
+        let primary = draft
+            .experiences
+            .first()
+            .expect("checked above: at least one experience");
+        let primary_id = primary.id.clone();
+        let primary_launcher = primary
+            .launcher_route
+            .clone()
+            .expect("checked above: the primary declares a launcher");
+        let primary_gameplay = primary
+            .gameplay_route
+            .clone()
+            .expect("checked above: every experience declares a gameplay route");
+        let declared_routes: Vec<(String, String)> = draft
+            .experiences
+            .iter()
+            .map(|e| {
+                (
+                    e.id.clone(),
+                    e.gameplay_route.clone().expect("checked above"),
+                )
+            })
+            .collect();
+
+        crate::provider::ShellComposition::new(
+            primary_id,
+            primary_launcher.clone(),
+            primary_gameplay,
+        )
+        .install(app, DeclaredCapabilities(std::sync::Mutex::new(capabilities)));
+
+        // ── Rule 7, ACTUALLY enforced, for EVERY declared experience ──
+        //
+        // The capability plugins have built, so the routes they register exist.
+        // A declared route that no capability registers means the host would
+        // prepare and activate NOTHING while appearing to run.
+        {
+            let catalog = app
+                .world()
+                .get_resource::<crate::game_shell::ShellRouteCatalog>()
+                .map(|catalog| {
+                    let ids: Vec<String> = catalog.ids().map(str::to_string).collect();
+                    ids
+                });
+            if let Some(available) = catalog {
+                let missing: Vec<String> = declared_routes
+                    .iter()
+                    .filter(|(_, route)| !available.iter().any(|known| known == route))
+                    .map(|(experience, route)| {
+                        format!(
+                            "experience `{experience}` declared gameplay route \
+                             `{route}`, which no mounted capability registers — call \
+                             `playable(..)`, or install a capability that registers it"
+                        )
+                    })
+                    .chain(
+                        (!available.iter().any(|known| known == &primary_launcher))
+                            .then(|| {
+                                format!(
+                                    "the launcher route `{primary_launcher}` is not \
+                                     registered by any mounted capability"
+                                )
+                            }),
+                    )
+                    .collect();
+                if !missing.is_empty() {
+                    let known = if available.is_empty() {
+                        "none — no capability registered any route".to_string()
+                    } else {
+                        available.join(", ")
+                    };
+                    return Err(CompositionError {
+                        problems: missing
+                            .into_iter()
+                            .map(|problem| format!("{problem}. Registered routes: {known}"))
+                            .collect(),
+                    });
+                }
+            }
+        }
+
+        // ── A cast must EXIST by now, and "nobody said" is the failure ──
+        //
+        // ⚠ Checked AFTER the capabilities built, not against the draft. A
+        // module may legitimately register its roster through a capability —
+        // Outlander does, and an earlier version of this rewrite moved the
+        // check to draft-declaration and broke it. What must fail is a
+        // composition that prepares art with NO roster from any source.
+        if prepares_art
+            && app
+                .world()
+                .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>()
+                .is_none()
+        {
+            return Err(CompositionError {
+                problems: vec![
+                    "this composition prepares art and no character roster exists: no \
+                     experience declared one and no mounted capability registered one. \
+                     Either declare a roster with `characters(..)`, or say \
+                     `no_characters()` if this game genuinely has no cast — an empty \
+                     roster is valid, but the engine will not GUESS that you meant \
+                     one, because a cast that silently vanished looks exactly like a \
+                     cast that never existed."
+                        .to_string(),
+                ],
+            });
+        }
+
+        // ── Rule 6 ── assets after the content that fills their catalogs,
+        // before the presentation that draws them.
         let windowed = matches!(face, Face::Windowed { .. });
         if windowed || game_assets {
             if !windowed {
-                // `PlatformerAssetsPlugin` builds sheet handles, so the asset
-                // types it addresses have to exist. `DefaultPlugins` brings
-                // these; the headless foundation deliberately does not
-                // (`MinimalPlugins` plus asset/image/transform/state), so the
-                // one face that needs them stated states them here.
-                //
-                // Found by MIGRATION, not by review: the fixture's asset test
-                // hand-rolled a composition with `init_asset::<TextureAtlasLayout>`
-                // in it, and why that line was there was recorded nowhere. A
-                // rule surviving only inside one test's setup is a rule the
-                // next consumer re-derives from a panic.
                 app.init_asset::<Image>();
                 app.init_asset::<TextureAtlasLayout>();
             }
+            let room = draft
+                .experiences
+                .first()
+                .and_then(|e| e.room.clone())
+                .unwrap_or_default();
             app.add_plugins(
-                crate::game_assets::PlatformerAssetsPlugin::for_experience(experience)
-                    .with_room(draft.room.unwrap_or_default()),
+                crate::game_assets::PlatformerAssetsPlugin::for_experience(
+                    draft.experiences[0].id.clone(),
+                )
+                .with_room(room),
             );
         }
         if windowed {
@@ -1127,27 +1048,13 @@ impl PlatformerApp {
         // ── Rule 8 ── one update is one tick.
         if matches!(face, Face::Headless) {
             // ⚠ The two hosts need DIFFERENT dt values, and the difference is
-            // one nanosecond.
-            //
-            // `Time::<Fixed>::from_hz(60.0)` rounds to 16_666_667ns. GGRS wants
-            // the truncated 16_666_666ns — `1e9 / SIM_TICK_HZ` in integer
-            // arithmetic. Feeding a GGRS host the rounded value costs it real
-            // frames: the fixture's own parity walk took 192 `update()` calls
-            // to reach a world state the fixed-tick host reached in 180.
-            //
-            // LEAK, found 2026-07-30 by migrating the fixture onto this
-            // builder. The rule existed — in a comment on the fixture's
-            // hand-composed rollback app, reading "the frame dt must be the
-            // tick dt exactly (integer nanos, no drift)" — and it existed
-            // NOWHERE ELSE. A consumer who wrote the obvious thing got a host
-            // that runs, simulates correctly, agrees on every checksum, and
-            // quietly needs 7% more frames. That is the silent class, and it
-            // survived only because one fixture had already been bitten.
-            //
-            // They differ because they are different clocks, not because one is
-            // wrong: the fixed host steps Bevy's `Time<Fixed>` and must match
-            // what that resource actually holds, while GGRS derives its own
-            // rate from the frame dt.
+            // one nanosecond. `Time::<Fixed>::from_hz(60.0)` rounds to
+            // 16_666_667ns; GGRS wants the truncated 16_666_666. Feeding a GGRS
+            // host the rounded value cost the fixture's parity walk 192
+            // `update()` calls to reach a state the fixed-tick host reached in
+            // 180. LEAK, found 2026-07-30 by migrating the fixture onto this
+            // builder; the rule existed only in a comment on the code being
+            // deleted.
             let frame_dt = if rollback_unstable {
                 std::time::Duration::from_nanos(
                     1_000_000_000u64 / crate::runtime::SIM_TICK_HZ as u64,
@@ -1212,6 +1119,97 @@ impl PlatformerApp {
             draft: ModuleDraft::default(),
         }
     }
+}
+
+/// Register one experience's declared cast, through the fragment seam every
+/// in-repo provider uses.
+///
+/// Not `insert_resource(CharacterCatalog)`: that would be a second authority on
+/// what the cast is, and fragments MERGE, which is what lets several
+/// experiences coexist in one composition at all.
+fn register_declared_cast(
+    app: &mut App,
+    experience: &ExperienceDraft,
+) -> Result<(), CompositionError> {
+    use crate::characters::actor::character_catalog::registry::{
+        CharacterCatalogAppExt as _, CharacterCatalogFragment,
+    };
+    let ron = match experience.characters {
+        Some(CharacterContent::Ron(ron)) => ron,
+        Some(CharacterContent::DeclaredEmpty) => EMPTY_CHARACTER_ROSTER_RON,
+        None => return Ok(()),
+    };
+    let fragment = CharacterCatalogFragment::from_ron(
+        experience.id.clone(),
+        None::<String>,
+        ron,
+    )
+    .map_err(|error| CompositionError {
+        problems: vec![format!(
+            "the character roster declared by `{}` did not parse: {error}",
+            experience.id
+        )],
+    })?;
+    app.try_register_character_catalog_fragment(fragment)
+        .map_err(|error| CompositionError {
+            problems: vec![format!(
+                "the character roster declared by `{}` conflicts with one already \
+                 registered: {error}",
+                experience.id
+            )],
+        })?;
+    Ok(())
+}
+
+/// Lower one experience's playable declaration into a deferred install.
+///
+/// Through the SAME `PlatformerExperienceAuthoring` seam a provider plugin
+/// would have used — the draft removes the boilerplate, not the authority.
+fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstaller> {
+    let definition = experience.definition.as_ref()?;
+    let id = experience.id.clone();
+    let route = experience.gameplay_route.clone()?;
+    let label = definition.label.clone();
+    let description = definition.description.clone();
+    let starting_character = definition.starting_character.clone();
+    let starting_room = definition.starting_room.clone();
+    let rooms = definition.rooms.clone();
+
+    Some(Box::new(move |app: &mut App| {
+        use crate::runtime::demo_fixture::{
+            ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+        };
+        let Some(first) = rooms.first().cloned() else {
+            return;
+        };
+        let starting = rooms
+            .iter()
+            .find(|room| room.id == starting_room)
+            .cloned()
+            .unwrap_or(first);
+        let geometry = crate::engine_core::RoomGeometry(starting.world.clone());
+        let metadata = ActiveRoomMetadata(starting.metadata.clone());
+        let prepared = crate::runtime::PreparedPlatformerSource::new(
+            id.clone(),
+            RoomSet::from_parts(starting_room.clone(), rooms.clone(), Vec::new()),
+            geometry,
+            metadata,
+            StartingCharacter::new(starting_character.clone()),
+            LdtkRuntimeIndex::default(),
+        );
+        crate::provider::PlatformerExperienceAuthoring::new(
+            id.clone(),
+            route.clone(),
+            label.clone(),
+            description.clone(),
+            format!("Prepare {id}"),
+            crate::provider::AuthoredCatalogFragments::new(
+                starting_character.clone(),
+                id.clone(),
+            ),
+        )
+        .install(app, move || prepared.clone());
+    }))
 }
 
 /// `DefaultPlugins`, configured. Rules 2, 3 and 4.

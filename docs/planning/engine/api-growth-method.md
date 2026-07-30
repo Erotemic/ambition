@@ -1,8 +1,8 @@
 # How the API campaign produces its next slice
 
-**This document is a procedure, not a plan.** It does not say what slice 2 is.
-It says how to *derive* slice 2 from what slice 1 measured, and how to know when
-the campaign is over.
+**This document is a procedure, not a plan.** It does not say what slice B is.
+It says how to *derive* the next slice from what the previous one measured, and
+how to know when the campaign is over.
 
 That separation exists because of a measured failure. The last large
 architecture document here
@@ -12,7 +12,7 @@ every *status claim* rotted within a week. A document that predicts five slices
 is a document whose last four are wrong. A document that describes how to
 compute the next one stays true as long as the method does.
 
-**Read with:** [api-1.0-campaign.md](api-1.0-campaign.md) (slice 1),
+**Read with:** [api-1.0-campaign.md](api-1.0-campaign.md) (slice A),
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md),
 [ADR 0032](../../adr/0032-authoring-is-declarative.md).
 
@@ -24,7 +24,7 @@ compute the next one stays true as long as the method does.
 > and is not allowed to end until it has produced the measurements that select
 > the next one.
 
-The base case is slice 1. The step is §3. The terminal condition is §4.
+The base case is slice A. The step is §3. The terminal condition is §4.
 
 The engine grows by **closing leaks**, where a leak is:
 
@@ -38,9 +38,9 @@ Both got the same fix: state the rule once.
 
 ---
 
-## 2. The four evidence sources
+## 2. The five evidence sources
 
-A slice is not complete until all four have been collected. They are cheap; the
+A slice is not complete until all five have been collected. They are cheap; the
 discipline is collecting them *before* deciding what is next, so the decision is
 made from evidence rather than from whatever seems interesting.
 
@@ -102,6 +102,26 @@ this method produces.** It means a seam was added beside the old mechanism
 rather than taking ownership from it — which is rule 1's violation, caught
 mechanically. Investigate that before anything else on the list.
 
+### 2e. The capability footprint
+
+Import leaks are not the only evidence, and a clean facade can hide the worst
+kind. **A perfectly semantic API could still force a movement-only game to
+compile and link menus, persistence, audio, LDtk, bosses and every unrelated
+gameplay domain.** No consumer names a forbidden path; the footprint is still
+wrong, and `ambition_actors` carries 27 direct `ambition_*` dependencies today.
+
+So for each sentinel consumer, measure:
+
+* transitive Ambition dependency closure;
+* which capabilities are linked but unwanted;
+* compile-time contribution;
+* artifact contribution where practical;
+* whether disabling a capability actually removes its dependencies;
+* whether a domain can be tested independently.
+
+`cargo tree`, feature-toggling and build timing answer all six. This is the
+evidence that a *leak-free* API can still be sitting on a monolith.
+
 ---
 
 ## 3. Selecting slice N+1
@@ -143,8 +163,7 @@ is the parallel-paths failure with a schedule attached.
 ### 3d. Write the slice
 
 Copy the shape of [api-1.0-campaign.md](api-1.0-campaign.md): numbered rows,
-each with an acceptance test that is a test; a red-first contract where one
-applies; explicit exit criteria; an explicit NOT-in-this-slice list.
+each with an acceptance test that is a test; a ratcheted contract where one applies; explicit exit criteria; an explicit NOT-in-this-slice list.
 
 **Every slice re-runs §2 at its end.** A slice that closes a leak and collects
 no evidence has broken the induction — there is nothing to select from next.
@@ -156,13 +175,35 @@ no evidence has broken the induction — there is nothing to select from next.
 The campaign is not open-ended. It ends in one of two ways, and the second is
 the interesting one.
 
-**Ordinary end:** the contract is green, the blind agent run completes without
-opening an engine file, and the remaining leaks are all *not owned* — product
-decisions, not engine rules. The API is done; write the doctrine document then,
-derived (ADR 0031, Alternatives).
+**Ordinary end — three conditions, all required:**
 
-**The interesting end:** the highest-cost remaining leak is **NOT closeable
-without moving code between crates.**
+1. the allowlist ratchet is at zero;
+2. a blind agent run completes without opening an engine file;
+3. **every category in the consumer matrix has a proof.**
+
+The API is done; write the doctrine document then, derived (ADR 0031,
+Alternatives).
+
+⚠ **Condition 3 is not optional and it is the one this method originally
+missed.** The first draft terminated on "contract green, blind run clean,
+remaining leaks not owned" — all of which Outlander alone can satisfy. **An API
+proven against one consumer is an API shaped like that consumer.** The matrix
+lives in [api-1.0-campaign.md](api-1.0-campaign.md) §The consumer matrix:
+external composition, a movement-only minimal game, a noncombat actor, a module
+standalone *and* embedded, Smash, and Ambition itself. The order stays
+evidence-driven; the categories do not.
+
+**The interesting end — either of two conditions:**
+
+* the highest-cost remaining leak is **NOT closeable without moving code between
+  crates**; or
+* a sentinel consumer's **capability footprint** (§2e) cannot be reduced without
+  one — a minimal game links domains it never asked for, and no amount of facade
+  work changes that.
+
+Either authorises an internal carve. The second matters because it is invisible
+to the first: a consumer can name only public modules and still pay for the
+whole engine.
 
 That is not a failure. It is the whole point, and it is the condition
 [decomposition.md](decomposition.md) already specified for reopening its own
@@ -195,6 +236,11 @@ just moves files.
 Learned here, each more than once:
 
 * **It ended with two paths alive.** Not a slice. Rule 1.
+* **It landed a red `main`.** Demonstrate a contract failing *during
+  development*; land it green against a recorded baseline with a
+  may-not-grow invariant. Every migration here is a ratchet, never a flag day —
+  and a ratchet on a *count* is not one, because a count permits deleting one
+  entry and adding another. Freeze the SET.
 * **Its acceptance test is prose.** "Reads cleanly", "approximately N lines",
   "no longer requires". Name a test.
 * **Its test was never seen red.** Then its subject is unverified. Three goal
@@ -216,9 +262,10 @@ Each slice strictly reduces one of:
 * the count of forbidden paths a consumer names (§2a);
 * the count of open fixture findings (§2b);
 * the count of engine files a blind author must open (§2c);
-* the count of undeleted compensating mechanisms (§2d).
+* the count of undeleted compensating mechanisms (§2d);
+* the count of unwanted linked capabilities for a sentinel consumer (§2e).
 
-All four are non-negative integers, all four are measured every slice, and no
+All five are non-negative integers, all five are measured every slice, and no
 slice may end without reducing at least one. If a slice reduces none, it did not
 close a leak — and that is itself the most informative outcome available,
 because it means the leak was misidentified and §3a's ranking needs the

@@ -8,7 +8,7 @@ lifecycle to the *public authoring surface*, and extends
 [ADR 0017](0017-rust-behavior-ron-content-ldtk-space.md) (Rust holds behavior;
 RON authors content) to cover federated capability schemas.
 
-Reached across three rounds of external review; see
+Reached across four rounds of external review; see
 [`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)
 §8–§11. The executable plan is
 [`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
@@ -104,8 +104,13 @@ PreparedContent          — validated, canonical, fingerprinted authored data
 PreparedCapabilityPlan   — ordered plugin installation + declared schema
 ```
 
-Staging needs no new machinery: `bevy_app::plugin_group` already holds
-`Box<dyn Plugin>` and installs in a canonical order.
+**Ambition owns this plan explicitly**; a Bevy `PluginGroup` is its *lowering*,
+not its substitute. `plugin_group` supplies ordered `Box<dyn Plugin>` installation
+and nothing else — it has no notion of stable capability ids, dependency and
+conflict resolution, duplicate-contribution policy, simulation-phase
+declarations, rollback fragments, facet handlers, a schema fingerprint,
+structured diagnostics, or a pre-session freeze boundary. The plan owns those and
+lowers through a plugin group afterwards.
 
 **3. The `App` restriction is scoped to module construction, not to the process.**
 
@@ -132,10 +137,15 @@ sources*; it does not enumerate the cast.
 * **Rust authoring remains for four reasons, not three.** Tests, procedural
   generation and unrepresentable schemas are the obvious ones. The fourth is the
   one this repository actually has: **the character's behavior is supplied by
-  host code as a deliberate authoring choice** — `PlayableKitSource::HostCode`,
-  the protagonist whose combat is a runtime `AbilitySet` concern. Content must
-  be able to *say* that, or the protagonist stays in Rust forever and the rule
-  keeps an exception nobody can close.
+  host code as a deliberate authoring choice** — the protagonist whose combat is
+  a runtime `AbilitySet` concern. Content must be able to *say* that, or the
+  protagonist stays in Rust forever and the rule keeps an exception nobody can
+  close.
+
+  ⚠ expressed as a **validated, versioned binding identity** — a provider id the
+  content names and validation resolves against installed providers — not as a
+  global `HostCode` flag. A magic enum arm is a second authority on what a kit
+  is; a resolved binding is one more reference obeying decision 5.
 
 **5. A raw string is never a runtime authority.**
 
@@ -158,21 +168,35 @@ shipped gate for the same class is
 `game/ambition_app/tests/declared_art_resolves.rs`, whose notes record why: *"a
 declared image naming no file is indistinguishable from a bolt nobody skinned."*
 
-**6. Content transactions are a first-class verb, not a later addition.**
+**6. Content transactions are a first-class verb, not a later addition — and
+they are NOT session transitions.**
 
-The lifecycle is not `compose → run`. This engine already commits content
+The lifecycle is not `compose → run`. This engine already revises content
 *during* a run: LDtk reload builds a replacement `PreparedContent` candidate
-through the same assembly path; room transitions defer to a confirmed frame via
-`PendingLifecycleCommit`; `commit_confirmed_lifecycle` then rebases the rollback
-session.
+through the same assembly path.
 
 So the API exposes `candidate → validate → commit → new epoch` from the start,
 and **the draft type used at composition time and at commit time is the same
 type.** Otherwise there are two content paths, which is the failure the
 construction campaign exists to end.
 
-Content is immutable *within* a session and replaced *transactionally* between
-them. It is not frozen after compilation.
+⚠ **Two different transactions, sharing a confirmed commit boundary:**
+
+```text
+ContentRevision:    ContentDraft → validate → PreparedContent → new ContentEpoch
+SessionTransition:  existing PreparedContent + current session
+                        → confirmed lifecycle commit → new live baseline
+```
+
+A room transition **selects from existing prepared content**. It does not edit a
+draft and does not publish a new content fingerprint. The first draft of this
+ADR cited `PendingLifecycleCommit` and `commit_confirmed_lifecycle` as evidence
+for the content verb; that was wrong — they are the *session* transaction, which
+is why a room change rebases the rollback session without producing new content.
+The two share a confirmed frame boundary and nothing else.
+
+Content is immutable *within* a session and revised *transactionally* between
+epochs. It is not frozen after compilation.
 
 ## Consequences
 
@@ -203,10 +227,24 @@ unproven: **what happens when a content document names a facet schema that no
 installed capability claims.** *Ignore* recreates the prepared-but-unconsumed
 portrait field at scale, and "state that looks accounted for and is not" is this
 repository's single most recurring defect class — six of eleven fixes in the last
-campaign. The campaign's working answer is: the pack declares its required
-capability profile, an unclaimed facet is a hard validation error, and the
-symmetric check runs too (a registered schema no consumer reads is also an
-error). That becomes ADR material once a slice has proven it.
+campaign. The campaign's working answer, stated as a contract on the AUTHORED FACET rather
+than on the schema registry:
+
+* every authored facet resolves to exactly **one compatible installed handler**;
+* the capabilities it requires are installed;
+* it validates and canonicalises;
+* it has a declared **prepared disposition and runtime projection**, or is
+  explicitly marked authoring-only;
+* ambiguous ownership is rejected unless explicitly supported.
+
+⚠ **An installed schema with zero authored instances is VALID** — a capability
+installed and unused is ordinary. The first draft of this ADR said "a registered
+schema no consumer reads is an error", which conflated *no handler* with *no
+instances* and would have failed every optional capability. The portrait-field
+hazard is covered by the prepared-disposition bullet, which is where it belongs.
+
+A pack declares a **minimum required capability set**, not one exact named
+profile. That becomes ADR material once a slice has proven it.
 
 **A version-space obligation.** A versioned facet schema (`ambition.body.sprite@1`)
 must be deliberately related to the existing version spaces —

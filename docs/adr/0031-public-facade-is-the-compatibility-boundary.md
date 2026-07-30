@@ -12,8 +12,8 @@ discovered during it.
 
 The executable plan is
 [`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
-This ADR moves to *Accepted; implemented* when that campaign's slice 1 lands and
-its dependency contract is green.
+This ADR moves to *Accepted; implemented* when the campaign's consumer matrix is
+satisfied and the allowlist ratchet reaches zero — not when slice A lands.
 
 ## Context
 
@@ -78,19 +78,32 @@ ambition::sim        ambition::lifecycle    ambition::effects
 ambition::view       ambition::test         ambition::prelude
 ```
 
+Provisional until the call-site prototype is accepted — the names are a
+consequence of what the call sites need, not an input to them. **Each domain
+carries its own prelude** (`ambition::character::prelude`); one enormous root
+prelude is a discovery problem for an agent, not a convenience.
+
 **2. The compatibility promise is made at that surface and nowhere else.** Inner
 crates remain independently usable by engine developers and carry no stability
 promise. A game depends on `ambition`.
 
-**3. Implementation-shaped module paths are forbidden in game code, and the
-prohibition is executable.** `scripts/check_absence_contracts.py` already owns
-this class: `DEPENDENCY_CONTRACTS` is a transitive, Cargo-metadata-backed table
-of `{crate, forbidden, reason}` with four live rows, including
+**3. Game code may name only the reviewed public surface — an ALLOWLIST, and it
+is executable.** `scripts/check_absence_contracts.py` already owns this class:
+`DEPENDENCY_CONTRACTS` is a transitive, Cargo-metadata-backed table of
+`{crate, forbidden, reason}` with four live rows, including
 `engine-crates-do-not-consume-the-umbrella-facade`. The extension needed is
 module-path granularity, not a new mechanism.
 
-The contract lands **red, before the facade exists**, so the campaign has a
-gradient and a finish line that is an exit status rather than a claim.
+⚠ **Allowlist, not denylist, and the numbers are decisive.** A denylist always
+lags a namespace mirror. Outlander names **19 distinct top-level `ambition::`
+modules**; the first draft of the campaign forbade six of them. It would have
+gone green with thirteen leaks still open — worse than no contract, because it
+would have been believed.
+
+**It lands green against a recorded baseline that may not grow**, not red on
+`main`. A permanently failing branch is not a gradient, it is a broken gate that
+teaches people to ignore gates. Demonstrate it failing during development; land
+the ratchet. See [the campaign's §Ratchets](../planning/engine/api-1.0-campaign.md).
 
 **4. The engine owns composition ordering.** A consumer states policy —
 windowed or headless, fixed-step or rollback session, which experience, where it
@@ -118,6 +131,13 @@ has become the next monolith and this ADR has failed.
   repository**, or it measures the agent's memory rather than the API, and the
   recorded result includes *which engine file it had to open first*. That field
   names the next leak the way Outlander's comments do.
+
+**A consumer matrix, not a consumer.** The compatibility surface may not be
+declared complete until each category in
+[the campaign's matrix](../planning/engine/api-1.0-campaign.md) has a proof:
+external composition, a movement-only minimal game, a noncombat actor, a module
+standalone *and* embedded, Smash, and Ambition itself. An API proven against one
+consumer is an API shaped like that consumer.
 
 **The `ambition_actors` decomposition is deferred, deliberately, and gains a
 trigger.** The diagnosis that it has become a gravitational sink is accepted —

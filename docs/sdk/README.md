@@ -120,6 +120,19 @@ PlatformerApp::windowed("My Game").without_gpu().build()
 A bare `run()` there panics inside `bevy_winit` with `neither WAYLAND_DISPLAY
 nor WAYLAND_SOCKET nor DISPLAY is set`, a message that never mentions Ambition.
 
+### Cargo features
+
+Default features work for both faces and are the right starting point. The
+facade exposes ~30 more; the ones a game reaches for first:
+
+| Feature | For |
+|---|---|
+| `visible` | the render chain — required for a real window |
+| `input` | the standard host input path |
+| `basic_shell_presentation` | the minimal shell's own frames |
+| `desktop_platform` / `web_platform` / `android_platform` | target selection |
+| `audio` | sound (you still declare `no_audio()` if you author none) |
+
 **Reading the API:** `cargo doc -p ambition -p ambition_world --no-deps --open`.
 Both crates, or the room types render as unlinked text.
 
@@ -206,11 +219,14 @@ Current, verified against `fixtures/minimal_game/tests/boots.rs`:
   `playable()` requires a starting character and without `playable()` no
   gameplay route is registered — so a menu-only app has no route to a composing
   host. Tracked as consumer-matrix work, not a bug with a workaround.
-* **The non-empty character roster schema is undocumented.** `spritesheet`,
-  `manifest`, `tier`, `body_kind`, `composition`, `default_brain`,
-  `default_action_set`, `playable_kit` and `tags` are all required with no
-  documented values. `EMPTY_CHARACTER_ROSTER_RON` covers only the empty case;
-  for one character, copy `fixtures/minimal_game/src/minimal_experience.rs`.
+* ~~The non-empty character roster schema is undocumented.~~ **CLOSED.**
+  `MINIMAL_CHARACTER_ROSTER_RON` is a working one-character roster, and its
+  rustdoc names every enum-valued field — `tier: MainHall`,
+  `body_kind: Standard`, `composition: None`, `playable_kit: Authored` (vs
+  `HostCode`, which silently overrides your action set), `move_style: Walk`,
+  `StandStill`. Those are the ones no error message can give you: the parser
+  reports one missing field per build and stops dead at the first enum, because
+  variant names cannot be guessed.
 * **Component names are invisible.** `ambition::bevy` is re-exported without
   Bevy's `debug` feature, so `World::inspect_entity` reports
   `<Enable the debug feature to see the name>` for every component — which

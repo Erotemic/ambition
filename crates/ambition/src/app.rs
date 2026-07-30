@@ -86,7 +86,8 @@ use crate::world::rooms::RoomMetadata;
 pub mod prelude {
     pub use super::{
         host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
-        ModuleManifest, PlatformerApp, SessionMode,
+        ModuleManifest, PlatformerApp, SessionMode, EMPTY_CHARACTER_ROSTER_RON,
+        MINIMAL_CHARACTER_ROSTER_RON,
     };
     pub use bevy::prelude::App;
 
@@ -338,6 +339,55 @@ struct ExperienceDefinition {
     rooms: Vec<crate::world::rooms::RoomSpec>,
     starting_room: String,
 }
+
+/// **A roster with ONE character** — the case a game actually starts from.
+///
+/// ⚠ Published because [`EMPTY_CHARACTER_ROSTER_RON`] solved the case nobody
+/// needs. Blind run 3 tried to derive this by starting from the empty roster
+/// and letting the parser name what was missing, and reported two things that
+/// make that route a dead end: the parser names exactly ONE missing field per
+/// build-and-run cycle, and it stops dead at the first ENUM-typed field
+/// (`tier: ""` → `Expected identifier`) because variant names cannot be
+/// guessed. It gave up after four cycles and opened a fixture — which is the
+/// SDK's acceptance test failing by the SDK's own remedy.
+///
+/// The enum-valued fields, since those are the ones no error message will tell
+/// you:
+///
+/// * `tier` — `MainHall` for an ordinary character.
+/// * `body_kind` — `Standard`.
+/// * `composition` — `None` unless the body is assembled from parts.
+/// * `playable_kit` — **`Authored`** if this character's own action set is the
+///   authority, `HostCode` if it should wear the host protagonist's kit
+///   instead. These mean opposite things and the wrong one silently overrides
+///   everything you declared below it.
+/// * `move_style` — `Walk`.
+/// * a brain preset value — `StandStill` for a character that does not act.
+pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
+    brain_presets: { "still": StandStill },
+    action_set_presets: {
+        "walk_only": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "my_hero": (
+            display_name: "My Hero",
+            spritesheet: "my_hero.png",
+            manifest: "my_hero_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "still",
+            default_action_set: "walk_only",
+            playable_kit: Authored,
+            tags: ["player"],
+        ),
+    },
+)"#;
 
 /// What a module says about its cast.
 ///

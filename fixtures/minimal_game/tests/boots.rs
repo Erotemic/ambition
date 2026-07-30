@@ -569,3 +569,62 @@ fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
          which is what falling through the floor and respawning looks like"
     );
 }
+
+/// **The published one-character roster actually composes.**
+///
+/// `MINIMAL_CHARACTER_ROSTER_RON` exists because blind run 3 could not derive
+/// the non-empty schema: the parser names one missing field per build cycle and
+/// dead-ends at the first enum-typed field, because variant names cannot be
+/// guessed. It gave up and opened a fixture — the SDK's acceptance test failing
+/// by the SDK's own suggested remedy.
+///
+/// ⚠ A published example that does not work is worse than none: it costs a
+/// reader the build cycle AND their trust in the rest of the document. So it is
+/// used here exactly as a consumer would, with the `my_hero` id it declares.
+#[test]
+fn the_published_one_character_roster_composes_and_runs() {
+    struct FromTheDocs;
+
+    impl GameModule for FromTheDocs {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("from_the_docs")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("from_the_docs")
+                .launcher_route("from_the_docs/menu")
+                .gameplay_route("from_the_docs/play")
+                .characters(MINIMAL_CHARACTER_ROSTER_RON)
+                .no_audio()
+                .playable(
+                    "From The Docs",
+                    "built from the published roster constant",
+                    // The id the constant declares. If these drift, the
+                    // constant is a trap rather than an example.
+                    "my_hero",
+                    minimal_game::minimal_experience::MINIMAL_ROOM_ID,
+                    vec![minimal_game::minimal_experience::minimal_room()],
+                );
+        }
+    }
+
+    let mut app = PlatformerApp::headless()
+        .mount(FromTheDocs)
+        .try_build()
+        .expect("the roster we publish must parse and validate");
+
+    let mut status = host_status(&app);
+    for _ in 0..600 {
+        app.update();
+        status = host_status(&app);
+        if status.is_running() || status.is_refused() {
+            break;
+        }
+    }
+    assert!(
+        status.is_running(),
+        "the published roster must reach a RUNNING host, not merely parse; got \
+         {status:?} / {:?}",
+        status.refusal()
+    );
+}

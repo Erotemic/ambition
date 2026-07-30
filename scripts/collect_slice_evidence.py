@@ -15,7 +15,15 @@ about itself.
 blind agent run requires a FRESH agent; §2c says an agent resumed from a session
 that touched engine internals "measures its own memory", and that the result is
 "falsely green in the direction that feels good". So `blind_agent_run` is read
-from `docs/sdk/evidence/blind-agent-runs/*.json` if such a record exists, and
+from `docs/planning/engine/slice-evidence/blind-agent-runs/*.json` if such a record exists, and
+
+⚠ This tree used to live at `docs/sdk/evidence/`. It was MOVED 2026-07-30,
+mid-blind-run, because that is the one directory §2c's subject is told to
+start from — so the measurement apparatus, including the fixed script naming
+*which engine file did it open first* as the field that matters, was sitting
+in the room with the agent being measured. An instrument a subject can read
+is not an instrument. It is also simply the wrong home: a third party reading
+`docs/sdk/` should find the SDK, not our internal scorekeeping.
 otherwise reports `collected: false` with the reason. The moment a real run is
 recorded there, re-running this completes the evidence file — including
 `selects_slice_b`, which §2c says is the field that names the next leak and
@@ -168,7 +176,7 @@ def blind_agent_run() -> dict:
                 "read the movement kernel, the sim-view seam and the render "
                 "cluster, so it is exactly the disqualified population and did "
                 "not self-report a baseline. Drop a record in "
-                "docs/sdk/evidence/blind-agent-runs/ and re-run this script."
+                "docs/planning/engine/slice-evidence/blind-agent-runs/ and re-run this script."
             ),
             "required_fields": [
                 "completed",

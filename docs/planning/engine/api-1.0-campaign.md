@@ -274,11 +274,11 @@ it is not expected to succeed at authoring content, which does not exist yet.
       "in the direction that feels good". The session that landed A1–A4 read the
       movement kernel, the sim-view seam and the render cluster, so it IS that
       population. Needs a fresh agent given `docs/sdk/` + the facade only; drop
-      the record in `docs/sdk/evidence/blind-agent-runs/` and re-run
+      the record in `docs/planning/engine/slice-evidence/blind-agent-runs/` and re-run
       `scripts/collect_slice_evidence.py`;
 * [~] §2 evidence collected per the growth method — **four of five**, by
       `scripts/collect_slice_evidence.py` into
-      `docs/sdk/evidence/slice-a-evidence.json`. 2a/2b/2d/2e measured; 2c is the
+      `docs/planning/engine/slice-evidence/slice-a-evidence.json`. 2a/2b/2d/2e measured; 2c is the
       row above. ⚠ the goal check for this row tests KEY PRESENCE only, so it
       reads green while 2c is uncollected — the JSON's own `collected: false` is
       the authority, not the gate.

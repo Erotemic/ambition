@@ -7,15 +7,15 @@ use super::*;
 
 /// Nine rows, monotone in every axis. Reaction falls, APM rises, noise falls.
 const LADDER: &str = r#"[
-    (level: 1, reaction_ms: 500.0, apm_cap: 60.0,  execution_noise: 0.40, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.1, kill_potential: 0.0, stage_risk: -0.1)),
-    (level: 2, reaction_ms: 450.0, apm_cap: 90.0,  execution_noise: 0.35, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.2, kill_potential: 0.0, stage_risk: -0.2)),
-    (level: 3, reaction_ms: 400.0, apm_cap: 120.0, execution_noise: 0.30, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.3, kill_potential: 0.1, stage_risk: -0.3)),
-    (level: 4, reaction_ms: 350.0, apm_cap: 160.0, execution_noise: 0.25, rollout_depth: 0, rollout_k: 0, read_weight: 0.1, utility_weights: (reach_fit: 1.0, frame_advantage: 0.4, kill_potential: 0.2, stage_risk: -0.4)),
-    (level: 5, reaction_ms: 300.0, apm_cap: 200.0, execution_noise: 0.20, rollout_depth: 0, rollout_k: 0, read_weight: 0.2, utility_weights: (reach_fit: 1.0, frame_advantage: 0.5, kill_potential: 0.3, stage_risk: -0.5)),
-    (level: 6, reaction_ms: 260.0, apm_cap: 240.0, execution_noise: 0.16, rollout_depth: 0, rollout_k: 0, read_weight: 0.3, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.6)),
-    (level: 7, reaction_ms: 220.0, apm_cap: 280.0, execution_noise: 0.12, rollout_depth: 0, rollout_k: 0, read_weight: 0.5, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.7)),
-    (level: 8, reaction_ms: 185.0, apm_cap: 320.0, execution_noise: 0.08, rollout_depth: 0, rollout_k: 0, read_weight: 0.7, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.8)),
-    (level: 9, reaction_ms: 150.0, apm_cap: 360.0, execution_noise: 0.05, rollout_depth: 0, rollout_k: 0, read_weight: 1.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.8)),
+    (level: 1, reaction_ms: 500.0, apm_cap: 60.0,  execution_noise: 0.40, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.1, kill_potential: 0.0, stage_risk: -0.1, expected_payoff: 0.00)),
+    (level: 2, reaction_ms: 450.0, apm_cap: 90.0,  execution_noise: 0.35, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.2, kill_potential: 0.0, stage_risk: -0.2, expected_payoff: 0.00)),
+    (level: 3, reaction_ms: 400.0, apm_cap: 120.0, execution_noise: 0.30, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.3, kill_potential: 0.1, stage_risk: -0.3, expected_payoff: 0.10)),
+    (level: 4, reaction_ms: 350.0, apm_cap: 160.0, execution_noise: 0.25, rollout_depth: 0, rollout_k: 0, read_weight: 0.1, utility_weights: (reach_fit: 1.0, frame_advantage: 0.4, kill_potential: 0.2, stage_risk: -0.4, expected_payoff: 0.20)),
+    (level: 5, reaction_ms: 300.0, apm_cap: 200.0, execution_noise: 0.20, rollout_depth: 0, rollout_k: 0, read_weight: 0.2, utility_weights: (reach_fit: 1.0, frame_advantage: 0.5, kill_potential: 0.3, stage_risk: -0.5, expected_payoff: 0.30)),
+    (level: 6, reaction_ms: 260.0, apm_cap: 240.0, execution_noise: 0.16, rollout_depth: 0, rollout_k: 0, read_weight: 0.3, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.6, expected_payoff: 0.40)),
+    (level: 7, reaction_ms: 220.0, apm_cap: 280.0, execution_noise: 0.12, rollout_depth: 0, rollout_k: 0, read_weight: 0.5, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.7, expected_payoff: 0.45)),
+    (level: 8, reaction_ms: 185.0, apm_cap: 320.0, execution_noise: 0.08, rollout_depth: 0, rollout_k: 0, read_weight: 0.7, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.8, expected_payoff: 0.50)),
+    (level: 9, reaction_ms: 150.0, apm_cap: 360.0, execution_noise: 0.05, rollout_depth: 0, rollout_k: 0, read_weight: 1.0, utility_weights: (reach_fit: 1.0, frame_advantage: 0.6, kill_potential: 0.4, stage_risk: -0.8, expected_payoff: 0.50)),
 ]"#;
 
 fn ladder() -> FighterBrainLadder {

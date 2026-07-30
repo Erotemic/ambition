@@ -40,25 +40,28 @@
 //! decisions)."* The latency lives on `FighterBrainProfile.reaction_ms`, which is
 //! FB4's; L2 is a pure function that a decision tick calls.
 //!
-//! ## A gap in §1's four features, found by building them
+//! ## The gap in §1's four features — found by FB2, CLOSED by FB6a
 //!
-//! **None of the four reads a move's POWER.** `kill_potential` is the *victim's*
-//! meter; `reach_fit` and `frame_advantage` are geometry and timing;
-//! `stage_risk` is about me. So at any weights, given a punish window that BOTH a
-//! jab and a smash fit, the jab wins — it is faster and therefore has more frame
-//! advantage, and nothing prices the smash's payoff. A level-9 CPU that always
-//! jabs its punishes is not a level-9 CPU.
+//! FB2 found that **none of the original four features read a move's POWER**:
+//! `kill_potential` is the *victim's* meter; `reach_fit` and `frame_advantage`
+//! are geometry and timing; `stage_risk` is about me. At any weights, given a
+//! punish window both a jab and a smash fit, the jab won — faster, so more
+//! frame advantage, and nothing priced the smash's payoff. A level-9 CPU that
+//! always jabs its punishes is not a level-9 CPU. It was recorded rather than
+//! patched, because §FB6 makes FB4's ladder the calibration instrument.
 //!
-//! CM7's [`MoveFrameData`] carries no damage or knockback either, so L2 could not
-//! price it even if a fifth feature existed. Two ways out, and this slice takes
-//! neither on its own authority: derive `max_damage`/`max_knockback` into
-//! `MoveFrameData` (a pure derivation over the Active volumes, like `reach`) and
-//! add an `expected_payoff = damage × landing_chance` feature; or let FB4's ladder
-//! discover that the weights cannot order the levels and force the question. §FB6
-//! is explicit that *"scoring weights are NOT divined up front … FB4's ladder
-//! self-play monotonicity gate is the calibration instrument"*, so the second is
-//! the doctrine's own answer. **Recorded here rather than fixed by inventing a
-//! fifth weight nobody has calibrated.**
+//! FB6a took the recorded route (1): [`MoveFrameData`] now carries
+//! `max_damage`/`max_knockback` (derived over the Active volumes exactly like
+//! `reach`), and the fifth feature is
+//! **`expected_payoff` = (this move's `max_damage` ÷ the kit's strongest
+//! `max_damage`) × landing chance**, where the landing chance is the positive
+//! part of `frame_advantage`. In neutral (nobody committed) every payoff is
+//! zero and the original four decide; in a punish window the smash finally
+//! outbids the jab it out-damages — which is the exact scenario FB2 recorded.
+//! Power is normalized within the KIT so the feature is scale-free across
+//! characters, per the same reasoning that lets the brain understand a
+//! character nobody wrote a table for. The WEIGHT remains a v1 starting value;
+//! the ladder still calibrates it.
 
 use ambition_entity_catalog::MoveFrameData;
 
@@ -114,6 +117,11 @@ pub struct Features {
     /// `0..=1`. 1 when I am against a blastzone. **Costed, not rewarded** — its
     /// weight is negative in [`UtilityWeights::v1`].
     pub stage_risk: f32,
+    /// `0..=1`. The move's power (its `max_damage` over the kit's strongest),
+    /// gated by the positive part of `frame_advantage` — payoff only counts
+    /// when the move plausibly lands. Zero across the board in neutral, so the
+    /// original four features decide there (FB6a).
+    pub expected_payoff: f32,
 }
 
 impl Features {
@@ -122,6 +130,7 @@ impl Features {
             + self.frame_advantage * w.frame_advantage
             + self.kill_potential * w.kill_potential
             + self.stage_risk * w.stage_risk
+            + self.expected_payoff * w.expected_payoff
     }
 }
 
@@ -134,6 +143,8 @@ pub struct UtilityWeights {
     pub kill_potential: f32,
     /// Negative: stage risk is a cost.
     pub stage_risk: f32,
+    /// Prices a move's POWER on a plausible landing (FB6a). Positive.
+    pub expected_payoff: f32,
 }
 
 impl UtilityWeights {
@@ -146,6 +157,7 @@ impl UtilityWeights {
             frame_advantage: 0.6,
             kill_potential: 0.4,
             stage_risk: -0.8,
+            expected_payoff: 0.5,
         }
     }
 }
@@ -233,14 +245,24 @@ pub fn generate_options(
         0.0
     };
 
+    // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
+    // no candidate lands a volume, which zeroes every payoff below.
+    let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
     let mut attacks: Vec<AttackOption> = kit
         .iter()
         .map(|c| {
+            let fa = frame_advantage(c.frames.startup_s, their_commitment);
+            let power = if kit_max_damage > 0 {
+                c.frames.max_damage as f32 / kit_max_damage as f32
+            } else {
+                0.0
+            };
             let features = Features {
                 reach_fit: reach_fit(c.frames.reach, gap),
-                frame_advantage: frame_advantage(c.frames.startup_s, their_commitment),
+                frame_advantage: fa,
                 kill_potential: foe.damage_frac(),
                 stage_risk,
+                expected_payoff: power * fa.max(0.0),
             };
             AttackOption {
                 move_id: c.move_id.clone(),

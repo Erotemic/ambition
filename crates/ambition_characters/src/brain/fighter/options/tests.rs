@@ -16,6 +16,8 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         recovery_s,
         cancel_windows: Vec::new(),
         reach,
+        max_damage: 1,
+        max_knockback: 0.0,
     }
 }
 
@@ -299,6 +301,7 @@ fn the_score_is_exactly_the_weighted_features() {
         frame_advantage: 0.0,
         kill_potential: 0.0,
         stage_risk: 0.0,
+        expected_payoff: 0.0,
     };
     let opts = generate_options(
         Perceived::cheating(&view_with(300.0, 400.0)),
@@ -317,6 +320,49 @@ fn the_score_is_exactly_the_weighted_features() {
     );
     let a = opts.best_attack().unwrap();
     assert!((a.score - a.features.dot(&w)).abs() < 1e-6);
+}
+
+/// FB2 recorded the gap; FB6a closes it, and this is the recorded scenario:
+/// a punish window both a jab and a smash fit. Without `expected_payoff` the
+/// jab always won (faster ⇒ more frame advantage, nothing priced power). With
+/// it, the smash that out-damages the jab — and still lands inside the
+/// window — outbids it. In NEUTRAL the payoff is zero for everyone and the
+/// jab keeps winning, which is the feature gating on a plausible landing
+/// rather than smuggling power into every exchange.
+#[test]
+fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
+    let smash = AttackCandidate {
+        move_id: "smash".to_string(),
+        frames: MoveFrameData {
+            max_damage: 20,
+            ..frames(0.25, 100.0, 0.4)
+        },
+    };
+    let jab = AttackCandidate {
+        move_id: "jab".to_string(),
+        frames: MoveFrameData {
+            max_damage: 4,
+            ..frames(0.1, 100.0, 0.2)
+        },
+    };
+    let kit = [jab, smash];
+    let w = UtilityWeights::v1();
+
+    // A punish window longer than either startup: the opponent is committed.
+    let mut view = view_with(300.0, 400.0);
+    view.actors[0].phase = BodyPhase::AttackRecovery;
+    view.actors[0].phase_remaining = 0.6;
+    let opts = generate_options(Perceived::cheating(&view), Situation::Advantage, &kit, &w);
+    assert_eq!(
+        opts.best_attack().unwrap().move_id,
+        "smash",
+        "a priced punish takes the strong move, not the fast one"
+    );
+
+    // Neutral: nobody is committed, payoff gates to zero, the jab wins again.
+    let view = view_with(300.0, 400.0);
+    let opts = generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &w);
+    assert_eq!(opts.best_attack().unwrap().move_id, "jab");
 }
 
 /// No opponent, no attacks — and no panic. A brain alone on the stage is not a

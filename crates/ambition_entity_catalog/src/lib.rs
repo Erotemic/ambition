@@ -907,6 +907,22 @@ impl MoveSpec {
                 VolumeShape::Circle { offset, radius } => offset.0 + radius,
             })
             .fold(0.0_f32, f32::max);
+        // Power = the strongest Active volume, derived exactly like `reach`.
+        let max_damage = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.damage)
+            .max()
+            .unwrap_or(0);
+        let max_knockback = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.knockback)
+            .fold(0.0_f32, f32::max);
         MoveFrameData {
             total_s: self.duration_s,
             startup_s,
@@ -914,6 +930,8 @@ impl MoveSpec {
             recovery_s,
             cancel_windows,
             reach,
+            max_damage,
+            max_knockback,
         }
     }
 }
@@ -947,6 +965,14 @@ pub struct MoveFrameData {
     pub cancel_windows: Vec<CancelWindow>,
     /// Farthest body-local reach of any Active volume (`+x` toward facing).
     pub reach: f32,
+    /// Highest `damage` any Active volume deals — the move's POWER, so an
+    /// option scorer can price a smash above a jab (FB6a; §9 of
+    /// fighter-brain.md recorded that nothing could). `0` for a move that
+    /// lands no volume.
+    pub max_damage: i32,
+    /// Highest flat `knockback` any Active volume applies (the `kb_growth`
+    /// percent-scaling term is the victim's business, not the table's).
+    pub max_knockback: f32,
 }
 
 // ---------------------------------------------------------------------------

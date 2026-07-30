@@ -77,7 +77,8 @@
     "The bevy_ggrs patch table (Jon deferred it 2026-07-30 pending an upstream",
     "crates.io release) and any `ambition_actors` decomposition (§4 authorises it",
     "only when a leak or a sentinel consumer's footprint demands it, and then only",
-    "the boundary that leak NAMES)."
+    "the boundary that leak NAMES).",
+    "⚠ ADDED 2026-07-30 after a check reported FAILED with an EMPTY detail. The guard handles timeouts explicitly, so an empty detail means the command produced no output at all — which these checks did BY DESIGN, piping everything into `grep >/dev/null`. A check that cannot say why it failed is the silent-failure class this campaign exists to hunt, written into the campaign's own instrument. The long-running checks now PRINT the failing lines before exiting nonzero. Still no `grep -q` in any pipeline: it exits on first match, the writer takes SIGPIPE, and pipefail turns the check into a nondeterministic 141."
   ],
   "goal": "Run the API 1.0 campaign to its TERMINAL CONDITION by induction: each slice closes the leak the previous slice measured as most expensive, migrates every consumer, DELETES the displaced path, guards the absence, and ends by collecting api-growth-method.md §2's five evidence sources and deriving the next slice from them. Slice A is closed and slice B is derived (the movement-only minimal game). The campaign ends only when all three §4 conditions hold: the allowlist ratchet is at ZERO, a blind agent run completes WITHOUT OPENING AN ENGINE FILE, and EVERY consumer-matrix category has a proof that is a test. This will take many days. There is no deliverable whose completion releases you -- if a slice looks done, that means the next one needs deriving from the evidence you just collected, not that the work is over. Do not stop.",
   "deadline_utc": "2026-08-13T06:15:00Z",
@@ -106,17 +107,17 @@
     },
     {
       "name": "INDUCTION: slice A's consumer has not regressed — Outlander composes through the facade and passes",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test --manifest-path fixtures/external_consumer/Cargo.toml --test composition --test gameplay 2>&1); c=$(echo \"$out\" | grep -cE 'test result: ok\\. [1-9][0-9]* passed'); test \"$c\" -ge 2",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test --manifest-path fixtures/external_consumer/Cargo.toml --test composition --test gameplay 2>&1); c=$(echo \"$out\" | grep -cE \"test result: ok\\. [1-9][0-9]* passed\"); if [ \"$c\" -lt 2 ]; then echo \"$out\" | grep -E \"FAILED|panicked|error\\[\" | head -15; exit 1; fi",
       "timeout": 2400
     },
     {
       "name": "the workspace compiles, tests included",
-      "cmd": "$HOME/.cargo/bin/cargo check --workspace --all-targets --quiet",
+      "cmd": "out=$($HOME/.cargo/bin/cargo check --workspace --all-targets --quiet 2>&1); rc=$?; if [ \"$rc\" -ne 0 ]; then echo \"$out\" | grep -E \"^error\" -A 3 | head -20; exit 1; fi",
       "timeout": 2400
     },
     {
       "name": "the backbone suite is green",
-      "cmd": "out=$(./run_tests.sh --fast 2>&1); echo \"$out\" | grep -E 'test result: ok' >/dev/null && ! echo \"$out\" | grep 'test result: FAILED' >/dev/null",
+      "cmd": "out=$(./run_tests.sh --fast 2>&1); rc=$?; if [ \"$rc\" -ne 0 ] || echo \"$out\" | grep \"test result: FAILED\" >/dev/null; then echo \"$out\" | grep -E \"^(test |    )[a-z_:]+ \\.\\.\\. FAILED|test result: FAILED|FAILED jobs\" | head -20; echo \"--- exit $rc ---\"; exit 1; fi; echo \"$out\" | grep -E \"test result: ok\" >/dev/null",
       "timeout": 2400
     },
     {

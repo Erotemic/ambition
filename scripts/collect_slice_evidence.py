@@ -60,6 +60,7 @@ REPO = Path(__file__).resolve().parents[1]
 # 2026-07-30; see the module docstring.
 EVIDENCE = REPO / "docs" / "planning" / "engine" / "slice-evidence"
 OUT = EVIDENCE / "slice-a-evidence.json"
+SELECTION = EVIDENCE / "slice-b-selection.json"
 BLIND_RUNS = EVIDENCE / "blind-agent-runs"
 
 # The consumer this slice is measured against. Slice A is BOUNDED to the external
@@ -408,52 +409,45 @@ def capability_footprint() -> dict:
 
 
 def selects_slice_b(evidence: dict) -> dict:
-    """Slice B, DERIVED — or an explicit refusal to invent it.
+    """§3 — the derivation, READ rather than generated.
 
-    The goal is emphatic: do not invent B. §2c says the first-engine-file-opened
-    field is the one that names the next leak "from the population the API is
-    *for*", so with 2c uncollected the strongest honest statement is what the
-    other four sources CONSTRAIN B to, plus what is still missing to choose.
+    Ranking candidates by cost/closeable/owned is a judgment call. A script that
+    produced one would be manufacturing exactly the taste-based selection §3
+    exists to prevent, and it would look identical to a real derivation in the
+    output file. So the decision is authored in `slice-b-selection.json` and this
+    only checks that it exists and that its preconditions held.
     """
     blind = evidence["blind_agent_run"]
-    footprint = evidence["capability_footprint"]
-    contract = evidence["contract_diff"]["outlander-names-only-the-public-sdk"]
-    if not blind.get("collected"):
+    if not blind.get("collected", False):
         return {
             "derived": False,
             "blocked_on": "2c",
             "reason": (
-                "Four of five sources are collected; §2c is not, and it is the "
-                "one that names the next leak from the population the API is "
-                "for. Deriving B from the other four would choose it by taste, "
-                "which the slice's own exit criteria forbid."
+                "Four of five sources are collected; §2c is not, and it is the one "
+                "that names the next leak from the population the API is for. "
+                "Deriving B from the other four would choose it by taste, which "
+                "the slice's own exit criteria forbid."
             ),
-            # What the collected four already CONSTRAIN B to — recorded so the
-            # eventual derivation is checked against evidence that existed
-            # before it, the same discipline §5's 18->14 prediction used.
-            "constraints_from_the_collected_four": [
-                f"the ratchet's remaining {contract['open_count']} modules are "
-                "content/gameplay vocabulary, not composition — so B is a "
-                "content-model slice, which is what the campaign sketch already "
-                "says; that is a confirmation, not a derivation",
-                f"the heaviest remaining leaks by use count are "
-                f"{sorted(contract['uses_per_module'].items(), key=lambda kv: -kv[1])[:4]}",
-                f"modules named from more than one file (a rule re-derived "
-                f"independently, §2a): {contract['multi_file_modules']}",
-                f"§2e is untouched by slice A: the consumer still links "
-                f"{footprint.get('transitive_ambition_count')} ambition crates "
-                "from two declared dependencies, and no module allowlist can "
-                "see that",
-            ],
         }
+    if not SELECTION.exists():
+        return {
+            "derived": False,
+            "blocked_on": None,
+            "reason": (
+                f"All five sources are collected. Author the §3 derivation in "
+                f"{SELECTION.relative_to(REPO)} — rank the candidates by "
+                f"cost/closeable/owned, route them per §3b, and size per §3c."
+            ),
+            "first_engine_file_opened": blind.get("first_engine_file_opened"),
+        }
+    selection = json.loads(SELECTION.read_text(encoding="utf-8"))
     return {
-        "derived": False,
-        "blocked_on": None,
-        "reason": (
-            "A blind-agent record now exists; re-derive B from all five sources "
-            "and replace this block with the decision and its citations."
-        ),
-        "first_engine_file_opened": blind["run"].get("first_engine_file_opened"),
+        "derived": bool(selection.get("derived")),
+        "selection": str(SELECTION.relative_to(REPO)),
+        "slice_b": selection.get("slice_b", {}).get("name"),
+        "one_leak": selection.get("slice_b", {}).get("one_leak"),
+        "candidates_ranked": len(selection.get("ranked_candidates", [])),
+        "first_engine_file_opened": blind.get("first_engine_file_opened"),
     }
 
 

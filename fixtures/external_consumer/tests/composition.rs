@@ -99,3 +99,51 @@ fn a_face_that_cannot_honor_a_request_says_so() {
         "the error must NAME the request it could not honor; got {reported:?}"
     );
 }
+
+/// **A declared route nothing registers is REFUSED, not silently empty.**
+///
+/// This is the blind agent's finding of 2026-07-30, turned into the check that
+/// should have existed. It declared a gameplay route no experience registered
+/// and got a host that built clean, ran 60 ticks, and spawned zero entities —
+/// while `ambition::app`'s own module docs claimed rule 7 was enforced "by TYPE,
+/// so the empty host is unreachable rather than merely documented". What was
+/// enforced was that a *string* had been supplied.
+///
+/// An overclaimed guarantee is worse than an absent one, because it tells a
+/// consumer to stop looking. The refusal must also NAME the registered routes:
+/// "unknown route" is a puzzle, "unknown route, here are the ones that exist"
+/// is a typo somebody fixes without a debugger.
+#[test]
+fn a_declared_route_no_capability_registers_is_refused() {
+    struct GhostRoute;
+
+    impl GameModule for GhostRoute {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("ghost")
+        }
+
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience(outlander::OUTLANDER_EXPERIENCE)
+                .launcher_route(outlander::OUTLANDER_LAUNCHER_ROUTE)
+                // Registered by nobody. Before this check, sixty quiet ticks.
+                .gameplay_route("ghost/gameplay")
+                .capability(outlander::OutlanderExperiencePlugin);
+        }
+    }
+
+    let error = PlatformerApp::headless()
+        .mount(GhostRoute)
+        .try_build()
+        .expect_err("a gameplay route no capability registers must not compose");
+    let reported = error.to_string();
+    assert!(
+        reported.contains("ghost/gameplay"),
+        "the refusal must name the route that does not exist; got {reported:?}"
+    );
+    assert!(
+        reported.contains(outlander::OUTLANDER_GAMEPLAY_ROUTE),
+        "the refusal must list the routes that DO exist, or it is a puzzle \
+         rather than a fix; got {reported:?}"
+    );
+}

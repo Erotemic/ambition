@@ -1,14 +1,17 @@
 # API 1.0 campaign
 
-**Status:** slice A in progress (2026-07-30) — **A1–A4 landed, A5 open.**
+**Status:** **slice A CLOSED (2026-07-30).** A1–A5 landed, all five evidence
+sources collected, slice B derived.
 Executable plan for
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md) and
 [ADR 0032](../../adr/0032-authoring-is-declarative.md), both *Proposed*.
 
 The allowlist ratchet stands at **14 of 18**; the four modules host composition
-owned are retired and `ambition::app` is the first allowed SDK name. What remains
-in slice A is the blind-agent baseline and the §2 evidence collection that
-selects slice B.
+owned are retired and `ambition::app` is the first allowed SDK name — the first
+name in this engine that is a promise rather than a mirror of the crate list.
+
+Slice B is derived, not sketched: **the movement-only minimal game**. See
+§Slice B at the end of slice A.
 
 **How slices after A are chosen:** by the procedure in
 [api-growth-method.md](api-growth-method.md), from what the previous slice
@@ -280,12 +283,70 @@ fixture had already been bitten.
 It was found because the parity test went red on a change that looked
 unrelated — which is what a canary is for.
 
-### A5 — first blind agent run (baseline)
+### A5 — first blind agent run (baseline) — **LANDED 2026-07-30**
 
 Fresh context, `docs/sdk/` + facade only: *stand up a new minimal game against
 this engine.* Record completion, **which engine file it opened first**, and
 elapsed context. This run establishes the baseline the later ones improve on;
 it is not expected to succeed at authoring content, which does not exist yet.
+
+Fixed script: `slice-evidence/blind-agent-runs/SCRIPT.md`. Record:
+`slice-evidence/blind-agent-runs/2026-07-30-slice-a-baseline.json`.
+
+**Result: headless booted, windowed was blocked by the environment, and a
+minimal game was NOT reached.** The run was worth more than the rest of the
+slice, and three of its findings are worth reading in full.
+
+#### The binding constraint is not an API leak
+
+> **The engine does not compile for an outside consumer at all.** A fresh
+> lockfile resolves `bevy_ggrs` from crates.io and `ambition_runtime` dies with
+> `cannot find type GgrsFrameTiming`; you must copy `[patch.crates-io]` out of
+> the engine's workspace root, and nothing says so.
+
+It precedes every API question. No amount of work on `ambition::app` reaches a
+third party who cannot get past `cargo check`. Now documented in
+`docs/sdk/README.md` — and see the slice-B derivation for why *removing* it is
+not ours to decide.
+
+#### Two of the overclaims were in documents this campaign wrote
+
+* **Rule 7 was not enforced, and `ambition::app` claimed it was.** The module
+  docs said the empty host was *"unreachable rather than merely documented"*.
+  What was enforced is that a STRING had been supplied. The agent declared a
+  gameplay route nothing served and got a host that built clean, ran 60 ticks
+  and spawned zero entities — and found it only because it independently counted
+  entities. **Now actually enforced**: `try_build` checks declared routes against
+  the `ShellRouteCatalog` and names the routes that do exist. Seen red before
+  green; test `a_declared_route_no_capability_registers_is_refused`.
+* **`api-prototype.md` §2b said the two faces are interchangeable.** They are
+  not: the visible face requires a `CharacterCatalog`. The agent recorded that
+  the document *"actively told me the opposite would be true"*. Corrected in
+  place, with the limitation stated rather than quietly dropped.
+
+An overclaimed guarantee is worse than an absent one — it tells a consumer to
+stop looking. Both were rule 2 violations (*a doc marker where a check belongs*)
+committed by the campaign that wrote rule 2.
+
+#### And one API bug A3 introduced
+
+`ModuleDraft::capability` required `Clone`, and the engine's own
+`CharacterCatalogPlugin` is not `Clone` — so an engine plugin could not go
+through the engine's own capability slot. Fixed: installers are `FnOnce`,
+drained through a `Mutex`.
+
+#### ⚠ The headline number is misleading, and the agent said so first
+
+It opened no `.rs` file under `crates/`. It also ran `cargo doc` over **seven**
+engine crates and read the rendered API — *"the same information a leak would
+have given me, just laundered through rustdoc"*. Scoring on `.rs` files opened
+would have reported a pass. The record counts the rustdoc surfaces, because
+ADR 0031's gate is *never opening a file under `crates/`* and rustdoc over a
+crate is reading that crate.
+
+Two contaminations are recorded rather than hidden, both biasing **toward**
+competence: the subagent inherits `AGENTS.md`, and the evidence tree was still
+under `docs/sdk/` when the run launched (moved mid-run).
 
 ### Slice A exit criteria
 
@@ -300,34 +361,57 @@ it is not expected to succeed at authoring content, which does not exist yet.
       *(A4, 2026-07-30)* — `src/bin/dump.rs` was the last one, and it installed
       the WINDOWED host in a headless dump, which nothing noticed because the
       registries it prints do not come from the host;
-* [ ] blind-agent baseline recorded — **NOT DONE, and deliberately not
-      self-reported.** §2c disqualifies an agent that has touched engine
-      internals: it "measures its own memory", and the result is falsely green
-      "in the direction that feels good". The session that landed A1–A4 read the
-      movement kernel, the sim-view seam and the render cluster, so it IS that
-      population. Needs a fresh agent given `docs/sdk/` + the facade only; drop
-      the record in `docs/planning/engine/slice-evidence/blind-agent-runs/` and re-run
-      `scripts/collect_slice_evidence.py`;
-* [~] §2 evidence collected per the growth method — **four of five**, by
+* [x] blind-agent baseline recorded *(A5, 2026-07-30)* — fresh subagent, fixed
+      script, record in `slice-evidence/blind-agent-runs/`. First engine file
+      opened: `fixtures/external_consumer/Cargo.lock`, for a BUILDABILITY
+      question, before any API question could be asked;
+* [x] §2 evidence collected per the growth method — all five, by
       `scripts/collect_slice_evidence.py` into
-      `docs/planning/engine/slice-evidence/slice-a-evidence.json`. 2a/2b/2d/2e measured; 2c is the
-      row above. ⚠ the goal check for this row tests KEY PRESENCE only, so it
-      reads green while 2c is uncollected — the JSON's own `collected: false` is
-      the authority, not the gate.
+      `slice-evidence/slice-a-evidence.json`;
+* [x] slice B **derived** from that evidence rather than invented —
+      `slice-evidence/slice-b-selection.json`.
 
-**Slice B is therefore NOT derived, deliberately.** §2c's first-engine-file-opened
-field is the one that "names the next leak … from the population the API is *for*",
-so picking B from the other four would be picking it by taste — which this
-campaign's method forbids. What the collected four CONSTRAIN B to is recorded in
-`selects_slice_b.constraints_from_the_collected_four`, so the eventual derivation
-gets checked against evidence that predates it.
+**Slice A is closed (2026-07-30).**
 
-⚠ **The most valuable number slice A's evidence produced is not the ratchet.**
-§2e: the consumer declares TWO dependencies and links **41** `ambition_*` crates,
-and that figure did not move at all while the ratchet went 18 → 14. A module
-allowlist cannot see the capability footprint — which is precisely the blind spot
-§2e exists to record, and it says the semantic surface improving is not evidence
-that the linked surface did.
+### What slice A reduced (§6's convergence check)
+
+A slice that reduces none of the five counters did not close a leak. This one
+reduced two, and left three honestly unmoved:
+
+| Counter | Slice A |
+|---|---|
+| forbidden paths a consumer names | **18 → 14** |
+| open fixture findings | **3 closed, 1 new** (the GGRS integer-nanos dt) |
+| engine files a blind author must open | baseline set: 8 API surfaces + 1 lockfile |
+| undeleted compensating mechanisms | 6 → 6, correctly — all six are content criteria |
+| unwanted linked capabilities | 41 → 41, untouched; slice B is what makes it measurable |
+
+### Slice B, derived
+
+**The movement-only minimal game.** The campaign *sketched* B as declarative
+content and character authority. The evidence confirms the domain and changes
+the shape: the blind run did not fail for want of a namespace rule, it failed
+because there is no empty content and no way to ask whether the host came up.
+§3c sizes a slice by one leak closed end to end and says *split by consumer, not
+by layer* — a `ContentPack` design with no consumer to migrate is a layer.
+
+It also fills the consumer-matrix row Outlander structurally cannot, and it is
+the row §4 needs before any decomposition can be argued: a carve authorised by a
+sentinel consumer's footprint requires a sentinel consumer, and there is
+currently one.
+
+Full ranking, routing and the explicit NOT-in-this-slice list:
+`slice-evidence/slice-b-selection.json`.
+
+⚠ **The highest-cost leak is NOT slice B**, and that is §3b working. The
+`bevy_ggrs` patch table outranks everything on cost; measuring its closeability
+rather than assuming it is what routed it away. Exactly one production call
+site — so it looks trivial — but the only way to drop the fork is the parallel
+accumulator `sample_ggrs_accumulator_phase`'s own doc already rejected: it
+*"would diverge during run-slow catch-up, stalls, several advances in one frame,
+and rollback resimulation — exactly when a wrong phase shows most"*. Stating the
+rule is ours and is done; removing the need waits on upstream. That is
+awaiting-maintainer-decision, not a slice.
 
 ---
 

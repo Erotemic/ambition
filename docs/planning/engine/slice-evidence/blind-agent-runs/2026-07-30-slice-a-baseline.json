@@ -1,0 +1,136 @@
+{
+  "_comment": [
+    "§2c of api-growth-method.md, run 2026-07-30 at the end of slice A. This is",
+    "the BASELINE: the run later ones improve on. Script:",
+    "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+    "",
+    "⚠ CONTAMINATION, stated rather than hidden. Two exposures, both biasing",
+    "TOWARD competence — so the failures below are trustworthy and the successes",
+    "are weaker than they look:",
+    "  1. a subagent in this repository inherits AGENTS.md through its system",
+    "     prompt, which a genuine third party would not have;",
+    "  2. the fixed script and the evidence tree were filed under docs/sdk/ when",
+    "     this run launched — the one directory the agent was told to start from.",
+    "     Moved to docs/planning/engine/slice-evidence/ mid-run. The agent's",
+    "     report shows no sign of having read either, but 'no sign' is not proof,",
+    "     and a measurement whose contamination is written down is worth more",
+    "     than one that looks clean.",
+    "",
+    "⚠ THE HEADLINE NUMBER IS MISLEADING AND THE AGENT SAID SO ITSELF. It opened",
+    "no `.rs` file under crates/. It also ran `cargo doc` over SEVEN engine crates",
+    "and read the rendered API, which it correctly called 'the same information a",
+    "leak would have given me, just laundered through rustdoc'. Scoring this run",
+    "on `.rs` files opened would report a pass. `first_engine_file_opened` is",
+    "therefore recorded as the Cargo.lock it actually opened first, and",
+    "`engine_api_surfaces_read` carries the seven — because the gate ADR 0031",
+    "states is 'never opening a file under crates/', and rustdoc over a crate is",
+    "reading that crate."
+  ],
+
+  "slice": "A",
+  "date": "2026-07-30",
+  "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+  "harness": "fresh general-purpose subagent, no inherited conversation context",
+
+  "completed": {
+    "headless_boot": true,
+    "windowed_boot": false,
+    "minimal_game": false,
+    "notes": "Headless COMPILES AND RUNS but activates nothing — see reachable_empty_host below; the agent's own verdict was 'headless boots, but a minimal game it is not'. Windowed was blocked by the environment (no X/Wayland/Xvfb), not by the API; the agent proved the composition instead via `without_gpu()`, which ran the full render graph to completion."
+  },
+
+  "first_engine_file_opened": "fixtures/external_consumer/Cargo.lock",
+  "first_engine_file_reason": "To find out whether the reference consumer also pins bevy_ggrs to a git fork, after a fresh lockfile resolved bevy_ggrs 0.21.0 from crates.io and the engine failed to compile. NOT an API question — a BUILDABILITY question, and it came before any API question could be asked.",
+
+  "engine_api_surfaces_read": [
+    {"crate": "ambition", "via": "cargo doc", "looking_for": "the real signatures of mount/build/run/without_gpu/with_game_assets — docs/sdk/ shows call sites but no method list"},
+    {"crate": "ambition_characters", "via": "cargo doc", "looking_for": "how to satisfy `PlatformerAssetsPlugin found no CharacterCatalog`"},
+    {"crate": "ambition_platformer_provider", "via": "cargo doc", "looking_for": "whether an empty default catalog provider ships (it does not)"},
+    {"crate": "ambition_world", "via": "cargo doc", "looking_for": "how to construct the RoomMetadata that ModuleDraft::room wants"},
+    {"crate": "ambition_sprite_sheet", "via": "cargo doc", "looking_for": "whether the sprite side needs its own registration before a visible host builds"},
+    {"crate": "ambition_game_shell", "via": "cargo doc", "looking_for": "what makes a route REAL, after finding the headless host had zero entities"},
+    {"crate": "ambition_audio", "via": "cargo doc", "looking_for": "how to satisfy `frontend audio provider registered no audio fragment`"},
+    {"crate": "ambition_sfx", "via": "cargo doc", "looking_for": "whether the audio fragment also needed an SfxProvider (it did not)"}
+  ],
+
+  "elapsed_context": {
+    "subagent_tokens": 108126,
+    "tool_uses": 67,
+    "duration_ms": 1487858
+  },
+
+  "findings": [
+    {
+      "id": "unbuildable-without-an-undocumented-patch-table",
+      "severity": "blocks everything",
+      "closeable": true,
+      "owned": true,
+      "summary": "The engine does not compile for an outside consumer at all without copying `[patch.crates-io] bevy_ggrs = { git = ..., rev = ... }` out of the engine's workspace-root Cargo.toml. A fresh lockfile resolves bevy_ggrs 0.21.0 from crates.io and ambition_runtime fails with `cannot find type GgrsFrameTiming in crate bevy_ggrs`.",
+      "why_it_matters": "It precedes every API question. No amount of work on `ambition::app` reaches a third party who cannot get past `cargo check`. The fixture's own Cargo.toml records this as a known leak; docs/sdk/ never mentions it, so the knowledge existed and was not where a consumer would look.",
+      "agents_words": "the single highest-value missing paragraph in the whole SDK"
+    },
+    {
+      "id": "rule-7-is-not-enforced-and-the-doc-claims-it-is",
+      "severity": "overclaim in shipped docs",
+      "closeable": true,
+      "owned": true,
+      "summary": "`ambition::app`'s module docs say 'Rule 7 is not enforced by ordering but by TYPE ... the empty host is unreachable rather than merely documented.' What is enforced is that a STRING was supplied. `gameplay_route(\"blind_run/gameplay\")` naming a route no experience registered builds clean, runs 60 ticks, and spawns ZERO entities — exactly the failure rule 7 describes.",
+      "why_it_matters": "A doc that overclaims its own headline guarantee is worse than one that claims nothing: the agent only found the empty host because it independently counted entities. This is the campaign's own rule 2 violated in the campaign's own code — a doc marker standing where a check should be.",
+      "fix_named_by_the_agent": "validate declared routes against the ShellRouteCatalog at try_build"
+    },
+    {
+      "id": "headless-and-windowed-have-different-content-requirements",
+      "severity": "overclaim in shipped docs",
+      "closeable": true,
+      "owned": true,
+      "summary": "api-prototype.md §2b states the two faces 'differ in policy, not in structure: same modules, same order, same routes.' False in the shipped builder: the visible face installs PlatformerAssetsPlugin, which panics without a CharacterCatalog. A module that boots headless does not boot windowed.",
+      "why_it_matters": "The doc actively told the agent the opposite of what is true, which is the most expensive kind of wrong. Note this is the SAME seam §2d flagged: `with_game_assets` made the faces diverge, and the divergence has a second consequence nobody had written down."
+    },
+    {
+      "id": "capability-requires-clone-and-engine-plugins-are-not",
+      "severity": "API bug",
+      "closeable": true,
+      "owned": true,
+      "summary": "`ModuleDraft::capability` requires `Clone`, and the engine's own `CharacterCatalogPlugin` does not implement it — so an engine plugin cannot go through the engine's own capability slot. Every consumer writes the same wrapper.",
+      "why_it_matters": "Introduced by A3, in the deferred-install closure. Not a doc gap."
+    },
+    {
+      "id": "no-way-to-ask-whether-the-host-is-alive",
+      "severity": "missing affordance",
+      "closeable": true,
+      "owned": true,
+      "summary": "There is no supported read-model for 'did my game actually start?'. The agent fell back to `app.world().entities().len()`, which is raw Bevy and says nothing about routes.",
+      "why_it_matters": "Four of the eight rules `ambition::app` owns fail SILENTLY. An API with silent failure modes and no assertion surface makes every consumer invent the same smoke test — badly."
+    },
+    {
+      "id": "the-prototypes-own-example-is-not-runnable",
+      "severity": "doc defect",
+      "closeable": true,
+      "owned": true,
+      "summary": "api-prototype.md §3 shows `.experience(OUTLANDER_EXPERIENCE).launcher_route(OUTLANDER_LAUNCHER_ROUTE).room(outlander_room().metadata).capability(OutlanderExperiencePlugin)` — every identifier is undefined. The agent could not tell whether they were `&str`, newtypes or consts, and guessed.",
+      "why_it_matters": "For a document whose acceptance test is 'an agent can do this from docs alone', a non-runnable example is the core defect, not a nitpick."
+    },
+    {
+      "id": "no-empty-character-catalog",
+      "severity": "missing affordance",
+      "closeable": true,
+      "owned": true,
+      "summary": "`CharacterCatalogPlugin` takes a raw RON string with no documented schema and no `Default`. The agent recovered `(brain_presets: {}, action_set_presets: {}, characters: {})` by feeding it `\"()\"` and scripting a loop over the resulting 'Unexpected missing field named X' errors."
+    },
+    {
+      "id": "no-manifest-anywhere-in-the-sdk",
+      "severity": "doc gap",
+      "closeable": true,
+      "owned": true,
+      "summary": "docs/sdk/ never shows a Cargo.toml: not where the `ambition` crate lives, not what bevy version to pin, not the patch table. The README also tells a consumer to add `bevy` themselves, which is wrong — `ambition` already does `pub use bevy;`."
+    }
+  ],
+
+  "what_worked": [
+    "The `build()` panic listing ALL THREE missing declarations at once — the agent called it 'genuinely the best diagnostic in the run'. ADR 0032's 'errors arrive once, structured, at a known point' paid off.",
+    "Rules 1 and 2 are really engine-owned: `without_gpu()` loaded 4/4 parallax layers with the process cwd at /tmp, which is only possible if the asset source and the engine asset root were installed correctly without the consumer saying anything.",
+    "`without_gpu()` ALSO survives having no display server. Undocumented, and it is the property a headless-CI reader is looking for. api-prototype.md §7 asked whether it belongs on the public builder; the consumer's answer was 'yes, unambiguously'."
+  ],
+
+  "verdict": "Slice A's composition claims are TRUE where the engine takes ownership (rules 1-6, 8) and OVERCLAIMED where it only documents (rule 7). The binding constraint on this engine is not an API leak at all: a third party cannot compile it."
+}

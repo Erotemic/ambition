@@ -46,9 +46,18 @@
 //!    world after the plugins built it. *(silent: frame dt drifts from tick
 //!    dt)*
 //!
-//! Rule 7 is not enforced by ordering but by TYPE: a module that declares no
-//! gameplay route fails [`PlatformerApp::try_build`] with a message, so the
-//! empty host is unreachable rather than merely documented.
+//! Rule 7 is not enforced by ordering but by REFUSAL, in two steps:
+//! [`PlatformerApp::try_build`] rejects a module that declares no gameplay
+//! route, **and** rejects one whose declared route no mounted capability
+//! registers — naming the routes that do exist.
+//!
+//! ⚠ Only the first half existed until 2026-07-30, while this paragraph claimed
+//! "the empty host is unreachable rather than merely documented". It was
+//! reachable: what was enforced is that a STRING had been supplied. The blind
+//! agent run declared a route nothing served and got a host that built clean,
+//! ran 60 ticks and spawned zero entities. An overclaimed guarantee is worse
+//! than an absent one — it tells a consumer to stop looking — and the agent
+//! found it only because it independently counted entities.
 //!
 //! # What this is not
 //!
@@ -161,7 +170,15 @@ impl ModuleManifest {
 ///
 /// A closure rather than `Box<dyn Plugin>` because `Plugin::build` takes
 /// `&self` and cannot move a boxed plugin out of a collection it borrows.
-type CapabilityInstaller = Box<dyn Fn(&mut App) + Send + Sync + 'static>;
+///
+/// `FnOnce`, drained through a `Mutex` by [`DeclaredCapabilities`]. The first
+/// version was `Fn` + a `Clone` bound on the plugin, and the 2026-07-30 blind
+/// run found what that costs: **the engine's own `CharacterCatalogPlugin` is
+/// not `Clone`, so an engine plugin could not go through the engine's own
+/// capability slot.** Every consumer would have written the same wrapper. A
+/// bound that excludes the API's own types is the API being wrong, not the
+/// caller.
+type CapabilityInstaller = Box<dyn FnOnce(&mut App) + Send + 'static>;
 
 /// The inert accumulation a module writes into.
 ///
@@ -219,12 +236,13 @@ impl ModuleDraft {
     }
 
     /// Declare a capability. Installed by the engine, in its own order.
-    pub fn capability<M>(
-        &mut self,
-        plugin: impl Plugins<M> + Clone + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.capabilities.push(Box::new(move |app| {
-            app.add_plugins(plugin.clone());
+    ///
+    /// No `Clone` bound: a capability is installed exactly once, so requiring
+    /// it to be duplicable was an artefact of the first implementation rather
+    /// than a property of capabilities. See [`CapabilityInstaller`].
+    pub fn capability<M>(&mut self, plugin: impl Plugins<M> + Send + 'static) -> &mut Self {
+        self.capabilities.push(Box::new(move |app: &mut App| {
+            app.add_plugins(plugin);
         }));
         self
     }
@@ -302,11 +320,22 @@ enum Face {
 }
 
 /// The lowering of every declared capability, in declaration order.
-struct DeclaredCapabilities(Vec<CapabilityInstaller>);
+///
+/// The `Mutex` is what lets `Plugin::build(&self)` consume `FnOnce` installers:
+/// it drains rather than borrowing. Uncontended — `build` runs once, on one
+/// thread — so it costs nothing and buys the removal of the `Clone` bound that
+/// the blind run showed excluded the engine's own plugins.
+struct DeclaredCapabilities(std::sync::Mutex<Vec<CapabilityInstaller>>);
 
 impl Plugin for DeclaredCapabilities {
     fn build(&self, app: &mut App) {
-        for install in &self.0 {
+        let drained: Vec<CapabilityInstaller> = self
+            .0
+            .lock()
+            .expect("capability installers are drained once, on one thread")
+            .drain(..)
+            .collect();
+        for install in drained {
             install(app);
         }
     }
@@ -495,10 +524,65 @@ impl PlatformerApp {
         app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
         crate::provider::ShellComposition::new(
             experience.clone(),
-            launcher_route,
-            gameplay_route,
+            launcher_route.clone(),
+            gameplay_route.clone(),
         )
-        .install(app, DeclaredCapabilities(draft.capabilities));
+        .install(app, DeclaredCapabilities(std::sync::Mutex::new(draft.capabilities)));
+
+        // ── Rule 7, ACTUALLY enforced ──
+        //
+        // The capability plugins have built by now, so the routes they register
+        // exist and a declared route can be checked against them.
+        //
+        // ⚠ This module used to CLAIM rule 7 was enforced "by TYPE, so the empty
+        // host is unreachable rather than merely documented". It was not. What
+        // was enforced is that a STRING was supplied. The 2026-07-30 blind run
+        // declared `gameplay_route("blind_run/gameplay")` naming a route no
+        // experience registered, and got a host that built clean, ran 60 ticks
+        // and spawned ZERO entities — precisely the failure rule 7 names. The
+        // agent found it only because it independently counted entities.
+        //
+        // An overclaimed guarantee is worse than an absent one: it tells a
+        // consumer to stop looking. `ShellRouteCatalog::ids` exists so "a
+        // refusal can NAME what was available", which is exactly this refusal.
+        let unknown: Vec<(&str, &String)> = {
+            let catalog = app
+                .world()
+                .get_resource::<crate::game_shell::ShellRouteCatalog>();
+            match catalog {
+                Some(catalog) => [("gameplay", &gameplay_route), ("launcher", &launcher_route)]
+                    .into_iter()
+                    .filter(|(_, route)| {
+                        !catalog.contains(&crate::game_shell::ShellRouteId::from(route.as_str()))
+                    })
+                    .collect(),
+                // No catalog at all means the shell did not install, which rule
+                // 5 already covers; do not invent a second diagnosis for it.
+                None => Vec::new(),
+            }
+        };
+        if !unknown.is_empty() {
+            let available: Vec<String> = app
+                .world()
+                .get_resource::<crate::game_shell::ShellRouteCatalog>()
+                .map(|catalog| catalog.ids().map(str::to_string).collect())
+                .unwrap_or_default();
+            let available = if available.is_empty() {
+                "none — no capability registered any route".to_string()
+            } else {
+                available.join(", ")
+            };
+            return Err(CompositionError {
+                problems: unknown
+                    .into_iter()
+                    .map(|(kind, route)| {
+                        format!(
+                            "the declared {kind} route `{route}` is not registered by any                              mounted capability, so the host would prepare and activate                              NOTHING while appearing to run. Registered routes: {available}"
+                        )
+                    })
+                    .collect(),
+            });
+        }
 
         // ── Rule 6 ── assets after the content that fills their catalogs,
         // before the presentation that draws them.

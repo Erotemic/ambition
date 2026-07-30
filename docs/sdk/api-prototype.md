@@ -69,10 +69,24 @@ let mut app = PlatformerApp::headless()
 app.update();   // exactly one sim tick — rule 8 is already applied
 ```
 
-`headless()` and `windowed(title)` differ in **policy**, not in structure: same
-modules, same order, same routes. The fixture's `RenderMode::Headless` — a real
-render graph against no wgpu backend, for GPU-less CI — is a third policy on the
-same axis, not a fourth composition:
+`headless()` and `windowed(title)` are the same composition in the same order,
+selected by one call.
+
+> ⚠ **Corrected 2026-07-30 — this said they "differ in policy, not in structure:
+> same modules, same order, same routes", and the last clause is false.** The
+> visible face installs `PlatformerAssetsPlugin`, which panics without a
+> `CharacterCatalog`, so **a module that boots headless does not necessarily
+> boot windowed.** The blind agent hit it and recorded that the document had
+> "actively told me the opposite would be true", which is the most expensive
+> kind of wrong.
+>
+> The underlying divergence is deliberate — see §4 on `with_game_assets` — but
+> its consequence for a *minimal* module was written down nowhere. Closing it
+> needs an empty-content story, which is slice B; until then this asymmetry is
+> a stated limitation rather than a surprise.
+
+The GPU-less variant — a real render graph against no wgpu backend, for CI — is
+a third policy on the same axis, not a fourth composition:
 
 ```rust
 PlatformerApp::windowed("…").without_gpu().build()

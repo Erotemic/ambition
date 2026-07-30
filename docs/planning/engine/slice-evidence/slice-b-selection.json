@@ -1,0 +1,83 @@
+{
+  "_comment": [
+    "The §3 derivation of slice B from slice A's five evidence sources. AUTHORED,",
+    "not generated: ranking by cost/closeable/owned is a judgment, and a script",
+    "that fabricated it would be the taste-based selection §3 exists to prevent.",
+    "`collect_slice_evidence.py` reads this file rather than inventing one.",
+    "",
+    "Read with api-growth-method.md §3a (rank), §3b (route), §3c (size)."
+  ],
+
+  "derived": true,
+  "derived_on": "2026-07-30",
+  "from_slice": "A",
+
+  "ranked_candidates": [
+    {
+      "leak": "the engine does not compile for an outside consumer without an undocumented [patch.crates-io] bevy_ggrs fork",
+      "source": "2c",
+      "cost": "MAXIMAL. Every consumer, every time, before any API question can be asked. Not silent — but the error (`cannot find type GgrsFrameTiming`) points at a symbol, not at the patch table a reader has never seen, which is the misdirecting-loud class rather than the teaching-loud one.",
+      "closeable": "NO, not by us. Measured rather than assumed: exactly ONE production call site (`sample_ggrs_accumulator_phase`), so it LOOKS trivially closeable — but the only way to drop the fork is a parallel accumulator, which that function's own doc already weighed and rejected: it 'would agree only while nothing interesting happened, and diverge during run-slow catch-up, stalls, several advances in one frame, and rollback resimulation — exactly when a wrong phase shows most'. Removing the fork means degrading the presentation clock under rollback.",
+      "owned": "SPLIT. Stating the rule is ours and is now done. REMOVING the need is not in our gift — it retires when the accessor ships in a released bevy_ggrs.",
+      "route": "3b: Closeable-but-not-owned -> awaiting a maintainer decision (upstream the accessor / vendor the fork / accept a worse clock). NOT slice B. The half that IS ours — stating the rule — shipped in docs/sdk/README.md, and rule 2 says a doc marker is not enough, so it needs a test pinning the documented rev to the workspace's actual one.",
+      "action": "queue row, plus a staleness test. Not a slice."
+    },
+    {
+      "leak": "a minimal module cannot reach a WINDOWED host: the visible face installs PlatformerAssetsPlugin, which panics without a CharacterCatalog",
+      "source": "2c, and 2d's one open in-scope criterion",
+      "cost": "HIGH. Every visible game, on first run. Loud (panic), so it teaches — but what it teaches is 'go read ambition_characters', which is precisely the gate ADR 0031 sets.",
+      "closeable": "YES, by adding a seam: an empty/minimal content story. No code moves between crates.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> slice N+1 candidate."
+    },
+    {
+      "leak": "no supported way to ask whether the host actually started",
+      "source": "2c",
+      "cost": "HIGH and SILENT, which §3a triples. Four of the eight rules ambition::app owns fail quietly; the blind agent fell back to counting raw Bevy entities. Every consumer invents the same smoke test, badly.",
+      "closeable": "YES — a read-model over the router/session the shell already holds.",
+      "owned": "YES.",
+      "route": "3b: Closeable + Owned -> slice N+1 candidate. Small enough to ride inside a slice rather than be one."
+    },
+    {
+      "leak": "the consumer links 41 ambition crates from 2 declared dependencies",
+      "source": "2e",
+      "cost": "UNMEASURED as felt pain — no consumer has yet been unable to do something because of it. But §2e exists precisely because this is invisible to 2a: a leak-free API can still sit on a monolith.",
+      "closeable": "NO, not without moving code between crates.",
+      "owned": "YES.",
+      "route": "3b: not-closeable + owned -> DECOMPOSITION EVIDENCE (§4). Not a slice yet, and deliberately not acted on: §4 warns 'do not let a single leak authorise a full decomposition', and this one has no consumer complaint attached to it yet."
+    }
+  ],
+
+  "slice_b": {
+    "name": "the movement-only minimal game",
+    "one_leak": "a consumer cannot stand up a SMALL game — the visible host demands content a minimal module has no way to supply, and there is no way to check whether the host came up at all.",
+    "why_this_and_not_the_sketch": [
+      "The campaign SKETCHED B as 'declarative content and character authority', ContentPack and namespaces before CharacterSpec. The evidence CONFIRMS the domain — the ratchet's remaining 14 modules are content/gameplay vocabulary — but §3 warns that confirmation is not derivation, and the evidence changes the SHAPE.",
+      "The sketch is schema-first: design the pack container, then the facets. The evidence is consumer-first: the blind run did not fail for want of a namespace rule, it failed because there is no empty content. §3c says size a slice by ONE LEAK CLOSED END TO END and 'split it by consumer, not by layer' — a ContentPack design with no consumer to migrate is a layer.",
+      "It also fills a consumer-matrix row that Outlander structurally cannot: 'a movement-only minimal game — optional-capability closure: does a small game link menus, persistence, audio, bosses?'. That is the same question §2e asks and could not answer, so this slice is what turns 41-crates-from-2-deps from a number into a felt constraint or a non-issue.",
+      "And it is the row §4 needs before any decomposition can be argued. A carve authorised by a sentinel consumer's footprint requires a sentinel consumer. There is currently one consumer, and an API proven against one consumer is an API shaped like that consumer."
+    ],
+    "not_in_this_slice": [
+      "module-qualified namespaces, pack identity, content fingerprints, merge-conflict policy — the full ContentPack design. B needs the MINIMUM content a small game must supply, and the pack container is only justified once two modules have to coexist.",
+      "the PreStartup character-preparation backstop deletion — still process-global, still needs every contributor migrated (Mary-O, Sanic, versus fighters, robot lineage). That is what forced the campaign's A-D split and it has not changed.",
+      "rollback federation, capability plans, ContentRevision.",
+      "the bevy_ggrs patch table — awaiting a maintainer decision, above."
+    ],
+    "exit_criteria_sketch": [
+      "a movement-only game exists as a second consumer and boots BOTH faces from one module;",
+      "the allowlist ratchet covers it too, with its own measured baseline — a second consumer that names whatever it likes is not a proof;",
+      "§2e re-measured for it: which capabilities does a game that asked for none still link?",
+      "the 'did my game start' read-model exists and the minimal game's test uses it rather than counting entities;",
+      "§2d's headless-and-visible-share-a-prepared-content-fingerprint criterion re-evaluated — and closed WITHOUT collapsing with_game_assets back into the face."
+    ]
+  },
+
+  "convergence_check": {
+    "note": "§6 requires every slice to strictly reduce at least one of five counters. Slice A reduced two.",
+    "forbidden_paths_named_by_a_consumer": "18 -> 14",
+    "open_fixture_findings": "4 recorded leaks -> 3 closed, 1 new (the GGRS integer-nanos dt), net still reducing",
+    "engine_files_a_blind_author_must_open": "BASELINE ESTABLISHED at 8 API surfaces + 1 lockfile; nothing to compare against yet",
+    "undeleted_compensating_mechanisms": "6 -> 6 (unchanged; all six are content criteria, correctly out of slice A's scope)",
+    "unwanted_linked_capabilities": "41 -> 41 (untouched; slice A was never going to move this, and slice B is what makes it measurable)"
+  }
+}

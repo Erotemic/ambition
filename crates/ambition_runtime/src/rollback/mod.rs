@@ -29,7 +29,6 @@ pub enum AmbitionLoadWorldSet {
 
 mod codec;
 mod codecs;
-mod motion_codec;
 mod probes;
 #[cfg(test)]
 mod provenance_tests;

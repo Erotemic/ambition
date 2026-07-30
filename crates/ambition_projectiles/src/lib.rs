@@ -33,6 +33,7 @@ pub mod enemy;
 pub mod entity;
 pub mod kind;
 pub mod portal_transit;
+mod snapshot_impls;
 pub mod spawn;
 pub mod spawn_message;
 pub mod spawn_systems;

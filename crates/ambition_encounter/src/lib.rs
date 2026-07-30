@@ -15,6 +15,7 @@ pub mod objective;
 pub mod participants;
 pub mod registry;
 pub mod rewards;
+mod snapshot_impls;
 pub mod spec;
 pub mod staging;
 pub mod timeline;

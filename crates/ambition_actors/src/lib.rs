@@ -101,6 +101,7 @@ pub mod physics;
 pub mod projectile;
 pub mod session;
 pub mod shrine;
+mod snapshot_impls;
 pub mod time;
 pub mod world;
 

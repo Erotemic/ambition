@@ -11,6 +11,7 @@ pub mod placements;
 pub mod platforms;
 pub mod ron_room;
 pub mod rooms;
+mod snapshot_impls;
 
 pub use debug_label::{DebugLabel, DebugLabelKind};
 

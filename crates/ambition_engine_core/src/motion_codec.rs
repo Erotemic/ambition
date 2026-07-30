@@ -1,17 +1,26 @@
 //! The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9.
 //!
-//! Split from `codecs.rs` for the D-B module-size gate; shares the module core
-//! via `use super::*`. Explicit field order, fixed-width LE, every field
-//! present — the same discipline as every other codec.
-use super::*;
+//! ⚠ Moved here from `ambition_runtime::rollback::motion_codec` on 2026-07-30
+//! with the snapshot vocabulary: `MotionModel` is this crate's type, so this is
+//! the crate that may encode it. Explicit field order, fixed-width LE, every
+//! field present — the same discipline as every other codec.
+//!
+//! It used to read `use super::*;`, inheriting the vocabulary AND every domain
+//! type from `rollback/mod.rs`. Here the imports are explicit, which is the
+//! point: a wildcard from a crate that depends on twenty others hides what a
+//! codec actually needs.
+
+use crate::snapshot::{
+    put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState,
+};
 
 /// The body's explicit movement policy: identity, authored parameters, and
 /// policy-private runtime state — everything a deterministic continuation
 /// needs. The current environmental frame is deliberately NOT here: after a
 /// restore, the frame is resolved from the live restored environment.
-impl SnapshotState for ambition_engine_core::MotionModel {
+impl SnapshotState for crate::MotionModel {
     fn encode(&self, out: &mut Vec<u8>) {
-        use ambition_engine_core::MotionModel;
+        use crate::MotionModel;
         match self {
             MotionModel::AxisSwept(motion) => {
                 put_u8(out, 0);
@@ -46,11 +55,11 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 put_f32(out, motion.params.max_fall_speed);
                 match motion.state.attachment() {
                     None => put_u8(out, 0),
-                    Some(ambition_engine_core::CrawlAttachment::Block { normal }) => {
+                    Some(crate::CrawlAttachment::Block { normal }) => {
                         put_u8(out, 1);
                         put_vec2(out, normal);
                     }
-                    Some(ambition_engine_core::CrawlAttachment::Chain { chain, s }) => {
+                    Some(crate::CrawlAttachment::Chain { chain, s }) => {
                         put_u8(out, 2);
                         put_u32(out, chain);
                         put_f32(out, s);
@@ -60,7 +69,7 @@ impl SnapshotState for ambition_engine_core::MotionModel {
         }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use ambition_engine_core::{
+        use crate::{
             AdhesiveCrawlerMotion, AxisSweptMotion, CrawlerParams, CrawlerState, MotionModel,
             SurfaceMomentumMotion,
         };
@@ -74,7 +83,7 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 let state = surface_motion(r)?;
                 let depth_lane = r.u8()? as i8;
                 let route_memory = if r.bool()? {
-                    Some(ambition_engine_core::RouteDeparture {
+                    Some(crate::RouteDeparture {
                         chain: r.u32()? as usize,
                         vertex: r.u32()? as usize,
                         direction: r.u8()? as i8,
@@ -82,9 +91,9 @@ impl SnapshotState for ambition_engine_core::MotionModel {
                 } else {
                     None
                 };
-                let mut occlusions = ambition_engine_core::DepthOcclusions::default();
+                let mut occlusions = crate::DepthOcclusions::default();
                 for _ in 0..r.u8()? {
-                    occlusions.push(ambition_engine_core::OcclusionSpan {
+                    occlusions.push(crate::OcclusionSpan {
                         chain: r.u32()? as usize,
                         first_segment: r.u32()? as usize,
                         last_segment: r.u32()? as usize,
@@ -119,7 +128,7 @@ impl SnapshotState for ambition_engine_core::MotionModel {
 /// The axis policy's PRIVATE maneuver state (ADR 0024 O4) — every field, in
 /// declaration order, so a rollback into a dash / blink hold / ledge hang
 /// resumes exactly where it left off.
-fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &ambition_engine_core::AxisManeuverState) {
+fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) {
     put_f32(out, state.coyote_timer);
     put_f32(out, state.drop_through_timer);
     put_f32(out, state.rebound_cooldown);
@@ -146,8 +155,8 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &ambition_engine_core::Axis
     put_bool(out, state.phased_jump.hold_cancelled);
 }
 
-fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisManeuverState> {
-    Some(ambition_engine_core::AxisManeuverState {
+fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
+    Some(crate::AxisManeuverState {
         coyote_timer: r.f32()?,
         drop_through_timer: r.f32()?,
         rebound_cooldown: r.f32()?,
@@ -169,7 +178,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisM
         gliding: r.bool()?,
         fast_falling: r.bool()?,
         flight_phase: r.f32()?,
-        phased_jump: ambition_engine_core::PhasedJumpState {
+        phased_jump: crate::PhasedJumpState {
             active: r.bool()?,
             launch_band: r.u8()?,
             hold_cancelled: r.bool()?,
@@ -179,7 +188,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisM
 
 /// The hang state machine: a rollback into a hang must land on the same
 /// anchor, with the same carried momentum, or the getup goes somewhere else.
-fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<ambition_engine_core::LedgeGrabState>) {
+fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<crate::LedgeGrabState>) {
     match grab {
         None => put_bool(out, false),
         Some(g) => {
@@ -197,8 +206,8 @@ fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<ambition_engine_core::LedgeGr
     }
 }
 
-fn ledge_grab(r: &mut Reader<'_>) -> Option<Option<ambition_engine_core::LedgeGrabState>> {
-    use ambition_engine_core::ledge_grab::{
+fn ledge_grab(r: &mut Reader<'_>) -> Option<Option<crate::LedgeGrabState>> {
+    use crate::ledge_grab::{
         LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState,
     };
     Some(if r.bool()? {
@@ -220,8 +229,8 @@ fn ledge_grab(r: &mut Reader<'_>) -> Option<Option<ambition_engine_core::LedgeGr
     })
 }
 
-fn put_surface_motion(out: &mut Vec<u8>, state: ambition_engine_core::SurfaceMotion) {
-    use ambition_engine_core::{SurfaceMotion, SurfaceRef};
+fn put_surface_motion(out: &mut Vec<u8>, state: crate::SurfaceMotion) {
+    use crate::{SurfaceMotion, SurfaceRef};
     match state {
         SurfaceMotion::Airborne => put_u8(out, 0),
         SurfaceMotion::Riding { on, s, v_t } => {
@@ -242,8 +251,8 @@ fn put_surface_motion(out: &mut Vec<u8>, state: ambition_engine_core::SurfaceMot
     }
 }
 
-fn surface_motion(r: &mut Reader<'_>) -> Option<ambition_engine_core::SurfaceMotion> {
-    use ambition_engine_core::{SurfaceMotion, SurfaceRef};
+fn surface_motion(r: &mut Reader<'_>) -> Option<crate::SurfaceMotion> {
+    use crate::{SurfaceMotion, SurfaceRef};
     Some(match r.u8()? {
         0 => SurfaceMotion::Airborne,
         1 => {
@@ -262,7 +271,7 @@ fn surface_motion(r: &mut Reader<'_>) -> Option<ambition_engine_core::SurfaceMot
     })
 }
 
-fn put_momentum_params(out: &mut Vec<u8>, p: &ambition_engine_core::MomentumParams) {
+fn put_momentum_params(out: &mut Vec<u8>, p: &crate::MomentumParams) {
     put_f32(out, p.ground_accel);
     put_f32(out, p.brake);
     put_f32(out, p.friction);
@@ -274,8 +283,8 @@ fn put_momentum_params(out: &mut Vec<u8>, p: &ambition_engine_core::MomentumPara
     put_f32(out, p.min_stick_speed);
 }
 
-fn momentum_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::MomentumParams> {
-    Some(ambition_engine_core::MomentumParams {
+fn momentum_params(r: &mut Reader<'_>) -> Option<crate::MomentumParams> {
+    Some(crate::MomentumParams {
         ground_accel: r.f32()?,
         brake: r.f32()?,
         friction: r.f32()?,
@@ -288,7 +297,7 @@ fn momentum_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::MomentumP
     })
 }
 
-fn put_axis_swept_params(out: &mut Vec<u8>, p: &ambition_engine_core::AxisSweptParams) {
+fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     let l = &p.locomotion;
     put_axis_horizontal_law(out, l.horizontal_law);
     put_axis_jump_law(out, l.jump_law);
@@ -346,8 +355,8 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &ambition_engine_core::AxisSweptP
     put_bool(out, f.direct_velocity);
 }
 
-fn axis_swept_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisSweptParams> {
-    use ambition_engine_core::{
+fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
+    use crate::{
         AxisLocomotion, AxisSweptParams, FlightTuning, LedgeMomentumTuning, TraversalAbilityTuning,
     };
     Some(AxisSweptParams {
@@ -414,8 +423,8 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisSwe
     })
 }
 
-fn put_axis_horizontal_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisHorizontalLaw) {
-    use ambition_engine_core::AxisHorizontalLaw;
+fn put_axis_horizontal_law(out: &mut Vec<u8>, law: crate::AxisHorizontalLaw) {
+    use crate::AxisHorizontalLaw;
     match law {
         AxisHorizontalLaw::Responsive => put_u8(out, 0),
         AxisHorizontalLaw::Momentum(params) => {
@@ -428,8 +437,8 @@ fn put_axis_horizontal_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisHor
     }
 }
 
-fn axis_horizontal_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisHorizontalLaw> {
-    use ambition_engine_core::{AxisHorizontalLaw, MomentumHorizontalTuning};
+fn axis_horizontal_law(r: &mut Reader<'_>) -> Option<crate::AxisHorizontalLaw> {
+    use crate::{AxisHorizontalLaw, MomentumHorizontalTuning};
     Some(match r.u8()? {
         0 => AxisHorizontalLaw::Responsive,
         1 => AxisHorizontalLaw::Momentum(MomentumHorizontalTuning {
@@ -442,8 +451,8 @@ fn axis_horizontal_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisH
     })
 }
 
-fn put_axis_jump_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisJumpLaw) {
-    use ambition_engine_core::AxisJumpLaw;
+fn put_axis_jump_law(out: &mut Vec<u8>, law: crate::AxisJumpLaw) {
+    use crate::AxisJumpLaw;
     match law {
         AxisJumpLaw::VelocityCut => put_u8(out, 0),
         AxisJumpLaw::PhasedGravity(params) => {
@@ -462,8 +471,8 @@ fn put_axis_jump_law(out: &mut Vec<u8>, law: ambition_engine_core::AxisJumpLaw) 
     }
 }
 
-fn axis_jump_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisJumpLaw> {
-    use ambition_engine_core::{AxisJumpLaw, PhasedGravityJumpTuning};
+fn axis_jump_law(r: &mut Reader<'_>) -> Option<crate::AxisJumpLaw> {
+    use crate::{AxisJumpLaw, PhasedGravityJumpTuning};
     Some(match r.u8()? {
         0 => AxisJumpLaw::VelocityCut,
         1 => AxisJumpLaw::PhasedGravity(PhasedGravityJumpTuning {
@@ -480,16 +489,16 @@ fn axis_jump_law(r: &mut Reader<'_>) -> Option<ambition_engine_core::AxisJumpLaw
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::snapshot::{decode_state, encode_state};
 
     #[test]
     fn phased_axis_profile_and_active_arc_round_trip() {
-        use ambition_engine_core::{
+        use crate::{
             AxisHorizontalLaw, AxisJumpLaw, MomentumHorizontalTuning, MotionModel,
             PhasedGravityJumpTuning,
         };
 
-        let mut params = ambition_engine_core::AxisSweptParams::default();
+        let mut params = crate::AxisSweptParams::default();
         params.locomotion.horizontal_law = AxisHorizontalLaw::Momentum(MomentumHorizontalTuning {
             ground_reverse_accel: 900.0,
             ground_coast_decel: 393.75,

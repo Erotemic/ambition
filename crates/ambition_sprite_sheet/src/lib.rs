@@ -44,6 +44,7 @@ pub mod pack;
 pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
 
 pub mod portrait;
+mod snapshot_impls;
 pub use portrait::{
     baked_portrait_registry, parse_portrait_manifest, PortraitClipRecord, PortraitFrameRect,
     PortraitSheetManifest, PortraitSheetRegistry, PortraitSheetRegistryPlugin,

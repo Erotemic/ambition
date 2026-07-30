@@ -19,6 +19,7 @@ pub mod moveset;
 pub mod on_hit;
 pub mod path_motion;
 pub mod slots;
+mod snapshot_impls;
 pub mod targeting;
 pub mod util;
 pub mod variation;

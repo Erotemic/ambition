@@ -16,3 +16,7 @@ crate-type = ["rlib"]
 # Time (via bevy::prelude). No render, audio, windowing, or asset features —
 # this crate must stay reusable and headless.
 bevy = { version = "0.18.1", default-features = false }
+
+# The snapshot vocabulary: this crate encodes its own rollback state, and the
+# trait lives in the floor so the impls can live beside the types.
+ambition_engine_core = { path = "../ambition_engine_core" }

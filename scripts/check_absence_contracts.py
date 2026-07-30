@@ -730,20 +730,53 @@ ROLLBACK_SCHEMA_BASELINE = (
 
 
 def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
-    """The stable schema names and codecs `ambition_runtime` owns today."""
+    """The stable schema names, and every type in the rollback wire format.
+
+    ⚠ **`central_codecs` was renamed `encoded_types` on 2026-07-30, and the
+    rename IS the finding.** It used to read `impl SnapshotState for …` out of
+    ONE file, `ambition_runtime/src/rollback/codecs.rs`, because that was the
+    only file where such an impl could compile: the trait lived at the top of
+    the dependency graph, above every crate whose types it encoded, so ~100
+    foreign impls were centralised there by the orphan rule rather than by
+    design. Slice F moved the trait to `ambition_engine_core::snapshot` — the
+    floor — and the impls went home to the crates that define their types.
+
+    The invariant did not change and must not: the rollback wire format is a
+    frozen set, and a type joining or leaving it is a schema change that has to
+    be seen. What changed is that "the wire format" is no longer a synonym for
+    "one file". A guard that keeps reading the old path would report a green
+    empty set forever — the failure mode this file's own header calls an
+    instrument that measures nothing and reports the success condition.
+
+    ⚠ The type paths are recorded EXACTLY as each impl spells them, and after
+    the carve a crate spells its own types `crate::…`. So the name is now
+    qualified by the file's crate. Two crates could otherwise both claim
+    `crate::Foo` and the ratchet would see one entry where there are two.
+    """
     registration = (
         root / "crates/ambition_runtime/src/rollback/mod.rs"
     ).read_text(errors="replace")
-    codecs = (
-        root / "crates/ambition_runtime/src/rollback/codecs.rs"
-    ).read_text(errors="replace")
+
+    encoded: set[str] = set()
+    for source in sorted(root.glob("crates/*/src/**/*.rs")):
+        if is_test_path(str(source)):
+            continue
+        text = source.read_text(errors="replace")
+        if "SnapshotState for" not in text:
+            continue
+        crate = source.relative_to(root).parts[1]
+        for match in re.findall(
+            r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
+        ):
+            # `crate::Foo` inside `ambition_actors` IS `ambition_actors::Foo`;
+            # collapse the doubled prefix so the frozen name reads like a path.
+            encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
+
     return {
         "stable_schema_names": sorted(
             set(re.findall(r'"([a-z_]+\.[a-z_.]+)"', registration))
         ),
-        "central_codecs": sorted(
-            set(re.findall(r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", codecs))
-        ),
+        "encoded_types": sorted(encoded),
     }
 
 
@@ -753,7 +786,7 @@ def rollback_schema_violations(root: Path) -> tuple[list[str], list[str]]:
     current = rollback_schema_usage(root)
     new: list[str] = []
     stale: list[str] = []
-    for key in ("stable_schema_names", "central_codecs"):
+    for key in ("stable_schema_names", "encoded_types"):
         frozen = set(baseline[key])
         live = set(current[key])
         new.extend(f"{key}: {item}" for item in sorted(live - frozen))
@@ -1183,17 +1216,22 @@ def main() -> int:
     if not new and not stale:
         baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
         print(
-            f"  ok   central-rollback-ownership-may-not-grow  "
+            f"  ok   rollback-wire-format-is-frozen  "
             f"({baseline['stable_schema_name_count']} stable names, "
-            f"{baseline['central_codec_count']} codecs still centrally owned)"
+            f"{len(baseline['encoded_types'])} encoded types across "
+            f"{len({t.split('::')[0] for t in baseline['encoded_types']})} crates)"
         )
     else:
         broken += 1
-        print("  RED  central-rollback-ownership-may-not-grow")
+        print("  RED  rollback-wire-format-is-frozen")
         print(
-            "       `ambition_runtime` is the implementation owner of every "
-            "domain's snapshot, and the campaign's second ratchet freezes that "
-            "SET so it can only shrink as ownership federates outward."
+            "       Every type in the rollback wire format, wherever it is "
+            "encoded. This ratchet used to be called "
+            "`central-rollback-ownership-may-not-grow` and read ONE file, "
+            "because the orphan rule forced every impl into "
+            "`ambition_runtime/src/rollback/codecs.rs`. It said the set could "
+            "'only shrink as ownership federates outward'; slice F federated "
+            "it, so the guard now follows the types instead of the file."
         )
         for item in new:
             print(f"       NEW    {item} entered the CENTRAL registration")

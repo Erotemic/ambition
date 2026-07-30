@@ -14,6 +14,9 @@
 //! - [`WorldTime::player_dt`] for observer cognitive time.
 //! - [`WorldTime::entity_dt`] for per-entity proper time inside the sim schedule.
 
+
+mod snapshot_impls;
+
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 

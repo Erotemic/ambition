@@ -400,14 +400,50 @@ def test_the_rollback_ratchet_is_not_silently_empty():
     """A measurement bug reads exactly like a finished federation.
 
     If the extraction stopped matching — a moved file, a changed spelling — both
-    invariants pass and the campaign's second ratchet reports ZERO centrally
-    owned schema, which is its SUCCESS condition. Green in the direction that
-    feels good, so it is asserted.
+    invariants pass and the ratchet reports ZERO encoded types, which used to be
+    read as its SUCCESS condition. Green in the direction that feels good, so it
+    is asserted.
+
+    ⚠ This test EARNED its keep on 2026-07-30. Slice F moved the snapshot trait
+    to the floor and renamed the collector's key from `central_codecs` to
+    `encoded_types`; this assertion is what failed, rather than a ratchet
+    quietly freezing an empty set and reporting 19 of 19.
     """
     root = Path(__file__).resolve().parents[2]
     current = rollback_schema_usage(root)
     assert len(current["stable_schema_names"]) > 100, current["stable_schema_names"][:5]
-    assert len(current["central_codecs"]) > 20, current["central_codecs"][:5]
+    assert len(current["encoded_types"]) > 20, current["encoded_types"][:5]
+
+
+def test_the_wire_format_is_encoded_where_the_types_live():
+    """The carve's shape, asserted — not just its output count.
+
+    Before slice F every `impl SnapshotState` was in ONE file in
+    `ambition_runtime`, forced there by the orphan rule because the trait sat
+    above every crate whose types it encoded. After the carve the impls live
+    beside their types, and the count alone cannot tell those two worlds apart:
+    63 impls in one file and 63 spread across nine crates both satisfy the
+    assertion above.
+
+    So the property to hold is the federation itself. If a future change pulls
+    the trait back up the graph, the impls have to re-centralise to compile, and
+    this fails — which is the only warning that would arrive before the next
+    reader concludes a 2688-line codec file is simply how it must be.
+    """
+    root = Path(__file__).resolve().parents[2]
+    encoded = rollback_schema_usage(root)["encoded_types"]
+    crates = {entry.split("::")[0] for entry in encoded}
+    assert len(crates) >= 5, (
+        f"the rollback wire format has re-centralised into {sorted(crates)}. "
+        "Slice F federated it across nine crates by moving `SnapshotState` into "
+        "`ambition_engine_core::snapshot`; a trait that moves back above the "
+        "domains drags every impl with it."
+    )
+    assert "ambition_runtime" not in crates, (
+        "`ambition_runtime` is encoding types again. It sits above twenty "
+        "domain crates, so anything it encodes is a type some other crate owns "
+        "— which is exactly the arrangement slice F removed."
+    )
 
 
 def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monkeypatch):

@@ -38,3 +38,4 @@ pub mod shrine;
 
 /// The ONE identity vocabulary for snapshot / replay / netcode (N3.1).
 pub mod sim_id;
+mod snapshot_impls;

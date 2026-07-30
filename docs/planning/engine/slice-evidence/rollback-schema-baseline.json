@@ -1,24 +1,21 @@
 {
   "_comment": [
-    "The campaign's SECOND ratchet (api-1.0-campaign.md \u00a7Ratchets), measured",
-    "2026-07-30. Specified when the campaign was written and never built until",
-    "slice F needed it.",
+    "The rollback wire format, frozen. Two keys, one invariant each way: a type",
+    "may not join it unseen, and a type that leaves must be PRUNED here in the",
+    "same commit. That second half is what makes this a ratchet and not a budget.",
     "",
-    "\u26a0 FROZEN AS A SET, by stable schema name \u2014 never as a count. The campaign's",
-    "own warning: 'Freezing only the NUMBER of central rollback registrations",
-    "permits deleting one and adding another.' Same two invariants as the module",
-    "allowlist: the set may not GAIN a member, and it may not KEEP one that has",
-    "left, so a federating migration must prune in its own commit.",
+    "\u26a0 RENAMED `central_codecs` -> `encoded_types` on 2026-07-30 (slice F). The",
+    "old key named a FILE \u2014 `ambition_runtime/src/rollback/codecs.rs` \u2014 because",
+    "the orphan rule forced ~100 foreign impls into it: the trait sat above every",
+    "crate whose types it encoded. Slice F moved the trait to the floor",
+    "(`ambition_engine_core::snapshot`) and the impls home to their own crates.",
     "",
-    "ZERO means rollback ownership is federated \u2014 every domain owns its own",
-    "`RollbackSchemaFragment` and `ambition_runtime` is no longer the",
-    "implementation owner of every domain's snapshot.",
-    "",
-    "\u26a0 THE CAMPAIGN CITED THE WRONG FILE for the codec half. \u00a7Ratchets says 'the",
-    "codecs in rollback/codecs.rs'; that file's `pub fn`s are four reconciliation",
-    "helpers. The codecs are its 65 `impl SnapshotState` blocks, which is what is",
-    "frozen here. A citation nobody re-read, exactly the class",
-    "check_roadmap_evidence.py exists for."
+    "\u26a0 The rename found a blind spot rather than causing one. All 62 previously",
+    "frozen types are still present; the count went to 63 because `MotionModel`",
+    "was encoded in `motion_codec.rs`, a SECOND file the single-file collector",
+    "never read. A guard that says 'the wire format' while reading one of two",
+    "files is the failure this repo keeps rediscovering \u2014 it was green, and it",
+    "was green about less than it claimed."
   ],
   "measured_on": "2026-07-30",
   "stable_schema_names": [
@@ -343,7 +340,7 @@
     "scope.session"
   ],
   "stable_schema_name_count": 319,
-  "central_codecs": [
+  "encoded_types": [
     "ambition_actors::SandboxSimState",
     "ambition_actors::avatar::PlayerSafetyState",
     "ambition_actors::character_runtime::ActiveMatch",
@@ -380,7 +377,12 @@
     "ambition_encounter::EncounterLifecycle",
     "ambition_encounter::EncounterParticipants",
     "ambition_engine_core::AbilitySet",
-    "ambition_platformer_primitives::body::BodyKinematics",
+    "ambition_engine_core::MotionModel",
+    "ambition_engine_core::body_clusters::BodyAbilities",
+    "ambition_engine_core::body_clusters::BodyComboTrace",
+    "ambition_engine_core::body_clusters::BodyKinematics",
+    "ambition_engine_core::body_clusters::BodyMana",
+    "ambition_engine_core::body_clusters::BodyModeState",
     "ambition_platformer_primitives::construction::SpawnOrigin",
     "ambition_platformer_primitives::construction::TransactionId",
     "ambition_platformer_primitives::gravity::BaseGravity",
@@ -401,11 +403,18 @@
     "ambition_time::ProperTimeScale",
     "ambition_time::SimTick",
     "ambition_time::WorldTime",
-    "ambition_world::collision::MovingPlatformSet",
-    "bc::BodyAbilities",
-    "bc::BodyComboTrace",
-    "bc::BodyMana",
-    "bc::BodyModeState"
+    "ambition_world::collision::MovingPlatformSet"
   ],
-  "central_codec_count": 62
+  "encoded_type_count": 63,
+  "encoding_crates": [
+    "ambition_actors",
+    "ambition_characters",
+    "ambition_combat",
+    "ambition_encounter",
+    "ambition_engine_core",
+    "ambition_platformer_primitives",
+    "ambition_projectiles",
+    "ambition_time",
+    "ambition_world"
+  ]
 }

@@ -89,6 +89,23 @@ fn prepared_session_world() -> PreparedPlatformerSource {
 }
 
 pub fn register(app: &mut App) {
+    // ⚠ DELIBERATE SILENCE, DECLARED — and a movement-only game has to declare
+    // it too. Preparation validation refuses an experience whose provider
+    // registered no explicit audio fragment.
+    //
+    // Found here the way the campaign is supposed to find things: the host sat
+    // in `HostStatus::Activating` for 600 ticks and never started. Outlander's
+    // own comment already knew — "a good message that a headless host surfaced
+    // NOWHERE" — so this is a KNOWN error-quality gap that a second consumer
+    // walked straight into. The read-model at least names the stuck state now;
+    // the reason is still swallowed. That is slice-C material.
+    {
+        use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+        app.register_audio_catalog_fragment(
+            AudioCatalogFragment::new(MINIMAL_EXPERIENCE, None, None)
+                .expect("the silent minimal-game audio fragment is valid"),
+        );
+    }
     PlatformerExperienceAuthoring::new(
         MINIMAL_EXPERIENCE,
         MINIMAL_GAMEPLAY_ROUTE,

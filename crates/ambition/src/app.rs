@@ -85,10 +85,86 @@ use crate::world::rooms::RoomMetadata;
 /// a discovery problem, not a convenience.
 pub mod prelude {
     pub use super::{
-        AssetSource, CompositionError, GameModule, ModuleDraft, ModuleManifest, PlatformerApp,
-        SessionMode,
+        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
+        ModuleManifest, PlatformerApp, SessionMode,
     };
     pub use bevy::prelude::App;
+}
+
+/// **Did my game actually start?**
+///
+/// The one question a consumer could not ask. Four of the eight ordering rules
+/// [`PlatformerApp`] owns fail SILENTLY, and before this there was no supported
+/// way to check — the 2026-07-30 blind agent fell back to
+/// `app.world().entities().len()`, which is raw Bevy and says nothing about
+/// routes. Every consumer would have invented that same smoke test, badly.
+///
+/// [`HostStatus::Running`] deliberately carries `prepared`, because "a route is
+/// active" and "a session was prepared for it" are different facts and the gap
+/// between them is exactly the empty host: an earlier draft of the fixture's
+/// headless binary "ran" 120 ticks of a host that had activated nothing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum HostStatus {
+    /// No shell router exists. The engine was never installed into this `App`.
+    NotComposed,
+    /// Composed, but the router has not initialized yet — usually means no
+    /// `update()` has run.
+    Initializing,
+    /// A route is being prepared. Normal for a few frames after boot; a host
+    /// stuck here is a preparation that never completed.
+    Activating { route: String },
+    /// A route is live.
+    ///
+    /// ⚠ `prepared == false` is the quiet failure: the router is pointing at a
+    /// route and no prepared session sits behind it, so the world is empty and
+    /// nothing says why.
+    Running {
+        route: String,
+        experience: String,
+        prepared: bool,
+    },
+}
+
+impl HostStatus {
+    /// Live AND backed by a prepared session — the state a consumer means when
+    /// it asks "did it start?".
+    ///
+    /// Both halves on purpose. `Running { prepared: false }` answering `true`
+    /// here would make this read-model agree with the bug it exists to expose.
+    pub fn is_running(&self) -> bool {
+        matches!(self, Self::Running { prepared: true, .. })
+    }
+
+    /// The active route, if any.
+    pub fn route(&self) -> Option<&str> {
+        match self {
+            Self::Activating { route } | Self::Running { route, .. } => Some(route),
+            _ => None,
+        }
+    }
+}
+
+/// Read [`HostStatus`] off a composed `App`.
+///
+/// A read-model over what the shell already holds — it computes nothing and
+/// stores nothing, so it cannot disagree with the router about what is running.
+pub fn host_status(app: &App) -> HostStatus {
+    let Some(router) = app.world().get_resource::<crate::game_shell::ShellRouter>() else {
+        return HostStatus::NotComposed;
+    };
+    if let Some(active) = router.active.as_ref() {
+        return HostStatus::Running {
+            route: active.route_id.as_str().to_string(),
+            experience: active.experience_id.as_str().to_string(),
+            prepared: active.prepared_session.is_some(),
+        };
+    }
+    if let Some(pending) = router.pending.as_ref() {
+        return HostStatus::Activating {
+            route: pending.route_id.as_str().to_string(),
+        };
+    }
+    HostStatus::Initializing
 }
 
 /// A named asset tree the game owns, layered over the engine's own.

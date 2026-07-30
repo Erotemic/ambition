@@ -131,3 +131,75 @@ fn a_game_can_declare_that_it_has_no_cast() {
         .try_build()
         .expect("declaring an empty cast is a legitimate thing for a game to do");
 }
+
+/// **The game reports that it started — without counting raw Bevy entities.**
+///
+/// The affordance the 2026-07-30 blind agent went looking for and did not find.
+/// It fell back to `app.world().entities().len()`, which is raw Bevy and says
+/// nothing about routes; every consumer would have invented that same smoke
+/// test, badly. Four of the eight ordering rules `ambition::app` owns fail
+/// silently, so an API with no assertion surface makes each of those a debugging
+/// session rather than a message.
+#[test]
+fn the_minimal_game_reports_that_it_started() {
+    let mut app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .build();
+
+    assert_eq!(
+        host_status(&app),
+        HostStatus::Initializing,
+        "before any update the router has not initialized; a read-model that \
+         claimed otherwise would be describing something it cannot see yet"
+    );
+
+    let mut status = host_status(&app);
+    for _ in 0..600 {
+        app.update();
+        status = host_status(&app);
+        if status.is_running() {
+            break;
+        }
+    }
+
+    assert!(
+        status.is_running(),
+        "the minimal game never reached a running host in 600 ticks; status is \
+         {status:?}"
+    );
+    assert_eq!(
+        status.route(),
+        Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
+        "the host activated a route this game did not declare"
+    );
+}
+
+/// **`is_running` is not satisfied by a route with nothing behind it.**
+///
+/// The distinction the read-model exists for. "A route is active" and "a
+/// session was prepared for it" are different facts, and the gap between them
+/// IS the empty host — an earlier draft of Outlander's headless binary "ran"
+/// 120 ticks of exactly that. A status type that collapsed them would agree
+/// with the bug it is supposed to expose.
+#[test]
+fn a_route_with_no_prepared_session_does_not_count_as_running() {
+    let live = HostStatus::Running {
+        route: "r".into(),
+        experience: "e".into(),
+        prepared: true,
+    };
+    let hollow = HostStatus::Running {
+        route: "r".into(),
+        experience: "e".into(),
+        prepared: false,
+    };
+    assert!(live.is_running());
+    assert!(
+        !hollow.is_running(),
+        "a route with no prepared session behind it is the empty host, and \
+         `is_running` must not call it started"
+    );
+    // Both still report the route: a diagnosis needs to know WHICH route is
+    // hollow, so the distinction must not cost the caller that information.
+    assert_eq!(hollow.route(), Some("r"));
+}

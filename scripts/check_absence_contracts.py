@@ -585,7 +585,21 @@ MODULE_ALLOWLISTS: list[dict] = [
         # cannot DECLARE a room or an experience through it. That is a measured
         # leak with a named boundary, which is exactly what §3 wants for
         # selecting the next slice.
-        "baseline": {"engine_core", "provider", "runtime", "world"},
+        # ⚠ FIVE, not the four first recorded — and the correction is the finding.
+        #
+        # The first baseline was measured against a game that COMPILED. It did
+        # not RUN: the host sat in `HostStatus::Activating` for 600 ticks and
+        # never started, because preparation validation refuses an experience
+        # whose provider registered no explicit audio fragment. A movement-only
+        # game with no sound must still DECLARE its silence, so `ambition::audio`
+        # is a fifth module every game names no matter how small.
+        #
+        # The lesson is about the instrument, not the number: a consumer's
+        # baseline must be measured against a WORKING consumer. Measured against
+        # a compiling one it reads low, and reads low in the flattering
+        # direction. The ratchet caught the growth on its first live use, which
+        # is the only reason this is a corrected number rather than a wrong one.
+        "baseline": {"audio", "engine_core", "provider", "runtime", "world"},
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
             "structurally cannot fill: it asks for almost nothing, so whatever it "

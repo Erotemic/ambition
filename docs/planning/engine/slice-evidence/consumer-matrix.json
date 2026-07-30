@@ -1,0 +1,78 @@
+{
+  "_comment": [
+    "§4 condition 3 of api-growth-method.md, as a machine-checkable ledger.",
+    "",
+    "The campaign may not terminate with categories unexercised. That condition is",
+    "the one the method ORIGINALLY MISSED: its first draft terminated on 'contract",
+    "green, blind run clean, remaining leaks not owned', all of which Outlander",
+    "alone can satisfy. An API proven against one consumer is an API shaped like",
+    "that consumer.",
+    "",
+    "⚠ `proven` means a TEST that runs, named in `proof`. Not a plan, not a doc",
+    "paragraph, not 'it would obviously work'. Rule 2 of the campaign: name a test,",
+    "never a doc marker. Prose-asserted claims have gone red on prose three times",
+    "in this repo.",
+    "",
+    "⚠ Do not mark a row proven because the code exists somewhere. The question is",
+    "whether the CATEGORY exercised the public API — Sanic existing in-tree is not",
+    "the same fact as Sanic standing up through `ambition::app` standalone AND",
+    "embedded with matching identities.",
+    "",
+    "The ORDER these are attacked stays evidence-driven (§3 selects each slice from",
+    "what the previous one measured). The CATEGORIES are not optional."
+  ],
+  "categories": [
+    {
+      "id": "external-composition",
+      "consumer": "Outlander (fixtures/external_consumer)",
+      "proves": "external dependency + host composition",
+      "proven": true,
+      "proof": "fixtures/external_consumer/tests/composition.rs — one mounted module reaches both faces; gameplay.rs drives a real session",
+      "slice": "A"
+    },
+    {
+      "id": "movement-only-minimal-game",
+      "consumer": "fixtures/minimal_game",
+      "proves": "optional-capability closure — does a small game link menus, persistence, audio, bosses?",
+      "proven": true,
+      "proof": "fixtures/minimal_game/tests/boots.rs — one module boots BOTH faces; a composition that prepares art with no declared cast is refused and names both fixes; a game with genuinely no cast can say so. Ratcheted by `minimal-game-names-only-the-public-sdk` (baseline 4).",
+      "slice": "B",
+      "note": "The blind run showed a minimal module cannot even reach the windowed face: it panics without a CharacterCatalog. This category is what turns §2e's '41 ambition crates from 2 declared dependencies' from a number into a felt constraint or a non-issue. RESULT: it names 4 modules to Outlander's 14, and all four are one hole — PlatformerExperienceAuthoring + PreparedPlatformerSource + RoomSpec + engine_core geometry. A minimal game can COMPOSE through the SDK and still cannot DECLARE a room or an experience through it."
+    },
+    {
+      "id": "noncombat-actor",
+      "consumer": null,
+      "proves": "\"actor\" is not secretly combat-shaped",
+      "proven": false,
+      "proof": null,
+      "slice": null
+    },
+    {
+      "id": "module-standalone-and-embedded",
+      "consumer": "Sanic or Mary-O",
+      "proves": "reusable module + namespace identity; the SAME content and schema fingerprints both ways",
+      "proven": false,
+      "proof": null,
+      "slice": null,
+      "note": "Both halves required. Standalone alone proves nothing about identity."
+    },
+    {
+      "id": "smash",
+      "consumer": null,
+      "proves": "participants, character selection, atomic match lifecycle, scoped rules, rollback",
+      "proven": false,
+      "proof": null,
+      "slice": null,
+      "note": "Rollback as a public knob is deferred to its own slice; this category depends on that."
+    },
+    {
+      "id": "ambition-itself",
+      "consumer": "game/ambition_app",
+      "proves": "full integration",
+      "proven": false,
+      "proof": null,
+      "slice": null,
+      "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule."
+    }
+  ]
+}

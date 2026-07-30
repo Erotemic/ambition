@@ -561,6 +561,40 @@ MODULE_ALLOWLISTS: list[dict] = [
             "only the SDK."
         ),
     },
+    {
+        "id": "minimal-game-names-only-the-public-sdk",
+        # Consumer-matrix row 2, added by slice B. The SECOND consumer gets its
+        # own ratchet from the start, because a second consumer that may name
+        # whatever it likes is not a proof of anything — it is a second way to
+        # be shaped like one game.
+        "paths": ["fixtures/minimal_game/"],
+        "include_tests": True,
+        "facade": "ambition",
+        # `app` is the SDK. `bevy` is the facade's deliberate re-export — its
+        # own doc comment commits to it ("so a game can name bevy TYPES through
+        # `ambition::bevy`"), and this game proves the commitment is worth
+        # something: it needs NO `bevy` entry in its manifest at all, because it
+        # derives nothing. Outlander does. That difference is only visible with
+        # two consumers.
+        "allowed": {"app", "bevy"},
+        # Measured 2026-07-30 against the crate as first written. FOUR, against
+        # Outlander's fourteen — and the four are not a smaller sample of the
+        # same problem, they are one specific hole: `PlatformerExperienceAuthoring`
+        # + `PreparedPlatformerSource` + `RoomSpec` + the `engine_core` geometry
+        # vocabulary. A minimal game can now COMPOSE through the SDK and still
+        # cannot DECLARE a room or an experience through it. That is a measured
+        # leak with a named boundary, which is exactly what §3 wants for
+        # selecting the next slice.
+        "baseline": {"engine_core", "provider", "runtime", "world"},
+        "reason": (
+            "The movement-only minimal game is the consumer-matrix row Outlander "
+            "structurally cannot fill: it asks for almost nothing, so whatever it "
+            "still has to name is a floor on what EVERY game must know. Four "
+            "modules, all of them the room/experience declaration path. The set "
+            "may not GAIN a member, and it may not KEEP one this game stops "
+            "naming."
+        ),
+    },
 ]
 
 _LINE_COMMENT = re.compile(r"//.*$")

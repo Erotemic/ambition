@@ -1,0 +1,45 @@
+# **The movement-only minimal game** — the second entry in the API campaign's
+# consumer matrix (docs/planning/engine/api-1.0-campaign.md).
+#
+# Outlander proves external composition. It cannot prove what this one is for:
+# *optional-capability closure* — does a SMALL game still link menus,
+# persistence, audio, LDtk and bosses? An API proven against one consumer is an
+# API shaped like that consumer, and Outlander authors a character, an enemy, a
+# room, a recipe and a transition. This game authors as close to nothing as a
+# game can and still be one.
+#
+# Its own `[workspace]` and lockfile, exactly like Outlander: what compiles here
+# is what a third party gets, not what the engine's dev-dependency graph
+# happens to provide.
+[package]
+name = "minimal_game"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# No `bevy` entry, and that is a RESULT rather than an omission: this game
+# derives no components or resources, so it never needs Bevy's derive macros to
+# resolve `::bevy_ecs` through its own manifest. `ambition::bevy` is enough.
+# Outlander needs the dependency; a game this small does not — which is exactly
+# the kind of difference only a second consumer can show.
+visible = ["ambition/visible", "ambition/basic_shell_presentation"]
+
+[dependencies]
+ambition = { path = "../../crates/ambition", default-features = false }
+
+# ⚠ REQUIRED, and the reason is recorded as this engine's highest-cost leak
+# (blind-agent run 2026-07-30). Cargo patch tables do NOT cross a workspace
+# boundary, so every external consumer replicates this verbatim or the engine
+# does not compile for them at all — `cannot find type GgrsFrameTiming`.
+# Deferred by maintainer decision pending an upstream crates.io release; the
+# advice in docs/sdk/README.md is pinned to this rev by
+# scripts/tests/test_sdk_manifest_advice_is_current.py.
+[patch.crates-io]
+bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }

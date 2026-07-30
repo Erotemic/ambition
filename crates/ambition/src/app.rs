@@ -180,6 +180,27 @@ impl ModuleManifest {
 /// caller.
 type CapabilityInstaller = Box<dyn FnOnce(&mut App) + Send + 'static>;
 
+/// A character roster with nothing in it.
+///
+/// Published because the 2026-07-30 blind agent had to RECOVER this value: it
+/// needed a `CharacterCatalog` to reach the windowed face, found no `Default`
+/// and no documented schema, fed the parser `"()"`, and scripted a loop over
+/// the resulting *"Unexpected missing field named X"* errors until the struct
+/// closed. A value obtainable only by brute-forcing diagnostics is a value the
+/// engine knows and would not say.
+pub const EMPTY_CHARACTER_ROSTER_RON: &str =
+    "(brain_presets: {}, action_set_presets: {}, characters: {})";
+
+/// What a module says about its cast.
+///
+/// An `Option<CharacterContent>` rather than a bare `Option<&str>` so that
+/// "authored a roster", "authored none ON PURPOSE" and "said nothing" are three
+/// distinguishable states. The third is the one that must fail.
+enum CharacterContent {
+    Ron(&'static str),
+    DeclaredEmpty,
+}
+
 /// The inert accumulation a module writes into.
 ///
 /// **Nothing here is live when `define` returns.** ADR 0032 decision 1: the
@@ -199,6 +220,7 @@ pub struct ModuleDraft {
     launcher_route: Option<(String, String)>,
     gameplay_route: Option<(String, String)>,
     room: Option<RoomMetadata>,
+    characters: Option<CharacterContent>,
     capabilities: Vec<CapabilityInstaller>,
     conflicts: Vec<String>,
 }
@@ -226,6 +248,39 @@ impl ModuleDraft {
         self.claim("gameplay route", route.into(), |draft| {
             &mut draft.gameplay_route
         });
+        self
+    }
+
+    /// Declare this module's character roster, as catalog RON.
+    ///
+    /// The engine registers it through the same fragment seam every in-repo
+    /// provider uses, so there is one assembly path and modules merge rather
+    /// than overwrite.
+    pub fn characters(&mut self, catalog_ron: &'static str) -> &mut Self {
+        self.characters = Some(CharacterContent::Ron(catalog_ron));
+        self
+    }
+
+    /// Declare, explicitly, that this module authors **no** characters.
+    ///
+    /// ⚠ **This exists instead of a silent default, and the difference is the
+    /// whole design.** `PlatformerAssetsPlugin` refuses to substitute an empty
+    /// catalog for a missing one, and its comment says why: *"silently
+    /// substituting an empty catalog is how a game ships with its bosses drawn
+    /// as the fallback body and nobody notices."* That judgement is right and
+    /// this does not overturn it.
+    ///
+    /// What it changes is WHO says the catalog is empty. A game with no cast is
+    /// an ordinary thing — ADR 0032: *"an installed schema with zero authored
+    /// instances is VALID"* — and before this there was no way to say so. The
+    /// 2026-07-30 blind agent needed a `CharacterCatalog` to reach the windowed
+    /// face, found no `Default` and no documented schema, and recovered the
+    /// empty value by feeding the parser `"()"` and scripting a loop over the
+    /// resulting *"Unexpected missing field named X"* errors.
+    ///
+    /// So: still not silent — the module states it — and no longer a puzzle.
+    pub fn no_characters(&mut self) -> &mut Self {
+        self.characters = Some(CharacterContent::DeclaredEmpty);
         self
     }
 
@@ -584,6 +639,41 @@ impl PlatformerApp {
             });
         }
 
+        // ── The cast must EXIST by now, and "nobody said" is the failure ──
+        //
+        // Capabilities have built, so a module that registered its roster
+        // through one has already done it. What is left is the module that
+        // said nothing at all.
+        //
+        // `PlatformerAssetsPlugin` panics on a missing catalog, deliberately:
+        // "silently substituting an empty catalog is how a game ships with its
+        // bosses drawn as the fallback body and nobody notices." That judgement
+        // stands. What changes is WHERE the consumer meets it — a structured
+        // refusal here naming both fixes, instead of a panic from inside a
+        // plugin three installs later, which is the failure `ShellComposition`
+        // was created to end (ADR 0032: errors arrive once, structured, at a
+        // known point).
+        let prepares_art = matches!(face, Face::Windowed { .. }) || game_assets;
+        if prepares_art
+            && draft.characters.is_none()
+            && app
+                .world()
+                .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>()
+                .is_none()
+        {
+            return Err(CompositionError {
+                problems: vec![format!(
+                    "this composition prepares art and no character roster exists. \
+                     `{experience}` declared none and no mounted capability registered \
+                     one. Either declare a roster with `characters(..)`, or say \
+                     `no_characters()` if this game genuinely has no cast — an empty \
+                     roster is valid, but the engine will not GUESS that you meant \
+                     one, because a game whose cast silently vanished looks exactly \
+                     like a game that never had one."
+                )],
+            });
+        }
+
         // ── Rule 6 ── assets after the content that fills their catalogs,
         // before the presentation that draws them.
         //
@@ -593,6 +683,65 @@ impl PlatformerApp {
         // the opposite ("headless and visible hosts consume the same
         // prepared-content fingerprint"). A face decides what is DRAWN, not
         // what exists.
+        // ── The cast, DECLARED ──
+        //
+        // Registered through `register_character_catalog_fragment`, the same
+        // seam every in-repo provider uses, so modules merge into one assembled
+        // catalog rather than racing to insert a resource. Inserting
+        // `CharacterCatalog` directly here would be a second authority on what
+        // the cast is, which is the bifurcation this repo's most expensive bugs
+        // all start as.
+        match draft.characters {
+            Some(CharacterContent::Ron(catalog_ron)) => {
+                let fragment = crate::characters::actor::character_catalog::registry::
+                    CharacterCatalogFragment::from_ron(
+                        experience.clone(),
+                        None::<String>,
+                        catalog_ron,
+                    )
+                    .map_err(|error| CompositionError {
+                        problems: vec![format!(
+                            "the character roster declared by `{experience}` did not \
+                             parse: {error}"
+                        )],
+                    })?;
+                use crate::characters::actor::character_catalog::registry::
+                    CharacterCatalogAppExt as _;
+                app.try_register_character_catalog_fragment(fragment)
+                    .map_err(|error| CompositionError {
+                        problems: vec![format!(
+                            "the character roster declared by `{experience}` conflicts \
+                             with one already registered: {error}"
+                        )],
+                    })?;
+            }
+            Some(CharacterContent::DeclaredEmpty) => {
+                // Through the SAME seam, so an explicitly empty roster is an
+                // ordinary fragment rather than a special case with its own
+                // path into the resource.
+                let fragment = crate::characters::actor::character_catalog::registry::
+                    CharacterCatalogFragment::from_ron(
+                        experience.clone(),
+                        None::<String>,
+                        EMPTY_CHARACTER_ROSTER_RON,
+                    )
+                    .expect("EMPTY_CHARACTER_ROSTER_RON is a compile-time constant \
+                             this crate owns; a parse failure here is a bug in it");
+                use crate::characters::actor::character_catalog::registry::
+                    CharacterCatalogAppExt as _;
+                app.try_register_character_catalog_fragment(fragment)
+                    .map_err(|error| CompositionError {
+                        problems: vec![format!(
+                            "`{experience}` declared no characters, but a roster is \
+                             already registered: {error}. Remove the `no_characters()` \
+                             declaration — it contradicts a capability that authored \
+                             one."
+                        )],
+                    })?;
+            }
+            None => {}
+        }
+
         let windowed = matches!(face, Face::Windowed { .. });
         if windowed || game_assets {
             if !windowed {

@@ -370,26 +370,78 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
     assert_eq!(hollow.route(), Some("r"));
 }
 
-// **The actor IS secretly combat-shaped, and the proof attempt is recorded
-// rather than pinned.**
-//
-// Consumer-matrix row 3 asks whether the ENGINE forces combat state onto a body
-// regardless of what its content declared. The test that asked lived here and
-// FAILED: this game's walker declares `melee: None, ranged: None, special:
-// None` and its `AbilityBase` — the authored intrinsic kit, not the maskable
-// effective set — comes back with `attack` enabled.
-//
-// It is deleted rather than inverted. A passing test asserting `attack == true`
-// would pin unpolished behavior, which AGENTS.md forbids, and would go green on
-// the day somebody fixes it. A failing test cannot land on main. So the finding
-// lives where findings live: the consumer-matrix row stays UNPROVEN with the
-// measurement attached, and `slice-evidence/consumer-matrix.json` names what
-// has to become true.
-//
-// ⚠ Do not re-add this test until the behaviour changes. Re-adding it as a
-// characterisation of the bug is how the bug becomes a requirement.
-//
-// Two things were ruled out while measuring, so the next person does not repeat
-// them: `playable_kit: Authored` (vs `HostCode`) does not change it, and the
-// `sandbox_all()` grant in `avatar/bundles.rs` is `#[cfg(test)]`.
+/// **The actor is NOT secretly combat-shaped.** (consumer-matrix row 3)
+///
+/// The row asks whether the ENGINE forces combat state onto a body regardless
+/// of what its content declared — which would make `actor` a combat concept
+/// wearing a general name, and every noncombat game pay for a fight it never
+/// has.
+///
+/// It does not. This game's walker carries 60+ components and not one of them
+/// is melee, combat, hitbox, health or moveset state.
+///
+/// ⚠ **Ask this on COMPONENTS, not on the ability mask.** An earlier version
+/// asserted `AbilityBase.attack == false`, failed, and I recorded the category
+/// as FAILING. That was the wrong question, and `actor_clusters.rs` says so
+/// directly: *"A combat body HAS the attack verb (capability); WHETHER it
+/// swings is gated by its `ActionSet.melee` (a peaceful NPC's empty set folds
+/// no `"attack"` move, so it carries no `MovesetMelee`) and its brain
+/// (policy)."* The mask is what the movement pipeline owns for a body; the
+/// combat STATE is what makes it a fighter. Reading the mask as armament
+/// produced a false accusation against a design that is correct.
+///
+/// Asserted on a LIVE body of a RUNNING host — a constructed component would
+/// only test this test's own arithmetic.
+#[test]
+fn a_noncombat_character_gets_no_combat_state() {
+    use ambition::bevy::prelude::{Entity, With};
 
+    let mut app = PlatformerApp::headless().mount(the_one_module()).build();
+    for _ in 0..600 {
+        app.update();
+        if host_status(&app).is_running() {
+            break;
+        }
+    }
+    assert!(
+        host_status(&app).is_running(),
+        "the body has to exist before its components mean anything"
+    );
+
+    let world = app.world_mut();
+    let mut players = world.query_filtered::<Entity, With<ambition::actor::PrimaryPlayer>>();
+    let bodies: Vec<Entity> = players.iter(world).collect();
+    assert_eq!(bodies.len(), 1, "expected exactly one primary player to inspect");
+
+    let components: Vec<String> = world
+        .inspect_entity(bodies[0])
+        .expect("the player entity exists")
+        .map(|info| info.name().to_string())
+        .collect();
+
+    // Non-vacuity first: an empty component list would satisfy every assertion
+    // below while proving nothing.
+    assert!(
+        components.len() > 20,
+        "expected a fully built body; got {} components, so this is inspecting \
+         something that was never assembled",
+        components.len()
+    );
+
+    let combat: Vec<&String> = components
+        .iter()
+        .filter(|name| {
+            let n = name.to_lowercase();
+            n.contains("melee")
+                || n.contains("combat")
+                || n.contains("hitbox")
+                || n.contains("health")
+                || n.contains("moveset")
+        })
+        .collect();
+    assert!(
+        combat.is_empty(),
+        "a character that authored no combat verbs was given combat state \
+         anyway, so `actor` is combat-shaped: {combat:?}"
+    );
+}

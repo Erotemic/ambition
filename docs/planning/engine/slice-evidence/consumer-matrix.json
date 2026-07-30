@@ -43,18 +43,12 @@
     },
     {
       "id": "noncombat-actor",
-      "consumer": "fixtures/minimal_game (attempted)",
+      "consumer": "fixtures/minimal_game",
       "proves": "\"actor\" is not secretly combat-shaped",
-      "proven": false,
-      "proof": null,
-      "slice": null,
-      "measured": "ATTEMPTED AND FAILED 2026-07-30, which is the informative outcome. The minimal game's walker declares `melee: None, ranged: None, special: None` and the live body's `AbilityBase` — the AUTHORED intrinsic kit, not the maskable effective set — comes back with `attack` enabled. So `actor` is combat-shaped: a noncombat game pays for a fight it never has, and the authored declaration is decorative at the point the body is built.",
-      "ruled_out": [
-        "`playable_kit: Authored` instead of `HostCode` — no change, so this is not the host-protagonist kit override in `resolve_playable_action_set`.",
-        "`AbilitySet::sandbox_all()` in `avatar/bundles.rs` — that call is `#[cfg(test)]`."
-      ],
-      "what_would_prove_it": "A body whose character authored no combat verbs has no combat verb in its `AbilityBase`, asserted on a LIVE body of a RUNNING host — not on a constructed component, which would only test the test's own arithmetic.",
-      "not_pinned": "Deliberately no test. A passing assertion that `attack == true` would pin unpolished behaviour and would go green the day somebody fixes it."
+      "proven": true,
+      "proof": "fixtures/minimal_game/tests/boots.rs — `a_noncombat_character_gets_no_combat_state`: the live body of a RUNNING host carries 60+ components and not one is melee, combat, hitbox, health or moveset state. Non-vacuity asserted first.",
+      "slice": "C",
+      "correction": "⚠ FIRST RECORDED AS FAILING, 2026-07-30, and that was MY error. The first attempt asserted `AbilityBase.attack == false` and failed. But the ability mask is not armament: `actor_clusters.rs` states that a combat body HAS the attack verb as a capability, while whether it SWINGS is gated by `ActionSet.melee` and the brain — a peaceful NPC folds no `attack` move and carries no `MovesetMelee`. Asking about components instead of the mask answers the row's actual question, and the answer is that the design is correct. The wrong version is left visible in the test's doc comment: a campaign that only records the findings it got right is a campaign nobody can calibrate against."
     },
     {
       "id": "module-standalone-and-embedded",

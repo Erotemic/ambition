@@ -1384,7 +1384,7 @@ Found while landing API campaign slice A3/A4, which touches none of
 
 ---
 
-## `actor` is combat-shaped: an authored `melee: None` still gets `attack` (2026-07-30)
+## ~~`actor` is combat-shaped~~ — WITHDRAWN, I asked the wrong question (2026-07-30)
 
 Found by the API campaign's consumer-matrix row 3, which exists to ask exactly
 this: is "actor" a general concept, or a combat concept wearing a general name?
@@ -1415,6 +1415,24 @@ What would prove the category: a body whose character authored no combat verbs
 has no combat verb in its `AbilityBase`, asserted on a LIVE body of a RUNNING
 host. Asserting on a constructed `AbilitySet` would only test the test.
 
-Transferable: the check that found this asked the RUNNING WORLD what the body
-could do, not the RON what it said. Those disagreed, and only one of them is
-what ships.
+## ⚠ WITHDRAWN, same day
+
+The claim above is WRONG and the design is fine. `AbilityBase.attack` is not
+armament — `actor_clusters.rs` says a combat body HAS the attack verb as a
+movement-pipeline CAPABILITY, while whether it swings is gated by
+`ActionSet.melee` and the brain: "a peaceful NPC's empty set folds no `attack`
+move, so it carries no `MovesetMelee`".
+
+Asked properly — does the body carry combat COMPONENTS — the walker has 60+
+components and zero melee/combat/hitbox/health/moveset. Consumer-matrix row 3
+PASSES, and `a_noncombat_character_gets_no_combat_state` now proves it.
+
+Left here rather than deleted, because the failure mode is worth more than the
+retraction: **I read a capability mask as a statement of intent and filed a bug
+against correct code.** The measurement was real; the interpretation was not,
+and nothing in the measurement itself said which. The engine had written the
+distinction down in the one file I had not opened yet.
+
+Transferable, and it survives the retraction: the check asked the RUNNING WORLD
+rather than the RON, and that was right. What was wrong was asking it about the
+wrong noun.

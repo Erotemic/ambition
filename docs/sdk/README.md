@@ -141,8 +141,14 @@ facade exposes ~30 more; the ones a game reaches for first:
 | `desktop_platform` / `web_platform` / `android_platform` | target selection |
 | `audio` | sound (you still declare `no_audio()` if you author none) |
 
-**Reading the API:** `cargo doc -p ambition -p ambition_world --no-deps --open`.
-Both crates, or the room types render as unlinked text.
+**The full surface is [api-reference.md](api-reference.md)** — every method on
+`PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
+the source by a test in both directions.
+
+`cargo doc -p ambition -p ambition_world --no-deps --open` is good for browsing
+afterwards. ⚠ It should not be your first stop: ADR 0031's acceptance test is
+that you never open a file under `crates/`, and this document used to send you
+there before saying anything else.
 
 ## Asking your game what it is doing
 

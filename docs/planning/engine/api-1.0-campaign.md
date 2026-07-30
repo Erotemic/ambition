@@ -206,6 +206,25 @@ that never fired, and it is still unfelt by any consumer after eight blind
 runs. The reason to do it has not weakened; the reason to do it FIRST has,
 twice.
 
+**⚠ FIRST CUT EXISTS, UNMERGED AND UNVERIFIED (2026-07-30)** — branch
+`worktree-agent-af39b56fa4add8fc2`, commit `26237cb3f`. 18 of 41 edges became
+implicit crate features (`default = ["all_capabilities"]` preserves today's
+facade exactly); `fixtures/minimal_game`'s measured closure moved **41 → 38**
+(`inventory_ui`, `portal_presentation`, `touch_input` cut) and the footprint
+ratchet was reworked to measure the sentinel's RESOLVED closure via
+`cargo tree --locked` (the old static walk counted optional edges regardless
+of features — it could never have moved) with the baseline pruned 41→38 /
+19→15 in the same commit. Honest residue, recorded in the branch's evidence
+files: `render` is optional in the facade but NOT for minimal_game (its
+windowed boot is a slice-B exit criterion); `audio` stays unconditional
+(`no_audio` still registers a fragment); and the other 14 unwanted crates
+remain linked because **`ambition_actors` brings them — the §4 carve
+condition, exactly as the baseline predicted.** NOT merged because three
+verifications were still compiling at wrap-up: `cargo check -p ambition`
+(default features), `cargo test` in both fixture workspaces, and the
+red-probe of the new art-without-render refusal. Run those three before
+merging; a green result closes most of the slice, a red one is a finding.
+
 ---
 
 ## Rules for every slice

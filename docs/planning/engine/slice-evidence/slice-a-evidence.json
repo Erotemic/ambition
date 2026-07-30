@@ -36,7 +36,7 @@
       ],
       "uses_per_module": {
         "actors": 10,
-        "app": 9,
+        "app": 10,
         "asset_manager": 2,
         "audio": 1,
         "characters": 7,
@@ -59,6 +59,7 @@
         ],
         "app": [
           "fixtures/external_consumer/src/lib.rs",
+          "fixtures/external_consumer/tests/composition.rs",
           "fixtures/external_consumer/tests/gameplay.rs"
         ],
         "asset_manager": [
@@ -156,18 +157,24 @@
       },
       {
         "file": "fixtures/external_consumer/src/lib.rs",
-        "line": 629,
+        "line": 561,
+        "kind": "LEAK CLOSED",
+        "text": "# LEAK CLOSED 2026-07-30 \u2014 the ninth, and this builder is where it hid"
+      },
+      {
+        "file": "fixtures/external_consumer/src/lib.rs",
+        "line": 653,
         "kind": "LEAK CLOSED",
         "text": "LEAK CLOSED 2026-07-27. This used to carry its own branch \u2014 `PendingLocalInput`"
       }
     ],
-    "total": 6,
-    "closed": 2,
+    "total": 7,
+    "closed": 3,
     "open_recorded": 4
   },
   "blind_agent_run": {
     "collected": false,
-    "reason": "No blind-agent run recorded. \u00a72c requires a FRESH agent: one resumed from a session that touched engine internals measures its own memory, and \u00a72c names that the single easiest way to get a falsely green result. The session that landed slice A read the movement kernel, the sim-view seam and the render cluster, so it is exactly the disqualified population and did not self-report a baseline. Drop a record in docs/sdk/evidence/blind-agent-runs/ and re-run this script.",
+    "reason": "No blind-agent run recorded. \u00a72c requires a FRESH agent: one resumed from a session that touched engine internals measures its own memory, and \u00a72c names that the single easiest way to get a falsely green result. The session that landed slice A read the movement kernel, the sim-view seam and the render cluster, so it is exactly the disqualified population and did not self-report a baseline. Drop a record in docs/planning/engine/slice-evidence/blind-agent-runs/ and re-run this script.",
     "required_fields": [
       "completed",
       "first_engine_file_opened",
@@ -339,7 +346,7 @@
     "reason": "Four of five sources are collected; \u00a72c is not, and it is the one that names the next leak from the population the API is for. Deriving B from the other four would choose it by taste, which the slice's own exit criteria forbid.",
     "constraints_from_the_collected_four": [
       "the ratchet's remaining 14 modules are content/gameplay vocabulary, not composition \u2014 so B is a content-model slice, which is what the campaign sketch already says; that is a confirmation, not a derivation",
-      "the heaviest remaining leaks by use count are [('runtime', 13), ('platformer', 11), ('actors', 10), ('app', 9)]",
+      "the heaviest remaining leaks by use count are [('runtime', 13), ('platformer', 11), ('actors', 10), ('app', 10)]",
       "modules named from more than one file (a rule re-derived independently, \u00a72a): ['actors', 'app', 'characters', 'platformer', 'provider', 'runtime', 'sprite_sheet']",
       "\u00a72e is untouched by slice A: the consumer still links 41 ambition crates from two declared dependencies, and no module allowlist can see that"
     ]

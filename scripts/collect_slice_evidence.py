@@ -55,7 +55,10 @@ from check_absence_contracts import (  # noqa: E402
 )
 
 REPO = Path(__file__).resolve().parents[1]
-EVIDENCE = REPO / "docs" / "sdk" / "evidence"
+# NOT under `docs/sdk/` — that is the surface the §2c subject is told to start
+# from, and an instrument the subject can read is not an instrument. Moved
+# 2026-07-30; see the module docstring.
+EVIDENCE = REPO / "docs" / "planning" / "engine" / "slice-evidence"
 OUT = EVIDENCE / "slice-a-evidence.json"
 BLIND_RUNS = EVIDENCE / "blind-agent-runs"
 

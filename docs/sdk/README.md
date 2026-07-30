@@ -164,6 +164,21 @@ your character falls past it, and nothing reports anything — the host is runni
 correctly, the content is wrong. The reference fixture itself had this bug until
 2026-07-30 and its own tests could not see it.
 
+**Shipping more than one game?** Mount each as its own module and start at a
+launcher instead of inside one of them:
+
+```rust
+PlatformerApp::windowed("My Collection")
+    .start_at_launcher()
+    .mount(FirstGame::default())
+    .mount(SecondGame::default())
+    .run();
+```
+
+Experiences are keyed by id, so distinct ids coexist and a duplicate is refused
+naming both modules. Without `start_at_launcher()` the host boots straight into
+the first one mounted.
+
 `PlatformerApp::headless()` is the same game with no display, where one
 `App::update` is exactly one simulation tick. Both faces mount the same module
 and install the same engine in the same order.

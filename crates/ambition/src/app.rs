@@ -86,7 +86,7 @@ use crate::world::rooms::RoomMetadata;
 pub mod prelude {
     pub use super::{
         host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
-        ModuleManifest, PlatformerApp, SessionMode, EMPTY_CHARACTER_ROSTER_RON,
+        ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
         MINIMAL_CHARACTER_ROSTER_RON,
     };
     pub use bevy::prelude::App;
@@ -634,6 +634,29 @@ impl std::fmt::Display for CompositionError {
 
 impl std::error::Error for CompositionError {}
 
+/// Where the host lands when it starts.
+///
+/// ⚠ **Two policies, because there are two real hosts and the builder offered
+/// only one.** Measured 2026-07-30 against `game/ambition_app`: it boots into a
+/// LAUNCHER listing every registered experience, and had to configure that by
+/// hand — registering a shell experience as its home route and writing
+/// `ShellHostConfiguration.spec` itself — because `ShellComposition` boots into
+/// the primary's gameplay route and nothing else.
+///
+/// That was the last piece of host composition a real consumer still assembled
+/// for itself, and it is the third time the same shape has appeared: the SDK
+/// expressed one option (one face, one experience, one start policy) while the
+/// shipped host needed another.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum StartAt {
+    /// Straight into the first mounted experience. Right for a single game.
+    #[default]
+    PrimaryGameplay,
+    /// Into a launcher listing every mounted experience. Right for a host that
+    /// ships more than one.
+    Launcher,
+}
+
 /// How the game meets a display.
 #[derive(Clone, Debug)]
 enum Face {
@@ -680,6 +703,7 @@ pub struct PlatformerApp {
     /// escape hatch that is impossible to reach by accident.
     rollback_unstable: bool,
     game_assets: bool,
+    start_at: StartAt,
     manifests: Vec<ModuleManifest>,
     draft: ModuleDraft,
 }
@@ -769,6 +793,7 @@ impl PlatformerApp {
             session: SessionMode::FixedStep,
             rollback_unstable,
             game_assets,
+            start_at,
             manifests,
             draft,
         } = self;
@@ -944,6 +969,31 @@ impl PlatformerApp {
         )
         .install(app, DeclaredCapabilities(std::sync::Mutex::new(capabilities)));
 
+        // ── The start policy ──
+        //
+        // Applied AFTER `ShellComposition` rather than instead of it: the
+        // composition also installs the frontend audio context, the route
+        // table and the experience plugins, and forking it for one field would
+        // be two composition paths for one difference.
+        if matches!(start_at, StartAt::Launcher) {
+            use crate::game_shell::{
+                ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
+                ShellRouteSpec,
+            };
+            app.world_mut()
+                .resource_mut::<ShellRouteCatalog>()
+                .register(ShellRouteSpec::new(
+                    primary_launcher.clone(),
+                    ShellLaunchCatalog::basic_experience_id(),
+                ));
+            app.world_mut()
+                .resource_mut::<ShellHostConfiguration>()
+                .spec = Some(ShellHostSpec::new(
+                primary_launcher.clone(),
+                primary_launcher.clone(),
+            ));
+        }
+
         // ── Rule 7, ACTUALLY enforced, for EVERY declared experience ──
         //
         // The capability plugins have built, so the routes they register exist.
@@ -1068,6 +1118,16 @@ impl PlatformerApp {
         Ok(())
     }
 
+    /// Boot into a launcher listing every mounted experience, instead of
+    /// straight into the first one.
+    ///
+    /// What a host that ships several games needs, and what `game/ambition_app`
+    /// wrote by hand before this existed.
+    pub fn start_at_launcher(mut self) -> Self {
+        self.start_at = StartAt::Launcher;
+        self
+    }
+
     /// Decode and publish this game's art even with no display.
     ///
     /// A window implies it — something has to be drawn. Headless does not, and
@@ -1115,6 +1175,7 @@ impl PlatformerApp {
             session: SessionMode::FixedStep,
             rollback_unstable: false,
             game_assets: false,
+            start_at: StartAt::PrimaryGameplay,
             manifests: Vec::new(),
             draft: ModuleDraft::default(),
         }

@@ -659,3 +659,88 @@ fn the_published_one_character_roster_composes_and_runs() {
         status.refusal()
     );
 }
+
+/// **A multi-game host boots into its LAUNCHER, not into one of its games.**
+///
+/// Slice E. `PlatformerApp` could only boot into the primary experience's
+/// gameplay route — which is right for a single game and wrong for a host that
+/// ships several. `game/ambition_app` boots into a launcher listing all four of
+/// its experiences and had to configure that by hand, registering a shell
+/// experience as its home route and writing `ShellHostConfiguration.spec`
+/// itself. That was the last piece of host composition a real consumer still
+/// assembled for itself.
+///
+/// ⚠ The two policies must be DISTINGUISHABLE, or this test passes on a
+/// builder that ignores the flag. So it asserts the default lands somewhere
+/// different from the launcher policy, rather than only that the launcher
+/// policy lands somewhere.
+#[test]
+fn a_multi_game_host_can_start_at_its_launcher() {
+    struct Second;
+
+    impl GameModule for Second {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("second_game")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("second_game")
+                .gameplay_route("second_game/play")
+                .characters(MINIMAL_CHARACTER_ROSTER_RON)
+                .no_audio()
+                .playable(
+                    "Second Game",
+                    "the other game this host ships",
+                    "my_hero",
+                    minimal_game::minimal_experience::MINIMAL_ROOM_ID,
+                    vec![minimal_game::minimal_experience::minimal_room()],
+                );
+        }
+    }
+
+    fn settle(app: &mut ambition::bevy::prelude::App) -> HostStatus {
+        let mut status = host_status(app);
+        for _ in 0..600 {
+            app.update();
+            status = host_status(app);
+            if status.is_running() || status.is_refused() {
+                break;
+            }
+        }
+        status
+    }
+
+    let mut default_host = PlatformerApp::headless()
+        .mount(the_one_module())
+        .mount(Second)
+        .build();
+    let default_status = settle(&mut default_host);
+    assert_eq!(
+        default_status.route(),
+        Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
+        "by default a host starts in its first game"
+    );
+
+    let mut launcher_host = PlatformerApp::headless()
+        .start_at_launcher()
+        .mount(the_one_module())
+        .mount(Second)
+        .build();
+    let launcher_status = settle(&mut launcher_host);
+
+    assert!(
+        !launcher_status.is_refused(),
+        "the launcher policy must compose: {:?}",
+        launcher_status.refusal()
+    );
+    assert_eq!(
+        launcher_status.route(),
+        Some(minimal_game::MINIMAL_LAUNCHER_ROUTE),
+        "with the launcher policy the host lands on the launcher route, not in a game"
+    );
+    assert_ne!(
+        launcher_status.route(),
+        default_status.route(),
+        "the two policies must differ, or the flag is being ignored"
+    );
+}

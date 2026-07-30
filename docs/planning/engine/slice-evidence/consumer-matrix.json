@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "\u00a74 condition 3 of api-growth-method.md, as a machine-checkable ledger.",
+    "§4 condition 3 of api-growth-method.md, as a machine-checkable ledger.",
     "",
     "The campaign may not terminate with categories unexercised. That condition is",
     "the one the method ORIGINALLY MISSED: its first draft terminated on 'contract",
@@ -8,17 +8,17 @@
     "alone can satisfy. An API proven against one consumer is an API shaped like",
     "that consumer.",
     "",
-    "\u26a0 `proven` means a TEST that runs, named in `proof`. Not a plan, not a doc",
+    "⚠ `proven` means a TEST that runs, named in `proof`. Not a plan, not a doc",
     "paragraph, not 'it would obviously work'. Rule 2 of the campaign: name a test,",
     "never a doc marker. Prose-asserted claims have gone red on prose three times",
     "in this repo.",
     "",
-    "\u26a0 Do not mark a row proven because the code exists somewhere. The question is",
-    "whether the CATEGORY exercised the public API \u2014 Sanic existing in-tree is not",
+    "⚠ Do not mark a row proven because the code exists somewhere. The question is",
+    "whether the CATEGORY exercised the public API — Sanic existing in-tree is not",
     "the same fact as Sanic standing up through `ambition::app` standalone AND",
     "embedded with matching identities.",
     "",
-    "The ORDER these are attacked stays evidence-driven (\u00a73 selects each slice from",
+    "The ORDER these are attacked stays evidence-driven (§3 selects each slice from",
     "what the previous one measured). The CATEGORIES are not optional."
   ],
   "categories": [
@@ -27,78 +27,86 @@
       "consumer": "Outlander (fixtures/external_consumer)",
       "proves": "external dependency + host composition",
       "proven": true,
-      "proof": "fixtures/external_consumer/tests/composition.rs \u2014 one mounted module reaches both faces; gameplay.rs drives a real session",
+      "proof": "fixtures/external_consumer/tests/composition.rs — one mounted module reaches both faces; gameplay.rs drives a real session",
       "slice": "A"
     },
     {
       "id": "movement-only-minimal-game",
       "consumer": "fixtures/minimal_game",
-      "proves": "optional-capability closure \u2014 does a small game link menus, persistence, audio, bosses?",
+      "proves": "optional-capability closure — does a small game link menus, persistence, audio, bosses?",
       "proven": true,
-      "proof": "fixtures/minimal_game/tests/boots.rs \u2014 7 tests: one module boots BOTH faces, reaches a RUNNING host via `ambition::app::host_status`, and a game that can never start REFUSES promptly and names the cause. Ratcheted by `minimal-game-names-only-the-public-sdk`, baseline ZERO.",
+      "proof": "fixtures/minimal_game/tests/boots.rs — 7 tests: one module boots BOTH faces, reaches a RUNNING host via `ambition::app::host_status`, and a game that can never start REFUSES promptly and names the cause. Ratcheted by `minimal-game-names-only-the-public-sdk`, baseline ZERO.",
       "slice": "B",
-      "note": "The blind run showed a minimal module cannot even reach the windowed face: it panics without a CharacterCatalog. This category is what turns \u00a72e's '41 ambition crates from 2 declared dependencies' from a number into a felt constraint or a non-issue. RESULT: it names 4 modules to Outlander's 14, and all four are one hole \u2014 PlatformerExperienceAuthoring + PreparedPlatformerSource + RoomSpec + engine_core geometry. A minimal game can COMPOSE through the SDK and still cannot DECLARE a room or an experience through it.",
-      "answers_optional_capability_closure": "PARTLY, and the partly is the finding. A movement-only game links and must DECLARE audio it does not have \u2014 preparation validation refuses an experience with no audio fragment, so silence is mandatory paperwork. It needs no menus, persistence, LDtk or bosses of its own, and no `bevy` dependency at all. Five modules total: four are the room/experience declaration path, the fifth is the silent audio fragment.",
-      "ratchet": "ZERO \u2014 names only ambition::app, ambition::world, and the documented bevy re-export"
+      "note": "The blind run showed a minimal module cannot even reach the windowed face: it panics without a CharacterCatalog. This category is what turns §2e's '41 ambition crates from 2 declared dependencies' from a number into a felt constraint or a non-issue. RESULT: it names 4 modules to Outlander's 14, and all four are one hole — PlatformerExperienceAuthoring + PreparedPlatformerSource + RoomSpec + engine_core geometry. A minimal game can COMPOSE through the SDK and still cannot DECLARE a room or an experience through it.",
+      "answers_optional_capability_closure": "PARTLY, and the partly is the finding. A movement-only game links and must DECLARE audio it does not have — preparation validation refuses an experience with no audio fragment, so silence is mandatory paperwork. It needs no menus, persistence, LDtk or bosses of its own, and no `bevy` dependency at all. Five modules total: four are the room/experience declaration path, the fifth is the silent audio fragment.",
+      "ratchet": "ZERO — names only ambition::app, ambition::world, and the documented bevy re-export"
     },
     {
       "id": "noncombat-actor",
       "consumer": "fixtures/minimal_game",
       "proves": "\"actor\" is not secretly combat-shaped",
       "proven": true,
-      "proof": "fixtures/minimal_game/tests/boots.rs \u2014 `a_noncombat_character_gets_no_combat_state`: the live body of a RUNNING host carries 60+ components and not one is melee, combat, hitbox, health or moveset state. Non-vacuity asserted first.",
+      "proof": "fixtures/minimal_game/tests/boots.rs — `a_noncombat_character_gets_no_combat_state`: the live body of a RUNNING host carries 60+ components and not one is melee, combat, hitbox, health or moveset state. Non-vacuity asserted first.",
       "slice": "C",
-      "correction": "\u26a0 FIRST RECORDED AS FAILING, 2026-07-30, and that was MY error. The first attempt asserted `AbilityBase.attack == false` and failed. But the ability mask is not armament: `actor_clusters.rs` states that a combat body HAS the attack verb as a capability, while whether it SWINGS is gated by `ActionSet.melee` and the brain \u2014 a peaceful NPC folds no `attack` move and carries no `MovesetMelee`. Asking about components instead of the mask answers the row's actual question, and the answer is that the design is correct. The wrong version is left visible in the test's doc comment: a campaign that only records the findings it got right is a campaign nobody can calibrate against."
+      "correction": "⚠ FIRST RECORDED AS FAILING, 2026-07-30, and that was MY error. The first attempt asserted `AbilityBase.attack == false` and failed. But the ability mask is not armament: `actor_clusters.rs` states that a combat body HAS the attack verb as a capability, while whether it SWINGS is gated by `ActionSet.melee` and the brain — a peaceful NPC folds no `attack` move and carries no `MovesetMelee`. Asking about components instead of the mask answers the row's actual question, and the answer is that the design is correct. The wrong version is left visible in the test's doc comment: a campaign that only records the findings it got right is a campaign nobody can calibrate against."
     },
     {
       "id": "module-standalone-and-embedded",
       "consumer": "game/ambition_demo_sanic",
       "proves": "reusable module + namespace identity; the SAME content and schema fingerprints both ways",
       "proven": true,
-      "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs \u2014 `sanic_stands_up_standalone_through_the_public_api` (reaches a RUNNING host) and `sanic_has_the_same_identities_standalone_and_embedded` (authored content and rollback schema identical when mounted beside an unrelated module, with a non-vacuity guard on the content rows).",
+      "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — `sanic_stands_up_standalone_through_the_public_api` (reaches a RUNNING host) and `sanic_has_the_same_identities_standalone_and_embedded` (authored content and rollback schema identical when mounted beside an unrelated module, with a non-vacuity guard on the content rows).",
       "slice": "D",
       "note": "Both halves required. Standalone alone proves nothing about identity.",
-      "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all \u2014 the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
+      "measured": "HALF the claim holds, and the half that does not is a DESIGN GAP rather than a bug. ADR 0032 says module inclusion is 'a MERGE, not an ordering... with transactional conflict detection'. The conflict detection is real and now tested: two modules both declaring an experience are refused, and the error names both claimants and both values (`two_modules_declaring_an_experience_conflict_and_the_error_names_both`). But a composition holds exactly ONE experience, so mounting two real games side by side is not expressible at all — the second module's `experience()` COLLIDES rather than being namespaced under the composition.",
       "what_would_prove_it": "An in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` standalone AND alongside another module, with content and rollback-schema identities compared across the two compositions by a TEST. The second half is blocked on module-qualified namespaces, which ADR 0032 defers.",
       "standalone_half": {
         "proven": true,
-        "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs \u2014 Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
-        "why_it_matters": "Sanic PREDATES the SDK. Outlander and the minimal game were written or rewritten against `ambition::app`; Sanic was not, and it carries presentation profiles, a declared HUD, music, procedural SFX and packed SFX. It is the closest thing to an independent consumer available, which is what \u00a74's carve decision needs \u2014 a footprint measured only against games the API author designed answers a weaker question.",
+        "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
+        "why_it_matters": "Sanic PREDATES the SDK. Outlander and the minimal game were written or rewritten against `ambition::app`; Sanic was not, and it carries presentation profiles, a declared HUD, music, procedural SFX and packed SFX. It is the closest thing to an independent consumer available, which is what §4's carve decision needs — a footprint measured only against games the API author designed answers a weaker question.",
         "what_it_says_about_playable": "Sanic mounts as a `capability`, not through `playable()`, because `playable` carries no presentation profiles or HUD declaration. That is recorded as evidence about where `playable` stops rather than patched by inventing parameters from one caller."
       },
-      "no_ratchet_note": "\u26a0 Sanic gets NO allowlist ratchet, deliberately. The allowlist is scoped to `fixtures/` (Jon, 2026-07-30); extending it to `game/` would answer the deferred `ambition_content`-depends-on-the-facade question by accident, in a row about something else. In-tree consumers are measured when that question is actually taken.",
+      "no_ratchet_note": "⚠ Sanic gets NO allowlist ratchet, deliberately. The allowlist is scoped to `fixtures/` (Jon, 2026-07-30); extending it to `game/` would answer the deferred `ambition_content`-depends-on-the-facade question by accident, in a row about something else. In-tree consumers are measured when that question is actually taken.",
       "composition_half": {
         "closed": true,
         "on": "2026-07-30",
-        "proof": "fixtures/minimal_game/tests/boots.rs \u2014 `two_modules_with_distinct_experiences_compose_together` (they do, and the FIRST mounted owns the host's initial route) and `two_modules_claiming_one_experience_id_conflict_and_the_error_names_both`.",
+        "proof": "fixtures/minimal_game/tests/boots.rs — `two_modules_with_distinct_experiences_compose_together` (they do, and the FIRST mounted owns the host's initial route) and `two_modules_claiming_one_experience_id_conflict_and_the_error_names_both`.",
         "what_changed": "`ModuleDraft` holds a Vec of experiences keyed by id instead of one global set of fields. Coexistence and collision are now DIFFERENT outcomes; before slice D every second experience was a collision, which made the conflict detector look right for the wrong reason."
       },
-      "honest_caveat": "\u26a0 The two halves are NOT equally strong, and the weaker one is a finding. The CONTENT comparison is real: it filters the authored registry to Sanic's own rows and would catch embedding changing them. The ROLLBACK SCHEMA comparison is weaker than it looks, because rollback registrations are ENGINE-WIDE rather than module-scoped \u2014 so 'Sanic's schema fingerprint' is really the whole app's, and it is equal partly because there is no per-module schema for it to differ from. The criterion passes; the thing it names is not yet federated. That is precisely what the campaign's rollback-federation work exists to change, and this test will become genuinely load-bearing the day it does."
+      "honest_caveat": "⚠ The two halves are NOT equally strong, and the weaker one is a finding. The CONTENT comparison is real: it filters the authored registry to Sanic's own rows and would catch embedding changing them. The ROLLBACK SCHEMA comparison is weaker than it looks, because rollback registrations are ENGINE-WIDE rather than module-scoped — so 'Sanic's schema fingerprint' is really the whole app's, and it is equal partly because there is no per-module schema for it to differ from. The criterion passes; the thing it names is not yet federated. That is precisely what the campaign's rollback-federation work exists to change, and this test will become genuinely load-bearing the day it does."
     },
     {
       "id": "smash",
       "consumer": "game/ambition_app versus stage",
       "proves": "participants, character selection, atomic match lifecycle, scoped rules, rollback",
       "proven": true,
-      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) \u2014 two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` closes the fifth: the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count.",
+      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` closes the fifth: the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count.",
       "slice": "F",
       "note": "Closed by slice F, which built the rollback slice ADR 0031 reserved. The six properties have their own acceptance tests in fixtures/external_consumer/tests/rollback_is_a_promise.rs.",
-      "blocked_on": "rollback as a public knob \u2014 ADR 0031's own deferral, the same blocker as \u00a74.1",
+      "blocked_on": "rollback as a public knob — ADR 0031's own deferral, the same blocker as §4.1",
       "why_two_participants": "One would have been the easy version and would have reproduced the exact blind spot the test rules out: this engine ran a rollback oracle over ONE input stream during the week its couch versus mode seated four, so every check was green and a desync in seat two had nowhere to appear.",
       "was_partial": {
         "on": "2026-07-30",
-        "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) \u2014 the versus stage mounts through `PlatformerApp`, composes without refusal, seats BOTH fighters into the assembled cast, and registers its own gameplay route.",
+        "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — the versus stage mounts through `PlatformerApp`, composes without refusal, seats BOTH fighters into the assembled cast, and registers its own gameplay route.",
         "properties_covered": [
-          "participants \u2014 two fighters, both present in the composed CharacterCatalog",
-          "character selection \u2014 asserted by id, so seating one or none would fail",
-          "atomic match lifecycle \u2014 the stage composes and activates as one experience",
-          "scoped rules \u2014 it registers its OWN route rather than borrowing another's"
+          "participants — two fighters, both present in the composed CharacterCatalog",
+          "character selection — asserted by id, so seating one or none would fail",
+          "atomic match lifecycle — the stage composes and activates as one experience",
+          "scoped rules — it registers its OWN route rather than borrowing another's"
         ],
         "property_NOT_covered": "rollback. ADR 0031 defers rollback as a public knob to its own slice, so the row cannot close, and this partial exists to make the remaining blocker honestly ONE named thing rather than a vague five.",
         "why_partial_is_recorded_rather_than_claimed": "The campaign has caught itself three times claiming a row on a test that quietly dropped part of it. Naming the missing fifth costs nothing now and prevents 'Smash proven' later meaning 'Smash minus the hard part'.",
         "note_on_the_test": "`FIGHTERS` is private in `versus.rs` and the ids are spelled out in the test instead. AGENTS.md: never widen a production API to move a test. They are content ids; if the cast changes, this failing is correct.",
         "closed_on": "2026-07-30",
         "what_the_partial_bought": "Closing the row cost ONE test. The partial had named the missing fifth explicitly, so there was nothing to re-audit about what \"Smash proven\" had previously been taken to mean."
+      },
+      "⚠_what_the_participants_half_does_NOT_prove": {
+        "found_by": "blind run 7, finding (g), 2026-07-30 — after this row was recorded as proven",
+        "the_gap": "`session.participants()` reports the count the composition DECLARED, not how many bodies the match seats. Run 7 declared 1, 2 and 4 through the public builder and got one body every time.",
+        "what_is_proven": "Two fighters are in the composed cast, asserted by id (`the_versus_stage_composes_and_seats_two_participants`), and the match composes, activates, ADVANCES 120 rollback frames and stays undesynced.",
+        "what_is_NOT_proven": "That two separate input streams reach two separate bodies. The facade exposes no seat-keyed input or seat-keyed query, so a consumer cannot express it and no test here can assert it.",
+        "⚠": "The rollback test was written specifically to avoid the one-input-stream blind spot that this engine already shipped once — and reproduced a subtler version of it. Recorded on the row rather than in a backlog: a matrix that reads 6 of 6 while a named half of one row is a number is the failure the matrix exists to prevent.",
+        "status": "OPEN — slice G finding (g). The row stays PROVEN on the four properties it does establish, with this limit attached."
       }
     },
     {
@@ -106,13 +114,13 @@
       "consumer": "game/ambition_app",
       "proves": "full integration",
       "proven": true,
-      "proof": "game/ambition_app/tests/composes_through_the_sdk.rs (`--test app_it -- composes_through_the_sdk`) \u2014 the shipped games mount through `PlatformerApp`, the host boots to its launcher, and BOTH gameplay routes are reachable in the composed route catalog.",
+      "proof": "game/ambition_app/tests/composes_through_the_sdk.rs (`--test app_it -- composes_through_the_sdk`) — the shipped games mount through `PlatformerApp`, the host boots to its launcher, and BOTH gameplay routes are reachable in the composed route catalog.",
       "slice": "E",
       "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule.",
-      "measured": "\u26a0 NO LONGER blocked on multi-experience composition \u2014 slice D closed that. Measured 2026-07-30, the remaining gap is HOST POLICY: `PlatformerApp` boots into the primary experience's GAMEPLAY route (that is what `ShellComposition::new(experience, launcher, gameplay)` does, and why Outlander launches 'DIRECTLY into the gameplay route'). `game/ambition_app` boots into a LAUNCHER that lists every registered experience, and it configures that by hand: it registers a plain shell experience as the home route and writes `ShellHostConfiguration.spec` itself.",
-      "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots to its launcher with all four experiences reachable. Needs a host-policy choice on the builder \u2014 boot into the primary's gameplay route, or into a launcher over all mounted experiences \u2014 rather than the single hardcoded policy `ShellComposition` carries.",
+      "measured": "⚠ NO LONGER blocked on multi-experience composition — slice D closed that. Measured 2026-07-30, the remaining gap is HOST POLICY: `PlatformerApp` boots into the primary experience's GAMEPLAY route (that is what `ShellComposition::new(experience, launcher, gameplay)` does, and why Outlander launches 'DIRECTLY into the gameplay route'). `game/ambition_app` boots into a LAUNCHER that lists every registered experience, and it configures that by hand: it registers a plain shell experience as the home route and writes `ShellHostConfiguration.spec` itself.",
+      "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots to its launcher with all four experiences reachable. Needs a host-policy choice on the builder — boot into the primary's gameplay route, or into a launcher over all mounted experiences — rather than the single hardcoded policy `ShellComposition` carries.",
       "why_it_is_the_same_shape_as_every_other_finding": "The SDK expresses ONE shape and the shipped host is another, and nothing said so until a consumer tried. Single face -> two faces (slice A). One experience -> four (slice D). One host policy -> two (here). Each was invisible while only the games written against the SDK were consulted.",
-      "honest_scope": "\u26a0 This composes the shipped host's EXPERIENCES, not the shipped BINARY. `ambition_app`'s real composer also installs dev tools, a settings menu, kaleidoscope menus, load presentation and the versus stage \u2014 an app shell around the games. Claiming the row on a test that quietly dropped all of that would be the overclaim this campaign has caught itself in three times, so the remainder is named rather than absorbed: migrating the production binary is real work and is NOT done.",
+      "honest_scope": "⚠ This composes the shipped host's EXPERIENCES, not the shipped BINARY. `ambition_app`'s real composer also installs dev tools, a settings menu, kaleidoscope menus, load presentation and the versus stage — an app shell around the games. Claiming the row on a test that quietly dropped all of that would be the overclaim this campaign has caught itself in three times, so the remainder is named rather than absorbed: migrating the production binary is real work and is NOT done.",
       "what_it_took": "Two gaps, both found by attempting this row from other directions and both closed before it: a draft held ONE experience while the host registers four (slice D), and the builder booted only into a game while the host boots into a launcher (slice E). Neither was predicted; each was measured."
     }
   ]

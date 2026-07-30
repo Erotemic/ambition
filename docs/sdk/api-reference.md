@@ -73,6 +73,75 @@ Useful field types the snippets use without naming: `BodyKinematics::pos` is a
 | `refusal()` | why — `&[String]` |
 | `route()` | the active route, if any — `Option<&str>` |
 
+## Where your gameplay systems go
+
+⚠ **This is the paragraph the SDK was missing, and its absence is expensive.**
+`ModuleDraft::capability(plugin)` is where a game adds its own systems, and
+nothing here said what such a plugin may do. Blind run 7 did the obvious Bevy
+thing — added its systems to `Update` — which puts your gameplay *outside* the
+simulation entirely. Under rollback that means it never re-simulates, and the
+symptom is a game that looks like the engine is broken.
+
+Your systems belong in the **sim schedule**, in one of the engine's phases:
+
+```rust
+use ambition::sim::{SandboxSet, SimScheduleExt};
+
+impl Plugin for MyCapability {
+    fn build(&self, app: &mut App) {
+        // NOT `Update`. `sim_schedule()` returns whichever schedule this host
+        // simulates in — FixedUpdate on a fixed-tick host, the GGRS schedule
+        // under rollback. Asking is what makes one plugin correct on both.
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            (charge_beacon, open_gate)
+                .chain()
+                .in_set(SandboxSet::PlayerSimulation),
+        );
+    }
+}
+```
+
+Pick the phase by what your system reads:
+
+| Phase | For |
+|---|---|
+| `WorldPrep` | world state before the player ticks — hazards, feature ticks |
+| `PlayerInput` | the input pipeline, timers, interaction buffers |
+| `PlayerSimulation` | post-input body authority — **the usual one** |
+| `RoomTransition` | detecting and applying a room change |
+| `Combat` | attack lifecycle, projectiles, damage |
+| `PresentationSync` | write-back and presentation timers |
+| `FeatureCollection` / `FeatureInteraction` | pickups; switches, chests, breakables |
+
+Ordering *within* a phase is yours (`.chain()`); ordering *between* phases is
+the engine's. If two of your systems have a real read-after-write dependency,
+chain them and say so — that is a dependency, not a preference.
+
+## Supplying input without a device
+
+A headless harness, a replay, an RL agent, an acceptance walk — anything
+supplying input that is not a device — writes through one verb:
+
+```rust
+ambition::sim::drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..default() });
+```
+
+⚠ **It is correct on BOTH hosts, and that is the whole reason it exists.**
+There are two resources underneath and picking the wrong one fails silently —
+the walk runs, the body never moves, nothing says why. Under a fixed-tick host
+`ControlFrame` is the input the sim reads; under rollback it is an *output*
+written from the session's confirmed inputs, so a driver writing it directly
+would feed re-simulated input back in as new input. `drive_control_frame` picks
+for you, and defers to the device latch when a windowed build has one.
+
+Blind run 7 read that explanation in rustdoc, concluded the verb was the wrong
+one under rollback, and went looking for the low-level resource — which the
+facade does not export. The explanation is the reason the verb is right, not a
+warning about it. Stated here so the reference makes the point the rustdoc was
+making.
+
 ## Rollback
 
 Rollback is a supported session mode as of slice F. ADR 0031 deferred it until
@@ -122,6 +191,36 @@ single input stream for the week its versus mode seated four.
 
 `RollbackRefused` names the fix, not just the fault: `NotComposedForRollback`,
 `NeverActivated`, `NoAuthoritativeState`, `SessionRejected`.
+
+### Is it still running?
+
+⚠ **A started session is not a running one, and `host_status` cannot tell you
+the difference.** Blind run 7 watched it report `Running { prepared: true }`
+for 4300 updates while the sim was frozen. Ask `ambition::rollback::health`:
+
+```rust
+match ambition::rollback::health(&app) {
+    RollbackHealth::Healthy { frame } => { /* compare frame across updates */ }
+    RollbackHealth::Desynced { frames, .. } => panic!("nondeterminism at {frames:?}"),
+    RollbackHealth::Invalidated { reason } => panic!("{reason}"),
+    RollbackHealth::NoSession => {}
+}
+```
+
+`Desynced` means a re-simulated frame produced a different answer — a
+determinism bug in your game or the engine, and the whole reason to run a sync
+test. Without this, GGRS reports it through a log line a headless game never
+sees.
+
+| `RollbackHealth` | |
+|---|---|
+| `is_healthy()` | simulating, nothing mismatched — the one-line check |
+| `frame()` | the session's current frame, if there is a session |
+
+⚠ **Liveness needs TWO samples.** A frozen session reports `Healthy` forever;
+what a stall looks like is a `frame()` that stops advancing. Sample it before
+and after a batch of updates — the engine cannot decide for you how long a
+quiet frame is allowed to be.
 
 **Your own state joins the wire format** by implementing
 `ambition::rollback::SnapshotState` and registering it:

@@ -240,6 +240,96 @@ impl RollbackSession {
     }
 }
 
+/// Whether a rollback session is still doing its job.
+///
+/// ⚠ **A started session is not a running one, and nothing in this SDK could
+/// tell the difference until now.** Blind run 7 watched `host_status` report
+/// `Running { prepared: true }` for 4300 consecutive updates while its sim was
+/// frozen and its player body had not moved by a single float. GGRS reports a
+/// desync through a `warn!` and a message a headless consumer never sees, so
+/// the only honest answer available to that author was "the engine is broken".
+///
+/// [`RollbackSession`] reports STARTUP facts — participants, encoded types,
+/// ticks to activation — and all three were healthy while the session was not.
+/// This is the liveness half.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RollbackHealth {
+    /// No session has been started on this host.
+    NoSession,
+    /// Simulating, with no mismatch reported.
+    Healthy {
+        /// The session's current frame. Compare it across updates: a frame
+        /// that stops advancing is a stalled session even when nothing has
+        /// reported a mismatch.
+        frame: i32,
+    },
+    /// The session re-simulated a frame and got a different answer.
+    ///
+    /// This is a determinism bug in the game or the engine, and it is the
+    /// whole reason to run a sync test. The frames are the ones that differed.
+    Desynced {
+        /// Frames whose re-simulation disagreed.
+        frames: Vec<i32>,
+        /// The frame the session had reached.
+        frame: i32,
+    },
+    /// The session was invalidated and will not continue.
+    Invalidated {
+        /// Why, in the engine's words.
+        reason: String,
+    },
+}
+
+impl RollbackHealth {
+    /// Simulating and undesynced.
+    pub fn is_healthy(&self) -> bool {
+        matches!(self, Self::Healthy { .. })
+    }
+
+    /// The session's current frame, if there is a session.
+    ///
+    /// ⚠ A frame that does not ADVANCE between updates is a stalled session,
+    /// and no variant here reports that on its own — liveness is a property of
+    /// two observations, not one. Sample it twice.
+    pub fn frame(&self) -> Option<i32> {
+        match self {
+            Self::Healthy { frame } | Self::Desynced { frame, .. } => Some(*frame),
+            Self::NoSession | Self::Invalidated { .. } => None,
+        }
+    }
+}
+
+/// Ask a rollback host how its session is doing.
+///
+/// Cheap enough to call every update. See [`RollbackHealth`] for why a
+/// consumer needs it and what [`RollbackSession`] does not tell you.
+pub fn health(app: &App) -> RollbackHealth {
+    let Some(status) = app
+        .world()
+        .get_resource::<ambition_runtime::rollback::RollbackSessionStatus>()
+    else {
+        return RollbackHealth::NoSession;
+    };
+    if let Some(reason) = &status.invalidation {
+        return RollbackHealth::Invalidated {
+            reason: reason.clone(),
+        };
+    }
+    let frame = app
+        .world()
+        .get_resource::<ambition_runtime::rollback::RollbackFrameCount>()
+        .map(|count| count.0)
+        .unwrap_or(0);
+    if status.mismatch_frames.is_empty() {
+        RollbackHealth::Healthy { frame }
+    } else {
+        RollbackHealth::Desynced {
+            frames: status.mismatch_frames.clone(),
+            frame,
+        }
+    }
+}
+
 /// Bring a composed rollback host up to a running session.
 ///
 /// Construct, wait for activation, settle, then rebase frame zero onto the

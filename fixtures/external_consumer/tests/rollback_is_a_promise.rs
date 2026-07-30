@@ -189,12 +189,21 @@ fn a_restarted_session_rebases_onto_the_live_world() {
         "the host stopped running across a rebase"
     );
 
-    // And it keeps simulating afterwards. A rebase that left the session in a
-    // state where the next tick desyncs would still pass everything above.
+    // ⚠ `is_running()` alone was this test's whole liveness check until blind
+    // run 7, and it is not one: a host whose sim is FROZEN still reports
+    // `Running { prepared: true }` — the run watched it do so for 4300
+    // updates. So the rebase is checked by whether the session still ADVANCES,
+    // which is the fact the assertion above only looked like it was making.
+    let before = ambition::rollback::health(&app).frame().expect("a frame");
     for _ in 0..30 {
         app.update();
     }
-    assert!(ambition::app::host_status(&app).is_running());
+    let health = ambition::rollback::health(&app);
+    assert!(
+        health.frame().expect("a frame") > before,
+        "the session did not advance after the rebase: {health:?}"
+    );
+    assert!(health.is_healthy(), "the rebase desynced the session: {health:?}");
 }
 
 /// Property 6: **confirmation boundaries.**
@@ -254,5 +263,53 @@ fn the_schema_is_identical_across_two_compositions() {
     assert_eq!(
         a, b,
         "the rollback schema differs between two compositions of the same game"
+    );
+}
+
+/// **A started session is not a running one.** (Blind run 7, finding c)
+///
+/// The run watched `host_status` report `Running { prepared: true }` for 4300
+/// updates while its sim was frozen. `RollbackSession` reports startup facts
+/// and all three were healthy; nothing in the SDK could see liveness. This is
+/// the gap closed, and the test is written so it fails if the answer becomes
+/// unconditional in either direction.
+#[test]
+fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
+    use ambition::rollback::RollbackHealth;
+
+    // A host with no session must say so, rather than reporting healthy.
+    let fixed = outlander::build_outlander_app();
+    assert_eq!(
+        ambition::rollback::health(&fixed),
+        RollbackHealth::NoSession,
+        "a fixed-step host reported a rollback health other than NoSession"
+    );
+
+    let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
+    let health = ambition::rollback::health(&app);
+    assert!(
+        health.is_healthy(),
+        "a freshly started session is not healthy: {health:?}"
+    );
+
+    // ⚠ The half a single sample cannot see. A frozen session reports
+    // `Healthy` forever — liveness is a property of TWO observations, which is
+    // why `RollbackHealth::frame` says to sample it twice and why this test
+    // does.
+    let before = ambition::rollback::health(&app).frame().expect("a frame");
+    for _ in 0..60 {
+        app.update();
+    }
+    let after = ambition::rollback::health(&app).frame().expect("a frame");
+    assert!(
+        after > before,
+        "the session did not advance across 60 updates ({before} -> {after}), \
+         which is exactly the frozen-but-Running state blind run 7 could not \
+         diagnose from outside"
+    );
+    assert!(
+        ambition::rollback::health(&app).is_healthy(),
+        "the session desynced while simulating: {:?}",
+        ambition::rollback::health(&app)
     );
 }

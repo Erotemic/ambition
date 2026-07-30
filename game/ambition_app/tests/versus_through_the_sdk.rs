@@ -122,12 +122,38 @@ fn the_versus_stage_rolls_back_with_two_participants() {
         session.participants()
     );
 
+    // ⚠ `session.participants()` is the DECLARATION, not the seating, and
+    // blind run 7 proved the difference matters: it declared 1, 2 and 4 and got
+    // one body every time. This test was written to avoid the one-input-stream
+    // blind spot and reproduced a subtler version of it, so the seating is now
+    // asserted separately against the composed cast — the two fighters checked
+    // by name in the sibling test above.
+    //
+    // ⚠ What is still NOT proven here: that two SEPARATE input streams reach
+    // two separate bodies. The facade has no seat-keyed input or query, so a
+    // consumer cannot express it and this test cannot assert it. Recorded as
+    // slice-G finding (g) rather than papered over — the alternative is a Smash
+    // row that reads as proven while the participants half is a number.
+
     // ATOMIC MATCH LIFECYCLE, under rollback: the match survives resimulation.
     // A session that started and then stopped being live would pass everything
-    // above, because starting is the part that is easy.
+    // above, because starting is the part that is easy — and `is_running()`
+    // alone does NOT see that: a frozen sim still reports `Running`.
+    let before = ambition::rollback::health(&app)
+        .frame()
+        .expect("a started session has a frame");
     for _ in 0..120 {
         app.update();
     }
+    let health = ambition::rollback::health(&app);
+    assert!(
+        health.frame().expect("a frame") > before,
+        "the versus match did not ADVANCE across 120 updates: {health:?}"
+    );
+    assert!(
+        health.is_healthy(),
+        "the versus match desynced under resimulation: {health:?}"
+    );
     assert!(
         host_status(&app).is_running(),
         "the versus match did not survive 120 rollback frames: {:?}",

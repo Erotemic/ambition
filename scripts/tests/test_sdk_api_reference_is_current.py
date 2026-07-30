@@ -52,6 +52,7 @@ DOCUMENTED_TYPES = {
     "HostStatus": APP_RS,
     "RollbackPlan": ROLLBACK_RS,
     "RollbackSession": ROLLBACK_RS,
+    "RollbackHealth": ROLLBACK_RS,
 }
 
 # Methods deliberately absent from the reference, each with a reason. Anything
@@ -128,10 +129,17 @@ def test_the_reference_names_no_method_that_does_not_exist():
             "manifest",
             "asset_source",
             "update",
-            # `ambition::rollback`'s free function and the registration verb a
-            # consumer calls on its own `App`.
+            # `ambition::rollback`'s free function, and the verbs a consumer
+            # calls on its own `App` rather than on a builder type. These live
+            # on extension traits in engine crates (`AmbitionRollbackApp`,
+            # `SimScheduleExt`), which is exactly why the reference has to name
+            # them: a method reachable only through a trait a reader has not
+            # imported is one they will go into `crates/` looking for.
             "start",
             "rollback_component_canonical",
+            "require_rollback",
+            "sim_schedule",
+            "health",
         }
     )
     named = set(re.findall(r"`([a-z_][a-z0-9_]*)\(", text))
@@ -159,6 +167,7 @@ def test_the_reference_names_no_method_that_does_not_exist():
 # different edge.
 DOCUMENTED_ENUMS = {
     "RollbackRefused": ROLLBACK_RS,
+    "RollbackHealth": ROLLBACK_RS,
     "HostStatus": APP_RS,
 }
 

@@ -80,34 +80,46 @@
         "id": "a",
         "leak": "a consumer's own entity cannot join the rollback baseline",
         "cost": "HIGHEST — silent, and the SDK's own remedy confirms the wrong thing",
-        "state": "CLOSED as documentation, 2026-07-30. `require_rollback` existed and was reachable; nothing said so. ⚠ Left OPEN as a design question: a registration that is accepted and does nothing is a bad shape even when documented, and the campaign's rule is to make the wrong thing unrepresentable rather than warned about."
+        "state": "CLOSED as documentation (`require_rollback` at the point of failure). ⚠ The DESIGN question stays open: a registration that is accepted, counted and inert is a bad shape even when documented, and this campaign's rule is to make the wrong thing unrepresentable rather than warned about."
       },
       {
         "id": "e",
         "leak": "no documented way to add a gameplay system; naming `Update` puts gameplay outside rollback",
         "cost": "HIGH — the agent calls it the single most load-bearing missing paragraph, and it is the likely cause of the freeze it misdiagnosed as an engine desync",
-        "state": "OPEN, and it should go first: it is cheap and it is upstream of the confusion that produced finding (b)."
+        "state": "CLOSED 2026-07-30. `docs/sdk/api-reference.md` gains 'Where your gameplay systems go': `app.sim_schedule()` (never `Update`), the phase table, and why asking is what makes one plugin correct on both hosts."
       },
       {
         "id": "c",
         "leak": "no consumer-visible session health; `RollbackSessionStatus` is not in the facade",
         "cost": "HIGH — a real desync would be exactly as invisible as the unreproducible one",
-        "state": "OPEN"
+        "state": "CLOSED 2026-07-30. `ambition::rollback::health(&app) -> RollbackHealth` — NoSession / Healthy{frame} / Desynced{frames} / Invalidated{reason}. ⚠ Its own docs state the limit a single sample cannot see: a frozen session reports Healthy forever, so liveness needs TWO observations, and the tests sample twice."
       },
       {
         "id": "g",
         "leak": "N participants, one body, no seat-keyed input or query",
         "cost": "HIGH, and it indicts this campaign's own Smash proof — `participants()` reports the DECLARATION, not the seating",
-        "state": "OPEN"
+        "state": "PARTLY CLOSED. The Smash row now carries the limit explicitly (`⚠_what_the_participants_half_does_NOT_prove`) and the rollback test asserts the match ADVANCES rather than merely reporting Running. The underlying gap — no seat-keyed input or query, so two streams cannot be shown to reach two bodies — is OPEN and needs engine work, not documentation."
       },
       {
         "id": "f",
         "leak": "the one documented input verb is, by its own rustdoc, the wrong one under GGRS; `PendingLocalInput` is unexported",
         "cost": "MEDIUM-HIGH, unverified",
-        "state": "OPEN"
+        "state": "REFUTED, then closed as documentation. `drive_control_frame` IS correct under rollback — its rustdoc says it exists 'to make the choice unnecessary rather than merely documented', and Outlander drives its GGRS walkthrough through it to byte-identical state with the fixed-tick host. The agent read the explanation of the split as a warning about the verb. The reference now makes the point the rustdoc was making."
       }
     ],
     "the_capability_footprint_moves_to_slice_H": "Still real, still 19, still the §4 trigger that never fired — and still unfelt by any consumer after seven blind runs. It loses to five things a consumer hit in one session. The reason to do it has not weakened; the reason to do it FIRST has.",
-    "⚠_what_this_says_about_the_terminal_condition": "§4's three conditions held before run 7 and still hold after it. The run did not break them — it demonstrated that they can all hold while the newest public surface has five reachable defects, four of them silent. That is not an argument against the conditions; it is the standing reservation already recorded at the top of the campaign, arriving with evidence."
+    "⚠_what_this_says_about_the_terminal_condition": "§4's three conditions held before run 7 and still hold after it. The run did not break them — it demonstrated that they can all hold while the newest public surface has five reachable defects, four of them silent. That is not an argument against the conditions; it is the standing reservation already recorded at the top of the campaign, arriving with evidence.",
+    "closed_in_this_pass": [
+      "e",
+      "c",
+      "f (refuted)",
+      "a (docs)",
+      "g (partly)"
+    ],
+    "what_is_left_and_needs_ENGINE_work": [
+      "(g) seat-keyed input and query — N participants currently reach one body; no consumer can express otherwise.",
+      "(a) making an inert registration unrepresentable rather than documented — e.g. refusing at registration time when no entity family is declared."
+    ],
+    "⚠_two_of_five_findings_did_not_survive_checking": "(b) the frame-6 desync and (f) the wrong input verb. Both were reported confidently, both are wrong, and one of them nearly set the direction of this slice. The other three were real and one of them (a) is the sharpest defect the campaign has produced. That ratio is the argument for recording a subagent's claims BESIDE their verification rather than adopting them."
   }
 }

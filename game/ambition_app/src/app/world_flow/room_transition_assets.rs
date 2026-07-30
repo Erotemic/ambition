@@ -28,12 +28,12 @@ use ambition::render::quality::ResolvedVisualQuality;
 use ambition::sprite_sheet::boss::BossSpriteAsset;
 use ambition::sprite_sheet::character::CharacterSpriteAsset;
 use ambition::sprite_sheet::game_assets::{
-    EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme, ensure_parallax_layers_for_room,
+    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
 };
 
 use ambition::runtime::room_transition::{
-    RoomConstructionPlanPrefetch, RoomTransitionLoadPhase, RoomTransitionLoadState,
-    set_room_transition_work_state,
+    set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
+    RoomTransitionLoadState,
 };
 
 /// One concrete image handle whose successful load contributes to room visual
@@ -121,8 +121,7 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// Sheets this app's providers authored (queue U1) — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
-    pub(crate) authored_sheets:
-        Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
+    pub(crate) authored_sheets: Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -784,6 +783,44 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
 /// Promotion is an equality check against a freshly-derived manifest, so stale
 /// content or quality variants are never trusted.
 #[allow(clippy::too_many_arguments)]
+/// **How many one-hop neighbours may have their preparation prefetched.**
+///
+/// ⛔ **this was unbounded, and it is the launch-time stutter.** (2026-07-30,
+/// found from Jon's desktop timeline capture.) The prefetch reaches every room
+/// ONE loading zone away and demands that room's whole cast — which is right for
+/// a corridor and catastrophic for a hub. `central_hub_main` authors 21 loading
+/// zones and `central_hub_basement` 18, so standing in the hub prefetches
+/// essentially the entire game:
+///
+/// ```text
+/// staged cast on entering the Ambition route:  162 characters
+/// decoded in the 10-15s window:                +157 images, +357.8 MP
+/// resident image memory:                       1803 MB
+/// frames in that 5s window:                    91   (p99 1372ms, max 1437ms)
+/// ```
+///
+/// Two things make it hurt rather than merely cost:
+///
+/// * **it is not covered.** The transition path demands the same art behind the
+///   load cover (`build_room_asset_manifest` → `demand_room_character_sheets`),
+///   where a wait is invisible. Prefetching converts that covered wait into an
+///   uncovered multi-hundred-millisecond hitch DURING PLAY — for up to 21 rooms
+///   the player may never walk into.
+/// * **it grew silently.** Every room wired to the hub added its cast to the
+///   cost of standing in the hub, and no instrument watched it: the boot budget
+///   measures the title screen and this is entirely post-boot.
+///
+/// ⚠ **the cap SKIPS a room outright rather than prefetching it partially**, and
+/// that is deliberate. A half-prefetched room would cache a manifest that does
+/// not name the art it needs, and the transition promotes cached manifests — so
+/// the room would reveal with its cast undecoded. Skipping produces an ordinary
+/// prefetch MISS, which is the well-tested covered path.
+///
+/// Four is chosen against the world's real shape, not as a round number: every
+/// corridor and lab in `sandbox.ldtk` has at most four exits, so ordinary
+/// traversal is unaffected and only the hubs are trimmed.
+const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
+
 pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
     content_epoch: Res<ambition::runtime::room_transition::RoomTransitionContentEpoch>,
@@ -812,8 +849,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     active_session: Option<Res<ActiveSessionScope>>,
     mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
-    let empty_registry =
-        ambition::actors::character_runtime::PreparedCharacterRegistry::default();
+    let empty_registry = ambition::actors::character_runtime::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.source_room_id = None;
@@ -840,7 +876,33 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         || catalog.is_changed()
         || quality.is_changed();
 
-    let neighbor_indices = room_set.neighboring_room_indices();
+    // **THE NEIGHBOURHOOD IS BOUNDED**, and the reason is the shape of this
+    // world rather than a general principle about prefetching. See
+    // [`NEIGHBOR_PREFETCH_ROOM_BUDGET`].
+    let all_neighbors = room_set.neighboring_room_indices();
+    let skipped_neighbors = all_neighbors
+        .len()
+        .saturating_sub(NEIGHBOR_PREFETCH_ROOM_BUDGET);
+    let neighbor_indices = all_neighbors
+        .iter()
+        .copied()
+        .take(NEIGHBOR_PREFETCH_ROOM_BUDGET)
+        .collect::<Vec<_>>();
+    if skipped_neighbors > 0 {
+        // NOT silent. A cap that quietly drops work reads as "everything is
+        // prefetched" to the next person measuring a transition.
+        bevy::log::warn_once!(
+            target: "ambition::room_transition",
+            "room '{}' has {} neighbours; prefetching preparation for the first {} and \
+             skipping {}. Those rooms take the ordinary covered transition path instead \
+             (correct, just not preloaded). A hub with a large fan-out is the case this \
+             budget exists for — see NEIGHBOR_PREFETCH_ROOM_BUDGET.",
+            source_room.id,
+            all_neighbors.len(),
+            neighbor_indices.len(),
+            skipped_neighbors,
+        );
+    }
     let neighbor_ids = neighbor_indices
         .iter()
         .filter_map(|&index| room_set.rooms.get(index))

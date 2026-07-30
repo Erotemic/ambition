@@ -1,46 +1,71 @@
 # API 1.0 campaign
 
-**Status:** **slice A CLOSED (2026-07-30).** A1–A5 landed, all five evidence
-sources collected, slice B derived.
+**Status: slices A–E CLOSED, slice F derived and BLOCKED on one decision
+(2026-07-30).**
+
+| §4 terminal condition | State |
+|---|---|
+| the allowlist ratchet is at ZERO | Outlander **1 of 18** · minimal_game **0** — the one left is `ambition::runtime`, all rollback |
+| a blind run opens NO engine file | five runs: **8 → 4 → 4 → 2** surfaces; every named reason closed |
+| every consumer-matrix category proven | **5 of 6** — the sixth is Smash, which needs rollback |
+
+**All three remaining items are the same deferred thing.** Nothing steered them
+there; each was reached independently, and the destination is the boundary
+ADR 0031 drew before any of this was built.
+
 Executable plan for
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md) and
 [ADR 0032](../../adr/0032-authoring-is-declarative.md), both *Proposed*.
 
-The allowlist ratchet stands at **14 of 18**; the four modules host composition
-owned are retired and `ambition::app` is the first allowed SDK name — the first
-name in this engine that is a promise rather than a mirror of the crate list.
+### What each slice closed
 
-Slice B is derived, not sketched: **the movement-only minimal game**. See
-§Slice B at the end of slice A.
+| Slice | Leak | Result |
+|---|---|---|
+| **A** | a consumer must know the engine's assembly order | `PlatformerApp`; ratchet 18 → 14 |
+| **B** | a minimal game cannot reach the windowed face | `characters`/`no_characters`, `host_status`; a second consumer at 0 |
+| **C** | the engine refuses a game and drops the reason | `HostStatus::Refused`; a route hold was suppressing failure reporting |
+| **D** | a composition holds ONE experience; the shipped host has four | multi-experience drafts; matrix row 4 |
+| **E** | the builder boots only into a game; the shipped host boots into a launcher | `start_at_launcher()`; matrix row 6 |
 
-**How slices after A are chosen:** by the procedure in
-[api-growth-method.md](api-growth-method.md), from what the previous slice
-measured. B/C/D below are *sketched* so the shape of the whole is legible; only
-**A is specified**, and B/C/D are re-derived before they start.
+### The shape that recurred three times
 
-**Thesis, settled across four review rounds:**
+    single face      -> two faces      (A)
+    one experience   -> four           (D)
+    one host policy  -> two            (E)
 
-> Do not split `ambition_actors` by today's internal topology. Build and
-> mechanically enforce the public API first, let real consumers reveal the
-> durable capability boundaries, and reorganise behind them.
+Each time the SDK expressed ONE option while the shipped host needed another,
+and each was invisible while only the games written against the SDK were
+consulted. Three independent arrivals at the consumer matrix's argument, by
+measurement rather than assertion — a stronger case for ADR 0031's sequencing
+than the ADR itself makes.
 
-> ### ⚠ Revision, 2026-07-30 — the first draft of this file broke its own rule
->
-> It had seven rows spanning host composition, semantic facade design, content
-> compilation, character authority, open schemas, capability staging, rollback
-> federation, migration, agent evaluation and validation tooling — while
-> [api-growth-method.md](api-growth-method.md) §3c says *one slice closes one
-> leak end to end*. Written and violated in the same sitting.
->
-> The proof that it was too big is specific and was not mine: **an
-> Outlander-only slice cannot honestly make the global
-> character-preparation backstop deletable, because Mary-O, Sanic, the versus
-> fighters and the robot lineage all still stage characters through the old
-> completion mechanism.** `CharacterPreparationPlugin`'s `PreStartup` barrier is
-> process-global; deleting it needs every contributor migrated. So the sharpest
-> exit criterion in the campaign was in the wrong slice.
->
-> Split into A–D below. That criterion now belongs to **B**.
+### Slice F, derived and blocked
+
+**Rollback as a public promise.** The only candidate left, and the campaign's
+§4 carve trigger FIRED while scoping it: rollback ownership cannot be federated
+without moving code between crates, because `SnapshotState` and
+`AmbitionRollbackApp` live in `ambition_runtime`, which depends on twenty domain
+crates while none depends on it.
+
+⚠ **The compiler then proved the sequencing.** Attempting the carve produced
+E0117 — the 62 `impl SnapshotState for <foreign type>` blocks are legal only
+while the trait is local, so **extracting the vocabulary and federating the 62
+impls are ONE atomic change**, not two commits. The attempt was backed out
+rather than landed half-done.
+
+The instrument is already in place: the campaign's SECOND ratchet (319 stable
+names + 62 codecs, frozen as a SET) was built one commit before the constraint
+was measured, so the federation is measurable from its first commit.
+
+Full derivation, ranking and the five things the next attempt inherits:
+[`slice-evidence/slice-f-selection.json`](slice-evidence/slice-f-selection.json).
+
+⚠ **The cheap version is available and would be fraud.** Curating
+`ambition::rollback` as a closed module and pruning the baseline takes §4.1 to
+zero in twenty minutes and makes, through the back door, exactly the promise
+ADR 0031 reserves for its own slice. The allowlist contract carries that
+reasoning at the entry, because "one away from zero" is when somebody reaches
+for it.
 
 ---
 
@@ -502,7 +527,25 @@ use, at the exact file and line.
 
 ---
 
-## Slices B–D — sketched, not specified
+## Slices B–D — the ORIGINAL sketch, kept for comparison
+
+⚠ **Superseded by what actually happened, and kept because the difference is
+the campaign's own evidence.** The sketch below predicted B as content-model
+work: `ModuleDraft`, `ContentPackDraft`, preparation, module-qualified
+namespaces, with "ContentPack and namespaces BEFORE CharacterSpec".
+
+What the evidence selected instead was consumer-first every time — a minimal
+game (B), legible failure (C), multi-experience composition (D), host policy
+(E). Namespaces were never reached, and D showed why: the blocker was not a
+naming rule but that two experiences could not coexist at all. A namespace
+scheme designed from this sketch would have solved the second problem while the
+first stayed open.
+
+The domain was right and the shape was wrong, which is exactly what
+[api-growth-method.md](api-growth-method.md) §3 warns a sketch is for: legibility,
+not selection.
+
+### The original sketch
 
 Re-derived before starting. Recorded here so the shape of the whole is legible
 and so A does not quietly absorb them.

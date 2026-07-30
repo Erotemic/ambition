@@ -88,13 +88,15 @@
       "id": "ambition-itself",
       "consumer": "game/ambition_app",
       "proves": "full integration",
-      "proven": false,
-      "proof": null,
-      "slice": null,
+      "proven": true,
+      "proof": "game/ambition_app/tests/composes_through_the_sdk.rs (`--test app_it -- composes_through_the_sdk`) — the shipped games mount through `PlatformerApp`, the host boots to its launcher, and BOTH gameplay routes are reachable in the composed route catalog.",
+      "slice": "E",
       "note": "Deliberately last. It is also the consumer whose facade dependency ADR 0031 records as a deferred MEASUREMENT question rather than a rule.",
       "measured": "⚠ NO LONGER blocked on multi-experience composition — slice D closed that. Measured 2026-07-30, the remaining gap is HOST POLICY: `PlatformerApp` boots into the primary experience's GAMEPLAY route (that is what `ShellComposition::new(experience, launcher, gameplay)` does, and why Outlander launches 'DIRECTLY into the gameplay route'). `game/ambition_app` boots into a LAUNCHER that lists every registered experience, and it configures that by hand: it registers a plain shell experience as the home route and writes `ShellHostConfiguration.spec` itself.",
       "what_would_prove_it": "`game/ambition_app` composes through `PlatformerApp` and boots to its launcher with all four experiences reachable. Needs a host-policy choice on the builder — boot into the primary's gameplay route, or into a launcher over all mounted experiences — rather than the single hardcoded policy `ShellComposition` carries.",
-      "why_it_is_the_same_shape_as_every_other_finding": "The SDK expresses ONE shape and the shipped host is another, and nothing said so until a consumer tried. Single face -> two faces (slice A). One experience -> four (slice D). One host policy -> two (here). Each was invisible while only the games written against the SDK were consulted."
+      "why_it_is_the_same_shape_as_every_other_finding": "The SDK expresses ONE shape and the shipped host is another, and nothing said so until a consumer tried. Single face -> two faces (slice A). One experience -> four (slice D). One host policy -> two (here). Each was invisible while only the games written against the SDK were consulted.",
+      "honest_scope": "⚠ This composes the shipped host's EXPERIENCES, not the shipped BINARY. `ambition_app`'s real composer also installs dev tools, a settings menu, kaleidoscope menus, load presentation and the versus stage — an app shell around the games. Claiming the row on a test that quietly dropped all of that would be the overclaim this campaign has caught itself in three times, so the remainder is named rather than absorbed: migrating the production binary is real work and is NOT done.",
+      "what_it_took": "Two gaps, both found by attempting this row from other directions and both closed before it: a draft held ONE experience while the host registers four (slice D), and the builder booted only into a game while the host boots into a launcher (slice E). Neither was predicted; each was measured."
     }
   ]
 }

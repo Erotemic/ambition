@@ -17,6 +17,7 @@ mod common;
 mod app_it_sync;
 
 mod actor_phase_split;
+mod composes_through_the_sdk;
 mod app_local_catalog_composition;
 mod blink_run_reachability;
 mod boot_budget;

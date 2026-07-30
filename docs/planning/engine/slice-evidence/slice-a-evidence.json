@@ -188,47 +188,50 @@
         "domain": "content",
         "in_scope_for_slice_a": false,
         "became_deletable": false,
-        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+        "evidence": "Untouched, and NOT slice A's to touch. The barrier is process-global: Mary-O, Sanic, the versus fighters and the robot lineage all still stage through it, so an Outlander-only slice cannot make it deletable. This is the criterion whose misplacement forced the campaign's A-D split."
       },
       {
         "criterion": "provider-plugin-ordering-decides-content-completeness",
-        "domain": "composition",
-        "in_scope_for_slice_a": true,
-        "became_deletable": true,
-        "evidence": "contract outlander-does-not-hand-order-its-own-composition is green; the fixture's hand-ordered builders and dump are deleted"
+        "domain": "content",
+        "in_scope_for_slice_a": false,
+        "became_deletable": false,
+        "evidence": "\u26a0 RECLASSIFIED 2026-07-30. Previously marked composition/deletable on the strength of the green hand-ordering contract. That contract is about HOST composition order; this criterion is about CONTENT completeness, which is still decided by `Plugin::build` running `install_outlander_content` and by the finish/PreStartup apparatus slice A never went near. `define` accumulating into a draft is the shape that will close it, but the draft holds routes and a room in slice A, not content."
       },
       {
         "criterion": "repeated-app-finish-can-republish-prepared-content",
         "domain": "content",
         "in_scope_for_slice_a": false,
         "became_deletable": false,
-        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+        "evidence": "content-model criterion; the idempotence flag is untouched (slice B+)"
       },
       {
         "criterion": "headless-and-visible-share-a-prepared-content-fingerprint",
         "domain": "composition",
         "in_scope_for_slice_a": true,
-        "became_deletable": true,
-        "evidence": "contract outlander-does-not-hand-order-its-own-composition is green; the fixture's hand-ordered builders and dump are deleted"
+        "became_deletable": false,
+        "evidence": "\u26a0 MOVED AWAY from deletable, and this is the sharpest thing slice A measured. `PlatformerApp` gained `with_game_assets`, OFF by default on headless and always on for windowed \u2014 so the two faces now consume different prepared art unless the consumer says otherwise. That was a deliberate correction (the first draft installed assets on both faces citing THIS criterion, and the fixture's rollback parity test caught it: under GGRS the extra asset frames are frames the sim does not advance, and the two hosts landed twelve `update()` calls apart). Preparing art is also not free \u2014 boot decode was measured at 627MP/2.5GB. So the knob is right and the criterion is further away, which is a real finding rather than a regression: the criterion wants ONE FINGERPRINT, and slice A has no content fingerprint to share. Slice B owns closing it, and must close it without collapsing the policy back into the face."
       },
       {
         "criterion": "sanic-standalone-and-embedded-agree-on-identities",
         "domain": "content",
         "in_scope_for_slice_a": false,
         "became_deletable": false,
-        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+        "evidence": "content-model criterion; no module-qualified namespaces exist yet (slice B)"
       },
       {
         "criterion": "a-runtime-character-consumer-reads-a-fallback-catalog",
         "domain": "content",
         "in_scope_for_slice_a": false,
         "became_deletable": false,
-        "evidence": "slice A is bounded to host composition; this is a content-model criterion (slice B+)"
+        "evidence": "content-model criterion; the fallback catalog is untouched (slice B)"
       }
     ],
-    "in_scope": 2,
-    "became_deletable": 2,
-    "in_scope_but_not_deletable": []
+    "in_scope": 1,
+    "became_deletable": 0,
+    "in_scope_but_not_deletable": [
+      "headless-and-visible-share-a-prepared-content-fingerprint"
+    ],
+    "verdict_column_is_tautological": false
   },
   "capability_footprint": {
     "collected": true,

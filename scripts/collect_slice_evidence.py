@@ -208,49 +208,126 @@ def blind_agent_run() -> dict:
 # criteria that slice A never touched. Recording them as "not yet in scope" is
 # different from recording them as "still not deletable", and conflating the two
 # would manufacture the alarming signal §2d wants to be rare and meaningful.
+# ADR 0032's six deletion criteria, each with the QUESTION slice A can actually
+# answer about it and the answer slice A produced.
+#
+# ⚠ This used to be `(name, domain, in_scope)` with `became_deletable = in_scope`.
+# That is tautological: an in-scope row could never be false, so
+# `in_scope_but_not_deletable` was empty BY CONSTRUCTION — and §2d says that list
+# is "the most valuable single signal this method produces". A classifier that
+# cannot emit the valuable signal is not a classifier, it is a restatement of its
+# own input. Each row now carries its own verdict and its own reason.
 _DELETION_CRITERIA = [
-    ("prestartup-character-preparation-backstop", "content", False),
-    ("provider-plugin-ordering-decides-content-completeness", "composition", True),
-    ("repeated-app-finish-can-republish-prepared-content", "content", False),
-    ("headless-and-visible-share-a-prepared-content-fingerprint", "composition", True),
-    ("sanic-standalone-and-embedded-agree-on-identities", "content", False),
-    ("a-runtime-character-consumer-reads-a-fallback-catalog", "content", False),
+    {
+        "criterion": "prestartup-character-preparation-backstop",
+        "domain": "content",
+        "in_scope_for_slice_a": False,
+        "became_deletable": False,
+        "evidence": (
+            "Untouched, and NOT slice A's to touch. The barrier is process-global: "
+            "Mary-O, Sanic, the versus fighters and the robot lineage all still "
+            "stage through it, so an Outlander-only slice cannot make it "
+            "deletable. This is the criterion whose misplacement forced the "
+            "campaign's A-D split."
+        ),
+    },
+    {
+        "criterion": "provider-plugin-ordering-decides-content-completeness",
+        "domain": "content",
+        "in_scope_for_slice_a": False,
+        "became_deletable": False,
+        "evidence": (
+            "⚠ RECLASSIFIED 2026-07-30. Previously marked composition/deletable on "
+            "the strength of the green hand-ordering contract. That contract is "
+            "about HOST composition order; this criterion is about CONTENT "
+            "completeness, which is still decided by `Plugin::build` running "
+            "`install_outlander_content` and by the finish/PreStartup apparatus "
+            "slice A never went near. `define` accumulating into a draft is the "
+            "shape that will close it, but the draft holds routes and a room in "
+            "slice A, not content."
+        ),
+    },
+    {
+        "criterion": "repeated-app-finish-can-republish-prepared-content",
+        "domain": "content",
+        "in_scope_for_slice_a": False,
+        "became_deletable": False,
+        "evidence": "content-model criterion; the idempotence flag is untouched (slice B+)",
+    },
+    {
+        "criterion": "headless-and-visible-share-a-prepared-content-fingerprint",
+        "domain": "composition",
+        "in_scope_for_slice_a": True,
+        "became_deletable": False,
+        "evidence": (
+            "⚠ MOVED AWAY from deletable, and this is the sharpest thing slice A "
+            "measured. `PlatformerApp` gained `with_game_assets`, OFF by default "
+            "on headless and always on for windowed — so the two faces now "
+            "consume different prepared art unless the consumer says otherwise. "
+            "That was a deliberate correction (the first draft installed assets "
+            "on both faces citing THIS criterion, and the fixture's rollback "
+            "parity test caught it: under GGRS the extra asset frames are frames "
+            "the sim does not advance, and the two hosts landed twelve `update()` "
+            "calls apart). Preparing art is also not free — boot decode was "
+            "measured at 627MP/2.5GB. So the knob is right and the criterion is "
+            "further away, which is a real finding rather than a regression: the "
+            "criterion wants ONE FINGERPRINT, and slice A has no content "
+            "fingerprint to share. Slice B owns closing it, and must close it "
+            "without collapsing the policy back into the face."
+        ),
+    },
+    {
+        "criterion": "sanic-standalone-and-embedded-agree-on-identities",
+        "domain": "content",
+        "in_scope_for_slice_a": False,
+        "became_deletable": False,
+        "evidence": "content-model criterion; no module-qualified namespaces exist yet (slice B)",
+    },
+    {
+        "criterion": "a-runtime-character-consumer-reads-a-fallback-catalog",
+        "domain": "content",
+        "in_scope_for_slice_a": False,
+        "became_deletable": False,
+        "evidence": "content-model criterion; the fallback catalog is untouched (slice B)",
+    },
 ]
 
 
 def deletion_criteria() -> dict:
-    """§2d — ADR 0032's criteria, with slice A's scope stated per row."""
-    rows = []
-    for name, domain, in_scope in _DELETION_CRITERIA:
-        rows.append(
-            {
-                "criterion": name,
-                "domain": domain,
-                "in_scope_for_slice_a": in_scope,
-                # Slice A owns composition ordering: `PlatformerApp` is now the
-                # single authority for engine→host→shell→assets→presentation
-                # order, and the external consumer no longer states any of it —
-                # guarded by `outlander-does-not-hand-order-its-own-composition`.
-                # That is ownership TAKEN, not a seam added beside the old path:
-                # the fixture's three hand-rolled builders and its hand-composed
-                # dump were deleted, not left as a second route.
-                "became_deletable": in_scope,
-                "evidence": (
-                    "contract outlander-does-not-hand-order-its-own-composition "
-                    "is green; the fixture's hand-ordered builders and dump are "
-                    "deleted"
-                )
-                if in_scope
-                else "slice A is bounded to host composition; this is a content-model criterion (slice B+)",
-            }
-        )
-    unresolved = [r["criterion"] for r in rows if r["in_scope_for_slice_a"] and not r["became_deletable"]]
+    """§2d — ADR 0032's criteria, each with its own verdict.
+
+    Slice A moved NONE of them, and that is the honest and expected result: all
+    six are content or capability criteria, and slice A was bounded to host
+    composition. A slice that reported progress here would have been reporting
+    that it exceeded its own scope.
+
+    §2d: *"A criterion that did NOT become deletable is the most valuable single
+    signal this method produces. It means a seam was added beside the old
+    mechanism rather than taking ownership from it."* That reading applies to
+    IN-SCOPE rows. The one in-scope row here did not merely fail to move — it
+    moved the wrong way, and its `evidence` says why in full.
+    """
+    rows = [dict(row) for row in _DELETION_CRITERIA]
+
+    # Non-vacuity: the verdict must not be a restatement of the scope, which is
+    # the bug this function had. If every in-scope row is deletable and every
+    # out-of-scope row is not, the column is carrying no information.
+    scope = [r["in_scope_for_slice_a"] for r in rows]
+    verdict = [r["became_deletable"] for r in rows]
+    tautological = scope == verdict
+
+    unresolved = [
+        r["criterion"]
+        for r in rows
+        if r["in_scope_for_slice_a"] and not r["became_deletable"]
+    ]
     return {
         "criteria": rows,
-        "in_scope": sum(1 for r in rows if r["in_scope_for_slice_a"]),
-        "became_deletable": sum(1 for r in rows if r["became_deletable"]),
+        "in_scope": sum(scope),
+        "became_deletable": sum(verdict),
         # §2d: investigate this before anything else on the list.
         "in_scope_but_not_deletable": unresolved,
+        "verdict_column_is_tautological": tautological,
     }
 
 

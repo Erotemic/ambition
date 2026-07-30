@@ -226,6 +226,38 @@ regression, which is what pruning bought.
 allowlist's `allowed` set — the first name in this engine that is a promise
 rather than a mirror of the crate list.
 
+#### ⚠ §2d moved the WRONG WAY, and that is the finding
+
+Slice A made **zero** of ADR 0032's six deletion criteria deletable. That is the
+honest and expected result — all six are content or capability criteria, and
+slice A was bounded to host composition. A slice reporting progress there would
+have been reporting that it exceeded its own scope.
+
+One of the six moved *away*:
+
+> **`headless-and-visible-share-a-prepared-content-fingerprint`.**
+> `PlatformerApp` gained `with_game_assets`, off by default on headless and
+> always on for windowed, so the two faces now consume different prepared art
+> unless the consumer says otherwise.
+
+That knob is correct and was arrived at the hard way: the first implementation
+installed assets on **both** faces *citing this very criterion*, and the
+fixture's rollback parity test caught it — under GGRS the extra asset frames are
+frames the sim does not advance. Preparing art is also not free (627MP/2.5GB at
+boot). So the policy stays and the criterion is further off. **Slice B owns
+closing it, and must close it without collapsing the policy back into the face.**
+
+⚠ The collector originally reported this criterion as *deletable*. Its verdict
+column was computed as `became_deletable = in_scope`, which is tautological —
+an in-scope row could never be false, so `in_scope_but_not_deletable` was empty
+BY CONSTRUCTION, and §2d calls that list *"the most valuable single signal this
+method produces"*. Each criterion now carries its own verdict and reason, and
+the collector asserts the column is not merely a restatement of the scope.
+`provider-plugin-ordering-decides-content-completeness` was reclassified in the
+same pass: it had been marked composition/deletable on the strength of the
+host-ordering contract, but content completeness is still decided by
+`Plugin::build` and the finish/`PreStartup` apparatus slice A never went near.
+
 #### ⚠ The ninth leak, found BY the migration
 
 A2 §1 inventoried eight rules. The migration found a ninth, and it is the

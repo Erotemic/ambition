@@ -69,6 +69,7 @@ import json
 import re
 import subprocess
 import sys
+from bisect import bisect_right
 from pathlib import Path
 
 # Every entry is one architectural absence. `paths` are git pathspecs limited to
@@ -394,6 +395,96 @@ DEPENDENCY_CONTRACTS: list[dict] = [
     },
 ]
 
+# The third table: what a CONSUMER is allowed to name through the facade.
+#
+# The other two tables forbid specific things. This one permits specific things
+# and forbids the rest, and the difference is not stylistic — it is the whole
+# reason the row exists. ADR 0031: `ambition` is a namespace mirror today, so
+# **a denylist always lags it.** The first draft of the campaign forbade six
+# modules. Outlander names eighteen. That contract would have gone green with
+# twelve leaks still open, which is worse than no contract, because a green
+# contract is believed.
+#
+# ⚠ TWO invariants, and the second is what makes this a RATCHET rather than a
+# count. api-growth-method.md §5: *"a ratchet on a COUNT is not one, because a
+# count permits deleting one entry and adding another. Freeze the SET."*
+#
+#   1. `named ⊆ allowed ∪ baseline` — the consumer may not name a NEW module.
+#   2. `baseline ⊆ named`           — the baseline may not keep an entry the
+#                                     consumer has stopped naming.
+#
+# Invariant 2 is the one people leave out. Without it the baseline is a budget:
+# migrate `time` away, leave `time` in the list, and the eighteenth slot is now
+# free for something else to occupy silently. With it, a migration MUST prune
+# its entry in the same commit — and a pruned entry can never come back, because
+# invariant 1 then rejects it. That is the ratchet: monotone, per-member, and
+# it closes at zero.
+#
+# `allowed` is EMPTY on purpose. It holds the reviewed public SDK surface, and
+# campaign §A1 says the exact public module names stay provisional until A2 is
+# accepted. An allowlist populated with guesses before the call sites are
+# written would be the campaign designing the API from the module list, which is
+# precisely the sequencing ADR 0031 rejects.
+MODULE_ALLOWLISTS: list[dict] = [
+    {
+        "id": "outlander-names-only-the-public-sdk",
+        # Slice A is BOUNDED to the external fixture (Jon, 2026-07-30).
+        # `game/ambition_content` also depends on the facade, and ADR 0031's
+        # dependency contract deliberately records that as a MEASUREMENT
+        # question the campaign defers rather than a rule. Widening these paths
+        # would answer it by accident, in a row whose subject is host
+        # composition.
+        "paths": ["fixtures/external_consumer/"],
+        # The fixture's `tests/` ARE the consumer. Elsewhere a test calling a
+        # resolver is not a second authority, so `is_test_path` excludes it; here
+        # the tests are a third party exercising the public API, which is exactly
+        # the population being measured. It happens not to change the SET today —
+        # every module the tests name, `src/` names too — but it changes the
+        # counts, and the counts are §2a's cost proxy.
+        "include_tests": True,
+        "facade": "ambition",
+        "allowed": set(),
+        # Measured 2026-07-30 by this script, not transcribed from the campaign.
+        # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
+        # names. There are eighteen. Both documents were corrected in the commit
+        # that added this table; the instrument is the authority for its own
+        # baseline, because a baseline copied out of prose is a ratchet nobody
+        # measured.
+        "baseline": {
+            "actors",
+            "asset_manager",
+            "audio",
+            "characters",
+            "engine",
+            "engine_core",
+            "entity_catalog",
+            "game_assets",
+            "game_shell",
+            "input",
+            "platformer",
+            "presentation",
+            "provider",
+            "runtime",
+            "sprite_sheet",
+            "time",
+            "windowed_host",
+            "world",
+        },
+        "reason": (
+            "A game depends on `ambition`, and `ambition` is currently the list "
+            "of crates the engine happens to be built from — so a consumer's "
+            "imports encode our implementation topology and we cannot move an "
+            "implementation without breaking them (ADR 0031). Outlander reaches "
+            "through the facade for `ambition::runtime::rollback::put_f32`: a "
+            "third party building a game is naming an internal serialisation "
+            "helper. Each name in `baseline` is one leak still open. The set may "
+            "not GAIN a member, and it may not KEEP one the consumer has stopped "
+            "naming — see the two invariants above. Zero means consumers name "
+            "only the SDK."
+        ),
+    },
+]
+
 _LINE_COMMENT = re.compile(r"//.*$")
 _HASH_COMMENT = re.compile(r"#(?!\[).*$")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -504,6 +595,123 @@ def violations(contract: dict, root: Path) -> list[tuple[str, int, str]]:
     return found
 
 
+def _leading_identifier(text: str) -> list[str]:
+    """The identifier a use-tree item starts with, or nothing."""
+    match = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)", text)
+    # `self` re-exports the facade root, which names no module.
+    if not match or match.group(1) == "self":
+        return []
+    return [match.group(1)]
+
+
+def use_tree_heads(text: str, index: int) -> list[str]:
+    """The top-level module names a use tree introduces at `index`.
+
+    ⚠ **This exists because a line regex is EVADABLE, and silently.**
+    `ambition::time` is easy to match. `use ambition::{time::Foo, audio::Bar};`
+    is the same two leaks written in idiomatic Rust, and a
+    `\\bambition::([a-z_]+)` pattern matches neither of them — it sees `{` and
+    stops. The fixture happens to contain no brace-grouped facade import today,
+    so a line regex would have been green, correct, and wrong the first time
+    somebody wrote ordinary Rust.
+
+    Forbidding the braced form was the cheaper fix and it was rejected: a
+    contract that outlaws standard syntax to keep its own parser simple is a
+    contract that gets waived. So the tree is parsed. Only the depth-1 heads
+    matter — `{a::{b, c}, d}` names `a` and `d` — which is why this needs no
+    recursion into nested groups.
+    """
+    while index < len(text) and text[index].isspace():
+        index += 1
+    if index >= len(text):
+        return []
+    if text[index] != "{":
+        return _leading_identifier(text[index:])
+
+    heads: list[str] = []
+    depth = 0
+    item: list[str] = []
+    for position in range(index, len(text)):
+        character = text[position]
+        if character == "{":
+            depth += 1
+            if depth == 1:
+                item = []
+                continue
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                heads.extend(_leading_identifier("".join(item)))
+                return heads
+        if depth == 1 and character == ",":
+            heads.extend(_leading_identifier("".join(item)))
+            item = []
+            continue
+        item.append(character)
+    # An unterminated group is malformed Rust; take what was readable rather
+    # than reporting the file as clean.
+    heads.extend(_leading_identifier("".join(item)))
+    return heads
+
+
+def facade_modules(text: str, facade: str) -> list[tuple[int, str]]:
+    """Every `offset, top-level module` named through `facade::` in `text`."""
+    found: list[tuple[int, str]] = []
+    for match in re.finditer(rf"\b{re.escape(facade)}::", text):
+        for head in use_tree_heads(text, match.end()):
+            found.append((match.start(), head))
+    return found
+
+
+def allowlist_usage(contract: dict, root: Path) -> dict[str, list[tuple[str, int]]]:
+    """Every facade module the consumer names, mapped to where it names it.
+
+    Whole-file rather than line-by-line, because a use tree spans lines and the
+    heads have to be attributed to the `ambition::` that introduced them.
+    Comments are stripped with the same line-local helper the other tables use,
+    so the prose recurrence this module exists to survive is survived here too:
+    a doc comment naming `ambition::runtime` is not a consumer naming it.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "--", *contract["paths"]],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+
+    usage: dict[str, list[tuple[str, int]]] = {}
+    for relative in listed:
+        if not relative.endswith(".rs"):
+            continue
+        if not contract.get("include_tests", False) and is_test_path(relative):
+            continue
+        try:
+            raw = (root / relative).read_text(errors="replace")
+        except OSError:
+            continue
+        stripped = "\n".join(
+            strip_comments_for(relative, line) for line in raw.splitlines()
+        )
+        starts = [0]
+        for line in stripped.splitlines():
+            starts.append(starts[-1] + len(line) + 1)
+        for offset, module in facade_modules(stripped, contract["facade"]):
+            number = max(1, bisect_right(starts, offset))
+            usage.setdefault(module, []).append((relative, number))
+    return {module: sorted(where) for module, where in sorted(usage.items())}
+
+
+def allowlist_violations(
+    contract: dict, usage: dict[str, list[tuple[str, int]]]
+) -> tuple[list[str], list[str]]:
+    """`new, stale` — invariant 1's breaches and invariant 2's."""
+    named = set(usage)
+    allowed = set(contract["allowed"])
+    baseline = set(contract["baseline"])
+    return sorted(named - allowed - baseline), sorted(baseline - named)
+
+
 def cargo_binary() -> str:
     """`cargo`, found even when PATH does not have it.
 
@@ -578,6 +786,14 @@ def main() -> int:
     parser.add_argument(
         "--check", action="store_true", help="exit 1 when a contract is violated"
     )
+    parser.add_argument(
+        "--allowlist-open-count",
+        action="store_true",
+        help=(
+            "print the number of baseline modules a consumer still names, and "
+            "nothing else — the campaign's progress metric, for a goal check"
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(
@@ -588,6 +804,17 @@ def main() -> int:
             check=True,
         ).stdout.strip()
     )
+
+    if args.allowlist_open_count:
+        # Deliberately the count of BASELINE modules still named, not of every
+        # module named: a new module is invariant 1's problem and this number
+        # must not be able to rise when one appears. It only ever falls.
+        still_open = sum(
+            len(set(allowlist_usage(contract, root)) & set(contract["baseline"]))
+            for contract in MODULE_ALLOWLISTS
+        )
+        print(still_open)
+        return 0
 
     broken = 0
     for contract in ABSENCE_CONTRACTS:
@@ -613,7 +840,52 @@ def main() -> int:
         for path in found:
             print(f"       {path}")
 
-    total = len(ABSENCE_CONTRACTS) + len(DEPENDENCY_CONTRACTS)
+    for contract in MODULE_ALLOWLISTS:
+        usage = allowlist_usage(contract, root)
+        new, stale = allowlist_violations(contract, usage)
+        still_open = sorted(set(usage) & set(contract["baseline"]))
+        facade = contract["facade"]
+        if not new and not stale:
+            print(
+                f"  ok   {contract['id']}"
+                f"  ({len(still_open)} of {len(contract['baseline'])} baseline "
+                f"modules still named)"
+            )
+        else:
+            broken += 1
+            print(f"  RED  {contract['id']}")
+            print(f"       {contract['reason']}")
+            for module in new:
+                sites = usage[module]
+                print(
+                    f"       NEW  {facade}::{module} "
+                    f"({len(sites)} uses) is in neither the reviewed public "
+                    f"surface nor the frozen baseline"
+                )
+                for path, number in sites:
+                    print(f"            {path}:{number}")
+            for module in stale:
+                print(
+                    f"       STALE  {facade}::{module} is in the baseline but "
+                    f"the consumer no longer names it — PRUNE it in this "
+                    f"commit, or the baseline is a budget and the slot it "
+                    f"leaves behind can be filled silently"
+                )
+        # §2a of the growth method: which paths does the consumer still name,
+        # and how many times. Frequency is the crude cost proxy and it is
+        # usually right, so the instrument prints it rather than making the
+        # next slice go and count by hand.
+        if still_open:
+            ranked = sorted(
+                ((len(usage[module]), module) for module in still_open),
+                reverse=True,
+            )
+            summary = "  ".join(f"{module}:{count}" for count, module in ranked)
+            print(f"       still named — {summary}")
+
+    total = (
+        len(ABSENCE_CONTRACTS) + len(DEPENDENCY_CONTRACTS) + len(MODULE_ALLOWLISTS)
+    )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")
         print(

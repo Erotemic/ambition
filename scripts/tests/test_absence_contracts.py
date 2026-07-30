@@ -218,3 +218,158 @@ def test_every_dependency_contract_holds_against_the_live_workspace(contract):
         + "\n".join(f"  {path}" for path in found)
         + f"\n{contract['reason']}"
     )
+
+
+# ── The module allowlist ────────────────────────────────────────────────────
+#
+# The third table permits a set and forbids the rest, so it has a failure mode
+# the other two do not: it can be evaded by writing the SAME import in a
+# different syntax. These probe the two invariants, the evasion, and the prose
+# recurrence.
+
+from check_absence_contracts import (  # noqa: E402
+    MODULE_ALLOWLISTS,
+    allowlist_usage,
+    allowlist_violations,
+    facade_modules,
+    strip_comments_for as _strip,
+)
+
+
+def modules_in(source: str) -> set[str]:
+    """The facade modules a snippet names, through the real pipeline.
+
+    Comment-stripped line by line and rejoined, which is exactly what
+    `allowlist_usage` does to a file — so a snippet that survives here is a
+    snippet that would be reported there.
+    """
+    stripped = "\n".join(_strip("some/file.rs", line) for line in source.splitlines())
+    return {module for _, module in facade_modules(stripped, "ambition")}
+
+
+def test_the_allowlist_sees_an_ordinary_import():
+    assert modules_in("use ambition::runtime::rollback::put_f32;") == {"runtime"}
+
+
+def test_the_allowlist_sees_a_brace_grouped_import():
+    """The evasion that a line regex misses, silently.
+
+    `\\bambition::([a-z_]+)` matches neither name below — it reaches `{` and
+    stops. The fixture contains no braced facade import today, so a line regex
+    would have been green, and wrong the first time somebody wrote idiomatic
+    Rust. This is the probe that the parser is not decoration.
+    """
+    assert modules_in("use ambition::{time::Clock, audio::Bank};") == {
+        "time",
+        "audio",
+    }
+
+
+def test_the_allowlist_sees_through_nesting_and_across_lines():
+    source = """
+    use ambition::{
+        world::prelude::*,
+        actors::{features::Body, ecs::Damage},
+        input::Action,
+    };
+    """
+    assert modules_in(source) == {"world", "actors", "input"}
+
+
+def test_the_allowlist_does_not_count_self_as_a_module():
+    assert modules_in("use ambition::{self, world::Room};") == {"world"}
+
+
+def test_the_allowlist_does_not_confuse_a_crate_name_with_the_facade():
+    """`ambition_actors::` is an engine crate, not the facade.
+
+    An engine developer may name it; a consumer depending only on `ambition`
+    cannot reach it. Matching it here would report leaks that do not exist and
+    the contract would be waived within a week.
+    """
+    assert modules_in("use ambition_actors::features::Body;") == set()
+
+
+def test_the_allowlist_stays_silent_on_prose_naming_a_module():
+    """Documenting a leak must not register as the leak.
+
+    Three absence checks in this repo went red on the docstring explaining the
+    removal. The allowlist has the same exposure and more of it — the campaign
+    documents are FULL of `ambition::runtime` — so it gets the same probe.
+    """
+    for comment in (
+        "/// Outlander used to reach for `ambition::runtime::rollback`.",
+        "//! LEAK CLOSED: no longer names ambition::time.",
+        "    // was ambition::{audio, presentation}",
+    ):
+        assert modules_in(comment) == set(), f"fired on prose: {comment!r}"
+
+
+def test_the_allowlist_catches_a_module_outside_the_reviewed_surface():
+    """Invariant 1: the set may not GAIN a member."""
+    contract = {
+        "allowed": {"app"},
+        "baseline": {"runtime"},
+    }
+    usage = {"app": [("x.rs", 1)], "runtime": [("x.rs", 2)], "combat": [("x.rs", 3)]}
+    new, stale = allowlist_violations(contract, usage)
+    assert new == ["combat"], f"a new leak was not reported: {new}"
+    assert stale == []
+
+
+def test_the_allowlist_catches_a_stale_baseline_entry():
+    """Invariant 2 — the one that makes this a ratchet and not a budget.
+
+    Without it, migrating `time` away while leaving `time` in the baseline
+    frees a slot: the COUNT still reads 2, and the next module to appear
+    occupies the gap without ever tripping invariant 1. `Freeze the SET`
+    (api-growth-method.md §5) is only enforced if the set is pruned as it
+    shrinks, so an unpruned entry has to be as red as a new one.
+    """
+    contract = {"allowed": set(), "baseline": {"runtime", "time"}}
+    usage = {"runtime": [("x.rs", 1)]}
+    new, stale = allowlist_violations(contract, usage)
+    assert stale == ["time"], f"the stale baseline entry was not reported: {stale}"
+    assert new == []
+
+
+def test_a_pruned_module_can_never_come_back():
+    """The two invariants composed, which is the property being bought.
+
+    Once `time` is migrated and pruned, re-adding it is invariant 1's problem.
+    A ratchet is only a ratchet if this holds.
+    """
+    contract = {"allowed": set(), "baseline": {"runtime"}}
+    new, stale = allowlist_violations(
+        contract, {"runtime": [("x.rs", 1)], "time": [("x.rs", 2)]}
+    )
+    assert new == ["time"] and stale == []
+
+
+@pytest.mark.parametrize("contract", MODULE_ALLOWLISTS, ids=lambda c: c["id"])
+def test_every_module_allowlist_holds_against_the_live_tree(contract):
+    root = Path(__file__).resolve().parents[2]
+    new, stale = allowlist_violations(contract, allowlist_usage(contract, root))
+    assert not new and not stale, (
+        f"{contract['id']} is violated: new={new} stale={stale}\n"
+        f"{contract['reason']}"
+    )
+
+
+@pytest.mark.parametrize("contract", MODULE_ALLOWLISTS, ids=lambda c: c["id"])
+def test_the_allowlist_baseline_is_not_silently_empty(contract):
+    """A measurement bug reads exactly like a finished migration.
+
+    If `allowlist_usage` stopped finding anything — a path typo, a renamed
+    fixture, a regex that no longer matches — every invariant above passes and
+    the campaign's progress metric reports ZERO, which is the success
+    condition. That failure is green in the direction that feels good, so the
+    non-vacuity is asserted rather than assumed.
+    """
+    root = Path(__file__).resolve().parents[2]
+    usage = allowlist_usage(contract, root)
+    assert usage, (
+        f"{contract['id']} measured NO facade usage at all. Either the "
+        "campaign is over, or the instrument is broken — check the second one "
+        "first."
+    )

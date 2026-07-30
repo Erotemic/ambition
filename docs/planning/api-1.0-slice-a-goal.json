@@ -1,0 +1,116 @@
+{
+  "_comment": [
+    "ARMED 2026-07-30T03:45Z for a 24h run (deadline 2026-07-31T03:45Z).",
+    "  python3 scripts/goal_guard.py --arm docs/planning/api-1.0-slice-a-goal.json",
+    "",
+    "Scope: docs/planning/engine/api-1.0-campaign.md SLICE A, plus the evidence",
+    "collection that api-growth-method.md §2 makes mandatory at the end of every",
+    "slice, plus DERIVING slice B from that evidence. Deriving B is in scope;",
+    "BUILDING B is not -- §3c says one slice closes one leak end to end, and a run",
+    "that starts B has stopped auditing A.",
+    "",
+    "These checks are FRESH. The previous goal file",
+    "(docs/planning/queue-24h-2026-07-26-goal.json) belongs to a finished queue and",
+    "none of its rows are carried over. What IS carried over is its check-authoring",
+    "scar tissue, because every one of those was paid for:",
+    "",
+    "  * $HOME/.cargo/bin/cargo everywhere. The hook PATH has no cargo, and a",
+    "    'command not found' check can NEVER pass -- it wedges the run it guards.",
+    "  * SIGPIPE footgun (2026-07-26): `cmd | grep -q pat` is NONDETERMINISTIC under",
+    "    pipefail. grep -q exits on first match, the writer gets SIGPIPE, and the",
+    "    check reports 141. Never end a pipeline with grep -q; use grep >/dev/null.",
+    "  * cargo test with a filter matching ZERO tests EXITS 0. Every cargo-test",
+    "    check therefore asserts a POSITIVE pass count, or naming an unwritten test",
+    "    would pass before the work existed.",
+    "  * NEVER grep for the absence of an identifier. Three checks went red on PROSE",
+    "    -- the phrase appeared in the docstring explaining the removal. Absences go",
+    "    through scripts/check_absence_contracts.py, which strips comments before",
+    "    matching, and the check names the CONTRACT ID rather than the symbol.",
+    "  * Full ./run_tests.sh is pre-commit discipline; the guard runs --fast, which",
+    "    fits the hook timeout. A check that cannot finish cannot close.",
+    "",
+    "PROGRESS checks vs REGRESSION guards -- both belong here, and conflating them",
+    "is how a guard that is green at minute zero gets mistaken for one that works:",
+    "",
+    "  RED at arming (these are the goal):  3, 4, 5, 6, 7",
+    "  GREEN at arming (regression guards): 1, 2, 8, 9, 10, 11",
+    "",
+    "Check 1 is green the moment A1 lands and that is CORRECT -- it is the",
+    "may-not-grow ratchet, which is required to land green against a recorded",
+    "baseline (ADR 0031: a permanently failing branch is not a gradient, it is a",
+    "broken gate that teaches people to ignore gates). The PROGRESS metric is",
+    "check 3, which is red until Outlander actually stops naming a module.",
+    "",
+    "⚠ THE BASELINE IS 18, NOT 19. api-1.0-campaign.md §A1 and ADR 0031 both said",
+    "19 while listing eighteen names; the fixture names eighteen distinct top-level",
+    "`ambition::` modules, with no braced `ambition::{...}` imports and no root-level",
+    "type re-exports hiding from the count. Both documents are corrected in the same",
+    "commit as A1. The number here is what the INSTRUMENT prints, never what the",
+    "prose says -- a baseline transcribed from a document is a ratchet nobody",
+    "measured.",
+    "",
+    "⚠ Scope of the allowlist is fixtures/external_consumer/ ONLY (Jon, 2026-07-30).",
+    "`game/ambition_content` depends on the facade today and ADR 0031's dependency",
+    "contract calls that out as a deferred MEASUREMENT question rather than a rule.",
+    "Widening the allowlist to game/ would answer it by accident."
+  ],
+  "goal": "Land SLICE A of docs/planning/engine/api-1.0-campaign.md end to end -- the module allowlist ratchet, the host-facade call-site prototype, PlatformerApp over current machinery, Outlander migrated with its hand-ordered composition path DELETED, and the blind-agent baseline recorded. A slice ends with ONE path, not two: introduce, migrate, delete, guard, all four. Then collect all five evidence sources from api-growth-method.md §2 and DERIVE slice B from them -- do not invent B, and do not start building it. If slice A looks done, re-read §2: the evidence is the part everyone skips, and skipping it means slice B gets chosen by taste.",
+  "deadline_utc": "2026-07-31T03:45:00Z",
+  "max_stalled_blocks": 30,
+  "checks": [
+    {
+      "name": "A1 the allowlist ratchet HOLDS (consumer names no module outside the frozen set, and the frozen set has no stale entry)",
+      "cmd": "python3 scripts/check_absence_contracts.py --check",
+      "timeout": 600
+    },
+    {
+      "name": "A1 the ratchet is RED-PROBED: it catches a new module, catches a stale baseline entry, and stays SILENT on prose",
+      "cmd": "python3 -m pytest scripts/tests/test_absence_contracts.py -q >/dev/null 2>&1 && python3 -m pytest scripts/tests/test_absence_contracts.py -q -k allowlist >/dev/null 2>&1",
+      "timeout": 600
+    },
+    {
+      "name": "A1->A4 PROGRESS: the open-leak count is STRICTLY below the recorded baseline of 18",
+      "cmd": "n=$(python3 scripts/check_absence_contracts.py --allowlist-open-count) && test -n \"$n\" && test \"$n\" -lt 18",
+      "timeout": 600
+    },
+    {
+      "name": "A4 Outlander's hand-ordered composition path is DELETED (named contract, comment-stripped -- not a grep for a symbol)",
+      "cmd": "python3 scripts/check_absence_contracts.py | grep -E '^  ok   outlander-does-not-hand-order-its-own-composition' >/dev/null",
+      "timeout": 600
+    },
+    {
+      "name": "A3 the facade composes a real app: PlatformerApp stands up the fixture windowed AND headless",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test --manifest-path fixtures/external_consumer/Cargo.toml --test composition 2>&1); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 2400
+    },
+    {
+      "name": "A5 the blind-agent baseline is RECORDED with its three required fields (completion, FIRST ENGINE FILE OPENED, elapsed context)",
+      "cmd": "python3 -c \"import json,glob,sys; f=sorted(glob.glob('docs/sdk/evidence/blind-agent-runs/*.json')); sys.exit('no blind-agent run recorded') if not f else None; d=json.load(open(f[-1])); m={'completed','first_engine_file_opened','elapsed_context'}-set(d); sys.exit('missing fields: %s' % sorted(m)) if m else None\"",
+      "timeout": 120
+    },
+    {
+      "name": "growth-method §2 ALL FIVE evidence sources collected, and slice B derived from them",
+      "cmd": "python3 -c \"import json,sys; d=json.load(open('docs/sdk/evidence/slice-a-evidence.json')); m={'contract_diff','fixture_leak_log','blind_agent_run','deletion_criteria','capability_footprint','selects_slice_b'}-set(d); sys.exit('missing evidence: %s' % sorted(m)) if m else None\"",
+      "timeout": 120
+    },
+    {
+      "name": "the workspace compiles, tests included",
+      "cmd": "$HOME/.cargo/bin/cargo check --workspace --all-targets --quiet",
+      "timeout": 2400
+    },
+    {
+      "name": "the external consumer still passes its own gameplay tests through whatever path it now uses",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test --manifest-path fixtures/external_consumer/Cargo.toml --test gameplay 2>&1); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 2400
+    },
+    {
+      "name": "the backbone suite is green",
+      "cmd": "out=$(./run_tests.sh --fast 2>&1); echo \"$out\" | grep -E 'test result: ok' >/dev/null && ! echo \"$out\" | grep 'test result: FAILED' >/dev/null",
+      "timeout": 2400
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!docs/brainstorms')\""
+    }
+  ]
+}

@@ -94,11 +94,22 @@ is executable.** `scripts/check_absence_contracts.py` already owns this class:
 `engine-crates-do-not-consume-the-umbrella-facade`. The extension needed is
 module-path granularity, not a new mechanism.
 
+*Implemented 2026-07-30 as `MODULE_ALLOWLISTS`, one row scoped to
+`fixtures/external_consumer/`. It parses use trees rather than matching a line
+regex, because `use ambition::{time::Clock, audio::Bank};` is two leaks that a
+`\bambition::([a-z_]+)` pattern does not see.*
+
 ⚠ **Allowlist, not denylist, and the numbers are decisive.** A denylist always
-lags a namespace mirror. Outlander names **19 distinct top-level `ambition::`
+lags a namespace mirror. Outlander names **18 distinct top-level `ambition::`
 modules**; the first draft of the campaign forbade six of them. It would have
-gone green with thirteen leaks still open — worse than no contract, because it
+gone green with twelve leaks still open — worse than no contract, because it
 would have been believed.
+
+> ⚠ **Corrected 2026-07-30.** This paragraph said nineteen, as did the campaign;
+> both listed eighteen names. Measured: eighteen, with no brace-grouped
+> `ambition::{…}` imports and no root-level type re-exports hiding from the
+> count. The implemented contract takes its baseline from the instrument rather
+> than from either document.
 
 **It lands green against a recorded baseline that may not grow**, not red on
 `main`. A permanently failing branch is not a gradient, it is a broken gate that

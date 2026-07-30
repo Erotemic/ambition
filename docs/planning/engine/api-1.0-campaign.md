@@ -64,7 +64,7 @@ Three, identical in shape. Each lands **green against a recorded baseline**, so
 
 | Ratchet | Baseline | Invariant | Zero means |
 |---|---|---|---|
-| **Module allowlist violations** | every `ambition::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member | consumers name only the SDK |
+| **Module allowlist violations** | every `ambition::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member, **and may not keep one the consumer stopped naming** | consumers name only the SDK |
 | **Central rollback registrations + codecs** | the current explicit set of stable schema names in `register_engine_rollback_state` and the codecs in `rollback/codecs.rs` | `current ⊆ frozen_legacy`; **no new stable name may enter** | rollback ownership is federated |
 | **Undeleted compensating mechanisms** | ADR 0032's deletion criteria | the list may not gain a member | the seams took ownership |
 
@@ -74,6 +74,15 @@ stable schema name. Same for codecs — otherwise registration federates outward
 while `ambition_runtime` remains the implementation owner of every domain's
 snapshot, which is exactly the state
 `impl SnapshotState for ambition_actors::…::MatchSeat` describes today.
+
+⚠ **Freezing the set is only half of it — the set must also be PRUNED.** A1
+found this while implementing the first ratchet. A frozen set whose entries
+are never removed as they are migrated is still a budget: retire one member,
+leave it listed, and the slot it vacates can be filled by something else
+without the contract ever going red. So each ratchet carries a second
+invariant — *the baseline may not keep a member the subject no longer has* —
+which forces the prune into the migrating commit and makes re-adding
+impossible. All three ratchets in this table want both halves.
 
 ---
 
@@ -88,24 +97,62 @@ own comments as leaks found the hard way.
 capability staging, no rollback federation. The minimal experience definition is
 whatever host assembly needs and no more.
 
-### A1 — the public-surface allowlist, with a baseline
+### A1 — the public-surface allowlist, with a baseline — **LANDED 2026-07-30**
 
 Extend `scripts/check_absence_contracts.py` to module-path granularity and add
 an **allowlist** contract: production game/consumer code may name only reviewed
 public SDK modules; everything else under `ambition::` is a violation.
 
-⚠ **Allowlist, not denylist, and the numbers settle it.** Outlander names **19
+⚠ **Allowlist, not denylist, and the numbers settle it.** Outlander names **18
 distinct top-level `ambition::` modules** — `actors`, `asset_manager`, `audio`,
 `characters`, `engine`, `engine_core`, `entity_catalog`, `game_assets`,
 `game_shell`, `input`, `platformer`, `presentation`, `provider`, `runtime`,
 `sprite_sheet`, `time`, `windowed_host`, `world`. The first draft of this
-campaign forbade six. It would have gone green with **thirteen leaks still
+campaign forbade six. It would have gone green with **twelve leaks still
 open**, which is worse than no contract because it would have been believed.
 
-Lands **green against the recorded baseline of 19**, non-increasing. Not red on
+> ⚠ **Correction, 2026-07-30 — this row said NINETEEN and listed eighteen.**
+> So did [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md).
+> The fixture names **eighteen**: no brace-grouped `ambition::{…}` imports and
+> no root-level type re-exports were hiding from the count. The number now comes
+> from the instrument (`--allowlist-open-count`), never from this paragraph — a
+> baseline transcribed out of prose is a ratchet nobody measured, and the
+> baseline IS the contract's entire content.
+
+Lands **green against the recorded baseline of 18**, non-increasing. Not red on
 `main`.
 
-Exact public module names stay **provisional** until A2 is accepted.
+Exact public module names stay **provisional** until A2 is accepted — `allowed`
+is deliberately EMPTY, because populating it before the call sites exist would
+be designing the API from the module list, which is the sequencing ADR 0031
+rejects.
+
+**What landed.** `MODULE_ALLOWLISTS` in `scripts/check_absence_contracts.py`,
+scoped to `fixtures/external_consumer/` only (Jon, 2026-07-30: `game/` stays
+out, because `ambition_content`'s dependency on the facade is a measurement
+question ADR 0031 defers, and widening the paths would answer it by accident).
+
+**Two invariants, and the second is the one that makes it a ratchet:**
+
+| | Invariant | Without it |
+|---|---|---|
+| 1 | `named ⊆ allowed ∪ baseline` | the consumer can name a new module |
+| 2 | `baseline ⊆ named` | the baseline is a *budget*: migrate `time` away, leave it listed, and the freed slot is occupied silently — a ratchet on a count, which §5 of the growth method says is not one |
+
+Composed, they give the property being bought: a pruned module can never come
+back, because invariant 1 then rejects it.
+
+**Seen red before green**, all four ways: a module dropped from the baseline
+reports `NEW`; an unpruned entry reports `STALE`; a brace-grouped
+`use ambition::{combat::Strike, effects::Spark};` appended to the real fixture
+took the contract red at `src/lib.rs:911` with exit 1; and prose naming
+`ambition::runtime` stays silent. That third one is why the contract parses use
+trees instead of matching a line regex — `\bambition::([a-z_]+)` sees `{` and
+stops, so the obvious implementation would have been green, and wrong the first
+time anyone wrote idiomatic Rust. Probes live in
+`scripts/tests/test_absence_contracts.py`, including a non-vacuity assertion:
+an instrument that silently measures nothing reports ZERO open leaks, which is
+this campaign's success condition.
 
 ### A2 — `docs/sdk/api-prototype.md`, host call sites only
 
@@ -147,7 +194,9 @@ it is not expected to succeed at authoring content, which does not exist yet.
 
 ### Slice A exit criteria
 
-* [ ] allowlist ratchet green, baseline 19, and **strictly lower** than 19;
+* [x] allowlist ratchet green, baseline 18 *(A1, 2026-07-30)*;
+* [ ] open-leak count **strictly lower** than 18
+      (`scripts/check_absence_contracts.py --allowlist-open-count`);
 * [ ] Outlander's composition is policy, not ordering;
 * [ ] Outlander's manual composition path deleted;
 * [ ] blind-agent baseline recorded;

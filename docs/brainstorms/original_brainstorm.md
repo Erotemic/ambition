@@ -747,3 +747,18 @@ sick game. But that's not something we will do here,
 Ok Peano Man for Giuseppe Peano is a good idea if we can get the music right
 (Piano Man).  Ties in with Smirking Behemoth, although that might take away
 from the heavy object joke.
+
+---
+
+
+We can use "induction" as an ability. You lay down a base case and then you
+prove that n implies n + 1. This could be a way to "lift" you somewhere.
+Stairs, or some vertical motion. 
+
+We could also have "pullback" or "pushout/pushforward". A pullback could be a
+grappling hook, but we should be careful because it might not always be
+injective or surjective.
+
+
+We could have you conjugate by turning on your side and changing or negating
+color palette.

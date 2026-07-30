@@ -676,3 +676,192 @@ Nothing here changes the thesis, which I think is now settled between us:
 > Do not split `ambition_actors` by today's internal topology. Build and
 > mechanically enforce the public API first, let real consumers reveal the
 > durable capability boundaries, and reorganize behind them.
+
+---
+
+## 10. On content packs vs Rust-enumerated content
+
+**The principle is right, and it is not a correction — it is this repository's
+existing, documented posture, which the API proposal had drifted away from.**
+
+`game/ambition_content/assets/data/character_catalog.ron`, line 1:
+
+```text
+// Character catalog — single source of truth for spawnable characters in the
+// sandbox. … the architectural posture (Rust = behavior, RON = content, LDtk
+// = space).
+//
+// To add a new character: pick a `brain_presets` key + an `action_set_presets`
+// key, then add a row to `characters` with the sprite paths and tier.
+// No Rust changes needed.
+```
+
+That file is **2,733 lines**. Rust `CharacterDefinition::new` appears in exactly
+four places: the two versus duelists, Sanic, Mary-O, and the robot lineage. So
+the main cast is already data, the doctrine is already written, and
+`module.characters().define(mallory())?` was the regression. Good catch —
+but the right framing is *restore the stated posture*, not *adopt a new one*,
+and that matters because it means the migration is small and the doctrine needs
+no argument.
+
+Three problems with the specific design, one of which will not compile.
+
+### 10a. `const ID` + `fn define(module: &mut …)` cannot be a trait object
+
+```rust
+impl GameModule for GardenModule {
+    const ID: ModuleId = module_id!("garden");
+    fn define(module: &mut ModuleDraft) -> Result<(), ModuleBuildError> { … }
+}
+```
+
+A trait with an associated constant is not dyn-compatible, and neither is an
+associated function with no `self` receiver. So this `GameModule` cannot be
+`Box<dyn GameModule>` — which is exactly what the previous round's
+`ExperienceSpec { modules: Vec<Box<dyn GameModule>> }` requires. It also
+forecloses a parameterised module (`SanicModule { difficulty }`), which the
+embedded-vs-standalone story will want.
+
+Revert to the earlier shape:
+
+```rust
+fn manifest(&self) -> ModuleManifest;
+fn define(&self, module: &mut ModuleDraft) -> Result<(), ModuleBuildError>;
+```
+
+### 10b. `load_dir` and `character_ref!` walk into two traps this repo has already paid for
+
+**Directory order is not fingerprintable, and there is a live symlink.**
+ADR 0026 requires that fingerprints never hash insertion order and that
+*"equivalent provider or registry insertion orders produce the same
+fingerprint."* Filesystem traversal order is not stable across machines, so
+`load_dir` must canonicalise by content id before hashing — statable, but it has
+to be stated.
+
+Worse, the scan itself is hazardous here:
+
+```text
+game/ambition_content/assets/sprites -> ../../../crates/ambition_actors/assets/sprites
+```
+
+A content root in this repo already contains a symlink into the engine's own
+asset tree, and that exact symlink has already caused a double-registration bug
+once (two `AssetId`s for one image, double decode). A naive walker finds every
+file twice. So `load_dir` needs a declared root, no symlink following, and a
+duplicate-id error rather than last-wins.
+
+**`character_ref!("garden", "mallory")` is a String-keyed lookup, and this repo
+deleted those on purpose.** The binding-resolution work removed `row_index_of`
+and both String-keyed art maps precisely because a bad id fails *silently*. The
+shipped gate for the same class is `game/ambition_app/tests/declared_art_resolves.rs`,
+which covers two of four registries and whose own notes record the reason: *"a
+declared image naming no file is indistinguishable from a bolt nobody skinned."*
+
+So the generated typed references —
+
+```rust
+content::characters::MALLORY
+```
+
+— **must not be optional**. They are the entire difference between this design
+and the failure mode already fixed. And the resolution has to happen where
+ADR 0026 already puts it: at **validation**, before assembly and before the
+fingerprint. Every cross-reference in content (a world naming a character, a
+role naming a character, dialogue naming a speaker) is resolved there or the
+data-first design trades compile errors for silent fallbacks.
+
+Generated constants are then a *convenience over an already-validated graph*,
+not the safety mechanism. That ordering matters: if the constants are the only
+check, content authored by a tool or loaded as a mod is unchecked.
+
+### 10c. The "exceptional path" taxonomy is missing the case this repo actually has
+
+The listed exceptions are tests, procedural casts, generated variants, importers,
+and unrepresentable schemas. All real. But the live Rust-defined characters here
+are none of those — the protagonist is `PlayableKitSource::HostCode`, meaning
+*a character whose combat is deliberately a runtime `AbilitySet` concern rather
+than authored data*. Wearing that id yields a bundle equivalent to the code kit
+by design.
+
+That is a fourth reason, and it is not exceptional — it is the main character:
+
+> **The character's behaviour is supplied by host code as a deliberate authoring
+> choice**, and the content document records that choice rather than duplicating
+> the kit.
+
+Which is, incidentally, already how the catalog expresses it. The API needs a
+way to say "this row's kit comes from the host" in *data*, or the protagonist
+stays in Rust forever and the rule gets an exception nobody can close.
+
+### 10d. `register_schema::<T>()` is the best idea in the message and deserves the headline
+
+```rust
+module.content().register_schema::<painted_gravity::OrbitCharacterFacet>()?;
+```
+
+This is the domain-extension-trait property applied to **data**, and without it
+the content format is a closed world the engine owns — every new capability
+needing an engine edit, which is the monolith in a different file format. With
+it, a capability ships its own facet schema and third-party content validates
+against it.
+
+It also answers the objection that data-first means a fixed schema. It doesn't:
+the schema is federated the same way the code is. Pair it with the `facets: [ … ]`
+open list in the character document and the two halves fit.
+
+### 10e. What I'd add: `ContentPack` is a value with an identity, not a loading convenience
+
+This is where the data-first design and the transaction verb (§9d) stop being
+two features and become one.
+
+If `load_dir("content")` and `ContentPack::local("content/game.ron")` both
+produce a **`ContentPack` value with a stable id and its own fingerprint
+contribution**, then one mechanism serves three lifecycles:
+
+```text
+composition   load packs → merge → validate → fingerprint → PreparedContent
+hot reload    re-read ONE pack → candidate → validate → commit at a confirmed frame → new epoch
+modding       load an ADDITIONAL pack → same merge, same conflict rules
+```
+
+Same merge, same duplicate-id detection, same validation, same fingerprint.
+Contrast with `load_dir` as a loader: hot reload and modding each grow their own
+path, and two of the three are discovered later by whoever needs them.
+
+It also gives conflicts a vocabulary that already exists — the registries are
+transactional today, with byte-identical fragments idempotent and opaque
+room-stager closures rejecting duplicate ownership. A pack is the unit those
+rules apply to.
+
+### 10f. The compile-time argument is the strongest practical one and was undersold
+
+"A recompilation concern" was one bullet among five. In this workspace it is the
+headline: a full build is ~10 minutes, and a Rust-enumerated cast means every
+content change rebuilds `ambition_content` and everything downstream of it.
+
+For the stated north star — an agent that adds a character without burning
+context — the difference is not stylistic. It is whether the edit/validate loop
+is seconds or minutes, and whether validation can run without a compiler at all.
+That also makes the acceptance test sharper than "one file created":
+
+> Adding a character requires **no Rust compilation** to validate.
+
+### 10g. One thing the design leaves open that I'd decide now
+
+It offers both `ContentPack::local("content/game.ron")` and `load_dir("content")`
+without picking. Pick **file-per-entity** as the default, on the agent argument:
+one file created, a small diff, no merge conflict with a concurrent character
+addition, and a filename that is a discoverable index. Cross-cutting edits
+("rebalance every mass") get worse, but those are rarer and scriptable, and this
+repo already scripts content edits through `ambition_ldtk_tools` rather than by
+hand.
+
+### 10h. Net
+
+Adopt the principle — it is already the stated posture and the catalog proves it
+works at 2,733 lines. Fix the trait shape (10a). Make the resolver mandatory and
+put it at validation (10b) — that is the part that decides whether this is an
+improvement or a regression, because the failure it prevents is silent. Promote
+`register_schema` to a headline property (10d), make `ContentPack` a value so
+reload and modding come free (10e), and name the host-kit case so the
+protagonist can leave Rust too (10c).

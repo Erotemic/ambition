@@ -92,5 +92,31 @@
       "The second ratchet (319 names, 62 codecs) is already watching, so the migration's progress is measurable from its first commit.",
       "`rollback/codec.rs` is 234 lines with ZERO imports — the vocabulary itself is genuinely clean. The cost is entirely in the 62 impls, not in the extraction."
     ]
+  },
+  "carve_plan_CORRECTED": {
+    "on": "2026-07-30",
+    "supersedes": "the `ambition_snapshot` new-crate plan recorded above. That attempt was backed out on the orphan rule; measuring WHERE the 62 impls belong shows a better boundary that needs no new crate at all.",
+    "the_better_boundary": "Put the snapshot vocabulary in `ambition_engine_core`, not in a new crate. It is ALREADY the floor — the dependency contract `engine-core-is-the-floor` pins that it depends on zero workspace crates, and eight of the nine crates owning the 62 impls already depend on it.",
+    "measured_distribution_of_the_62": {
+      "ambition_actors": 14,
+      "ambition_characters": 13,
+      "ambition_platformer_primitives": 11,
+      "ambition_projectiles": 6,
+      "ambition_combat": 6,
+      "ambition_engine_core (incl. body_clusters)": 5,
+      "ambition_time": 4,
+      "ambition_encounter": 2,
+      "ambition_world": 1
+    },
+    "why_this_is_cheaper_than_a_new_crate": [
+      "FIVE of the 62 are engine_core's own types — they become local impls and move nowhere.",
+      "Eight of the nine owning crates already depend on engine_core, so no new dependency EDGES are introduced. The new-crate plan needed ~20 new edges.",
+      "No new workspace member, no new manifest, no new entry in the layering docs.",
+      "`ambition_time` is the ONLY crate that would need a new edge, and it is 4 impls — worth checking whether those types belong in engine_core anyway before adding it."
+    ],
+    "what_still_stays_behind": "`CanonicalCodecStrategy` implements `bevy_ggrs::Strategy` and must remain in `ambition_runtime`. Pulling bevy_ggrs into engine_core would make the FLOOR depend on the patched fork — this engine's highest-cost consumer leak — and would violate `engine-core-is-the-floor` outright.",
+    "still_one_atomic_commit": "The orphan rule is unchanged: the moment the trait leaves `ambition_runtime`, all 57 non-engine_core impls become orphans. Trait move + 57 impl moves are one commit. What changed is the size of the rest — no crate, no edges, five impls already home.",
+    "instruments_already_watching": "The central-rollback ratchet (319 stable names + 62 codecs, frozen as a SET) and the capability-footprint ratchet (41 crates, 19 unwanted). Both were built before this plan existed, so the migration is measurable from its first commit.",
+    "how_the_correction_was_found": "By counting where the impls belong instead of assuming they were scattered. The same technique that corrected the 'easy four' estimate an hour earlier: the dependency graph says what depends on what; only counting says how much."
   }
 }

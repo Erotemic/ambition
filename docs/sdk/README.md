@@ -39,7 +39,12 @@ ambition = { path = "../path/to/ambition/crates/ambition" }
 # not satisfy that. Otherwise `ambition::bevy` is enough.
 bevy = "0.18"
 
-# ⚠ Budget ~6 GB of disk even with the settings below, and expect ~2 min for
+# Toolchain: rustc/cargo 1.95.0 or newer.
+#
+# ⚠ Budget ~6 GB of disk even with the settings below — and note `cargo check`
+# and `cargo build` SHARE `target/debug`, so doing both roughly doubles the
+# peak, and `target/debug/incremental` is ~800 MB of pure waste for a one-shot
+# build, and expect ~2 min for
 # `cargo check` / ~3 min for `cargo build` warm (~250 crates). Without
 # `debug = 0` a default build blew an 11 GB budget and died in `rust-lld` with
 # SIGBUS and an LLVM stack dump that never mentions disk.
@@ -143,8 +148,22 @@ windowed face still composes and runs:
 PlatformerApp::windowed("My Game").without_gpu().build()
 ```
 
-A bare `run()` there panics inside `bevy_winit` with `neither WAYLAND_DISPLAY
-nor WAYLAND_SOCKET nor DISPLAY is set`, a message that never mentions Ambition.
+A bare `run()` there panics inside `bevy_winit`, and the message depends on
+which flavour of "no display" you have — neither mentions Ambition:
+
+* **`DISPLAY` unset** — `neither WAYLAND_DISPLAY nor WAYLAND_SOCKET nor DISPLAY
+  is set`;
+* **`DISPLAY` set but no server reachable** (CI, a container with a stale
+  `DISPLAY`, `ssh` without `-X`) — `XNotSupported(XOpenDisplayFailed)`.
+
+⚠ Both are listed because the second is the common one and this document used to
+promise only the first. Somebody grepping their actual error text would not have
+found it.
+
+And `without_gpu()` proves COMPOSITION and art preparation — not winit, not
+wgpu, not pixels. On a display-less box you cannot verify a real window at all,
+and reporting "windowed boot achieved" from `without_gpu()` alone overstates
+what was tested.
 
 ### Cargo features
 

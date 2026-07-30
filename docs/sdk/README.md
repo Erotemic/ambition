@@ -60,8 +60,6 @@ top-ranked finding in
 
 ## Standing a game up
 
-Four lines:
-
 ```rust
 use ambition::app::prelude::*;
 
@@ -72,6 +70,35 @@ fn main() {
 }
 ```
 
+⚠ **Check that it started.** Composing successfully is not the same fact as
+running, and blind run 2 caught itself shipping a binary that exited `0` with a
+host that had never started:
+
+```rust
+let mut app = PlatformerApp::headless().mount(MyModule::default()).build();
+for _ in 0..600 {
+    app.update();
+    if host_status(&app).is_running() { break; }
+}
+assert!(host_status(&app).is_running(), "{:?}", host_status(&app));
+```
+
+`HostStatus::Refused { reasons }` tells you why a host will never start, so a
+poll loop can stop instead of spinning. Use `is_refused()` as the other exit.
+
+**On a machine with no display** — CI, a container, a headless box — the
+windowed face still composes and runs:
+
+```rust
+PlatformerApp::windowed("My Game").without_gpu().build()
+```
+
+A bare `run()` there panics inside `bevy_winit` with `neither WAYLAND_DISPLAY
+nor WAYLAND_SOCKET nor DISPLAY is set`, a message that never mentions Ambition.
+
+**Reading the API:** `cargo doc -p ambition -p ambition_world --no-deps --open`.
+Both crates, or the room types render as unlinked text.
+
 `PlatformerApp::headless()` is the same game with no display, where one
 `App::update` is exactly one simulation tick. Both faces mount the same module
 and install the same engine in the same order.
@@ -80,10 +107,15 @@ They are not yet fully interchangeable, though — see *Known gaps* below. The
 visible face also prepares art, which currently requires content a minimal
 module does not have.
 
-For everything a row above says is not started, the engine is still composed by
-hand. The worked example of both — the declarative host composition and the
-hand-composed remainder — is `fixtures/external_consumer`, a complete tiny game
-built from outside the workspace through the `ambition` umbrella alone.
+**The reference to copy is `fixtures/minimal_game`** — the smallest thing that
+is still a game: one room, one walker, no combat, no art, no plugin of its own.
+It declares itself entirely through `ModuleDraft` and names only
+`ambition::app`, `ambition::world` and the `bevy` re-export.
+
+`fixtures/external_consumer` (Outlander) is the larger worked example — a
+character, an enemy, a construction recipe, a transition, and a rollback host —
+and it still composes some things by hand for the areas above that are not
+started.
 
 ## The compatibility promise
 
@@ -108,28 +140,35 @@ python3 scripts/check_absence_contracts.py --allowlist-open-count
 Every module in that output is a leak this SDK has not closed yet. Eighteen at
 the start of slice A.
 
-## Known gaps, as of slice A
+## Known gaps
 
-Measured by the 2026-07-30 blind run, not guessed. Listed here because a
-document that hides its gaps sends readers into `crates/` with no warning, and
-"which engine file did it open first" is what this SDK is scored on.
+⚠ **This section was wrong for eight commits and cost blind run 2 real time.**
+It claimed a minimal module could not reach a windowed host and that there was
+no way to ask whether the game started; slice B and C had closed both. A doc
+that advertises gaps it no longer has sends readers into `crates/` exactly as
+surely as one that hides the gaps it does. Both are the same defect.
 
-* **A minimal module cannot reach a WINDOWED host yet.** The visible face
-  installs `PlatformerAssetsPlugin`, which requires a `CharacterCatalog` — so a
-  module that boots headless can still panic windowed. Content is slice B, and
-  until it lands there is no supported empty-content story. `CharacterCatalogPlugin`
-  takes a raw RON string with no `Default`; the empty value is
-  `(brain_presets: {}, action_set_presets: {}, characters: {})`.
-* **There is no supported way to ask "did my game actually start?"** Four of the
-  eight ordering rules the engine now owns used to fail silently, and while
-  `try_build` refuses the ones it can see, there is no active-route or
-  active-session read-model to smoke-test against. The blind run fell back to
-  counting entities.
-* **`docs/sdk/api-prototype.md` §3's example is illustrative, not runnable** —
-  its identifiers are the fixture's. The runnable reference is
-  `fixtures/external_consumer`.
+Current, verified against `fixtures/minimal_game/tests/boots.rs`:
 
-Fixed since that run, and now covered by tests: a declared route that no mounted
-capability registers is refused by `try_build` with the registered routes named
-(it used to build clean and run empty), and `ModuleDraft::capability` no longer
-requires `Clone` (which had excluded the engine's own plugins).
+* **A castless game cannot be expressed.** `no_characters()` exists, but
+  `playable()` requires a starting character and without `playable()` no
+  gameplay route is registered — so a menu-only app has no route to a composing
+  host. Tracked as consumer-matrix work, not a bug with a workaround.
+* **The non-empty character roster schema is undocumented.** `spritesheet`,
+  `manifest`, `tier`, `body_kind`, `composition`, `default_brain`,
+  `default_action_set`, `playable_kit` and `tags` are all required with no
+  documented values. `EMPTY_CHARACTER_ROSTER_RON` covers only the empty case;
+  for one character, copy `fixtures/minimal_game/src/minimal_experience.rs`.
+* **Component names are invisible.** `ambition::bevy` is re-exported without
+  Bevy's `debug` feature, so `World::inspect_entity` reports
+  `<Enable the debug feature to see the name>` for every component — which
+  removes the one generic tool you have for "what did the engine spawn?".
+* **Content, capabilities and runtime content revision are not started**
+  (slices B+ in the campaign). Those areas are still composed by hand.
+
+Closed since the runs that found them, and now covered by tests: a declared
+route no capability registers is refused with the registered routes named; a
+starting character no roster contains is refused at BUILD rather than hanging
+forever; a host that can never start reports why instead of spinning;
+`ModuleDraft::capability` no longer requires `Clone`; and `ambition::world` is a
+curated module rather than a whole-crate mirror.

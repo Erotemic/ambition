@@ -89,6 +89,20 @@ pub mod prelude {
         ModuleManifest, PlatformerApp, SessionMode,
     };
     pub use bevy::prelude::App;
+
+    /// The room types this module's own signatures demand.
+    ///
+    /// ⚠ Re-exported here because blind run 2 (2026-07-30) had to open
+    /// `crates/ambition_world/src/lib.rs` to find them — the ONE engine source
+    /// file it opened, and therefore the field §2c says names the next leak.
+    /// `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room`
+    /// takes `RoomMetadata`; neither was reachable from the prelude that
+    /// declares them, rustdoc rendered both as unlinked text, and rustc offered
+    /// no import suggestion for `RoomSpec` at all.
+    ///
+    /// A prelude that omits the types its own signatures require is a prelude
+    /// that sends its reader into `crates/`.
+    pub use crate::world::rooms::{RoomMetadata, RoomSpec};
 }
 
 /// **Did my game actually start?**
@@ -761,6 +775,11 @@ impl PlatformerApp {
         // The declared experience, lowered. Installed through the SAME
         // `PlatformerExperienceAuthoring` seam a provider plugin would have
         // used — the draft removes the BOILERPLATE, not the authority.
+        // Captured before the definition moves into its installer closure.
+        let declared_starting_character = draft
+            .experience_definition
+            .as_ref()
+            .map(|definition| definition.starting_character.clone());
         let experience_definition = draft.experience_definition;
         let gameplay_route_for_definition = gameplay_route.clone();
         let experience_for_definition = experience.clone();
@@ -871,7 +890,7 @@ impl PlatformerApp {
                     .into_iter()
                     .map(|(kind, route)| {
                         format!(
-                            "the declared {kind} route `{route}` is not registered by any                              mounted capability, so the host would prepare and activate                              NOTHING while appearing to run. Registered routes: {available}"
+                            "the declared {kind} route `{route}` is not registered by any mounted capability, so the host would prepare and activate NOTHING while appearing to run. Registered routes: {available}"
                         )
                     })
                     .collect(),
@@ -993,6 +1012,40 @@ impl PlatformerApp {
                     )],
                 })?;
             app.register_audio_catalog_fragment(fragment);
+        }
+
+        // ── A starting character nobody authored ──
+        //
+        // ⚠ Blind run 2 hit this and called it right: "the exact silent-failure
+        // shape slice A closed for routes, left open for characters". A
+        // `playable(starting_character = X)` where no roster contains X built
+        // clean, ran 120 ticks, exited 0 — and the host had never started. It
+        // sat in `Activating` because preparation refused it, which is the leak
+        // slice C closed; but the refusal should never have been needed. The
+        // draft holds BOTH the roster and the id, so it can answer at build
+        // time with the same quality of message the route check already gives.
+        if let Some(starting_character) = declared_starting_character.as_deref() {
+            let roster = app
+                .world()
+                .get_resource::<crate::characters::actor::character_catalog::CharacterCatalog>();
+            if let Some(roster) = roster {
+                if roster.get(starting_character).is_none() {
+                    let known: Vec<&str> = roster.iter().map(|(id, _)| id.as_str()).collect();
+                    let known = if known.is_empty() {
+                        "none — the declared roster is empty".to_string()
+                    } else {
+                        known.join(", ")
+                    };
+                    return Err(CompositionError {
+                        problems: vec![format!(
+                            "`{experience}` starts as character \
+                             `{starting_character}`, which no declared roster contains, so \
+                             the host would prepare NOTHING and wait forever. Characters \
+                             available: {known}"
+                        )],
+                    });
+                }
+            }
         }
 
         let windowed = matches!(face, Face::Windowed { .. });

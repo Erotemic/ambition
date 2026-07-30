@@ -125,13 +125,11 @@
     "minimal-game-names-only-the-public-sdk": {
       "allowed_sdk_modules": [
         "app",
-        "bevy"
-      ],
-      "baseline_open": [
-        "audio",
+        "bevy",
         "world"
       ],
-      "open_count": 2,
+      "baseline_open": [],
+      "open_count": 0,
       "recorded_baseline": 18,
       "predicted_after_a4": 14,
       "prediction_confirmed": false,
@@ -142,22 +140,16 @@
         "windowed_host"
       ],
       "uses_per_module": {
-        "app": 3,
-        "audio": 1,
-        "bevy": 3,
+        "app": 2,
+        "bevy": 2,
         "world": 1
       },
       "files_per_module": {
         "app": [
           "fixtures/minimal_game/src/lib.rs",
-          "fixtures/minimal_game/src/minimal_experience.rs",
           "fixtures/minimal_game/tests/boots.rs"
         ],
-        "audio": [
-          "fixtures/minimal_game/src/minimal_experience.rs"
-        ],
         "bevy": [
-          "fixtures/minimal_game/src/lib.rs",
           "fixtures/minimal_game/tests/boots.rs"
         ],
         "world": [
@@ -165,8 +157,7 @@
         ]
       },
       "multi_file_modules": [
-        "app",
-        "bevy"
+        "app"
       ],
       "violations": {
         "new": [],
@@ -225,167 +216,118 @@
   },
   "blind_agent_run": {
     "collected": true,
-    "record": "docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-a-baseline.json",
+    "record": "docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-b-run2.json",
     "missing_fields": [],
     "run": {
       "_comment": [
-        "\u00a72c of api-growth-method.md, run 2026-07-30 at the end of slice A. This is",
-        "the BASELINE: the run later ones improve on. Script:",
-        "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+        "\u00a72c run 2, at the end of slice C. Same fixed script as the baseline",
+        "(blind-agent-runs/SCRIPT.md), so the two are comparable.",
         "",
-        "\u26a0 CONTAMINATION, stated rather than hidden. Two exposures, both biasing",
-        "TOWARD competence \u2014 so the failures below are trustworthy and the successes",
-        "are weaker than they look:",
-        "  1. a subagent in this repository inherits AGENTS.md through its system",
-        "     prompt, which a genuine third party would not have;",
-        "  2. the fixed script and the evidence tree were filed under docs/sdk/ when",
-        "     this run launched \u2014 the one directory the agent was told to start from.",
-        "     Moved to docs/planning/engine/slice-evidence/ mid-run. The agent's",
-        "     report shows no sign of having read either, but 'no sign' is not proof,",
-        "     and a measurement whose contamination is written down is worth more",
-        "     than one that looks clean.",
-        "",
-        "\u26a0 THE HEADLINE NUMBER IS MISLEADING AND THE AGENT SAID SO ITSELF. It opened",
-        "no `.rs` file under crates/. It also ran `cargo doc` over SEVEN engine crates",
-        "and read the rendered API, which it correctly called 'the same information a",
-        "leak would have given me, just laundered through rustdoc'. Scoring this run",
-        "on `.rs` files opened would report a pass. `first_engine_file_opened` is",
-        "therefore recorded as the Cargo.lock it actually opened first, and",
-        "`engine_api_surfaces_read` carries the seven \u2014 because the gate ADR 0031",
-        "states is 'never opening a file under crates/', and rustdoc over a crate is",
-        "reading that crate."
+        "\u26a0 Contamination, unchanged and still biasing TOWARD competence: the subagent",
+        "inherits AGENTS.md through its system prompt. NEW this run: the live checkout",
+        "was being edited underneath it, which broke its first `cargo doc`; it worked",
+        "around that by building against a read-only `git archive` of HEAD. That is an",
+        "environment artifact, not an engine defect, and it is recorded because a",
+        "measurement whose interference is written down is worth more than one that",
+        "looks clean."
       ],
-      "slice": "A",
+      "slice": "B/C",
       "date": "2026-07-30",
       "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
       "harness": "fresh general-purpose subagent, no inherited conversation context",
+      "engine_head_at_run": "b62790d37",
       "completed": {
         "headless_boot": true,
-        "windowed_boot": false,
-        "minimal_game": false,
-        "notes": "Headless COMPILES AND RUNS but activates nothing \u2014 see reachable_empty_host below; the agent's own verdict was 'headless boots, but a minimal game it is not'. Windowed was blocked by the environment (no X/Wayland/Xvfb), not by the API; the agent proved the composition instead via `without_gpu()`, which ran the full render graph to completion."
+        "windowed_boot": true,
+        "minimal_game": true,
+        "notes": "BOTH faces, against baseline's headless-only. Windowed proven in the GPU-less form the engine documents; a real window is impossible on this box (no display server). The build was clean FIRST TRY \u2014 the patch-table instructions were correct and sufficient \u2014 and it needed no `bevy` dependency, confirming slice B's claim."
       },
-      "first_engine_file_opened": "fixtures/external_consumer/Cargo.lock",
-      "first_engine_file_reason": "To find out whether the reference consumer also pins bevy_ggrs to a git fork, after a fresh lockfile resolved bevy_ggrs 0.21.0 from crates.io and the engine failed to compile. NOT an API question \u2014 a BUILDABILITY question, and it came before any API question could be asked.",
+      "first_engine_file_opened": "crates/ambition_world/src/lib.rs",
+      "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
       "engine_api_surfaces_read": [
         {
           "crate": "ambition",
           "via": "cargo doc",
-          "looking_for": "the real signatures of mount/build/run/without_gpu/with_game_assets \u2014 docs/sdk/ shows call sites but no method list"
-        },
-        {
-          "crate": "ambition_characters",
-          "via": "cargo doc",
-          "looking_for": "how to satisfy `PlatformerAssetsPlugin found no CharacterCatalog`"
-        },
-        {
-          "crate": "ambition_platformer_provider",
-          "via": "cargo doc",
-          "looking_for": "whether an empty default catalog provider ships (it does not)"
+          "looking_for": "the real method list, because api-prototype.md \u00a73 says its own example is illustrative \u2014 this is where it learned no_characters/no_audio/playable/host_status exist at all"
         },
         {
           "crate": "ambition_world",
           "via": "cargo doc",
-          "looking_for": "how to construct the RoomMetadata that ModuleDraft::room wants"
+          "looking_for": "where RoomSpec/RoomMetadata live (did not answer it)"
         },
         {
-          "crate": "ambition_sprite_sheet",
-          "via": "cargo doc",
-          "looking_for": "whether the sprite side needs its own registration before a visible host builds"
+          "crate": "ambition_world",
+          "via": "source",
+          "looking_for": "the answer: `pub mod prelude`"
         },
         {
-          "crate": "ambition_game_shell",
-          "via": "cargo doc",
-          "looking_for": "what makes a route REAL, after finding the headless host had zero entities"
-        },
-        {
-          "crate": "ambition_audio",
-          "via": "cargo doc",
-          "looking_for": "how to satisfy `frontend audio provider registered no audio fragment`"
-        },
-        {
-          "crate": "ambition_sfx",
-          "via": "cargo doc",
-          "looking_for": "whether the audio fragment also needed an SfxProvider (it did not)"
+          "crate": "fixtures/minimal_game",
+          "via": "source",
+          "looking_for": "why its host hung, and the character-roster RON schema"
         }
       ],
       "elapsed_context": {
-        "subagent_tokens": 108126,
-        "tool_uses": 67,
-        "duration_ms": 1487858
+        "subagent_tokens": 125233,
+        "tool_uses": 88,
+        "duration_ms": 2371118
+      },
+      "compared_to_baseline": {
+        "baseline": "2026-07-30-slice-a-baseline.json",
+        "headless": "false -> TRUE",
+        "windowed": "false -> TRUE (GPU-less form)",
+        "engine_surfaces_read": "8 -> 4",
+        "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_world/src/lib.rs (an API question)",
+        "reading": "The first-file field moved from 'I cannot compile this' to 'I cannot find one type', which is the campaign working: the blocker got smaller and more specific. \u00a74.2 still fails \u2014 the gate is ZERO engine files."
       },
       "findings": [
         {
-          "id": "unbuildable-without-an-undocumented-patch-table",
-          "severity": "blocks everything",
-          "closeable": true,
-          "owned": true,
-          "summary": "The engine does not compile for an outside consumer at all without copying `[patch.crates-io] bevy_ggrs = { git = ..., rev = ... }` out of the engine's workspace-root Cargo.toml. A fresh lockfile resolves bevy_ggrs 0.21.0 from crates.io and ambition_runtime fails with `cannot find type GgrsFrameTiming in crate bevy_ggrs`.",
-          "why_it_matters": "It precedes every API question. No amount of work on `ambition::app` reaches a third party who cannot get past `cargo check`. The fixture's own Cargo.toml records this as a known leak; docs/sdk/ never mentions it, so the knowledge existed and was not where a consumer would look.",
-          "agents_words": "the single highest-value missing paragraph in the whole SDK"
+          "id": "sdk-docs-were-eight-commits-stale-in-the-EXPENSIVE-direction",
+          "severity": "highest \u2014 cost the run real time",
+          "closed": true,
+          "summary": "docs/sdk/ was last touched at c01d771bd while slices B and C landed no_characters/no_audio/playable/host_status/EMPTY_CHARACTER_ROSTER_RON/world::prelude/minimal_game. Its 'Known gaps' actively claimed a minimal module CANNOT reach a windowed host and that there is NO way to ask whether the game started. Both were false at HEAD.",
+          "agents_words": "a doc advertising gaps that no longer exist does the same thing",
+          "why_it_matters": "The README's own thesis is that hiding gaps sends readers into crates/. Advertising phantom gaps is the same defect wearing the opposite sign, and it was introduced by the campaign that wrote the thesis."
         },
         {
-          "id": "rule-7-is-not-enforced-and-the-doc-claims-it-is",
-          "severity": "overclaim in shipped docs",
-          "closeable": true,
-          "owned": true,
-          "summary": "`ambition::app`'s module docs say 'Rule 7 is not enforced by ordering but by TYPE ... the empty host is unreachable rather than merely documented.' What is enforced is that a STRING was supplied. `gameplay_route(\"blind_run/gameplay\")` naming a route no experience registered builds clean, runs 60 ticks, and spawns ZERO entities \u2014 exactly the failure rule 7 describes.",
-          "why_it_matters": "A doc that overclaims its own headline guarantee is worse than one that claims nothing: the agent only found the empty host because it independently counted entities. This is the campaign's own rule 2 violated in the campaign's own code \u2014 a doc marker standing where a check should be.",
-          "fix_named_by_the_agent": "validate declared routes against the ShellRouteCatalog at try_build"
+          "id": "playable-with-an-unauthored-starting-character-hangs-forever",
+          "severity": "silent failure",
+          "closed": true,
+          "summary": "A `starting_character` no roster contained was accepted by try_build; 120 ticks ran, the process exited 0, the host never started. The agent flagged it as a FALSE POSITIVE against itself and only caught it by adding host_status.",
+          "agents_words": "the exact silent-failure shape slice A closed for routes, left open for characters",
+          "fix": "Validated at build; refusal names the character and lists the ones that exist. Test: a_starting_character_no_roster_contains_is_refused_at_build."
         },
         {
-          "id": "headless-and-windowed-have-different-content-requirements",
-          "severity": "overclaim in shipped docs",
-          "closeable": true,
-          "owned": true,
-          "summary": "api-prototype.md \u00a72b states the two faces 'differ in policy, not in structure: same modules, same order, same routes.' False in the shipped builder: the visible face installs PlatformerAssetsPlugin, which panics without a CharacterCatalog. A module that boots headless does not boot windowed.",
-          "why_it_matters": "The doc actively told the agent the opposite of what is true, which is the most expensive kind of wrong. Note this is the SAME seam \u00a72d flagged: `with_game_assets` made the faces diverge, and the divergence has a second consequence nobody had written down."
+          "id": "the-route-error-named-the-wrong-lever-and-leaked-indentation",
+          "severity": "diagnostic quality",
+          "closed": "partly",
+          "summary": "'not registered by any mounted capability' sent the agent looking for how to write a capability plugin; the actual fix is `playable()`. The message also carried ~30 spaces of source indentation into its output.",
+          "fix": "Indentation fixed. Naming `playable` as the likely fix is still open."
         },
         {
-          "id": "capability-requires-clone-and-engine-plugins-are-not",
-          "severity": "API bug",
-          "closeable": true,
-          "owned": true,
-          "summary": "`ModuleDraft::capability` requires `Clone`, and the engine's own `CharacterCatalogPlugin` does not implement it \u2014 so an engine plugin cannot go through the engine's own capability slot. Every consumer writes the same wrapper.",
-          "why_it_matters": "Introduced by A3, in the deferred-install closure. Not a doc gap."
+          "id": "castless-games-cannot-be-expressed",
+          "severity": "gap",
+          "closed": false,
+          "summary": "no_characters() exists but playable() requires a starting character, and without playable() no gameplay route is registered. A menu-only app cannot compose. Now stated in the SDK's Known gaps and asserted by declaring_no_cast_and_a_starting_character_is_refused."
         },
         {
-          "id": "no-way-to-ask-whether-the-host-is-alive",
-          "severity": "missing affordance",
-          "closeable": true,
-          "owned": true,
-          "summary": "There is no supported read-model for 'did my game actually start?'. The agent fell back to `app.world().entities().len()`, which is raw Bevy and says nothing about routes.",
-          "why_it_matters": "Four of the eight rules `ambition::app` owns fail SILENTLY. An API with silent failure modes and no assertion surface makes every consumer invent the same smoke test \u2014 badly."
+          "id": "component-names-are-invisible-to-consumers",
+          "severity": "tooling",
+          "closed": false,
+          "summary": "`ambition::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
         },
         {
-          "id": "the-prototypes-own-example-is-not-runnable",
-          "severity": "doc defect",
-          "closeable": true,
-          "owned": true,
-          "summary": "api-prototype.md \u00a73 shows `.experience(OUTLANDER_EXPERIENCE).launcher_route(OUTLANDER_LAUNCHER_ROUTE).room(outlander_room().metadata).capability(OutlanderExperiencePlugin)` \u2014 every identifier is undefined. The agent could not tell whether they were `&str`, newtypes or consts, and guessed.",
-          "why_it_matters": "For a document whose acceptance test is 'an agent can do this from docs alone', a non-runnable example is the core defect, not a nitpick."
-        },
-        {
-          "id": "no-empty-character-catalog",
-          "severity": "missing affordance",
-          "closeable": true,
-          "owned": true,
-          "summary": "`CharacterCatalogPlugin` takes a raw RON string with no documented schema and no `Default`. The agent recovered `(brain_presets: {}, action_set_presets: {}, characters: {})` by feeding it `\"()\"` and scripting a loop over the resulting 'Unexpected missing field named X' errors."
-        },
-        {
-          "id": "no-manifest-anywhere-in-the-sdk",
+          "id": "non-empty-roster-schema-undocumented",
           "severity": "doc gap",
-          "closeable": true,
-          "owned": true,
-          "summary": "docs/sdk/ never shows a Cargo.toml: not where the `ambition` crate lives, not what bevy version to pin, not the patch table. The README also tells a consumer to add `bevy` themselves, which is wrong \u2014 `ambition` already does `pub use bevy;`."
+          "closed": false,
+          "summary": "EMPTY_CHARACTER_ROSTER_RON covers the empty case; a game with ONE character is the actual minimal case and every required field is undocumented. The agent copied a fixture verbatim."
         }
       ],
       "what_worked": [
-        "The `build()` panic listing ALL THREE missing declarations at once \u2014 the agent called it 'genuinely the best diagnostic in the run'. ADR 0032's 'errors arrive once, structured, at a known point' paid off.",
-        "Rules 1 and 2 are really engine-owned: `without_gpu()` loaded 4/4 parallax layers with the process cwd at /tmp, which is only possible if the asset source and the engine asset root were installed correctly without the consumer saying anything.",
-        "`without_gpu()` ALSO survives having no display server. Undocumented, and it is the property a headless-CI reader is looking for. api-prototype.md \u00a77 asked whether it belongs on the public builder; the consumer's answer was 'yes, unambiguously'."
+        "The patch-table paragraph: 'accurate, prominent, and load-bearing \u2014 my build resolved and compiled first try because of it.' That was blind run 1's top finding, closed, and confirmed closed by run 2.",
+        "try_build's composition errors: 'genuinely good (three problems named at once, each with its consequence)'.",
+        "A minimal game needs exactly one dependency. The claim held under an independent build."
       ],
-      "verdict": "Slice A's composition claims are TRUE where the engine takes ownership (rules 1-6, 8) and OVERCLAIMED where it only documents (rule 7). The binding constraint on this engine is not an API leak at all: a third party cannot compile it."
+      "verdict": "Both faces reached, engine surfaces read halved, and the blocker moved from 'cannot compile' to 'cannot locate one type'. \u00a74.2 still fails: the gate is ZERO engine files and this run opened one."
     }
   },
   "deletion_criteria": {

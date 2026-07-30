@@ -108,18 +108,29 @@ fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
     );
 }
 
-/// **A game with genuinely no cast can say so, and it composes.**
+/// **Declaring no cast AND a starting character is a contradiction, and it is
+/// caught.**
 ///
-/// An empty roster is valid — ADR 0032: *"an installed schema with zero
-/// authored instances is VALID; a capability installed and unused is
-/// ordinary."* What was missing was a word for it.
+/// This test used to assert that `no_characters()` composes. It did — until
+/// build-time validation of `starting_character` landed, and then it failed,
+/// because the module was declaring an empty roster and naming a protagonist in
+/// the same breath. The test was wrong and the new check was right.
+///
+/// ⚠ It also surfaced a real limitation, recorded rather than papered over: a
+/// genuinely CASTLESS game — a menu-only app — cannot be expressed today.
+/// `playable()` requires a starting character, and without `playable()` no
+/// gameplay route is registered, so rule 7 refuses the composition. `no_characters()`
+/// is therefore only usable by a module that is not itself playable, and no
+/// such module can currently stand up alone. That is a genuine gap in the
+/// consumer matrix's "noncombat actor" direction and it belongs to a later
+/// slice, not to a quiet `expect()` here.
 #[test]
-fn a_game_can_declare_that_it_has_no_cast() {
-    struct Castless;
+fn declaring_no_cast_and_a_starting_character_is_refused() {
+    struct Contradiction;
 
-    impl GameModule for Castless {
+    impl GameModule for Contradiction {
         fn manifest(&self) -> ModuleManifest {
-            ModuleManifest::new("castless")
+            ModuleManifest::new("contradiction")
         }
 
         fn define(&self, module: &mut ModuleDraft) {
@@ -128,94 +139,28 @@ fn a_game_can_declare_that_it_has_no_cast() {
                 .launcher_route(minimal_game::MINIMAL_LAUNCHER_ROUTE)
                 .gameplay_route(minimal_game::MINIMAL_GAMEPLAY_ROUTE)
                 .no_characters()
+                .no_audio()
                 .playable(
-                    "probe",
-                    "probe",
+                    "contradiction",
+                    "declares an empty roster and then names a protagonist",
                     minimal_game::minimal_experience::MINIMAL_CHARACTER_ID,
                     minimal_game::minimal_experience::MINIMAL_ROOM_ID,
                     vec![minimal_game::minimal_experience::minimal_room()],
-                )
-                .no_audio();
+                );
         }
     }
 
-    let _ = PlatformerApp::headless()
+    let error = PlatformerApp::headless()
         .with_game_assets()
-        .mount(Castless)
+        .mount(Contradiction)
         .try_build()
-        .expect("declaring an empty cast is a legitimate thing for a game to do");
-}
-
-/// **The game reports that it started — without counting raw Bevy entities.**
-///
-/// The affordance the 2026-07-30 blind agent went looking for and did not find.
-/// It fell back to `app.world().entities().len()`, which is raw Bevy and says
-/// nothing about routes; every consumer would have invented that same smoke
-/// test, badly. Four of the eight ordering rules `ambition::app` owns fail
-/// silently, so an API with no assertion surface makes each of those a debugging
-/// session rather than a message.
-#[test]
-fn the_minimal_game_reports_that_it_started() {
-    let mut app = PlatformerApp::headless()
-        .mount(the_one_module())
-        .build();
-
-    assert_eq!(
-        host_status(&app),
-        HostStatus::Initializing,
-        "before any update the router has not initialized; a read-model that \
-         claimed otherwise would be describing something it cannot see yet"
-    );
-
-    let mut status = host_status(&app);
-    for _ in 0..600 {
-        app.update();
-        status = host_status(&app);
-        if status.is_running() {
-            break;
-        }
-    }
-
+        .expect_err("an empty roster cannot supply a starting character");
+    let reported = error.to_string();
     assert!(
-        status.is_running(),
-        "the minimal game never reached a running host in 600 ticks; status is \
-         {status:?}"
+        reported.contains("roster is empty"),
+        "the refusal must say the roster is EMPTY rather than merely that the \
+         character is absent — those are different mistakes; got {reported:?}"
     );
-    assert_eq!(
-        status.route(),
-        Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
-        "the host activated a route this game did not declare"
-    );
-}
-
-/// **`is_running` is not satisfied by a route with nothing behind it.**
-///
-/// The distinction the read-model exists for. "A route is active" and "a
-/// session was prepared for it" are different facts, and the gap between them
-/// IS the empty host — an earlier draft of Outlander's headless binary "ran"
-/// 120 ticks of exactly that. A status type that collapsed them would agree
-/// with the bug it is supposed to expose.
-#[test]
-fn a_route_with_no_prepared_session_does_not_count_as_running() {
-    let live = HostStatus::Running {
-        route: "r".into(),
-        experience: "e".into(),
-        prepared: true,
-    };
-    let hollow = HostStatus::Running {
-        route: "r".into(),
-        experience: "e".into(),
-        prepared: false,
-    };
-    assert!(live.is_running());
-    assert!(
-        !hollow.is_running(),
-        "a route with no prepared session behind it is the empty host, and \
-         `is_running` must not call it started"
-    );
-    // Both still report the route: a diagnosis needs to know WHICH route is
-    // hollow, so the distinction must not cost the caller that information.
-    assert_eq!(hollow.route(), Some("r"));
 }
 
 /// **A game that will never start says WHY, instead of hanging.**
@@ -290,4 +235,137 @@ fn a_game_that_will_never_start_reports_why() {
         "the refusal must name the missing thing, not merely report failure; \
          got {reasons:?}"
     );
+}
+
+/// **A starting character nobody authored is refused at BUILD, not at tick 600.**
+///
+/// Blind run 2 (2026-07-30) found this and named it exactly: "the exact
+/// silent-failure shape slice A closed for routes, left open for characters."
+/// It declared a `starting_character` no roster contained, and `try_build`
+/// SUCCEEDED — 120 ticks ran, the process exited 0, and the host had never
+/// started. It reported that as a false positive against itself, which is the
+/// only reason it was caught.
+///
+/// Slice C made that hang *legible* (`HostStatus::Refused`). This makes it
+/// unreachable: the draft holds both the roster and the id, so it can answer at
+/// build time with the same quality of message the route check gives.
+#[test]
+fn a_starting_character_no_roster_contains_is_refused_at_build() {
+    struct Ghost;
+
+    impl GameModule for Ghost {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("ghost")
+        }
+
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience(minimal_game::MINIMAL_EXPERIENCE)
+                .launcher_route(minimal_game::MINIMAL_LAUNCHER_ROUTE)
+                .gameplay_route(minimal_game::MINIMAL_GAMEPLAY_ROUTE)
+                .characters(minimal_game::minimal_experience::MINIMAL_ROSTER_RON)
+                .no_audio()
+                .playable(
+                    "ghost",
+                    "starts as somebody who does not exist",
+                    "nobody_authored_this_character",
+                    minimal_game::minimal_experience::MINIMAL_ROOM_ID,
+                    vec![minimal_game::minimal_experience::minimal_room()],
+                );
+        }
+    }
+
+    let error = PlatformerApp::headless()
+        .mount(Ghost)
+        .try_build()
+        .expect_err("a starting character no roster contains must be refused at build");
+    let reported = error.to_string();
+    assert!(
+        reported.contains("nobody_authored_this_character"),
+        "the refusal must name the character that does not exist; got {reported:?}"
+    );
+    assert!(
+        reported.contains(minimal_game::minimal_experience::MINIMAL_CHARACTER_ID),
+        "the refusal must list the characters that DO exist, or it is a puzzle \
+         rather than a fix; got {reported:?}"
+    );
+}
+
+/// **The prelude carries the types its own signatures demand.**
+///
+/// `ModuleDraft::playable` takes `Vec<RoomSpec>`; `ModuleDraft::room` takes
+/// `RoomMetadata`. Blind run 2 had to open `crates/ambition_world/src/lib.rs`
+/// to find where they live — the ONE engine source file it opened, which under
+/// §2c is the field that names the next leak.
+///
+/// This test imports NOTHING but `ambition::app::prelude` and uses both, so the
+/// omission cannot come back quietly.
+#[test]
+fn the_app_prelude_carries_the_room_types_its_signatures_require() {
+    // No `use ambition::world::...` anywhere in this function, deliberately.
+    let room: RoomSpec = minimal_game::minimal_experience::minimal_room();
+    let _: RoomMetadata = room.metadata.clone();
+    let _ = PlatformerApp::headless();
+}
+
+/// **The game reports that it started — without counting raw Bevy entities.**
+///
+/// The affordance blind run 1 went looking for and did not find; it fell back
+/// to `app.world().entities().len()`, which is raw Bevy and says nothing about
+/// routes. Blind run 2 used `host_status` and caught its OWN false positive
+/// with it: a host that exited 0 having never started.
+#[test]
+fn the_minimal_game_reports_that_it_started() {
+    let mut app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .build();
+
+    assert_eq!(
+        host_status(&app),
+        HostStatus::Initializing,
+        "before any update the router has not initialized"
+    );
+
+    let mut status = host_status(&app);
+    for _ in 0..600 {
+        app.update();
+        status = host_status(&app);
+        if status.is_running() || status.is_refused() {
+            break;
+        }
+    }
+
+    assert!(status.is_running(), "never reached a running host; got {status:?}");
+    assert_eq!(
+        status.route(),
+        Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
+        "the host activated a route this game did not declare"
+    );
+}
+
+/// **`is_running` is not satisfied by a route with nothing behind it.**
+///
+/// "A route is active" and "a session was prepared for it" are different facts,
+/// and the gap between them IS the empty host — an earlier draft of Outlander's
+/// headless binary "ran" 120 ticks of exactly that. A status type collapsing
+/// them would agree with the bug it exists to expose.
+#[test]
+fn a_route_with_no_prepared_session_does_not_count_as_running() {
+    let live = HostStatus::Running {
+        route: "r".into(),
+        experience: "e".into(),
+        prepared: true,
+    };
+    let hollow = HostStatus::Running {
+        route: "r".into(),
+        experience: "e".into(),
+        prepared: false,
+    };
+    assert!(live.is_running());
+    assert!(
+        !hollow.is_running(),
+        "a route with no prepared session behind it is the empty host"
+    );
+    // A diagnosis needs to know WHICH route is hollow.
+    assert_eq!(hollow.route(), Some("r"));
 }

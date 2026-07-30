@@ -1,0 +1,111 @@
+{
+  "_comment": [
+    "\u00a72c run 2, at the end of slice C. Same fixed script as the baseline",
+    "(blind-agent-runs/SCRIPT.md), so the two are comparable.",
+    "",
+    "\u26a0 Contamination, unchanged and still biasing TOWARD competence: the subagent",
+    "inherits AGENTS.md through its system prompt. NEW this run: the live checkout",
+    "was being edited underneath it, which broke its first `cargo doc`; it worked",
+    "around that by building against a read-only `git archive` of HEAD. That is an",
+    "environment artifact, not an engine defect, and it is recorded because a",
+    "measurement whose interference is written down is worth more than one that",
+    "looks clean."
+  ],
+  "slice": "B/C",
+  "date": "2026-07-30",
+  "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md",
+  "harness": "fresh general-purpose subagent, no inherited conversation context",
+  "engine_head_at_run": "b62790d37",
+  "completed": {
+    "headless_boot": true,
+    "windowed_boot": true,
+    "minimal_game": true,
+    "notes": "BOTH faces, against baseline's headless-only. Windowed proven in the GPU-less form the engine documents; a real window is impossible on this box (no display server). The build was clean FIRST TRY \u2014 the patch-table instructions were correct and sufficient \u2014 and it needed no `bevy` dependency, confirming slice B's claim."
+  },
+  "first_engine_file_opened": "crates/ambition_world/src/lib.rs",
+  "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
+  "engine_api_surfaces_read": [
+    {
+      "crate": "ambition",
+      "via": "cargo doc",
+      "looking_for": "the real method list, because api-prototype.md \u00a73 says its own example is illustrative \u2014 this is where it learned no_characters/no_audio/playable/host_status exist at all"
+    },
+    {
+      "crate": "ambition_world",
+      "via": "cargo doc",
+      "looking_for": "where RoomSpec/RoomMetadata live (did not answer it)"
+    },
+    {
+      "crate": "ambition_world",
+      "via": "source",
+      "looking_for": "the answer: `pub mod prelude`"
+    },
+    {
+      "crate": "fixtures/minimal_game",
+      "via": "source",
+      "looking_for": "why its host hung, and the character-roster RON schema"
+    }
+  ],
+  "elapsed_context": {
+    "subagent_tokens": 125233,
+    "tool_uses": 88,
+    "duration_ms": 2371118
+  },
+  "compared_to_baseline": {
+    "baseline": "2026-07-30-slice-a-baseline.json",
+    "headless": "false -> TRUE",
+    "windowed": "false -> TRUE (GPU-less form)",
+    "engine_surfaces_read": "8 -> 4",
+    "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_world/src/lib.rs (an API question)",
+    "reading": "The first-file field moved from 'I cannot compile this' to 'I cannot find one type', which is the campaign working: the blocker got smaller and more specific. \u00a74.2 still fails \u2014 the gate is ZERO engine files."
+  },
+  "findings": [
+    {
+      "id": "sdk-docs-were-eight-commits-stale-in-the-EXPENSIVE-direction",
+      "severity": "highest \u2014 cost the run real time",
+      "closed": true,
+      "summary": "docs/sdk/ was last touched at c01d771bd while slices B and C landed no_characters/no_audio/playable/host_status/EMPTY_CHARACTER_ROSTER_RON/world::prelude/minimal_game. Its 'Known gaps' actively claimed a minimal module CANNOT reach a windowed host and that there is NO way to ask whether the game started. Both were false at HEAD.",
+      "agents_words": "a doc advertising gaps that no longer exist does the same thing",
+      "why_it_matters": "The README's own thesis is that hiding gaps sends readers into crates/. Advertising phantom gaps is the same defect wearing the opposite sign, and it was introduced by the campaign that wrote the thesis."
+    },
+    {
+      "id": "playable-with-an-unauthored-starting-character-hangs-forever",
+      "severity": "silent failure",
+      "closed": true,
+      "summary": "A `starting_character` no roster contained was accepted by try_build; 120 ticks ran, the process exited 0, the host never started. The agent flagged it as a FALSE POSITIVE against itself and only caught it by adding host_status.",
+      "agents_words": "the exact silent-failure shape slice A closed for routes, left open for characters",
+      "fix": "Validated at build; refusal names the character and lists the ones that exist. Test: a_starting_character_no_roster_contains_is_refused_at_build."
+    },
+    {
+      "id": "the-route-error-named-the-wrong-lever-and-leaked-indentation",
+      "severity": "diagnostic quality",
+      "closed": "partly",
+      "summary": "'not registered by any mounted capability' sent the agent looking for how to write a capability plugin; the actual fix is `playable()`. The message also carried ~30 spaces of source indentation into its output.",
+      "fix": "Indentation fixed. Naming `playable` as the likely fix is still open."
+    },
+    {
+      "id": "castless-games-cannot-be-expressed",
+      "severity": "gap",
+      "closed": false,
+      "summary": "no_characters() exists but playable() requires a starting character, and without playable() no gameplay route is registered. A menu-only app cannot compose. Now stated in the SDK's Known gaps and asserted by declaring_no_cast_and_a_starting_character_is_refused."
+    },
+    {
+      "id": "component-names-are-invisible-to-consumers",
+      "severity": "tooling",
+      "closed": false,
+      "summary": "`ambition::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
+    },
+    {
+      "id": "non-empty-roster-schema-undocumented",
+      "severity": "doc gap",
+      "closed": false,
+      "summary": "EMPTY_CHARACTER_ROSTER_RON covers the empty case; a game with ONE character is the actual minimal case and every required field is undocumented. The agent copied a fixture verbatim."
+    }
+  ],
+  "what_worked": [
+    "The patch-table paragraph: 'accurate, prominent, and load-bearing \u2014 my build resolved and compiled first try because of it.' That was blind run 1's top finding, closed, and confirmed closed by run 2.",
+    "try_build's composition errors: 'genuinely good (three problems named at once, each with its consequence)'.",
+    "A minimal game needs exactly one dependency. The claim held under an independent build."
+  ],
+  "verdict": "Both faces reached, engine surfaces read halved, and the blocker moved from 'cannot compile' to 'cannot locate one type'. \u00a74.2 still fails: the gate is ZERO engine files and this run opened one."
+}

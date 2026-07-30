@@ -69,6 +69,27 @@ pub mod actor {
     /// Who the body is.
     pub use ambition_platformer_primitives::markers::PrimaryPlayer;
 
+    /// **Which seat of the match a body is.**
+    ///
+    /// The answer to "who is player two?", and the only correct one — the
+    /// engine's own docs say every other way to identify a fighter is a guess:
+    /// a brain slot misses the CPU seat, the worn character id collides in a
+    /// mirror match, and entity order is not an order.
+    ///
+    /// ⚠ Exposed for blind run 7's finding (g), which is the campaign's own
+    /// Smash proof caught short. `RollbackSession::participants()` reports the
+    /// count a composition DECLARED; the run declared 1, 2 and 4 through the
+    /// public builder and got one body every time, and no consumer could see
+    /// the difference. Seats come from DEVICES — a composition with two
+    /// gamepads seats two — so a consumer needs this to check that the match
+    /// it asked for is the match it got.
+    ///
+    /// ⚠ This is the QUERY half only. There is still no public seam for
+    /// driving input to a NAMED seat: `ambition::sim::drive_control_frame`
+    /// writes one frame for the composition. A driver that needs two
+    /// independent streams cannot yet express it.
+    pub use ambition_actors::character_runtime::MatchSeat;
+
     /// How a body came to exist — ADR 0030's construction provenance.
     ///
     /// ⚠ A consumer used to reach this through `ambition::runtime::demo_fixture`,

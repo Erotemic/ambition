@@ -80,7 +80,7 @@
       "consumer": "game/ambition_app versus stage",
       "proves": "participants, character selection, atomic match lifecycle, scoped rules, rollback",
       "proven": true,
-      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` closes the fifth: the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count.",
+      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` covers the fifth (rollback): the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count. `the_match_has_two_distinct_seats_and_simulates_with_both` adds the seating, with its limit stated in the test.",
       "slice": "F",
       "note": "Closed by slice F, which built the rollback slice ADR 0031 reserved. The six properties have their own acceptance tests in fixtures/external_consumer/tests/rollback_is_a_promise.rs.",
       "blocked_on": "rollback as a public knob — ADR 0031's own deferral, the same blocker as §4.1",
@@ -106,7 +106,15 @@
         "what_is_proven": "Two fighters are in the composed cast, asserted by id (`the_versus_stage_composes_and_seats_two_participants`), and the match composes, activates, ADVANCES 120 rollback frames and stays undesynced.",
         "what_is_NOT_proven": "That two separate input streams reach two separate bodies. The facade exposes no seat-keyed input or seat-keyed query, so a consumer cannot express it and no test here can assert it.",
         "⚠": "The rollback test was written specifically to avoid the one-input-stream blind spot that this engine already shipped once — and reproduced a subtler version of it. Recorded on the row rather than in a backlog: a matrix that reads 6 of 6 while a named half of one row is a number is the failure the matrix exists to prevent.",
-        "status": "OPEN — slice G finding (g). The row stays PROVEN on the four properties it does establish, with this limit attached."
+        "status": "OPEN — slice G finding (g). The row stays PROVEN on the four properties it does establish, with this limit attached.",
+        "sharpened_2026_07_30": {
+          "run_7_said": "N participants get one body.",
+          "what_is_actually_true": "`RollbackSession::participants()` and the SEATING are independent facts and nothing reconciles them. The count reaches GGRS — how many input streams are checksum-compared. The seating comes from the stage and its devices. A composition can declare four and seat two, and no error says so.",
+          "how_it_was_found": "By writing the test that was supposed to close the gap, then RED-PROBING it. It spawned two `Gamepad` entities and asserted two seats — and passed identically with the gamepads removed, because the versus stage seats two fighters on its own. The assertion was true for a reason other than the one intended.",
+          "⚠": "Third time in this session that an assertion passed for the wrong reason (the others: an unreachable refusal, and `is_running()` as a liveness check). The probe is what separates them from the ones that hold; none of the three was caught by reading.",
+          "what_the_test_claims_now": "Only that the match has two distinct seats and the session advances undesynced with both in it. The causal claim is gone.",
+          "the_engine_work_still_open": "A public seam that reconciles the two — either seating derived from the declared count, or a refusal when they disagree — plus seat-keyed input so two streams can be shown to reach two bodies."
+        }
       }
     },
     {

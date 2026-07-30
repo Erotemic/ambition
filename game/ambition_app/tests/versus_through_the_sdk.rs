@@ -130,10 +130,12 @@ fn the_versus_stage_rolls_back_with_two_participants() {
     // by name in the sibling test above.
     //
     // ⚠ What is still NOT proven here: that two SEPARATE input streams reach
-    // two separate bodies. The facade has no seat-keyed input or query, so a
-    // consumer cannot express it and this test cannot assert it. Recorded as
-    // slice-G finding (g) rather than papered over — the alternative is a Smash
-    // row that reads as proven while the participants half is a number.
+    // two separate bodies. `ambition::actor::MatchSeat` now answers the QUERY
+    // half (see the sibling test), but there is no public seam for driving
+    // input to a NAMED seat — `drive_control_frame` writes one frame for the
+    // composition. Slice-G finding (g), open, and named rather than papered
+    // over: the alternative is a Smash row that reads as proven while the
+    // participants half is a number.
 
     // ATOMIC MATCH LIFECYCLE, under rollback: the match survives resimulation.
     // A session that started and then stopped being live would pass everything
@@ -175,3 +177,72 @@ fn the_versus_stage_rolls_back_with_two_participants() {
 }
 
 
+
+/// **The match has two distinct seated bodies, and it simulates with both.**
+///
+/// ⚠ **Read the limit before the assertion.** This does NOT prove that the
+/// declared participant count drives seating, and an earlier version of it
+/// claimed to. That version spawned two `Gamepad` entities first — and passed
+/// identically with them removed, because the versus stage seats two fighters
+/// on its own regardless of what the composition declared. The gamepads were
+/// theatre.
+///
+/// Deleting the theatre leaves a sharper statement of blind run 7's finding (g)
+/// than the run made. It reported "N participants get one body". The truth is
+/// worse in a more useful way: **`RollbackSession::participants()` and the
+/// seating are independent facts and nothing reconciles them.** The count
+/// reaches GGRS (how many input streams are checksum-compared); the seating
+/// comes from the stage and its devices. A composition can declare four and
+/// seat two, and no error says so.
+///
+/// So what is asserted here is only what is true: the match has two distinct
+/// seats, and the session advances undesynced with both in it.
+#[test]
+fn the_match_has_two_distinct_seats_and_simulates_with_both() {
+    use ambition::rollback::RollbackPlan;
+
+    let mut app = PlatformerApp::headless().rollback(2).mount(VersusModule).build();
+    let session = ambition::rollback::start(&mut app, RollbackPlan::new())
+        .expect("the versus stage must reach a running rollback session");
+    assert_eq!(session.participants(), 2);
+
+    let mut seats: Vec<usize> = Vec::new();
+    for _ in 0..600 {
+        app.update();
+        let world = app.world_mut();
+        let mut query = world.query::<&ambition::actor::MatchSeat>();
+        seats = query.iter(world).map(|seat| seat.0).collect();
+        seats.sort_unstable();
+        if seats.len() >= 2 {
+            break;
+        }
+    }
+
+    assert!(
+        seats.len() >= 2,
+        "the versus match seated {} body/bodies ({seats:?})",
+        seats.len()
+    );
+    let distinct = {
+        let mut d = seats.clone();
+        d.dedup();
+        d.len()
+    };
+    assert!(
+        distinct >= 2,
+        "the seated bodies share a seat index ({seats:?}), so they are not \
+         distinguishable participants"
+    );
+
+    // And the match still simulates with both of them in it. `is_running()`
+    // would not see a frozen sim; the frame advancing is the fact.
+    let before = ambition::rollback::health(&app).frame().expect("a frame");
+    for _ in 0..120 {
+        app.update();
+    }
+    let health = ambition::rollback::health(&app);
+    assert!(
+        health.frame().expect("a frame") > before && health.is_healthy(),
+        "the two-seat match did not advance cleanly: {health:?}"
+    );
+}

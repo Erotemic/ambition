@@ -77,12 +77,26 @@
     },
     {
       "id": "smash",
-      "consumer": null,
+      "consumer": "game/ambition_app versus stage (partial)",
       "proves": "participants, character selection, atomic match lifecycle, scoped rules, rollback",
       "proven": false,
       "proof": null,
       "slice": null,
-      "note": "Rollback as a public knob is deferred to its own slice; this category depends on that."
+      "note": "Rollback as a public knob is deferred to its own slice; this category depends on that.",
+      "four_fifths_proven": {
+        "on": "2026-07-30",
+        "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — the versus stage mounts through `PlatformerApp`, composes without refusal, seats BOTH fighters into the assembled cast, and registers its own gameplay route.",
+        "properties_covered": [
+          "participants — two fighters, both present in the composed CharacterCatalog",
+          "character selection — asserted by id, so seating one or none would fail",
+          "atomic match lifecycle — the stage composes and activates as one experience",
+          "scoped rules — it registers its OWN route rather than borrowing another's"
+        ],
+        "property_NOT_covered": "rollback. ADR 0031 defers rollback as a public knob to its own slice, so the row cannot close, and this partial exists to make the remaining blocker honestly ONE named thing rather than a vague five.",
+        "why_partial_is_recorded_rather_than_claimed": "The campaign has caught itself three times claiming a row on a test that quietly dropped part of it. Naming the missing fifth costs nothing now and prevents 'Smash proven' later meaning 'Smash minus the hard part'.",
+        "note_on_the_test": "`FIGHTERS` is private in `versus.rs` and the ids are spelled out in the test instead. AGENTS.md: never widen a production API to move a test. They are content ids; if the cast changes, this failing is correct."
+      },
+      "blocked_on": "rollback as a public knob — ADR 0031's own deferral, the same blocker as §4.1"
     },
     {
       "id": "ambition-itself",

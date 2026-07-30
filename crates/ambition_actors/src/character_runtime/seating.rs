@@ -269,6 +269,9 @@ pub fn seat_character(
         &mut commands.entity(body),
         None,
         None,
+        // No outgoing persona: this body is being built. Silence keeps the
+        // archetype's own mass rather than retracting to anything.
+        super::PhysicalRetraction::NONE,
     );
     Some(body)
 }
@@ -647,6 +650,10 @@ pub fn seat_match_participants(
                         live: &mut clusters.kinematics.size,
                         base: &mut clusters.base_size.base_size,
                     }),
+                    // Adoption into a match is CONSTRUCTION, so there is nothing
+                    // to retract: what the body brought is what a silent
+                    // character keeps.
+                    super::PhysicalRetraction::NONE,
                 );
             } else {
                 // No prepared character to speak for it; a seat still opens full.

@@ -63,6 +63,109 @@ pub enum BaselineBoundary {
     Replacement,
 }
 
+/// **What a persona DISPLACED on this body, and therefore what a later silent
+/// persona has to put back.**
+///
+/// The retraction half of [`BaselineBoundary::Replacement`]. It exists because
+/// absence had two plausible readings and the wrong one was implemented:
+/// `apply_to_body` wrote a value only when the incoming character authored one,
+/// so a character that authored nothing INHERITED the outgoing character's
+/// numbers. Wear a 2.0-mass, 60-health duelist, then a persona that authors
+/// neither, and the body stays at 2.0 and 60 — not because anything decided
+/// that, but because nothing had recorded what to go back to (GPT 5.6,
+/// 2026-07-30).
+///
+/// ⚠ **a field no persona has EVER written stays `None` here and is never
+/// retracted**, and that narrowing is load-bearing rather than tidy. The first
+/// version of this fix recorded the body's values wholesale and restored them
+/// whenever the incoming character was silent — which quietly made this path a
+/// second authority over `max_health`, fighting every other writer of it. It
+/// desynced `rollback_lifecycle_reset` within the hour: that test stages a 3-HP
+/// player by writing `health.max` directly, this derive is gated on Bevy change
+/// detection, and **change ticks are not rollback state**. So the derive fired on
+/// resimulated frames it had not fired on live, and a write that had always been
+/// a no-op became a checksum divergence.
+///
+/// The rule that falls out is worth more than the fix, and generalises past this
+/// module: *a write gated on `is_changed()` inside a rollback body must be
+/// idempotent with respect to every other writer of that field.* Forcing a field
+/// back to a captured constant is not. Writing back only what this path itself
+/// displaced is.
+///
+/// ⚠ **captured once PER FIELD, at the first persona that overrides it.**
+/// Re-capturing on each re-wear would record the outgoing persona's grant as
+/// "what was there", which is the original bug with an extra step.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct DisplacedPhysicals {
+    /// The pool a persona overwrote. `None` = no persona has ever set
+    /// `max_health` on this body, so nothing here may write it.
+    pub max_health: Option<i32>,
+    /// Outer `None` = no persona has ever set mass. Inner `None` = the body
+    /// carried no [`Mass`](crate::features::Mass) at all, so retraction REMOVES
+    /// the component rather than inventing the ambient 1.0 — a distinction
+    /// `Vitals::mass` already documents.
+    pub mass: Option<Option<f32>>,
+}
+
+impl DisplacedPhysicals {
+    /// Record what `incoming` is about to displace, for the fields it authors
+    /// and no persona has displaced yet. `live_*` are the body's values as they
+    /// stand right now, before the write.
+    pub fn displace(
+        mut self,
+        incoming: Option<PhysicalBaseline>,
+        live_max_health: Option<i32>,
+        live_mass: Option<f32>,
+    ) -> Self {
+        if self.max_health.is_none() && incoming.and_then(|incoming| incoming.max_health).is_some()
+        {
+            self.max_health = live_max_health;
+        }
+        if self.mass.is_none() && incoming.and_then(|incoming| incoming.mass).is_some() {
+            self.mass = Some(live_mass);
+        }
+        self
+    }
+}
+
+/// What a REPLACEMENT is licensed to put back, resolved for one swap.
+///
+/// Separate from [`DisplacedPhysicals`] because they answer different questions:
+/// that one is the durable record on the body; this one is *of that record, what
+/// does THIS incoming character leave unclaimed*. A field the incoming character
+/// authors is not retracted — it is overwritten, which is the ordinary path.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PhysicalRetraction {
+    pub max_health: Option<i32>,
+    pub mass: Option<Option<f32>>,
+}
+
+impl PhysicalRetraction {
+    /// A construction boundary retracts nothing: there is no outgoing persona
+    /// whose contribution could be left behind, so a silent character leaves the
+    /// body's freshly-built numbers exactly as it found them.
+    pub const NONE: Self = Self {
+        max_health: None,
+        mass: None,
+    };
+
+    /// What `incoming` leaves unclaimed, out of what personas have displaced.
+    pub fn resolve(incoming: Option<PhysicalBaseline>, displaced: DisplacedPhysicals) -> Self {
+        Self {
+            max_health: incoming
+                .and_then(|incoming| incoming.max_health)
+                .is_none()
+                .then_some(displaced.max_health)
+                .flatten(),
+            mass: incoming
+                .and_then(|incoming| incoming.mass)
+                .is_none()
+                .then_some(displaced.mass)
+                .flatten(),
+        }
+    }
+}
+
 /// **The physical facts a prepared character states, resolved.**
 ///
 /// Every field is an `Option` carrying the same meaning it has on the
@@ -146,15 +249,24 @@ impl PhysicalBaseline {
     ///
     /// Match activation is a CONSTRUCTION boundary, and at a construction
     /// boundary an explicit identity size IS the body's new base.
+    /// ⚠ **`retraction` is what this character's SILENCE puts back**, and passing
+    /// it is the difference between replacement and accumulation. See
+    /// [`PhysicalRetraction`]; [`PhysicalRetraction::NONE`] is the construction
+    /// reading.
     pub fn apply_to_body(
         &self,
         boundary: BaselineBoundary,
         entity: &mut EntityCommands,
         health: Option<&mut ambition_characters::actor::BodyHealth>,
         geometry: Option<BodyGeometry<'_>>,
+        retraction: PhysicalRetraction,
     ) {
         if let Some(health) = health {
-            if let Some(max) = self.max_health {
+            // The incoming character's answer, or — at a replacement, and only
+            // for a field some persona actually took — the body's own. Never the
+            // outgoing character's, which is what "write it only if authored"
+            // quietly meant.
+            if let Some(max) = self.max_health.or(retraction.max_health) {
                 health.health.max = max;
             }
             match boundary {
@@ -167,11 +279,27 @@ impl PhysicalBaseline {
                 }
             }
         }
-        if let Some(mass) = self.mass {
+        match (self.mass, retraction.mass) {
             // `try_insert`: a session-scoped body can be despawned in the same
             // frame its worn identity last changed, and a torn-down entity is not
             // an error here.
-            entity.try_insert(crate::features::Mass(mass));
+            (Some(mass), _) => {
+                entity.try_insert(crate::features::Mass(mass));
+            }
+            // Silent character putting back what a persona took: the body's own
+            // mass, or the ABSENCE of one. Same shape as the
+            // `AuthoredMovementTuning` insert/remove pair the re-wear path
+            // already runs a few lines later — absence there has always been a
+            // retraction, and it was only here that it meant "keep".
+            (None, Some(Some(own))) => {
+                entity.try_insert(crate::features::Mass(own));
+            }
+            (None, Some(None)) => {
+                entity.try_remove::<crate::features::Mass>();
+            }
+            // Nothing to put back: either a construction, or a body no persona
+            // has ever given a mass to. Its own value stands.
+            (None, None) => {}
         }
         if boundary == BaselineBoundary::Construction {
             if let (Some(authored), Some(geometry)) = (self.explicit_size, geometry) {

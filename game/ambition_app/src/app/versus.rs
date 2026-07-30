@@ -259,12 +259,27 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 /// up in `character-preparation-finalization-plan.md` under "Related,
 /// deliberately after". Doing it here would mean building that seam inside a
 /// change about a counter.
+///
+/// ⛔ **"no `ActiveMatch`" does NOT mean "no bodies yet", and reading it that way
+/// was a real authority split** (GPT 5.6, 2026-07-30). Seating retries across
+/// ticks and the latch closes only when EVERY seat has a body, so between the
+/// first seated fighter and the last there is a window in which participants
+/// exist and the latch does not. Replacing the roster inside that window left the
+/// already-seated bodies alone — seating skips a seat index it finds occupied —
+/// so the match could activate with bodies built from the OLD roster and
+/// definitions from the NEW one: wrong character, wrong team, wrong
+/// human-versus-CPU assignment, and a warning afterwards that could not repair
+/// any of it. The window is now checked, and a disagreement inside it is
+/// reported rather than half-applied.
 fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition::input::LocalSeatTopology>>,
     roster: Option<ResMut<MatchParticipantRoster>>,
     active_match: Option<ResMut<ambition::actors::character_runtime::ActiveMatch>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
+    // Bodies that are ALREADY seated, latch or no latch. This is the fact the
+    // `ActiveMatch` check was standing in for, and the two are not the same fact.
+    seated: Query<&ambition::actors::character_runtime::MatchSeat>,
 ) {
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
@@ -314,6 +329,28 @@ fn reconcile_roster_with_frozen_topology(
             topology.players(),
             rebuilt.participants.len(),
             active.seats(),
+        );
+        return;
+    }
+    // NOT activated — but possibly half seated. When the cast agrees, replacing
+    // the roster is inert with respect to the bodies (same characters, same seat
+    // indices) and all it does is stamp the generation, so it is safe either way.
+    if rebuilt.participants != roster.participants && !seated.is_empty() {
+        bevy::log::warn_once!(
+            "the versus roster seats {} fighter(s) from seat topology {:?} and the session \
+             froze topology {} with {} player(s), which would seat {} DIFFERENT fighter(s) — \
+             but {} body/bodies are already on the stage from the current roster and the \
+             match has not activated yet. The roster is left alone: swapping it now would \
+             leave those bodies seated under definitions they were not built from, which \
+             is a match assembled from two rosters and is worse than a seat count that \
+             disagrees with the handle count. The real fix is atomic match activation \
+             before the session starts.",
+            roster.participants.len(),
+            roster.seat_topology,
+            topology.generation(),
+            topology.players(),
+            rebuilt.participants.len(),
+            seated.iter().count(),
         );
         return;
     }
@@ -828,6 +865,65 @@ mod roster_topology_tests {
             Some(app.world().resource::<LocalSeatTopology>().generation()),
             "a rebuilt roster must record WHICH topology it agreed with, or the \
              next tick rebuilds it again forever"
+        );
+    }
+
+    /// **A HALF-SEATED match is not handed a different roster.**
+    ///
+    /// The test above is the safe case and was read as the general one: "no
+    /// `ActiveMatch`" was taken to mean "nothing has a body yet". It does not.
+    /// Seating retries across ticks and the latch closes only when every seat is
+    /// filled, so a match with one fighter standing and one still pending sits in
+    /// exactly this state — and swapping the roster there is not a rebuild, it is
+    /// a match assembled from two rosters. Seating skips a seat index it finds
+    /// occupied, so the standing body keeps the OLD character, team and
+    /// controller kind while the latch closes over the NEW definitions, and the
+    /// warning that used to follow could not undo any of it (GPT 5.6,
+    /// 2026-07-30).
+    #[test]
+    fn a_half_seated_match_is_not_handed_a_different_roster() {
+        let mut app = app_with(versus_roster_from(2, None), 3, false);
+        // One fighter is already standing on the stage; the other has not seated
+        // yet, so `ActiveMatch` is absent — the exact window.
+        app.world_mut()
+            .spawn(ambition::actors::character_runtime::MatchSeat(0));
+        app.update();
+        let roster = app.world().resource::<MatchParticipantRoster>();
+        assert_eq!(
+            roster.participants.len(),
+            2,
+            "the roster was replaced under a body that is already seated, so seat \
+             0 keeps a fighter the new roster never asked for and seating will \
+             skip it as occupied"
+        );
+        assert_eq!(
+            roster.seat_topology, None,
+            "and the stamp must NOT be corrected either — a roster that records \
+             agreement with a topology it does not implement is the disagreement \
+             made invisible"
+        );
+    }
+
+    /// The window is only dangerous when the CAST differs. A body seated from a
+    /// roster the frozen topology would rebuild identically is not in conflict
+    /// with anything, and refusing there would strand the stamp forever.
+    #[test]
+    fn a_half_seated_match_whose_cast_agrees_still_gets_its_stamp() {
+        let topology = topology_of(2);
+        let mut app = app_with(versus_roster_from(2, None), 2, false);
+        app.world_mut()
+            .spawn(ambition::actors::character_runtime::MatchSeat(0));
+        app.update();
+        let roster = app.world().resource::<MatchParticipantRoster>();
+        assert_eq!(
+            roster.participants,
+            versus_roster_from(2, None).participants
+        );
+        assert_eq!(
+            roster.seat_topology,
+            Some(topology.generation()),
+            "same fighters, same seats — replacing the roster here changes \
+             nothing about the bodies and is how the reconciler stops re-running"
         );
     }
 

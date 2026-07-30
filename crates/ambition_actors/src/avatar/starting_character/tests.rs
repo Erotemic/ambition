@@ -1606,3 +1606,284 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
          different moves, so which one you are depends on how you got here"
     );
 }
+
+/// **A character that authors no physical override RETRACTS the last one, it
+/// does not inherit it.**
+///
+/// `apply_to_body` wrote maximum health and mass only when the incoming
+/// definition supplied `Some(_)`, so absence meant "keep whatever is there" —
+/// which is the outgoing persona's contribution, not the body's. Wear a heavy,
+/// high-health duelist and then a persona that authors neither and the body kept
+/// 2.0 / 60 forever, with nothing in the world claiming to have decided that
+/// (GPT 5.6, 2026-07-30). The same shape appeared when a hot reload dropped an
+/// authored override from `Some` to `None`.
+///
+/// The retraction target is the body's OWN answer, captured once on the first
+/// projection — never the previous character's, or two swaps would land on
+/// character one.
+#[test]
+fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    const BODY_MAX_HEALTH: i32 = 100;
+    const BODY_MASS: f32 = 1.0;
+    const DUELIST_MAX_HEALTH: i32 = 60;
+    const DUELIST_MASS: f32 = 2.0;
+
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    for (id, vitals) in [
+        (
+            "heavy_duelist",
+            crate::character_runtime::Vitals {
+                max_health: Some(DUELIST_MAX_HEALTH),
+                mass: Some(DUELIST_MASS),
+            },
+        ),
+        // Authors NOTHING physical. This is the ordinary case — most characters
+        // never think about mass — which is why silence had to mean the right
+        // thing rather than the convenient thing.
+        (
+            "silent_persona",
+            crate::character_runtime::Vitals::default(),
+        ),
+    ] {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(id, id, "demo");
+        definition.vitals = vitals;
+        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(prepared.prepared);
+    }
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(registry);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("heavy_duelist"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                BODY_MAX_HEALTH,
+            )),
+            crate::features::Mass(BODY_MASS),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+
+    let health_max = |app: &App| {
+        app.world()
+            .get::<ambition_characters::actor::BodyHealth>(body)
+            .unwrap()
+            .max()
+    };
+    let mass = |app: &App| app.world().get::<crate::features::Mass>(body).map(|m| m.0);
+
+    assert_eq!(health_max(&app), DUELIST_MAX_HEALTH);
+    assert_eq!(mass(&app), Some(DUELIST_MASS));
+    // The record of what to go back to, captured from the BODY before the
+    // duelist's numbers landed on it.
+    assert_eq!(
+        app.world().get::<PersonaBaseline>(body).unwrap().displaced,
+        crate::character_runtime::DisplacedPhysicals {
+            max_health: Some(BODY_MAX_HEALTH),
+            mass: Some(Some(BODY_MASS)),
+        }
+    );
+
+    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    app.update();
+
+    assert_eq!(
+        health_max(&app),
+        BODY_MAX_HEALTH,
+        "the silent persona inherited the duelist's health pool — absence read \
+         as 'keep', so every swap accumulated instead of replacing"
+    );
+    assert_eq!(
+        mass(&app),
+        Some(BODY_MASS),
+        "same for mass: the body kept weighing what the character it no longer \
+         wears said it should"
+    );
+
+    // And the record is unchanged, so a THIRD wear still retracts to the body
+    // rather than to the persona that just left.
+    assert_eq!(
+        app.world().get::<PersonaBaseline>(body).unwrap().displaced,
+        crate::character_runtime::DisplacedPhysicals {
+            max_health: Some(BODY_MAX_HEALTH),
+            mass: Some(Some(BODY_MASS)),
+        }
+    );
+}
+
+/// The other half of retraction: a body that never carried a `Mass` must not
+/// acquire one permanently from a character that only briefly authored it.
+#[test]
+fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    for (id, mass) in [("heavy_duelist", Some(2.0)), ("silent_persona", None)] {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(id, id, "demo");
+        definition.vitals = crate::character_runtime::Vitals {
+            max_health: None,
+            mass,
+        };
+        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(prepared.prepared);
+    }
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(registry);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("heavy_duelist"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+    assert_eq!(
+        app.world().get::<crate::features::Mass>(body).map(|m| m.0),
+        Some(2.0)
+    );
+
+    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    app.update();
+    assert!(
+        app.world().get::<crate::features::Mass>(body).is_none(),
+        "the body never had a mass of its own, so retraction REMOVES the \
+         component rather than inventing an ambient 1.0 — the same distinction \
+         `Vitals::mass` documents between authoring 1.0 and saying nothing"
+    );
+}
+
+/// **A field NO persona has ever authored is never written by this path.**
+///
+/// The narrowing that the first version of the retraction did not have, and the
+/// reason it desynced `rollback_lifecycle_reset` on its first full suite run.
+/// Recording the body's values wholesale and restoring them whenever the incoming
+/// character was silent made this derive a second authority over `max_health` —
+/// so it fought the direct `health.max = 3` that test stages with. Because the
+/// derive is gated on Bevy change detection, and **change ticks are not rollback
+/// state**, it fired on resimulated frames it had not fired on live: a write that
+/// had always been a no-op became a checksum divergence.
+#[test]
+fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    for id in ["quiet_one", "quiet_two"] {
+        // Neither authors health or mass — the ordinary case for most of the cast.
+        let definition = crate::character_runtime::CharacterDefinition::new(id, id, "demo");
+        let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(prepared.prepared);
+    }
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(registry);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("quiet_one"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                100,
+            )),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+
+    // SOMEBODY ELSE re-pools the body — a staged fixture, a difficulty rule, an
+    // upgrade. Exactly what `rollback_lifecycle_reset::stage_on_floor` does.
+    {
+        let mut health = app
+            .world_mut()
+            .get_mut::<ambition_characters::actor::BodyHealth>(body)
+            .unwrap();
+        health.health.max = 3;
+        health.health.current = 3;
+    }
+
+    *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("quiet_two");
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<ambition_characters::actor::BodyHealth>(body)
+            .unwrap()
+            .max(),
+        3,
+        "the persona derive clobbered a health pool no character ever claimed. \
+         It is not this path's field to write, and writing it makes a derive \
+         gated on non-rewinding change ticks into a rollback divergence"
+    );
+    assert_eq!(
+        app.world()
+            .get::<PersonaBaseline>(body)
+            .unwrap()
+            .displaced
+            .max_health,
+        None,
+        "and nothing was recorded as displaced, because nothing displaced it"
+    );
+}

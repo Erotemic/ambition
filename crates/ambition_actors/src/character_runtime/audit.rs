@@ -143,6 +143,15 @@ pub enum CharacterAuthorityConflict {
         ids: Vec<String>,
     },
     /// One id declared by both authorities, with different art.
+    ///
+    /// ⚠ **both sheets are the CANONICAL sheet target**, never the raw strings
+    /// the two authorities happen to store. A registry names a target (`robot`);
+    /// a catalog names files (`sprites/robot_spritesheet.png` +
+    /// `sprites/robot_spritesheet.ron`). Comparing those as strings reported a
+    /// conflict for every character both authorities declare — ten of them in
+    /// the shipped cast, including `sanic`, `robot` and `mary_o` — so this
+    /// audit's `error!` was permanently on and therefore unreadable
+    /// (GPT 5.6, 2026-07-30).
     SheetDisagreement {
         character_id: String,
         registry_sheet: String,
@@ -244,6 +253,17 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
     // And the art, for an id both authorities declare. Only when the registry
     // actually named a sheet: a registration that names none is deferring to the
     // catalog on purpose, which is agreement, not conflict.
+    //
+    // ⚠ **compared as sheet TARGETS, not as the strings each side stores.** The
+    // two authorities write the same logical asset in two different vocabularies
+    // — a registry `with_sheet` names the baked manifest target (`robot`), a
+    // catalog row names its files (`sprites/robot_spritesheet.png` and
+    // `sprites/robot_spritesheet.ron`) — and `manifest_target()` is the existing
+    // canonical projection between them. Comparing raw strings made this fire on
+    // every character both authorities declare, which is to say it fired on
+    // agreement (GPT 5.6, 2026-07-30). Ten shipped characters, an `error!` on
+    // every boot, and nothing ever asserted on it — a guard that is always red is
+    // a guard nobody reads.
     if let (Some(registry), Some(catalog)) = (registry, catalog) {
         for (id, prepared) in registry.iter() {
             let Some(registry_sheet) = prepared.sheet.as_deref() else {
@@ -252,13 +272,28 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
             let Some(entry) = catalog.get(id) else {
                 continue;
             };
-            if entry.spritesheet != registry_sheet && entry.manifest != registry_sheet {
-                conflicts.push(CharacterAuthorityConflict::SheetDisagreement {
-                    character_id: id.to_string(),
-                    registry_sheet: registry_sheet.to_string(),
-                    catalog_sheet: entry.spritesheet.clone(),
-                });
+            let catalog_target = entry.manifest_target();
+            // The raw forms stay accepted as well. `manifest_target()` returns
+            // `None` for a manifest that does not follow the `*_spritesheet.ron`
+            // convention, and a row that stores the target verbatim is agreeing
+            // in the plainest way there is — neither should be reported.
+            if catalog_target == Some(registry_sheet)
+                || entry.spritesheet == registry_sheet
+                || entry.manifest == registry_sheet
+            {
+                continue;
             }
+            conflicts.push(CharacterAuthorityConflict::SheetDisagreement {
+                character_id: id.to_string(),
+                registry_sheet: registry_sheet.to_string(),
+                // The NORMALIZED form when there is one, so a real conflict reads
+                // as two targets that differ rather than as a target next to a
+                // path, which is the shape that made every agreement look like a
+                // conflict in the first place.
+                catalog_sheet: catalog_target
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| entry.spritesheet.clone()),
+            });
         }
     }
 

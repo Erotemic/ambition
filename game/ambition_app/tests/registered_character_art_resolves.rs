@@ -89,3 +89,30 @@ fn every_registered_character_resolves_the_art_it_declares() {
         );
     }
 }
+
+/// **The two declaration authorities agree, in the SHIPPED composition.**
+///
+/// `audit_character_authority_parity` has existed since 2026-07-26 and reports
+/// through `error!`. Nothing has ever asserted on it, so a conflict in the
+/// shipped cast is a log line among hundreds and a green suite
+/// [[feedback-a-green-guardrail-proves-nothing]]. This is the assertion.
+#[test]
+fn the_shipped_cast_has_one_authority_per_character() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    ambition::runtime::finalize(&mut app);
+    let conflicts =
+        ambition::actors::character_runtime::audit::audit_character_authority_parity(app.world());
+    assert!(
+        conflicts.is_empty(),
+        "{} character(s) are declared by both the prepared registry and the \
+         catalog with different content. Every resolver prefers the registry, so \
+         the catalog's version is dead content that still reads as \
+         authoritative:\n{}",
+        conflicts.len(),
+        conflicts
+            .iter()
+            .map(|conflict| format!("  {conflict}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
+}

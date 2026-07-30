@@ -57,7 +57,9 @@ pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
-pub use physical_baseline::{BaselineBoundary, BodyGeometry, PhysicalBaseline};
+pub use physical_baseline::{
+    BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
+};
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
     project_prepared_character_definitions, provider_of_character,

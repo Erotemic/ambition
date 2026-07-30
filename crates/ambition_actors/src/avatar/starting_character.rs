@@ -564,6 +564,10 @@ pub fn apply_worn_character_gameplay(
         // carries a health pool, and "this path cannot write it" is a different
         // claim from "leave it alone".
         Option<&mut ambition_characters::actor::BodyHealth>,
+        // The physical baseline's other live half, read-only: it is WRITTEN
+        // through commands, and read here only to capture what the body weighed
+        // before any persona spoke for it.
+        Option<&crate::features::Mass>,
         Has<ambition_projectiles::PlayerProjectileState>,
         // What THIS system last applied to this body. See [`PersonaBaseline`]:
         // the change-detection filter that used to live here could not see a
@@ -584,6 +588,7 @@ pub fn apply_worn_character_gameplay(
         abilities,
         mut motion_model,
         mut health,
+        mass,
         has_projectile_state,
         baseline,
     ) in &mut worn
@@ -631,16 +636,38 @@ pub fn apply_worn_character_gameplay(
             // survives the swap, clamped under the new maximum. Refilling here
             // would make wearing a character mid-round a free heal. Geometry is
             // deliberately not applied — see [`BaselineBoundary::Replacement`].
-            if let Some(physical) = registry
+            //
+            // ⚠ **and what the INCOMING character does not author is retracted,
+            // not inherited.** `standing` is the body's own physical answer,
+            // captured the first time any persona was projected onto it and
+            // carried forward since. Without it, absence read as "keep what is
+            // there" — so wearing a 2.0-mass 60-health duelist and then a persona
+            // that authors neither left the body at 2.0 and 60, and every later
+            // swap accumulated instead of replacing (GPT 5.6, 2026-07-30). The
+            // same defect appeared when a hot-reloaded generation dropped an
+            // override from `Some` to `None`.
+            let incoming = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .map(crate::character_runtime::PhysicalBaseline::of)
-            {
+                .map(crate::character_runtime::PhysicalBaseline::of);
+            // What a persona has taken from this body, extended with whatever
+            // the INCOMING one is about to take. Recorded before the write, and
+            // only for fields no persona has claimed yet.
+            let displaced = baseline
+                .map(|baseline| baseline.displaced)
+                .unwrap_or_default()
+                .displace(
+                    incoming,
+                    health.as_deref().map(|health| health.health.max),
+                    mass.map(|mass| mass.0),
+                );
+            if let Some(physical) = incoming {
                 physical.apply_to_body(
                     crate::character_runtime::BaselineBoundary::Replacement,
                     &mut commands.entity(entity),
                     health.as_deref_mut(),
                     None,
+                    crate::character_runtime::PhysicalRetraction::resolve(incoming, displaced),
                 );
             }
 
@@ -678,6 +705,16 @@ pub fn apply_worn_character_gameplay(
             commands.entity(entity).try_insert(PersonaBaseline {
                 id: id.to_string(),
                 generation,
+                // Extended above, never re-read: a field already displaced keeps
+                // the value it displaced, so a second swap still retracts to the
+                // BODY rather than to the first character.
+                //
+                // ⚠ for a body CONSTRUCTED wearing a character (a seated fighter),
+                // what this displaces is what construction built — which includes
+                // that character's authored numbers. Deliberate, and the honest
+                // meaning of the record: it is the body as it entered the world,
+                // not an archetype default this path never sees.
+                displaced,
             });
             continue;
         }
@@ -726,10 +763,17 @@ pub fn apply_worn_character_gameplay(
 /// record is how one of them ends up certifying work the other has not performed,
 /// which is precisely the defect this fixes. One writer, one record, each stamped
 /// only after its own work is applied.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+/// ⚠ it also carries `displaced`, which is NOT a memo — it is the only surviving
+/// record of what a persona took from this body, and retraction is driven from
+/// it. `Eq` is gone with it: a mass is an `f32`.
+#[derive(Component, Clone, Debug, PartialEq)]
 pub struct PersonaBaseline {
     pub id: String,
     pub generation: crate::character_runtime::CharacterCatalogGeneration,
+    /// See [`DisplacedPhysicals`](crate::character_runtime::DisplacedPhysicals).
+    /// Grows once per field, at the first persona that overrides that field, and
+    /// is carried forward verbatim through every later re-wear.
+    pub displaced: crate::character_runtime::DisplacedPhysicals,
 }
 
 /// Gate the raw player-control frame by the effective worn kit before any body

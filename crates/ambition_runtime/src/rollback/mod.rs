@@ -900,6 +900,19 @@ pub fn register_engine_rollback_state(app: &mut App) {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             baseline.id.hash(&mut hasher);
+            // The STANDING physicals are in the probe for the same reason
+            // `ProjectedCharacterKit.granted` is: retraction is driven from them,
+            // so a rewind that restores the record without them retracts a
+            // replacement to the wrong numbers and nothing reads wrong until a
+            // character swap. Mass is hashed by its bit pattern — this is a
+            // checksum, not an arithmetic comparison, so `to_bits` is exactly
+            // right and `f32`'s missing `Hash` is not an obstacle.
+            baseline.displaced.max_health.hash(&mut hasher);
+            baseline
+                .displaced
+                .mass
+                .map(|mass| mass.map(f32::to_bits))
+                .hash(&mut hasher);
             hasher.finish() ^ baseline.generation.get().rotate_left(32)
         },
     )

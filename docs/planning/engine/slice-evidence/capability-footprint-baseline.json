@@ -5,21 +5,21 @@
     "than from whenever somebody notices it needs a number.",
     "",
     "SUBJECT: the transitive `ambition_*` closure a consumer links by depending on",
-    "the facade alone. \u00a72e of api-growth-method.md exists because a clean facade",
-    "can hide this \u2014 'a perfectly semantic API could still force a movement-only",
+    "the facade alone. §2e of api-growth-method.md exists because a clean facade",
+    "can hide this — 'a perfectly semantic API could still force a movement-only",
     "game to compile and link menus, persistence, audio, LDtk, bosses and every",
     "unrelated gameplay domain'. No consumer names a forbidden path; the footprint",
     "is still wrong.",
     "",
-    "\u26a0 ONE invariant here, not two. The set may not GROW. It deliberately does NOT",
+    "⚠ ONE invariant here, not two. The set may not GROW. It deliberately does NOT",
     "require pruning as it shrinks, because unlike the module allowlist there is no",
-    "'slot' to reoccupy \u2014 a crate leaving the closure cannot be silently replaced",
+    "'slot' to reoccupy — a crate leaving the closure cannot be silently replaced",
     "by a different one without the count moving. Stating the difference because",
     "the other two ratchets DO need both halves and copying them blindly here",
     "would add a rule with no failure behind it.",
     "",
     "ZERO unwanted means a game links only what it asked for. That is the",
-    "condition \u00a74's carve exists to reach."
+    "condition §4's carve exists to reach."
   ],
   "measured_on": "2026-07-30",
   "sentinel": "fixtures/minimal_game (declares `ambition` and nothing else)",
@@ -112,5 +112,12 @@
     "ambition_render",
     "ambition_touch_input"
   ],
-  "why_the_split_matters": "The second list can be closed by making facade edges optional \u2014 a manifest change. The first cannot: a game that needs actors needs `ambition_actors`, which brings them. That is what makes the footprint irreducible without moving code, which is \u00a74's carve condition."
+  "why_the_split_matters": "The second list can be closed by making facade edges optional — a manifest change. The first cannot: a game that needs actors needs `ambition_actors`, which brings them. That is what makes the footprint irreducible without moving code, which is §4's carve condition.",
+  "facade_only_four_are_not_a_quick_win": {
+    "measured_on": "2026-07-30",
+    "finding": "The four crates reachable ONLY through the facade's own edges — inventory_ui, touch_input, portal_presentation, render — are named through `ambition::` by in-repo code 49, 12, 19 and 90 times respectively. 170 call sites.",
+    "why_it_matters": "The split recorded above says 15 of 19 unwanted crates need the carve and 4 are 'fixable by making them optional'. True, and it undersells the four: making an edge optional means cfg-gating its re-export, which means every one of those 170 in-repo call sites must either sit behind the same feature or gain it. `render` alone is 90, and `presentation` and `game_assets` are built on it, so gating it is really gating the visible face.",
+    "so_the_honest_scope_is": "A facade-optionality slice, not a manifest tweak. It is still worth doing and still measurable by this ratchet — 19 -> 15 is a real number — but it is a migration with consumers, and calling it cheap was wrong.",
+    "how_this_was_caught": "By counting the call sites before starting, rather than after. The earlier 'fixable by making them optional' was inferred from the dependency graph alone, which shows what depends on what and not how much of the tree says its name."
+  }
 }

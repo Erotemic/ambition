@@ -72,18 +72,23 @@ app.update();   // exactly one sim tick — rule 8 is already applied
 `headless()` and `windowed(title)` are the same composition in the same order,
 selected by one call.
 
-> ⚠ **Corrected 2026-07-30 — this said they "differ in policy, not in structure:
-> same modules, same order, same routes", and the last clause is false.** The
-> visible face installs `PlatformerAssetsPlugin`, which panics without a
-> `CharacterCatalog`, so **a module that boots headless does not necessarily
-> boot windowed.** The blind agent hit it and recorded that the document had
-> "actively told me the opposite would be true", which is the most expensive
-> kind of wrong.
+> ⚠ **Corrected twice.** This first said the two faces "differ in policy, not in
+> structure: same modules, same order, same routes", which was false — the
+> visible face needs a `CharacterCatalog`. It was then corrected to say a module
+> that boots headless "does not necessarily boot windowed", which slice B made
+> false in the other direction: declare `characters(MINIMAL_CHARACTER_ROSTER_RON)`
+> and a minimal module boots both.
 >
-> The underlying divergence is deliberate — see §4 on `with_game_assets` — but
-> its consequence for a *minimal* module was written down nowhere. Closing it
-> needs an empty-content story, which is slice B; until then this asymmetry is
-> a stated limitation rather than a surprise.
+> Blind runs 5 and 6 both booted a minimal module on both faces while the second
+> wording was still here. I fixed the README after run 5 and left THIS file
+> saying the opposite — and run 6 caught it, noting that a reader following the
+> status table's "designed in api-prototype.md" link "would have been told the
+> opposite of the truth."
+>
+> Fourth instance of the pattern this campaign named: **a doc enumerating a gap
+> it no longer has.** The three staleness guards check module names and method
+> lists; none can check a claim about capability, and this is the second time
+> that limit has been demonstrated rather than argued.
 
 The GPU-less variant — a real render graph against no wgpu backend, for CI — is
 a third policy on the same axis, not a fourth composition:

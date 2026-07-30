@@ -59,6 +59,9 @@ the asset source is optional; you need one only if your game ships its own art.
 
 ## `HostStatus` — did it start?
 
+Useful field types the snippets use without naming: `BodyKinematics::pos` is a
+`Vec2`, `ControlFrame::axis_x` is an `f32`.
+
 `host_status(&app)` returns `NotComposed` / `Initializing` / `Activating` /
 `Running { route, experience, prepared }` / `Refused { reasons }`.
 
@@ -66,8 +69,8 @@ the asset source is optional; you need one only if your game ships its own art.
 |---|---|
 | `is_running()` | live AND backed by a prepared session — both halves |
 | `is_refused()` | it will never start; stop polling |
-| `refusal()` | why |
-| `route()` | the active route, if any |
+| `refusal()` | why — `&[String]` |
+| `route()` | the active route, if any — `Option<&str>` |
 
 ## Constants
 

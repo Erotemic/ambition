@@ -1,0 +1,89 @@
+{
+  "_comment": [
+    "\u00a72c run 6. \u2b50 ADR 0031's GATE PASSES: zero files opened under crates/, game/,",
+    "fixtures/ or tools/; no `cargo doc` over any engine crate; and \u2014 unlike run 5",
+    "\u2014 the engine's `Cargo.toml` and `.cargo/config.toml` were never read either,",
+    "because the README now inlines the patch rev and the linker config.",
+    "",
+    "The prompt was WIDENED for this run to log files opened ANYWHERE in the",
+    "repository, not just the four watched directories, after run 5 showed the",
+    "narrow framing let a real leak through. It passed the stricter question."
+  ],
+  "slice": "F",
+  "date": "2026-07-30",
+  "script": "docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md (prompt widened: any repo file)",
+  "harness": "fresh general-purpose subagent, no inherited conversation context",
+  "completed": {
+    "headless_boot": true,
+    "windowed_boot": true,
+    "minimal_game": true,
+    "notes": "First compile clean, zero errors and zero warnings, 23 tool calls. Body walks 64 -> 189.4 and settles at y=296 on a floor with min-corner y=320. Windowed composes and prepares art from the SAME minimal module. It explicitly declined to claim a verified window, citing the README's own warning that `without_gpu()` proves composition and not pixels."
+  },
+  "first_engine_file_opened": null,
+  "engine_api_surfaces_read": [],
+  "files_opened_anywhere_in_the_repo": [
+    "docs/sdk/README.md",
+    "docs/sdk/ (listing)",
+    "docs/sdk/api-reference.md",
+    "docs/sdk/api-prototype.md",
+    "repo root (listing) + du -sh target",
+    "crates/ambition (existence check via `ls -d`; no file inside was read)"
+  ],
+  "elapsed_context": {
+    "subagent_tokens": 59252,
+    "tool_uses": 23,
+    "duration_ms": 554369
+  },
+  "compared_to_baseline": {
+    "baseline": "2026-07-30-slice-a-baseline.json",
+    "engine_surfaces_read": "8 -> 4 -> 4 -> 2 -> 0 -> 0",
+    "engine_files_opened_anywhere": "1 -> 1 -> 1 -> 1 -> 2 -> 0",
+    "tool_calls": "67 -> 88 -> 65 -> 42 -> 95 -> 23",
+    "first_compile_clean": "no -> no -> no -> no -> YES -> YES",
+    "reading": "Six runs. The first could not compile the engine at all. The sixth wrote a working game from two documentation pages in 23 tool calls, opened nothing, and caught a defect in the docs it was using."
+  },
+  "findings": [
+    {
+      "id": "leak-by-recommendation-the-README-pointed-at-a-fixture",
+      "severity": "high",
+      "closed": true,
+      "summary": "The README said 'the reference to copy is fixtures/minimal_game'. Taking that advice fails the gate the same document opens with.",
+      "agents_words": "It is the identical defect api-reference.md was created to fix for `cargo doc` \u2014 the SDK telling readers to do the thing it is scored on. I deliberately did not follow it; a less suspicious reader would have.",
+      "why_it_matters": "SECOND instance of this exact shape. The first was `cargo doc`; this one survived the fix for it, because the fix addressed the instance and not the class. The run passed only because the agent was suspicious of its own instructions."
+    },
+    {
+      "id": "api-prototype-2b-stale-for-the-FOURTH-time",
+      "severity": "high",
+      "closed": true,
+      "summary": "\u00a72b still warned that a module booting headless 'does not necessarily boot windowed'. False since slice B; runs 5 and 6 both disproved it. I corrected the README after run 5 and left this file saying the opposite.",
+      "agents_words": "a reader who followed the 'designed in api-prototype.md' link from the status table would have been told the opposite of the truth.",
+      "why_it_matters": "Fixing the instance in one document and not its sibling is how a correction becomes a contradiction. The three staleness guards cannot see this: it is a claim about CAPABILITY, not a module name or a method."
+    },
+    {
+      "id": "disk-warning-overstated-4x",
+      "severity": "medium",
+      "closed": true,
+      "summary": "The README said 'budget ~6 GB'. Actual with debug=0 + incremental=false was ~1.5 GB for check + build + test. The agent had 2.9 GB free, read the doc as 'you cannot build here', and spent tool calls hunting a scratch volume it did not need.",
+      "why_it_matters": "An over-warning is cheaper than an under-warning and still cost real work. My number came from run 4's failure narrative rather than a measurement."
+    },
+    {
+      "id": "prelude-contents-omitted-Bevys-App",
+      "severity": "medium",
+      "closed": true,
+      "summary": "The listed prelude contents left out `App` \u2014 'the only name in my program I had to guess', needed the moment the poll loop is factored into a helper, which the README effectively invites."
+    },
+    {
+      "id": "return-and-field-types-undocumented",
+      "severity": "low",
+      "closed": true,
+      "summary": "`route()` -> Option<&str>, `BodyKinematics::pos` -> Vec2, `ControlFrame::axis_x` -> f32; all shown in use, none named."
+    },
+    {
+      "id": "no-actionable-path-to-verify-a-real-window",
+      "severity": "low",
+      "closed": true,
+      "summary": "The docs correctly said what not to claim from `without_gpu()` and omitted the one thing a reader can do: install Xvfb, set DISPLAY=:99."
+    }
+  ],
+  "verdict": "\u2b50 \u00a74.2 SATISFIED. Zero engine files under any reading of the condition, first compile clean, 23 tool calls. The run's own findings were all defects in the documents it succeeded with \u2014 including one leak-by-recommendation that would have failed the gate for a less suspicious reader, now closed."
+}

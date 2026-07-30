@@ -39,12 +39,11 @@ ambition = { path = "../path/to/ambition/crates/ambition" }
 # not satisfy that. Otherwise `ambition::bevy` is enough.
 bevy = "0.18"
 
-# Toolchain: rustc/cargo 1.95.0 or newer.
+# Toolchain: rustc/cargo 1.95.0 or newer. `edition = "2021"` is fine.
 #
-# ⚠ Budget ~6 GB of disk even with the settings below — and note `cargo check`
-# and `cargo build` SHARE `target/debug`, so doing both roughly doubles the
-# peak, and `target/debug/incremental` is ~800 MB of pure waste for a one-shot
-# build, and expect ~2 min for
+# ⚠ Budget ~1.5 GB of disk WITH the settings below (measured: check + build +
+# test, ~250 crates), and ~2 min to check / ~3 min to build cold. Without
+# `debug = 0` it is many times that — a default build blew an 11 GB budget, and expect ~2 min for
 # `cargo check` / ~3 min for `cargo build` warm (~250 crates). Without
 # `debug = 0` a default build blew an 11 GB budget and died in `rust-lld` with
 # SIGBUS and an LLVM stack dump that never mentions disk.
@@ -160,6 +159,10 @@ which flavour of "no display" you have — neither mentions Ambition:
 promise only the first. Somebody grepping their actual error text would not have
 found it.
 
+If you need to prove a real window in CI, install Xvfb and set `DISPLAY=:99`;
+that is the one actionable option and this document used to omit it while
+correctly telling you what not to claim.
+
 And `without_gpu()` proves COMPOSITION and art preparation — not winit, not
 wgpu, not pixels. On a display-less box you cannot verify a real window at all,
 and reporting "windowed boot achieved" from `without_gpu()` alone overstates
@@ -181,7 +184,9 @@ facade exposes ~30 more; the ones a game reaches for first:
 `ambition::app::prelude` re-exports `PlatformerApp`, `GameModule`,
 `ModuleManifest`, `ModuleDraft`, `AssetSource`, `SessionMode`, `StartAt`,
 `CompositionError`, `HostStatus`, `host_status`, `RoomSpec`, `RoomMetadata`,
-`EMPTY_CHARACTER_ROSTER_RON` and `MINIMAL_CHARACTER_ROSTER_RON`.
+`EMPTY_CHARACTER_ROSTER_RON`, `MINIMAL_CHARACTER_ROSTER_RON` — and Bevy's `App`,
+which you need the moment you factor the poll loop into a helper and have to
+name a parameter type.
 
 **The full surface is [api-reference.md](api-reference.md)** — every method on
 `PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
@@ -302,10 +307,20 @@ was true before slice B and false afterwards, and blind run 5 disproved it by
 booting a minimal module on the windowed face while the sentence was still here.
 Second time this document has advertised a gap it no longer had.
 
-**The reference to copy is `fixtures/minimal_game`** — the smallest thing that
-is still a game: one room, one walker, no combat, no art, no plugin of its own.
-It declares itself entirely through `ModuleDraft` and names only
-`ambition::app`, `ambition::world` and the `bevy` re-export.
+**Everything you need is on this page and in
+[api-reference.md](api-reference.md).** You should not have to read engine
+source to write a game — that is this SDK's acceptance test, not a courtesy.
+
+⚠ This section used to say "the reference to copy is `fixtures/minimal_game`".
+Blind run 6 pointed out that taking that advice fails the very gate this
+document opens with, and that it is the identical defect `api-reference.md` was
+created to fix for `cargo doc`: **the SDK telling readers to do the thing it is
+scored on.** A less suspicious reader would have followed it and logged
+`fixtures/minimal_game/src/lib.rs` as their first engine open.
+
+`fixtures/minimal_game` and `fixtures/external_consumer` remain the engine's own
+worked examples, for engine developers. If you find yourself needing them,
+that is a bug in this directory — please say which page failed you.
 
 `fixtures/external_consumer` (Outlander) is the larger worked example — a
 character, an enemy, a construction recipe, a transition, and a rollback host —

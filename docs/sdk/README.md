@@ -203,6 +203,19 @@ roster contains is refused at build.
 **`AssetSource` is optional.** You need one only if your game ships its own art;
 a module that declares none still resolves the engine's own assets.
 
+### Observing what the engine drew
+
+`ambition::view` is the read side of presentation — what exists to be drawn,
+rather than how it is drawn:
+
+```rust
+use ambition::view::{GameAssets, RoomVisual, SandboxAssetCatalog};
+```
+
+`GameAssets` holds the decoded sheets, `SandboxAssetCatalog` every asset
+path/source policy the presentation reads, and `RoomVisual` marks the entities a
+room contributed. A game reads these; it does not own the render path.
+
 ### Room coordinates
 
 **+y points DOWN**, and `Block::solid(name, min, size)` takes a **MIN CORNER,

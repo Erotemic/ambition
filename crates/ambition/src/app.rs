@@ -318,6 +318,7 @@ pub struct ModuleDraft {
     room: Option<RoomMetadata>,
     characters: Option<CharacterContent>,
     experience_definition: Option<ExperienceDefinition>,
+    declared_silence: bool,
     capabilities: Vec<CapabilityInstaller>,
     conflicts: Vec<String>,
 }
@@ -384,6 +385,27 @@ impl ModuleDraft {
     /// The room whose metadata picks block and biome art at `Startup`.
     pub fn room(&mut self, room: RoomMetadata) -> &mut Self {
         self.room = Some(room);
+        self
+    }
+
+    /// Declare, explicitly, that this module authors **no sound**.
+    ///
+    /// ⚠ Same shape as [`ModuleDraft::no_characters`], and for the same reason:
+    /// preparation validation REFUSES an experience whose provider registered
+    /// no audio fragment, so silence has always been mandatory paperwork —
+    /// there was simply no word for it on the public surface.
+    ///
+    /// The refusal is right (a game that meant to have sound and lost it should
+    /// not boot quietly), but its cost was measured in slice B: the minimal game
+    /// composed, booted, and sat in `HostStatus::Activating` for 600 ticks with
+    /// no message, because the reason never reached the consumer. Outlander's
+    /// own comment already knew — *"a good message that a headless host surfaced
+    /// NOWHERE"*.
+    ///
+    /// A game WITH sound still registers a real fragment through
+    /// `ambition::audio`; this is only the word for meaning it.
+    pub fn no_audio(&mut self) -> &mut Self {
+        self.declared_silence = true;
         self
     }
 
@@ -919,6 +941,20 @@ impl PlatformerApp {
                     })?;
             }
             None => {}
+        }
+
+        // Declared silence, registered through the same audio seam a provider
+        // plugin would use.
+        if draft.declared_silence {
+            use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+            let fragment = AudioCatalogFragment::new(experience.clone(), None, None)
+                .map_err(|error| CompositionError {
+                    problems: vec![format!(
+                        "`{experience}` declared silence and the empty audio fragment \
+                         was rejected: {error}"
+                    )],
+                })?;
+            app.register_audio_catalog_fragment(fragment);
         }
 
         let windowed = matches!(face, Face::Windowed { .. });

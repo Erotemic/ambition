@@ -58,6 +58,7 @@ impl GameModule for MinimalModule {
             .launcher_route(MINIMAL_LAUNCHER_ROUTE)
             .gameplay_route(MINIMAL_GAMEPLAY_ROUTE)
             .characters(minimal_experience::MINIMAL_ROSTER_RON)
+            .no_audio()
             .playable(
                 "Minimal Game",
                 "Movement only — the smallest thing that is still a game",
@@ -65,19 +66,20 @@ impl GameModule for MinimalModule {
                 minimal_experience::MINIMAL_ROOM_ID,
                 vec![minimal_experience::minimal_room()],
             )
-            .capability(MinimalExperiencePlugin);
+            ;
     }
 }
 
-/// Registers the one route this game has, so rule 7 is satisfied by a real
-/// registration rather than by a string that looks like one.
-#[derive(Clone)]
-pub struct MinimalExperiencePlugin;
-
-impl ambition::bevy::prelude::Plugin for MinimalExperiencePlugin {
-    fn build(&self, app: &mut App) {
-        minimal_experience::register(app);
-    }
-}
+// `MinimalExperiencePlugin` stood here. It registered the route, then only the
+// audio fragment, and now nothing: `playable()` declares the experience and
+// `no_audio()` declares the silence.
+//
+// ⚠ **The whole game is now a declaration.** It installs no plugin, spawns no
+// system, and touches no `App`. That is ADR 0032 decision 1 reaching its
+// conclusion for the smallest possible consumer — "nothing a provider writes is
+// live when its `define` returns" — and it is the clearest measure of what
+// slices A-C bought: this file used to need `ambition::provider`,
+// `ambition::runtime`, `ambition::engine_core` and `ambition::audio` to say the
+// same thing.
 
 pub mod minimal_experience;

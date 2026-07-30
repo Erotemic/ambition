@@ -6,7 +6,6 @@
 //! campaign gets to look at, because a mandatory line in a minimal game is a
 //! tax on every game.
 
-use ambition::app::prelude::App;
 // ONE import for room authoring. This used to be `ambition::engine_core as ae`
 // plus `ambition::world::rooms::RoomSpec` — two modules, one of them an
 // implementation crate named `engine_core`, to place a floor.
@@ -71,23 +70,10 @@ pub fn minimal_room() -> RoomSpec {
     RoomSpec::new(MINIMAL_ROOM_ID, world)
 }
 
-pub fn register(app: &mut App) {
-    // ⚠ DELIBERATE SILENCE, DECLARED — and a movement-only game has to declare
-    // it too. Preparation validation refuses an experience whose provider
-    // registered no explicit audio fragment.
-    //
-    // Found the way the campaign is supposed to find things: the host sat in
-    // `HostStatus::Activating` for 600 ticks and never started. Outlander's own
-    // comment already knew — "a good message that a headless host surfaced
-    // NOWHERE" — so a KNOWN error-quality gap was sitting there and a second
-    // consumer walked straight into it. `HostStatus` names the stuck state now;
-    // the REASON is still swallowed, which is slice-C material.
-    //
-    // This is the LAST thing this game registers by hand. Everything else moved
-    // onto `ModuleDraft::playable`.
-    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(MINIMAL_EXPERIENCE, None, None)
-            .expect("the silent minimal-game audio fragment is valid"),
-    );
-}
+// `register()` stood here. It hand-registered an empty `AudioCatalogFragment`
+// because preparation validation refuses an experience that declares no audio —
+// mandatory paperwork with no word for it on the public surface.
+//
+// DELETED 2026-07-30. `ModuleDraft::no_audio()` is the word. That was this
+// game's LAST hand-registration; it now declares itself entirely through the
+// draft and installs no plugin of its own.

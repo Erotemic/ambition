@@ -621,12 +621,20 @@ MODULE_ALLOWLISTS: list[dict] = [
         # exactly the namespace mirror the campaign exists to end. It moves to
         # `allowed` when the facade turns it into a curated module. Making a
         # number smaller is not a reason to promise something.
-        "baseline": {"audio", "world"},
+        # 2 -> 1. `audio` retired with `ModuleDraft::no_audio()`: declaring
+        # silence is a word on the draft now, not a hand-registered fragment.
+        #
+        # ONE left, and it is `world` — held in the baseline on purpose rather
+        # than promoted to `allowed`, because the facade still re-exports the
+        # whole crate. See the note in `allowed` above: a ratchet you can
+        # satisfy by editing the allowlist is not a ratchet.
+        "baseline": {"world"},
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
             "structurally cannot fill: it asks for almost nothing, so whatever it "
             "still has to name is a floor on what EVERY game must know. Four "
-            "modules, all of them the room/experience declaration path. The set "
+            "modules, all of them the room/experience declaration path — since "
+            "reduced to ONE by slices B and C. The set "
             "may not GAIN a member, and it may not KEEP one this game stops "
             "naming."
         ),

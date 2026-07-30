@@ -87,7 +87,7 @@ fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
                     minimal_game::minimal_experience::MINIMAL_ROOM_ID,
                     vec![minimal_game::minimal_experience::minimal_room()],
                 )
-                .capability(minimal_game::MinimalExperiencePlugin);
+                .no_audio();
             // and says nothing at all about characters
         }
     }
@@ -135,7 +135,7 @@ fn a_game_can_declare_that_it_has_no_cast() {
                     minimal_game::minimal_experience::MINIMAL_ROOM_ID,
                     vec![minimal_game::minimal_experience::minimal_room()],
                 )
-                .capability(minimal_game::MinimalExperiencePlugin);
+                .no_audio();
         }
     }
 

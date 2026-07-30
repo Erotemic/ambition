@@ -5,13 +5,12 @@
     "that fabricated it would be the taste-based selection §3 exists to prevent.",
     "`collect_slice_evidence.py` reads this file rather than inventing one.",
     "",
-    "Read with api-growth-method.md §3a (rank), §3b (route), §3c (size)."
+    "Read with api-growth-method.md §3a (rank), §3b (route), §3c (size).",
+    "⚠ Candidate 1 (the bevy_ggrs patch table) is DECIDED, not open: Jon deferred it on 2026-07-30 pending an upstream crates.io release. It stays listed because the ranking is evidence — deleting the highest-cost candidate would make the derivation of B look like it had no competition."
   ],
-
   "derived": true,
   "derived_on": "2026-07-30",
   "from_slice": "A",
-
   "ranked_candidates": [
     {
       "leak": "the engine does not compile for an outside consumer without an undocumented [patch.crates-io] bevy_ggrs fork",
@@ -19,8 +18,9 @@
       "cost": "MAXIMAL. Every consumer, every time, before any API question can be asked. Not silent — but the error (`cannot find type GgrsFrameTiming`) points at a symbol, not at the patch table a reader has never seen, which is the misdirecting-loud class rather than the teaching-loud one.",
       "closeable": "NO, not by us. Measured rather than assumed: exactly ONE production call site (`sample_ggrs_accumulator_phase`), so it LOOKS trivially closeable — but the only way to drop the fork is a parallel accumulator, which that function's own doc already weighed and rejected: it 'would agree only while nothing interesting happened, and diverge during run-slow catch-up, stalls, several advances in one frame, and rollback resimulation — exactly when a wrong phase shows most'. Removing the fork means degrading the presentation clock under rollback.",
       "owned": "SPLIT. Stating the rule is ours and is now done. REMOVING the need is not in our gift — it retires when the accessor ships in a released bevy_ggrs.",
-      "route": "3b: Closeable-but-not-owned -> awaiting a maintainer decision (upstream the accessor / vendor the fork / accept a worse clock). NOT slice B. The half that IS ours — stating the rule — shipped in docs/sdk/README.md, and rule 2 says a doc marker is not enough, so it needs a test pinning the documented rev to the workspace's actual one.",
-      "action": "queue row, plus a staleness test. Not a slice."
+      "route": "3b: Closeable-but-not-owned -> was awaiting a maintainer decision. DECIDED 2026-07-30 (Jon): DEFER, revisit once upstream merges the accessor to crates.io. Recorded in docs/planning/maintainer-decisions.md. This must not block slice B.",
+      "action": "DEFERRED pending upstream. The half that is ours — stating the rule — shipped in docs/sdk/README.md with the pinned rev. The remaining engineering is a staleness test so the documented rev cannot drift from the workspace's actual one; rule 2 says a doc marker is not enough.",
+      "decided": "2026-07-30"
     },
     {
       "leak": "a minimal module cannot reach a WINDOWED host: the visible face installs PlatformerAssetsPlugin, which panics without a CharacterCatalog",
@@ -47,7 +47,6 @@
       "route": "3b: not-closeable + owned -> DECOMPOSITION EVIDENCE (§4). Not a slice yet, and deliberately not acted on: §4 warns 'do not let a single leak authorise a full decomposition', and this one has no consumer complaint attached to it yet."
     }
   ],
-
   "slice_b": {
     "name": "the movement-only minimal game",
     "one_leak": "a consumer cannot stand up a SMALL game — the visible host demands content a minimal module has no way to supply, and there is no way to check whether the host came up at all.",
@@ -61,7 +60,7 @@
       "module-qualified namespaces, pack identity, content fingerprints, merge-conflict policy — the full ContentPack design. B needs the MINIMUM content a small game must supply, and the pack container is only justified once two modules have to coexist.",
       "the PreStartup character-preparation backstop deletion — still process-global, still needs every contributor migrated (Mary-O, Sanic, versus fighters, robot lineage). That is what forced the campaign's A-D split and it has not changed.",
       "rollback federation, capability plans, ContentRevision.",
-      "the bevy_ggrs patch table — awaiting a maintainer decision, above."
+      "the bevy_ggrs patch table — DEFERRED by maintainer decision 2026-07-30 pending an upstream crates.io release, not merely unscheduled."
     ],
     "exit_criteria_sketch": [
       "a movement-only game exists as a second consumer and boots BOTH faces from one module;",
@@ -71,7 +70,6 @@
       "§2d's headless-and-visible-share-a-prepared-content-fingerprint criterion re-evaluated — and closed WITHOUT collapsing with_game_assets back into the face."
     ]
   },
-
   "convergence_check": {
     "note": "§6 requires every slice to strictly reduce at least one of five counters. Slice A reduced two.",
     "forbidden_paths_named_by_a_consumer": "18 -> 14",

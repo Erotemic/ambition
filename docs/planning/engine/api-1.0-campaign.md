@@ -413,6 +413,20 @@ and rollback resimulation — exactly when a wrong phase shows most"*. Stating t
 rule is ours and is done; removing the need waits on upstream. That is
 awaiting-maintainer-decision, not a slice.
 
+> **DECIDED 2026-07-30 (Jon): defer it.** Revisit once upstream merges the
+> `GgrsFrameTiming` accessor to crates.io. Recorded in
+> [`maintainer-decisions.md`](../maintainer-decisions.md). It does **not** block
+> slice B, and it stays listed as the top-ranked candidate in the derivation on
+> purpose — deleting the highest-cost item would make slice B look like it won a
+> race it never ran.
+>
+> The half that IS ours is done: `docs/sdk/README.md` carries the required
+> `[patch.crates-io]` entry with the pinned rev, so a third party is told before
+> they hit `cannot find type GgrsFrameTiming`. What remains is small and real —
+> rule 2 says a doc marker is not enough, so the documented rev needs a test
+> pinning it to the workspace's actual one, or the paragraph rots the first time
+> the fork moves.
+
 ---
 
 ## Slices B–D — sketched, not specified

@@ -7,11 +7,50 @@ authors.workspace = true
 description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
 
 [features]
-default = []
+# Slice H: the facade's dependency edges are optional CAPABILITIES, and the
+# default is all of them — a consumer with default features gets exactly the
+# pre-slice-H facade. `default-features = false` is how a game says "only what
+# I ask for"; each optional crate edge is an implicit feature named after the
+# crate (`ambition_render`, `ambition_menu`, …), listed in `all_capabilities`.
+#
+# ⚠ Two unwanted edges deliberately did NOT become optional, and the reasons
+# are results, not oversights (slice-g-selection.json, slice_h_result):
+#   - `ambition_audio`: declaring SILENCE is an audio-catalog registration
+#     (`ModuleDraft::no_audio` → `AudioCatalogFragment`), so the composition
+#     path needs the crate even for a game with no sound. It also arrives via
+#     `ambition_actors` regardless, so gating the facade edge would cut nothing.
+#   - 14 more of the 19 "never asked for" crates arrive through
+#     `ambition_actors` alone; making their facade edges optional would change
+#     no measurement. They wait on the §4 carve, not on this manifest.
+default = ["all_capabilities"]
+# Every optional edge on: the facade exactly as it was when every edge was
+# unconditional.
+all_capabilities = [
+    "ambition_cutscene",
+    "ambition_dialog",
+    "ambition_encounter",
+    "ambition_inventory_ui",
+    "ambition_items",
+    "ambition_ldtk_map",
+    "ambition_menu",
+    "ambition_persistence",
+    "ambition_portal",
+    "ambition_portal_presentation",
+    "ambition_projectiles",
+    "ambition_render",
+    "ambition_settings_menu",
+    "ambition_sfx",
+    "ambition_sfx_bank",
+    "ambition_touch_input",
+    "ambition_ui_nav",
+    "ambition_vfx",
+]
 # Window/input/presentation forwarders for downstream game crates and for the
 # app-shell collapse. Games opt into the same engine/host/render/actor gates
 # through one facade instead of copying every lower crate into their manifests.
-visible = ["ambition_actors/visible"]
+# `visible` implies the render edge: a visible face draws through
+# `ambition::presentation`, which is `ambition_render`.
+visible = ["ambition_actors/visible", "ambition_render"]
 visible_web_base = ["ambition_actors/visible_web_base"]
 desktop_platform = ["ambition_actors/desktop_platform"]
 android_platform = ["ambition_actors/android_platform"]
@@ -32,11 +71,13 @@ portal_ldtk = ["ambition_actors/portal_ldtk"]
 input = [
     "ambition_actors/input",
     "ambition_host/input",
-    "ambition_render/input",
+    # Weak: input does not FORCE the render edge; it configures it if present.
+    "ambition_render?/input",
     "ambition_sim_view/input",
 ]
 mobile_touch = ["ambition_actors/mobile_touch", "ambition_touch_input/mobile_touch"]
 portal = [
+    "ambition_portal",
     "ambition_actors/portal",
     "ambition_runtime/portal",
     "ambition_host/portal",
@@ -65,39 +106,39 @@ ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy
 ambition_audio = { path = "../ambition_audio" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
-ambition_cutscene = { path = "../ambition_cutscene" }
+ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
-ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
-ambition_encounter = { path = "../ambition_encounter" }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
+ambition_encounter = { path = "../ambition_encounter", optional = true }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_host = { path = "../ambition_host" }
 ambition_input = { path = "../ambition_input" }
 ambition_interaction = { path = "../ambition_interaction" }
-ambition_inventory_ui = { path = "../ambition_inventory_ui" }
-ambition_items = { path = "../ambition_items" }
-ambition_ldtk_map = { path = "../ambition_ldtk_map" }
+ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
+ambition_items = { path = "../ambition_items", optional = true }
+ambition_ldtk_map = { path = "../ambition_ldtk_map", optional = true }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
-ambition_menu = { path = "../ambition_menu" }
-ambition_persistence = { path = "../ambition_persistence" }
+ambition_menu = { path = "../ambition_menu", optional = true }
+ambition_persistence = { path = "../ambition_persistence", optional = true }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_platformer_provider = { path = "../ambition_platformer_provider" }
-ambition_portal = { path = "../ambition_portal" }
-ambition_portal_presentation = { path = "../ambition_portal_presentation" }
-ambition_projectiles = { path = "../ambition_projectiles" }
-ambition_render = { path = "../ambition_render" }
+ambition_portal = { path = "../ambition_portal", optional = true }
+ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
+ambition_projectiles = { path = "../ambition_projectiles", optional = true }
+ambition_render = { path = "../ambition_render", optional = true }
 ambition_runtime = { path = "../ambition_runtime" }
-ambition_settings_menu = { path = "../ambition_settings_menu" }
-ambition_sfx = { path = "../ambition_sfx" }
-ambition_sfx_bank = { path = "../ambition_sfx_bank" }
+ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
+ambition_sfx = { path = "../ambition_sfx", optional = true }
+ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_time = { path = "../ambition_time" }
-ambition_touch_input = { path = "../ambition_touch_input" }
-ambition_ui_nav = { path = "../ambition_ui_nav" }
-ambition_vfx = { path = "../ambition_vfx" }
+ambition_touch_input = { path = "../ambition_touch_input", optional = true }
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+ambition_vfx = { path = "../ambition_vfx", optional = true }
 ambition_world = { path = "../ambition_world" }
 bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_asset",

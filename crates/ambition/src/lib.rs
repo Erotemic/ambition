@@ -7,6 +7,9 @@
 //! game content or the `ambition_app` shell.
 
 pub mod app;
+/// Asset install for a game that DRAWS — rides the `ambition_render` capability
+/// edge, because its Startup ordering anchor is `ambition_render`'s.
+#[cfg(feature = "ambition_render")]
 pub mod game_assets;
 pub mod prelude;
 pub mod session_world;
@@ -22,9 +25,12 @@ pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
+#[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
 pub use ambition_dev_tools as dev_tools;
+#[cfg(feature = "ambition_dialog")]
 pub use ambition_dialog as dialog;
+#[cfg(feature = "ambition_encounter")]
 pub use ambition_encounter as encounter;
 pub use ambition_engine_core as engine_core;
 pub use ambition_entity_catalog as entity_catalog;
@@ -32,27 +38,42 @@ pub use ambition_game_shell as game_shell;
 pub use ambition_host as host;
 pub use ambition_input as input;
 pub use ambition_interaction as interaction;
+#[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
+#[cfg(feature = "ambition_items")]
 pub use ambition_items as items;
+#[cfg(feature = "ambition_ldtk_map")]
 pub use ambition_ldtk_map as ldtk_map;
 pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
+#[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
+#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer_primitives as platformer;
+#[cfg(feature = "ambition_portal")]
 pub use ambition_portal as portal;
+#[cfg(feature = "ambition_portal_presentation")]
 pub use ambition_portal_presentation as portal_presentation;
+#[cfg(feature = "ambition_projectiles")]
 pub use ambition_projectiles as projectiles;
+#[cfg(feature = "ambition_render")]
 pub use ambition_render as render;
 pub use ambition_runtime as runtime;
+#[cfg(feature = "ambition_settings_menu")]
 pub use ambition_settings_menu as settings_menu;
+#[cfg(feature = "ambition_sfx")]
 pub use ambition_sfx as sfx;
+#[cfg(feature = "ambition_sfx_bank")]
 pub use ambition_sfx_bank as sfx_bank;
 pub use ambition_sim_view as sim_view;
 pub use ambition_sprite_sheet as sprite_sheet;
 pub use ambition_time as time;
+#[cfg(feature = "ambition_touch_input")]
 pub use ambition_touch_input as touch_input;
+#[cfg(feature = "ambition_ui_nav")]
 pub use ambition_ui_nav as ui_nav;
+#[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;
 /// **Bodies: what a game queries, moves and transits.**
 ///
@@ -260,6 +281,7 @@ pub mod windowed_host {
 }
 
 /// Default renderer facade.
+#[cfg(feature = "ambition_render")]
 pub mod renderer {
     pub use ambition_render::*;
 }
@@ -267,6 +289,7 @@ pub mod renderer {
 /// The generic platformer PRESENTATION face: a camera, the room's static visuals,
 /// and the sprite/animation chain. A demo adds this beside the engine and host
 /// groups; a game layers its own HUD/menus/dev stack on top (oracle-violation OV1).
+#[cfg(feature = "ambition_render")]
 pub mod presentation {
     pub use ambition_render::dialog_ui::{
         DefaultDialogUiPlugin, DialogOverlayRoot, DialogPresentationSet,

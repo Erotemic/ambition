@@ -41,7 +41,6 @@
     "ambition_host",
     "ambition_input",
     "ambition_interaction",
-    "ambition_inventory_ui",
     "ambition_items",
     "ambition_ldtk_map",
     "ambition_load",
@@ -51,7 +50,6 @@
     "ambition_platformer_primitives",
     "ambition_platformer_provider",
     "ambition_portal",
-    "ambition_portal_presentation",
     "ambition_projectiles",
     "ambition_render",
     "ambition_runtime",
@@ -61,34 +59,29 @@
     "ambition_sim_view",
     "ambition_sprite_sheet",
     "ambition_time",
-    "ambition_touch_input",
     "ambition_ui_nav",
     "ambition_vfx",
     "ambition_world"
   ],
-  "closure_size": 41,
+  "closure_size": 38,
   "never_asked_for": [
     "ambition_audio",
     "ambition_cutscene",
     "ambition_dialog",
     "ambition_encounter",
-    "ambition_inventory_ui",
     "ambition_items",
     "ambition_ldtk_map",
     "ambition_menu",
     "ambition_persistence",
     "ambition_portal",
-    "ambition_portal_presentation",
     "ambition_projectiles",
-    "ambition_render",
     "ambition_settings_menu",
     "ambition_sfx",
     "ambition_sfx_bank",
-    "ambition_touch_input",
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "never_asked_for_count": 19,
+  "never_asked_for_count": 15,
   "reachable_via_ambition_actors_alone": [
     "ambition_audio",
     "ambition_cutscene",
@@ -119,5 +112,19 @@
     "why_it_matters": "The split recorded above says 15 of 19 unwanted crates need the carve and 4 are 'fixable by making them optional'. True, and it undersells the four: making an edge optional means cfg-gating its re-export, which means every one of those 170 in-repo call sites must either sit behind the same feature or gain it. `render` alone is 90, and `presentation` and `game_assets` are built on it, so gating it is really gating the visible face.",
     "so_the_honest_scope_is": "A facade-optionality slice, not a manifest tweak. It is still worth doing and still measurable by this ratchet — 19 -> 15 is a real number — but it is a migration with consumers, and calling it cheap was wrong.",
     "how_this_was_caught": "By counting the call sites before starting, rather than after. The earlier 'fixable by making them optional' was inferred from the dependency graph alone, which shows what depends on what and not how much of the tree says its name."
+  },
+  "slice_h_remeasurement": {
+    "remeasured_on": "2026-07-30",
+    "how": "cargo tree --edges normal in the sentinel's own workspace, which is now also how the ratchet measures (a static manifest walk counts optional edges the sentinel never enabled, so the counter could never move).",
+    "closure_before": 41,
+    "closure_after": 38,
+    "cut_by_making_facade_edges_optional": [
+      "ambition_inventory_ui",
+      "ambition_portal_presentation",
+      "ambition_touch_input"
+    ],
+    "⚠_render_did_not_leave_and_that_is_the_honest_outcome": "The edge IS optional now, but `minimal_game`'s own slice-B exit criterion composes the windowed face (`the_minimal_game_boots_windowed`), and the windowed face draws. Per the slice-H spec's failure-mode clause, a feature the sentinel needs to keep passing its tests is not optional FOR IT: the manifest names `ambition_render` and the closure keeps it. A game with no windowed face drops it — the edge is measured as cuttable, just not by this sentinel.",
+    "⚠_audio_resisted_for_a_different_reason": "Declaring SILENCE is an audio-catalog registration (`ModuleDraft::no_audio` registers an `AudioCatalogFragment`), so the composition path needs `ambition_audio` even for a soundless game — and it arrives via `ambition_actors` regardless, so gating the facade edge would have cut nothing. Left unconditional.",
+    "the_remaining_15_wait_on_the_carve": "Every crate still in `never_asked_for` is in `reachable_via_ambition_actors_alone`; no facade manifest change can remove them, which is exactly the §4 carve condition this file has recorded since it was first measured."
   }
 }

@@ -42,7 +42,13 @@ visible = [
 ]
 
 [dependencies]
-ambition = { path = "../../crates/ambition", default-features = false }
+# Slice H: capability edges are features now. Outlander DRAWS — it composes the
+# windowed face and asserts on `GameAssets` — so it asks for the render
+# capability by name and nothing else. What else still links is the carve's
+# problem, not this manifest's.
+ambition = { path = "../../crates/ambition", default-features = false, features = [
+    "ambition_render",
+] }
 bevy = { version = "0.18.1", default-features = false }
 
 # LEAK (recorded, Phase-6 evidence): the engine only compiles under the

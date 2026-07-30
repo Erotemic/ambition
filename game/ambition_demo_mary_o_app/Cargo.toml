@@ -26,7 +26,7 @@ input = ["ambition/input"]
 [dependencies]
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
 # depends on `ambition`, never on `ambition_app`. That is the demo gate.
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
 # The demo's own content + rules. The shell names nothing else.
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's

@@ -741,8 +741,10 @@ MODULE_ALLOWLISTS: list[dict] = [
 #
 # §2e's subject, made non-increasing. A clean facade can hide this entirely: no
 # consumer names a forbidden path and the footprint is still wrong, because
-# depending on `ambition` links 41 crates and a movement-only game asked for 22
-# of them.
+# depending on `ambition` used to link 41 crates when a movement-only game asked
+# for 22 of them. Slice H made the facade's edges optional features and the
+# sentinel's measured closure is now the baseline; the 15 crates still unwanted
+# arrive through `ambition_actors` and wait on the §4 carve, not on a manifest.
 #
 # ⚠ ONE invariant, not two, and the asymmetry is deliberate. The set may not
 # GROW. It does NOT require pruning as it shrinks, because unlike a module
@@ -754,14 +756,50 @@ CAPABILITY_FOOTPRINT_BASELINE = (
     "docs/planning/engine/slice-evidence/capability-footprint-baseline.json"
 )
 
+CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
+
+
+def sentinel_linked_closure(root: Path) -> set[str]:
+    """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
+
+    ⚠ Until slice H this walked the workspace manifest graph from `ambition`,
+    which was correct while every facade edge was unconditional and became the
+    wrong subject the moment they were features: a static walk counts an
+    optional edge the sentinel never enabled, so the counter could never move.
+    The baseline's own subject line has always been "what a consumer links by
+    depending on the facade" — so ask cargo what the sentinel resolves, in the
+    sentinel's own workspace, with the sentinel's own feature choices.
+
+    `--locked` on purpose: a dependency change that alters the sentinel's
+    lockfile must arrive WITH that lockfile, or this check fails loudly instead
+    of silently rewriting it.
+    """
+    raw = subprocess.run(
+        [
+            cargo_binary(),
+            "tree",
+            "--locked",
+            "--prefix",
+            "none",
+            "--edges",
+            "normal",
+        ],
+        cwd=root / CAPABILITY_FOOTPRINT_SENTINEL,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return {
+        line.split(" ", 1)[0]
+        for line in raw.splitlines()
+        if line.startswith("ambition")
+    }
+
 
 def capability_footprint_violations(root: Path) -> list[str]:
     """Crates the sentinel links that were not in the frozen closure."""
     baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
-    graph = workspace_graph(root)
-    live = {c for c in reachable(graph, "ambition") if c.startswith("ambition")}
-    live.add("ambition")
-    return sorted(live - set(baseline["ambition_closure"]))
+    return sorted(sentinel_linked_closure(root) - set(baseline["ambition_closure"]))
 
 
 ROLLBACK_SCHEMA_BASELINE = (

@@ -535,8 +535,8 @@ def test_the_footprint_ratchet_catches_a_new_linked_crate(tmp_path, monkeypatch)
     import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
-    # Capture the real graph BEFORE patching, or the stub recurses into itself.
-    real_graph = contracts.workspace_graph(root)
+    # Capture the real closure BEFORE patching, or the stub recurses into itself.
+    real_closure = contracts.sentinel_linked_closure(root)
 
     baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
     dropped = baseline["ambition_closure"][-1]
@@ -547,7 +547,9 @@ def test_the_footprint_ratchet_catches_a_new_linked_crate(tmp_path, monkeypatch)
     monkeypatch.setattr(
         contracts, "CAPABILITY_FOOTPRINT_BASELINE", str(fake.relative_to(tmp_path))
     )
-    monkeypatch.setattr(contracts, "workspace_graph", lambda _root: real_graph)
+    monkeypatch.setattr(
+        contracts, "sentinel_linked_closure", lambda _root: real_closure
+    )
 
     assert contracts.capability_footprint_violations(tmp_path) == [dropped]
 

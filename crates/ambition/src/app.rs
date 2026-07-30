@@ -827,6 +827,21 @@ impl PlatformerApp {
             }
         }
         let prepares_art = matches!(face, Face::Windowed { .. }) || game_assets;
+        // ── Slice H ── a facade built without the `ambition_render` capability
+        // has no presentation to install, and a composition that prepares art
+        // must be REFUSED here rather than silently drawing nothing. This
+        // refusal was probed red: `minimal_game` with the capability removed
+        // fails its windowed tests on exactly this message.
+        #[cfg(not(feature = "ambition_render"))]
+        if prepares_art {
+            problems.push(
+                "this composition prepares art (a windowed face, or `with_game_assets`), \
+                 but `ambition` was built without the `ambition_render` capability. \
+                 Enable the `ambition_render` feature (on by default via \
+                 `all_capabilities`), or compose headless without `with_game_assets`."
+                    .to_string(),
+            );
+        }
         for experience in &draft.experiences {
             if let Some(definition) = experience.definition.as_ref() {
                 if definition.rooms.is_empty() {
@@ -1072,27 +1087,32 @@ impl PlatformerApp {
         }
 
         // ── Rule 6 ── assets after the content that fills their catalogs,
-        // before the presentation that draws them.
-        let windowed = matches!(face, Face::Windowed { .. });
-        if windowed || game_assets {
-            if !windowed {
-                app.init_asset::<Image>();
-                app.init_asset::<TextureAtlasLayout>();
+        // before the presentation that draws them. Rides the `ambition_render`
+        // capability; a composition that needs it without the feature was
+        // already refused above, so this cfg never silently skips work.
+        #[cfg(feature = "ambition_render")]
+        {
+            let windowed = matches!(face, Face::Windowed { .. });
+            if windowed || game_assets {
+                if !windowed {
+                    app.init_asset::<Image>();
+                    app.init_asset::<TextureAtlasLayout>();
+                }
+                let room = draft
+                    .experiences
+                    .first()
+                    .and_then(|e| e.room.clone())
+                    .unwrap_or_default();
+                app.add_plugins(
+                    crate::game_assets::PlatformerAssetsPlugin::for_experience(
+                        draft.experiences[0].id.clone(),
+                    )
+                    .with_room(room),
+                );
             }
-            let room = draft
-                .experiences
-                .first()
-                .and_then(|e| e.room.clone())
-                .unwrap_or_default();
-            app.add_plugins(
-                crate::game_assets::PlatformerAssetsPlugin::for_experience(
-                    draft.experiences[0].id.clone(),
-                )
-                .with_room(room),
-            );
-        }
-        if windowed {
-            app.add_plugins(crate::presentation::PlatformerPresentationPlugin);
+            if windowed {
+                app.add_plugins(crate::presentation::PlatformerPresentationPlugin);
+            }
         }
 
         // ── Rule 8 ── one update is one tick.

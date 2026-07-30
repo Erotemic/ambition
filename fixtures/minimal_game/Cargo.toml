@@ -32,7 +32,17 @@ default = []
 visible = ["ambition/visible", "ambition/basic_shell_presentation"]
 
 [dependencies]
-ambition = { path = "../../crates/ambition", default-features = false }
+# Slice H: the facade's edges are capabilities, and this game names the ONE it
+# uses. `ambition_render` is here because this game's own slice-B exit
+# criterion composes the windowed face (`the_minimal_game_boots_windowed`), and
+# the windowed face draws. Per the slice-H spec's own honesty clause: a feature
+# `minimal_game` needs to keep passing its tests IS NOT OPTIONAL for it, and
+# this line is that fact written down — the render edge stays in this game's
+# measured closure because the game asks for it, not because the facade forces
+# it. A game with no windowed face drops this line and the render chain with it.
+ambition = { path = "../../crates/ambition", default-features = false, features = [
+    "ambition_render",
+] }
 
 # ⚠ REQUIRED, and the reason is recorded as this engine's highest-cost leak
 # (blind-agent run 2026-07-30). Cargo patch tables do NOT cross a workspace

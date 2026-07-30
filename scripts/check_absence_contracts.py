@@ -609,7 +609,19 @@ MODULE_ALLOWLISTS: list[dict] = [
         # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point —
         # it went STALE-red and named both, so the slots cannot be reoccupied
         # silently.
-        "baseline": {"audio", "engine_core", "world"},
+        # 3 -> 2. `engine_core` retired when `ambition::world::prelude` landed:
+        # a game describing a floor no longer reaches into an implementation
+        # crate named `engine_core` for `Vec2`/`Block`.
+        #
+        # ⚠ `world` is deliberately STILL BASELINE, not promoted to `allowed`.
+        # ADR 0031's public module list does name `ambition::world`, and this
+        # game now touches only its curated prelude — but the facade still
+        # re-exports the WHOLE crate (`pub use ambition_world as world`), so
+        # blessing the name would commit us to every path under it, which is
+        # exactly the namespace mirror the campaign exists to end. It moves to
+        # `allowed` when the facade turns it into a curated module. Making a
+        # number smaller is not a reason to promise something.
+        "baseline": {"audio", "world"},
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
             "structurally cannot fill: it asks for almost nothing, so whatever it "

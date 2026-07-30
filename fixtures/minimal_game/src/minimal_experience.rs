@@ -7,8 +7,10 @@
 //! tax on every game.
 
 use ambition::app::prelude::App;
-use ambition::engine_core as ae;
-use ambition::world::rooms::RoomSpec;
+// ONE import for room authoring. This used to be `ambition::engine_core as ae`
+// plus `ambition::world::rooms::RoomSpec` — two modules, one of them an
+// implementation crate named `engine_core`, to place a floor.
+use ambition::world::prelude::*;
 
 use crate::MINIMAL_EXPERIENCE;
 
@@ -54,16 +56,16 @@ pub const MINIMAL_ROSTER_RON: &str = r#"(
 
 /// One rectangular room with a floor. Nothing to fight, nowhere to go.
 pub fn minimal_room() -> RoomSpec {
-    let size = ae::Vec2::new(640.0, 360.0);
+    let size = Vec2::new(640.0, 360.0);
     let floor_top = 320.0;
-    let world = ae::World::new(
+    let world = World::new(
         "Minimal Room",
         size,
-        ae::Vec2::new(64.0, floor_top - 64.0),
-        vec![ae::Block::solid(
+        Vec2::new(64.0, floor_top - 64.0),
+        vec![Block::solid(
             "floor",
-            ae::Vec2::new(size.x * 0.5, floor_top + 20.0),
-            ae::Vec2::new(size.x, 40.0),
+            Vec2::new(size.x * 0.5, floor_top + 20.0),
+            Vec2::new(size.x, 40.0),
         )],
     );
     RoomSpec::new(MINIMAL_ROOM_ID, world)

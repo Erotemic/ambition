@@ -1,0 +1,14 @@
+[package]
+name = "ambition_demo_smash"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Stocks-based platform-fighter demo. The first consumer of the S4 stocks loop, and the oracle for whether a stocks game is expressible through the facade."
+
+[dependencies]
+# The E9 oracle rule, unchanged: `ambition` + `bevy` and nothing else. If
+# authoring a STOCKS match needs a type the umbrella does not re-export, that is
+# an engine leak and it fails to compile HERE, which is the point.
+ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+bevy = { version = "0.18.1", default-features = false }

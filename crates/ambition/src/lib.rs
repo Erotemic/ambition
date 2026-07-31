@@ -111,6 +111,36 @@ pub mod actor {
     /// independent streams cannot yet express it.
     pub use ambition_actors::character_runtime::MatchSeat;
 
+    /// **Declaring a MATCH: who is in it, who drives them, and what it costs to
+    /// lose.**
+    ///
+    /// ⚠ Exposed 2026-07-31 because the smash demo could not be written without
+    /// them, and what it had to write instead was
+    /// `ambition::actors::character_runtime::MatchParticipantRoster` — reaching
+    /// through the crate re-export into an implementation module. That is the
+    /// leak `minimal-game-names-only-the-public-sdk` exists to catch, and the
+    /// only reason it went uncaught is that no consumer had ever declared a
+    /// match: the shipped versus stage lives in `ambition_app`, which is allowed
+    /// to name anything.
+    ///
+    /// A second consumer is the only instrument that finds this class, which is
+    /// the entire argument for keeping one.
+    pub use ambition_actors::character_runtime::{
+        ControllerBinding, MatchParticipant, MatchParticipantRoster,
+    };
+
+    /// **The stocks economy**: the count on a body, the fact that it is out, and
+    /// the two messages a ruleset acts on.
+    ///
+    /// The engine owns the COUNT — spend one, decide whether it was the last,
+    /// clear the meter of a fighter coming back. It refuses to place the body or
+    /// to say what a match ending means, because those need a stage and a
+    /// scoreboard. These are the seam between the two halves.
+    pub use ambition_combat::components::FighterStocks;
+    pub use ambition_combat::stocks::{
+        BodyKnockedOut, FighterEliminated, FighterStockSpent, StocksMatchDecided,
+    };
+
     /// How a body came to exist — ADR 0030's construction provenance.
     ///
     /// ⚠ A consumer used to reach this through `ambition::runtime::demo_fixture`,

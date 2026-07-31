@@ -15,12 +15,12 @@
 use bevy::prelude::App;
 
 use super::super::AmbitionRollbackApp;
+// The byte-writer vocabulary these projections are built from.
+use ambition_engine_core::snapshot::{checksum_bytes, put_str, put_u64};
 // Bespoke checksum projections these registrations name. They stayed beside the
 // central function because the helpers predate the domain split; a projection
 // used by exactly one domain should follow it, and that is a tidy rather than
 // part of a relocation (R3: a move moves nothing else).
-use super::super::{ldtk_runtime_index_checksum, room_set_checksum};
-use ambition_engine_core::snapshot::checksum_bytes;
 
 const OWNER: &str = "ambition_runtime";
 
@@ -439,4 +439,16 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.clock_scale_request",
     );
+}
+
+fn room_set_checksum(rooms: &ambition_actors::rooms::RoomSet) -> u64 {
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, rooms.active as u64);
+    put_u64(&mut bytes, rooms.start as u64);
+    put_str(&mut bytes, &rooms.active_spec().id);
+    checksum_bytes(&bytes)
+}
+
+fn ldtk_runtime_index_checksum(index: &ambition_actors::ldtk_world::LdtkRuntimeIndex) -> u64 {
+    checksum_bytes(index.active_area().as_bytes())
 }

@@ -15,11 +15,14 @@
 use bevy::prelude::App;
 
 use super::super::AmbitionRollbackApp;
+// The byte-writer vocabulary these projections are built from.
+use ambition_engine_core::snapshot::{
+    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u8, put_u64, put_vec2,
+};
 // The bespoke checksum projections these registrations name. They live beside
 // the central function because several domains once shared them; a projection
 // used by exactly one domain should follow it here, which is a later tidy and
 // not part of a relocation commit.
-use super::super::pending_player_hits_checksum;
 
 const OWNER: &str = "ambition_runtime";
 
@@ -287,4 +290,85 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.set_flag_requested",
     );
+}
+
+/// Entity-free canonical projection of the staged victim-hit FIFO.
+///
+/// The exact `Entity` handles (`attacker`, pre-resolved targets) stay out —
+/// the stable-id contract keeps allocator-local values out of every checksum —
+/// but everything that decides what the hit DOES participates, so a diverged
+/// queue surfaces as a sync-test mismatch at the staging frame instead of one
+/// frame later as mystery damage.
+fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayerHitEvents) -> u64 {
+    use ambition_combat::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, pending.0.len() as u64);
+    for event in &pending.0 {
+        let bounds = event.volume.bounds();
+        put_vec2(&mut bytes, bounds.min);
+        put_vec2(&mut bytes, bounds.max);
+        put_i32(&mut bytes, event.damage);
+        let (source_tag, source_payload) = match event.source {
+            HitSource::PlayerSlash { knock_x } => (0u8, knock_x),
+            HitSource::PlayerProjectile => (1, 0.0),
+            HitSource::PogoBounce => (2, 0.0),
+            HitSource::Hazard => (3, 0.0),
+            HitSource::EnemyBody => (4, 0.0),
+            HitSource::EnemyAttack => (5, 0.0),
+            HitSource::EnemyProjectile => (6, 0.0),
+            HitSource::EnemyChargeCrash => (7, 0.0),
+            HitSource::BossBody => (8, 0.0),
+            HitSource::BossAttack => (9, 0.0),
+            HitSource::LeftTheWorld => (10, 0.0),
+        };
+        put_u8(&mut bytes, source_tag);
+        put_f32(&mut bytes, source_payload);
+        put_bool(&mut bytes, event.attacker.is_some());
+        put_u8(
+            &mut bytes,
+            match event.target {
+                HitTarget::Volume => 0,
+                HitTarget::Player(_) => 1,
+                HitTarget::Actor(_) => 2,
+                HitTarget::OrbMatch => 3,
+            },
+        );
+        put_u8(
+            &mut bytes,
+            match event.mode {
+                HitMode::Knockback => 0,
+                HitMode::SafeRespawn => 1,
+            },
+        );
+        match &event.knockback {
+            None => put_bool(&mut bytes, false),
+            Some(kb) => {
+                put_bool(&mut bytes, true);
+                put_f32(&mut bytes, kb.dir);
+                match kb.magnitude {
+                    HitKnockbackMagnitude::FeelScale(value) => {
+                        put_u8(&mut bytes, 0);
+                        put_f32(&mut bytes, value);
+                    }
+                    HitKnockbackMagnitude::LaunchSpeed(value) => {
+                        put_u8(&mut bytes, 1);
+                        put_f32(&mut bytes, value);
+                    }
+                }
+                put_vec2(&mut bytes, kb.source_pos);
+                put_vec2(&mut bytes, kb.impact_pos);
+                match kb.launch_dir {
+                    None => put_bool(&mut bytes, false),
+                    Some(dir) => {
+                        put_bool(&mut bytes, true);
+                        put_vec2(&mut bytes, dir);
+                    }
+                }
+            }
+        }
+        for key in &event.ignored_targets {
+            put_str(&mut bytes, key);
+        }
+    }
+    checksum_bytes(&bytes)
 }

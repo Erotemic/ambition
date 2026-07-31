@@ -283,6 +283,69 @@ fn announce_the_winner(
     }
 }
 
+/// **The experience: what a launcher lists and a player can enter.**
+///
+/// Until this existed the demo was three correct pieces nobody could reach — a
+/// roster, a stage and a ruleset, all unit-true and unassembled. A slice that
+/// stops one step short of bootable is the shape this repo keeps catching:
+/// everything passes and nothing runs.
+pub struct SmashExperiencePlugin;
+
+impl bevy::prelude::Plugin for SmashExperiencePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        install_smash_content(app);
+        ambition::provider::PlatformerExperienceAuthoring::new(
+            SMASH_EXPERIENCE,
+            SMASH_GAMEPLAY_ROUTE,
+            "Smash",
+            "Stocks, a platform, and nothing underneath it",
+            "Prepare Smash",
+            ambition::provider::AuthoredCatalogFragments::new(
+                SMASH_CHARACTER_ID,
+                SMASH_EXPERIENCE,
+            )
+            .with_procedural_sfx(),
+        )
+        .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
+        .install(app, smash_prepared_session_world);
+        app.add_plugins(SmashRulesPlugin::hosted());
+    }
+}
+
+/// Stable ids the shell routes and lists this demo by.
+pub const SMASH_EXPERIENCE: &str = "smash";
+pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
+/// The fighter a lone visitor wears. The MATCH seats its own cast from the
+/// roster; this is who is standing there before one starts.
+pub const SMASH_CHARACTER_ID: &str = "player_robot_v3";
+
+/// Register this demo's content.
+///
+/// ⚠ deliberately thin. The fighters are Ambition's own robot lineage, which is
+/// the point of a crossover stage — a demo that authored its own duelists would
+/// prove the stocks loop against content nobody else has, and the interesting
+/// claim is that it works on the cast the game already ships.
+fn install_smash_content(_app: &mut bevy::prelude::App) {}
+
+/// The stage, as the shared preparation lifecycle wants it.
+fn smash_prepared_session_world() -> ambition::runtime::PreparedPlatformerSource {
+    use ambition::runtime::demo_fixture::{
+        ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+    };
+
+    let room = smash_stage();
+    let geometry = ae::RoomGeometry(room.world.clone());
+    let metadata = ActiveRoomMetadata(room.metadata.clone());
+    ambition::runtime::PreparedPlatformerSource::new(
+        SMASH_EXPERIENCE,
+        RoomSet::from_parts(SMASH_STAGE_ROOM_ID, vec![room], Vec::new()),
+        geometry,
+        metadata,
+        StartingCharacter::new(SMASH_CHARACTER_ID),
+        LdtkRuntimeIndex::default(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -481,6 +544,74 @@ mod tests {
             raised[0].text.contains("Draw"),
             "a draw was announced as a win: {}",
             raised[0].text
+        );
+    }
+
+    /// **The demo is something a player can ENTER.**
+    ///
+    /// Until this existed the crate was three correct pieces nobody could reach:
+    /// a roster, a stage and a ruleset, all unit-true and unassembled. That is
+    /// the shape this repo keeps catching — everything passes and nothing runs —
+    /// and a demo is the one kind of crate where it is indistinguishable from
+    /// working, because nobody notices a game they cannot start.
+    #[test]
+    fn a_host_composing_this_plugin_can_route_to_the_stage() {
+        use ambition::game_shell::{
+            MinimalShellPlugins, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog,
+            ShellRouteId,
+        };
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalShellPlugins);
+        app.add_plugins(ambition::load::AmbitionLoadPlugin);
+        app.add_plugins(SmashExperiencePlugin);
+
+        let registration = app
+            .world()
+            .resource::<ShellExperienceRegistry>()
+            .get(&ShellExperienceId::new(SMASH_EXPERIENCE))
+            .expect("a host that composed this plugin lists the smash experience");
+        assert_eq!(registration.launch_route.as_str(), SMASH_GAMEPLAY_ROUTE);
+
+        let route = app
+            .world()
+            .resource::<ShellRouteCatalog>()
+            .get(&ShellRouteId::new(SMASH_GAMEPLAY_ROUTE))
+            .expect("the launch route is registered");
+        assert!(
+            route.preparation.is_some(),
+            "the route has no preparation, so entering it would drop a player into \
+             a stage whose content was never prepared"
+        );
+
+        let authored = app
+            .world()
+            .resource::<ambition::provider::PlatformerAuthoredCatalogRegistry>()
+            .get(SMASH_EXPERIENCE)
+            .expect("the host sees this demo's authored catalogs");
+        assert_eq!(authored.starting_character, SMASH_CHARACTER_ID);
+    }
+
+    /// **The prepared source carries the stage, not a default room.**
+    ///
+    /// The preparation seam takes a closure, and a closure that returns the
+    /// wrong room fails nowhere: the route prepares, the session starts, and the
+    /// player lands in somebody else's level.
+    #[test]
+    fn the_prepared_session_is_the_smash_stage() {
+        let prepared = smash_prepared_session_world();
+        assert_eq!(prepared.starting_character().character_id, SMASH_CHARACTER_ID);
+        assert_eq!(
+            prepared.geometry().0.blocks.len(),
+            1,
+            "the prepared geometry is not the one-platform stage"
+        );
+        assert_eq!(
+            prepared.geometry().0.side_blast_margin,
+            Some(BLAST_MARGIN_PX),
+            "the prepared geometry lost the stage's blast margins, so a fighter \
+             knocked off would drift instead of dying"
         );
     }
 

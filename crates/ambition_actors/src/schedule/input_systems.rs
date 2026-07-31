@@ -491,7 +491,6 @@ pub fn decode_menu_frame(
     user_settings: &ambition_persistence::settings::UserSettings,
     wall_dt: f32,
 ) -> MenuControlFrame {
-    let mut next = MenuControlFrame::default();
     let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
     let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
     let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
@@ -518,7 +517,7 @@ pub fn decode_menu_frame(
         user_settings.controls.menu_repeat_initial_delay,
         user_settings.controls.menu_repeat_interval,
     );
-    next = MenuControlFrame::from_menu_input(input);
+    let mut next = MenuControlFrame::from_menu_input(input);
     next.select_held = actions.pressed(&SandboxAction::MenuSelect)
         || actions.pressed(&SandboxAction::Jump)
         || actions.pressed(&SandboxAction::Interact);

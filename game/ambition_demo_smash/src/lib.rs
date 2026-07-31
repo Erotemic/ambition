@@ -41,6 +41,7 @@ use ambition::engine_core::Vec2;
 use ambition::world::rooms::RoomSpec;
 
 pub mod select;
+pub mod select_ui;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
@@ -455,10 +456,42 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         app.add_systems(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::chain((
+                present_the_select_screen,
+                select_ui::update_select_ui,
+            )),
+        );
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::chain((
                 drive_the_select_screen,
                 start_the_battle_when_everyone_is_ready,
             )),
         );
+    }
+}
+
+/// Spawn the screen's UI on arrival and tear it down on leaving.
+///
+/// Route-driven rather than state-driven: the screen is a ROUTE, and tying the
+/// panels to `SmashSelect` would leave them standing through the match (the
+/// resource keeps its decision, which is what the match was built from).
+fn present_the_select_screen(
+    commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
+    roots: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        bevy::prelude::With<select_ui::SmashSelectUiRoot>,
+    >,
+) {
+    let on_select = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    if on_select {
+        select_ui::spawn_select_ui(commands, existing);
+    } else {
+        select_ui::despawn_select_ui(commands, roots);
     }
 }
 

@@ -156,3 +156,99 @@ fn a_joined_but_still_browsing_seat_holds_the_match() {
          the screen deciding on their behalf"
     );
 }
+
+/// **A screen that works and cannot be seen is the same bug one layer up.**
+///
+/// Asserting the panels EXIST would pass over four empty boxes, so this asserts
+/// what they SAY — and says it by reading the same text the player reads.
+#[test]
+fn the_panels_say_what_each_seat_has_decided() {
+    use ambition_demo_smash::select_ui::{SmashSeatPanel, SmashSelectPrompt};
+    use bevy::prelude::{Text, With, Without};
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    plug_in(&mut app, 2);
+    app.update();
+
+    let read = |app: &mut App| -> Vec<String> {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(&SmashSeatPanel, &Text), Without<SmashSelectPrompt>>();
+        let mut rows: Vec<(usize, String)> = q
+            .iter(world)
+            .map(|(panel, text)| (panel.0, text.0.clone()))
+            .collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows.into_iter().map(|(_, text)| text).collect()
+    };
+    let prompt = |app: &mut App| -> String {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<&Text, With<SmashSelectPrompt>>();
+        q.iter(world)
+            .next()
+            .map(|t| t.0.clone())
+            .unwrap_or_default()
+    };
+
+    let before = read(&mut app);
+    assert_eq!(before.len(), 4, "one panel per seat: {before:?}");
+
+    // Two pads are plugged in, so two seats are on offer and the other two are
+    // hidden — a panel reading "press confirm to join" at a chair nobody can sit
+    // in is an invitation the screen cannot honour.
+    let visible = {
+        let world = app.world_mut();
+        let mut q = world
+            .query_filtered::<(&SmashSeatPanel, &bevy::prelude::Node), Without<SmashSelectPrompt>>(
+            );
+        let mut seats: Vec<usize> = q
+            .iter(world)
+            .filter(|(_, node)| node.display != bevy::prelude::Display::None)
+            .map(|(panel, _)| panel.0)
+            .collect();
+        seats.sort();
+        seats
+    };
+    assert_eq!(
+        visible,
+        vec![0, 1],
+        "two controllers is two seats; the rest are chairs nobody can sit in"
+    );
+    assert!(
+        before[0].contains("press confirm to join"),
+        "an empty seat has to invite somebody into it: {before:?}"
+    );
+    assert_eq!(prompt(&mut app), "Two players needed");
+
+    press(&mut app, 0, confirm());
+    let browsing = read(&mut app);
+    assert!(
+        browsing[0].contains(SELECTABLE[0]) && browsing[0].contains('<'),
+        "a browsing seat shows the character under its cursor: {browsing:?}"
+    );
+
+    press(&mut app, 0, confirm());
+    let locked = read(&mut app);
+    assert!(
+        locked[0].contains("READY"),
+        "a locked seat has to look different from a browsing one: {locked:?}"
+    );
+    assert_eq!(
+        prompt(&mut app),
+        "Two players needed",
+        "one locked seat is not a match, and the screen has to say what it wants"
+    );
+
+    // And the screen goes away when the match does.
+    press(&mut app, 1, confirm());
+    press(&mut app, 1, confirm());
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(
+        read(&mut app).is_empty(),
+        "the select panels outlived the select route and are drawn over the match"
+    );
+}

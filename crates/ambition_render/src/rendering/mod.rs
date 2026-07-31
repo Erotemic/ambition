@@ -93,8 +93,16 @@ pub use nameplates::{
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
-    ensure_active_room_parallax_theme, refresh_parallax_layers_on_quality_change,
-    spawn_parallax_layers, sync_parallax_layers,
+    ensure_active_room_parallax_theme,
+    refresh_parallax_layers_on_quality_change,
+    spawn_parallax_layers,
+    sync_parallax_layers,
+    // ⚠ the MARKER, not just the systems. A consumer could install the whole
+    // parallax family and had no way to ask whether a backdrop existed — the
+    // component was behind a private module, so "is my sky drawn" was a question
+    // only this crate could answer. `fixtures/external_consumer` asks it now,
+    // which is the consumer that makes this worth exporting.
+    ParallaxLayerVisual,
 };
 pub use primitives::{
     FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual,

@@ -95,6 +95,33 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "central-rollback-does-not-enumerate-domains",
+        "paths": ["crates/ambition_runtime/src/rollback/mod.rs"],
+        "patterns": [
+            r"ambition_actors::",
+            r"ambition_characters::",
+            r"ambition_combat::",
+            r"ambition_encounter::",
+            r"ambition_items::",
+            r"ambition_platformer_primitives::",
+            r"ambition_portal::",
+            r"ambition_projectiles::",
+            r"ambition_vfx::",
+        ],
+        "reason": (
+            "Campaign 2 R5. `register_engine_rollback_state` went from ~1,870 "
+            "lines naming nine gameplay domains to 690 that aggregate their "
+            "adapters — and the way that un-does itself is one convenient line "
+            "at a time, because adding a registration where the others used to "
+            "be is always the shortest path. A new registration belongs in "
+            "`rollback/domains/<domain>.rs`; if the domain has no module yet, "
+            "adding one is the work. What may still be named here is "
+            "runtime-adjacent state — engine_core, persistence, sfx, sim_view, "
+            "time, world — which is the aggregation R4 asks this function to "
+            "contain rather than the enumeration it asks it to lose."
+        ),
+    },
+    {
         "id": "registration-does-not-demand-art",
         "paths": ["crates/ambition_actors/src/character_runtime/definition.rs"],
         "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],

@@ -86,6 +86,11 @@ impl Plugin for SessionRoomVisualsPlugin {
         // drew the same labels at raw anchors in Bevy's fallback font. Adding it
         // twice is a no-op — see `WorldLabelLayoutPlugin`.
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
+        // The resolved quality budget and the system that keeps it true. Every
+        // parallax and sprite pass below reads it, and the SYNC was app-local —
+        // so in every other composition the resource sat at its `Default`
+        // forever. Idempotent; see `VisualQualityPlugin`.
+        app.add_plugins(crate::quality::VisualQualityPlugin);
         app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PhysicsSandboxSettings>();
         app.add_systems(
@@ -136,7 +141,7 @@ pub struct PlatformerPresentationPlugin;
 
 impl Plugin for PlatformerPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::quality::ResolvedVisualQuality>();
+        app.add_plugins(crate::quality::VisualQualityPlugin);
         app.add_systems(
             Startup,
             (spawn_main_camera, spawn_initial_room_visuals)

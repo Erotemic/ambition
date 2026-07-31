@@ -184,10 +184,7 @@ WAIVERS: dict[str, str] = {
 #
 # * `sync_cutscene_ui` — `ambition_cutscene` is an engine crate; a demo that
 #   plays a cutscene gets no UI for it.
-# * `sync_resolved_visual_quality` — every quality-aware system reads
-#   `ResolvedVisualQuality`; without this it never leaves its default, so a
-#   demo's quality settings are inert.
-UNCLAIMED_BUDGET = 2
+UNCLAIMED_BUDGET = 1
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _LINE_COMMENT = re.compile(r"//[^\n]*")

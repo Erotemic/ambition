@@ -32,6 +32,41 @@ impl ResolvedVisualQuality {
     }
 }
 
+/// **The resource and the system that keeps it true, together.**
+///
+/// ⚠ **They were apart, and the half that MOVES was app-local.**
+/// `ResolvedVisualQuality` was initialised by `PlatformerPresentationPlugin`
+/// (and again by `game/ambition_app`), while `sync_resolved_visual_quality` —
+/// the only thing that ever reads `UserSettings` into it — was registered by the
+/// app alone. So every other composition held a resource that was permanently
+/// its `Default`: a demo could load a user's Potato profile and draw at Full,
+/// silently, because the value existed and simply never moved. Found by
+/// `scripts/check_engine_systems_are_engine_installed.py`.
+///
+/// Idempotent (`is_unique() -> false` plus a marker) because two plugins
+/// legitimately need it: `PlatformerPresentationPlugin` for a demo, and
+/// `SessionRoomVisualsPlugin` for the shipped host, which adds that one alone.
+pub struct VisualQualityPlugin;
+
+/// Present once [`VisualQualityPlugin`] has built.
+#[derive(Resource)]
+struct VisualQualityInstalled;
+
+impl Plugin for VisualQualityPlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
+    fn build(&self, app: &mut App) {
+        if app.world().contains_resource::<VisualQualityInstalled>() {
+            return;
+        }
+        app.insert_resource(VisualQualityInstalled);
+        app.init_resource::<ResolvedVisualQuality>();
+        app.add_systems(Update, sync_resolved_visual_quality);
+    }
+}
+
 pub fn sync_resolved_visual_quality(
     settings: Option<Res<UserSettings>>,
     mut resolved: ResMut<ResolvedVisualQuality>,

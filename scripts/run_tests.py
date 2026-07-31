@@ -394,6 +394,19 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> in
     env = dict(os.environ)
     env.setdefault("RUST_BACKTRACE", "1")
     env.setdefault("CARGO_TERM_COLOR", "always")
+    # ⚠ **No incremental cache for suite runs, and the number is why.** On
+    # 2026-07-31 a long autonomous run filled the disk — 387G, 100%, builds
+    # failing with ENOSPC mid-suite — and `target/debug/incremental` alone was
+    # **110G**. This runner is the main producer: every feature job is its own
+    # variant, each variant keeps its own incremental tree, and a suite that runs
+    # a dozen times a day never reuses most of them.
+    #
+    # Incremental buys nothing here either. A job either recompiles from a
+    # feature set nothing else shares (no cache to hit) or is already fresh (no
+    # compile at all). It stays ON for a developer's own `cargo run`, which is
+    # where the edit-rebuild loop actually lives — `setdefault`, so anyone who
+    # wants it back exports `CARGO_INCREMENTAL=1`.
+    env.setdefault("CARGO_INCREMENTAL", "0")
     results: list[JobResult] = []
     for j in jobs:
         print(f"\n\033[1m==> {j.name}\033[0m")

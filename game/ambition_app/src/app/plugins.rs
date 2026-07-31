@@ -385,7 +385,6 @@ pub fn add_presentation_plugins(app: &mut App) {
 /// FPS overlay, font loader).
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
-        .init_resource::<ambition::render::quality::ResolvedVisualQuality>()
         .init_resource::<ambition::render::asset_census::ImageCensus>()
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
@@ -431,10 +430,11 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
-    app.add_systems(
-        Update,
-        ambition::render::quality::sync_resolved_visual_quality,
-    );
+    // ⚠ `sync_resolved_visual_quality` left this file on 2026-07-31:
+    // `VisualQualityPlugin` owns the resource AND the system that keeps it
+    // true, and `SessionRoomVisualsPlugin` installs it. They were apart, and
+    // the half that MOVES was registered here alone — so every other
+    // composition held a `ResolvedVisualQuality` that never left its default.
     app.add_systems(
         Update,
         // ⚠ `refresh_parallax_layers_on_quality_change` left this chain on

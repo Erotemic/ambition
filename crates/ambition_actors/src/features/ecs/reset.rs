@@ -191,11 +191,21 @@ pub fn reset_ecs_room_features(
         {
             let mut em = cq.as_actor_mut();
             let spawn = config.spawn;
-            ae::movement::transit_body(
+            // A revive is a RESTART. `transit_body` keeps maneuver state on
+            // purpose (right for a blink, wrong for coming back from the dead)
+            // and announces nothing, so `ae::BodyRestarted` never fired for a
+            // boss revive and no provider heard about it.
+            //
+            // ⚠ safe to say the stronger thing only since `ActorBody::from_kit`
+            // records the identity size: `reset_body_clusters` restores
+            // `base_size`, which defaulted to the PLAYER's size for every boss
+            // in the game. Converting this before that fix would have resized
+            // every boss on every room reset.
+            ae::reset_body_clusters(
                 &mut motion_model,
                 &mut em.clusters_mut(),
                 spawn,
-                ae::movement::TransitVelocity::Zero,
+                ae::DEFAULT_TUNING.air_jumps,
             );
             em.kin.facing = 1.0;
             em.health.reset();

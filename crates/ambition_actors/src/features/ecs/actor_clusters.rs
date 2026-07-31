@@ -164,7 +164,16 @@ impl ActorBody {
     /// flight on regardless of the kit. This is the one place a character's
     /// authored kit becomes the body's live capability set — the same
     /// `AbilitySet` the player runs, so there is no parallel enemy-only mask.
-    pub fn from_kit(kit: ae::AbilitySet, is_aerial: bool) -> Self {
+    /// `base_size` is the body's IDENTITY size — what it returns to on a reset.
+    ///
+    /// ⚠ it is a parameter because `BodyBaseSize::default()` is the default
+    /// PLAYER size, and no enemy or boss spawn path ever wrote it. Every
+    /// non-player body in the game carried a base size that was not its own,
+    /// invisibly, because `base_size` is read only by `reset_body_clusters` and
+    /// nothing reset an enemy through it — so the first path that did would have
+    /// silently resized every enemy to a player. Asked here, where the answer is
+    /// already in scope, so a body cannot be constructed without one.
+    pub fn from_kit(kit: ae::AbilitySet, is_aerial: bool, base_size: ae::Vec2) -> Self {
         let mut abilities = Self::locomotion_abilities().union(kit);
         abilities.fly = is_aerial || abilities.fly;
         // A combat body HAS the attack verb (capability); WHETHER it swings is gated
@@ -174,6 +183,7 @@ impl ActorBody {
         abilities.attack = true;
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
+        scratch.base_size.base_size = base_size;
         Self(scratch)
     }
 
@@ -525,7 +535,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial),
+            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial, size),
             caps: spec.combat_capabilities(),
             hurt_feedback,
             spec,
@@ -677,7 +687,7 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
-            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial),
+            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
             caps: crate::combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
             // Inert: peaceful actors never spawn through the archetype path that

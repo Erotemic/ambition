@@ -131,9 +131,7 @@ pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
-    authored_sheets: bevy::prelude::Res<
-        ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    >,
+    authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: bevy::prelude::Res<CharacterRoster>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -817,7 +815,7 @@ fn boss_actor_cluster(
         },
         super::super::components::BodyMelee::default(),
         crate::actor::AncillaryMovementBundle::from_scratch(
-            super::actor_clusters::ActorBody::from_kit(movement_kit, true).0,
+            super::actor_clusters::ActorBody::from_kit(movement_kit, true, kin.size).0,
         ),
         // Every integrated body carries an explicit policy from spawn — the
         // boss is axis-swept (its direct-velocity flight rides the per-tick
@@ -1655,14 +1653,12 @@ pub(super) fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
-    if let Some(rs) =
-        super::actor_clusters::sprite_render_size_for_name_in(
-            authored_sheets,
-            catalog,
-            &id,
-            size * 0.5 * 2.0,
-        )
-    {
+    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+        authored_sheets,
+        catalog,
+        &id,
+        size * 0.5 * 2.0,
+    ) {
         commands
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
@@ -1717,9 +1713,7 @@ pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
-    authored_sheets: bevy::prelude::Res<
-        ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    >,
+    authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: bevy::prelude::Res<CharacterRoster>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,

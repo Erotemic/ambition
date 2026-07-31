@@ -139,7 +139,6 @@ impl<'a> ActorMut<'a> {
                 // `transit_body` keeps maneuver state on purpose, which is right
                 // for a blink and wrong for coming back from the dead, and it
                 // does not announce `ae::BodyRestarted` to any provider.
-                self.base_size.base_size = self.config.spawn.size;
                 let spawn = self.config.spawn.pos;
                 ae::reset_body_clusters(
                     motion_model,
@@ -467,13 +466,6 @@ impl<'a> ActorMut<'a> {
                 | ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
         );
         let stays_dead = was_dead && !revives_on_room_reset;
-        // **THE IDENTITY SIZE, recorded where the reset authority reads it.**
-        //
-        // ⚠ `BodyBaseSize::default()` is the default PLAYER size and nothing on
-        // the enemy spawn path ever wrote it, so every enemy body in the game
-        // carries a base size that is not its own. Latent until something reset
-        // one — and the line below is now that something.
-        self.base_size.base_size = self.config.spawn.size;
         // A respawn is a RESTART, not a transit.
         //
         // ⚠ this was `transit_body` under the comment "respawn is a discrete

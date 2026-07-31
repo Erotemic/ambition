@@ -577,7 +577,11 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     seed.config.tuning.max_run_speed = 1200.0;
     seed.config.tuning.flight_direct_velocity = true;
     // A floating boss: is_aerial forces flight into the body's movement kit.
-    seed.body = super::super::ecs::actor_clusters::ActorBody::from_kit(ae::AbilitySet::NONE, true);
+    seed.body = super::super::ecs::actor_clusters::ActorBody::from_kit(
+        ae::AbilitySet::NONE,
+        true,
+        seed.kin.size,
+    );
     let behavior = BossBehaviorProfile::clockwork_warden();
     // World: a wall at x=400 blocks any rightward chase past it.
     let world = ae::World::new(
@@ -608,7 +612,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `tick_boss_brains_system` + `update_ecs_bosses` do in the
     // real schedule.
     use ambition_characters::brain::{
-        tick_boss_pattern, BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState,
+        BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState, tick_boss_pattern,
     };
     let mut cfg = BossPatternCfg::neutral_test();
     cfg.aggressiveness = 1.0;

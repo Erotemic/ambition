@@ -605,8 +605,8 @@ fn an_authored_ranged_move_with_no_ranged_payload_is_reported() {
 /// check above is just noise every ranged character has to live with.
 #[test]
 fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
-    use ambition_characters::brain::ActionSet;
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
 
     let armed = CharacterDefinition::new("gunner", "Gunner", "demo")
         .with_action_set(ActionSet {

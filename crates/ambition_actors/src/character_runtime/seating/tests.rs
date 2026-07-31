@@ -263,7 +263,7 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
     ));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -360,7 +360,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 }),
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 })
         ],
         ..Default::default()
     });
@@ -392,7 +392,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
 /// asked to do.
 #[test]
 fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
-    use crate::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
+    use crate::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
 
     let mut app = seating_app();
     for id in ["alpha", "beta", "gamma", "delta"] {
@@ -506,8 +506,8 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
 /// ranged fighter stands there holding a gun it does not believe in.
 #[test]
 fn a_seated_fighter_receives_its_definitions_action_set() {
-    use ambition_characters::brain::ActionSet;
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
 
     let mut app = seating_app();
     // The projection is the system that actually serves a seated body.
@@ -738,7 +738,7 @@ fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         opens_suspended: true,
         ..Default::default()
@@ -859,7 +859,7 @@ fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -931,7 +931,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
 /// resolved value rather than re-deriving one it has no catalog to derive from.
 #[test]
 fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
-    use ambition_characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
+    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
 
     const CATALOG: &str = r#"(
         brain_presets: { "stand_still": StandStill },
@@ -1007,8 +1007,8 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 /// while wearing the retired cast's moves, and no later pass will revisit it.
 #[test]
 fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
-    use ambition_characters::brain::ActionSet;
     use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    use ambition_characters::brain::ActionSet;
 
     fn swiping(damage: i32) -> ActionSet {
         ActionSet {
@@ -1119,7 +1119,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -1171,7 +1171,7 @@ fn an_adopted_seat_fights_with_the_same_abilities_as_a_spawned_one() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         fighter_abilities: Some(ambition_engine_core::AbilitySet::basic()),
         ..Default::default()
@@ -1604,7 +1604,10 @@ mod activation_transaction {
             .id()
     }
 
-    fn body_state(app: &App, body: Entity) -> (i32, i32, f32, f32, ambition_engine_core::Vec2) {
+    fn body_state(
+        app: &App,
+        body: Entity,
+    ) -> (i32, i32, f32, f32, ambition_engine_core::Vec2) {
         let health = app
             .world()
             .get::<ambition_characters::actor::BodyHealth>(body)

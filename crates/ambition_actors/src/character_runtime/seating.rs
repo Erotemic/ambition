@@ -822,10 +822,7 @@ pub fn seat_match_participants(
                 // Resolved above through the read-only view; the mutable single
                 // cannot disagree with it within one system run.
                 let Ok((_, mut health, clusters, mut model, _)) = player.single_mut() else {
-                    debug_assert!(
-                        false,
-                        "seat {index} adopted a player body that vanished mid-system"
-                    );
+                    debug_assert!(false, "seat {index} adopted a player body that vanished mid-system");
                     return;
                 };
                 // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its
@@ -834,10 +831,7 @@ pub fn seat_match_participants(
                 // look — so seat 0 could never be seen at zero health, and the
                 // match was rigged in its favour (GPT 5.6, 2026-07-27).
                 let mut adopted = commands.entity(body);
-                adopted.insert((
-                    MatchSeat(index),
-                    crate::combat::components::RulesetOwnsDeath,
-                ));
+                adopted.insert((MatchSeat(index), crate::combat::components::RulesetOwnsDeath));
                 // The TEAM, which this branch dropped when the death-ownership
                 // insert was added over it. A seat with no team is judged by
                 // FACTION alone, and `effective_faction` maps every

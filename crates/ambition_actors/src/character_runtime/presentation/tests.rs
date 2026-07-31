@@ -128,11 +128,10 @@ fn a_registered_only_character_still_names_its_provider() {
     stage(&mut app, "sanic");
     finalize_and_update(&mut app);
 
-    assert!(
-        app.world()
-            .resource::<ambition_audio::selection::ActiveAudioSelection>()
-            .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),
-    );
+    assert!(app
+        .world()
+        .resource::<ambition_audio::selection::ActiveAudioSelection>()
+        .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),);
 }
 
 /// **A room stages a display name, and the right provider is authorized.**
@@ -222,11 +221,9 @@ fn an_unclaimed_character_authorizes_nothing() {
     let selection = app
         .world()
         .resource::<ambition_audio::selection::ActiveAudioSelection>();
-    assert!(
-        selection
-            .sfx_for_source(&PresentationSourceId::new("someone_elses_fighter"))
-            .is_none()
-    );
+    assert!(selection
+        .sfx_for_source(&PresentationSourceId::new("someone_elses_fighter"))
+        .is_none());
 }
 
 /// **A13.** A body's cues are attributed to ITS character's provider.
@@ -483,11 +480,10 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
         .id();
     finalize_and_update(&mut app);
 
-    assert!(
-        app.world()
-            .get::<crate::combat::moveset::ActorMoveset>(actor)
-            .is_none()
-    );
+    assert!(app
+        .world()
+        .get::<crate::combat::moveset::ActorMoveset>(actor)
+        .is_none());
 }
 
 /// **A form change must not leave the previous character's fight behind.**
@@ -629,16 +625,14 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
         )))
         .id();
     finalize_and_update(&mut app);
-    assert!(
-        app.world()
-            .get::<crate::combat::moveset::MovesetMelee>(body)
-            .is_some()
-    );
-    assert!(
-        app.world()
-            .get::<ambition_characters::brain::MovesetRanged>(body)
-            .is_none()
-    );
+    assert!(app
+        .world()
+        .get::<crate::combat::moveset::MovesetMelee>(body)
+        .is_some());
+    assert!(app
+        .world()
+        .get::<ambition_characters::brain::MovesetRanged>(body)
+        .is_none());
 
     // A swap to a ranged-only moveset must move the routing with it — both ways
     // in one step, which is the case a one-directional "insert if present" misses.

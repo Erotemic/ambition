@@ -4,8 +4,8 @@ pub use bevy::app::{PluginGroup, PluginGroupBuilder};
 pub use bevy::prelude::{App, Plugin};
 
 pub use crate::engine::{
-    PlatformerEnginePlugins, SimulationHost, SimulationHostAppExt, add_headless_foundation,
-    init_engine_states,
+    add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SimulationHost,
+    SimulationHostAppExt,
 };
 pub use crate::runtime;
 pub use crate::windowed_host::PlatformerHostPlugins;

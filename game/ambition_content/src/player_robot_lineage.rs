@@ -41,28 +41,26 @@ use ambition_actors::character_runtime::{
 
 /// One incarnation of the player robot: everything about it that is not shared.
 ///
-/// Deliberately four fields. The point of a generator is that the shape is
-/// common; a knob only one incarnation ever sets belongs on that incarnation's
-/// catalog row, not here.
+/// Deliberately TWO fields, and it had four. **Jon ruled 2026-07-31 that each
+/// robot version is a different character** — so a version's FACTS (its name,
+/// its sheet, its physicals, its voice) belong to that character's content row,
+/// and what Rust owns is the reusable lineage COMPOSITION: who exists, and which
+/// one replaced which.
+///
+/// `display_name` and `sheet` lived here AND in `character_catalog.ron`, with
+/// nothing deciding which won per field — the AF4b duplicate-authority row. The
+/// `voice` field went the same way earlier the same day, and that one was worse
+/// than duplication: the catalog outranks a definition's voice, so
+/// `player_robot_v2`'s Rust lines could never be heard at all. Reading the row
+/// is what makes "content owns the facts" structural instead of a convention.
 pub struct Incarnation {
     /// Stable id. **Never reused and never repointed** — that is what makes an
     /// old build a thing you can meet rather than a thing you remember. A future
     /// v4 does not take v3's id; it takes its own, and v3 keeps standing.
-    pub id: &'static str,
-    /// What it is called. Includes the version, because the version is the
-    /// character: two of these are on pedestals in the Hall introducing
-    /// themselves.
-    pub display_name: &'static str,
-    /// The sheet manifest target its art resolves through.
     ///
-    /// ⚠ the sheet's own `target:` field is NOT this. Eighteen shipped sheets
-    /// declare `target: "robot"` because that names the procedural GENERATOR
-    /// they came out of, not the character; the sheet index re-keys a
-    /// single-record sheet by its FILE ROOT, which is what distinguishes
-    /// `robot` from `player_robot_v2`. Registration resolves this against the
-    /// engine's sheet vocabulary, so a wrong one is named at load instead of
-    /// drawing a placeholder in silence.
-    pub sheet: &'static str,
+    /// It is also the key into the catalog: everything else this character is
+    /// comes from the row under this id.
+    pub id: &'static str,
     /// The incarnation this one replaced. `None` for the original.
     ///
     /// Provenance only — see the module doc. It exists so the lineage is a fact
@@ -93,8 +91,6 @@ pub struct Incarnation {
 /// a patch note."*
 pub const V0: Incarnation = Incarnation {
     id: "robot",
-    display_name: "Robot",
-    sheet: "robot",
     replaces: None,
 };
 
@@ -104,8 +100,6 @@ pub const V0: Incarnation = Incarnation {
 /// someone else why."*) and its row records the reason: it is a joke, not a gap.
 pub const V2: Incarnation = Incarnation {
     id: "player_robot_v2",
-    display_name: "Player Robot v2",
-    sheet: "player_robot_v2",
     replaces: Some(V0.id),
 };
 
@@ -117,26 +111,63 @@ pub const V2: Incarnation = Incarnation {
 /// retroactive rename of every sheet, rig and reference it owns.
 pub const V3: Incarnation = Incarnation {
     id: "player_robot_v3",
-    display_name: "Player Robot v3",
-    sheet: "player_robot_v3",
     replaces: Some(V2.id),
 };
 
 /// The whole lineage, oldest first.
 pub const LINEAGE: &[&Incarnation] = &[&V0, &V2, &V3];
 
-/// Build one incarnation's complete definition.
+/// Build one incarnation's complete definition, reading its FACTS from the
+/// catalog row under its id.
 ///
 /// Everything the three have in common lives here and nowhere else. What it does
 /// NOT do is inherit: no field is copied from `replaces`, and the definition that
 /// comes out is complete on its own.
+///
+/// ⚠ **the row is the authority for the name and the art, and this used to
+/// duplicate both.** `load_catalog` is a pure parse of an `include_str!`
+/// constant — no `App`, no plugin order, no asset load — so there is no ordering
+/// reason for the Rust side to carry its own copy, which is the objection that
+/// kept AF4b open. The sheet comes through
+/// [`CatalogEntry::manifest_target`](ambition_characters::actor::character_catalog::CatalogEntry::manifest_target),
+/// the same canonical projection `audit_character_authority_parity` compares
+/// with — a catalog row names FILES (`sprites/player_robot_v2_spritesheet.ron`)
+/// and a definition names a TARGET (`player_robot_v2`).
+///
+/// A missing row is a panic rather than a fallback: an incarnation the catalog
+/// does not describe cannot be registered as a character, and inventing a name
+/// for it here would put the duplication back one `unwrap_or` at a time.
 pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
+    definition_from(&crate::character_catalog::load_catalog(), incarnation)
+}
+
+/// [`definition`] against an already-parsed catalog, so registering the whole
+/// lineage parses the roster ONCE instead of once per incarnation.
+fn definition_from(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    incarnation: &Incarnation,
+) -> CharacterDefinition {
+    let row = catalog.get(incarnation.id).unwrap_or_else(|| {
+        panic!(
+            "player-robot incarnation `{}` has no row in character_catalog.ron — \
+             the lineage names who exists; the row says what they are",
+            incarnation.id
+        )
+    });
+    let sheet = row.manifest_target().unwrap_or_else(|| {
+        panic!(
+            "`{}`'s catalog manifest `{}` does not follow the \
+             `<target>_spritesheet.ron` convention, so no sheet target can be \
+             derived from it",
+            incarnation.id, row.manifest
+        )
+    });
     let mut definition = CharacterDefinition::new(
         incarnation.id,
-        incarnation.display_name,
+        row.display_name.clone(),
         crate::AMBITION_CONTENT_PROVIDER,
     )
-    .with_sheet(incarnation.sheet);
+    .with_sheet(sheet);
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
         // Left `None` deliberately. These are hand-authored incarnations, not
@@ -157,9 +188,12 @@ pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
 /// two declarations of one fact — exactly the split the character-authority
 /// campaign exists to remove.
 pub fn register(app: &mut bevy::prelude::App) {
+    // Parsed ONCE for the whole lineage. Three strings do not justify three
+    // parses of the roster, and the cast is only going to grow.
+    let catalog = crate::character_catalog::load_catalog();
     for incarnation in LINEAGE {
         app.try_register_character(
-            definition(incarnation),
+            definition_from(&catalog, incarnation),
             // The engine's sheet vocabulary, so a target that names nothing is
             // reported at load with a did-you-mean instead of silently drawing
             // the marked rectangle.
@@ -209,27 +243,58 @@ mod tests {
     /// a character — so "the target resolves" is satisfied by all three
     /// resolving to the same robot. Distinctness is what says three incarnations
     /// actually look like three characters.
+    ///
+    /// ⚠ **it asks the DEFINITION now, not the struct.** The sheet used to be a
+    /// `&'static str` on `Incarnation`, so this test read a Rust literal and
+    /// would have stayed green while the catalog row — which is what the art
+    /// pipeline actually resolves — said something else entirely. That is the
+    /// same mistake `every_incarnation_says_something` had to be rewritten out
+    /// of on the voice field the same day.
     #[test]
     fn every_incarnation_resolves_its_own_distinct_sheet() {
         use ambition_sprite_sheet::character::sheets;
 
-        let mut seen: Vec<&str> = Vec::new();
+        let mut seen: Vec<String> = Vec::new();
         for incarnation in LINEAGE {
+            let sheet = definition(incarnation)
+                .sheet
+                .expect("the lineage always names a sheet target");
             assert!(
-                sheets::record_for_target(incarnation.sheet).is_some(),
-                "incarnation '{}' names sheet target '{}', which resolves to \
+                sheets::record_for_target(&sheet).is_some(),
+                "incarnation '{}' names sheet target '{sheet}', which resolves to \
                  nothing — it would draw the marked placeholder",
                 incarnation.id,
-                incarnation.sheet,
             );
             assert!(
-                !seen.contains(&incarnation.sheet),
-                "incarnation '{}' shares sheet '{}' with an earlier one, so the \
-                 lineage is one body wearing three names",
+                !seen.contains(&sheet),
+                "incarnation '{}' shares sheet '{sheet}' with an earlier one, so \
+                 the lineage is one body wearing three names",
                 incarnation.id,
-                incarnation.sheet,
             );
-            seen.push(incarnation.sheet);
+            seen.push(sheet);
+        }
+    }
+
+    /// **The name comes from the row, and there is only one row.** (AF4b)
+    ///
+    /// The duplication this closes: `Incarnation` carried a `display_name` and
+    /// so does the catalog, with nothing deciding which won per field. Now the
+    /// definition IS the row's answer, so `DisplayNameDisagreement` cannot fire
+    /// for these three by construction rather than by luck.
+    #[test]
+    fn every_incarnation_presents_under_its_catalog_name() {
+        let catalog = crate::character_catalog::load_catalog();
+        for incarnation in LINEAGE {
+            let row = catalog
+                .get(incarnation.id)
+                .expect("every incarnation has a catalog row");
+            assert_eq!(
+                definition(incarnation).display_name,
+                row.display_name,
+                "incarnation '{}' presents under a name the catalog does not \
+                 give it",
+                incarnation.id,
+            );
         }
     }
 

@@ -37,6 +37,24 @@ impl MenuInputFrame {
 /// Keyed by the participant's SLOT, which is also the seat and also the device
 /// index — one numbering, because two that have to agree eventually disagree
 /// (see [`crate::ParticipantId::slot`]).
+/// **How many local seats a FRONTEND surface is offering right now.**
+///
+/// ⚠ **a lobby needs input before a roster exists, and that is a genuine
+/// chicken-and-egg.** Gameplay seats are declared by the
+/// `MatchParticipantRoster` — deliberately, so a controller left plugged into a
+/// machine does not silently become a second player in every game on it. A
+/// CHARACTER SELECT is the one surface where that rule cannot hold: it is what
+/// PRODUCES the roster, so until it finishes there is nothing to derive seats
+/// from, and only the primary participant exists. Four people at four pads found
+/// one cursor between them, and the other three panels could not be joined at
+/// all.
+///
+/// A surface sets this while it is up and clears it when it leaves; the same
+/// sweep that retires a match's seats retires these. `0` — the default — means
+/// "no lobby is open", which is every other route.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DeclaredInputSeats(pub u8);
+
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct SeatMenuFrames {
     seats: std::collections::BTreeMap<u8, MenuControlFrame>,

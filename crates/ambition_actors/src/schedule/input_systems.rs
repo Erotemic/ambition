@@ -115,9 +115,10 @@ pub fn spawn_primary_input_participant(
 pub fn seat_input_participants_for_roster(
     mut commands: Commands,
     roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    lobby: Option<Res<ambition_input::DeclaredInputSeats>>,
     existing: Query<(Entity, &InputParticipant)>,
 ) {
-    let wanted: Vec<u8> = roster
+    let mut wanted: Vec<u8> = roster
         .map(|roster| {
             roster
                 .participants
@@ -132,6 +133,19 @@ pub fn seat_input_participants_for_roster(
                 .collect()
         })
         .unwrap_or_default();
+    // **AND the seats a LOBBY is offering.** A character select produces the
+    // roster, so it cannot be seated from one: without this, only the primary
+    // participant exists while the screen is up and every other panel is a chair
+    // nobody can reach. The declaration is a frontend surface's, held only while
+    // that surface is up, and the sweep below retires these exactly like a
+    // match's.
+    if let Some(lobby) = lobby {
+        for slot in 0..lobby.0 {
+            if slot != ambition_input::ParticipantId::PRIMARY.slot() && !wanted.contains(&slot) {
+                wanted.push(slot);
+            }
+        }
+    }
 
     for (entity, participant) in &existing {
         if participant.id != ambition_input::ParticipantId::PRIMARY
@@ -720,6 +734,45 @@ mod focus_gate_tests {
             vec![0],
             "the primary seat outlives every match; it is the launcher's driver"
         );
+    }
+
+    /// **A LOBBY seats its pads before any roster exists.**
+    ///
+    /// The roster is the authority on who is PLAYING, and a character select is
+    /// what produces the roster — so the screen that asks the question cannot be
+    /// seated by the answer. Four people at four pads found one cursor between
+    /// them: three panels said "press confirm to join" at chairs no controller
+    /// could reach.
+    #[test]
+    fn a_declared_lobby_seats_its_pads_and_closing_it_takes_them_back() {
+        let mut app = App::new();
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                super::seat_input_participants_for_roster,
+            )
+                .chain(),
+        );
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0], "boot seats player one only");
+
+        // The select screen opens with three pads plugged in.
+        app.world_mut()
+            .insert_resource(ambition_input::DeclaredInputSeats(3));
+        app.update();
+        assert_eq!(
+            seat_slots(&mut app),
+            vec![0, 1, 2],
+            "a pad at an offered seat has nothing driving it, so nobody can join"
+        );
+
+        // …and leaving the screen takes them back. A participant with no surface
+        // still holds an `ActionState` that keeps writing its slot.
+        app.world_mut()
+            .insert_resource(ambition_input::DeclaredInputSeats(0));
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0]);
     }
 
     /// Player two's bindings must not include player one's keyboard.

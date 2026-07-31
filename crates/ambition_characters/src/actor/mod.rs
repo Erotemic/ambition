@@ -11,7 +11,7 @@ pub mod pose;
 pub use pose::{ActorFaction, ActorPose};
 pub mod ai;
 pub mod body;
-pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
+pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet, BodyWalletShield, DeathPolicy};
 pub mod attack_gesture;
 pub mod character_catalog;
 pub mod control;

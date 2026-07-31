@@ -54,19 +54,104 @@ impl BodyWallet {
     }
 }
 
+/// **How a body's accumulated-damage meter relates to death.** (CM1)
+///
+/// Smash's percent and Ambition's HP are the SAME quantity read through two
+/// policies. The meter itself is [`BodyHealth::damage_taken`]; this decides only
+/// whether filling the pool KILLS.
+///
+/// ⚠ **it lives beside `BodyHealth` and travels with it**, which it did not use
+/// to. It was authored per-archetype on `ActorTuning` and consulted in exactly
+/// one place (`apply_actor_hit`), so the PLAYER's body had no death policy at
+/// all — and a versus fighter is the adopted player. A policy the player cannot
+/// carry cannot express "this fighter dies to the blast zone, not to the meter",
+/// which is the entire point of the `Unbounded` variant.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DeathPolicy {
+    /// Dies when the meter fills the pool — Ambition today. THE DEFAULT, so
+    /// every existing archetype is unchanged.
+    #[default]
+    HpDepleted,
+    /// The meter never kills on its own; death comes from the WORLD — the
+    /// blast-zone / OOB / fell-out gate the engine already owns.
+    ///
+    /// The body stays ALIVE and its pool stays full no matter how far the meter
+    /// climbs, so `alive()` keeps answering `true`, hits keep landing, and
+    /// knockback keeps growing — which is what makes a 188% body launchable off
+    /// the stage by the one mechanism this variant reserves the right to kill it.
+    Unbounded,
+}
+
+impl DeathPolicy {
+    /// Whether filling the pool KILLS this body. `HpDepleted` (the default)
+    /// does, so every existing kill path is byte-unchanged.
+    pub fn kills_at_max(self) -> bool {
+        matches!(self, DeathPolicy::HpDepleted)
+    }
+}
+
 /// The ONE health component every body carries — the player, enemies, NPCs, and
 /// bosses. Wraps the shared [`Health`]. This is the keystone collapse of the
 /// identical parallel wrappers `PlayerHealth` / `ActorHealth` into one: every
 /// damage / heal / HUD / save / respawn system reads and writes a single
 /// component, so health is body vocabulary, not a per-actor-type concept.
+///
+/// ## The meter and the pool are two different quantities (S4)
+///
+/// They used to be one, and that was the defect. `damage_taken()` was
+/// `max - current`, so it could not exceed `max` by construction — and
+/// `Health::damage` both clamps `current` at zero AND returns early once the
+/// body is not `alive()`, so a hit landing on an empty pool was DROPPED rather
+/// than merely capped. An `Unbounded` body at 100% therefore stopped taking
+/// damage, stopped growing its knockback, and could no longer be launched off
+/// the stage. Selecting the variant bought an immortal punching bag, and the
+/// shipped tests were green and silent about all of it.
+///
+/// So [`Self::accumulated`] is its own uncapped counter that EVERY landed hit
+/// adds to, whatever the policy and whatever the pool is doing. The pool is
+/// still the pool: under [`DeathPolicy::HpDepleted`] it drains and kills exactly
+/// as before. Under [`DeathPolicy::Unbounded`] it simply never drains, and the
+/// counter keeps climbing past 100%.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyHealth {
     pub health: Health,
+    /// **Total damage this body has accumulated, uncapped** — the smash-percent
+    /// axis. Not derived from the pool: see the type docs for why it cannot be.
+    accumulated: i32,
+    /// Whether filling the pool kills this body. Travels WITH the health so
+    /// every body has one, including the player.
+    policy: DeathPolicy,
 }
 
 impl BodyHealth {
+    /// A body under the default policy: the pool kills when it empties.
+    ///
+    /// Signature unchanged on purpose — a dozen construction sites author a
+    /// pool and nothing else, and every one of them means `HpDepleted`.
     pub fn new(health: Health) -> Self {
-        Self { health }
+        Self {
+            health,
+            accumulated: 0,
+            policy: DeathPolicy::default(),
+        }
+    }
+
+    /// The same body under a declared death policy.
+    pub fn with_policy(mut self, policy: DeathPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    pub fn policy(self) -> DeathPolicy {
+        self.policy
+    }
+
+    /// Change the policy of a LIVE body, leaving the meter where it is.
+    ///
+    /// The case this exists for is match activation: a fighter adopted into a
+    /// versus match plays under the match's rules, and its body already exists.
+    pub fn set_policy(&mut self, policy: DeathPolicy) {
+        self.policy = policy;
     }
 
     pub fn current(self) -> i32 {
@@ -77,24 +162,59 @@ impl BodyHealth {
         self.health.max
     }
 
-    /// Accumulated damage this body has taken — the smash-percent axis (CM1).
-    /// It is `max - current` read through the existing pool; no parallel meter.
-    /// Knockback growth scales off this so a heavily-damaged body launches
-    /// farther under the same hit.
+    /// **Accumulated damage this body has taken, uncapped.** Knockback growth
+    /// scales off this, so a heavily-damaged body launches farther under the
+    /// same hit — and keeps launching farther past 100%.
     pub fn damage_taken(self) -> i32 {
-        (self.health.max - self.health.current).max(0)
+        self.accumulated
     }
 
+    /// **The meter as a fraction of the pool, UNCLAMPED.** `1.88` is a legal
+    /// answer and is how a HUD prints `188%`; `Health::ratio` cannot express it
+    /// because it clamps to `0..=1` and is about the POOL, not the meter.
+    pub fn damage_percent(self) -> f32 {
+        if self.health.max <= 0 {
+            0.0
+        } else {
+            self.accumulated as f32 / self.health.max as f32
+        }
+    }
+
+    /// Healing repays the meter as well as refilling the pool — otherwise a
+    /// healed body would keep launching as if it were still hurt.
     pub fn heal(&mut self, amount: i32) {
+        if amount > 0 {
+            self.accumulated = (self.accumulated - amount).max(0);
+        }
         self.health.heal(amount);
     }
 
-    /// Apply `amount` of damage; returns `true` if this killed the body.
+    /// **Apply `amount` of damage; returns `true` if this call killed the body.**
+    ///
+    /// THE damage authority for any body. The meter always advances on a landed
+    /// hit; whether the pool follows it down, and whether emptying the pool
+    /// kills, is the policy's business.
     pub fn damage(&mut self, amount: i32) -> bool {
-        self.health.damage(amount)
+        if self.health.invulnerable || amount <= 0 {
+            return false;
+        }
+        // ⚠ NOT gated on `alive()`. That gate is what made the meter saturate:
+        // a hit landing on an empty pool returned early and the accumulated
+        // total never moved again.
+        self.accumulated = self.accumulated.saturating_add(amount);
+        if self.policy.kills_at_max() {
+            self.health.damage(amount)
+        } else {
+            // The pool is not this body's death condition, so it does not drain
+            // at all — `alive()` stays true and every later hit still lands.
+            false
+        }
     }
 
+    /// Back to full: an empty meter and a full pool. The policy is a property of
+    /// the body, not of its current state, so it survives.
     pub fn reset(&mut self) {
+        self.accumulated = 0;
         self.health.reset();
     }
 

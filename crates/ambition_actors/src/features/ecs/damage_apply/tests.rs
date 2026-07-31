@@ -659,14 +659,91 @@ fn death_policy_gates_the_meter_kill() {
     assert!(!DeathPolicy::Unbounded.kills_at_max());
 }
 
+/// **The meter is not the pool, and it does not stop where the pool does.** (S4)
+///
+/// This test used to assert the opposite — `h.damage(100)` on a 20 pool left
+/// `damage_taken() == 20`, commented "clamps at the pool max" — and that
+/// assertion WAS the defect, written down as intent. `damage_taken()` was
+/// `max - current`, so it could not exceed `max` by construction, and
+/// `Health::damage` returns early once the body is not `alive()`, so a hit
+/// landing on an empty pool did not merely clamp: it was DROPPED. Knockback
+/// growth scales off this meter, so a body that reached 100% stopped launching
+/// farther, which is precisely what smash percent needs it to keep doing.
 #[test]
-fn damage_taken_is_the_accumulated_meter() {
+fn the_damage_meter_accumulates_past_the_pool_it_is_measured_against() {
     let mut h = test_health(20);
     assert_eq!(h.damage_taken(), 0);
     h.damage(7);
     assert_eq!(h.damage_taken(), 7);
-    h.damage(100); // clamps at the pool max
-    assert_eq!(h.damage_taken(), 20);
+    h.damage(100);
+    assert_eq!(
+        h.damage_taken(),
+        107,
+        "the meter stopped at the pool max, so a body cannot be MORE hurt than \
+         its pool is deep and knockback growth flatlines at 100%"
+    );
+}
+
+/// **Percent is not health**, and the difference is expressible.
+///
+/// `Health::ratio` clamps to `0..=1` and is about the POOL. A HUD that needs to
+/// print `188%` cannot get it from there at any amount of damage.
+#[test]
+fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
+    let mut h = test_health(50).with_policy(crate::combat::DeathPolicy::Unbounded);
+    h.damage(94);
+    assert!(
+        (h.damage_percent() - 1.88).abs() < 1e-6,
+        "damage_percent() = {} — a body at 94 damage over a 50 pool is at 188%",
+        h.damage_percent()
+    );
+    assert_eq!(
+        h.health.ratio(),
+        1.0,
+        "the POOL is untouched under Unbounded: its death comes from the world, \
+         and a drained pool is what used to make it stop taking hits"
+    );
+}
+
+/// **An `Unbounded` body keeps taking damage forever**, which is the whole
+/// reason the variant exists — and what it could not do before S4.
+///
+/// At 100% the old shape had `alive()` go false, `resolve_body_hit` return
+/// `Ignored` for every subsequent hit, and knockback stop growing. Selecting the
+/// variant bought an immortal punching bag.
+#[test]
+fn an_unbounded_body_never_dies_to_the_meter_and_never_stops_feeling_it() {
+    let mut h = test_health(10).with_policy(crate::combat::DeathPolicy::Unbounded);
+    for _ in 0..20 {
+        assert!(!h.damage(10), "the meter killed a body whose death is the world's");
+        assert!(h.alive(), "an Unbounded body stopped being alive");
+    }
+    assert_eq!(h.damage_taken(), 200);
+    assert_eq!(h.current(), h.max(), "the pool drained under Unbounded");
+}
+
+/// The default policy is byte-unchanged: the pool still drains and still kills.
+#[test]
+fn an_hp_depleted_body_still_dies_exactly_when_it_always_did() {
+    let mut h = test_health(20);
+    assert!(!h.damage(19));
+    assert!(h.alive());
+    assert_eq!(h.current(), 1);
+    assert!(h.damage(1), "the killing blow did not report the kill");
+    assert!(!h.alive());
+    assert_eq!(h.current(), 0);
+}
+
+/// Healing repays the meter too, or a healed body would keep launching as if it
+/// were still hurt.
+#[test]
+fn healing_repays_the_meter_and_not_only_the_pool() {
+    let mut h = test_health(20);
+    h.damage(12);
+    assert_eq!(h.damage_taken(), 12);
+    h.heal(5);
+    assert_eq!(h.damage_taken(), 7);
+    assert_eq!(h.current(), 13);
 }
 
 // --- CM2: directional influence ---

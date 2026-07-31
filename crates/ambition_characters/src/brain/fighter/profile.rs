@@ -72,6 +72,42 @@ impl FighterBrainProfile {
         DelayedPerception::from_reaction_ms(self.reaction_ms, tick_hz)
     }
 
+    /// **The engine's default rung for a level**, so a catalog row can say
+    /// `Fighter { level: 5 }` and get a brain.
+    ///
+    /// ⚠ this is a FLOOR, not the ladder. A game that cares ships its own nine
+    /// rows (`FighterBrainLadder::from_ron`) and this is never consulted; what it
+    /// exists for is that authoring a fighter should not require authoring a
+    /// difficulty curve first. Before it, the rig was unreachable from content at
+    /// all — which is a worse default than an imperfect one.
+    ///
+    /// The shape follows §1.3: reaction shrinks and APM grows with level, and
+    /// **level 9 is small numbers, never zero** — a frame-perfect CPU is not a
+    /// hard opponent, it is a different game.
+    pub fn for_level(level: u8) -> Self {
+        let level = level.clamp(1, 9);
+        let t = (level - 1) as f32 / 8.0;
+        Self {
+            level,
+            // 500ms at level 1 down to 150ms at level 9 — the two numbers §1.3
+            // names, linearly between.
+            reaction_ms: 500.0 - t * 350.0,
+            // A human ceiling. 120 APM is a relaxed player, 420 is a very fast
+            // one; nothing here approaches a machine's.
+            apm_cap: 120.0 + t * 300.0,
+            // Execution noise SHRINKS with level but never reaches zero, for the
+            // same reason reaction does not.
+            execution_noise: 0.45 - t * 0.35,
+            // L3 is an upgrade, not a dependency (§1): the lower rungs act on
+            // L2's scores alone, which is also what keeps a four-fighter match
+            // affordable.
+            rollout_depth: if level >= 6 { 12 } else { 0 },
+            rollout_k: if level >= 6 { 4 } else { 0 },
+            read_weight: t * 0.6,
+            utility_weights: UtilityWeights::default(),
+        }
+    }
+
     /// Does this profile run L3? Below the budget, or before N3.1's restore exists,
     /// L2's scores act alone — L3 is an upgrade, never a dependency (§1).
     pub fn uses_rollouts(&self) -> bool {

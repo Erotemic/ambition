@@ -60,6 +60,27 @@ pub const STARTING_STOCKS: u32 = 3;
 /// meter divided by one reports 14000%.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
+/// The name a CPU seat asks for.
+///
+/// ⛔ **`ControllerBinding::Cpu { brain_profile }` is NOT a catalog brain
+/// preset**, and the field name says otherwise. It is a `CharacterRoster`
+/// ARCHETYPE key: `spec_for_brain` looks it up in the roster fragment's
+/// `by_brain` map and falls back to a default spec — whose brain is
+/// `stand_still` — when the key is absent. The catalog's `brain_presets` are a
+/// different namespace that a seated CPU never consults.
+///
+/// So this demo's CPU seats stand still, and will until it registers a
+/// `CharacterRosterFragment` with a `duelist` archetype. `BrainPreset::Fighter`
+/// (added the same day) is the authoring path for a CATALOG-driven body — an
+/// NPC, a placement, a `default_brain` — and it works; it is simply not the road
+/// a match seat travels.
+///
+/// Found by a diagram printing `travel: [0.0, 0.0]` next to a brain label
+/// reading `stand_still`. The preset resolved correctly in isolation, which is
+/// exactly what made it confusing: the catalog was right, the lookup was
+/// somewhere else, and two vocabularies share one word.
+pub const SMASH_DUELIST_BRAIN: &str = "duelist";
+
 /// Where a respawning fighter comes back, above the stage centre.
 ///
 /// ⚠ **above**, not at the spawn point. A fighter that reappears on the floor
@@ -91,7 +112,11 @@ where
                     ControllerBinding::Human { device_slot: 0 }
                 } else {
                     ControllerBinding::Cpu {
-                        brain_profile: Some("medium_striker".to_string()),
+                        // The FB4b rig, by the catalog preset name. `medium_striker`
+                        // was Ambition's generic swipe brain and this demo does not
+                        // ship it — a CPU seat asking for a preset the composition
+                        // has never heard of resolves to nothing and stands still.
+                        brain_profile: Some(SMASH_DUELIST_BRAIN.to_string()),
                     }
                 })
                 // Every seat its own side. A stocks match with teams is a legal
@@ -244,7 +269,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.
-        let rules = (place_respawning_fighters, announce_the_winner)
+        let rules = (release_the_opening_hold, place_respawning_fighters, announce_the_winner)
             .chain()
             .in_set(ambition::platformer::schedule::CombatSet::Settle)
             .after(ambition::combat::stocks::spend_fighter_stocks);
@@ -253,6 +278,43 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         } else {
             app.add_systems(sim, rules);
         }
+    }
+}
+
+/// **Let the fighters move once the match is live.**
+///
+/// The roster opens `opens_suspended`, which stamps `ScriptedControl` on every
+/// fighter in the same flush that creates them — so no body is ever observable
+/// in a state the ruleset did not ask for. Something has to take it OFF, and in
+/// the versus stage that is the countdown reaching zero.
+///
+/// ⚠ **this demo has no countdown, and for a day it had no release either.** The
+/// fighters seated, stood exactly where seating put them, and never moved. Every
+/// test passed: they existed, wore seats, carried stocks, and were correctly
+/// suspended forever. The tell was a diagram printing `travel: [0.0, 0.0]` —
+/// a number no assertion in the tree was looking at.
+///
+/// Releasing on "the match is live" is the honest reading of the flag for a
+/// ruleset with no opening ceremony: the hold exists to cover the gap between
+/// construction and the round starting, and here those are the same tick.
+fn release_the_opening_hold(
+    mut commands: bevy::prelude::Commands,
+    active: Option<bevy::prelude::Res<ambition::actors::character_runtime::ActiveMatch>>,
+    held: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition::actor::MatchSeat>,
+            bevy::prelude::With<ambition::characters::brain::ScriptedControl>,
+        ),
+    >,
+) {
+    if active.is_none() {
+        return;
+    }
+    for body in held.iter() {
+        commands
+            .entity(body)
+            .try_remove::<ambition::characters::brain::ScriptedControl>();
     }
 }
 
@@ -426,7 +488,14 @@ pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 /// belongs — Ambition HOSTING this experience alongside its own, where both
 /// catalogs are present.
 const SMASH_CATALOG_RON: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
+    brain_presets: {
+        "stand_still": StandStill,
+        // **The FB4b fighter brain, selected from content.** Until 2026-07-31
+        // there was no `BrainPreset` variant for it, so the rig existed and no
+        // catalog row could ask for it — the demo's duelists stood still because
+        // standing still was the only thing they could be told to do.
+        "duelist": Fighter(level: 5),
+    },
     action_set_presets: {
         "duelist": (
             move_style: Walk,
@@ -452,7 +521,7 @@ const SMASH_CATALOG_RON: &str = r#"(
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "stand_still",
+            default_brain: "duelist",
             default_action_set: "duelist",
             playable_kit: HostCode,
             tags: ["player", "smash"],
@@ -465,7 +534,7 @@ const SMASH_CATALOG_RON: &str = r#"(
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "stand_still",
+            default_brain: "duelist",
             default_action_set: "duelist",
             tags: ["smash"],
             fallback_dialogue: ["Percent is not health. I learned that the hard way."],
@@ -848,6 +917,38 @@ mod tests {
             SMASH_PERCENT_REFERENCE >= 50,
             "a percent reference of {SMASH_PERCENT_REFERENCE} makes a single hit \
              read in the hundreds, which is the 14000% bug in a smaller hat"
+        );
+    }
+
+    /// **The `duelist` preset resolves to the FIGHTER brain.**
+    ///
+    /// A preset name that does not resolve falls back to standing still, and a
+    /// fighter that stands still is indistinguishable from one whose brain was
+    /// never installed — which is what the match diagram printed for an hour
+    /// (`travel: [0.0, 0.0]`) before anything said why.
+    #[test]
+    fn the_duelist_preset_is_a_fighter_brain() {
+        use ambition::characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+
+        let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
+        assert!(
+            catalog.has_brain_preset("duelist"),
+            "the catalog does not know the `duelist` preset at all, so every \
+             fighter asking for it silently stands still"
+        );
+        let brain = catalog
+            .build_brain_from_preset(
+                "duelist",
+                &ambition::characters::actor::character_catalog::BrainBuildContext::at(0.0),
+            )
+            .expect("the `duelist` preset builds a brain");
+        assert_eq!(
+            brain.label(),
+            "fighter",
+            "`duelist` resolved to `{}` — a preset that does not resolve falls \
+             back to standing still, and a fighter that stands still looks \
+             exactly like one with no brain at all",
+            brain.label()
         );
     }
 

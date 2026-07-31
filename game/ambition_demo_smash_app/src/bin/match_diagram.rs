@@ -23,15 +23,19 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    {
-        use ambition_demo_smash::select::SmashSelect;
-        let mut select = app.world_mut().resource_mut::<SmashSelect>();
-        select.join(0);
-        select.lock_in(0);
-        select.join(1);
-        select.browse(1, 1);
-        select.lock_in(1);
-    }
+    // ⚠ **CPU seats, not the select screen's.** `SmashSelect::roster` makes every
+    // locked seat a HUMAN — which is right for a couch game and is why a diagram
+    // driven through it shows two fighters that never move: nobody is pressing
+    // anything. To watch the fighter BRAIN, the roster has to ask for it.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ]));
+    app.world_mut()
+        .write_message(ambition::game_shell::ShellCommand::GoTo(
+            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        ));
     // Long enough for the route to resolve, the session to prepare and seating
     // to run. If the fighters are missing below, this is the first suspect.
     for _ in 0..240 {
@@ -56,6 +60,47 @@ fn main() {
             }
         }
         app.update();
+    }
+
+    // Did anybody MOVE? A fighter brain that thinks and emits nothing looks
+    // exactly like a fighter brain that was never installed.
+    let opening = collect_fighters(&mut app)
+        .iter()
+        .map(|f| f.aabb.center().x)
+        .collect::<Vec<_>>();
+    for _ in 0..180 {
+        app.update();
+    }
+    let moved = collect_fighters(&mut app)
+        .iter()
+        .map(|f| f.aabb.center().x)
+        .zip(opening.iter())
+        .map(|(now, then)| (now - then).abs())
+        .collect::<Vec<_>>();
+    println!("[match_diagram] travel over 180 ticks: {moved:?}");
+    {
+        use ambition::actor::MatchSeat;
+        use ambition::characters::brain::{Brain, ScriptedControl};
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            Option<&Brain>,
+            bevy::prelude::Has<ScriptedControl>,
+        )>();
+        let mut rows: Vec<String> = q
+            .iter(world)
+            .map(|(seat, brain, held)| {
+                format!(
+                    "seat {} brain={} held={held}",
+                    seat.0,
+                    brain.map(|b| b.label()).unwrap_or("NONE")
+                )
+            })
+            .collect();
+        rows.sort();
+        for row in rows {
+            println!("[match_diagram] {row}");
+        }
     }
 
     let fighters = collect_fighters(&mut app);

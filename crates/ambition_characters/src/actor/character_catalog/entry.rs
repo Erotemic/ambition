@@ -667,6 +667,27 @@ pub enum BrainPreset {
     /// encounter swaps this in when the player picks "challenge". The
     /// `difficulty` floats are the fairness knobs (reaction lag, commit
     /// probability, aim accuracy).
+    /// **The FB4b fighter brain** — L1 classify, L2 options, L3 rollout, on a
+    /// human cadence with an APM ceiling.
+    ///
+    /// ⚠ added 2026-07-31 because the rig had NO AUTHORING PATH. It existed,
+    /// was tested, and no content could select it: `BrainPreset` is the only
+    /// vocabulary a catalog row has for choosing a brain, and there was no
+    /// variant for this one. That is the third time in a day the same shape has
+    /// turned up here — a capability built, correct, and unreachable from where
+    /// a consumer stands (`drive_seat_frame`, the inert rollback registration,
+    /// and now this).
+    ///
+    /// `level` picks a rung of the ladder. The other knobs are the ones a stage
+    /// legitimately varies per opponent; everything else about how the brain
+    /// thinks belongs to the ladder row, which is content a game ships.
+    Fighter {
+        /// 1..=9. Reads a rung of the fighter ladder.
+        level: u8,
+        /// Ticks between decisions. §5's 10-20 Hz at 60 Hz sim.
+        #[serde(default = "default_fighter_decision_interval")]
+        decision_interval_ticks: u32,
+    },
     Smash {
         aggro_radius: f32,
         engage_distance: f32,
@@ -810,4 +831,9 @@ mod momentum_spec_tests {
         let spec: MomentumParamsSpec = ron::from_str("()").expect("empty spec ok");
         assert_eq!(spec.to_kernel(), ae::MomentumParams::default());
     }
+}
+
+
+fn default_fighter_decision_interval() -> u32 {
+    crate::brain::fighter::decision::DEFAULT_DECISION_INTERVAL_TICKS
 }

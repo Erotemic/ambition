@@ -146,6 +146,27 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             },
             state: BossPatternState::default(),
         },
+        BrainPreset::Fighter {
+            level,
+            decision_interval_ticks,
+        } => {
+            let mut cfg = crate::brain::fighter::FighterCfg::new(
+                crate::brain::fighter::FighterBrainProfile::for_level(*level),
+            );
+            cfg.decision_interval_ticks = *decision_interval_ticks;
+            let state = crate::brain::fighter::FighterState::new(
+                &cfg,
+                // Seeded from the LEVEL, so two fighters on the same rung are the
+                // same fighter and a replay reproduces both. A clock-seeded
+                // stream would make the brain the one part of the sim that does
+                // not rewind.
+                0x5F37_7A11_u64.wrapping_mul(*level as u64 + 1),
+            );
+            StateMachineCfg::Fighter {
+                cfg: Box::new(cfg),
+                state: Box::new(state),
+            }
+        }
         BrainPreset::Smash {
             aggro_radius,
             engage_distance,

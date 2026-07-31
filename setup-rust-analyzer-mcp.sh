@@ -2,6 +2,27 @@
 # Install and register the rust-analyzer-mcp server
 # (https://github.com/zeenix/rust-analyzer-mcp)
 # so Claude Code can query this repository's Rust language-server state directly.
+#
+# ⚠ **On Claude Code, prefer the native LSP plugin to this bridge.**
+#
+#     /plugin install rust-analyzer-lsp@claude-plugins-official
+#
+# It launches `rust-analyzer` directly, so it maintains real document versions
+# and sends proper change notifications. This bridge never sends `didChange`:
+# it opens a document once and answers every later position query from the
+# content that file had when the server process first touched it, so its answers
+# go stale the moment you edit — verified here, and the reason `cargo check` is
+# the only compile gate. Its `diagnostics` is worse than stale on a cold start:
+# before proc macros are built it returns a list of confident, entirely fake
+# `E0559`/`E0599` errors (every deref through `Res`/`ResMut` reads as a missing
+# field), alongside `macro-error: proc-macro not yet built` hints that are the
+# tell. Discard any response containing that hint and ask again.
+#
+# This script remains for clients that genuinely lack native LSP integration
+# (Codex and friends). If you are fixing it rather than replacing it, the
+# upstream changes worth making are: make check-on-save configurable and default
+# it OFF, drop the synthetic `didSave`, drop the unconditional workspace reload,
+# implement `didChange`, and pin the installed revision.
 
 set -Eeuo pipefail
 
@@ -17,6 +38,29 @@ export PATH="$CARGO_HOME/bin:$HOME/.local/bin:$PATH"
 SERVER_NAME="${SERVER_NAME:-rust-analyzer}"
 MCP_BIN="${MCP_BIN:-rust-analyzer-mcp}"
 CARGO_PACKAGE="${CARGO_PACKAGE:-rust-analyzer-mcp}"
+
+# ⚠ **The server's cargo work MUST NOT share the project's target directory.**
+#
+# `rust-analyzer-mcp` hardcodes `checkOnSave.enable = true` and `allTargets =
+# true`, sends that config at initialize AND again via
+# `workspace/didChangeConfiguration`, calls `rust-analyzer/reloadWorkspace` on
+# startup, and manufactures a `textDocument/didSave` the first time it opens any
+# file — its own source comment says "trigger cargo check". None of that is
+# configurable through the bridge (its README still lists configuration as future
+# work). So a `cargo check --workspace` fires on first touch of a file and holds
+# the Cargo target-dir lock.
+#
+# Measured cost on this repo, 2026-07-30: an agent's own `cargo test` sat behind
+# the server's check while ~10-minute builds ran, and killing the server was the
+# fix. `cargo.targetDir` is rust-analyzer's documented mechanism for exactly this
+# — the bridge does not expose it, but `CARGO_TARGET_DIR` in the environment
+# reaches the same cargo. The cost is duplicated artifacts, which the upstream
+# docs call the expected trade.
+#
+# Outside the repo on purpose, like `.cargo/config.toml`'s own target dir: a
+# second target tree inside the working copy is noise in every `git status` and
+# every file walk.
+RA_TARGET_DIR="${RA_TARGET_DIR:-$HOME/.cache/rust-analyzer-mcp/$(basename "$REPO_ROOT")-target}"
 
 SCOPE="local"
 DO_REGISTER=1
@@ -251,8 +295,11 @@ PY
         printf -v quoted_rel '%q' "$rel_repo"
         printf -v quoted_mcp '%q' "$MCP_BIN"
 
+        printf -v quoted_ra_target '%q' "$RA_TARGET_DIR"
+
         printf '%s' \
             'export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$HOME/.local/bin:$PATH"; ' \
+            "export CARGO_TARGET_DIR=$quoted_ra_target; " \
             'project_root="${CLAUDE_PROJECT_DIR:-$PWD}"; ' \
             "cd \"\$project_root\"/$quoted_rel && exec $quoted_mcp"
         return
@@ -264,9 +311,11 @@ PY
     printf -v quoted_ra_dir '%q' "$(dirname "$RUST_ANALYZER_BIN_PATH")"
     printf -v quoted_cargo_bin '%q' "$CARGO_HOME/bin"
 
-    printf 'export PATH=%s:%s:%s:$HOME/.local/bin:$PATH; cd %s && exec %s' \
+    printf -v quoted_ra_target '%q' "$RA_TARGET_DIR"
+
+    printf 'export PATH=%s:%s:%s:$HOME/.local/bin:$PATH; export CARGO_TARGET_DIR=%s; cd %s && exec %s' \
         "$quoted_mcp_dir" "$quoted_ra_dir" "$quoted_cargo_bin" \
-        "$quoted_repo" "$quoted_mcp"
+        "$quoted_ra_target" "$quoted_repo" "$quoted_mcp"
 }
 
 # Probe one exact registered command. The Python driver:

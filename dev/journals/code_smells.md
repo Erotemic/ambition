@@ -1436,3 +1436,51 @@ distinction down in the one file I had not opened yet.
 Transferable, and it survives the retraction: the check asked the RUNNING WORLD
 rather than the RON, and that was right. What was wrong was asking it about the
 wrong noun.
+
+## SMELL (parked 2026-07-30): a room transition tells you nothing about itself
+
+Jon, on the Hall of Characters after the neighbour-prefetch fix:
+
+> *"It flashes squares, which then flash the placeholder sprite, and then it
+> flashes to the characters. It looks disorienting. its not smooth. It doesn't
+> work. It would just be better to have a loading screen if the load is going to
+> take a hot second."*
+
+Parked at his call — *"we can mark it as a game smell that needs my better
+diagnostics"* — because the honest blocker is that **the transition cannot be
+observed**, not that the fix is unknown.
+
+What is established:
+
+* the room-transition cover machinery WORKS. Driven headlessly through the real
+  room graph, the foreground becomes visible at exactly `loading_reveal_after`
+  (250ms) with a `BasicLoadRoot` on screen, and holds while assets are pending
+  (`game/ambition_app/tests/hall_transition_cover.rs`, red-probed);
+* the three flashes are all POST-REVEAL: the magenta boxes are
+  `draw_unclaimed_feature_views`, a diagnostic that fires for any feature view no
+  render family claimed *this frame* — and families spawn through `Commands`, so
+  any room needing more than one flush shows its own diagnosis as a loading
+  stage. Nothing Hall-specific;
+* the cover now retires on PRESENTABLE (no unclaimed placeholders) rather than
+  one update after commit, with an 8s deadline that reveals anyway and warns.
+
+⛔ **what is NOT established, and why this is parked:** a 34.6-second desktop
+capture containing a real hub → Hall transition produced **zero**
+`ambition::room_transition::performance` lines, while the same module's other
+logs printed fine and no `RUST_LOG` was set. The completion telemetry is emitted
+at retirement behind `runtime.owner.take()`, so a transition that never spawned a
+cover reports nothing at all — which reads as "no transitions happened". A
+transition now logs at BEGIN unconditionally so the (BEGIN, retire) pair is
+readable and a MISSING retirement is itself the signal, but nobody has run it
+yet.
+
+**The smell, stated generally:** the loading path's instrumentation is emitted
+only on the success edge. Every question worth asking about it — did the cover
+appear, how long was it up, what was the barrier waiting for, why did it release
+— is answerable only by a transition that completed normally, which is the case
+nobody needs answered. Instrument the edges you expect to go wrong, not the one
+you expect to work.
+
+Next capture should answer: does `room transition N BEGIN a -> b` appear, and is
+there a matching retirement line? BEGIN without a retirement means the cover was
+never spawned, which is a different bug from the one this parked work assumed.

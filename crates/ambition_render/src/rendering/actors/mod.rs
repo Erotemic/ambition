@@ -234,6 +234,23 @@ pub fn sync_visuals(
     // happened -- the player entity does not exist until its room loads, so
     // the first observation is not a change.
     mut last_player_render_size: Local<Option<Option<BVec2>>>,
+    // **The other two multipliers between `custom_size` and what a player SEES.**
+    //
+    // The size instrument above watched `custom_size` alone, and against Jon's
+    // "the main character flashes at a larger scale and then resizes" it reported
+    // NOTHING: one `first observed at 92x92`, no transition, no unsized warning
+    // (2026-07-30 desktop capture). So the sprite's own size was never wrong, and
+    // the instrument's silence RULED OUT the two hypotheses it was built for
+    // rather than confirming either.
+    //
+    // What is left is everything else on the path to pixels: the entity's own
+    // `Transform::scale`, and the camera's orthographic scale. Both multiply the
+    // same quad, and a transient in either reads exactly like a sprite resize.
+    // Watching the drawn size instead of one of its factors is the difference
+    // between an instrument that can only confirm a guess and one that can
+    // localise.
+    camera_view: Option<Res<super::camera::CameraViewState>>,
+    mut last_player_draw_scale: Local<Option<(BVec2, f32)>>,
 ) {
     let player = (primary_player.iter().count() == 1)
         .then(|| primary_player.iter().next())
@@ -356,6 +373,48 @@ pub fn sync_visuals(
                         );
                     }
                 }
+            }
+
+            // The two factors `custom_size` does NOT capture. Reported together
+            // because they are indistinguishable to the eye and only their
+            // PRODUCT is what the player sees — naming which one moved is the
+            // whole value of the line.
+            //
+            // Camera scale is the divisor: a smaller orthographic scale shows
+            // less world in the same viewport, which draws every quad bigger. So
+            // a camera that opens zoomed-in and eases out presents as "the
+            // character flashed large and then shrank" while every sprite size in
+            // the game is constant.
+            let entity_scale = BVec2::new(transform.scale.x, transform.scale.y);
+            let camera_scale = camera_view
+                .as_deref()
+                .map(|view| view.orthographic_scale)
+                .unwrap_or(1.0);
+            let moved = match *last_player_draw_scale {
+                None => {
+                    eprintln!(
+                        "[sprite-size] player draw scale first observed: \
+                         entity={:.3}x{:.3} camera_ortho={camera_scale:.4}",
+                        entity_scale.x, entity_scale.y,
+                    );
+                    false
+                }
+                Some((previous_entity, previous_camera)) => {
+                    previous_entity.distance(entity_scale) > 1.0e-3
+                        || (previous_camera - camera_scale).abs() > 1.0e-4
+                }
+            };
+            if moved {
+                if let Some((previous_entity, previous_camera)) = *last_player_draw_scale {
+                    eprintln!(
+                        "[sprite-size] player draw scale {:.3}x{:.3} @ortho \
+                         {previous_camera:.4} -> {:.3}x{:.3} @ortho {camera_scale:.4}",
+                        previous_entity.x, previous_entity.y, entity_scale.x, entity_scale.y,
+                    );
+                }
+            }
+            if moved || last_player_draw_scale.is_none() {
+                *last_player_draw_scale = Some((entity_scale, camera_scale));
             }
         }
     }

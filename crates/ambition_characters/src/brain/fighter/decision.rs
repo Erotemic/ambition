@@ -306,8 +306,27 @@ fn decide(
         cfg.tick_hz,
     );
 
-    // MOVEMENT: the best verb becomes the held intent.
-    if let Some(best) = options.movement.first() {
+    // MOVEMENT: the best verb the rollout did not veto.
+    //
+    // ⚠ **a verdict nothing consumes is not a verdict.** L3 now rolls each
+    // movement line and names the ones that end with this body out of the world;
+    // if the rig still took `movement.first()`, that list would be a field in a
+    // struct and the fighter would keep walking off the stage — which is the
+    // exact defect class this codebase keeps rediscovering (a registration that
+    // is inert, a seam that is unreachable, a refusal that cannot fire).
+    //
+    // L2 scores where the floor is NOW. The rollout is the only thing in the
+    // brain that knows where the body will BE, so on this one question it
+    // outranks the score rather than adjusting it.
+    let vetoed = refined
+        .as_ref()
+        .map(|refined| refined.suicidal_movement.as_slice())
+        .unwrap_or(&[]);
+    if let Some(best) = options
+        .movement
+        .iter()
+        .find(|option| !vetoed.contains(&option.verb))
+    {
         apply_movement(best.verb, view, frame);
     }
 

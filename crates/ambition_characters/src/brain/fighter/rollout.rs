@@ -702,6 +702,38 @@ pub fn predicted_foe_intent(
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefinedChoice {
     pub move_id: String,
+    /// **Movement lines the rollout found SUICIDAL**, by L2 verb.
+    ///
+    /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
+    /// here walked or jumped this body out of the world within the horizon, and
+    /// L2's score for it is not the question — no attack is worth a stock.
+    ///
+    /// ⚠ this is why L3 exists at all on a stage with edges. `ladder_probe`
+    /// measured identical self-KO counts at every ladder rung, INCLUDING across
+    /// the `rollout_depth: 0 -> 12` boundary, because the rollout only ever
+    /// refined attacks — and a self-KO is a movement defect. A rollout that
+    /// cannot see the thing killing you cannot earn its depth.
+    ///
+    /// ⛔ **AND IT IS STILL EMPTY FOR THE COMMON CASE, which is worth more than
+    /// a working feature would be.** The shadow model cannot predict a WALK-OFF,
+    /// for two independent reasons found by measuring rather than reading:
+    ///
+    /// * `ShadowState` carries no terrain. There is no floor in the shadow
+    ///   world, so a body driven past a platform's edge does not fall — it
+    ///   walks on at the same height forever.
+    /// * the shadow's KO fires only `matches!(phase, Hitstun) && offstage`. That
+    ///   gate is DELIBERATE and defensible — a fighter offstage under its own
+    ///   power can still recover, and calling that dead would make the brain
+    ///   refuse every edgeguard — but it means self-inflicted exits are outside
+    ///   what a rollout can see, whatever terrain it gains.
+    ///
+    /// So this list fires today only for a line that ends with the body in
+    /// HITSTUN and offstage: a real launch the brain walked into. That is a true
+    /// and useful veto, and it is not the one the smash demo needs. Naming the
+    /// gap here rather than shipping the machinery quietly, because an
+    /// unreachable guard reads as protection — which is this repository's
+    /// standing defect class and would be a poor thing to add to it.
+    pub suicidal_movement: Vec<crate::brain::fighter::options::MovementVerb>,
     /// Rollout score of the chosen line MINUS the do-nothing baseline, in the
     /// same units as L2's dot product. Positive means the rollouts saw the
     /// move buy something real.
@@ -715,6 +747,14 @@ pub struct RefinedChoice {
 fn rollout_value(
     start: &ShadowState,
     candidate: Option<&MoveFrameData>,
+    // What THIS body does on every step of the line.
+    //
+    // ⚠ added 2026-07-31. It was hardcoded `Hold`, which is why a rollout could
+    // only ever answer "which attack" — every line moved the foe and stood
+    // still. `ladder_probe` measured the consequence: identical self-KO counts
+    // at every rung, across the `rollout_depth: 0 -> 12` boundary, because the
+    // defect being measured was MOVEMENT and movement never entered a rollout.
+    sustained: &ShadowIntent,
     depth: u32,
     dt: f32,
     situation: Situation,
@@ -741,7 +781,7 @@ fn rollout_value(
     let mut ko_foe = false;
     for _ in 0..depth {
         let foe_intent = predicted_foe_intent(&s, situation, habits, profile.read_weight, tuning);
-        for event in shadow_step(&mut s, dt, &ShadowIntent::Hold, &foe_intent, tuning) {
+        for event in shadow_step(&mut s, dt, sustained, &foe_intent, tuning) {
             match event {
                 ShadowEvent::Ko { of_me: true } => ko_me = true,
                 ShadowEvent::Ko { of_me: false } => ko_foe = true,
@@ -813,6 +853,7 @@ pub fn refine_by_rollout(
     let baseline = rollout_value(
         &start,
         None,
+        &ShadowIntent::Hold,
         profile.rollout_depth,
         dt,
         situation,
@@ -830,6 +871,7 @@ pub fn refine_by_rollout(
         let value = rollout_value(
             &start,
             Some(&option.frames),
+            &ShadowIntent::Hold,
             profile.rollout_depth,
             dt,
             situation,
@@ -845,9 +887,61 @@ pub fn refine_by_rollout(
             best = Some((index, value));
         }
     }
+    // **ROLL THE MOVEMENT LINES TOO.** The shadow model already steps a body and
+    // already reports `ShadowEvent::Ko { of_me: true }`; nothing was ever asked
+    // to walk. Each verb L2 offered is rolled as a SUSTAINED intent, and a line
+    // that ends with this body out of the world is named — L2 scores where the
+    // floor is NOW, and this is the only thing in the brain that knows where the
+    // body will BE.
+    let suicidal_movement = options
+        .movement
+        .iter()
+        .filter_map(|option| {
+            let intent = movement_intent(option.verb, &start)?;
+            let mut probe = start.clone();
+            let dt = 1.0 / tick_hz.max(1.0);
+            let mut died = false;
+            for _ in 0..profile.rollout_depth {
+                let foe_intent =
+                    predicted_foe_intent(&probe, situation, habits, profile.read_weight, tuning);
+                for event in shadow_step(&mut probe, dt, &intent, &foe_intent, tuning) {
+                    if matches!(event, ShadowEvent::Ko { of_me: true }) {
+                        died = true;
+                    }
+                }
+                if died {
+                    break;
+                }
+            }
+            died.then_some(option.verb)
+        })
+        .collect();
+
     best.map(|(index, value_over_baseline)| RefinedChoice {
         move_id: options.attacks[index].move_id.clone(),
         value_over_baseline,
+        suicidal_movement,
+    })
+}
+
+/// The sustained shadow intent a movement verb means.
+///
+/// `None` for verbs the shadow model does not simulate (blink, shield-as-motion)
+/// — an unmodelled verb is not judged, because a rollout that reported every
+/// unknown as safe or as fatal would be lying in one direction or the other.
+fn movement_intent(
+    verb: crate::brain::fighter::options::MovementVerb,
+    start: &ShadowState,
+) -> Option<ShadowIntent> {
+    use crate::brain::fighter::options::MovementVerb;
+    let frame = ae::AccelerationFrame::new(start.gravity_down);
+    let toward = (start.foe.pos - start.me.pos).dot(frame.side).signum();
+    Some(match verb {
+        MovementVerb::Approach => ShadowIntent::Drive { lateral: toward },
+        MovementVerb::Dash => ShadowIntent::Drive { lateral: toward },
+        MovementVerb::Retreat => ShadowIntent::Drive { lateral: -toward },
+        MovementVerb::Jump => ShadowIntent::Jump,
+        MovementVerb::Recover | MovementVerb::Shield | MovementVerb::Blink => return None,
     })
 }
 

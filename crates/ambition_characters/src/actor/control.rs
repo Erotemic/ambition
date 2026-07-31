@@ -130,9 +130,25 @@ impl ActorFireRequest {
             }
             GameplayFramePolicy::WorldSpace => self.dir,
             GameplayFramePolicy::ScreenSpace => {
+                // ⚠ **the release build used to return `self.dir` in silence**,
+                // which is a SCREEN-space vector handed to gameplay as a world
+                // one. Under any rotated gravity that is a shot going the wrong
+                // way, with nothing to grep for — and the `debug_assert!` that
+                // stood here alone said so only in a debug build, which is not
+                // where a player fires it.
+                //
+                // Still returns `self.dir`: there is no better answer available
+                // here, and the two policies share a basis today, so the value is
+                // usually right. What changes is that a wrong one leaves a trace.
                 debug_assert!(
                     false,
                     "screen-space fire directions must be resolved before gameplay"
+                );
+                bevy::log::error!(
+                    target: "ambition::control",
+                    "a screen-space fire direction reached gameplay unresolved; \
+                     it is being used as a WORLD direction, which is wrong under \
+                     any rotated gravity"
                 );
                 self.dir
             }

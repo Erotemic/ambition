@@ -17,9 +17,33 @@ use bevy::prelude::*;
 /// are pads — one pad is one seat, which is the right answer on a couch and the
 /// reason a test has to say how many people are in the room.
 fn plug_in(app: &mut App, count: usize) {
-    let devices: Vec<Entity> = (0..count).map(|_| app.world_mut().spawn(()).id()).collect();
-    app.world_mut()
-        .insert_resource(ambition::input::LocalDeviceOrder::from_devices(devices));
+    // ⚠ SPAWN PADS, do not insert the order. `track_local_device_order` rebuilds
+    // `LocalDeviceOrder` from live `Gamepad` entities every frame, so a
+    // hand-inserted order is clobbered on the next update — and only when the
+    // `input` feature is on, which is how this passed by default and failed
+    // under `--features input,visible`. The resource is derived; the pads are
+    // the fact.
+    let pads: Vec<Entity> = (0..count)
+        .map(|_| {
+            app.world_mut()
+                .spawn(bevy::input::gamepad::Gamepad::default())
+                .id()
+        })
+        .collect();
+    app.update();
+    // …and the tracker itself is behind the `input` feature, so under default
+    // features nothing derives the order and the pads sit there unread. Seed it
+    // only when that happened: seeding unconditionally would put the test back
+    // to fighting the tracker in the configuration where the tracker runs.
+    let derived = app
+        .world()
+        .get_resource::<ambition::input::LocalDeviceOrder>()
+        .map(|order| order.devices().len())
+        .unwrap_or(0);
+    if derived < count {
+        app.world_mut()
+            .insert_resource(ambition::input::LocalDeviceOrder::from_devices(pads));
+    }
 }
 
 fn press(app: &mut App, seat: u8, frame: MenuControlFrame) {

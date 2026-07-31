@@ -85,9 +85,9 @@ use crate::world::rooms::RoomMetadata;
 /// a discovery problem, not a convenience.
 pub mod prelude {
     pub use super::{
-        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
-        ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
-        MINIMAL_CHARACTER_ROSTER_RON,
+        AssetSource, CompositionError, EMPTY_CHARACTER_ROSTER_RON, GameModule, HostStatus,
+        MINIMAL_CHARACTER_ROSTER_RON, ModuleDraft, ModuleManifest, PlatformerApp, SessionMode,
+        StartAt, host_status,
     };
     pub use bevy::prelude::App;
 
@@ -920,10 +920,20 @@ impl PlatformerApp {
         }
         if !problems.is_empty() {
             return Err(CompositionError {
-                stage: CompositionStage::Declaration, problems });
+                stage: CompositionStage::Declaration,
+                problems,
+            });
         }
 
         // ── Rule 1 ── before any AssetPlugin, in every face.
+        //
+        // ⚠ desktop only. `consumer_source` LAYERS a game's asset tree over the
+        // engine's by reading both from disk, and `#[cfg(not(wasm32))]` says so
+        // at its definition — on the web there is no engine root to layer under,
+        // because the served bundle already IS the merged tree. The refusal
+        // below is not a smaller version of the desktop behaviour; it is the
+        // statement that a declaration nobody can honour must not pass silently.
+        #[cfg(not(target_arch = "wasm32"))]
         for source in sources {
             use bevy::asset::AssetApp as _;
             app.register_asset_source(
@@ -933,6 +943,16 @@ impl PlatformerApp {
                     crate::asset_manager::actors_desktop_asset_root(),
                 ),
             );
+        }
+        #[cfg(target_arch = "wasm32")]
+        if let Some(source) = sources.first() {
+            return Err(CompositionError {
+                stage: CompositionStage::Declaration,
+                problems: vec![format!(
+                    "asset source `{}://` layers a game tree over the engine's from                      DISK, which the web build has no way to do — the served bundle                      is already one merged tree. Ship the game's assets inside it                      rather than declaring a source.",
+                    source.name
+                )],
+            });
         }
 
         // ── Rules 2, 3, 4 ── the Bevy foundation.
@@ -1286,7 +1306,7 @@ fn register_declared_cast(
     };
     let fragment = CharacterCatalogFragment::from_ron(experience.id.clone(), None::<String>, ron)
         .map_err(|error| CompositionError {
-            stage: CompositionStage::Assembly,
+        stage: CompositionStage::Assembly,
         problems: vec![format!(
             "the character roster declared by `{}` did not parse: {error}",
             experience.id
@@ -1382,23 +1402,26 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
         // rather than to a manually stepped fixture.
-        use bevy::render::settings::{RenderCreation, WgpuSettings};
         use bevy::render::RenderPlugin;
-        app.add_plugins(
-            plugins
-                .disable::<bevy::log::LogPlugin>()
-                .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
-                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-                .set(RenderPlugin {
-                    render_creation: RenderCreation::Automatic(WgpuSettings {
-                        backends: None,
-                        ..Default::default()
-                    }),
+        use bevy::render::settings::{RenderCreation, WgpuSettings};
+        let plugins = plugins
+            .disable::<bevy::log::LogPlugin>()
+            .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+            .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    backends: None,
                     ..Default::default()
-                })
-                .disable::<bevy::winit::WinitPlugin>(),
-        );
+                }),
+                ..Default::default()
+            })
+            .disable::<bevy::winit::WinitPlugin>();
+        // ⚠ desktop only: there is no terminal, and no such plugin, on the web.
+        // `disable` on a plugin that does not exist for the target is a COMPILE
+        // error, not a no-op, so the cfg has to move the call and not the type.
+        #[cfg(not(target_arch = "wasm32"))]
+        let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
+        app.add_plugins(plugins);
     }
 
     // Rule 4: after Bevy's StatesPlugin exists, before the sim plugins whose

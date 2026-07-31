@@ -255,11 +255,10 @@ fn the_capability_mask_gates_every_verb() {
     v.self_view.can_dash = false;
 
     let opts = generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w);
-    assert!(
-        opts.movement
-            .iter()
-            .all(|m| m.verb != MovementVerb::Shield && m.verb != MovementVerb::Dash)
-    );
+    assert!(opts
+        .movement
+        .iter()
+        .all(|m| m.verb != MovementVerb::Shield && m.verb != MovementVerb::Dash));
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Retreat);
 }
 
@@ -510,5 +509,55 @@ fn a_body_with_no_jumps_left_is_not_offered_a_jump() {
             .any(|option| option.verb == MovementVerb::Jump),
         "and one jump left is a jump on offer: {:?}",
         options.movement
+    );
+}
+
+/// **An attack that cannot reach is not offered at all.**
+///
+/// `reach_fit` priced a hopeless swing at zero and left it in the list, and the
+/// consumer takes `attacks.first()` whenever L3 names nothing — so the list
+/// being non-empty IS the decision. Scoring it low was never going to be enough.
+///
+/// ⚠ a zero-reach move (a buff, a summon) stays: reach is not its question, and
+/// dropping it would delete a whole class of move from every kit that has one.
+#[test]
+fn an_attack_that_cannot_span_the_gap_is_not_offered() {
+    let jab = candidate("jab", 0.08, 40.0);
+    let mut buff = candidate("buff", 0.2, 0.0);
+    buff.frames.max_damage = 0;
+    let kit = vec![jab, buff];
+    let weights = UtilityWeights::default();
+
+    // In reach: both are offered.
+    let close = view_with(300.0, 340.0);
+    let offered = generate_options(
+        crate::perception::Perceived::cheating(&close),
+        Situation::Neutral,
+        &kit,
+        &weights,
+    );
+    assert!(
+        offered.attacks.iter().any(|a| a.move_id == "jab"),
+        "a 40px jab at a 40px gap has to be on the list, or the assertion below \
+         is about an empty kit"
+    );
+
+    // Far out of reach: the jab goes, the reachless buff stays.
+    let far = view_with(300.0, 900.0);
+    let offered = generate_options(
+        crate::perception::Perceived::cheating(&far),
+        Situation::Neutral,
+        &kit,
+        &weights,
+    );
+    assert!(
+        !offered.attacks.iter().any(|a| a.move_id == "jab"),
+        "a 40px jab is still offered at a 600px gap — and every press of it \
+         costs the body `SLASH_RECOIL` backwards, which is how the fighter swung \
+         itself off the stage"
+    );
+    assert!(
+        offered.attacks.iter().any(|a| a.move_id == "buff"),
+        "a zero-reach move has no reach question and must survive the filter"
     );
 }

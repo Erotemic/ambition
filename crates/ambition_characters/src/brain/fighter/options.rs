@@ -65,7 +65,7 @@
 
 use ambition_entity_catalog::MoveFrameData;
 
-use super::situation::{Situation, is_punishable};
+use super::situation::{is_punishable, Situation};
 use crate::perception::Perceived;
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
@@ -272,6 +272,28 @@ pub fn generate_options(
             }
         })
         .collect();
+    // **AN ATTACK THAT CANNOT REACH IS NOT AN OPTION.** (traced 2026-07-31)
+    //
+    // `reach_fit` priced a hopeless swing at zero and left it in the list, and
+    // the consumer takes `attacks.first()` whenever L3 names nothing — so a
+    // fighter with its foe 300px away still pressed a 40px jab, every decision.
+    // Each press costs `SLASH_RECOIL` (110 px/s) BACKWARDS along its facing, and
+    // in the air almost nothing bleeds that off, so the presses ratchet: the
+    // `ladder_probe` trace reads 200, 310, 420, 530 px/s in exactly 110 steps
+    // while the brain's own emitted input points the other way. **The fighter
+    // swung itself off the stage, backwards, one whiff at a time.**
+    //
+    // Scoring it low was never going to be enough: the list is never empty, so
+    // `first()` always answers. Not offering it is the fix — and it is what the
+    // feature's own doc already says, that a miss by a mile and a miss by two are
+    // equally useless.
+    //
+    // ⚠ **a zero-reach move is NOT filtered.** `reach_fit` returns 0 for a buff
+    // or a summon because reach is not its question; dropping those would delete
+    // a whole class of move from every kit that has one. Only a move that HAS a
+    // reach and cannot span the gap goes.
+    attacks.retain(|attack| attack.frames.reach <= 0.0 || attack.features.reach_fit > 0.0);
+
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).
     attacks.sort_by(|a, b| {

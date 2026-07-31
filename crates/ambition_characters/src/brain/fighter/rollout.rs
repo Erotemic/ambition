@@ -66,6 +66,17 @@ pub struct ShadowTuning {
     pub dash_time: f32,
     /// Instant rise speed a predicted jump imparts, units/s.
     pub jump_speed: f32,
+    /// **What a SWING costs the body, backwards.** (`ae::SLASH_RECOIL`)
+    ///
+    /// Every melee press shoves the attacker along `-facing` by this much. It
+    /// reads as a feel detail and it is the single biggest force acting on a
+    /// fighter brain's body: the brain presses an attack on most decisions, so
+    /// the recoils RATCHET — `ladder_probe` traced 200, 310, 420, 530 px/s in
+    /// exact 110 steps while the emitted movement input pointed the other way.
+    /// The fighter swung itself off the stage, backwards, one whiff at a time,
+    /// and the rollout scored those lines as walks because nothing here knew a
+    /// swing moved anything.
+    pub slash_recoil: f32,
     /// Reach assumed for the FOE's attacks. The view names their phase and
     /// clock but not their move, so their range is a model assumption —
     /// stated, authored, and calibrated by FB6e's fidelity instrument.
@@ -100,6 +111,9 @@ impl Default for ShadowTuning {
             dash_speed: 760.0,
             dash_time: 0.115,
             jump_speed: 420.0,
+            // `ae::SLASH_RECOIL`, restated for the same reason as the dash
+            // numbers above.
+            slash_recoil: 110.0,
             assumed_foe_reach: 60.0,
             assumed_foe_damage: 5,
             // The engine's standard enemy swing timings (combat events
@@ -1104,6 +1118,25 @@ pub fn refine_by_rollout(
         .filter_map(|option| {
             let intent = movement_intent(option.verb, &start)?;
             let mut probe = start.clone();
+            // **THE SWING THAT COMES WITH THIS DECISION.** (traced 2026-07-31)
+            //
+            // The same decision that picks a movement verb also arms an attack
+            // whenever L2 offers one, and every melee press shoves the body
+            // `slash_recoil` BACKWARDS along its facing. That is 110 px/s in this
+            // engine, per press, with almost nothing to bleed it off in the air —
+            // so the presses ratchet, and a movement line that models the walk
+            // and not the swing is modelling the smaller of the two forces.
+            //
+            // The probe takes the recoil once, up front, because the press is
+            // armed by THIS decision. It is deliberately not repeated across the
+            // horizon: the line coasts after `commit_ticks` and the brain will
+            // re-decide before the next swing lands, so charging every tick would
+            // veto every verb from every position — the paralysis this file has
+            // already produced once by over-sustaining an intent.
+            if !options.attacks.is_empty() {
+                let side = ae::AccelerationFrame::new(probe.gravity_down).side;
+                probe.me.vel -= side * (probe.me.facing * tuning.slash_recoil);
+            }
             // A dash line ARMS the dash clock; the intent itself only steers
             // while the clock runs, so without this the dash would model as
             // doing nothing at all. Armed here rather than inside `apply_intent`

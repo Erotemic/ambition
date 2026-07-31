@@ -159,11 +159,15 @@ impl ParticipantContexts {
     }
 }
 
-/// The per-frame resolved answer to "which input context owns the primary
+/// The per-frame resolved answer to "which input context owns ONE
 /// participant's actions". `owner` is the highest-priority claim; `open`
 /// additionally lists non-capturing claims above it. Empty = disabled/no
 /// target (no surface claims input; every routed output stays neutral).
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+///
+/// This is a VALUE, one per seat, stored in [`SeatInputContexts`]. It used to
+/// be the resource itself, folded from `ParticipantId::PRIMARY` — see that
+/// type's docs for why the fold was the wrong shape.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActiveInputContext {
     open: Vec<InputContextId>,
 }
@@ -184,20 +188,92 @@ impl ActiveInputContext {
     }
 }
 
-/// Resolve the primary participant's claims into [`ActiveInputContext`].
+/// The empty answer, returned for a seat nobody has resolved. A seat with no
+/// participant owns no context — which routes every output neutral — rather
+/// than being an error, because "slot 3 has no pad" is the ordinary state of a
+/// couch.
+static NO_CONTEXT: ActiveInputContext = ActiveInputContext { open: Vec::new() };
+
+/// Every participant's resolved context, keyed by seat.
+///
+/// ## Why this is keyed and the old resource was not
+///
+/// `ParticipantContexts` has always been per-participant — a component, on the
+/// participant entity, declared and retracted by the surface that owns it. The
+/// RESOLVED answer was not: it was one global `ActiveInputContext` resource
+/// computed from `ParticipantId::PRIMARY` alone. So two shipped authorities
+/// disagreed about whether input ownership is a per-seat fact, and the global
+/// one is the one every router read.
+///
+/// What that made inexpressible (not merely wrong — inexpressible):
+///
+/// * a seat browsing a character-select screen while another seat plays;
+/// * a seat with no controlled body owning a context distinct from seat 0's;
+/// * any per-seat surface at all, since seat N's claim could not reach a router.
+///
+/// ⚠ **pause is NOT the counterexample it looks like.** "Seat 0 pauses, seat 1
+/// keeps playing" would be wrong, and this change does not cause it: pausing is
+/// a `GameMode` transition, and every router already gates on
+/// `mode.allows_gameplay()` independently of context. A claim here answers *who
+/// is this seat's input FOR*, not *is the world running*.
+///
+/// This is the same seam `SeatMenuFrames` already established one layer down,
+/// for the same reason and with the same shape.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SeatInputContexts {
+    seats: std::collections::BTreeMap<u8, ActiveInputContext>,
+}
+
+impl SeatInputContexts {
+    /// This seat's resolved answer. An unresolved seat owns nothing.
+    pub fn for_seat(&self, slot: u8) -> &ActiveInputContext {
+        self.seats.get(&slot).unwrap_or(&NO_CONTEXT)
+    }
+
+    /// The seat that owns the global `ControlFrame` and the on-screen prompts.
+    /// Consumers that are genuinely about the local primary — the touch
+    /// overlay, the control-prompt HUD, the `ControlFrame` bridge — say so by
+    /// calling this rather than by being the only reader of a global.
+    pub fn primary(&self) -> &ActiveInputContext {
+        self.for_seat(ParticipantId::PRIMARY.slot())
+    }
+
+    /// Whether this seat's actions may route to gameplay.
+    pub fn gameplay_owned(&self, slot: u8) -> bool {
+        self.for_seat(slot).gameplay_owned()
+    }
+
+    /// Every resolved seat, in slot order.
+    pub fn seats(&self) -> impl Iterator<Item = (u8, &ActiveInputContext)> + '_ {
+        self.seats.iter().map(|(slot, ctx)| (*slot, ctx))
+    }
+
+    pub fn set(&mut self, slot: u8, context: ActiveInputContext) {
+        self.seats.insert(slot, context);
+    }
+}
+
+/// Resolve EVERY participant's claims into [`SeatInputContexts`].
 /// Runs after every declaring surface (end of `InputSet::ResolveContext`),
 /// before any router reads the answer (`InputSet::Route`).
+///
+/// A seat whose participant has gone away is dropped rather than left holding
+/// its last answer: a departed seat must not keep owning gameplay.
 pub fn resolve_active_input_context(
     participants: Query<(&InputParticipant, &ParticipantContexts)>,
-    mut active: ResMut<ActiveInputContext>,
+    mut active: ResMut<SeatInputContexts>,
 ) {
-    let open = participants
-        .iter()
-        .find(|(p, _)| p.id == ParticipantId::PRIMARY)
-        .map(|(_, contexts)| contexts.resolved())
-        .unwrap_or_default();
-    if active.open != open {
-        active.open = open;
+    let mut resolved = std::collections::BTreeMap::new();
+    for (participant, contexts) in &participants {
+        resolved.insert(
+            participant.id.slot(),
+            ActiveInputContext {
+                open: contexts.resolved(),
+            },
+        );
+    }
+    if active.seats != resolved {
+        active.seats = resolved;
     }
 }
 
@@ -274,5 +350,67 @@ mod participant_tests {
         assert_eq!(active.owner(), Some(OVERLAY));
         assert!(active.allows(GAMEPLAY_CONTEXT) && active.gameplay_owned());
         assert!(!active.allows(LAUNCHER_CONTEXT));
+    }
+
+    /// Two seats, two different answers, in one resolution pass.
+    ///
+    /// This is the whole point of keying the resolved context. The claims were
+    /// always per-participant; the ANSWER was one global fold of seat 0, so a
+    /// second seat could declare whatever it liked and no router could see it.
+    fn resolve(app: &mut bevy::prelude::App) {
+        use bevy::ecs::system::RunSystemOnce;
+        app.world_mut()
+            .run_system_once(resolve_active_input_context)
+            .expect("resolver runs");
+    }
+
+    #[test]
+    fn each_seat_resolves_its_own_context() {
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<SeatInputContexts>();
+
+        let mut playing = ParticipantContexts::default();
+        playing.declare(ContextClaim::capturing(
+            GAMEPLAY_CONTEXT,
+            context_priority::GAMEPLAY,
+        ));
+        let mut browsing = ParticipantContexts::default();
+        browsing.declare(ContextClaim::capturing(
+            LAUNCHER_CONTEXT,
+            context_priority::LAUNCHER,
+        ));
+
+        app.world_mut()
+            .spawn((InputParticipant::with_id(ParticipantId::PRIMARY), playing));
+        let seat_one = app
+            .world_mut()
+            .spawn((
+                InputParticipant::with_id(ParticipantId::SECONDARY),
+                browsing,
+            ))
+            .id();
+        resolve(&mut app);
+
+        let seats = app.world().resource::<SeatInputContexts>();
+        assert!(
+            seats.gameplay_owned(0),
+            "seat 0 is playing and must keep its gameplay routing"
+        );
+        assert!(
+            !seats.gameplay_owned(1),
+            "seat 1 is at the launcher — its own claim captures above gameplay"
+        );
+        assert_eq!(seats.for_seat(1).owner(), Some(LAUNCHER_CONTEXT));
+        // A seat nobody has resolved owns nothing rather than inheriting seat 0.
+        assert!(!seats.gameplay_owned(3) && seats.for_seat(3).owner().is_none());
+
+        // A departed seat stops owning gameplay rather than holding its last
+        // answer forever — otherwise unplugging a pad mid-match leaves a slot
+        // that the router still believes is being driven.
+        app.world_mut().despawn(seat_one);
+        resolve(&mut app);
+        let seats = app.world().resource::<SeatInputContexts>();
+        assert_eq!(seats.seats().count(), 1);
+        assert!(seats.gameplay_owned(0), "seat 0 is unaffected by the exit");
     }
 }

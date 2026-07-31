@@ -121,7 +121,7 @@ impl Plugin for HostInputBindingsPlugin {
                 .chain()
                 .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
         );
-        app.init_resource::<ambition_input::ActiveInputContext>();
+        app.init_resource::<ambition_input::SeatInputContexts>();
         app.init_resource::<ambition_input::ActiveUiCues>();
 
         // ── The frame→tick input latch (netcode N0.1) ─────────────────────

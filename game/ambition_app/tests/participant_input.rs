@@ -32,7 +32,7 @@ use bevy::MinimalPlugins;
 
 use ambition::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
 use ambition::input::{
-    ActiveInputContext, ControlFrame, InputParticipant, SandboxAction, LAUNCHER_CONTEXT,
+    ControlFrame, InputParticipant, SandboxAction, SeatInputContexts, LAUNCHER_CONTEXT,
     STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition::platformer::lifecycle::PlayerVisual;
@@ -78,7 +78,10 @@ fn settle(app: &mut App) {
 }
 
 fn owner(app: &App) -> Option<ambition::input::InputContextId> {
-    app.world().resource::<ActiveInputContext>().owner()
+    app.world()
+        .resource::<SeatInputContexts>()
+        .primary()
+        .owner()
 }
 
 fn launcher_selected(app: &App) -> usize {
@@ -324,7 +327,8 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         );
         if app
             .world()
-            .resource::<ActiveInputContext>()
+            .resource::<SeatInputContexts>()
+            .primary()
             .gameplay_owned()
         {
             gameplay_frames += 1;
@@ -432,7 +436,8 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         app.update();
         if app
             .world()
-            .resource::<ActiveInputContext>()
+            .resource::<SeatInputContexts>()
+            .primary()
             .gameplay_owned()
         {
             gameplay_again = true;

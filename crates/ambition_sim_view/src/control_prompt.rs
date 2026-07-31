@@ -27,7 +27,7 @@ use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
-use ambition_input::{ActiveInputContext, ActiveUiCues, GAMEPLAY_CONTEXT};
+use ambition_input::{ActiveUiCues, SeatInputContexts, GAMEPLAY_CONTEXT};
 use ambition_platformer_primitives::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
 use ambition_platformer_primitives::schedule::GameMode;
 use bevy::prelude::*;
@@ -91,13 +91,16 @@ impl ControlPrompt {
 /// construction. Absent resources (headless sims without a host input stack)
 /// make it a no-op.
 pub fn publish_frontend_context_prompt(
-    active_context: Option<Res<ActiveInputContext>>,
+    active_context: Option<Res<SeatInputContexts>>,
     cues: Option<Res<ActiveUiCues>>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
+    // The on-screen prompt describes ONE seat — the local primary, the one
+    // whose body the camera follows. Other seats resolve their own contexts and
+    // route their own input; they do not compete to write this HUD.
     let Some(owner) = active_context
         .as_deref()
-        .and_then(ActiveInputContext::owner)
+        .and_then(|seats| seats.primary().owner())
     else {
         return;
     };
@@ -133,7 +136,7 @@ pub fn publish_frontend_context_prompt(
 /// camera and input already obey. Menu / dialogue publish an explicit context.
 pub fn rebuild_control_prompt(
     mode: Res<State<GameMode>>,
-    active_context: Option<Res<ActiveInputContext>>,
+    active_context: Option<Res<SeatInputContexts>>,
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     authorities: Query<(
@@ -149,7 +152,7 @@ pub fn rebuild_control_prompt(
     // derives. The RESOURCE presence bits are part of the key because
     // `is_changed()` on an `Option<Res<T>>` can only speak while the resource
     // is `Some`: a removal contributes nothing to `inputs_changed`, so without
-    // the bits a quiet-frame removal of `ActiveInputContext` / `ActiveUiCues` /
+    // the bits a quiet-frame removal of `SeatInputContexts` / `ActiveUiCues` /
     // `ControlledSubject` would be skipped and the prompt would keep describing
     // a context that no longer exists.
     mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 3])>>,
@@ -162,7 +165,7 @@ pub fn rebuild_control_prompt(
     // sole writer.)
     if active_context
         .as_deref()
-        .and_then(ActiveInputContext::owner)
+        .and_then(|seats| seats.primary().owner())
         .is_some_and(|owner| owner != GAMEPLAY_CONTEXT)
     {
         // While someone else writes the prompt, OUR cache key describes a
@@ -401,11 +404,12 @@ mod tests {
     fn a_frontend_context_owns_the_prompt_with_its_own_cue() {
         use ambition_input::participant::{context_priority, ContextClaim};
         use ambition_input::{
-            resolve_active_input_context, InputParticipant, ParticipantContexts, LAUNCHER_CONTEXT,
+            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
+            LAUNCHER_CONTEXT,
         };
 
         let mut app = app();
-        app.init_resource::<ActiveInputContext>();
+        app.init_resource::<SeatInputContexts>();
         app.init_resource::<ActiveUiCues>();
         // Run the REAL pair the host schedules: resolver, frontend provider,
         // then the sim rebuild — proving the yield, not just the write.
@@ -664,7 +668,7 @@ mod tests {
         );
     }
 
-    /// **Removing `ActiveInputContext` hands the prompt back to the sim.** While
+    /// **Removing `SeatInputContexts` hands the prompt back to the sim.** While
     /// a frontend context owns the prompt the rebuild yields; when the resource
     /// is REMOVED (host teardown — a transition no change detection reports),
     /// the next frame must re-derive the gameplay scheme rather than serve the
@@ -673,7 +677,8 @@ mod tests {
     fn a_removed_input_context_hands_the_prompt_back_to_the_sim() {
         use ambition_input::participant::{context_priority, ContextClaim};
         use ambition_input::{
-            resolve_active_input_context, InputParticipant, ParticipantContexts, LAUNCHER_CONTEXT,
+            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
+            LAUNCHER_CONTEXT,
         };
         use bevy::ecs::system::RunSystemOnce;
 
@@ -693,7 +698,7 @@ mod tests {
         // A launcher context takes ownership; the frontend provider (simulated
         // by a direct write) puts its own prompt up, and the sim-side rebuild
         // yields on these frames.
-        app.init_resource::<ActiveInputContext>();
+        app.init_resource::<SeatInputContexts>();
         let mut contexts = ParticipantContexts::default();
         contexts.declare(ContextClaim::capturing(
             LAUNCHER_CONTEXT,
@@ -722,7 +727,7 @@ mod tests {
 
         // The ONLY event: the context resource disappears. Subject and
         // authorities untouched since the baseline frame.
-        app.world_mut().remove_resource::<ActiveInputContext>();
+        app.world_mut().remove_resource::<SeatInputContexts>();
         app.update();
         let prompt = app.world().resource::<ControlPrompt>();
         assert_eq!(

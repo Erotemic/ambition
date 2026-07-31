@@ -68,8 +68,8 @@ pub use local_seats::{
 ///    participant's `ActionState` (virtual-device merges into leafwing's
 ///    already-ticked state land here).
 /// 3. [`InputSet::ResolveContext`] — surfaces declare/retract their
-///    [`participant::ContextClaim`]s; [`participant::ActiveInputContext`]
-///    resolves at the end of the set.
+///    [`participant::ContextClaim`]s; [`participant::SeatInputContexts`]
+///    resolves EVERY seat's answer at the end of the set.
 /// 4. [`InputSet::Route`] — actions + the active context route into the
 ///    semantic seams. Every system that WRITES the `ControlFrame` resource
 ///    (participant action routing, portal movement-intent brackets,
@@ -105,7 +105,7 @@ pub use menu::{
 };
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
-    InputParticipant, ParticipantContexts, ParticipantId, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT,
-    STARTUP_ACKNOWLEDGE_CONTEXT,
+    InputParticipant, ParticipantContexts, ParticipantId, SeatInputContexts, GAMEPLAY_CONTEXT,
+    LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};

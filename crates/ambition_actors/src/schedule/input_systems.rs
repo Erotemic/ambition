@@ -16,14 +16,15 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use ambition_input::participant::{ContextClaim, context_priority};
+use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
-    ActiveInputContext, ControlFrame, GAMEPLAY_CONTEXT, InputParticipant, KeyboardPreset,
-    MenuControlFrame, MenuInputState, ParticipantContexts, PlayerDashTriggerState, analog_to_dir,
+    analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
+    MenuInputState, ParticipantContexts, PlayerDashTriggerState, SeatInputContexts,
+    GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    SandboxAction, read_gameplay_control_frame_with_settings, read_menu_control_frame,
+    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
 };
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -211,13 +212,13 @@ pub fn declare_gameplay_input_context(
 #[cfg(feature = "input")]
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
-    active_context: Res<ActiveInputContext>,
+    active_context: Res<SeatInputContexts>,
     player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
     enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
     // input (and is actually in a gameplay mode) may consume the toggle.
-    if !active_context.gameplay_owned() || !mode.get().allows_gameplay() {
+    if !active_context.primary().gameplay_owned() || !mode.get().allows_gameplay() {
         return;
     }
     let Some(mut enabled) = enabled else {
@@ -245,7 +246,7 @@ pub fn toggle_player_trail_emission_from_actions(
 #[cfg(feature = "input")]
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
-    active_context: Res<ActiveInputContext>,
+    active_context: Res<SeatInputContexts>,
     player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -259,7 +260,10 @@ pub fn populate_control_frame_from_actions(
     // participant's actions, gameplay input stays neutral. In-session UI
     // states (pause/dialogue/cutscene) keep their own suppressions below —
     // the session still owns input there.
-    if !active_context.gameplay_owned() {
+    // This system authors the PRIMARY seat's frame (see the comment at the
+    // `find` below), so it asks the primary seat's context. Every other seat is
+    // gated individually in `populate_secondary_slot_controls`.
+    if !active_context.primary().gameplay_owned() {
         dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
@@ -368,7 +372,7 @@ pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeSta
 #[cfg(feature = "input")]
 pub fn populate_secondary_slot_controls(
     mode: Res<State<GameMode>>,
-    active_context: Res<ActiveInputContext>,
+    active_context: Res<SeatInputContexts>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut seats: Query<(
         &InputParticipant,
@@ -380,11 +384,17 @@ pub fn populate_secondary_slot_controls(
     // Absent, a frame IS a tick and there is nothing to bridge.
     mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
 ) {
-    let gameplay = active_context.gameplay_owned() && mode.get().allows_gameplay();
+    // ⚠ THIS SEAT'S context, not the primary's. Reading one folded answer here
+    // is what made a per-seat surface inexpressible: seat N declaring a claim
+    // could not reach this router, and seat 0 declaring one silently took
+    // gameplay away from everybody else. `mode` stays global on purpose — the
+    // world being paused is not a per-seat fact.
+    let world_running = mode.get().allows_gameplay();
     for (participant, actions, mut dash) in &mut seats {
         if participant.id == ambition_input::ParticipantId::PRIMARY {
             continue;
         }
+        let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
         let slot = ambition_characters::brain::PlayerSlot(participant.id.slot());
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
@@ -640,8 +650,8 @@ mod focus_gate_tests {
         spawn_primary_input_participant, update_cutscene_request_from_menu,
     };
     use ambition_input::{
-        ActiveInputContext, InputParticipant, MenuControlFrame, ParticipantContexts, ParticipantId,
-        SandboxAction, resolve_active_input_context,
+        resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
+        ParticipantId, SandboxAction, SeatInputContexts,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
@@ -784,10 +794,8 @@ mod focus_gate_tests {
 
         let mut app = App::new();
         app.world_mut().insert_resource(MatchParticipantRoster {
-            participants: vec![
-                MatchParticipant::new("sanic")
-                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
-            ],
+            participants: vec![MatchParticipant::new("sanic")
+                .driven_by(ControllerBinding::Human { device_slot: 1 })],
             ..Default::default()
         });
         app.add_systems(Update, super::seat_input_participants_for_roster);
@@ -806,6 +814,95 @@ mod focus_gate_tests {
                  typing on that keyboard"
             );
         }
+    }
+
+    /// **Each seat routes through ITS OWN context.**
+    ///
+    /// The claims were always per-participant; the resolved answer was one
+    /// global fold of `ParticipantId::PRIMARY`, and every router read the fold.
+    /// So a surface could not give seat 1 a context of its own — seat 1's claim
+    /// reached nothing — and seat 0 declaring one silently took gameplay away
+    /// from every other seat. That is the shape a character-select screen needs
+    /// and could not have.
+    ///
+    /// ⚠ this is not the pause case. Pausing is a `GameMode` transition and
+    /// stays global; `world_running` below is what expresses it, and the second
+    /// half of this test pins that the two gates are independent.
+    #[test]
+    fn a_seat_browsing_a_menu_stops_driving_its_slot_and_the_others_keep_playing() {
+        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
+        use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT};
+        use ambition_platformer_primitives::schedule::GameMode;
+
+        fn seat(slot: u8, context: ambition_input::InputContextId, priority: i32) -> impl Bundle {
+            let mut contexts = ParticipantContexts::default();
+            contexts.declare(ContextClaim::capturing(context, priority));
+            let mut actions = ActionState::<SandboxAction>::default();
+            // Hold JUMP on every seat, so the only thing that can differ
+            // downstream is the context — not what the player is doing. (Held
+            // rather than an edge: `just_pressed` needs a tick this bare
+            // `ActionState` never gets, and the question here is routing.)
+            actions.press(&SandboxAction::Jump);
+            (
+                InputParticipant {
+                    id: ParticipantId(slot),
+                },
+                contexts,
+                actions,
+                super::SeatDashTriggerState::default(),
+            )
+        }
+
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.insert_state(GameMode::Playing);
+        app.world_mut()
+            .spawn(seat(0, GAMEPLAY_CONTEXT, context_priority::GAMEPLAY));
+        // Seat 1 is at a menu: its OWN claim captures above gameplay.
+        app.world_mut()
+            .spawn(seat(1, LAUNCHER_CONTEXT, context_priority::LAUNCHER));
+        // Seat 2 is playing, like seat 0.
+        app.world_mut()
+            .spawn(seat(2, GAMEPLAY_CONTEXT, context_priority::GAMEPLAY));
+        app.add_systems(
+            Update,
+            (
+                resolve_active_input_context,
+                super::populate_secondary_slot_controls,
+            )
+                .chain(),
+        );
+        app.update();
+
+        let slots = app.world().resource::<SlotControls>();
+        assert_eq!(
+            slots.get(PlayerSlot(1)).jump_held,
+            false,
+            "the seat holding a menu claim must not drive its body — under the \
+             global fold seat 1's own claim reached no router at all"
+        );
+        assert_ne!(
+            slots.get(PlayerSlot(2)).jump_held,
+            false,
+            "a seat that IS playing keeps playing while another seat browses"
+        );
+
+        // Pausing is global and independent: it stops the seats that were
+        // playing, without needing anybody's context to move.
+        app.insert_state(GameMode::Paused);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(2))
+                .jump_held,
+            false,
+            "a paused world stops every seat, whatever context each one owns"
+        );
     }
 
     fn seat_slots(app: &mut App) -> Vec<u8> {
@@ -875,7 +972,7 @@ mod focus_gate_tests {
     #[test]
     fn the_session_lifecycle_claims_and_releases_the_gameplay_context() {
         let mut app = App::new();
-        app.init_resource::<ActiveInputContext>();
+        app.init_resource::<SeatInputContexts>();
         app.add_systems(
             Update,
             (
@@ -891,7 +988,8 @@ mod focus_gate_tests {
         app.update();
         assert!(
             !app.world()
-                .resource::<ActiveInputContext>()
+                .resource::<SeatInputContexts>()
+                .primary()
                 .gameplay_owned(),
             "no session -> gameplay context is not owned"
         );
@@ -900,11 +998,11 @@ mod focus_gate_tests {
         // participant entity itself is untouched either way.
         let root = app.world_mut().spawn(SessionRoot(SessionScopeId(7))).id();
         app.update();
-        assert!(
-            app.world()
-                .resource::<ActiveInputContext>()
-                .gameplay_owned()
-        );
+        assert!(app
+            .world()
+            .resource::<SeatInputContexts>()
+            .primary()
+            .gameplay_owned());
         let participant = {
             let mut q = app
                 .world_mut()
@@ -915,7 +1013,8 @@ mod focus_gate_tests {
         app.update();
         assert!(
             !app.world()
-                .resource::<ActiveInputContext>()
+                .resource::<SeatInputContexts>()
+                .primary()
                 .gameplay_owned(),
             "session teardown retracts the gameplay claim"
         );

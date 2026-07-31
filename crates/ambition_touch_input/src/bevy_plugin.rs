@@ -1093,13 +1093,14 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
 /// shell-shaped verbs a phone with no keyboard needs to keep its way out — and
 /// hiding their root would take those with it.
 pub fn sync_touch_stick_visibility_from_context(
-    active_context: Option<Res<ambition_input::ActiveInputContext>>,
+    active_context: Option<Res<ambition_input::SeatInputContexts>>,
     visible: Res<TouchControlsVisible>,
     mut sticks: Query<(&TouchSurface, &mut Visibility)>,
 ) {
+    // The touch overlay is one device on one screen: the local primary seat.
     let gameplay = active_context
         .as_deref()
-        .is_none_or(ambition_input::ActiveInputContext::gameplay_owned);
+        .is_none_or(|seats| seats.primary().gameplay_owned());
     let target = if visible.0 && gameplay {
         Visibility::Inherited
     } else {
@@ -1125,7 +1126,7 @@ pub fn sync_touch_button_visibility_from_prompt(
     // Optional because this overlay composes into apps that never install the
     // participant-context resolver; absent, the old prompt-only behaviour stands
     // rather than the overlay vanishing.
-    active_context: Option<Res<ambition_input::ActiveInputContext>>,
+    active_context: Option<Res<ambition_input::SeatInputContexts>>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
     // **A verb nobody can press must not be on screen.**
@@ -1140,9 +1141,10 @@ pub fn sync_touch_button_visibility_from_prompt(
     //
     // Start and Reset are exempt. They are shell-shaped verbs — pause, restart —
     // and hiding them is how a phone with no keyboard loses its way out.
+    // The touch overlay is one device on one screen: the local primary seat.
     let gameplay = active_context
         .as_deref()
-        .is_none_or(ambition_input::ActiveInputContext::gameplay_owned);
+        .is_none_or(|seats| seats.primary().gameplay_owned());
 
     for (action, mut vis) in &mut buttons {
         let always_available =

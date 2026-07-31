@@ -21,22 +21,41 @@
 //! one had happened. Ticks-until-first-self-KO has resolution across the whole
 //! range between "walks off immediately" and "never dies".
 //!
-//! **What it measured, 2026-07-31** (`level 9`, whole profile fixed, only
-//! `rollout_depth` moved):
+//! **What it measured, 2026-07-31 (morning)** — `level 9`, whole profile fixed,
+//! only `rollout_depth` moved:
 //!
 //! ```text
 //!   9/d0      5.0s to first self-KO
 //!   9/d12     9.8s to first self-KO
 //! ```
 //!
-//! That is the first evidence in this repository that L3 buys anything, and it
-//! took three fixes to get a signal at all: the rollout had to roll MOVEMENT
-//! lines (it only ever refined attacks), the shadow floor had to have an EDGE,
-//! and the veto's horizon had to be long enough to reach one. Before those, this
-//! table read `3 3 3 3 3` — a saturated metric over a blind model.
+//! That was read as the first evidence in this repository that L3 buys
+//! anything, and it took three fixes to get a signal at all: the rollout had to
+//! roll MOVEMENT lines (it only ever refined attacks), the shadow floor had to
+//! have an EDGE, and the veto's horizon had to be long enough to reach one.
+//! Before those, this table read `3 3 3 3 3` — a saturated metric over a blind
+//! model.
 //!
-//! ⛔ it is not a fix. Every rung still loses all three stocks inside ~16 s; the
-//! brain kills itself half as fast, which is progress and not competence.
+//! ⛔ **and the same evening, over THREE SEEDS, it says the opposite:**
+//!
+//! ```text
+//!   9/d0      5.2s to first self-KO   (identical on every seed)
+//!   9/d12     2.7s to first self-KO   (identical on every seed)
+//! ```
+//!
+//! The rollout makes this fighter die SOONER, reproducibly. Two things follow,
+//! and the second is the one that matters:
+//!
+//! * the morning's numbers are not comparable to the evening's — the same
+//!   caution the ladder rows carry, and it applies to a table written six hours
+//!   apart in the same file;
+//! * **at level 9 the outcome does not move with the noise seed at all**, while
+//!   levels 1/3/5/6 do. So this A/B is not a sampling accident: within one
+//!   build, turning the rollout on costs this fighter half its survival, and
+//!   `l3_earns_its_depth` cannot be authored off it.
+//!
+//! ⛔ it is not a fix either way. Every rung still loses all three stocks inside
+//! ~10 s: the brain kills itself, and depth changes only how fast.
 //!
 //! ⚠ this is a PROBE, not the ladder rig. It runs one scenario, one opponent,
 //! no repeats — enough to say whether depth changes behaviour at all, and not
@@ -51,13 +70,26 @@ use bevy::app::App;
 
 const TICKS: usize = 3_600; // one minute at 60Hz
 
+/// How many execution-noise seeds each configuration is run under.
+///
+/// ⚠ **ONE run is not a measurement, and this probe reported one for a week.**
+/// The brain's noise stream is seeded from the LEVEL, so a configuration ran
+/// exactly one match and its time-to-first-self-KO was reported as the answer.
+/// Two numbers from two single samples then get read as a difference: on
+/// 2026-07-31 the A/B read `d0 5.2s` against `d12 2.7s` — the rollout appearing
+/// to make the fighter die twice as fast — from one match each.
+///
+/// Overridable: `cargo run --bin ladder_probe -- --seeds 7`.
+const DEFAULT_SEEDS: usize = 3;
+
 fn main() {
+    let seeds = seed_count();
     println!(
-        "[ladder_probe] level  first_self_KO  survived  stocks_lost  peak%   \
-         (opponent cannot attack: every loss is a self-KO)"
+        "[ladder_probe] level  first_self_KO   survived   stocks_lost  peak%   \
+         (median of {seeds} seeds; opponent cannot attack, so every loss is a self-KO)"
     );
     for level in [1u8, 3, 5, 6, 9] {
-        report(run_one(level, None));
+        report(&run_seeds(level, None, seeds));
     }
 
     // ── the A/B that is actually FB6e's question ─────────────────────────
@@ -70,32 +102,88 @@ fn main() {
     // "does L3 earn its depth".
     println!("[ladder_probe] --- same level 9 profile, ONLY rollout_depth varied ---");
     for depth in [0u32, 12] {
-        report(run_one(9, Some(depth)));
+        report(&run_seeds(9, Some(depth), seeds));
     }
 }
 
-fn report(r: LadderRun) {
-    let tag = match r.forced_depth {
+/// `--seeds N`, else [`DEFAULT_SEEDS`].
+fn seed_count() -> usize {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--seeds" {
+            if let Some(n) = args.next().and_then(|n| n.parse().ok()) {
+                return n;
+            }
+        }
+    }
+    DEFAULT_SEEDS
+}
+
+/// One configuration, run under `seeds` different execution-noise streams.
+///
+/// The seeds are `0..seeds` mixed through the same splitmix constant the brain
+/// builder uses, so they are as unrelated to each other as any two levels'
+/// streams are — and they are FIXED, so this stays reproducible.
+fn run_seeds(level: u8, forced_depth: Option<u32>, seeds: usize) -> Vec<LadderRun> {
+    (0..seeds.max(1))
+        .map(|i| {
+            run_one(
+                level,
+                forced_depth,
+                0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
+            )
+        })
+        .collect()
+}
+
+fn report(runs: &[LadderRun]) {
+    let first = runs.first().expect("a configuration runs at least once");
+    let tag = match first.forced_depth {
         Some(d) => format!("9/d{d}"),
-        None => r.level.to_string(),
+        None => first.level.to_string(),
     };
     println!(
-        "[ladder_probe]   {:<5}   {:>6}      {:>6}       {}         {:.0}%",
+        "[ladder_probe]   {:<5}   {:>13}  {:>13}   {}         {:.0}%",
         tag,
-        tick_label(r.first_loss, TICKS),
-        tick_label(r.eliminated, TICKS),
-        r.lost,
-        r.peak * 100.0,
+        spread_label(runs.iter().map(|r| r.first_loss)),
+        spread_label(runs.iter().map(|r| r.eliminated)),
+        median(runs.iter().map(|r| r.lost as usize)).unwrap_or(0),
+        runs.iter().map(|r| r.peak).fold(0.0f32, f32::max) * 100.0,
     );
 }
 
-/// `"5.4s"`, or `">60s"` when the event never happened inside the window — the
-/// difference matters and a bare tick count hides it.
-fn tick_label(tick: Option<usize>, window: usize) -> String {
-    match tick {
-        Some(t) => format!("{:.1}s", t as f32 / 60.0),
-        None => format!(">{}s", window / 60),
+/// `"5.4s"` when every seed agrees, `"5.4s ±1.2"` when they do not.
+///
+/// The spread is the half the single-sample version could not print, and it is
+/// the number that says whether a difference between two rows means anything.
+fn spread_label(values: impl Iterator<Item = Option<usize>> + Clone) -> String {
+    let all: Vec<Option<usize>> = values.collect();
+    // A seed where the event never happened is not a large number — it is a
+    // different outcome, and averaging it in would invent a time.
+    let never = all.iter().filter(|v| v.is_none()).count();
+    let happened: Vec<usize> = all.iter().filter_map(|v| *v).collect();
+    if happened.is_empty() {
+        return format!(">{}s", TICKS / 60);
     }
+    let mid = median(happened.iter().copied()).unwrap_or(0) as f32 / 60.0;
+    let low = *happened.iter().min().unwrap() as f32 / 60.0;
+    let high = *happened.iter().max().unwrap() as f32 / 60.0;
+    let never_tag = if never > 0 {
+        format!(" +{never} never")
+    } else {
+        String::new()
+    };
+    if (high - low).abs() < 0.05 {
+        format!("{mid:.1}s{never_tag}")
+    } else {
+        format!("{mid:.1}s [{low:.1}-{high:.1}]{never_tag}")
+    }
+}
+
+fn median(values: impl Iterator<Item = usize>) -> Option<usize> {
+    let mut sorted: Vec<usize> = values.collect();
+    sorted.sort_unstable();
+    sorted.get(sorted.len() / 2).copied()
 }
 
 struct LadderRun {
@@ -112,7 +200,7 @@ struct LadderRun {
 /// Run one match. `forced_depth` overwrites `rollout_depth` on every fighter
 /// brain in the world once the bodies exist, holding the rest of the profile
 /// fixed — the intervention that makes the A/B an A/B.
-fn run_one(level: u8, forced_depth: Option<u32>) -> LadderRun {
+fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -135,10 +223,14 @@ fn run_one(level: u8, forced_depth: Option<u32>) -> LadderRun {
     let mut first_loss = None;
     let mut eliminated = None;
     let mut depth_applied = forced_depth.is_none();
+    let mut seed_applied = false;
     for tick in 0..TICKS {
         app.update();
         if !depth_applied {
             depth_applied = force_depth(&mut app, forced_depth.unwrap());
+        }
+        if !seed_applied {
+            seed_applied = force_noise_seed(&mut app, noise_seed);
         }
         let world = app.world_mut();
         let mut q = world.query::<(
@@ -175,6 +267,12 @@ fn run_one(level: u8, forced_depth: Option<u32>) -> LadderRun {
         "the depth override never found a fighter brain to apply to; \
          this run measured the DEFAULT profile and its number is a lie"
     );
+    assert!(
+        seed_applied,
+        "the noise seed never reached a fighter brain, so every seed in this \
+         column ran the SAME match and the spread it prints is zero by \
+         construction"
+    );
     LadderRun {
         level,
         forced_depth,
@@ -188,6 +286,23 @@ fn run_one(level: u8, forced_depth: Option<u32>) -> LadderRun {
 /// Overwrite `rollout_depth` on every fighter brain present. Returns whether it
 /// found one — the caller asserts on that, because an override that silently
 /// applied to nothing turns an A/B into two identical runs reported as a result.
+/// Overwrite the execution-noise stream on every fighter brain present, so one
+/// configuration can be run under several. Returns whether it found one, for
+/// the same reason `force_depth` does: an override that applied to nothing turns
+/// N runs into N copies of one run, reported as a distribution.
+fn force_noise_seed(app: &mut App, seed: u64) -> bool {
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut *brain {
+            state.noise = seed;
+            found = true;
+        }
+    }
+    found
+}
+
 fn force_depth(app: &mut App, depth: u32) -> bool {
     let world = app.world_mut();
     let mut q = world.query::<&mut Brain>();

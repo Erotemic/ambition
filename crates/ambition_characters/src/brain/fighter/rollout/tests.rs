@@ -148,8 +148,17 @@ fn the_hit_response_is_the_authoritative_kernel_not_an_imitation() {
     run(&mut s, 5, &ShadowIntent::Hold, &tuning);
     let foe_before = s.foe.clone();
     let me_before = s.me.clone();
-    let events = shadow_step(&mut s, DT, &ShadowIntent::Hold, &ShadowIntent::Hold, &tuning);
-    assert!(matches!(events[..], [ShadowEvent::Hit { on_me: false, .. }]));
+    let events = shadow_step(
+        &mut s,
+        DT,
+        &ShadowIntent::Hold,
+        &ShadowIntent::Hold,
+        &tuning,
+    );
+    assert!(matches!(
+        events[..],
+        [ShadowEvent::Hit { on_me: false, .. }]
+    ));
 
     let kb = HitKnockback {
         dir: me_before.facing,
@@ -240,7 +249,10 @@ fn a_lunge_reaches_past_its_static_reach_because_the_body_travels() {
     };
     let mut events = shadow_step(&mut s, DT, &start, &ShadowIntent::Hold, &tuning);
     events.extend(run(&mut s, 30, &ShadowIntent::Hold, &tuning));
-    assert!(events.is_empty(), "without the impulse it whiffs: {events:?}");
+    assert!(
+        events.is_empty(),
+        "without the impulse it whiffs: {events:?}"
+    );
 
     swing.start_impulse = (600.0, 0.0);
     let mut s = state(300.0, 300.0 + gap);
@@ -466,8 +478,169 @@ fn l3_decides_identically_twice() {
     let mut a = state(300.0, 380.0);
     let mut b = state(300.0, 380.0);
     for _ in 0..30 {
-        shadow_step(&mut a, DT, &ShadowIntent::Hold, &ShadowIntent::Hold, &tuning);
-        shadow_step(&mut b, DT, &ShadowIntent::Hold, &ShadowIntent::Hold, &tuning);
+        shadow_step(
+            &mut a,
+            DT,
+            &ShadowIntent::Hold,
+            &ShadowIntent::Hold,
+            &tuning,
+        );
+        shadow_step(
+            &mut b,
+            DT,
+            &ShadowIntent::Hold,
+            &ShadowIntent::Hold,
+            &tuning,
+        );
     }
     assert_eq!(a, b);
+}
+
+// ── the floor has an END ─────────────────────────────────────────────────
+
+/// A view whose only terrain is a platform of `half_width` centred under the
+/// viewer, with the stage envelope well outside it — a smash stage, not a room.
+fn view_on_platform(me_x: f32, half_width: f32) -> WorldView {
+    let mut view = view_with(me_x, me_x + 400.0);
+    view.terrain = vec![crate::perception::PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(400.0, 332.0), ae::Vec2::new(half_width, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    }];
+    view
+}
+
+#[test]
+fn a_shadow_body_driven_past_the_platforms_edge_falls_off_it() {
+    let tuning = ShadowTuning::default();
+    let view = view_on_platform(400.0, 60.0);
+    let mut s =
+        ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view");
+    assert_eq!(
+        s.me.ground_span,
+        Some((340.0, 460.0)),
+        "the shadow should have read the platform it stands on off the view"
+    );
+
+    // Walk right for a second. The platform ends 60 px away.
+    let start_y = s.me.pos.y;
+    run(&mut s, 60, &ShadowIntent::Drive { lateral: 1.0 }, &tuning);
+
+    assert!(
+        !s.me.on_ground,
+        "a body driven past x=460 has run out of floor; it is not standing on anything"
+    );
+    assert!(
+        s.me.pos.y > start_y + 1.0,
+        "and having run out of floor it should be FALLING, not strolling at platform height (y {} -> {})",
+        start_y,
+        s.me.pos.y
+    );
+}
+
+#[test]
+fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
+    let tuning = ShadowTuning::default();
+    let view = view_on_platform(400.0, 60.0);
+    let build =
+        || ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view");
+
+    // 90 ticks = 1.5 s. Long enough to leave the platform's edge (0.375 s at
+    // 160 px/s) and fall the 284 px to the bottom of the envelope; SHORT enough
+    // that a body strolling at platform height reaches only x=640, well inside
+    // the envelope's x=800 wall. So the KO below can only have come from falling.
+    let mut walked_off = build();
+    let events = run(
+        &mut walked_off,
+        90,
+        &ShadowIntent::Drive { lateral: 1.0 },
+        &tuning,
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, ShadowEvent::Ko { of_me: true })),
+        "walking off the stage should cost me the stock; the rollout has to be able to price it"
+    );
+
+    // The probe: the SAME scenario under v1's terrain model — an infinite plane
+    // at the height I was standing at — is survived, in silence, forever. This
+    // is what every rollout scored before the floor got an extent, and it is why
+    // `ladder_probe` measured identical self-KO counts at every rung.
+    let mut infinite_plane = build();
+    infinite_plane.me.ground_span = None;
+    let events = run(
+        &mut infinite_plane,
+        90,
+        &ShadowIntent::Drive { lateral: 1.0 },
+        &tuning,
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(e, ShadowEvent::Ko { of_me: true })),
+        "guard is not measuring the floor's extent: the walk-off died even without one"
+    );
+    assert!(
+        infinite_plane.me.on_ground,
+        "guard is not measuring the floor's extent: the plane model let go of the body anyway"
+    );
+}
+
+#[test]
+fn the_movement_veto_survives_having_nothing_to_swing() {
+    // The whole point: a fighter with no attack option is the fighter that is
+    // WALKING somewhere, and it used to be the one case the veto skipped.
+    let view = view_on_platform(440.0, 60.0);
+    // `OptionSet::attacks` is empty in exactly one situation, and its own doc
+    // names it: `Recovery` — "a body past the blastzone has exactly one
+    // problem". That body was the one the veto skipped.
+    let options = crate::brain::fighter::options::OptionSet {
+        attacks: Vec::new(),
+        movement: vec![crate::brain::fighter::options::MoveOption {
+            verb: crate::brain::fighter::options::MovementVerb::Approach,
+            score: 1.0,
+        }],
+    };
+    let refined = refine_by_rollout(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &options,
+        &HabitModel::default(),
+        &profile(4, 12, 0.0),
+        &ShadowTuning::default(),
+        60.0,
+    );
+    let refined = refined.expect("no attacks is not a reason to skip movement vetting");
+    assert!(
+        refined.move_id.is_empty(),
+        "with no attacks there is no move to name"
+    );
+    assert_eq!(
+        refined.suicidal_movement,
+        vec![crate::brain::fighter::options::MovementVerb::Approach],
+        "approaching a foe 400 px away off the right end of a 120 px platform \
+         walks this body out of the world; the veto has to say so"
+    );
+}
+
+#[test]
+fn the_veto_horizon_reaches_past_the_edge_and_the_attack_horizon_does_not() {
+    // Pins the RATIO, which is the finding: 12 ticks is 0.2 s (a startup plus an
+    // active span — right for "does this connect") and 0.2 s cannot see a
+    // walk-off. `ladder_probe` measured the blindness as a depth A/B that moved
+    // nothing at all.
+    let depth = 12u32;
+    let attack_horizon_s = depth as f32 / 60.0;
+    let veto_horizon_s = (depth * MOVEMENT_HORIZON_MULTIPLE) as f32 / 60.0;
+    // 640 px stage, walking from the middle at the shipped ground speed.
+    let time_to_edge_s = 320.0 / ShadowTuning::default().ground_speed;
+    assert!(
+        attack_horizon_s < time_to_edge_s,
+        "if the attack horizon already reached the edge this ratio would be pointless"
+    );
+    assert!(
+        veto_horizon_s > time_to_edge_s,
+        "the veto horizon ({veto_horizon_s}s) must outreach the walk to the edge \
+         ({time_to_edge_s}s) or the veto is decorative"
+    );
 }

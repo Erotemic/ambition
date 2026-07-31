@@ -21,10 +21,14 @@
 //! `damage_apply` resolves authoritative hits with (§12.3 route 1 — carved to
 //! the floor precisely so both callers exist). What the model still
 //! approximates is everything else, and §12.3's stated-omissions list is
-//! closed on purpose: future projectile fire, terrain beyond the stage box,
-//! platforms, DI, shield break, cancels, charge, and any second hostile are
-//! all OUT of v1. The fidelity instrument (FB6e) is what says when an
-//! omission starts costing decisions.
+//! closed on purpose: future projectile fire, one-way platforms as anything but
+//! floor, DI, shield break, cancels, charge, and any second hostile are all OUT
+//! of v1. The fidelity instrument (FB6e) is what says when an omission starts
+//! costing decisions — and on 2026-07-31 it said so for the first time: "terrain
+//! beyond the stage box" was on this list, and `ladder_probe` traced a fighter
+//! that killed itself at every difficulty back to it. The floor the body stands
+//! on now has an EXTENT ([`ShadowFighter::ground_span`]); everything above it
+//! remains omitted.
 
 use ambition_engine_core as ae;
 use ambition_engine_core::hit_response::{
@@ -107,7 +111,9 @@ pub enum ShadowPhase {
         remaining: f32,
         landed: bool,
     },
-    Hitstun { remaining: f32 },
+    Hitstun {
+        remaining: f32,
+    },
 }
 
 /// One fighter, as much of it as a view shows.
@@ -119,6 +125,18 @@ pub struct ShadowFighter {
     pub facing: f32,
     pub half_extent: ae::Vec2,
     pub on_ground: bool,
+    /// **How far the floor this body stands on actually reaches**, as `(min,
+    /// max)` along the gravity frame's `side` axis. `None` is the old model: an
+    /// INFINITE plane at `ground_level`.
+    ///
+    /// ⚠ added 2026-07-31, and the absence was a whole class of blindness. v1's
+    /// terrain model was one sentence — "a body that was STANDING re-lands at
+    /// the height it stood at" — which is exactly right in an ENCLOSED room and
+    /// silently wrong on a platform: a shadow body driven off the edge kept
+    /// walking at the same height forever, so no rollout could ever see a
+    /// walk-off. `ladder_probe` measured the consequence as identical self-KO
+    /// counts at every ladder rung.
+    pub ground_span: Option<(f32, f32)>,
     /// The ground plane this fighter stood on at capture (its `pos·down`),
     /// `None` if it started airborne. v1's whole terrain model: a body that
     /// was standing re-lands at the height it stood at.
@@ -160,8 +178,13 @@ pub struct ShadowState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShadowEvent {
     /// `on_me` = the hit landed on me (bad); otherwise it landed on the foe.
-    Hit { on_me: bool, damage: i32 },
-    Ko { of_me: bool },
+    Hit {
+        on_me: bool,
+        damage: i32,
+    },
+    Ko {
+        of_me: bool,
+    },
 }
 
 /// Per-tick intent for one shadow fighter. Applied only from `Idle` (a
@@ -171,14 +194,18 @@ pub enum ShadowEvent {
 pub enum ShadowIntent {
     Hold,
     /// Grounded drive along local `side`, −1..=1.
-    Drive { lateral: f32 },
+    Drive {
+        lateral: f32,
+    },
     Jump,
     /// Begin the generic assumed foe attack (predicted `Choice::Attack`).
     StartAttack,
     /// Raise the guard (predicted `Choice::Shield`).
     Shield,
     /// Begin a move with KNOWN frame data (the rollout candidate).
-    StartMove { frames: MoveFrameData },
+    StartMove {
+        frames: MoveFrameData,
+    },
 }
 
 fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
@@ -190,6 +217,9 @@ fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
         half_extent: view.half_extent,
         on_ground: view.on_ground,
         ground_level: view.on_ground.then(|| view.pos.dot(down)),
+        // Filled by `ShadowState::from_perceived`, which is the only place with
+        // the terrain to fill it from.
+        ground_span: None,
         phase: shadow_phase_from_view(view.phase, view.phase_remaining),
         damage: view.damage_taken,
         health_max: view.health_max,
@@ -208,6 +238,11 @@ fn fighter_from_actor(actor: &PerceivedActor, gravity_down: ae::Vec2) -> ShadowF
         half_extent: actor.half_extent,
         on_ground: actor.on_ground,
         ground_level: actor.on_ground.then(|| actor.pos.dot(down)),
+        // A perceived FOE's floor is not known — the view carries the actor, not
+        // what it stands on. `None` keeps the old infinite plane for it, which is
+        // the conservative reading: the rollout does not get to assume an
+        // opponent will fall off.
+        ground_span: None,
         phase: shadow_phase_from_view(actor.phase, actor.phase_remaining),
         damage: actor.damage_taken,
         health_max: actor.health_max,
@@ -244,8 +279,18 @@ impl ShadowState {
     pub fn from_perceived(view: Perceived<'_>) -> Option<Self> {
         let foe = view.nearest_hostile()?;
         let gravity_down = view.self_view.gravity_down;
+        // The one place with the terrain to answer "how far does my floor
+        // reach", projected into the gravity frame the shadow integrates in.
+        let side = ae::AccelerationFrame::new(gravity_down).side;
+        let ground_span = view.supporting_floor().map(|floor| {
+            let a = floor.min.dot(side);
+            let b = floor.max.dot(side);
+            (a.min(b), a.max(b))
+        });
+        let mut me = fighter_from_self(&view.self_view, gravity_down);
+        me.ground_span = ground_span;
         Some(Self {
-            me: fighter_from_self(&view.self_view, gravity_down),
+            me,
             foe: fighter_from_actor(foe, gravity_down),
             projectiles: view
                 .projectiles
@@ -342,13 +387,23 @@ pub fn shadow_step(
         true
     });
 
-    // 5 — KO: offstage while reeling, exactly L1's `Recovery` fact plus "no
-    // authority to do anything about it".
+    // 5 — KO: **past the point of return**, which is leaving the stage envelope
+    // at all.
+    //
+    // ⚠ this used to additionally require `Hitstun`, on the reading "offstage
+    // AND with no authority to do anything about it". That reading conflates two
+    // different situations, and the difference is the whole of self-preservation:
+    //
+    //   * **offstage and reeling** — airborne past the floor's edge, still inside
+    //     the envelope. Dangerous, recoverable, and NOT a KO. `distance_to_edge`
+    //     is what scores this.
+    //   * **past the point of return** — outside the envelope. In a room that is
+    //     the wall; on a platform stage the envelope IS the blast zone, and the
+    //     match rules delete you there whether you were launched or simply
+    //     strolled off. Requiring hitstun made a shadow body's own walk-off free,
+    //     so no rollout could ever price it.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
-        if !fighter.koed
-            && matches!(fighter.phase, ShadowPhase::Hitstun { .. })
-            && s.stage.offstage(fighter.pos)
-        {
+        if !fighter.koed && s.stage.is_known() && s.stage.offstage(fighter.pos) {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });
         }
@@ -500,9 +555,23 @@ fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuni
     // height it stood at. A body that started airborne has no known floor
     // and keeps falling — which is exactly the doubt an offstage rollout
     // should carry.
+    // **WALKING OFF THE END OF THE FLOOR.** A grounded body whose lateral
+    // position has left its supporting solid is no longer supported — it falls,
+    // and from the next step gravity has it. Without this a shadow body strolled
+    // off a platform and kept walking at the same height, which is why a rollout
+    // could not see the single commonest way a fighter dies.
+    let frame = ae::AccelerationFrame::new(down);
+    let lateral = f.pos.dot(frame.side);
+    let supported = f
+        .ground_span
+        .map(|(min, max)| lateral >= min && lateral <= max)
+        .unwrap_or(true);
+    if f.on_ground && !supported {
+        f.on_ground = false;
+    }
     if let Some(level) = f.ground_level {
         let depth = f.pos.dot(down);
-        if !f.on_ground && depth >= level && f.vel.dot(down) > 0.0 {
+        if !f.on_ground && supported && depth >= level && f.vel.dot(down) > 0.0 {
             f.pos -= down * (depth - level);
             f.vel -= down * f.vel.dot(down);
             f.on_ground = true;
@@ -536,8 +605,7 @@ fn my_move_lands(
     let delta = foe.pos - me.pos;
     let lateral = delta.dot(side) * me.facing;
     let vertical = delta.dot(down).abs();
-    let in_reach =
-        lateral >= -foe.half_extent.x && lateral <= frames.reach + foe.half_extent.x;
+    let in_reach = lateral >= -foe.half_extent.x && lateral <= frames.reach + foe.half_extent.x;
     let overlapping = vertical <= me.half_extent.y + foe.half_extent.y;
     if !in_reach || !overlapping {
         return None;
@@ -701,6 +769,11 @@ pub fn predicted_foe_intent(
 /// much over doing nothing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefinedChoice {
+    /// The preferred attack — **empty when L2 offered none**, which is the
+    /// `Recovery` situation ("a body past the blastzone has exactly one
+    /// problem"). A consumer reads this for the attack and
+    /// [`Self::suicidal_movement`] for the veto; the two are independent, and
+    /// conflating them is what made the veto skip the body that needed it.
     pub move_id: String,
     /// **Movement lines the rollout found SUICIDAL**, by L2 verb.
     ///
@@ -714,25 +787,17 @@ pub struct RefinedChoice {
     /// refined attacks — and a self-KO is a movement defect. A rollout that
     /// cannot see the thing killing you cannot earn its depth.
     ///
-    /// ⛔ **AND IT IS STILL EMPTY FOR THE COMMON CASE, which is worth more than
-    /// a working feature would be.** The shadow model cannot predict a WALK-OFF,
-    /// for two independent reasons found by measuring rather than reading:
+    /// The two reasons it was empty for the COMMON case, both found by measuring
+    /// rather than reading, and both closed 2026-07-31:
     ///
-    /// * `ShadowState` carries no terrain. There is no floor in the shadow
-    ///   world, so a body driven past a platform's edge does not fall — it
-    ///   walks on at the same height forever.
-    /// * the shadow's KO fires only `matches!(phase, Hitstun) && offstage`. That
-    ///   gate is DELIBERATE and defensible — a fighter offstage under its own
-    ///   power can still recover, and calling that dead would make the brain
-    ///   refuse every edgeguard — but it means self-inflicted exits are outside
-    ///   what a rollout can see, whatever terrain it gains.
+    /// * `ShadowState` carried no terrain, so a body driven past a platform's
+    ///   edge did not fall — it walked on at the same height forever. The floor
+    ///   now has an extent ([`ShadowFighter::ground_span`]).
+    /// * the shadow's KO fired only `matches!(phase, Hitstun) && offstage`,
+    ///   which made a self-inflicted exit free. It now fires on leaving the
+    ///   envelope at all; "offstage and reeling" is the recoverable case and it
+    ///   is INSIDE the envelope, which is what `distance_to_edge` scores.
     ///
-    /// So this list fires today only for a line that ends with the body in
-    /// HITSTUN and offstage: a real launch the brain walked into. That is a true
-    /// and useful veto, and it is not the one the smash demo needs. Naming the
-    /// gap here rather than shipping the machinery quietly, because an
-    /// unreachable guard reads as protection — which is this repository's
-    /// standing defect class and would be a poor thing to add to it.
     pub suicidal_movement: Vec<crate::brain::fighter::options::MovementVerb>,
     /// Rollout score of the chosen line MINUS the do-nothing baseline, in the
     /// same units as L2's dot product. Positive means the rollouts saw the
@@ -832,10 +897,13 @@ fn score_line(
 ///
 /// Returns `None` — "use L2's order unchanged" — when the profile disables
 /// rollouts (`rollout_depth == 0` or `rollout_k == 0`, the graceful
-/// degradation §1 promises), when the view holds no hostile, or when L2
-/// offered no attacks. The work is EXACTLY `min(k, attacks) + 1` lines of
-/// `rollout_depth` steps each; nothing about the machine, the load, or the
-/// clock can change what this function returns.
+/// degradation §1 promises) or when the view holds no hostile. An empty attack
+/// list is NOT a reason to return `None` — see [`RefinedChoice::move_id`].
+///
+/// The work is EXACTLY `min(k, attacks) + 1` attack lines of `rollout_depth`
+/// steps, plus one movement line of `rollout_depth ×
+/// `[`MOVEMENT_HORIZON_MULTIPLE`] steps per modelled verb; nothing about the
+/// machine, the load, or the clock can change what this function returns.
 pub fn refine_by_rollout(
     view: Perceived<'_>,
     situation: Situation,
@@ -845,7 +913,11 @@ pub fn refine_by_rollout(
     tuning: &ShadowTuning,
     tick_hz: f32,
 ) -> Option<RefinedChoice> {
-    if !profile.uses_rollouts() || options.attacks.is_empty() {
+    // ⚠ `attacks.is_empty()` used to short-circuit here, which silently made the
+    // MOVEMENT veto conditional on having something to swing. A fighter with no
+    // attack in range is exactly the fighter that is walking somewhere, so the
+    // one moment the veto matters most was the one moment it never ran.
+    if !profile.uses_rollouts() {
         return None;
     }
     let start = ShadowState::from_perceived(view)?;
@@ -893,6 +965,7 @@ pub fn refine_by_rollout(
     // that ends with this body out of the world is named — L2 scores where the
     // floor is NOW, and this is the only thing in the brain that knows where the
     // body will BE.
+    let horizon = profile.rollout_depth * MOVEMENT_HORIZON_MULTIPLE;
     let suicidal_movement = options
         .movement
         .iter()
@@ -901,7 +974,7 @@ pub fn refine_by_rollout(
             let mut probe = start.clone();
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
-            for _ in 0..profile.rollout_depth {
+            for _ in 0..horizon {
                 let foe_intent =
                     predicted_foe_intent(&probe, situation, habits, profile.read_weight, tuning);
                 for event in shadow_step(&mut probe, dt, &intent, &foe_intent, tuning) {
@@ -917,12 +990,46 @@ pub fn refine_by_rollout(
         })
         .collect();
 
-    best.map(|(index, value_over_baseline)| RefinedChoice {
-        move_id: options.attacks[index].move_id.clone(),
-        value_over_baseline,
+    // ⚠ this was `best.map(...)`, which threw the movement veto away whenever
+    // there was no attack to name — the same `attacks.is_empty()` blindness a
+    // second time, one screen further down. The refined choice is now two
+    // independent answers, and a body with nothing to swing still gets the one
+    // that keeps it alive.
+    Some(RefinedChoice {
+        move_id: best
+            .map(|(index, _)| options.attacks[index].move_id.clone())
+            .unwrap_or_default(),
+        value_over_baseline: best.map_or(0.0, |(_, value)| value),
         suicidal_movement,
     })
 }
+
+/// **The movement veto rolls further than attack refinement does, and the ratio
+/// is the point.** The two questions live on different timescales:
+///
+/// * *will this attack connect* is a FRAMES question. A shipped `rollout_depth`
+///   of 12 is 0.2 s at 60 Hz, which is a startup plus an active span — exactly
+///   the right window, and deliberately short because the cost is multiplied by
+///   `rollout_k`.
+/// * *will walking this way kill me* is a SECONDS question. At 160 px/s a body
+///   is two seconds from the edge of a 640 px stage, and 0.2 s of lookahead
+///   cannot see a walk-off at all. `ladder_probe` measured this as a depth A/B
+///   that moved NOTHING: 7.2 s to first self-KO at `rollout_depth` 0 and 12
+///   alike, because both horizons were blind to the thing doing the killing.
+///
+/// 16× is sized to the SECOND number, not chosen for roundness: at 160 px/s a
+/// body needs 2.0 s to walk from the middle of a 640 px stage to its edge, so a
+/// horizon of 12 × 16 = 192 ticks = 3.2 s covers that crossing with room for the
+/// fall that follows it. 8× was tried first and is 1.6 s — SHORT of the
+/// crossing, and short in a way that reads as fine until you write the
+/// multiplication down (`the_veto_horizon_reaches_past_the_edge_...` is that
+/// multiplication, pinned).
+///
+/// The cost is `modelled_verbs × depth × 16` steps against `rollout_k × depth`
+/// for attacks; there are four modelled verbs, and FB6e's bench pin
+/// (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`) is what says
+/// whether that is still free.
+pub const MOVEMENT_HORIZON_MULTIPLE: u32 = 16;
 
 /// The sustained shadow intent a movement verb means.
 ///

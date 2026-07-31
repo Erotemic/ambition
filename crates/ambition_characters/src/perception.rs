@@ -162,6 +162,15 @@ impl StageView {
             || p.y > self.bounds.max.y
     }
 
+    /// Was a stage supplied at all? [`Self::default`] is the inverted box, for
+    /// which `offstage` is true EVERYWHERE — honest for "am I safe" (the answer
+    /// is no), and a trap for "did I just die" (the answer would be yes, at the
+    /// origin, on tick zero). A consumer that turns `offstage` into a KO has to
+    /// ask this first.
+    pub fn is_known(&self) -> bool {
+        self.bounds.min.x <= self.bounds.max.x && self.bounds.min.y <= self.bounds.max.y
+    }
+
     /// Distance from `p` to the nearest stage edge (0 when already outside).
     /// The corner-pressure feature L2 scores stage position risk with.
     pub fn distance_to_edge(&self, p: ae::Vec2) -> f32 {
@@ -396,6 +405,21 @@ impl WorldView {
     /// two implementations of "where does the floor end" would drift the moment
     /// one of them learned about one-way platforms.
     pub fn floor_ahead(&self, toward: f32) -> Option<f32> {
+        let support = self.supporting_floor()?;
+        let me = &self.self_view;
+        Some(if toward >= 0.0 {
+            support.max.x - me.pos.x
+        } else {
+            me.pos.x - support.min.x
+        })
+    }
+
+    /// **The solid I am standing on**, as its full box — the authority behind
+    /// [`Self::floor_ahead`], exposed because a body's *simulated* future needs
+    /// the floor's EXTENT and not just the distance to one of its edges (the
+    /// fighter brain's rollout walks a shadow body around and has to know when it
+    /// has run out of ground).
+    pub fn supporting_floor(&self) -> Option<ae::Aabb> {
         let me = &self.self_view;
         let feet = me.pos.y + me.half_extent.y;
         let support = self
@@ -413,11 +437,7 @@ impl WorldView {
                     .abs()
                     .total_cmp(&(b.aabb.min.y - feet).abs())
             })?;
-        Some(if toward >= 0.0 {
-            support.aabb.max.x - me.pos.x
-        } else {
-            me.pos.x - support.aabb.min.x
-        })
+        Some(support.aabb)
     }
 
     /// The nearer of the two floor edges, or `None` when there is no floor.

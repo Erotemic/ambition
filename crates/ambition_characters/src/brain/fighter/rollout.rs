@@ -56,6 +56,14 @@ pub struct ShadowTuning {
     pub gravity: f32,
     /// Grounded locomotion speed a driving fighter holds, units/s.
     pub ground_speed: f32,
+    /// **Dash speed, which is not a faster walk.** The engine's dash SETS
+    /// velocity outright (`abilities.rs`: `kinematics.vel = aim * dash_speed`)
+    /// and does it airborne as readily as grounded.
+    pub dash_speed: f32,
+    /// How long that velocity is held (`DASH_TIME`). The dash is an impulse with
+    /// a duration, not a sustained input, and the difference is what decides
+    /// whether a dash near an edge is a step or a launch.
+    pub dash_time: f32,
     /// Instant rise speed a predicted jump imparts, units/s.
     pub jump_speed: f32,
     /// Reach assumed for the FOE's attacks. The view names their phase and
@@ -80,6 +88,17 @@ impl Default for ShadowTuning {
             },
             gravity: 1400.0,
             ground_speed: 160.0,
+            // `ae::DASH_SPEED` / `ae::DASH_TIME`, restated here for the same
+            // reason the foe's swing timings are: those constants live above
+            // this crate, and they are public knowledge rather than hidden state.
+            //
+            // ⚠ the shadow used to model `Dash` as `Drive` — a 160 px/s GROUNDED
+            // walk against a 760 px/s impulse that works in mid-air. 4.75x, in
+            // the direction that matters: `ladder_probe` traced a level-9 fighter
+            // that survived six seconds of veto-guarded walking, then dashed off
+            // the right edge at 530 px/s while the rollout scored it as a stroll.
+            dash_speed: 760.0,
+            dash_time: 0.115,
             jump_speed: 420.0,
             assumed_foe_reach: 60.0,
             assumed_foe_damage: 5,
@@ -136,6 +155,9 @@ pub struct ShadowFighter {
     /// airborne fighter can DO, and it was the one thing the model could not
     /// represent.
     pub air_jumps: u8,
+    /// Seconds left of an in-progress dash. Set when a dash line begins; ticked
+    /// down by the integrator.
+    pub dash_remaining: f32,
     /// ⚠ added 2026-07-31, and the absence was a whole class of blindness. v1's
     /// terrain model was one sentence — "a body that was STANDING re-lands at
     /// the height it stood at" — which is exactly right in an ENCLOSED room and
@@ -205,6 +227,12 @@ pub enum ShadowIntent {
         lateral: f32,
     },
     Jump,
+    /// A dash: velocity SET along local `side`, grounded or not, for
+    /// [`ShadowTuning::dash_time`]. `elapsed` is how long it has been held, so a
+    /// sustained intent models one dash rather than an endless rocket.
+    Dash {
+        lateral: f32,
+    },
     /// Recover toward the stage: an air jump if the budget allows, drift if not.
     /// `toward_home` is −1..=1 along local `side`.
     Recover {
@@ -230,6 +258,7 @@ fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
         on_ground: view.on_ground,
         ground_level: view.on_ground.then(|| view.pos.dot(down)),
         air_jumps: view.air_jumps_left,
+        dash_remaining: 0.0,
         // Filled by `ShadowState::from_perceived`, which is the only place with
         // the terrain to fill it from.
         ground_span: None,
@@ -256,6 +285,7 @@ fn fighter_from_actor(actor: &PerceivedActor, gravity_down: ae::Vec2) -> ShadowF
         // reading: the rollout does not get to plan around an opponent it has
         // decided is already dead.
         air_jumps: 1,
+        dash_remaining: 0.0,
         // A perceived FOE's floor is not known — the view carries the actor, not
         // what it stands on. `None` keeps the old infinite plane for it, which is
         // the conservative reading: the rollout does not get to assume an
@@ -506,12 +536,22 @@ fn apply_intent(
             }
         }
         ShadowIntent::Drive { lateral } => {
-            if f.on_ground {
-                let lateral = lateral.clamp(-1.0, 1.0);
-                f.vel = side * (lateral * tuning.ground_speed);
-                if lateral.abs() > 1e-3 {
-                    f.facing = lateral.signum();
-                }
+            let lateral = lateral.clamp(-1.0, 1.0);
+            // **AIR CONTROL IS NOT ZERO, AND ASSUMING IT WAS HID THE COMMONEST
+            // DEATH IN THE GAME.** This branch was `if f.on_ground { ... }`, so
+            // a shadow body that jumped went straight up and landed exactly
+            // where it took off. `ladder_probe` traced the real thing: hold
+            // right, walk to the right ledge, jump, and DRIFT right at up to
+            // 310 px/s — off the stage, while the rollout scored a jump in place
+            // on solid ground and vetoed nothing.
+            //
+            // Airborne lateral authority is modelled at full ground speed
+            // because that is the floor of what was measured, not because the
+            // two are the same number. The vertical component is preserved: a
+            // drive does not cancel a fall.
+            f.vel = side * (lateral * tuning.ground_speed) + down * f.vel.dot(down);
+            if lateral.abs() > 1e-3 {
+                f.facing = lateral.signum();
             }
         }
         ShadowIntent::Jump => {
@@ -525,6 +565,18 @@ fn apply_intent(
         // spends an air jump, and when the budget is gone it has drift and
         // nothing else. Modelling it as an unlimited hover would make the
         // rollout certify every recovery, which is worse than not modelling it.
+        ShadowIntent::Dash { lateral } => {
+            // The dash ends when its clock does; after that the body coasts on
+            // whatever the impulse gave it, which is the part that carries it
+            // past a ledge.
+            if f.dash_remaining > 0.0 {
+                let lateral = lateral.clamp(-1.0, 1.0);
+                f.vel = side * (lateral * tuning.dash_speed) + down * f.vel.dot(down);
+                if lateral.abs() > 1e-3 {
+                    f.facing = lateral.signum();
+                }
+            }
+        }
         ShadowIntent::Recover { toward_home } => {
             let lateral = toward_home.clamp(-1.0, 1.0);
             if f.on_ground {
@@ -590,6 +642,7 @@ fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuni
     if f.koed {
         return;
     }
+    f.dash_remaining = (f.dash_remaining - dt).max(0.0);
     if !f.on_ground {
         f.vel += down * (tuning.gravity * dt);
     }
@@ -1031,6 +1084,13 @@ pub fn refine_by_rollout(
         .filter_map(|option| {
             let intent = movement_intent(option.verb, &start)?;
             let mut probe = start.clone();
+            // A dash line ARMS the dash clock; the intent itself only steers
+            // while the clock runs, so without this the dash would model as
+            // doing nothing at all. Armed here rather than inside `apply_intent`
+            // because starting a dash is a decision and continuing one is not.
+            if matches!(intent, ShadowIntent::Dash { .. }) {
+                probe.me.dash_remaining = tuning.dash_time;
+            }
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
             let mut survived = horizon;
@@ -1142,7 +1202,7 @@ fn movement_intent(
     let toward = (start.foe.pos - start.me.pos).dot(frame.side).signum();
     Some(match verb {
         MovementVerb::Approach => ShadowIntent::Drive { lateral: toward },
-        MovementVerb::Dash => ShadowIntent::Drive { lateral: toward },
+        MovementVerb::Dash => ShadowIntent::Dash { lateral: toward },
         MovementVerb::Retreat => ShadowIntent::Drive { lateral: -toward },
         MovementVerb::Jump => ShadowIntent::Jump,
         // ⚠ `Recover` was in the unmodelled list, and it is the ONLY verb that

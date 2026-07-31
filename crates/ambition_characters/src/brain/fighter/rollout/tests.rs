@@ -652,3 +652,34 @@ fn the_veto_horizon_reaches_past_the_edge_and_the_attack_horizon_does_not() {
          ({time_to_edge_s}s) or the veto is decorative"
     );
 }
+
+#[test]
+fn a_shadow_body_that_jumps_while_driving_lands_where_it_drifted_to() {
+    // The commonest death in the game, and for a long time the one the model
+    // could not represent: walk to the ledge, jump, and keep holding a
+    // direction. A shadow with no air control lands where it took off.
+    let tuning = ShadowTuning::default();
+    let view = view_on_platform(400.0, 60.0);
+    let mut s =
+        ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view");
+
+    let takeoff = s.me.pos.x;
+    run(&mut s, 1, &ShadowIntent::Jump, &tuning);
+    assert!(!s.me.on_ground, "the jump should have left the ground");
+    // 30 ticks is half a second; the jump's airtime is 2 x 420 / 1400 = 0.6 s,
+    // so the body is STILL AIRBORNE at the assertion. That is the whole point —
+    // running long enough to land turns this into a test of grounded walking,
+    // which passes with or without air control and proves nothing.
+    run(&mut s, 30, &ShadowIntent::Drive { lateral: 1.0 }, &tuning);
+    assert!(
+        !s.me.on_ground,
+        "the measurement window has to close before the body lands, or it is \
+         measuring the walk that follows"
+    );
+    assert!(
+        s.me.pos.x > takeoff + 40.0,
+        "holding right through a jump has to carry the body sideways; it went \
+         from {takeoff} to {}",
+        s.me.pos.x
+    );
+}

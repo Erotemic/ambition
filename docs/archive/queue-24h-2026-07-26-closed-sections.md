@@ -1,0 +1,2203 @@
+# Archived: closed sections of `queue-24h-2026-07-26.md`
+
+**Moved verbatim on 2026-07-31, losslessly.** Every section here had ZERO open
+(`▢`) rows at the time of the move; the live ledger keeps a one-line pointer
+where each stood, and keeps every section that still has open work.
+
+Why: `scripts/check_agent_kb.py` reports `docs/planning` at 32k lines against a
+10.5k soft budget and says to *"archive sections that are long done rather than
+trimming live plans"*. This is that, done by a rule a reader can check —
+"no open rows" — rather than by judgement about what still matters.
+
+⚠ **Nothing here is edited.** If a row below turns out to be wrong, reopen it in
+the live ledger rather than correcting the record of what was believed then.
+
+---
+
+## A. GPT-5.6 review of the character-definition run (2026-07-26)
+
+All six verified against the code before starting; every citation was accurate.
+
+- ✔ **A1** `register_character` is not the character authority — the materializer
+  and the sheet declarations both still read `CharacterCatalog`, and
+  `PreparedCharacterDefinition.sheet` has no production consumer. Registration
+  also *demands* art, which defeats the room/match/worn projection model.
+  → registration becomes declarative; the sprite read model derives from
+  `PreparedCharacterRegistry`; staging is the only demand source.
+- ✔ **A2** `two_provider_characters_trade_damage_in_one_session` does not test a
+  fight — it computes an AABB overlap by hand and subtracts integers from local
+  variables. No entities, no `MovePlayback`, no hit events, no `BodyHealth`.
+  → a real ECS fight through the production damage path.
+- ✔ **A3** authored hurtboxes never reach the primary player:
+  `refresh_actor_damageable_volumes` is gated `With<FeatureSimEntity>`, which the
+  player does not carry. **Worse than reported** — see A7.
+- ◐ **A4** source-qualified SFX is vocabulary-only: `write_from` has exactly one
+  caller (the moveset timeline), every other mechanic still uses the global
+  `SfxEmissionContext`, and the only non-unit-test `authorize_sfx_source` call is
+  in a rendered test. No production session assembly authorizes a seated cast.
+  **Authorization half DONE** — `authorize_staged_character_presentation_sources`
+  runs off the staged cast every tick, so a correctly-tagged cue is no longer
+  silently denied. Emission half open below as A13.
+- ◐ **A5** the binding boundary verifies far less than the design implies:
+  `CharacterBindings` carries only a cue resolver; sheets, portraits, bodies and
+  VFX are never resolved; and `PreparedCharacter::checked` is **discarded** by
+  `try_register_character`, losing the "verified" vs "not checked" distinction
+  that the boundary exists to preserve. **Provenance half DONE** — `checked` now
+  rides on `PreparedCharacterDefinition` with `was_checked(ns)`. Still open below
+  as A12: nothing resolves sheets, portraits, bodies, or the derived VFX tags.
+- ✔ **A6** the equipment rollback oracle is still `#[ignore]`d, so an ordinary
+  green run does not guard a known determinism failure. Release blocker for
+  rollback multiplayer. **LOCALIZED** to one boolean —
+  `MovePlayback.landed_hit` on an enemy's `ranged` move at frames 149–151 — by a
+  new per-component/per-resource restore audit. ⚠ "probes all 99 registered types"
+  was wrong when written (F3): the audit reached 105 of 250 state-bearing
+  registrations, because five of the ten registration arms recorded no probe. It
+  reaches all 250 now, and a re-run over the full set is still clean — so the
+  narrowing below stands, on evidence that finally matches its wording. Restore is faithful; the replay applies an event it demonstrably has.
+  **FIXED**: `ProjectileOwner` was `declare_rollback_derived` on the promise that
+  `heal_projectile_owners` re-resolves it from `SpawnOrigin` — but enemy
+  projectiles carry no `SpawnOrigin`, so that system could not see them and the
+  component never came back. Now `rollback_component_clone` + `rollback_map_entities`.
+  Oracle un-ignored and green.
+
+## B. Found while verifying the review (not in it)
+
+- ✔ **A7** `DamageableVolumes` is **not the authority for damage**. `apply_hitbox_damage`
+  and `ecs_hit_event_hits_actor` test the victim's coarse `CenteredAabb`; the boss
+  path *recomputes* volumes from `BossVolumeContext`. So the component that §7.10
+  wired authored hurtboxes into feeds only pogo targeting and the debug overlay.
+  Authored silhouettes therefore affect damage for **nobody**, player or enemy.
+  → one victim-geometry authority every hit path reads (Jon: *"it's a smell that
+  something would work for an enemy but not a player, they should be unified"*).
+- ✔ **A8** `resolve_body_hurtboxes` / `advance_body_pose_clocks` are registered in
+  `Update`, not the sim schedule — so under rollback resimulation the volumes are
+  stale, and `ResolvedHurtboxes` is declared rollback-*derived* on the assumption
+  that the sim recomputes it. Its own comment admits the schedule is wrong.
+- ✔ **A11** a goal-guard check that greps for the ABSENCE of a string goes red on
+  PROSE: A7's check forbade `With<FeatureSimEntity>` in a file whose new docstring
+  explains removing it, and A8's forbade `Update,` in a file where it is still
+  correct for asset loading. Both rewritten to name a test. Written to memory.
+- ✔ **A18** crate-prefix waivers in `rollback_coverage::WAIVED` assume a crate
+  holds exactly one kind of thing. `ambition_sprite_sheet::` is waived as "sprite
+  metadata / asset binding" and silently swallowed `BossAnimFrame`, authoritative
+  combat state. Every prefix waiver needs re-reading against what its crate
+  actually contains today, and the ones that mix kinds should become type-specific.
+  **AUDITED** by `list_what_every_waiver_actually_covers`, which prints what each
+  waiver really swallows. After the `BossAnimFrame` fix exactly ONE component on
+  sim entities is waiver-accounted — `PresentedPose`, "read model, rebuilt from
+  sim facts each frame" — and that reason is accurate. The listing test is the
+  durable artifact: re-run it whenever a crate grows.
+- ✔ **A19** the coverage sweep is POPULATION-driven, so it only ever sees what the
+  swept rooms spawn. It had never seen a boss. Enumerate what no swept room
+  contains — mounts, portals, encounters, falling-sand, the shop — and either sweep
+  a room for each or state why not. This is the third time this instrument has been
+  confidently empty about something it never looked at.
+  **DONE**: added a boss arena plus portal / NPC / hazard-and-chest rooms. The new
+  sweeps caught FOUR more unrewound components on their first runs —
+  `BossAnimationFrameSample`, `PogoTarget`, `PogoTargetContributor`, `ChestFeature`
+  — and one missing marker found by reading their siblings (`Opened`). Still
+  unswept and worth a row of its own: mounts, falling sand, the shop.
+- ✔ **A16** the oracle's route has NEVER broken the brick or flipped the switch —
+  hidden until now because the checksum blew up at frame ~153. Both props are
+  reachable content (`trigger: OnHit`, `max_hp: 2`); the walker does not land a
+  strike on either. The two assertions are replaced by an inverted guard that goes
+  red the moment the route does reach them.
+  **FIXED**: the props were never the problem, the STEERING was. The policy aimed
+  at the brick's CENTRE, so it walked into a 48x48 block whose top face stands 32
+  above the floor, and the route's periodic hop put the player on top of it —
+  swinging horizontally over the thing it was trying to break, at x≈900 on a brick
+  centred at (904, 728), for all 2400 frames. It now stops clear of the face
+  (`brick_standoff`) and suppresses the hop while the brick is the objective. The
+  switch was never unreachable; it was gated behind the brick in route order.
+  Brick breaks at frame 87, switch flips at 177, and the inverted guard fired to
+  report it. Both real assertions restored; the guard is deleted.
+  Two things fixed alongside: the route no longer exits at the last event (a
+  `MIN_FRAMES` floor of 600, so the rollback window stays wider than the frames-149-151
+  bug it guards), and the test's doc comment no longer claims it is `#[ignore]`d
+  and red — it has been neither since A6.
+- ✔ **A20** still-unswept populations. Encounter (`goblin_encounter`) and kinematic
+  movers (`vertical_shaft`) added and both came back CLEAN — the first negative
+  result this instrument has produced, and worth having as one. Mounts/vehicles,
+  falling sand and the shop author no LDtk room, so sweeping them needs a
+  Rust-authored fixture rather than a room id.
+  **DONE, and the three are three different answers:**
+  * **Mounts** — a Rust fixture welds a shark + pirate rider (`RidingOn` /
+    `Mounted` / `MountSlot`) and sweeps every tick of the weld's life, asserting
+    both bodies are IN the population each tick. It found
+    `RuntimeStagedActor` unregistered — the renderer's runtime-visual DISCOVERY
+    marker, carried by any actor staged outside the authored `RoomSpec` lists. No
+    swept ROOM stages an actor imperatively, which is why nothing had seen it.
+    Losing it across a restore leaves the actor rendering invisibly for the rest of
+    the session: the `PlayerVisual` class exactly, so it is REGISTERED, not waived.
+  * **Falling sand** — it *does* have a room (`falling_sand_room`); the row was
+    wrong about that. Swept with the authored sand switch ACTIVATED and a vacuity
+    guard that the spout actually poured, so the room is inspected live rather than
+    idle. Came back clean.
+  * **The shop is not a population.** `ambition_items::shop` is pure `buy`/`sell`
+    functions over a wallet and an owned set, called from Yarn bindings; there is no
+    shop entity and no shop component. The wallet/owned state lives on the player,
+    which every sweep here already covers. Nothing to fixture — recorded so the next
+    agent does not go looking for a room that was never going to exist.
+  Probe coverage is now 254/254.
+- ✔ **A17** audit every other `declare_rollback_derived` the same way A6 was: each
+  one asserts that a NAMED system rebuilds the state, and nothing checks that the
+  system can even see the component. `ProjectileOwner` was registered as a lie for
+  as long as it existed. A test that runs each derived declaration's named system
+  and asserts the component reappears would have caught it.
+  **DONE for components**: `declare_rollback_derived_component` registers a
+  presence probe beside the declaration, so all 16 derived COMPONENTS are now
+  compared across resimulation by `RollbackRestoreAudit` — and all 16 hold. The
+  first run also exposed a design error in my own probe: derived state is
+  legitimately absent right after a restore, so comparing it there accused
+  `ProjectileView` (a read model) of being a defect. Derived probes are now
+  compared at the resimulation boundary only.
+  **DONE for resources too**: `declare_rollback_derived_resource` added, all 19
+  migrated, all hold. `declare_rollback_derived` now has no remaining callers that
+  skip a probe — every derived declaration in the engine is falsifiable.
+- ✔ **A14** `MessageReader` cursors are `Local` state GGRS never rewinds, so any
+  gameplay fact derived from `.read()` is non-deterministic across a rollback by
+  construction. Measured NOT to be the cause of A6 (hoisting both `landed_hit`
+  writers' cursors into rollback-registered resources changed the divergence not
+  at all), and reverted rather than landed as churn — but it is a real latent
+  hazard and the roadmap's Task 1 already calls for removing gameplay-authoritative
+  `Local<T>`.
+  → **enumerated, and the answer is better than the row assumed.** The engine's
+  mitigation already existed — `clear_message_on_rollback::<T>` empties a channel
+  during `LoadWorld::Mapping`, so both peers resume from an empty buffer and a stale
+  cursor has nothing to be stale about — but nothing checked that it COVERED
+  everything, which is the same shape as F3's probe gap.
+  `every_gameplay_message_channel_is_rewound_on_rollback_or_named` scans every live
+  `Messages<T>` resource in the composed sim and compares it against the registered
+  clears: **53 ambition channels, 47 cleared, 6 named.** The six are asset-loading
+  orchestration (`LoadCommand` / `LoadEvent`, read in `Update`), developer hotkeys,
+  two bevy asset-lifecycle channels, and bevy's `StateTransitionEvent<GameMode>` —
+  none read by the sim. Their reason is a STATED premise, because Bevy does not
+  expose which schedule a reader param belongs to; what the test enforces is that
+  the list stays short and deliberate, with a staleness check so an entry cannot
+  outlive the channel it describes. A new gameplay channel now lands as a failure
+  instead of inheriting silence.
+- ✔ **A15** `authorize_sfx_source` PANICKED when a source was re-authorized with a
+  different definition, and bank ids load asynchronously — so "authorize the cast"
+  and "the session owner already authorized itself" collided. It was papered over
+  by SKIPPING already-authorized sources, and that skip had a cost the comment
+  admitted: a source authorized before its bank arrived was never refreshed by
+  that path.
+  → the two cases are now distinguished, which is what was actually unresolved.
+  SAME provider re-authorizing is routine — two honest views of one source at two
+  instants of an async load — and MERGES BY UNION, so the result cannot depend on
+  which view arrived first and a later empty-bank view cannot narrow a richer one.
+  Two DIFFERENT providers claiming one source is a content conflict, no merge is
+  correct, and it is RECORDED on the selection (`sfx_source_conflicts`, first
+  claim holds, once per conflict) rather than fatal — a panic kills a running game
+  over a misconfiguration whose worst honest outcome is one provider's cues not
+  resolving. Recorded rather than logged because the crate builds without
+  `bevy_log`, and a value is better anyway: a test asserts on it. The caller's skip
+  is deleted. Four tests; the async-bank one is RED against the old panic.
+  ⊘ **remainder: still no REVOKE, and deliberately so.** Sources only accumulate
+  within a session (`select_gameplay` rebuilds the map), so a cast member who
+  leaves keeps an authorization it no longer uses. Harmless today because a body
+  that is gone emits nothing, and the versus roster is fixed at stage entry — the
+  one place a cast changes shape rebuilds the map wholesale.
+  **The trigger that makes it a defect, stated so nobody has to re-derive it:** a
+  MID-SESSION cast change where the departed character's id can be re-used by
+  something else — a summon that dies and a different provider's summon taking
+  its id, or a character swap that keeps the seat. At that point a stale
+  authorization is not unused, it is WRONG, and it will present as one body
+  emitting in another's voice. Building a revoke before then is an invention with
+  no customer, which is the mistake A4 and A13 were both about.
+- ✔ **A13** only the moveset timeline calls `SfxWriter::write_from`. Jump, dash,
+  transformation, damage and death still take their source from the ONE global
+  `SfxEmissionContext`, so they are attributed to the session provider rather than
+  the character producing them. The fix is a per-body presentation source every
+  emitter reads — deliberately NOT started here, because adding a component only
+  the moveset consumes would repeat the exact mistake A4 was: a vocabulary with no
+  consumer. (Second half of A4.)
+  **DONE**: `ambition_sfx::BodyPresentationSource` is derived onto every body once
+  per tick from its worn character's author, and `SfxWriter::write_for_body` makes
+  the `None` fallback explicit instead of silent. Threaded into `emit_movement_fx`
+  (jump / double-jump / dash / pogo / land / blink / reset) and `emit_hit_feedback`
+  across all five call sites, plus the player's landing cue.
+  ⚠ `emit_hit_feedback` takes **two** sources, not one: an authored `strike_sfx` is
+  the ATTACKER's cue and its fallback is the victim's `HurtFeedback::sfx`, so a
+  single source would mis-attribute half the hits in exactly the crossover fight
+  this machinery exists for. The emitter picks by the same precedence
+  `resolve_strike_sfx` uses.
+  ⚠ Absent component ≠ empty source: a body wearing no character gets NO component,
+  which means "ask the session" — the right answer for a hazard or a breakable.
+- ✔ **A12** `CharacterBindings` still carries ONLY a cue resolver. Sheets,
+  portraits, body references and the DERIVED vfx dependencies are never resolved,
+  so `was_checked` reports honestly about four namespaces nobody checks. (Second
+  half of A5.)
+  **DONE**: `SheetTarget` / `PortraitTarget` / `VfxTag` namespaces added, resolved
+  at preparation, reported through `was_checked`. Registration supplies the
+  ENGINE's own baked sheet vocabulary (`sheets::available_targets`), so every
+  registration gets its sheet reference checked with a did-you-mean whether or not
+  the provider passed a resolver — a boundary that only works on opt-in is a
+  boundary most callers will not have. `prepare_character` stays pure; the global
+  lookup lives at the registration seam.
+  ⊘ **Bodies deliberately NOT resolved**: `BodySource` is an inline enum
+  (`SpriteAuthored { world_per_pixel }` / `Explicit { half_extents }`) and names
+  nothing outside the character. GPT-5.6's finding listed bodies with sheets and
+  portraits; that part does not apply, and a namespace invented to satisfy it would
+  be a resolver that always succeeds.
+- ✔ **A10** two fixture geometries that happen to be EQUAL make a discriminating
+  test vacuous. The fight test's authored torso was ±10 and its body box was also
+  ±10, so "hit on the silhouette" and "hit on the box" were the same assertion;
+  the miss-case passed only because nothing hit at all. Look for this shape
+  elsewhere — any test whose point is "A not B" needs A ≠ B asserted or obvious.
+  **AUDITED, and the sharper finding is that a premise in PROSE is the same defect
+  with a longer fuse.** The geometry-discriminating family was already mostly sound:
+  `touch_action_hit_test_uses_visible_circle_not_square_bounds` carries an explicit
+  "the probe must be outside the circle for this to mean anything" guard,
+  `boss_atlas_tracks_the_published_rects_not_the_const_grid` uses a deliberately
+  different stride, `overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb`
+  compares two manifestly different boxes, and
+  `mockingbird_combat_size_fallback_undershoots_the_visible_sprite` is self-checking
+  (one attack box, asserted to miss the fallback AND land on the authored volume, so
+  A ≠ B cannot silently collapse).
+  Three fixes, all where a comment did the work an assertion should have:
+  * `spawn_fighter` now READS the authored torso width off the definition and
+    asserts it is narrower than the body box. The old version named `±10 in
+    hurtboxes()` in a comment — a second copy of a number. Verified: widening the
+    torso to ±24 now fails the fixture instead of quietly making every
+    silhouette-vs-box assertion in the file vacuous.
+  * `a_strike_that_clears_the_authored_torso_lands_on_nobody` computed three spans
+    in prose. It now resolves the LIVE strike volume the same way
+    `apply_hitbox_damage` does (`Hitbox::world_aabb` off the owner's box centre —
+    a `FollowOwner` hitbox has no world rectangle on the entity to read) and
+    asserts the strike overlaps the coarse box and not the published silhouette.
+    Verified: moving the victim to x = 90 used to pass and now fails with "a strike
+    that reaches neither geometry misses for the uninteresting reason".
+  * `a_player_shaped_body_is_hit_on_its_authored_hurtbox` asserted that the
+    published volume is narrower than the coarse box but never that the strike
+    reaches the coarse box. Now does, via a `strike_box` helper kept beside the
+    spawner so the two cannot disagree.
+  ⚠ Scope, stated honestly: 368 test names in the repo match the `_not_` /
+  `_instead_of_` / `_rather_than_` shape, and most are ordinary negative-condition
+  tests. What was audited is the subset that discriminates two GEOMETRIES, which is
+  the shape the original defect had.
+- ✔ **A9** ~~`refresh_boss_damageable_volumes` derives hurtboxes from
+  `BossAnimationFrameSample` — a §4.11 violation.~~ **WRONG AS FILED, and I filed
+  it from the type's NAME without reading it.** `drive_boss_animators` is sim-side,
+  owns the cursor, and advances it on `world_time.entity_dt`; render no longer
+  writes the frame. §4.11 is satisfied.
+  The real defect the row led to is worse: `BossAnimFrame` — the sim-owned cursor
+  those hurtbox parts derive from — was **not rollback state**, and the coverage
+  sweep could not say so for TWO independent reasons. It is defined in
+  `ambition_sprite_sheet`, a crate waived wholesale as "sprite metadata / asset
+  binding" (its own first doc line reads *Sim-owned*), and no swept room contained
+  a boss at all. Now `rollback_component_cursor`, with the sample declared derived,
+  and a boss-arena sweep added — which caught `BossAnimationFrameSample` on its
+  first run.
+
+## C. `character-definition-design.md` §0 follow-ups
+
+- ◐ **C1** (2026-07-28) the SPEEDS crossed; the DISTANCES did not, and that is a
+  different question rather than an unfinished half.
+  → §4.7 says locomotion crosses the brain→body seam as normalized effort, never
+  world-space speed. An archetype now authors `run_speed` — the BODY's ground-run
+  capability, the one absolute it owns — plus `patrol_effort` / `chase_effort` in
+  `0.0..=1.0`. `tuning()` derives the px/s every brain already consumed, so no
+  consumer changed.
+  ⚠ **the body's top speed used to be a SIDE EFFECT of its brain**:
+  `max_run_speed` was literally `max(patrol_speed, chase_speed)`, so an archetype
+  reused on another body carried the first body's absolute numbers, and a
+  character that never chased could not run. That is the coupling §4.7 names.
+  ✔ **behaviour-preserving by construction**: every migrated row took
+  `run_speed = max(old patrol, old chase)` and the efforts as the two ratios, so
+  the derived speeds are byte-identical. The existing baseline pins now read
+  through `tuning()` — `combatant` still 155.0 chase, `puppy_slug` still 55.0
+  patrol — which turns the migration's own proof into the tests that were
+  already there. 24 authored rows plus every inline roster in the demos, the
+  fixtures and the tests.
+  ⊘ **`aggro_radius` / `attack_range` stay absolute, deliberately.** They are
+  DISTANCES, and §4.7's rule is about exertion: normalizing a radius needs a
+  reference length nobody has chosen (body size? screen? the room?), and the
+  same paragraph allows world-space constraints for navigation-style concerns.
+  Converting them because they appear in the same sentence would be obeying the
+  sentence rather than the argument. Whoever picks a reference length can close
+  this; until then the row says which half is done and why.
+- ✔ **C2** (2026-07-28) the versus duelists author one, and they are the first
+  characters in the game that do. A7 unblocked it: authoring against a seam
+  damage ignores would have proved nothing, and damage reads published volumes
+  now.
+  → three rules, each a decision rather than a number. **Standing** is a torso
+  narrower than the sprite quad, so a swing through the empty air beside a
+  fighter misses — the sprite-derived box made every character as wide as its
+  widest frame. **Hitstun** is BIGGER, which is what makes a combo a combo
+  rather than a coincidence. **A committed smash EXTENDS it** for the length of
+  the move, so the reach that makes the smash dangerous is also what makes
+  whiffing it punishable; jab and the tilts leave the silhouette alone, which is
+  what makes them the safe option.
+  ⚠ the lean is a fraction of the fighter's OWN reach, so the long guard commits
+  further than the close guard. One `DuelistNumbers` constant now feeds both the
+  moveset and the hurtbox doc — a fighter cannot swing with one archetype's
+  reach and lean with another's.
+  ✔ tested from the stage a stranger plays: the seated body carries the document
+  (not the sprite fallback), the resolver reports `MoveOverride` while the smash
+  is out, and the volume is wider than standing. RED-probed by removing
+  `.with_hurtboxes` from one fighter.
+  ⊘ **the numbers are a first pass and want a controller.** 11×22 standing, ~15
+  wide committed: defensible on paper, unproven in play. Same class of judgement
+  as the round-start countdown — but NOT the same answer, and GPT 5.6's fourth
+  review settled it: the countdown is engine BEHAVIOUR and gets built, these are
+  balance CONTENT and get played. Closed as W′/R2 above; reopening it needs a
+  play session, not an argument.
+- ◐ **C3** the prepared authority coexists with the six old seams instead of
+  replacing them (§4.1's end state). A1 is the first half of this.
+  ⚠ **A1's ✔ was narrower than it read**: the DECLARATION side derived from the
+  registry (sprite declarations, cue authorization, per-body presentation source),
+  while production fighter CONSTRUCTION read `CharacterCatalog`. The §7.10 fight
+  test projected the prepared definition onto its bodies BY HAND, so it proved that
+  projection works — not that registering a character reaches a spawned fighter.
+  → **the engine half is done.** `project_prepared_character_definitions` puts a
+  registered character's authored moveset (plus the `MovesetMelee` / `MovesetRanged`
+  routing markers `ActorClusterSeed` derives) and its authored hurtbox doc onto any
+  body whose identity resolves to it — through the SAME chain the presentation
+  source uses (worn character, else the sprite character the combat tuning names),
+  so it reaches the player AND every spawned actor, which carries no
+  `WornCharacter` at all. The registry wins where it authored something, matching
+  every other resolver; where it authored `None` the catalog's value stands.
+  Change-detection triggered rather than marker-tracked, so a rollback-recreated
+  entity re-projects for free and wearing a new form re-projects too. Vitals are
+  deliberately NOT projected — writing max HP onto a live body would heal it on
+  every transformation.
+  The evidence is a DELETION: `spawn_fighter` no longer inserts `ActorMoveset` or
+  `AuthoredHurtboxes`, and all five fight tests still pass. The scaffolding that
+  made A1's claim too wide is gone.
+  ⊘ **"What remains is CONTENT" — the row was built on a WRONG PREMISE, corrected
+  2026-07-27.** It said to move "one real character's moveset out of its catalog
+  fragment into its `CharacterDefinition`". There is no such moveset to move. No
+  content anywhere authors a `MovesetContract`: every moveset in the game is
+  DERIVED, either by `build_actor_moveset` from an `ActionSet` preset's
+  melee/ranged/special, or — for bosses — projected from authored behaviour rows
+  (strike windows, speed scale, volumes) in `features/bosses.rs`. Deriving is the
+  right shape for both; there is nothing sitting in the wrong place.
+  Nor is inventing one honest. Sanic's catalog says it out loud: *"a peaceful
+  speedster: the momentum ride + ball dash ARE the kit; no combat moveset"* —
+  giving him an attack to exercise a seam would be authoring against the design.
+  ✔ **RE-EXAMINED 2026-07-28, as this row asked.** `with_moveset` has two
+  production callers now — the arena duelists in `versus_fighters.rs`, each
+  authoring four moves through `duelist_moveset` — and since C2 they author a
+  `HurtboxDoc` through the same builder. The customer this row was waiting for is
+  C4, C4 shipped, and the seam took its first real fighter without changing
+  shape.
+  ⚠ **this row said "NO production caller" for as long as it took somebody to
+  re-read it.** It was true when written and stopped being true the day the
+  duelists landed; nothing re-examines a row that describes an absence, because
+  an absence has no citation to rot. That is the blind spot in the M4 guard's
+  design, not a lapse in it: a guard that checks whether cited things still exist
+  cannot check a claim whose whole content is that nothing exists yet.
+- ✔ **C4** no versus mode in a running game; the fight is proven only in a test.
+  Jon's order (2026-07-27): **cpu vs cpu → player vs cpu → local couch pvp → only
+  then netcode.** ⛔ do not reach for matchbox.
+  ✔ **slice 1: SEATING.** `MatchParticipantRoster` could say who was in a match
+  and project their art demand, and nothing turned a participant into a BODY — so
+  the nearest thing to versus was a test that hand-assembled two fighters.
+  `character_runtime::seating` is the missing verb: `seat_character` builds the
+  same `ActorClusterSeed` every other spawn path builds, so a seated fighter is an
+  ordinary actor body, and `seat_match_participants` seats a roster once per
+  match, symmetric about the room's authored spawn, facing inward, on opposing
+  factions. It inserts NO moveset and NO silhouette by hand — those arrive from
+  the character projection, which is what makes this evidence for C3's seam rather
+  than a second copy of it.
+  ⚠ the workspace policy `engine.character-authority-is-app-local` caught the
+  first draft taking `Option<Res<CharacterCatalog>>` and was right to: that is
+  making the character authority optional. The catalog is required now, and the
+  archetype roster — which is ASSEMBLED from fragments, so a bare engine App
+  legitimately has none — is a `run_if` instead. "Not part of this composition"
+  and "optional here" are different claims and only the first is true.
+  ✔ **slice 2: a ROUTE.** `Versus` is a launcher entry in the shipped host,
+  beside Ambition, Sanic, Mary-O and Pocket. Picking it prepares a flat arena and
+  seats `mary_o` against `sanic` — one fighter from EACH provider, which is the
+  crossover the whole multi-provider character seam was built for and the case a
+  single-cast roster could never exercise. Lives in the app because the shell host
+  is the only composition where both casts exist.
+  ⚠ its own test caught a real bug before the commit: `track_versus_roster` was
+  registered in `SandboxSet::PlayerInput`, and every `SandboxSet` is nested inside
+  `GameplaySimulationRoot`, which carries the session gate — so LEAVING gameplay
+  switched off the system whose job is to clean up after leaving gameplay. The
+  roster survived, and the next game the player picked would have had two fighters
+  seated into it, silently, because the bodies look like they belong to the level.
+  A teardown inside the thing it tears down can only run while it is not needed.
+  It is on the shell clock now.
+  ⚠ it also turned `the_full_multi_game_lifecycle_is_leak_free` red twice, both
+  correctly: the launcher list is pinned exactly (a launcher that silently gains
+  or loses a row is the first thing a player sees), and `launch_entry(app, 4)`
+  meant "Exit" only while there were four providers — it is derived from the entry
+  count now.
+  ✔ **slice 3: player vs CPU** — and it landed as the FIX for a defect slice 2
+  shipped. The session spawns a primary player wearing the stage's starting
+  character; seating spawned a CPU fighter wearing the same one; the arena held
+  **two Mary-Os**. The test passed because it asserted both fighters were PRESENT,
+  which is the assertion you write when you have not looked at the screen.
+  → a `Human` seat ADOPTS the existing player body instead of spawning beside it,
+  because a stage's starting character IS a seat and seating had no way to say so.
+  Versus is now player-vs-CPU (Jon's step 2), the arena holds exactly its roster,
+  and the stage test asserts the cast EQUALS the roster rather than contains it —
+  RED-verified by flipping seat 0 back to CPU.
+  ⚠ the workspace policy `engine.pose-writes-are-authority-only` caught the
+  adoption doing `kin.pos = at`. ADR 0024: pose writes go through `transit_body`
+  or the body arrives believing it is still standing on the floor it left. Fixed,
+  and the fixture had to grow a REAL `PlayerSimulationBundle` for it — a
+  hand-rolled body without the movement clusters does not match seating's query,
+  so adoption silently skipped and the seat count was right for the wrong reason.
+  ✔ **slice 4: a WRITER for slot 1.** The engine was already ready and nobody had
+  asked it: `SlotControls` holds four slots and `tick_player_brains` drives any
+  body whose `Brain::Player(slot)` names one. Seat 1+ spawns its own body with
+  `Brain::Player(slot)`, `LocalPlayer` and a `PlayerInputFrame` — the marker
+  matters, because `sync_local_player_input_frame` skips a body without it and the
+  symptom is a fighter that stands still, indistinguishable from an unplugged pad.
+  `populate_secondary_slot_controls` is the writer `populate_slot_controls`' own
+  docs predicted ("co-op / netcode add their own writers for higher slots without
+  touching this one").
+  ⚠ **adding player two would have broken player ONE.**
+  `populate_control_frame_from_actions` carried a guard that wrote NEUTRAL
+  whenever more than one input-bearing participant existed, reasoning that two
+  participants would compete to author the single `ControlFrame`. True of the
+  frame, false of the intent: the frame belongs to the PRIMARY participant and the
+  others belong to their slots. It selects the primary by id now, and the symptom
+  the guard would have produced — plugging in a second controller stops the first
+  — is an assertion in the couch test.
+  ⚠ the dash edge had to become per-seat. `TriggerEdgeState` is a shared resource,
+  so two seats reading one edge means player one's release cancels player two's
+  press.
+  ✔ **slice 5: one controller drives exactly one seat.** Every participant's
+  `InputMap` shipped with no associated gamepad, which in leafwing means
+  `gamepads.iter().next()` — harmless with one seat, and the entire couch bug with
+  two: both seats resolve to the same arbitrary pad, so player two's controller
+  either does nothing or moves player one, decided by archetype order.
+  `assign_local_seat_devices` partitions them. Solo behaviour is unchanged BY
+  DESIGN — a single player with a spare pad plugged in must not find that only one
+  of their controllers works.
+  ⚠ **arrival order has to be REMEMBERED.** The first draft sorted pads by entity
+  index, which reads as connection order and is not: indices are recycled, so a
+  pad plugged in second can inherit a freed low index and sort to the front. The
+  app-level test caught it in a minute; the symptom is that the two players'
+  controllers swap, sometimes. `LocalDeviceOrder` records arrival, and a unit test
+  forces the recycled-index case. (Smaller trap on the way: `Entity::to_bits`
+  sorts into REVERSE index order — Bevy stores the row inverted for the niche
+  optimisation.)
+  ✔ **slice 6: two controllers make Versus a two-player game.** Seat 1 is HUMAN
+  when a second pad is connected and CPU otherwise, decided at STAGE ENTRY — a pad
+  unplugged mid-match must not hand a fighter to the AI, and a pad plugged in must
+  not spawn a third body. No lobby screen: a second controller is an unambiguous
+  statement that a second person is here.
+  A seat is DECLARED, not detected — `seat_input_participants_for_roster` reads
+  the roster, because deriving seats from hardware would make a controller left
+  plugged into a machine a second player in every game on it.
+  Player two gets GAMEPAD BINDINGS ONLY. `KeyboardPreset::input_map` was one
+  200-line function interleaving both devices and is now two halves; partitioning
+  the controllers accomplishes nothing if WASD still moves both fighters. The
+  gamepad half is identical for both seats — nobody plays a worse version of the
+  game for joining second.
+  ⛔ **and it exposed a defect slice 1 shipped: the CPU fighter had never moved.**
+  `seat_character` hand-picked a component subset instead of building
+  `EnemyActorBundle`, and the subset was missing `ActorTarget` — which
+  `tick_actor_brains` requires NON-optionally. A seated fighter dropped out of the
+  brain tick entirely and stood still. Two rounds of tests asserted the cast was
+  right, which is what a body looks like from a query; standing still is what it
+  looks like on screen. Seating builds the canonical bundle now.
+  → the lesson is the one already in the file, one level deeper: slice 1's own
+  note says seating "builds the same `ActorClusterSeed` every other spawn path
+  builds". It built the same SEED and not the same BUNDLE, and the difference was
+  invisible to every test written since.
+  ⛔ still no matchbox. Jon's order ends "and only then netcode".
+
+## F. GPT-5.6 second review of the same run (2026-07-26, later)
+
+Six findings. All six verified against the code before starting; every citation
+was accurate again. F1–F5 are closed with named tests, each verified RED first.
+
+- ✔ **F1** registered-only characters authorized one SFX source and emitted
+  another: `advance_move_playback` kept its own `CharacterCatalogOwners` lookup
+  after A13 hoisted attribution onto `BodyPresentationSource`, so the one emitter
+  the mechanism exists for stamped `unscoped` for any character with no catalog
+  entry — credited to the session owner's bank, or denied.
+  → the move timeline READS the published component; the publisher moved to the
+  SIM schedule ahead of the move clock; the fight test installs
+  `dispatch_move_events` and asserts the emitted `OwnedSfxMessage.source` per
+  fighter against a `session_owner` context.
+- ✔ **F2** `CharacterLoadStates` was not a valid current-cast authority: it is
+  append-only and keyed by demand SPELLING, so a later session authorized every
+  character the process had ever loaded, and a room staging `"Mary-O"` authorized
+  nobody.
+  → `StagedCast` (canonical ids, one `SessionScopeId`) is the roster authority;
+  `retire_previous_session_cast` drops the previous cast; canonicalization goes
+  through the declaration authorities, not the sprite table, which forgets the
+  alias once the sheet decodes. `staged_characters()` → `staged_tokens()`.
+- ✔ **F3** the rollback localizer did not probe every registered type — five of
+  the ten state-bearing registration arms never called `record_probe`, hiding
+  `RoomSet`, `LdtkRuntimeIndex`, `EncounterParticipants`,
+  `PendingPlayerHitEvents` and `ProjectileOwner`. `probes > 0` cannot tell full
+  coverage from 5%, so the triage report's "every registered component came back
+  identical" was withdrawn.
+  → all five arms probe (the clone-with-checksum arms reuse the projection they
+  hand GGRS); `RollbackEntryKind::carries_state()` + a non-ignored forcing test
+  compares descriptors against probes. 105 → 250 probed types; the localizer is
+  clean across 2395 compared loads, which is the first time that means anything.
+- ✔ **F4** same-frame registered-character loading could report
+  `UnknownCharacter`: the decode path asked the sheet table, which a registered-only
+  character reaches through an `Update` system that no schedule edge orders before
+  the synchronous callers.
+  → the decode path declares the registry entry itself; the new test drives an
+  untouched sheet table and still pins that an unregistered token stays unknown.
+- ✔ **F5** the coverage sweep still excluded rollback transients: a strike volume
+  carries neither `FeatureSimEntity` nor `BodyKinematics`, so no number of rooms
+  could reach it.
+  → the population is derived from the rollback VOCABULARY (not
+  `bevy_ggrs::Rollback`, which is absent under these fixed-tick fixtures), and a
+  new test sweeps while a volume is live and asserts it was in the population.
+  It immediately found real state: `PortalGunPickup`'s per-tick `arm_timer` and
+  the one-shot `PortalHostScanned` attribution latch are now registered, and
+  `PortalTransitable` is declared derived.
+- ◐ **F6** = **C3**. Marking A1 / slice 7.6 complete overstated the case; the
+  design doc and `PreparedCharacterRegistry`'s own doc comment say what the
+  registry does and does not drive. The work itself is C3.
+  ⚠ **and that doc comment had itself gone stale, found 2026-07-28.** It still
+  read "registering a character does not yet cause a production-spawned body to
+  receive what that character authored — the §7.10 fight test projects it by
+  hand", months after the projection landed and the hand-projection was deleted.
+  A doc comment describing an ABSENCE has no citation to rot (W1), so nothing
+  re-read it. Rewritten as a two-list statement — what derives from the registry
+  and what is still the catalog's — checked against the code rather than
+  inherited.
+  ✔ **the ACTION SET question is DECIDED and landed (2026-07-28).** GPT 5.6:
+  *"an explicitly authored `ActionSet` on `CharacterDefinition` should outrank the
+  catalog row, just as an explicitly authored moveset does."* It is part of
+  character identity — leaving it exclusively in the catalog means the definition
+  authors what moves EXIST while the catalog separately decides what the body and
+  the AI believe the body can reach for, and it leaves a ranged move depending on
+  a projectile specification from a different authority.
+  → `CharacterDefinition::with_action_set` + `PreparedCharacterDefinition
+  .action_set`, resolved in `apply_worn_character_kit` — the ONE writer — before
+  the moveset is derived and before the identity baseline is published.
+  ⚠ **`Some(empty)` is NOT `None`, and this is the load-bearing detail.** Sanic's
+  kit is the momentum ride and the ball dash; an author who wrote an empty action
+  set has said "reaches for nothing", and a resolver asking "does this look
+  empty?" instead of "did anybody author one?" falls through to the catalog and
+  hands him a punch. Hence `Option<ActionSet>`, and hence
+  `an_authored_empty_action_set_is_not_the_same_as_authoring_nothing`.
+  ⚠ **precedence alone is NOT the fix.** The moveset had to be derived from the
+  WINNING set; deriving it from the value the winner displaced gives a body
+  capabilities its own definition removed. Empty-authored-set + catalog-melee is
+  the case that tells the two implementations apart, and it is a test.
+  ⚠ **`wears_host_code_kit` was asking the displaced authority.** It read the
+  catalog row's `playable_kit`, so a definition-authored character still got the
+  shell special folded in and the robot blade's cues handed to somebody else's
+  protagonist.
+  → **first production callers:** both arena duelists now author their
+  empty-but-intentional `ActionSet` on their definitions. The catalog preset that
+  held it carried a comment admitting it was "a second opinion that never wins" —
+  and a second opinion that never wins still reads as the real kit to whoever
+  finds it first.
+  → **preparation flags the incompatibility GPT named:** a `ranged` verb whose
+  authored action set supplies no ranged payload is reported through the binding
+  ledger (new `RangedPayload` namespace). Only when the definition authored a
+  set — judging one it never claimed is how a coherence check becomes noise and
+  gets waived. Three tests, including the negative.
+  ✔ **the MOTION MODEL landed 2026-07-28** — R-a's named successor slice, and the
+  third leg of the kit beside the action set and the moveset.
+  `CharacterDefinition::with_motion_model` + `motion_model_spec_for_character`,
+  definition first and catalog second, with `None` meaning the row stands (every
+  character that has not authored one).
+  ⚠ **BOTH paths in one commit, on purpose.** The action set went into the worn
+  path alone and seated fighters went without it until somebody pulled the thread
+  (X9); doing the third leg the same way would have been repeating a mistake
+  whose diagnosis was two commits old. The projection applies it through
+  `switch_motion_model` rather than inserting a fresh component — a cross-model
+  change must preserve shared body facts and initialise only the destination
+  solver's private state (ADR 0024), and replacing it wholesale would reset a
+  momentum rider to Airborne mid-stride.
+  → two tests, one per path, the seated one RED-probed. Plus the migration half:
+  a character that authored nothing still inherits its catalog row.
+  ⚠ `cargo fmt` on one file rewrote 58 — the documented cascade. Reverted to the
+  8 files actually edited.
+  ✔ **the movement TUNING landed the same day, completing the kit.**
+  `with_movement_tuning` + `movement_tuning_for_character`, definition first and
+  catalog second, in both paths.
+  ⛔ **THREE shapes were tried and TWO were refused by guards, not by review.**
+  Worth keeping, because the third is the general rule:
+  1. the seated projection removes the marker on `None` → it FIGHTS the worn
+     path. For a character with CATALOG tuning and no authored tuning, that path
+     inserts and this removed, on the same tick. Two paths answering one
+     question — the entire failure this campaign is about, reintroduced by the
+     commit closing it.
+  2. pass the catalog in so both resolve identically → the workspace policy
+     `engine.character-authority-is-app-local` REFUSED it:
+     `Option<Res<CharacterCatalog>>` silently substitutes an empty catalog.
+  3. make the catalog REQUIRED → broke three fixtures that deliberately run
+     character demand with NO catalog, a state
+     `a_missing_character_catalog_is_named_rather_than_read_as_no_art` exists to
+     name.
+  → **GRANT here, RETRACT there.** The projection inserts what the definition
+  authored and retracts what IT granted, keyed on the id it recorded — the
+  pattern already used for `AuthoredHurtboxes` three lines above. It cannot fight
+  the worn path because it never touches a marker it did not place.
+  ⚠ **`None` is an ANSWER, not a default.** `AuthoredMovementTuning`'s PRESENCE
+  means "this body's feel is authored rather than the shared dev tuning", so a
+  stale marker is a body moving like the character it used to be.
+  ⊘ **what is left is a different question:** who owns NAMES and ART. That is
+  the catalog's job rather than unfinished C3 work, and it wants its own row and
+  its own argument. See
+  [architecture-campaign-2026-07-28.md](architecture-campaign-2026-07-28.md).
+
+## H. GPT-5.6 fourth review of the same run (2026-07-26, later still)
+
+Seven findings. Two of them are defects in what round G shipped hours earlier,
+which is the most useful thing a review can find.
+
+- ✔ **H1** a bolt that spawns and lands inside ONE tick had no source yet.
+  `inherit_projectile_presentation_sources` runs before the move clock, but
+  `apply_enemy_projectile_effects` spawns later in the same `Combat` set and
+  `step_projectiles` runs immediately after it — so the whole enemy pool was
+  outside the window, and G1's comment claiming otherwise was false.
+  → both materializers stamp the source themselves; the inheritance pass is the
+  backstop for anything else that stamps an owner. The test asserts on the same
+  update that spawns the bolt, because that is the ordering the bug lived in.
+- ✔ **H2** the engine sweep made the infrastructure look finished while the
+  FLAGSHIP content still wrote through the session context — Sanic's rev, skid,
+  launch, transformation and ring loss; Mary-O's transformation, pipe warp,
+  death and stomps.
+  → every call site in both packages is classified, `write_for` or
+  `write_global` with the reason. Pinned by a test whose session belongs to
+  `some_host` while the body belongs to `sanic_demo`, which is the only
+  arrangement where the bug is observable and is exactly a crossover session.
+- ✔ **H3** the parity audit explained the mixed-authority hazard in its own doc
+  comment and then checked only art and display names.
+  → `ProviderDisagreement` against `CharacterCatalogOwners`. The provider picks
+  the cue bank and the authorized source, so it is the field with teeth. The run
+  condition, which named only the catalog, now names every input the audit reads.
+- ✔ **H4** `census_entity_reference` summed TARGET identities, so swapping two
+  bolts' owners left it unchanged — the exact case it was added for.
+  → it hashes `(carrier, target)` pairs. Hashed and not blended: any `a*K + b`
+  mixture decomposes back into two permutation-invariant sums, which the swap
+  test caught on the first attempt. Order-independence has its own test, and the
+  reach is documented (a carrier with no `SimId` degrades to redirect-only).
+- ✔ **H5** the presence-only guard matched by SUBSTRING, so an entry reading
+  `"::Encounter"` would have absolved a future `EncounterMutableRuntimeState`.
+  → exact full type names, both directions, 84 individually reasoned entries.
+  Derived probes are no longer skipped as a class: their exemption is the rebuild
+  promise the declaration already makes, checked at the descriptor rather than
+  copied into a test list that could drift from it.
+- ✔ **H6** the oracle calibrated on `bricks.first()`, and query order is not an
+  authored contract.
+  → matches the authored name `calibration_brick` and the switch id
+  `combat_lab_classify_switch`, and fails loudly if the room stops authoring
+  them. (The runtime `FeatureId` is LDtk's iid; the readable handle is
+  `FeatureName`, so it matches on the name and keys the observation by the id.)
+- ✔ **H7** the semantic question the review asked to have settled: a parry
+  re-owns the shot for COMBAT, and the review noted nothing implies what should
+  happen to its voice.
+  → decided and pinned. The bolt keeps its firer's voice — a fireball does not
+  become a different fireball because somebody swatted it back — and the CLANG is
+  the parrier's, because parrying is the parrier's technique.
+
+## I. GPT-5.6 fifth review of the same run (2026-07-26, later still)
+
+Four findings, all against C3 — which had landed hours earlier. Two more defects
+in freshly shipped work, which is now the pattern rather than the exception.
+
+- ✔ **I1** the prepared projection overwrote equipment grants and disagreed with
+  input authority. It wrote `ActorMoveset` downstream of the player pipeline,
+  which rebuilds `ActionSet`/`ActorMoveset`/`IdentityKit` from `CharacterCatalog`
+  and then overlays equipment — so a prepared-only move could be gated out by the
+  catalog-derived `ActionSet`, and an equipment-granted move was simply erased.
+  → the projection runs BEFORE the persona construction, and
+  `apply_worn_character_kit` consults the same registry, so the prepared moveset
+  IS the identity baseline equipment overlays onto. One construction, not two
+  writers racing for the last word.
+- ✔ **I2** the projection only ever inserted, so a character or form change kept
+  the previous one's moves and hurtboxes (Sanic base↔super, Mary-O's forms).
+  → `ProjectedCharacterKit` records what was projected and retracts exactly that
+  before projecting the new definition. Known limit, written at the code: it
+  records the ID, not the DISPLACED value, so an archetype-seeded moveset is not
+  restored on retraction.
+- ✔ **I3** `write_global` delegates to `SfxWriter::write`, which stamps the HOST
+  session's provider — so course-owned sound (Sanic's distance markers,
+  milestones, act clear, monitor pop; Mary-O's brick smash) was attributed to
+  whoever is hosting rather than to the course that authored it. H2's comments at
+  those sites already SAID "belongs to the COURSE"; the operation could not
+  express it, so the classification was right and the call was wrong.
+  → `BodySfxWriter::write_from(provider, message)`, the third case. Every
+  course-owned site names its provider, and so does every `None` fallback arm
+  where a character cue could not find its body — those fell through to the
+  session too. Pinned by a test in the crossover arrangement: session `some_host`,
+  course `sanic`; before the fix it read `["some_host"]`.
+- ✔ **I4** moveset strike volumes spawned with no `SimId`, so every anonymous
+  carrier hashed to the same fallback identity and two simultaneous hitboxes with
+  SWAPPED owners were indistinguishable — for exactly the `Hitbox`/`StrikeVolume`/
+  `HitboxHits` carriers H4 added the pair probe for. H4 fixed the projection and
+  landed it on a family that could not use it.
+  → `SimId::strike_volume(owner, move, window, volume)`, its own constructor in
+  the closed id vocabulary because it is DERIVED and not sequenced: the box
+  re-opens every time its window does, so a counter would mint a new id per swing.
+  Pinned inside `every_component_on_a_live_strike_volume_...`, which already had
+  the only fixture where a real strike volume is alive; before the change it
+  reported `1 live strike volume(s) carry no SimId`.
+
+## J. Found by RUNNING the game (2026-07-27)
+
+Jon ran the binary. Both of these were shipped by the two commits above and were
+green in every test that existed, which is the whole lesson.
+
+- ✔ **J1** `GgrsSchedule` failed to initialize — a before/after cycle. I1 put the
+  projection `.in_set(Combat).before(apply_worn_character_gameplay)`, and that
+  system lives in `PlayerInput`, which PRECEDES `Combat`; the edge closed a loop
+  through the set ordering. Not one test saw it: the 66 character-runtime tests
+  build a minimal App with no player schedule, and the rollback oracle only
+  initializes that schedule once it steps.
+  → the projection moved into `PlayerInput`, the set the persona construction
+  actually lives in.
+- ✔ **J2** four shipped characters (`sanic`, `super_sanic`, `mary_o`,
+  `mary_o_tall`) declared `<name>_spritesheet` — the sheet FILE stem — where the
+  registry is keyed by the sheet's `target:`. Every one drew a placeholder and
+  printed a 400-id ERROR on every boot. `checked_namespaces()` said the sheet
+  namespace was VERIFIED, because it records that a resolver ran and not what it
+  answered.
+  → the failures ride on the published value (`unresolved_references()`), and
+  `registered_character_art_resolves` boots the shipped shell composition and is
+  red if any registered character names art that does not exist. Registration
+  itself stays non-fatal on purpose — a placeholder beats a session that will not
+  boot — which is precisely why the claim has to be a test.
+
+## K. GPT-5.6 sixth review (2026-07-27)
+
+Seven findings plus two roadmap overclaims. Every citation checked against the
+code first; all seven were real, and two of them were in work committed hours
+earlier. The review notes it could not compile the archive — it did not need to.
+
+- ✔ **K1** the prepared projection REMOVED `ActorMoveset` when a character with a
+  moveset gave way to one without. Worse than the review's framing:
+  `apply_worn_character_gameplay` takes it as a required query column, so the
+  body stopped matching the persona derive ENTIRELY — no name, action set or
+  identity kit ever again. My own fixture could not see it because it installs
+  `CharacterRuntimePlugin` alone.
+  → never removed. The persona derive is the single writer for a worn body and
+  replaces the value on the same tick; the fixture now installs the plugin that
+  owns the derived state it asserts about.
+- ✔ **K2** `MovesetMelee` / `MovesetRanged` were hand-written at the spawn seed
+  and the projection, and by NOBODY on the catalog persona path — so a swap
+  between two catalog characters kept the previous one's routing.
+  → derived from the live `ActorMoveset` after identity and equipment have both
+  written, by `reconcile_moveset_routing_markers`. Deriving beats synchronizing.
+- ✔ **K3** the shrine was not a checkpoint. `save.set_changed()` on a value it
+  never modified, which the value-comparing autosave correctly ignores — and no
+  checkpoint field existed to write into anyway. It healed, logged "healed to
+  full + saved", and persisted nothing.
+  → `PersistedCheckpoint { room_id, x, y }` (v3, with the migration step),
+  recorded by the shrine and applied by `restore_checkpoint_on_session_start`
+  through `transit_body`. Both halves, because a checkpoint nothing records is a
+  lie and one nothing restores is a number in a file. Position is INTEGER pixels:
+  a float would cost `Eq` on the save and let a NaN rewrite the file every frame.
+- ✔ **K4** a migrated save never reached disk. Startup recorded the MIGRATED value
+  as `LastPersistedSave` — "what is on disk" — when disk still held the old
+  version, so the autosave compared equal and skipped, and a player who loaded and
+  quit re-migrated on every startup forever.
+  → `LoadedSave.upgraded`; the shadow is `None` when disk disagrees. RED-verified.
+- ✔ **K5** `reset_all` cleared six of nine collections and kept `items`, `wallet`
+  and `inventory_saved` — a reset button that leaves the player their money. Only
+  its own test calls it today, which is exactly why it was worth fixing before
+  someone wires one up.
+  → destructures the whole struct, so a new field cannot be forgotten, and the
+  test compares against a fresh save rather than field by field.
+- ✔ **K7** `fs::rename` over an existing destination is not replace-safe on
+  Windows: the FIRST save succeeds and every one after it fails.
+  → atomic rename first, then a move-aside fallback that restores the original if
+  the second step fails. Failure modes are "old save kept" or "new save written",
+  never neither. Pinned by a four-round repeat-write test.
+- ✔ **K6** `SimId` concatenated unescaped segments, so `placement("giant/0")` and
+  `spawned(placement("giant"), 0)` both produced `placement:giant/0`. A collision
+  there merges distinct entities on restore, misattributes reference probes, and
+  can despawn the wrong body.
+  ⚠ one correction to the review: it says slash-bearing authored placement ids are
+  "already valid repository content". They are VALID — nothing rejects one — but I
+  could not find one in `game/ambition_content/assets`, so this was latent rather
+  than live. That makes it cheaper to fix, not less worth fixing.
+  → segments are percent-escaped (`%`, `/`, `:`), so the encoding is injective;
+  an id with no reserved character passes through untouched, because a desync
+  report that no longer reads as a sentence is a bad trade. The old
+  `the_constructors_never_collide` checked three hand-picked pairs, which is how
+  this got through — the new test enumerates a cross-product of adversarial
+  segments across every constructor and asserts the whole set is distinct. RED
+  against the exact pair the review named.
+- ✔ **K8** (roadmap overclaim) Task 5 "MET" while its own section records that
+  validation happens after the live world is mutated and no staging world exists.
+  → corrected to MET-WITH-GAP, with the transaction boundary named as what is
+  missing rather than mentioned in passing.
+- ✔ **K9** (roadmap overclaim) Task 11 "MET" while checkpoint persistence did not
+  exist. → the feature landed (K3), so the claim is now true; the status says what
+  it covers and what it does not.
+
+## L. Found by PLAYING the versus stage (2026-07-27)
+
+Three defects, all shipped, all green in every test that existed, all found by
+one act: putting Sanic in the arena and watching where he went. The pattern
+across every one of them is the same and worth stating once — **the tests
+asserted the state a body is in, and the defects were about what a body DOES.**
+
+- ✔ **L1 a momentum rider ran through solid blocks.** The surface-momentum
+  solver's airborne arm has swept solids since blocks became surfaces; the
+  riding arm never did, so a grounded body knew only the chain under it. Sanic
+  ran through the arena's right wall, off the end of the floor, and fell
+  forever. Never a versus problem: every room the LDtk importer produces is
+  built out of blocks, so **no room could contain a momentum character** and the
+  motion model was unusable outside a hand-authored chain course.
+  → `step_riding` sweeps solid blocks before advancing, and zeroes the tangent
+  on contact. Only while riding a BLOCK: a chain is an authored route and the
+  blocks under it are the geometry it was drawn over — the same doctrine
+  `first_circle_hit` already applies to a chain/block tie.
+  ⚠ RED-verified by disabling the sweep (rider ends at x=8628 in a 960px room).
+- ✔ **L2 Sanic's monitors were authored as the wrong kind.** `Solid`, with a
+  design that says you roll through them to break them — which only worked
+  because the solver had no horizontal collision. With collision they became
+  walls, and the break is unreachable by construction: breaking requires
+  rolling, rolling requires moving, and the wall stops him moving.
+  → both are `OneWayPlatform` now. Solid from above (stomp the lid), passable
+  from the side (roll through). Ten lines of LDtk saying what they always were.
+  → the general lesson: **content authored against a missing engine capability
+  encodes its absence.** Adding the capability is what surfaces the encoding.
+- ✔ **L3 a seated fighter wore its character in name only.**
+  `apply_worn_character_gameplay` is a QUERY, and a body missing any required
+  column does not match it — silently. Seating's body had neither `Name` nor
+  `ActorMoveset`, so the arena's fighters had ids and nothing else.
+- ✔ **L4 seated fighters never ticked at all.** `seat_character` hand-picked a
+  component subset instead of building `EnemyActorBundle`; the subset was
+  missing `ActorTarget`, which `tick_actor_brains` requires non-optionally. The
+  CPU opponent had not moved since the stage shipped.
+  → slice 1's own note claimed seating "builds the same `ActorClusterSeed` every
+  other spawn path builds". It built the same SEED, not the same BUNDLE, and the
+  difference was invisible to every test written since. **A note that a
+  construction path is canonical is a claim, and only a shared constructor makes
+  it true.**
+
+### Still open, from the same session
+
+- ✔ **L5 a rider on a CHAIN through a block-built room can still leave it.**
+  → the discriminator is COINCIDENCE, not surface type: a block hit whose
+  contact point lies on the ridden chain IS the surface the chain represents;
+  anything else is in the way. One slop value sized to AUTHORING precision (a
+  chain drawn a pixel off the block it traces is still tracing it), not to any
+  solver tolerance.
+  → riding a block needs no such test — its own faces are already filtered by
+  "moving away from / along the face".
+  ⚠ the new test checks BOTH that the rider does not pass the wall AND that it
+  got near it, so it cannot pass by being held up by the chain's own floor.
+  RED-verified against the old scoping (rider ends at x=8520 in a 960px room),
+  and the speedway oracles stay green — which is the constraint that made the
+  naive "just sweep everything" fix wrong when L1 first tried it.
+
+- ✔ **L6 nothing gates a character against the geometry it will be played in.**
+  L1 and L2 are the same shape: a motion model and a level, each correct alone,
+  broken together, and discovered by a human running the binary.
+  → `probe_containment` + `walled_box` in `ambition_engine_core`, and
+  `no_registered_character_can_leave_a_plain_walled_room` in the app. **149
+  characters × 2 directions in 0.6s.** Split on purpose: the engine owns the
+  probe (a game embedding it runs the probe over its OWN cast — the interesting
+  axis is the policy, and policies arrive with whoever is building on the
+  engine), the app owns the population (read from the CATALOG, because that is
+  what `motion_model_spec_for_character_id` reads; probing anything else tests a
+  copy of the decision).
+  It judges containment and nothing else — not distance, not feel. One question
+  with one right answer is what lets it run over every character without anyone
+  tuning an expectation per character.
+  ⚠ RED-verified by disabling the sweep: names `sanic` and `super_sanic`, both
+  directions, 4 of 298.
+  ⚠ **the row's headline OVERSTATES what it checks (GPT 5.6, 2026-07-27, fair).**
+  The probe builds the same generic scratch body for every character and applies
+  only its `MotionModelSpec` — not its body dimensions, pose-authored collision
+  geometry, abilities, or tuning — and it compares the body CENTRE against the
+  room bounds, so a large character can be half outside while its centre is in.
+  What landed is "no shipped movement POLICY lets a body's centre leave a plain
+  room", which is the defect it was built for and is not character-level
+  containment. See **L13**.
+- ✔ **L7 the versus fighters cannot hit each other.**
+  → `versus_fighters.rs`: two definitions over one archetype (`duelist_moveset`
+  is the grammar — jab / up-tilt / down-tilt / forward smash — and
+  `DuelistNumbers` is the character), sharing the demos' art by id. The FIRST
+  production callers of `with_moveset`, which C3 recorded as "waiting on its
+  first real fighter".
+  ⚠ **four refusals between the button and the HP, three of them silent:**
+  1. **A move's melee-ness was inferred from its ID STRING** (`attack` /
+     `attack_*`). The derived movesets name every swing after its verb, so
+     "starts with attack" and "is bound to the attack verb" were the same
+     question for years — and stop being the same question the moment a moveset
+     is hand-authored, because a fighting game names moves after MOVES. Without
+     a projected `BodyMelee.swing` the Player melee arm emits nothing: the move
+     triggered, played, spawned its hitbox, made its sound, and the hitbox was
+     inert. Now asks the VERB, falling back to the id — a strict superset.
+  2. **A seated fighter was PEACEFUL.** Disposition follows the seed's authored
+     brain and a human seat authors `Passive`; `apply_actor_hit` gives a peaceful
+     body barks instead of damage. A match participant is a combatant whatever
+     brain drives it.
+  3. **Two players cannot hit each other.** `effective_faction` maps ANY
+     player-brained body to `Player` — load-bearing for possession, fatal for
+     versus. The stage turns `FriendlyFire` on with the roster and off when it
+     leaves; "same faction damages each other" is what a versus stage IS.
+  4. **The fighters had 1 HP**, because `Vitals` defaults to 1.
+- ✔ **L9 the roster's TEAMS are declared and do nothing.**
+  → `MatchTeam` is the relation the roster was always describing, and it
+  OUTRANKS faction for "may this hit land". It exists because faction cannot
+  express it: `effective_faction` maps any player-brained body to `Player`
+  (load-bearing for possession — a possessed enemy must stop being hittable by
+  whoever possesses it), so two humans are always the same faction whatever the
+  roster says.
+  → the versus stage no longer touches global `FriendlyFire` at all, and
+  `both_fighters_can_actually_hit_each_other` passes unchanged — which is the
+  proof teams REPLACED the hack rather than sitting beside it.
+  Only bodies that have a team are judged by one, so nothing outside a match
+  notices. A grudge still overrides a shared team: a per-entity feud is
+  deliberately stronger than any group rule.
+  ⛔ **the day-old free-for-all was a world-wide rule change made by one stage.**
+  Right for a 1v1, wrong the moment a 2v2 exists — it makes teammates hittable
+  too. Worth remembering as a shape: *a global switch that produces the right
+  local behaviour is still global.*
+- ✔ **L10 a hand-authored moveset has no validation at registration.**
+  → preparation now resolves every moveset VERB against the runtime vocabulary
+  (`attack`/`smash`/`ranged`/`special` × the directional and airborne suffixes
+  `directional_verb_chain` produces), with the same did-you-mean a bad sheet
+  target gets. The dangling-move-id check covered "the verb points at nothing";
+  this is the other side, where the move exists and the verb is a word the
+  trigger path never asks for — authored, prepared, projected, never triggered.
+  The vocabulary is BUILT from the chain rather than listed, so a fifth base or
+  direction teaches it in one place.
+  ⚠ ORIGINAL ROW BELOW, kept because its premise was half wrong: L7's
+  first fighter swung at nothing for an hour because its move ids were not in the
+  `attack` family, and every layer downstream treated that as "not a melee move"
+  rather than "this move is unreachable". `CharacterDefinition::with_moveset`
+  could refuse — or at minimum WARN — for a moveset whose verbs bind nothing the
+  input layer emits, the same way `checked_namespaces` reports an unresolved art
+  reference. Note the shape: the fix for the ID coupling makes the failure
+  IMPOSSIBLE for the verb family, but a moveset that binds a verb nothing
+  presses is still silent.
+- ✔ **L11 the CPU opponent was a statue.** Player-vs-CPU is what anybody with
+  ONE controller gets, so it is the default versus experience and the first
+  thing a stranger sees. The seated body had a target, a faction, a hostile
+  disposition, an `ActorControl` and a moveset — and no `Brain`. The enemy spawn
+  path inserts one beside the cluster (`into_components()` does not carry one)
+  and seating did not, so nothing ever wrote the control frame.
+  → **third instance of one shape in one session** (missing `ActorTarget`,
+  missing `Name`/`ActorMoveset`, missing `Brain`): *a construction path that
+  copies most of another one is a CLAIM.* Each time, every component that would
+  explain the symptom was present and correct, and the missing one was invisible
+  to any test that queries components. The general fix is a shared constructor;
+  seating now uses `EnemyActorBundle` + `enemy_default_brain`, which is as close
+  as it gets without the spawner growing a "spawn me one of these" entry point.
+- ✔ **L15 Task 11 is PARTIAL: startup does not open the checkpoint's room.**
+  → `restore_checkpoint_on_session_start` ROUTES now: a checkpoint in another
+  room of this world emits an ordinary `RoomTransitionRequested` at the
+  checkpoint's coordinates, once per session. A room this world does not contain
+  still warns and keeps the session's own room — that is the case the old
+  "deliberately not applied" sentence actually described.
+  ⚠ RED-verified. And note which check was already GREEN the whole time: "K3 a
+  shrine records a checkpoint and the next session resumes there" passed while
+  the feature only worked when the session happened to open in the right room.
+  **A guard phrased as an outcome can still be satisfied by the narrowest case
+  that produces it** — [[feedback_a_green_guardrail_proves_nothing]] again, from
+  the other end.
+  ✔ the guard check WAS tightened the same day and this row was left stale
+  (noticed 2026-07-27): the armed check now names
+  `a_checkpoint_in_another_room_of_this_world_routes_the_session_there` and
+  `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` alongside the
+  original outcome test, so the narrow case can no longer satisfy it alone.
+  ⚠ a queue row can rot in the direction of PESSIMISM too, and that is the
+  direction nobody checks — an item that says "still open" when it is closed
+  costs a re-audit, which is what this cost. The
+
+  saved `room_id` is only COMPARED against the room the session already opened;
+  it never chooses it. Rest in B, quit, start a session that opens in A, and the
+  checkpoint is ignored — and the generation latch is set before the comparison,
+  so entering B later in the same session does not apply it either. The roadmap
+  row previously called the mismatch "deliberately not applied", which is true of
+  the comparison and false as a description of the feature. Startup routing has
+  to consult the checkpoint, and the latch has to stay open (or be keyed per
+  room) until its room is entered. Roadmap row corrected to PARTIAL.
+- ✔ **L16 GPT 5.6's round-lifecycle findings (2026-07-27), all real.**
+  1. **Seat 0 could not lose.** It is the adopted PRIMARY PLAYER, and
+     `death_respawn_player` teleports and full-heals inside the damage pass —
+     so the rules never saw zero and best-of-three was rigged one way.
+  2. **Seat 1's KO ran the exploration economy** — bounty coin, heart, death
+     explosion, in-place respawn timer. An arena has no economy.
+     → `RulesetOwnsDeath`: the body still takes damage and still reaches zero;
+     what is suppressed is the CONSEQUENCE the world imposes. Engine-shaped —
+     rounds, stocks, lives and training modes all need it.
+  3. **A KO did not stop the fight** — only the rules and the HUD read
+     `MatchPhase`. Now a hold zeroes the sim clock via `ClockScaleRequest`, the
+     engine's own cutscene/boss-freeze primitive.
+  4. **Leaving mid-match froze the score rather than ending it.** Reset on ENTRY,
+     so a route change that skips the teardown still starts clean.
+  5. **Partial seating closed the latch forever** (`any` was the wrong question).
+     Now needs EVERY participant, with already-seated indices read off the world
+     so the retry cannot double-spawn.
+  ⚠ **and one the review did not reach, found by testing re-entry: seated
+  fighters were spawned UNSCOPED.** A knocked-out loser survived leaving the
+  stage, so the next match opened with a corpse at zero health lying in it and
+  instantly scored round one. Session-scoped now, and an adopted seat starts at
+  full health like a spawned one.
+  ⚠ **the seat-0 test's first version was VACUOUS**: it wrote health to zero
+  directly, which never invokes the death path, and passed identically with and
+  without the fix. It drives a real lethal `HitEvent` now. *Writing the state a
+  system would have written is not a test of that system.*
+- ✔ **L13 make the containment probe use the character's real BODY.**
+  → each character is probed with its AUTHORED collision size (144 of 151
+  publish body metrics; the test asserts the sized majority so the fallback
+  cannot quietly become everybody), and the escape measure is the BOX rather
+  than the centre. An engine unit test pins the difference with a body larger
+  than the room: it reports an escape while its centre never leaves. L6 probes
+  the motion policy with a generic scratch body and a centre-point bounds test.
+  Upgrading it to the character's authored dimensions and to an AABB-vs-bounds
+  test would turn "the policy is containable" into "this character is
+  contained", which is what the row's headline currently claims. Cheap, and it
+  widens the population from 3 distinct policies to 149 distinct bodies.
+- ✔ **L14 the versus rules run on the RENDER clock, outside the sim schedule,
+  and register nothing for rollback (GPT 5.6, 2026-07-27, correct).**
+  → SPLIT, not moved. `settle_versus_round` is authoritative and runs in
+  `CombatSet::Settle` — the phase whose own docs say "everything that reads this
+  tick's damage outcome rather than producing it", which is what observing a
+  zero-health fighter is. `advance_versus_hold` stays on the render clock,
+  writes no simulation state, and asks the engine to zero the sim clock while
+  the card is up. They meet at one bit, `reset_pending`, crossing in the safe
+  direction: the render clock decides WHEN a beat ends, the sim clock decides
+  what happens because of it. `VersusMatch` is rollback-registered.
+  ⚠ the comment that made this worst was mine — "nothing here needs the sim
+  schedule's ordering", written above a system that teleports bodies.
+  **A comment asserting a system is order-free is a claim about every line
+  under it, and it ages exactly as well as the code does.**
+  `run_versus_rules` sits in `Update` and writes authoritative state — fighter
+  health, body position and velocity, facing. The comment claiming "nothing here
+  needs the sim schedule's ordering" is false and should go. `VersusMatch` is a
+  plain resource, so a rewind restores the fighters and not the scoreboard, and
+  they can disagree.
+- ✔ **L17 nothing tests a 2v2, which is the case teams exist for.**
+  → `four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners`
+  seats four fighters through the real seating path and asks the real damage
+  relation about all twelve ordered pairs. Also the first thing to seat more
+  than two, which the spread and the per-seat retry were written for and had
+  never been asked to do.
+  ⚠ **the first arrangement proved nothing and the test said so itself.** With
+  `blue, red, blue, red` the teams merely AGREE with `faction_for`'s alternating
+  Player/Enemy, so every pair would have been decided identically without teams
+  existing. Pairing adjacent seats (`blue, blue, red, red`) makes both override
+  directions appear at once: teammates with different factions who must not hit
+  each other, and opponents with the same faction who must.
+  → the meaningfulness assertion at the bottom of the test is what caught it,
+  which is the argument for writing one: *a test that cannot fail for the reason
+  it names should say so out loud.*
+- ✔ **L19 no STAGE seats more than two.**
+  → the versus roster scales to four seats with the controllers, teams paired by
+  SIDE so partners start together. `MAX_VERSUS_SEATS = 4` (one screen, four
+  `SlotControls` slots).
+  ⚠ **caught a real bug on its first run:** the ADOPTED seat 0 had no team —
+  the insert had been written over when death-ownership was added to that
+  branch. Seat 0 therefore fell back to the FACTION rule, and in an all-human
+  match that means nobody can hit player one. The 1v1 rigging bug again in a
+  different hat, and invisible to every 1v1 test because a 1v1 has a CPU in it
+  whose faction still differs.
+  → the lesson is about test POPULATION, not about teams: *the smallest case
+  that exercises a rule is not always the smallest case you can build.*
+  ✔ **and end to end**: `four_pads_each_move_their_own_fighter_and_nobody_else_s`
+  presses each pad in turn and checks every other body for drift, so a pass
+  cannot mean "one device drives everybody". RED-verified by capping the
+  secondary writer at slot 1.
+- ✔ **L18 the versus HUD is text where it should be bars, and there is no
+  round-start beat.**
+  → `HudReadout::gauge` carries a 0..=1 FILL — the fraction, not a rendered bar.
+  How a fill is drawn belongs to presentation, and a game that formatted its own
+  block characters would have decided width, colour and animation by accident.
+  Additive: `fill: None` is byte-identical to before.
+  → the renderer draws it as a node tracking its slot's LIVE position, because
+  `place_declared_hud` moves slots between regions as the profile changes. A
+  slot with no published fill collapses to zero, so a gauge can be conditional
+  (a boss bar that appears with the boss) without a second slot.
+  → one slot PER FIGHTER: a gauge is a per-body fact, and two bars in one slot
+  would be one bar showing something meaningless.
+  → the round-start card does NOT freeze. The round is live under it: freezing
+  again would make every round begin with a stutter, and a player who can move
+  while it fades has already been told.
+  ✔ **L20 DECIDED (2026-07-27), before the second one-off rather than after.**
+  `fill: Option<f32>` became `figure: Option<HudFigure>`, an enum the renderer
+  matches EXHAUSTIVELY. Today it has one variant, `Gauge(f32)`, so this is a
+  rename with a shape — not new behaviour.
+  → **why not a second `Option` field:** a renderer that has not been taught a
+  new field draws NOTHING, and silence is the failure mode this codebase keeps
+  paying for (a body no family claimed rendered as absence; a binding that failed
+  to resolve rendered as absence). An enum stops the renderer compiling until
+  somebody decides how the new figure looks, which is exactly when that decision
+  should be made.
+  → **why not `kind: HudReadoutKind`:** a health slot is a label AND a number AND
+  a bar simultaneously. A readout that had to be exactly one thing could not
+  express the only case that exists.
+  → **why not a per-slot widget declaration:** the split the gauge's own docs
+  already stated — a readout publishes a VALUE, and how it is drawn belongs to
+  presentation — is a rule about the DATA, and the declaration side
+  (`HudSlotSpec`) is already where drawing choices live (region, colour, size,
+  centred). Adding a widget vocabulary there would have given the same decision
+  two homes.
+  → variants are presentation PRIMITIVES, the same category as `SurroundRegion`;
+  the engine still never learns what "health" is.
+
+- ✔ **L21 the other versus fighter was INVISIBLE (Jon, ran the game, 2026-07-27).**
+  It had a body, a published view, a hurtbox, a moveset, health and a team — and
+  no picture, and not even a placeholder. Cause is named in the marker's own
+  docs: "the authored render pass only spawns visuals for `spec.enemy_spawns`,
+  and the dynamic pass only for EncounterMob / reward chests, so a directly-
+  staged actor would render invisibly." A seated fighter is a directly-staged
+  actor and seating never marked it `RuntimeStagedActor`.
+  ⚠ **half the cast is what hid it.** Seat 0 is the adopted PRIMARY PLAYER and
+  renders through the player path entirely, so every look at "the fighters" was
+  looking at one body that was fine for reasons the other did not share.
+  ⚠ **FOURTH time this session seating differed from the spawn path it copies**
+  (after `ActorTarget`, `Name`/`ActorMoveset`, `Brain`). The first three were
+  invisible to component-querying tests because the components were present;
+  this one was invisible to every test, because nothing asked whether a fighter
+  is DRAWN. Now `every_seated_fighter_has_something_on_screen` does.
+- ✔ **L22 a body no render family claims draws NOTHING, not a placeholder**
+  (Jon's stronger point, same session). The existing placeholder covers art that
+  failed to RESOLVE; it cannot cover a body nobody was asked to draw.
+  → `draw_unclaimed_feature_views`: any published view with no visual gets a
+  magenta rectangle and a warning naming the id. A diagnosis, not a design.
+  ⚠ **registered OUTSIDE the big render chain, and that is load-bearing.**
+  Inserting it INTO the chain adds a command-flush boundary and broke the
+  multi-provider acceptance test on its own — an insert from the worn-character
+  binder landing on an entity despawned the same frame. See **L23**.
+- ✔ **L23 a latent despawn/insert race in `bind_worn_character_presentation`.**
+  → DIAGNOSED first, as the row demanded. `PlayerVisual` lives on the PLAYER
+  BODY, and the body is session-scoped — so a provider switch has one frame
+  where teardown is despawning it and the binder is still decorating it. Which
+  flushes first was decided by system ordering, not by anything either system
+  knew.
+  → `try_insert` / `try_remove`, already this codebase's convention for a
+  deferred reconcile (`action_scheme.rs` says it in the same words). Failing
+  silently is CORRECT: binding a sprite onto a body being destroyed has no
+  meaning, and ordering presentation around teardown would make the render layer
+  responsible for session lifecycle.
+  → with the race gone, the unclaimed-body floor moved back INTO the chain. That
+  the chain tolerates it is the proof the fix is real rather than the system
+  having been kept away from the sharp edge.
+  ⚠ **a hazard a no-op can trip was already a hazard.** The system that surfaced
+  this spawns nothing in the failing scenario; it only moved a flush boundary.
+  Worth remembering when a test breaks after an "unrelated" addition.
+- ◐ **L24 sweep the other deferred reconciles that target session-scoped
+  bodies.** ✔ `hit_flash.rs` (both source writes) — its own comment documents
+  that enemy sources are ROOM-SCOPED, so a transition despawns them. REASONED,
+  not reproduced: the candidate query guarantees the entity exists when the
+  system RUNS; what is unproven is that another system despawns it before the
+  flush. Weaker evidence than L23, and said so in the commit.
+  ✔ **the reproduction harness exists**: `rendering::deferred_write_safety`.
+  `run_frame_despawning_targets` runs a pass, despawns everything it could have
+  targeted before the flush, and reports whether the frame survives. Two
+  meta-tests keep it honest — it must CATCH an intolerant pass and PASS a
+  tolerant one, because a harness that cannot fail launders guesses into results.
+  ✔ `actors/overlays.rs` — REPRODUCED and fixed on the harness's first use.
+  ✔ `gate_portal_visuals.rs` (both sites) — REPRODUCED and fixed.
+  ⚠ **the portal probe was VACUOUS at first** and passed against unfixed code:
+  it registered no portals, so the pass's outer loop never ran. A green probe
+  over an empty input is the exact failure the harness exists to prevent, and it
+  committed it on its first outing. Registering a matching portal made it red.
+  ✔ `actors/boss.rs` (boss visual insert) — **REPRODUCED and fixed, 2026-07-27.**
+  It was deliberately NOT converted on the strength of "same shape as the
+  others", which is reasoning, and this row existed because reasoning was not
+  enough. The probe panics against the plain `insert` on its first run: a boss
+  dying on the frame its sheet finishes loading is the ordinary way to hit it.
+  ⚠ **the probe was expensive and the expense was the POINT**: the pass
+  early-outs unless a boss sheet resolves AND `Assets<Image>` already holds its
+  page-0 texture AND both read-models carry the id. Each of those is a way to
+  pass while exercising nothing — exactly how the portal probe was vacuous.
+  ⛔ **and building it found a real engine gap.** `FeatureViewIndex` and
+  `BossRenderIndex` had no public constructor at all: the per-frame rebuild is
+  the only writer and its inserts are private, so NOBODY outside
+  `ambition_sim_view` could build one. A presentation pass that takes a
+  read-model as its whole input was therefore untestable by any consumer —
+  including, precisely, another game built on this engine. Both now have
+  `from_rows`, which constructs a NEW index rather than exposing mutation of a
+  live one, so a fixture is possible and an out-of-band write into a live
+  read-model still is not.
+  ✔ **the character-sprite passes, and the harness was BROKEN.** (2026-07-27)
+  Pointing it at `upgrade_actor_sprites` and `ensure_player_visual_sprite` found
+  both — and found that the harness itself had been reporting by luck.
+  ⛔ **`run_frame_despawning_targets` never ordered its two systems.** The doc
+  said "chained AFTER the pass"; the code was two bare `add_systems` calls, so
+  which ran first was the scheduler's choice and a probe reported a hazard as
+  ABSENT whenever the pass happened to win. Every earlier PASS from this harness
+  was worth nothing; the two failures were luck pointing the right way.
+  → and the obvious fix is also wrong: `.chain()` inserts an `ApplyDeferred`
+  between the systems, so the despawn APPLIES before the pass runs and the pass's
+  query never yields the entity — the safe case, not the hazard. It has to be
+  `.chain_ignore_deferred()` with the teardown FIRST, so the despawn is queued
+  while the entity is still live and both buffers reach one flush. That IS the
+  production shape: one system reads an entity another has already asked to
+  despawn.
+  ⛔ **and the actor probe was vacuous on its first run** — `try_load_spec_for_target`
+  keys on the sheet's filename ROOT (`"robot"`), not `"robot_spritesheet"`, so it
+  returned `None` and the probe skipped. Third vacuity in this row's history.
+  → so every production probe now carries a WITNESS: a second entity in the same
+  population that is NOT despawned, plus the component the pass must have written
+  to it. `run_frame_despawning_targets_with_witness` fails if the witness is
+  untouched. A probe that passes and a probe that RAN are different claims and
+  this row has now paid for that lesson three times.
+  ✔ both reproduced sites converted: `upgrade_actor_sprites` (the boss twin over
+  the ordinary actor population) and `ensure_player_visual_sprite`.
+  ⚠ do not blanket-convert: `try_insert` on a target that should ALWAYS exist
+  turns a real bug into silence. The point is to decide per site, not to mute.
+  ✔ `refresh_player_sprites_on_game_assets_change` — REPRODUCED and converted.
+  Same `PlayerVisual` target reached on a different frame: a confirmed
+  quality-profile switch rebuilds `GameAssets` while a provider switch despawns
+  the session scope.
+  ✔ **`ambition_render` now holds ZERO plain `commands.entity(..).insert(..)`
+  calls.** Every one that existed was probed; four of five panicked; each
+  conversion names its reproduction at the site. That is the row closed on
+  evidence rather than on a policy.
+  ✔ **the actor overlay / nameplate families need NO probe, and the reason is
+  structural** (audited 2026-07-27, source-read rather than assumed):
+  → they reconcile by OWNER ID every frame, not by holding a parent handle.
+  `sync_actor_nameplates` rebuilds from `owner_id` strings and despawns any plate
+  whose owner is no longer a candidate; `cleanup_hit_flash_overlays` is the twin
+  for overlays and is registered in the same chain. A despawned owner therefore
+  yields a one-frame orphan that the next frame retires — a visual glitch, not
+  the insert-on-a-dead-entity PANIC the harness exists to find.
+  → the nameplate's children are spawned through `with_children` in the SAME
+  command as their root, so there is no window in which a parent can vanish
+  between the two.
+  ⚠ **written down as a negative result on purpose.** "No probe needed here" is a
+  conclusion somebody will otherwise have to re-derive, and the cheap version of
+  this row would have been a probe that passes because the hazard is absent —
+  which reads exactly like a probe that passes because the code is careful.
+
+- ✔ **L12 a GENERATED file projected from uncommitted artifacts shrinks
+  silently.**
+  → `regen_music_registry.py` refuses to DELETE tracks without
+  `--allow-removals`, on both the write and the `--check` path, and names every
+  track it would have dropped. Adding stays free — the generator's own docstring
+  calls registration an invariant, and it still is; it is REMOVAL that now needs
+  somebody to have meant it. Verified both directions. `music_registry.ron` is a projection of the rendered-OGG tree, and
+  the OGGs are build artifacts nobody commits. Merging
+  `fresh-clone-setup-fixes` (2026-07-27) brought a regeneration done on a
+  machine where seven cues had not been rendered, and it DELETED all seven from
+  the shipped registry — as a side effect the commit message describes as riding
+  along. One test happened to name one of the seven, which is the only reason it
+  was caught; the other six would have gone quietly.
+  → the rows are restored. The fragility is not: any regeneration on a partial
+  asset tree does this again. Options, cheapest first: make the generator refuse
+  to SHRINK without an explicit flag; or commit the track list as authored input
+  and let the generator only add; or have `--check` compare against the tracked
+  file and fail on removals. The first is closest to what the generator already
+  believes about itself ("registration is an invariant, not a chore").
+- ✔ **L8 the versus stage has no rules.**
+  → `versus_rules.rs`: KO at zero health, best of three, three declared HUD
+  slots. Deliberately NOT a timer, ring-out, stocks or hazards — each is a real
+  design decision with a real feel cost, and shipping four at once would mean
+  none was chosen. This is the minimum under which "I won" is true.
+  `MatchSeat` is the new fact seating publishes: rules have to NAME a fighter,
+  and every other way to identify one is a guess (`Brain::Player(slot)` misses
+  the CPU seat, the worn id collides in a mirror match, entity order is not an
+  order).
+  The rules live in the APP. A round is not a simulation primitive; an engine
+  that knew what "best of three" meant would be a fighting-game engine rather
+  than an engine a fighting game can be built on.
+  ⚠ the test displaces a fighter before knocking it out — the first version
+  KO'd a fighter that had never moved, so "it was returned to its seat" was true
+  for free.
+  ✔ health BARS landed (L18/L20): the declared HUD grew a `HudFigure::Gauge`, the
+  renderer draws it, and versus publishes one gauge PER SEAT. This row said "the
+  seam has no bar widget" for a day after it had one — pessimism-direction rot
+  again, and nobody audits that direction.
+  ✔ **the round-start COUNTDOWN landed 2026-07-28.** The row called it a feel
+  call with two defensible answers; GPT 5.6's fourth review settled it as
+  ENGINE BEHAVIOUR — *"use a deterministic simulation-owned phase, not render
+  time and not another clock-scale trick"* — and only the duration is balance.
+  The row's own objection was right and answered rather than overruled: a freeze
+  would make every round begin with a stutter, so the CLOCK KEEPS RUNNING and
+  what is suspended is authority over the fight, not time. Animation and the HUD
+  advance at full pace under the count.
+  `MatchPhase::Starting { ticks_remaining }`, 90 ticks — 60 saying which round,
+  30 saying go — counted in TICKS rather than against a float dt that is
+  deterministic only because the fixed-tick host happens to hand it a fixed
+  timestep.
+  ⚠ **`begin_round` no longer hands the controls back.** It did, and it runs when
+  the KO hold ends, so releasing there would put them back 90 ticks early and
+  leave the count running over a live fight — the exact defect being replaced.
+  ⚠ **the forgiveness buffers keep filling while control is suspended.**
+  `ScriptedControl` stops a body ACTING on input, not the motion buffer and the
+  fire charge from accumulating, so a quarter-circle rolled during "3, 2, 1" is
+  still inside its 0.45s window when the count ends. Both are cleared at the
+  transition.
+  → the test holds RIGHT through the whole count and requires the fighter not to
+  move. Every earlier version of this feature would have passed "the phase is
+  Starting" and "the phase becomes Fighting" while the fight ran underneath.
+
+## M. Task 5 audited, and the row was pointing the wrong way (2026-07-27)
+
+The roadmap said Task 5's transactionality gap was "there is no staging world,
+so a construction that fails its boundary check has already mutated the live
+world". Source-checked, that is FALSE for room construction:
+`prepare_from_parts` returns a `Result` and detects every variant before any
+live-room mutation, and `apply_to_world` is infallible by construction. **The row
+would have sent somebody to build a staging world for a problem this path does
+not have** — which is the most expensive kind of wrong a planning doc can be.
+
+- ✔ **M1 the sandbox reset panicked on a correct refusal.** Of the callers,
+  `lifecycle_commit.rs` declines gracefully and `session/reset/mod.rs` did
+  `.unwrap_or_else(|error| panic!(..))` — so a preflight that did its job killed
+  the process holding a running game. It declines now; the preflight already runs
+  before the wipe, so a refusal costs nothing.
+  → `session/setup.rs` still panics, DELIBERATELY: no game exists yet, and a
+  silent partial start is worse than a loud stop. Same error, different stakes,
+  said in a comment so nobody "fixes" the asymmetry.
+- ✔ **M2 the honest residue of transactionality: can `spawn_contents`' COMMANDS
+  fail after the infallible boundary?** Yes, and the answer was two lines wide
+  rather than a staging world.
+  → AUDITED, not assumed: almost everything the construction path queues is a
+  SPAWN, which cannot fail. Three commands touch existing entities, and two are
+  the arms of one `if` in `retire_outgoing` — the plain `despawn()` and
+  `retire_physics_entity`'s `insert(RigidBodyDisabled, ..)`. The outgoing roster
+  is collected before the frame's flush, so an entry can already be gone (an
+  actor death, a teardown racing a transition), and retiring something already
+  gone is the outcome BOTH want. `try_` on both.
+  → the third (`complete_pending_physics_despawns`) is left alone deliberately:
+  its entities come from its own query and only that system manages the
+  component. Per-site rule, not a blanket conversion.
+- ✔ **M3 audit the other lifecycle paths' failure handling.** Done, and the
+  answer is that no code change was needed — which is a result, not a
+  non-result. Per-caller verdict, in the style of the CC2 completion table:
+
+  | caller | on a refused preflight | verdict |
+  | --- | --- | --- |
+  | `lifecycle_commit.rs` | logs, `CommitOutcome::Retry`, world untouched | ✔ |
+  | `room_transition/loading.rs` | `fail_work(..)` with a player-facing message + work state | ✔ best of the six — it SURFACES |
+  | `session/reset/mod.rs` | declines and keeps the running session (M1) | ✔ was a panic |
+  | `session/setup.rs` | panics | ✔ deliberate: no game exists yet |
+  | `world_flow/room_transition_assets.rs` | warns, continues | ✔ a neighbour PREFETCH failing is not fatal |
+  | `dev_runtime.rs` | `map_err(..)?` to the caller | ✔ |
+
+  → the shape worth keeping: every path refuses BEFORE mutating, and they differ
+  only in how loudly, which is a per-caller judgement about stakes rather than
+  an inconsistency to be flattened.
+- ✔ **M4 the roadmap's per-task Status lines drift, and nothing catches it.**
+  → `scripts/check_roadmap_evidence.py`: every row claiming MET must cite
+  something a machine can find, and that thing must still exist. Wired into the
+  goal guard.
+  → it deliberately does NOT judge whether the cited test proves the claim —
+  that is a human question, and pretending otherwise would be the same
+  overclaiming it exists to catch.
+  → one deliberate looseness: only a row where EVERY citation has vanished is
+  reported, because a single missing one is usually prose in backticks. Better a
+  check that is quiet about ambiguity than one that gets muted for crying wolf.
+  ⚠ the general lesson, and it applies well beyond this document: **a status
+  that names a TEST can be verified; a status that describes a SITUATION
+  cannot.** Three stale rows in one file, all found by reading the source.
+  ✔ **DECIDED and done (2026-07-27): a SECOND PARSER, not a reshaped document.**
+  `status.md` is a table of WORKSTREAMS; the roadmap is a list of TASKS. They are
+  different documents on purpose, and bending one to fit a tool is how a tool
+  starts deciding what may be written down. The script now also reads a table row
+  whose state cell opens with a bolded `DONE` / `FIXED` / `CLOSED` / `LANDED`
+  verdict — the row's HEADLINE, so a `**PARTIAL**` row that later mentions a
+  landed slice is still correctly skipped.
+  ⛔ **and a document with NEITHER shape is now a PROBLEM, not zero rows.**
+  That is the whole point of the row: "checked 0 rows, no problems" reads as a
+  clean bill of health and is the most misleading thing a guard can say.
+  → running it on `status.md` immediately found two real gaps in the CHECKER,
+  not the document: it only recognised snake_case identifiers, so two rows citing
+  only TYPE names read as "cites nothing checkable"; and it resolved cited paths
+  from the repo root only, so a sibling link (`engine/encounter-orchestration.md`)
+  read as a deleted file. A guard demanding a particular vocabulary is not
+  checking evidence, it is checking style.
+  → all three verifications RED-first: the fixture with a doc-only citation and a
+  deleted path still fails, a shapeless page now fails, and an honest `**PARTIAL**`
+  row is skipped.
+  ✔ **the ADRs are swept (2026-07-27), and they DID want a third parser.** 30 of
+  31 carry `## Status` followed by a verdict paragraph, and an ADR is ONE claim
+  rather than a list of rows — neither the task parser nor the table parser
+  applies. Reshaping thirty ADRs to suit a script was the alternative.
+  → 11 of 30 claim implementation (`IMPLEMENTED` / `ENFORCED`); the rest say
+  "Accepted direction; implementation remains incremental", which records a
+  DECISION rather than finished work and is correctly skipped. All 11 cite
+  evidence that still exists.
+  ⚠ **the ADRs' vocabulary was missing from the classifier**, so the first run
+  reported "checked 0 rows" for every implemented ADR — the quiet-clean-bill
+  output this script exists to refuse, produced by the script itself. `IMPLEMENTED`
+  and `ENFORCED` are completion words; `INCREMENTAL` and `DIRECTION` qualify one.
+  ⚠ **and then the shapeless-document guard misfired on nineteen ADRs.** A
+  document whose shape WAS read and which honestly claims nothing is a legitimate
+  zero; a document this script cannot PARSE is not. They look identical in the
+  output, so the distinction is now TRACKED rather than inferred from the count.
+  → this is the third planning shape in two days. The pattern worth keeping:
+  **a document's shape is a decision about what it is for, and a guard that
+  demands one shape is a guard deciding what may be written down.**
+
+## N. The second GPT 5.6 review (2026-07-27) — what it reopened
+
+Eight findings, all real, and the pattern it named is the one worth keeping:
+*"the individual pieces were added — four seats, teams, KO holds, HUD gauges,
+preflight preparation, fallback rendering, evidence citations — but several
+completion claims were made before tracing how those pieces interact end to
+end."* That is a fair description of the failure mode, and every row below is an
+instance of it.
+
+The through-line: **each defect was invisible in the configuration the feature
+was first built for.** Scoring by "the other index" is right at 1v1. Two HUD
+slots are enough for two fighters. A stand-in that claims an id is harmless if
+the real family always beats it to the frame. A teardown ordered before its
+preflight costs nothing while every preflight passes. Shipping the second
+configuration is what made them findable — and none of them was found by
+shipping it, they were found by reading.
+
+- ✔ **N1 scoring was `1 - loser.min(1)`** — "the other one", which is the other
+  SIDE only when there are exactly two bodies. Seat 2 is on blue, so blue's
+  defeat awarded the round to index 0: blue. Worse than wrong — the loser came
+  from `.find` over an unordered query, so *which* fighter was blamed depended
+  on archetype layout, and the answer was right or wrong by luck.
+  → scoring is keyed on `MatchTeam` now. A team is out when every member is
+  down; both sides falling together is a draw.
+- ✔ **N2 the HUD declared two health slots** and every seat above zero wrote
+  into the right-hand one. A four-player match showed two bars, the right-hand
+  one holding whichever body the query reached last — worse than showing
+  nothing, because it looks like information.
+  → four slots, one per seat, coloured by side; an unfilled slot is CLEARED.
+- ✔ **N3 the KO freeze could not be released.** The hold wrote scale 0.0 and
+  then scale 1.0 in the same frame, and the reducer keeps the strongest slow by
+  `min` — deliberately, so ordering cannot decide a freeze. Measured before the
+  fix: round two opened at clock scale **0.47**. The release is a
+  `ClockResetRequest` now (which snaps), and the frame it lands on asks for no
+  scale at all.
+  ⚠ the review also asserted `ClockResetRequest` could not win against a
+  same-frame scale request. It can: `apply_clock_reset_requests` runs after the
+  scale reducer and writes `ClockState` directly. Probed rather than assumed —
+  the first RED probe PASSED, which is how the distinction surfaced.
+- ✔ **N4 the "presentation half" mutated rollback state.** `advance_versus_hold`
+  ran in `Update` on the render clock and wrote `VersusMatch`, which is
+  rollback-registered — so a restored scoreboard depended on presentation-frame
+  history resimulation does not replay. Calling a system "the presentation half"
+  does not make the resource it writes presentational.
+  → one system, in `CombatSet::Settle`, counting the hold on
+  `WorldTime::wall_dt`: unscaled, because the hold is what zeroed the scaled
+  clock.
+- ✔ **N5 a round PAUSED, it did not end.** The reset restored health, position,
+  velocity and facing — the visible half — and froze everything else where the
+  KO caught it. A projectile crossing the stage and a smash mid-swing resumed
+  into round two and could hit a fighter who had not had a frame in which to
+  move.
+  → `begin_round` despawns in-flight projectiles, removes `MovePlayback` and
+  clears the round-scoped reaction timers. It deliberately does NOT despawn
+  strike volumes itself: their existence is derived from `(playback t, window)`
+  and `retire_orphaned_strike_volumes` already enforces that every frame. A
+  second authority over one lifetime is how the two come to disagree.
+- ✔ **N6 a refused sandbox reset was not free after all.** M1/M3 above claim
+  "the preflight runs before the wipe precisely so a refusal costs nothing", and
+  the schedule made that false: `clear_transient_on_sandbox_reset` ran BEFORE
+  the processor and keyed on the REQUEST, so a start room that failed its
+  boundary check emptied the player's hands, despawned the portals, and then
+  declined.
+  → a new `SandboxResetCommitted` message, written once the preflight agrees.
+  A request is what somebody asked for; the commitment is what the preflight
+  allowed, and only the second may authorise a teardown.
+  → the review found the engine-side one. `despawn_player_clones_on_reset` in
+  the app crate had the identical defect and was registered `.before(...)` for
+  the same wrong reason — worth noting that the review's finding generalised and
+  its enumeration did not.
+- ✔ **N7 the unclaimed-render floor, three ways.** Registered twice (the second
+  copy outside the chain and ungated by `session_presentation_is_ready`); second
+  in the chain under a comment claiming it ran "after every family"; and — the
+  bad one — its stand-in CLAIMED the id, so a magenta rectangle drawn on a frame
+  where a family was not ready made that family unreachable for the feature's
+  life. The diagnosis would have outlived the bug and been indistinguishable
+  from it.
+  → one registration, last in the chain, and the stand-in is marked
+  `UnclaimedBodyPlaceholder` — which the family spawner ignores when deciding
+  what needs drawing and retires when the real visual arrives.
+- ✔ **N8 the evidence guard was finding the roadmap, not the code.** M4's script
+  parsed backticked citations out of a task row and grepped the whole repository
+  for them — including the tracked document it had just read them from. It asked
+  "does this file still contain its own text?", answered yes unconditionally,
+  and would have passed a row whose implementation had been deleted outright.
+  → the search excludes `docs/` and every `.md`; a cited path is checked as a
+  path; `git grep`'s "could not search" (>1) is distinguished from "no match"
+  (1); and the script proves the search works before believing any answer.
+  ⛔ **this is the one to remember.** It is the guard-that-proves-nothing
+  failure mode committed *inside the guard built to catch that failure mode*,
+  and it shipped green. RED-verify every instrument against a fixture where the
+  thing it looks for is genuinely absent — a passing new check is not evidence,
+  it is the absence of evidence.
+
+- ◐ **N9 nothing would catch a NEW render/sim crossing.** N4's fix removes the
+  one that existed, by construction. The resource sweep names UNREWOUND
+  resources and the message oracle names UNREWOUND channels; neither notices a
+  properly-rewound resource being written from the wrong schedule — and
+  registering it is exactly what makes it look correct.
+  → `no_render_only_frame_writes_a_rollback_registered_resource`: build the sim
+  with `fixed_tick` (so the sim hosts in `FixedUpdate`), boot it, then set the
+  frame dt to ZERO. `Time<Fixed>` accumulates nothing, the whole 322-system
+  sim schedule is skipped, and the 38-system `Update` runs normally. Anything
+  restored-by-rollback that changes across those frames was written by something
+  that is not the simulation.
+  → `Derived` declarations are excluded deliberately — a derived resource is
+  republished every frame before anyone reads it, so writing it off the sim
+  schedule is its job. `ControlFrame` is the honest example and was the single
+  entry the first draft flagged.
+  → poisoned: a registered resource written between frames must be reported, and
+  the first version of the poison FAILED because it wrote before the baseline
+  tick. Worth the embarrassment — that is the failure a poison exists to find.
+  ⚠ **stated in the test's own docs: this sweep would NOT have caught the bug it
+  was written for.** It watches the 29 restored resources the RL-sim composition
+  installs; `VersusMatch` is registered by the shell app, and the shipped host
+  runs its sim on the render frame, so there is no render-only frame there to
+  probe. It covers the same class of defect across the ENGINE, which is worth
+  having on its own terms.
+  ✔ **the residue is closed, and the row's premise was wrong** (2026-07-27).
+  It offered two candidate shapes — host the shell app on `Fixed60Hz`, or walk
+  `Update`'s per-system access — because the sweep's own docs claimed the shipped
+  host hosts its sim on the render frame. It does not: `build_visible_app` sets
+  `SimulationHost::Ggrs` under `dev_tools`, so the shell's sim lives in
+  `GgrsSchedule` and the SAME trick works — stop the fixed-step clock, `Update`
+  keeps running, the simulation stands still.
+  ⛔ **that claim was reasoned, not checked, in the same session spent on exactly
+  that mistake.** Written down rather than quietly corrected, because the lesson
+  is that knowing the failure mode does not immunise you against it.
+  → `no_render_only_frame_of_the_shipped_host_writes_rollback_state` seats a real
+  versus match in the shipped host and sweeps its restored resources. Three
+  non-vacuity guards: two seats present, `VersusMatch` confirmed IN the watched
+  set, and `SimTick` unchanged across the quiet frames — the last is what proves
+  the simulation really did not step.
+  → RED-verified by adding an `Update` system that advances `VersusMatch`, which
+  is precisely the shape the original bug shipped in. It reports it by name.
+
+## P. The third GPT 5.6 review (2026-07-27, later) — six findings
+
+Every one real. Two patterns worth keeping, both about the SHAPE of an
+overclaim rather than its content.
+
+**A fix that lands one tick late is still a bug.** N3's release side was
+correct and its onset side was not: the KO arm set the phase and returned,
+leaving the freeze request to the next run of a system in `CombatSet::Settle` —
+a whole further tick of input, attacks and damage over a round already decided.
+"The freeze works" was true of the half I had tested.
+
+**Marking a gap is not closing it.** G2b shipped a marker convention that
+required an entity-mapped presence-only probe to SAY it was entity-mapped, and
+then the row claimed no entity-handle cases were left. Four were, and the
+cross-check added in the same commit printed their names on every run.
+
+- ✔ **P1 the KO freeze started a full simulation tick late.** Emitted on the
+  detection tick now. The clock smoother's RAMP is deliberate and stays: a KO
+  decelerating into the card is the genre's own beat and the same primitive
+  hitstop uses. Test asserts the clock TARGET, which is what "the freeze was
+  asked for" means; the live scale is allowed to ease.
+- ✔ **P2 the round reset was a TELEPORT.** `transit_body` documents that it
+  keeps axis maneuver state — "coyote, buffers, dash timers … are time facts,
+  not place facts" — which is right for a blink and wrong for a round boundary.
+  A fighter opened round two holding a buffered attack or a live dash timer.
+  `reset_body_clusters` is the verb that means this body starts again.
+  ⚠ the general lesson: **picking the ONE authority is not enough; the authorities
+  differ in what they preserve, and a comment saying which is the seam does not
+  say which is the right seam here.**
+- ✔ **P3 declared-HUD gauges LEAKED.** The retire sweeps queried
+  `DeclaredHudSlot`; the gauge is a sibling root. Three restyles left four bars
+  for one slot. Its doc comment called it "a child node" and it never was one —
+  a comment claiming a lifetime the code did not implement is how the sweep came
+  to miss it.
+- ✔ **P4 the round counter counted WINS.** Route entry reset through `default()`
+  (which announced nothing) so "ROUND 1 — FIGHT" never appeared at the start of a
+  match, and a DRAW scores for nobody so round two announced itself as round one.
+  `VersusMatch` carries an explicit `round`; `opening()` IS `Default` so no
+  caller can pick the silent constructor by accident.
+- ✔ **P5 four entity-mapped types were still presence-only** — see the G2b row.
+- ✔ **P6 the evidence parser counted QUALIFIED verdicts as complete.** Substring
+  matching meant "third clause MET … the first two are partial" and "QUARANTINE
+  DONE …; residual debt OPEN" were checked as completed rows. Only the leading
+  verdict SENTENCE is classified now, and a qualified verdict is REPORTED as
+  not-checked rather than dropped silently — a classifier that quietly stops
+  looking at a row is the zero-rows failure one row at a time.
+  ✔ **fixed 2026-07-28, and it caught two live rots on its first run.** A
+  PARAGRAPH is the clause unit — the unit these documents already use, so no new
+  authoring convention was invented to suit the tool. A paragraph that cites
+  implementation must have at least one surviving citation; prose paragraphs are
+  untouched, because demanding a citation per sentence pushes authors toward
+  citing something rather than saying something.
+  ⚠ **its first run produced four confident FALSE positives, and that was the
+  useful part.** `path_exists` only resolved repo-root and document-relative
+  paths, so `save_data.rs` and `run_tests.py` — cited the way a person says them,
+  and both real — read as deleted. The row-level rule had hidden it for as long
+  as some other citation survived. Bare filenames resolve against `git ls-files`
+  now.
+  ✔ **then two REAL ones.** ADR 0023's Consequences section cited the retired
+  determinism/control-frame lint files for eighteen days after both migrated into
+  `tests/ambition_workspace_policy` — the section above it had been corrected and
+  that one had not, which is the ordinary way a document rots. ADR 0024 named a
+  `ScriptedKinematic` policy that NEVER SHIPPED: a design sentence written with a
+  placeholder while the implementation landed as `KinematicPath` /
+  `ActorMotionPath`, so the rule read as satisfied by a type that did not exist.
+  Under the pooled rule both rows stayed green on their other paragraphs.
+  ✔ **the authoring rule that falls out of it: a BACKTICKED name is a claim that
+  it exists.** That is how a correction paragraph names a retired file without
+  being flagged — write the dead name as prose. The alternative was teaching the
+  checker to read "used to" and "no longer", which is prose interpretation and
+  the exact failure the script's own docstring warns about.
+
+## Q. The umbrella asset install, and a suite that was not running (2026-07-27)
+
+- ✔ **Q1 an external consumer drew coloured rectangles, and the fixture said so.**
+  `fixtures/external_consumer/src/bin/visible.rs` carried its own indictment: "the
+  in-repo demo shells each hand-roll a standalone asset-resource install
+  (`SandboxAssetCatalog` + `GameAssets`) that no umbrella helper offers, so this
+  binary ships WITHOUT it and draws the world as colored primitives — a faithful
+  record of what a third party gets today". A stranger who clones this engine,
+  follows the demos doctrine and runs their game saw untextured boxes. **The most
+  visible way "an engine another game can be built on" can fail, and it failed for
+  want of a function.**
+  → `ambition::game_assets::PlatformerAssetsPlugin`. It lives in the UMBRELLA
+  because it spans two layers that may not depend on each other: the catalog
+  builders are `ambition_actors`, the `Startup` anchor is `ambition_render`, and
+  `ambition_host` — the obvious home — is forbidden from naming `ambition_actors`
+  by its own docs and an enforcing test.
+  → missing catalogs PANIC rather than defaulting to empty. The workspace policy
+  `engine.character-authority-is-app-local` says so, and caught an
+  `Option<Res<BossCatalog>>` in the first draft. The quiet version of that mistake
+  is a game that composes cleanly and draws rectangles.
+  → the fixture that recorded the gap is the helper's first external caller, with
+  a test that runs from OUTSIDE the workspace.
+- ✔ **Q2 both in-repo demos migrated onto it.** A helper the demos do not use is
+  a helper nothing exercises: it would drift from the real games while an external
+  consumer depended on it. ~180 hand-rolled lines deleted across the two shells.
+- ✔ **Q4 recorded SDK leak #3 is closed: a consumer owns its own art.** The
+  fixture's own words: "consumer-owned art still has no home, and a consumer that
+  forgets this line gets bare boxes" — a third party could load the ENGINE's
+  sprites or nothing.
+  ⚠ **the mechanism existed and was unreachable.** Ambition's content crate owns
+  `worlds/*.ldtk` while the sprite paths it names are generated into the shared
+  engine tree, and a two-root `game://` reader spans them — ~120 lines inside
+  `ambition_app`'s CLI module, where no crate outside the shell could see it.
+  None of it was Ambition-specific. **The gap was not a missing capability, it
+  was a capability with no address**, which is a distinct kind of SDK failure and
+  worth naming: a repo grep for "can the engine do X" answers yes and the
+  consumer still cannot.
+  → `ambition_asset_manager::consumer_source::layered_asset_source`; the shell
+  calls it instead of its own copy (111 lines deleted from `cli.rs`), so the
+  packaged-build rule about not shadowing the platform reader has ONE home.
+  → the test asserts both directions plus a miss, because either direction alone
+  is a different bug: consumer art must WIN, engine art must still RESOLVE, and a
+  reader that says yes to everything must not pass.
+- ⛔ **Q3 and that migration found a test that had been RED for a day.**
+  `ov1_draws_the_world::the_presentation_plugin_adds_no_hud_and_no_menu` counts
+  `DeclaredHudRoot` nodes and expects five; a gauge bar carries that marker too,
+  so a demo declaring five readouts and publishing gauges counted ten. It broke
+  when health bars landed.
+  ⚠ **`cargo test --workspace` does NOT compile feature-gated targets.** The demo
+  shells' visible path is `#[cfg(feature = "visible")]` and `visible` is not a
+  default feature of those crates, so every "full suite green, 146 ok blocks"
+  report in this session was true of a build that excluded them.
+  `scripts/run_tests.py` computes per-crate feature jobs for exactly this reason:
+  **`./run_tests.sh` is the baseline; `cargo test --workspace` is a subset.**
+  → the count moved to `DeclaredHudSlot`. The two markers answer different
+  questions: `DeclaredHudRoot` is the LIFETIME marker (the retire sweep keys on
+  it, which is why a bar carries one), a slot is one declared readout, and a gauge
+  is presentation OF a readout rather than another one.
+
+## R. Milestone E is closed: the external consumer is a real third party (2026-07-27)
+
+The construction campaign's Milestone E had three open clauses. All three are
+closed, and none of them needed a new capability — each was a capability the
+engine already had that a third party could not reach or could not verify.
+
+- ✔ **R1 the visible-shell half** — see Q1/Q2. The helper existed nowhere; the
+  demos hand-rolled it.
+- ✔ **R2 consumer-owned art** — see Q4. The helper existed inside the shell's CLI
+  module, where no other crate could name it.
+- ✔ **R3 "deliberate authoring failures produce actionable diagnostics … a
+  systematic error-quality pass remains open".** Checked rather than asserted
+  now, FROM OUTSIDE the workspace, through both public authoring seams.
+  → the messages hold up. A mistyped default character reports "character catalog
+  fragment 'outlander' names missing default character 'wandrer_typo'" — the
+  fragment, the id, and the kind of failure. A truncated fragment says it failed
+  to PARSE, which is the difference between a typo and a rule the author has to
+  go and look up.
+  ⚠ **a negative result, and it is the point.** Rejecting malformed content is
+  the easy half and was already done; what was open is whether the rejection is
+  usable by somebody who cannot read the parser. The test asserts on the string a
+  consumer actually sees, and its needles were RED-probed so it cannot pass by
+  matching nothing.
+
+**The pattern across all three:** an SDK gap is rarely a missing feature. Twice
+it was a capability with no address, and once it was a property nobody had
+checked from the outside. A repo grep for "can the engine do X" answered yes in
+every case.
+
+◐ **R4 the honest remainder of Milestone E:** — **the narrow candidate below is
+BUILT (2026-07-28).** `ambition::provider::ShellComposition` takes the three ids
+and the experience plugin and performs the seven steps; the fixture and both
+standalone demo shells are its callers, which is the point — an SDK seam with no
+production consumer is the pattern this queue's own T-section is about. What a
+host still writes by hand is what a host should still be DECIDING: its
+foundation, its engine group, its host group, its asset source. Sanic keeps its
+launcher cues through `with_frontend_audio`, because a composition that could
+only write the bare profile would have made a real host opt out to keep a
+feature it already had. The rest of the row stands as written: the fifth clause ("evidence exists
+to design a public recipe/prefab API") is EVIDENCE, not an API. It is real work
+with a real customer now that a consumer can author content, own its art and read
+its own error messages.
+
+  **The evidence, gathered from the consumer side rather than the engine side —
+  what `compose_outlander_shell` still has to know, in order:**
+  `MinimalShellPlugins`, then a `FrontendAudioProfile` (or the launcher inherits
+  another provider's cached audio), then `AmbitionLoadPlugin`, then
+  `MinimalShellLoadPresentationPlugins`, then its own experience plugin, then a
+  `ShellRouteSpec` registered into `ShellRouteCatalog`, then a `ShellHostSpec`
+  into `ShellHostConfiguration`. Seven steps whose order is enforced by a
+  resource-missing panic rather than by a type.
+
+  ⚠ **and the risk, stated before anybody starts:** the fixture's VALUE is that
+  it shows what composition looks like. A builder that swallows all seven steps
+  makes the composition unreadable and turns every deviation into a feature
+  request — which is the failure mode the demos doctrine already warns about
+  ("~100 lines: foundation + engine group + host group + content"). The
+  candidate worth testing first is the narrow one: a `ShellComposition` that
+  takes the three ids and the experience plugin and does ONLY the parts a
+  consumer cannot get wrong in an interesting way.
+
+  ⛔ **do not design it from the engine side.** Both leaks closed today were
+  capabilities with no address, and both looked present from inside the
+  workspace. The next audit is another pass of `fixtures/external_consumer` —
+  what does it still hand-roll, and of that, what could it not have discovered
+  from the umbrella's own docs?
+
+## S. The fourth GPT 5.6 review (2026-07-28) — three that survived
+
+The other nine findings from round three were confirmed repaired. What survived
+is one shape three times: **an instrument or a rule that names a boundary and
+then stops one step short of it.**
+
+- ✔ **S1 the `LimbRig` probe measured a MAP as a SET.** P5 moved the rig off a
+  presence count and onto `census_entity_set`, with a comment claiming the
+  projection "folds the slot ORDER with each limb's identity". It did not: that
+  census folds targets with a commutative wrapping sum — correct for
+  `HitboxHits`, whose victims genuinely have no order — so `hand_left→A,
+  hand_right→B` and the same two limbs exchanged are the same multiset and the
+  same digest. The left hand on the right shoulder, the exact restore the row
+  named, was invisible.
+  → `census_entity_map` folds each KEY against its target's stable identity.
+  The swap test asserts BOTH halves: that the map census sees the exchange and
+  that the set census still does not, so the day those agree the two helpers can
+  be merged.
+  ⚠ **the lesson, and it is P5's lesson one level down:** upgrading an
+  instrument is not the same as upgrading it to the right thing. Both times the
+  probe got stronger and the comment got confident in the same commit.
+- ✔ **S2 the round was decided and then went on being fought.** P1 fixed the
+  TICK the freeze is requested on. The freeze is a clock TARGET and the smoother
+  ramps toward it, deliberately — but nothing else reads `MatchPhase`. Not
+  input, not the brains, not move triggering, not damage. So for the length of
+  that ramp both fighters still accepted control, walked, started moves and
+  spawned strikes, after the score had been incremented and the winner named.
+  → the fighters are marked `ScriptedControl` on the deciding tick. Motion and
+  playback still decelerate into the card, which is the beat P1 kept; what stops
+  is DECIDING.
+  ⚠ **"and released in `begin_round`" was true when written and is not now.** The
+  round-start countdown (2026-07-28) took that release: `begin_round` runs when
+  the KO hold ends, and releasing there would hand the controls back 90 ticks
+  before the round goes live. The release moved to the `Starting` arm reaching
+  zero. Corrected here rather than left, because a closed row is exactly the kind
+  nobody re-reads.
+  ⚠ **the boundary, stated rather than implied:** a move ALREADY playing still
+  runs out its windows, so a strike that was live when the KO landed can still
+  connect while the clock ramps down. That is "existing motion decelerating",
+  not a new decision, and it is where this line is drawn — if a swing landing
+  after the bell ever reads wrong in play, the fix is to retire live volumes on
+  the deciding tick, not to widen the control gate.
+  ⚠ **and the engine half, which is the more valuable half:**
+  `blank_scripted_control_frames` ran in `PlayerInputSet::ControlGate`, "the
+  only position where blanking is observable" — true of `tick_player_brains`,
+  which it was placed against, and false of `tick_actor_brains`, which writes
+  `ActorControl` a whole phase later in `WorldPrep`. `ScriptedControl` suspended
+  humans and not CPUs, everywhere in the engine, not just here. It is now
+  blanked in both positions and the test asserts it on the CPU fighter.
+- ✔ **S3 the "full round reset" could only reset what the ENGINE owns.** P2
+  moved the round boundary onto `reset_body_clusters`, which clears every
+  movement/ability cluster — and the row read that as "the fighter starts
+  clean". A fighter authored by a PROVIDER carries state no ruleset can name:
+  Sanic's ball-dash charge and `Rolling` form, Mary-O's spark cadence. A round
+  that begins with a stored charge begins with a free launch.
+  → `ae::BodyRestarted` is an entity event the reset triggers; providers observe
+  it and answer for their own state. Sanic clears the charge, the crouch edge
+  and the ball form; Mary-O clears the cadence. Both observers are registered
+  OUTSIDE the mode gate — inert without their components, and gating them would
+  make the seam a no-op in exactly the crossover stage that needs it.
+  ⚠ **currently unreachable, and shipped anyway.** In the hosted app every
+  provider rule is `run_if(in_mode(...))`, so no versus fighter carries a
+  `BallDash` today and the named failure cannot fire. What is real is the
+  boundary: this stage exists to seat fighters from providers it does not know,
+  and the review is right that a generic ruleset cannot honestly claim to reset
+  them. The test stands in for a provider rather than importing one, which is
+  the property worth having.
+
+## T. The fifth GPT 5.6 review (2026-07-28) — the primitive was not the consumer
+
+Three of the previous round's fixes held. What this round found is one sentence
+worth keeping: **a completion claim was made at the PRIMITIVE boundary rather
+than after tracing the real production consumer through it.** Four of the six
+findings are that sentence in different clothes.
+
+- ✔ **T1 `BodyRestarted` was a versus event wearing an engine contract's name.**
+  S3 shipped it as "this body starts again" and then triggered it from exactly
+  one place. The other seven production callers of `reset_body_clusters` — death
+  respawn, safe respawn, room arrival, sandbox reset, lifecycle commit — did
+  not, so ordinary play recreated the leak the event was added to close, and the
+  provider observers existed with nothing to invoke them.
+  → the announcement is DERIVED now. `reset_body_clusters` raises
+  `BodyLifetime::restart_pending` on state it already owns; one engine system at
+  the front of the sim tick turns that into the trigger. Versus no longer
+  triggers by hand, which is the test: the round-boundary test still passes
+  through the engine's path.
+  ⚠ the flag rides `BodyLifetime` deliberately — that component is already
+  rollback-registered, so a rewind into the tick between a reset and its
+  announcement replays the announcement. A separate marker would have needed its
+  own registration to be correct, and would have been wrong until somebody
+  noticed.
+- ◐ **T2 consumer-owned art still cannot reach a CHARACTER.** The overlay reader
+  landed and the fixture proved a raw read; the catalog pipeline then reduced
+  every `spritesheet` to a basename and rebuilt it under the engine's sprite
+  folder, so `game://sprites/mine.png` became `sprites/game://sprites/mine.png`
+  — a path to nothing, silently placeheld into a bare box.
+  → source-qualified paths now survive catalog extraction and manifest assembly
+  verbatim (`is_source_qualified`, `CharacterSpriteCatalogRow::qualified`), with
+  no scale-variant rewriting: the `sprites_half/…` layout is this repo's, and
+  inventing it inside somebody else's asset source is a convention they never
+  agreed to.
+  ✔ **and it did NOT stop there — U1 finished it.** I closed the addressing and
+  recorded "the rest needs a PNG this repo will not commit", then traced the
+  pipeline and found the missing art was the smaller half. U1 is ✔ below: the
+  fixture GENERATES the PNG it claims to own, sheet metadata became content a
+  provider registers rather than compile-time engine data, and the consumer's
+  character draws its own art with collision and attack geometry derived from
+  it. T2 has no residue left of its own.
+  ⚠ **this sub-row said "it stops there" for a day after it did not**, which is
+  the pessimism-direction rot the queue keeps catching: a row that UNDERSTATES
+  progress is never re-read, because nobody audits in that direction (same shape
+  as the health-bar row and the `with_moveset` row). W1's contracts are the
+  structural answer for absences; for this direction the only defence is closing
+  the pointer row when the thing it points at closes.
+- ✔ **T3 the layered asset reader was not an overlay.** Single-file reads fell
+  back correctly and the other three operations each disagreed with them:
+  `read_directory` returned only the authored layer's entries (so listing
+  `game://sprites` hid every engine sprite that was still individually
+  readable), `read_meta` fell back independently (so a consumer overriding an
+  image and authoring no `.meta` silently inherited the ENGINE's metadata for a
+  different picture), and `is_directory` could answer "directory" for a path
+  `read` returned a file for.
+  → merged + sorted listings, metadata that follows the layer which supplied the
+  asset, and one layer answering per path. Three tests, one per contradiction.
+- ✔ **T4 the guard could still lock you out.** See the module docstring: four
+  escapes now, and the important one is that the stall release no longer depends
+  on `git`. `stalled + 1 if sha and …else 0` reset the counter whenever
+  `rev-parse` failed, so the escape from a stuck run was disabled by exactly the
+  infrastructure failures most likely to make a run stuck. Plus arm-time schema
+  validation, a 36h wall-clock fuse, and a three-crash stand-down.
+- ✔ **T5 a diagnostic could not name a FILE.** Milestone E asked for file, id and
+  field; the id and field were always there (`character 'x' has empty
+  spritesheet path`) and the file could not be, because both authoring seams took
+  an anonymous `&str`. `from_ron_at` carries a source label into the error;
+  the external fixture uses it and asserts the path comes back out.
+- ✔ **T6 the evidence checker accepted planning prose as implementation
+  evidence.** Path evidence took any surviving path, `.md` included, so a
+  completed row could cite one planning page and stay green after every line of
+  what it described was deleted. Documentation is now classified separately: a
+  row claiming done must cite at least one implementation artifact, and the
+  all-citations-gone rule counts only those. Red-probed on a fake row; all three
+  real documents still pass, so nothing was leaning on the hole.
+
+## U. Found by tracing T2 the rest of the way (2026-07-28)
+
+- ✔ **U1 sprite-sheet METADATA was compile-time engine data, so a third party
+  could not author a character sheet at all.** (closed 2026-07-28) This is the real blocker behind T2,
+  and it was invisible from the addressing layer where that row stopped.
+
+  **The path, in order:**
+  `CharacterCatalogEntry::manifest_target()`
+  (`crates/ambition_characters/src/actor/character_catalog/entry.rs:577`) does
+  NOT return a loadable path — it takes the basename, strips
+  `_spritesheet.ron`, and returns a TARGET NAME. That name is looked up in
+  `ambition_sprite_sheet::character::sheets::try_load_spec_for_target`, whose
+  `record_index()` is a `OnceLock` built from `BAKED_SHEET_RONS` — a table
+  emitted by `crates/ambition_sprite_sheet/build.rs`, which scans the ENGINE's
+  own `crates/ambition_actors/assets/sprites`. Frame rects, rows, body metrics
+  and feet anchors all come from there.
+
+  So a consumer can now ADDRESS its own PNG (T2) and still cannot describe it.
+  Authoring `game://sprites/outlander.ron` next to the image accomplishes
+  nothing: no code path reads a sheet RON at runtime. The character falls back
+  to the coloured-rectangle placeholder, which is exactly what the fixture's
+  characters do today — and why pointing the fixture at Mary-O's sheet was not
+  laziness but the only thing that works.
+
+  ⚠ **this also means the fixture's `game://` art claim can never be proved by
+  a character.** Any test that "renders consumer art" today is really rendering
+  an ENGINE-baked description of an engine sheet.
+
+  **Two candidate seams, and the choice is a real architecture decision:**
+  1. **Feed the resource.** `SheetRegistry` is already a value + Bevy
+     `Resource` (`SheetRegistryPlugin` fills it from the baked table at
+     Startup), which is the K2a shape this repo prefers. A consumer would
+     register additional `SheetRecord`s into it — but the character path does
+     not read that resource, it reads the `OnceLock` index. Making the resource
+     authoritative means routing `sheet_for_character_id_from_data` through
+     world access, and that function is called from places that have none.
+  2. **A process-local registration seam** beside the baked index, consulted
+     first, written before first use. Smaller change, and it is the global this
+     repo deleted once already (K2a: "OnceLock DELETED") — so it should only
+     win if (1) proves genuinely impractical, and the reason should be written
+     down here when it does.
+
+  → **(1) won, and it did not break.** `AuthoredSheets` is an ordinary
+  App-local `Resource` beside the baked cache, filled by
+  `app.register_character_sheet_ron(file_root, ron)` — the sheet twin of
+  registering a catalog fragment. `try_load_spec_for_target_authored` consults
+  it first and falls through to the baked index, so every engine character
+  takes the identical path it took before this existed. Threaded (not reached
+  for globally) through `sheet_for_declared_character` →
+  `materialize_declared_character_sprite` → `materialize_character_demand` and
+  the two app-side room-decode entries; the call sites already carried
+  `&CharacterCatalog`, which is what made (1) cheap.
+
+  ⚠ **a resource rather than a second global, and that is the whole reason it is
+  safe:** two Apps in one process — every test run in this repo — must not share
+  one game's art declarations. That is the bug the baked index would have grown
+  the moment it became writable, and it is why K2a deleted the last one.
+
+  ✔ **proved from outside the workspace.** `fixtures/external_consumer` now
+  authors `OUTLANDER_SHEET_RON`, registers it, and its catalog names
+  `spritesheet: "game://sprites/outlander.png"` + `manifest:
+  "outlander_spritesheet.ron"` — both halves of owning your art, neither
+  touching the engine's asset tree. The test asks the ENGINE's own
+  `sheet_for_declared_character` for a character the engine has never heard of
+  and gets back the 32×48 frame this crate authored. Red-probed by registering
+  the sheet under a different file root: it fails on the missing record.
+
+  ✔ **stage B landed the same day.** The COLLISION path now reads the authored
+  registry too, so a third party's character collides with the art it shipped
+  rather than with the engine's default box. ~40 call sites, and the shape was
+  the same at every one: the function already carried `&CharacterCatalog`, so
+  the sheets go beside it and its caller — a system — fetches one more resource.
+  `ActorPlacementContext` grew a `sheets` field for the same reason it holds
+  `characters` and `roster`: it is the App-local authored content room lowering
+  reads.
+  ⚠ **the recurring cost is a REQUIRED resource, and it is worth paying
+  deliberately.** Every minimal-App fixture that runs a spawn, damage or seating
+  system now has to install `AuthoredSheets`, and about twenty did not — each
+  one failing loudly on parameter validation rather than silently resolving no
+  sheet. That noise IS the design: `Option<Res<..>>` on authority is how a
+  missing registration becomes a placeholder nobody can explain
+  (`engine.character-authority-is-app-local`).
+  ✔ **stage C closed the same day, and the design question had an answer.** The
+  resolver was a bare `fn`, which is exactly as much as combat needs to know and
+  exactly one thing too few: a function pointer carries no state, so reaching the
+  authored sheets meant widening its signature with a sprite-sheet type — which
+  would make `ambition_combat` name sprite metadata, the one thing its module
+  doc says it must not.
+  → the resolver holds an `Arc<dyn Fn>` now. The COMPOSITION ROOT
+  (`ambition_runtime::combat_schedule`, which links both crates and may name
+  both) builds a closure CAPTURING the sheets, and combat calls something it
+  cannot see inside. `file_root_registry()` — the second baked index, the one
+  holding the attack polygons — is consulted authored-first like every other
+  sheet lookup since U1.
+  ⚠ **a captured snapshot needs a refresh, and that is the trap this design
+  otherwise walks into.** A provider registering a sheet after composition would
+  resolve its BODY from its own sheet and its MELEE BOX from the engine's baked
+  table — the exact split-brain U1 exists to end. `refresh_authored_volume_resolver`
+  rebuilds on `resource_changed::<AuthoredSheets>`, so the cost is one clone per
+  registration and none per hit.
+  → **the arc is complete: a third party can now address its art, describe it,
+  collide with it, and hit with it.** What remains is not plumbing — it is that
+  nothing here decodes a PNG (T2's open half).
+
+  ✔ **and the art is real now (T2 closed).** The blocker was never the pipeline
+  — it was that this repo does not commit binary art, so the fixture described a
+  file that did not exist. `fixtures/external_consumer/build.rs` GENERATES it:
+  ~80 lines of `std` writing a genuine PNG (signature, IHDR, an IDAT holding a
+  zlib stream of STORED deflate blocks, IEND, each with its CRC) into the
+  crate's own asset tree, gitignored. No new dependency, because the fixture's
+  `ambition` + `bevy` rule IS the evidence it exists to produce and spending it
+  on an encoder for a rectangle would be a poor trade.
+  ✔ verified from outside the encoder: `file` reports "PNG image data, 32 x 48,
+  8-bit/color RGBA", Python's `zlib` inflates the stored blocks independently,
+  every chunk CRC checks, and the pixels are the ones drawn. The test asserts
+  the IHDR dimensions equal the ones the authored sheet RON declares — PARSED
+  from the RON, not repeated, because two numbers in two places is exactly how
+  art and metadata drift.
+  ✔ and the engine reads it through the consumer's own `game://` source via the
+  real `AssetServer`, which is the path a character load actually takes.
+  ✔ **and it DRAWS (closed the same day) — which immediately found a third
+  layer of the same bug.** `tests/draws_its_own_character.rs` builds the app
+  `src/bin/visible.rs` runs (the composition moved into the lib so the two
+  cannot drift), headless render graph, and asserts the decoded sheet is 32×48
+  and its texture's asset path resolves through the `game://` SOURCE. A
+  character drawn from `mary_o_spritesheet.png` passes every other test in that
+  crate; this is the one it cannot.
+  ⛔ **and it failed first, for a reason none of the five other tests could
+  see.** `SandboxAssetCatalog::should_attempt_resolved_load` pre-checks the
+  desktop filesystem — `desktop_candidate_roots` walks `<root>/<rel>` — and
+  `game://sprites/x.png` is not a relative file path, so no candidate can ever
+  exist. The gate silently refused every consumer-owned asset. Layer one was
+  catalog→manifest (T2), layer two was the sheet index (U1), and this was
+  manifest→load-gate: **the same mistake three times, each in the seam nobody
+  had walked end to end.** Source-qualified paths now skip the pre-check and
+  trust the reader, exactly as the Android/iOS arms trust the packager.
+  ⚠ **the failure reported the wrong half.** It said `NoSheetResolved` while the
+  sheet resolved perfectly and the IMAGE was gated — twenty minutes spent in a
+  metadata seam that was already correct. `SpriteMaterialization` distinguishes
+  the two now and `CharacterLoadFailure::NoImageResolved` is its own variant,
+  because a diagnostic that names the wrong half is worse than one that says
+  nothing.
+
+## V. The same mistake three times means the fourth is already written (2026-07-28)
+
+Consumer-owned art broke in three separate seams — catalog→manifest (T2), the
+sheet metadata index (U1), and the desktop load gate (found only by RENDERING
+the fixture's character). Each was one line treating `game://sprites/x.png` as a
+relative path. Three occurrences of one mistake is not three bugs; it is a rule
+with no name and no instrument.
+
+- ✔ **V1 the join has a name.** `logical_asset_path(folder, filename)` returns
+  the filename unchanged when it names its own source, joins otherwise, and is
+  the only place allowed to decide. `scaled_logical_asset_path` is its sibling
+  and returns `None` for an authored path, because `sprites_0_5x/…` is THIS
+  repo's generated layout and inventing it inside somebody else's asset source
+  is a convention they never agreed to. Character and boss builders both route
+  through it; the character builder's inline special case is gone.
+  ⚠ **the boss family was broken and nobody had noticed**, for exactly the
+  reason characters had been: no one had walked a consumer-authored boss end to
+  end. It was fixed here without ever being observed failing in a game, which is
+  what an instrument is for.
+- ✔ **V2 a behavioural guard, not a grep.** `every_manifest_family_carries_a_
+  consumers_own_path_verbatim` builds a manifest per family from a
+  source-qualified row and asserts the path survives, plus that no scaled
+  sibling was invented. RED-probed by restoring the boss builder's inline
+  `format!`: it reports `sprites/game://sprites/consumer_owned.png` by name.
+  A family added later that re-implements the join fails this test rather than
+  waiting for somebody to render it.
+  ✔ **audio is covered now too** (same day). It joins no folder — a music row
+  carries `asset_path` verbatim — so it passed by inspection, and asserting it
+  anyway is the difference between believing it passes through and a test that
+  fails the day somebody adds a folder convention there. Which is exactly how the
+  three sprite layers came to exist.
+  ⊘ **still outside it, and the claim was RE-CHECKED 2026-07-28 rather than
+  inherited:** the external-consumer fixture authors `game://sprites/...` and
+  nothing else — no world, no data file, no font. So world / data / font are ENGINE paths no
+  consumer authors. That is a claim about who authors what, not about the join,
+  and it stops being true the moment a consumer authors a world — at which point
+  this test grows a row. A list is only as complete as the last person to add to
+  it, which is why the list says what it excludes and why.
+
+## W. An absence cannot rot loudly (2026-07-28)
+
+- ✔ **W1 the M4 guard cannot check a claim whose content is that nothing
+  exists.** Found by re-reading a row that asked to be re-read: C3's
+  "`CharacterDefinition::with_moveset` has NO production caller … re-examine when
+  C4 authors one". C4 shipped, the duelists author two movesets through it, and
+  the row still said the seam had no customer. Nothing re-examined it because
+  **an absence has no citation to rot** — the guard checks whether cited things
+  still exist, and this claim's whole content was that a thing did not.
+
+  ⚠ **the same shape produced ADR 0024's `ScriptedKinematic`**, which was a
+  design sentence naming a type that never shipped. One claim was "X does not
+  exist yet" and the other was "X exists"; both were unfalsifiable by a checker
+  that only follows citations forward.
+
+  **The mechanism that would work already exists in this repo and is not
+  prose:** the goal guard's checks are shell predicates, and an absence is a
+  perfectly good predicate — `! git grep -n "with_moveset" -- 'game/**.rs'`
+  reddens the moment somebody adds the caller the row is waiting for. An absence
+  claim that MATTERS belongs in a check list, not in a ledger row.
+
+  ⛔ **do not "solve" this by teaching the evidence checker to parse absence
+  prose.** That is the same road as reading "used to" and "no longer" — the
+  script's own docstring explains why it does not go down it. The fix is a
+  different instrument, not a cleverer one.
+
+  ✔ **LANDED 2026-07-28 as `scripts/check_absence_contracts.py`.** GPT 5.6's
+  fourth review chose the shape: an explicit `ABSENCE_CONTRACTS` table, not a
+  generalized parser, each row carrying a stable id, narrow PRODUCTION paths, an
+  exact pattern, and a stated reason for the architectural absence. Four
+  contracts, all green: registration does not demand art (A1); the String-keyed
+  sheet-row lookup is deleted (binding boundary); the rollback exit oracle is not
+  quarantined (A6); fight tests do not hand-roll damage (A2).
+  ⚠ **the fix for the recurrence is COMMENT STRIPPING, and it is the whole
+  reason this works where three goal checks failed.** Two of the four contracts
+  match text that is present in the tree *right now* — `row_index_of` in two
+  `binding.rs` module docs, `#[ignore]` in the oracle's own history paragraph.
+  A bare `git grep` is RED on both. Documenting a removal must not break the
+  guard that verified it, so comments are removed before matching, by file type
+  (`#` opens a Rust attribute and a shell comment, and one contract looks for
+  `#[ignore]`).
+  ⚠ **the first draft of the oracle contract WAS the noise GPT warned about** —
+  it flagged two legitimate `#[ignore = "diagnostic …"]` bisection tools. Narrowed
+  rather than waived: an ignore must classify itself as `diagnostic`/`audit`/
+  `measurement`, which makes "why is this off?" answerable without reading the
+  test body and generalizes E1's rule to where it was learned.
+  → RED-PROBED in `scripts/tests/test_absence_contracts.py`: every contract is
+  fed a line that violates it (must hit) and the same line as a doc comment
+  (must not). A guard green at minute zero guards nothing.
+  ✔ **G4 dependency-edge contracts landed the same day.** Grep cannot express a
+  dependency edge: it can find the `use` that proves one and miss the one added
+  through a re-export tomorrow, and it cannot see an edge introduced through an
+  intermediary at all. `DEPENDENCY_CONTRACTS` reads `cargo metadata` instead, and
+  reads it **transitively** — the claim is that a foundation cannot REACH
+  gameplay, and a layering inversion almost never arrives as a direct line.
+  Four edges, all green: `ambition_engine_core` depends on NOTHING in the
+  workspace (it is the floor); `ambition_platformer_primitives` reaches no
+  gameplay crate; `ambition_characters` cannot reach `ambition_actors` (the
+  reverse edge exists, so this one is a cycle waiting to be found by the
+  compiler at the worst moment); no engine crate consumes the `ambition` umbrella.
+  ⚠ **`ambition_content` DOES depend on the facade, deliberately not guarded.**
+  Whether that should stop is a MEASUREMENT question the campaign defers, and
+  writing a rule ahead of the measurement is how a guard gets waived.
+  ⚠ **`cargo` is resolved through `$HOME/.cargo/bin` first.** The hook PATH has
+  no cargo, and a check that can only ever say "command not found" can never pass
+  — it wedges the run it was supposed to guard. Twice-learned.
+  → RED-PROBED on synthetic graphs, including the two-hop inversion a
+  direct-edges-only checker would pass, and the renamed-crate case where a
+  contract would otherwise print `ok` about nothing.
+
+- ✔ **W2 a whole test directory nobody ran.** Found while landing W1:
+  `scripts/tests/` has 57 tests guarding the goal guard, the test runner, the
+  package-asset guard and now the absence contracts — and `./run_tests.sh` is
+  cargo-only, so none of them had ever run in the suite.
+  `test_inject_is_silent_when_the_goal_is_met` had been RED since the
+  SessionStart-hang fix (830a964e3) changed inject to read the Stop cache
+  instead of running the checks: "the goal is met" stopped being a state inject
+  could observe, and the assertion outlived the ability it asserted.
+  → the stale test is replaced by the property the fix actually bought
+  (`test_inject_never_runs_the_checks` arms a `sleep 600` check and requires it
+  to be NAMED, not executed), plus a companion for the no-cache case. The
+  runner grew a `repo tooling (scripts/tests)` job that runs FIRST and in the
+  backbone: if the thing that decides whether the suite is honest is broken,
+  that is the answer, not the 40 minutes of cargo behind it.
+  ⚠ **this is the same defect class as W1 pointed at, one level up.** W1 is
+  "nothing re-reads a claim about an absence"; W2 is "nothing runs the tests
+  that check the checkers". Both are instruments with no consumer.
+
+## W′. GPT-5.6 fourth review — immediate bugs (2026-07-28)
+
+- ✔ **R1 `AuthoredSheets::insert_ron` silently overwrote a claimed target.** The
+  type's doc comment said authored-target collisions were logged; `insert_ron`
+  called `BTreeMap::insert` and said nothing. Two providers registering one sheet
+  target resolved by PLUGIN-BUILD ORDER — swap two `add_plugins` lines and a
+  stranger's game draws a different character, with nothing in the log. That is
+  the exact failure the authored registry exists to remove.
+  → a second, DIFFERENT claim is refused with both claimants named; a
+  byte-identical re-registration from the same file is a no-op, because a plugin
+  built twice in one process has not made a decision. Validation runs over the
+  whole file BEFORE anything is indexed, so a multi-record sheet that collides on
+  its fourth record does not leave the first three installed under an error
+  return. Tests: `two_providers_cannot_silently_claim_one_sheet_target`,
+  `a_refused_multi_record_sheet_indexes_none_of_its_records`.
+  ⚠ distinguishing "same claim twice" from "two claims" needs provenance, not a
+  `PartialEq` bound across the whole `SheetRecord` graph — the record now carries
+  the file root and the declaration text that produced it.
+
+- ⊘ **R2 duelist hurtbox NUMBERS — deliberately not doing.** GPT's own decision,
+  and it is right: *"do not spend more agent time numerically improving them
+  without play. The current numbers are coherent enough to exercise the authored-
+  hurtbox feature, and more static reasoning will create false precision."*
+  The authored-hurtbox MECHANISM is complete; the duelists' dimensions are
+  provisional balance content; any numerical change is the output of an actual
+  controller session, not a queue row. Values stay centralized in
+  `DuelistNumbers` and the hurtbox builder, where they already are.
+  This supersedes the "the numbers are a first pass and want a controller" row
+  above — same conclusion, now with a decision attached instead of a wish.
+

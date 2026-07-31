@@ -182,20 +182,23 @@ WAIVERS: dict[str, str] = {
 #
 # The current occupants, and why each looks like the class rather than a choice:
 #
-# * `sync_bubble_shield_visual`, `sync_morph_ball_visual` — ability visuals for
-#   abilities any body can be granted (`AbilitySet::sandbox_all`).
 # * `sync_cutscene_ui` — `ambition_cutscene` is an engine crate; a demo that
 #   plays a cutscene gets no UI for it.
 # * `sync_resolved_visual_quality` — every quality-aware system reads
 #   `ResolvedVisualQuality`; without this it never leaves its default, so a
 #   demo's quality settings are inert.
-UNCLAIMED_BUDGET = 4
+UNCLAIMED_BUDGET = 2
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _LINE_COMMENT = re.compile(r"//[^\n]*")
 _QUALIFIED_PATH = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)")
 _ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
-_RUN_IF = re.compile(r"\brun_if\s*\(")
+# `run_if` is a PREDICATE and `after`/`before`/`ambiguous_with` name a system
+# somebody ELSE registered. Neither is a registration, and reading them as one is
+# how this script first reported `sync_morph_ball_visual` and
+# `sync_bubble_shield_visual` as app-only when `ambition_render` registers both —
+# the app merely orders against them.
+_NOT_A_REGISTRATION = re.compile(r"\b(?:run_if|after|before|ambiguous_with)\s*\(")
 
 
 def strip_comments(source: str) -> str:
@@ -224,17 +227,24 @@ def add_systems_bodies(source: str) -> list[str]:
 
 
 def strip_run_conditions(body: str) -> str:
-    """Remove every `run_if( … )` argument.
+    """Remove every `run_if( … )`, `after( … )`, `before( … )` argument.
 
-    A run condition is not a system, and reading one as a system is how the
-    first version of this script reported `in_mode`, `in_base_mode`,
+    A run condition is not a system: reading one as a system is how the first
+    version of this script reported `in_mode`, `in_base_mode`,
     `simulation_authorized` and `phase_mark` as unregistered engine
     presentation. They are predicates the app supplies to systems it is
     registering, which is the opposite of the thing being looked for.
+
+    An ORDERING edge is not a registration either, and that one was worse
+    because it looked like signal: `.after(morph_ball::sync_morph_ball_visual)`
+    made this script report two ability visuals as app-only when
+    `ambition_render` registers both and the app is merely ordering the dev
+    sprite overrides against them. A guard that sends you to fix something
+    already correct is the expensive kind of wrong.
     """
     out = []
     index = 0
-    for match in _RUN_IF.finditer(body):
+    for match in _NOT_A_REGISTRATION.finditer(body):
         if match.start() < index:
             continue
         out.append(body[index : match.start()])

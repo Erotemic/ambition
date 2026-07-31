@@ -65,6 +65,23 @@ def test_a_run_condition_is_not_a_system():
     assert "in_mode" not in stripped
 
 
+def test_an_ordering_edge_is_not_a_registration():
+    """The expensive kind of wrong. `.after(morph_ball::sync_morph_ball_visual)`
+    made this script report two ability visuals as app-only — and
+    `ambition_render` registers both; the app is only ordering its dev sprite
+    overrides against them. A guard that sends you to fix something already
+    correct burns more than a guard that says nothing."""
+    body = (
+        "a::b::real_system"
+        ".after(render::rendering::morph_ball::sync_morph_ball_visual)"
+        ".before(render::rendering::bubble_shield::sync_bubble_shield_visual)"
+    )
+    stripped = strip_run_conditions(body)
+    assert "real_system" in stripped
+    assert "sync_morph_ball_visual" not in stripped
+    assert "sync_bubble_shield_visual" not in stripped
+
+
 def test_a_doc_comment_naming_a_system_is_not_a_registration():
     """The recurrence this repo has already paid for three times on its absence
     checks: documenting a thing must never look like doing it. The comment below

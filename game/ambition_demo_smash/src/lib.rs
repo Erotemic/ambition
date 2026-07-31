@@ -116,8 +116,21 @@ pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {
 pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
 
 /// Stage size, and the platform's top.
-const STAGE_SIZE: Vec2 = Vec2::new(960.0, 640.0);
-const PLATFORM_TOP: f32 = 420.0;
+/// ⚠ **these numbers were WRONG until somebody drew them** (2026-07-31).
+///
+/// The first cut was a 960x640 world around a 420px platform with a 220px
+/// margin, and every test passed. The diagram
+/// (`cargo run -p ambition_demo_smash_app --bin stage_diagram`) showed what the
+/// tests could not: a fighter knocked off the side had to cross ~490px — MORE
+/// than the whole platform's width — before the world took it. On a platform
+/// fighter that is a body drifting through empty space for about a second while
+/// nothing happens.
+///
+/// The test that was supposed to catch this asserted `distance < world.size.x`,
+/// which is 490 < 960: true, and meaningless. A bound loose enough to hold for
+/// any stage holds for a broken one.
+const STAGE_SIZE: Vec2 = Vec2::new(640.0, 480.0);
+const PLATFORM_TOP: f32 = 300.0;
 const PLATFORM_WIDTH: f32 = 420.0;
 
 /// **How far past the stage a body may travel before the world takes it.**
@@ -127,7 +140,7 @@ const PLATFORM_WIDTH: f32 = 420.0;
 /// its margin exists to catch a body that fell through the floor, so it is
 /// generous and rarely reached. Here it is the win condition, so it has to be
 /// close enough that a good hit reaches it.
-const BLAST_MARGIN_PX: f32 = 220.0;
+const BLAST_MARGIN_PX: f32 = 120.0;
 
 /// **The stage: a platform surrounded by nothing.**
 ///

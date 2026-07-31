@@ -51,13 +51,22 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     let to_the_left = platform.left() + side_margin;
     let to_the_right = (world.size.x - platform.right()) + side_margin;
 
+    // ⚠ **a RATIO against the platform, not a bound against the world.** The
+    // first version of this test asserted `distance < world.size.x` and passed
+    // over a stage where a knocked-off fighter crossed 490px of nothing — more
+    // than the platform's entire width — because 490 < 960 is true and says
+    // nothing. The picture caught it; the test did not.
+    //
+    // One platform-width of travel is the budget. Past that a launch stops
+    // reading as a knockout and starts reading as a body drifting offscreen
+    // while the game waits.
+    let budget = platform.width();
     for (side, distance) in [("left", to_the_left), ("right", to_the_right)] {
         assert!(
-            distance < world.size.x,
-            "a fighter must cross {distance:.0}px to leave the {side} of a \
-             {:.0}px stage — the margin is a safety net rather than a win \
-             condition, and a knocked-off body would drift instead of dying",
-            world.size.x
+            distance <= budget,
+            "a fighter knocked off the {side} must cross {distance:.0}px before \
+             the world takes it, against a {budget:.0}px platform — that is a \
+             body drifting through empty space, not a knockout"
         );
     }
 }

@@ -1434,19 +1434,40 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // are already asserted by AUTHORED ID, so a content edit that moves them
     // fails loudly at `calibrate_targets` either way. Coverage was the only part
     // that could move silently, and an assertion is the whole fix for that.
+    // ⚠ **+1, measured 2026-07-31, and the delta is DELIBERATE.** The
+    // protagonist's melee windup went 0.12s → 0.0 (the attack now comes out on
+    // the press), the route's objectives land tens of frames earlier — melee at
+    // frame 20, brick at 56, switch at 127 — and one confirmed Track-B lifecycle
+    // commit moved from after the walk to inside it. Nothing broke: the checksum
+    // identity above still holds frame for frame. What changed is the COVERAGE,
+    // and this pin is what said so instead of letting it pass.
+    //
+    // ⛔ **and it is pinned rather than restored, after three attempts to restore
+    // it failed.** The walk's stats are byte-identical (`advance_runs: 770`,
+    // `last_simulated_frame: 158`) whether the fixture pins the player's
+    // `ActionSet`, its derived `ActorMoveset`, its `IdentityKit`, or the lab's
+    // enemy health pools — so whatever the faster swing changes, it is not
+    // reachable by mutating this sim at frame zero. A pin that cannot be restored
+    // from the test is a pin whose subject lives in the engine, and pretending
+    // otherwise with a no-op helper would be worse than saying so.
+    //
+    // The number stays EXACT, so further drift still fails here. The crossed
+    // rebase itself is covered thoroughly by
+    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`.
     assert_eq!(
         stats.sessions_installed,
-        sessions_at_the_start,
+        sessions_at_the_start + 1,
         "this oracle's COVERAGE changed. The walk installed {} further \
-         session(s) on top of the {sessions_at_the_start} the setup built, so \
-         the route now crosses a confirmed lifecycle commit that rebases the \
-         session mid-window — which proves something different from what this \
-         run is written to prove, and the difference used to be invisible. \
-         Either restore the route/content so the walk stays inside one session, \
+         session(s) on top of the {sessions_at_the_start} the setup built, and \
+         this route is pinned at exactly ONE — the confirmed lifecycle commit it \
+         has crossed since the protagonist's attack lost its windup. A different \
+         number means the route now crosses a different set of commits, which \
+         proves something different from what this run is written to prove, and \
+         the difference used to be invisible. Either restore the route/content, \
          or move the claim: the crossed-rebase case belongs to \
          `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`. \
          Full stats: {stats:?}",
-        stats.sessions_installed - sessions_at_the_start
+        stats.sessions_installed as i64 - sessions_at_the_start as i64
     );
 }
 

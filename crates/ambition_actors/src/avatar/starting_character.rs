@@ -265,7 +265,15 @@ impl RangedExecution {
 /// The `authored` contract, when present, replaces the derivation outright: a
 /// character that authored its own moveset said something more specific than
 /// anything derivable from presets.
-pub(crate) fn derive_persona_moveset(
+///
+/// ⚠ **`pub` for FIXTURES, and the reason is worth a line.** A body's swing is
+/// built HERE, at spawn, from its action set — so a harness that mutates
+/// `ActionSet.melee` afterwards changes nothing the runtime reads, which is a
+/// silent no-op a test cannot see. The rollback exit oracle needs to state the
+/// swing its route walks with (its frame counts are measured against one), and
+/// the only honest way to do that is to rebuild the moveset the same way the
+/// spawn did.
+pub fn derive_persona_moveset(
     set: &ActionSet,
     execution: RangedExecution,
     authored: Option<ambition_entity_catalog::MovesetContract>,

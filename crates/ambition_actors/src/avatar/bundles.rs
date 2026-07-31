@@ -290,9 +290,27 @@ pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet 
         melee: abilities
             .attack
             .then_some(MeleeActionSpec::Swipe(SwipeSpec {
-                // Player swipe is faster than enemy Striker default
-                // — the player's combat tempo runs ~2× snappier.
-                windup_s: 0.12,
+                // **NO WINDUP. The player's attack comes out on the press.**
+                // (Jon, 2026-07-31: *"there are a few frames — in debug mode you
+                // get a yellow hitbox — before it turns into a gray hitbox that
+                // activates with the vfx. I think this is supposed to be a
+                // telegraph, but the player robot shouldn't have that. The attack
+                // should come out immediately so it feels responsive."*)
+                //
+                // 0.12s is SEVEN FRAMES at 60Hz, and a windup is a promise made
+                // to an opponent: it exists so a fighter can be READ. That is
+                // right for a Striker the player is meant to beat and wrong for
+                // the hand the player is holding — this is the same distinction
+                // the smash demo's fighters make with `slash_recoil`, one field
+                // over. The Startup phase still EXISTS (the anim and the
+                // read-model swing both use it); it is zero seconds long, so
+                // `phase_at(0.0)` reports Active and the hit volume, the slash
+                // arc and the swing cue all land on the frame of the press.
+                //
+                // Player swipe was already faster than the enemy Striker default
+                // — the player's combat tempo runs ~2× snappier — and this is the
+                // rest of that argument.
+                windup_s: 0.0,
                 active_s: 0.10,
                 recover_s: 0.18,
                 damage: 1,

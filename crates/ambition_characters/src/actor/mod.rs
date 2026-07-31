@@ -144,6 +144,60 @@ mod tests {
         assert_eq!(health.current, 5);
     }
 
+    /// **Percent is not health, and the meter can exceed the pool.** (S4)
+    ///
+    /// Lives here rather than beside the damage systems because `BodyHealth` is
+    /// here: this is the authority's own contract, and a consumer crate asserting
+    /// it would be asserting something it does not own.
+    #[test]
+    fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
+        let mut body = BodyHealth::new(Health::new(50)).with_policy(DeathPolicy::Unbounded);
+        body.damage(94);
+        assert!(
+            (body.damage_percent() - 1.88).abs() < 1e-6,
+            "damage_percent() = {} — 94 damage over a 50 pool is 188%",
+            body.damage_percent()
+        );
+        assert_eq!(
+            body.health.ratio(),
+            1.0,
+            "the POOL is untouched under Unbounded: its death is the world's, and \
+             a drained pool is what used to make it stop taking hits"
+        );
+    }
+
+    /// The meter does not stop where the pool does — the defect S4 exists for.
+    /// `Health::damage` returns early on `!alive()`, so a hit landing on an empty
+    /// pool was DROPPED rather than clamped, and knockback growth (which scales
+    /// off this meter) flatlined at 100%.
+    #[test]
+    fn damage_percent_keeps_climbing_past_a_full_pool() {
+        let mut body = BodyHealth::new(Health::new(20));
+        body.damage(7);
+        assert_eq!(body.damage_taken(), 7);
+        body.damage(100);
+        assert_eq!(
+            body.damage_taken(),
+            107,
+            "the meter saturated at the pool max, so a body cannot be MORE hurt \
+             than its pool is deep"
+        );
+        assert!(body.damage_percent() > 5.0);
+    }
+
+    /// An `Unbounded` body keeps taking damage forever, which is the whole reason
+    /// the variant exists and what it could not do before S4.
+    #[test]
+    fn damage_percent_grows_on_a_body_the_meter_may_not_kill() {
+        let mut body = BodyHealth::new(Health::new(10)).with_policy(DeathPolicy::Unbounded);
+        for _ in 0..20 {
+            assert!(!body.damage(10), "the meter killed a body whose death is the world's");
+            assert!(body.alive());
+        }
+        assert_eq!(body.damage_taken(), 200);
+        assert_eq!(body.current(), body.max(), "the pool drained under Unbounded");
+    }
+
     #[test]
     fn health_heal_clamps_to_max() {
         let mut health = Health::new(10);

@@ -86,6 +86,7 @@ mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;
 mod shell_host_rendered;
 mod shell_host_startup;
+mod stocks;
 mod symmetry_attunement;
 mod unified_body_movement;
 mod unified_melee;

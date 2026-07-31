@@ -53,6 +53,15 @@ impl SnapshotState for crate::components::FighterStocks {
     }
 }
 
+impl SnapshotState for crate::stocks::StocksMatchSettled {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::StocksMatchSettled(r.bool()?))
+    }
+}
+
 impl SnapshotState for crate::stocks::FighterEliminated {
     fn encode(&self, _out: &mut Vec<u8>) {}
     fn decode(_r: &mut Reader<'_>) -> Option<Self> {

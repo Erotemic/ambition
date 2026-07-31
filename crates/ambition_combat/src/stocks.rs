@@ -152,6 +152,26 @@ pub fn last_side_standing(
     }
 }
 
+/// **The match is over, and this is who took it.**
+///
+/// Written once, by the ruleset-facing half of the loop, when
+/// [`last_side_standing`] first answers. `None` is a draw — every side going out
+/// together, which a two-fighter simultaneous ring-out reaches easily and which a
+/// `winner: String` shape would have had to invent a sentinel for.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct StocksMatchDecided {
+    pub winner: Option<String>,
+}
+
+/// Set once a [`StocksMatchDecided`] has been written, so the outcome is
+/// announced once rather than every tick after it becomes true.
+///
+/// A resource rather than a `Local`, because a `Local` is not rollback state and
+/// this gates a message the ruleset acts on: a rewind across the deciding frame
+/// must be able to un-decide the match.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StocksMatchSettled(pub bool);
+
 /// Who took it, if anyone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SidesOutcome {

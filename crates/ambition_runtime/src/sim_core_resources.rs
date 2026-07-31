@@ -51,6 +51,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // and the count that was spent for it.
             .add_message::<ambition_combat::stocks::BodyKnockedOut>()
             .add_message::<ambition_combat::stocks::FighterStockSpent>()
+            .add_message::<ambition_combat::stocks::StocksMatchDecided>()
             .add_message::<ambition_actors::features::ActorStimulus>()
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()

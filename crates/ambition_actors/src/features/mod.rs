@@ -43,6 +43,7 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 pub mod banter;
 pub mod combat_rules;
+pub mod stocks_match;
 pub mod brain_command;
 pub mod temporary_control;
 pub use temporary_control::TemporaryControl;
@@ -286,9 +287,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // "everything that reads this tick's damage outcome rather than
         // producing it", which is exactly what this is — the KO was decided in
         // Resolve, and spending is bookkeeping over it.
+        app.init_resource::<ambition_combat::stocks::StocksMatchSettled>();
         app.add_systems(
             sim,
-            ambition_combat::stocks::spend_fighter_stocks
+            (
+                ambition_combat::stocks::spend_fighter_stocks,
+                // AFTER the spend, in the same phase: a match decided before this
+                // tick's elimination lands would announce the previous frame's
+                // answer on the frame the last fighter goes out.
+                crate::features::stocks_match::decide_stocks_match,
+            )
+                .chain()
                 .in_set(crate::schedule::CombatSet::Settle),
         );
         app.register_placement_interpreter(

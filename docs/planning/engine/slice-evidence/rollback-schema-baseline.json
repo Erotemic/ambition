@@ -16,7 +16,8 @@
     "never read. A guard that says 'the wire format' while reading one of two",
     "files is the failure this repo keeps rediscovering \u2014 it was green, and it",
     "was green about less than it claimed.",
-    "\u26a0 S4 (2026-07-30) added five entries, and they are a JOIN rather than a drift: FighterStocks and FighterEliminated are the stocks loop's own state \u2014 a stock count that is not rollback state UN-SPENDS itself on a rewind, so a fighter loses the same stock twice or never loses it at all \u2014 plus message.body_knocked_out and message.fighter_stock_spent, which must be CLEARED on load or a rewound KO is re-read and spends a second stock. derived.resolved_combat_tuning is AE6's projection, declared derived rather than registered as state on purpose: restoring it independently of the declaration that produced it is the borrow the seam removed."
+    "\u26a0 S4 (2026-07-30) added five entries, and they are a JOIN rather than a drift: FighterStocks and FighterEliminated are the stocks loop's own state \u2014 a stock count that is not rollback state UN-SPENDS itself on a rewind, so a fighter loses the same stock twice or never loses it at all \u2014 plus message.body_knocked_out and message.fighter_stock_spent, which must be CLEARED on load or a rewound KO is re-read and spends a second stock. derived.resolved_combat_tuning is AE6's projection, declared derived rather than registered as state on purpose: restoring it independently of the declaration that produced it is the borrow the seam removed.",
+    "\u26a0 S4's match-end half (2026-07-31) joins two more: StocksMatchSettled is the 'already announced' latch, registered as STATE rather than left a Local because a rewind across the deciding frame must be able to UN-decide the match \u2014 a latch that survived it would swallow the re-announcement on the replay and the ruleset would never hear the match end. message.stocks_match_decided is cleared on load for the same reason."
   ],
   "measured_on": "2026-07-30",
   "stable_schema_names": [
@@ -269,6 +270,7 @@
     "message.set_flag_requested",
     "message.spawn_actor_request",
     "message.spawn_projectile",
+    "message.stocks_match_decided",
     "message.switch_activated",
     "message.toggle_portal_gun",
     "message.trail_continuity_break",
@@ -332,6 +334,7 @@
     "resource.sim_dt",
     "resource.sim_tick",
     "resource.slot_interaction_state",
+    "resource.stocks_match_settled",
     "resource.switch_activation_queue",
     "resource.world_time",
     "root.active_room_metadata",
@@ -343,7 +346,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 322,
+  "stable_schema_name_count": 324,
   "encoded_types": [
     "ambition_actors::SandboxSimState",
     "ambition_actors::avatar::PlayerSafetyState",
@@ -379,6 +382,7 @@
     "ambition_combat::components::FighterStocks",
     "ambition_combat::components::RulesetOwnsDeath",
     "ambition_combat::stocks::FighterEliminated",
+    "ambition_combat::stocks::StocksMatchSettled",
     "ambition_combat::targeting::MatchTeam",
     "ambition_encounter::EncounterLifecycle",
     "ambition_encounter::EncounterParticipants",
@@ -411,7 +415,7 @@
     "ambition_time::WorldTime",
     "ambition_world::collision::MovingPlatformSet"
   ],
-  "encoded_type_count": 65,
+  "encoded_type_count": 66,
   "encoding_crates": [
     "ambition_actors",
     "ambition_characters",

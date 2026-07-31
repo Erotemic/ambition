@@ -1508,3 +1508,163 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
          silently"
     );
 }
+
+/// **Activation is a TRANSACTION: resolve every seat, then build every seat.**
+/// (S2 / AA2's lifecycle half)
+///
+/// Seating used to resolve and construct one seat at a time. The defect that
+/// makes this a transaction rather than a tidier loop is not "the latch is
+/// atomic and the bodies are not" — it is that the ADOPTION path writes the
+/// primary player's health, body size and pose THROUGH THE QUERY, immediately,
+/// not through deferred `Commands`. So seat 0 could be re-pooled, resized and
+/// teleported to its mark on a tick where seat 1 then failed to resolve, and the
+/// player wore that half-applied match state for as many ticks as the roster took
+/// to complete — forever, for a roster that can never complete.
+mod activation_transaction {
+    use super::*;
+
+    /// The player body these tests watch, with values chosen so that adoption
+    /// CANNOT be mistaken for "nothing happened": a pool the character's
+    /// baseline would replace, and a position seating would move.
+    const PLAYER_POOL: i32 = 5;
+
+    fn spawn_player(app: &mut App) -> Entity {
+        app.world_mut()
+            .spawn((
+                crate::avatar::PlayerSimulationBundle::from_scratch(
+                    crate::avatar::primary_player_scratch(
+                        Vec2::new(0.0, 0.0),
+                        ambition_engine_core::AbilitySet::default(),
+                    ),
+                    ambition_characters::actor::Health::new(PLAYER_POOL),
+                ),
+                ambition_characters::actor::WornCharacter::new("mary_o"),
+            ))
+            .id()
+    }
+
+    fn body_state(
+        app: &App,
+        body: Entity,
+    ) -> (i32, i32, f32, f32, ambition_engine_core::Vec2) {
+        let health = app
+            .world()
+            .get::<ambition_characters::actor::BodyHealth>(body)
+            .expect("the player body has health");
+        let kin = app
+            .world()
+            .get::<ambition_platformer_primitives::body::BodyKinematics>(body)
+            .expect("the player body has kinematics");
+        (
+            health.current(),
+            health.max(),
+            kin.pos.x,
+            kin.facing,
+            kin.size,
+        )
+    }
+
+    /// **A roster that cannot complete leaves the world exactly as it found it.**
+    ///
+    /// The seatable HUMAN seat is the one that matters: it is the one the old
+    /// code mutated in place. Seat 1 names a character nothing registered, which
+    /// is `seat_character`'s only failure mode, so the roster can never complete
+    /// and the retry runs forever.
+    #[test]
+    fn an_unsatisfiable_seat_leaves_the_adopted_player_untouched() {
+        let mut app = seating_app();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        let player = spawn_player(&mut app);
+        finalize_and_update(&mut app);
+        let before = body_state(&app, player);
+
+        app.insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                cpu("never_registered"),
+            ],
+            ..Default::default()
+        });
+
+        // Several ticks, because seating RETRIES. One tick would not distinguish
+        // "did not mutate" from "has not run yet".
+        for _ in 0..5 {
+            finalize_and_update(&mut app);
+        }
+
+        assert_eq!(
+            body_state(&app, player),
+            before,
+            "the adopted player was re-pooled, resized or teleported to its seat \
+             for a match that never activated — the half-applied state the \
+             resolve/commit split exists to prevent"
+        );
+        assert!(
+            app.world().get::<MatchSeat>(player).is_none(),
+            "the player wears a seat in a match that does not exist"
+        );
+        assert!(
+            app.world().get_resource::<ActiveMatch>().is_none(),
+            "the latch closed on an incomplete roster"
+        );
+        let world = app.world_mut();
+        let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+        assert_eq!(
+            worn.iter(world).count(),
+            1,
+            "a body was constructed for a roster that can never complete, so the \
+             stage now holds an orphan fighter no ruleset owns"
+        );
+    }
+
+    /// **When every seat CAN be satisfied, they all arrive on one tick.**
+    ///
+    /// The counterpart assertion, and the one that would catch a "fix" that
+    /// simply refused to seat anything. A spawned seat and an ADOPTED seat land
+    /// in the same command flush — the mix is the point, because they take
+    /// different paths and it was the seam between them that could tear.
+    #[test]
+    fn every_seat_is_constructed_on_the_same_tick() {
+        let mut app = seating_app();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+        let player = spawn_player(&mut app);
+        finalize_and_update(&mut app);
+
+        app.insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                cpu("sanic"),
+            ],
+            ..Default::default()
+        });
+
+        finalize_and_update(&mut app);
+
+        assert!(
+            app.world().get::<MatchSeat>(player).is_some(),
+            "the adopted seat did not land on the activating tick"
+        );
+        let world = app.world_mut();
+        let mut seats = world.query::<&MatchSeat>();
+        let mut indices: Vec<usize> = seats.iter(world).map(|seat| seat.0).collect();
+        indices.sort();
+        assert_eq!(
+            indices,
+            vec![0, 1],
+            "the seats did not all appear on the tick the match activated"
+        );
+        let active = app
+            .world()
+            .get_resource::<ActiveMatch>()
+            .expect("the latch closed with the cast");
+        assert_eq!(
+            active.seats(),
+            2,
+            "the activation counted fewer seats than it built — the adopted seat \
+             was not recorded in the pass that built it"
+        );
+    }
+}

@@ -652,6 +652,15 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "entity:fighter_eliminated",
         )
+        // The "already announced" latch for a stocks match's outcome. Registered
+        // as STATE rather than left a `Local`, because a rewind across the
+        // deciding frame must be able to UN-decide the match — a latch that
+        // survives it would swallow the re-announcement on the replay and the
+        // ruleset would never hear that the match ended.
+        .rollback_resource_canonical::<ambition_combat::stocks::StocksMatchSettled>(
+            ENGINE,
+            "resource.stocks_match_settled",
+        )
         .rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
             ENGINE,
             "actor.ruleset_owns_death",
@@ -1607,6 +1616,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .clear_message_on_rollback::<ambition_combat::stocks::FighterStockSpent>(
         ENGINE,
         "message.fighter_stock_spent",
+    )
+    .clear_message_on_rollback::<ambition_combat::stocks::StocksMatchDecided>(
+        ENGINE,
+        "message.stocks_match_decided",
     )
     .clear_message_on_rollback::<ambition_combat::on_hit::OnHitEffectMessage>(
         ENGINE,

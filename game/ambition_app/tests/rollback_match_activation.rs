@@ -368,7 +368,7 @@ fn late_arriving_roster_sim() -> SandboxSim {
 /// pre-activation after all. That is the defect in one sentence rather than a
 /// checksum mismatch three frames downstream.
 #[test]
-fn a_rewind_across_the_activation_frame_reconstructs_the_same_match() {
+fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
     let mut sim = late_arriving_roster_sim();
 
     for tick in 0..(ROSTER_ARRIVES_AT as usize + 40) {

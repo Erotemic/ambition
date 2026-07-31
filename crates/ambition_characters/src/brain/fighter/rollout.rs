@@ -887,12 +887,24 @@ pub struct RefinedChoice {
     /// Standing still is only a fallback where standing still is survivable. On
     /// the ground it is; in the air it never is.
     pub least_bad_movement: Option<crate::brain::fighter::options::MovementVerb>,
-    /// The preferred attack — **empty when L2 offered none**, which is the
+    /// The preferred attack — **`None` when L2 offered none**, which is the
     /// `Recovery` situation ("a body past the blastzone has exactly one
     /// problem"). A consumer reads this for the attack and
     /// [`Self::suicidal_movement`] for the veto; the two are independent, and
     /// conflating them is what made the veto skip the body that needed it.
-    pub move_id: String,
+    ///
+    /// ⛔ **this was a `String` whose EMPTY value meant "no attack", and the
+    /// sentinel cost the demo its difficulty curve** (traced 2026-07-31). The
+    /// consumer read `refined.move_id.clone()` into an `Option`, so the moment a
+    /// rollout ran at all the answer was `Some("")` — an attack request naming
+    /// no move — and the fighter armed a press EVERY decision, including in
+    /// `Recovery` where L2 deliberately offers none. Each press lunges the body
+    /// forward, so a level-9 fighter offstage and holding LEFT was carried right
+    /// at 700 px/s by its own attacks while the trace showed it asking to come
+    /// back. Levels 1–5, which run no rollout, took the `or_else` branch and
+    /// were fine — which is exactly the shape of the A/B that said the rollout
+    /// made things worse.
+    pub move_id: Option<String>,
     /// **Movement lines the rollout found SUICIDAL**, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
@@ -1151,9 +1163,7 @@ pub fn refine_by_rollout(
     // that keeps it alive.
     Some(RefinedChoice {
         least_bad_movement: longest_lived.map(|(verb, _)| verb),
-        move_id: best
-            .map(|(index, _)| options.attacks[index].move_id.clone())
-            .unwrap_or_default(),
+        move_id: best.map(|(index, _)| options.attacks[index].move_id.clone()),
         value_over_baseline: best.map_or(0.0, |(_, value)| value),
         suicidal_movement,
     })

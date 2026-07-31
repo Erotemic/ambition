@@ -267,6 +267,23 @@ fn decide(
     };
     let situation = classify(view);
 
+    // **RECOVERY CANCELS A QUEUED ATTACK.** (traced 2026-07-31)
+    //
+    // A press is armed at one decision and matures several ticks later, and the
+    // situation can change in between — which on a platform stage it does, in
+    // the one direction that matters. The trace caught it exactly: an attack
+    // armed while airborne OVER the lip (`floor_edge=Some(45)`, still `Neutral`)
+    // matured two decisions later with the body past the edge and asking to
+    // `Recover`, and every attack in this engine LUNGES. So the fighter's own
+    // queued swing carried it out at 700 px/s while its emitted input said left.
+    //
+    // L2 already refuses to offer attacks in `Recovery` — *"a body past the
+    // blastzone has exactly one problem"* — so this is that rule applied to the
+    // press that was already in flight, rather than a new policy.
+    if situation == Situation::Recovery {
+        state.pending_press = None;
+    }
+
     // **HABIT OBSERVATION IS PART OF THE DECISION TICK** (§13.5). The foe's
     // observable choice since the last decision is fed to the model under the
     // situation that was live when it happened. This is FB5's missing writer —
@@ -354,9 +371,13 @@ fn decide(
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
     // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
+    // ⛔ **`and_then`, not `map`.** `RefinedChoice::move_id` is the rollout's
+    // preferred attack and it is `None` when L2 offered none — `map` wrapped
+    // that in a second `Some`, so every decision that ran a rollout requested an
+    // attack that named no move, including in `Recovery`. See the field's doc.
     let wants_attack = refined
         .as_ref()
-        .map(|refined| refined.move_id.clone())
+        .and_then(|refined| refined.move_id.clone())
         .or_else(|| options.attacks.first().map(|attack| attack.move_id.clone()));
     if wants_attack.is_some() && state.pending_press.is_none() {
         let jitter = if cfg.profile.execution_noise > 0.0 {
@@ -403,10 +424,11 @@ fn trace_decision(
     }
     let me = view.self_view;
     eprintln!(
-        "[fighter] x={:.0} vx={:.0} ground={} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
+        "[fighter] x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
         me.pos.x,
         me.vel.x,
         me.on_ground,
+        me.phase,
         view.stage.is_known(),
         view.stage.bounds.min.x,
         view.stage.bounds.max.x,

@@ -385,7 +385,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
         6,
     )
     .expect("rollouts are on and a hostile is in view");
-    assert_eq!(refined.move_id, "lunge");
+    assert_eq!(refined.move_id.as_deref(), Some("lunge"));
     assert!(
         refined.value_over_baseline > 0.0,
         "connecting must beat doing nothing: {}",
@@ -620,7 +620,7 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
     );
     let refined = refined.expect("no attacks is not a reason to skip movement vetting");
     assert!(
-        refined.move_id.is_empty(),
+        refined.move_id.is_none(),
         "with no attacks there is no move to name"
     );
     assert_eq!(

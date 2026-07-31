@@ -399,3 +399,52 @@ fn the_jump_button_does_not_stay_held_after_the_jump() {
          to. One jump used to hold the button for the whole match: {out:?}"
     );
 }
+
+/// **A queued press is CANCELLED when the body starts recovering.**
+///
+/// A press is armed at one decision and matures several ticks later, and the
+/// situation can change in between. On a platform stage it does, in the one
+/// direction that matters: the trace of a level-9 self-KO (2026-07-31) caught an
+/// attack armed while airborne OVER the lip — still `Neutral` — maturing two
+/// decisions later with the body past the edge and asking to `Recover`. Every
+/// attack in this engine lunges, so the fighter's own queued swing carried it
+/// further out while its emitted input said "back".
+///
+/// L2 already refuses to OFFER attacks in `Recovery`; this is that rule applied
+/// to the press already in flight.
+#[test]
+fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
+    let cfg = FighterCfg::new(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let mut out = ActorControlFrame::neutral();
+
+    // The press is planted rather than earned: `BrainSnapshot::idle()` carries no
+    // attack kit, so no scene here can arm one, and what is under test is the
+    // CANCELLATION rather than the arming.
+    let mut recovering = FighterState::new(&cfg, 1);
+    recovering.pending_press = Some(6);
+    let mut offstage = scene(300.0, 340.0);
+    // `stage()`'s envelope is the room; a body outside it is recovering by the
+    // oldest of L1's rules.
+    offstage.self_view.pos.x = -80.0;
+    offstage.self_view.on_ground = false;
+    tick_fighter(&cfg, &mut recovering, &snapshot, Some(&offstage), &mut out);
+    assert_eq!(
+        recovering.pending_press, None,
+        "the body is recovering and still holding a swing it decided on while it \
+         had a stage under it"
+    );
+
+    // NON-VACUITY: the same planted press on a body that is not recovering only
+    // AGES. Without this the assertion above would pass against a rig that
+    // dropped every press for any reason.
+    let mut fighting = FighterState::new(&cfg, 1);
+    fighting.pending_press = Some(6);
+    let on_stage = scene(300.0, 340.0);
+    tick_fighter(&cfg, &mut fighting, &snapshot, Some(&on_stage), &mut out);
+    assert_eq!(
+        fighting.pending_press,
+        Some(5),
+        "a press on a body with a stage under it must age, not vanish"
+    );
+}

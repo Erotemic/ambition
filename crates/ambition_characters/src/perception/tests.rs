@@ -508,3 +508,56 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
         "the in-view foe beats the fading one, whatever their ids"
     );
 }
+
+/// **A body standing ON the lip still sees the lip.**
+///
+/// `supporting_floor` matched a solid against the body's CENTRE, so a fighter
+/// whose centre had crossed the platform's edge — feet still on it, `on_ground`
+/// still true — matched nothing and `floor_ahead` answered `None`, which every
+/// ledge question in the brain reads as *"no ledge here"*.
+///
+/// Traced in `ladder_probe` (`AMBITION_FIGHTER_TRACE=1`) on the frame before a
+/// level-9 self-KO: `x=496 floor_edge=Some(34)` and then, at `x=537` on a
+/// platform ending at 530, `floor_edge=None`. Blind at the one position where
+/// the edge is the only thing that matters.
+#[test]
+fn a_body_on_the_lip_reports_the_edge_it_is_standing_on() {
+    // A platform spanning x 110..530, top at y=300 — the smash stage's.
+    let platform = wall(ae::Vec2::new(320.0, 316.0), ae::Vec2::new(210.0, 16.0));
+    let view_at = |x: f32| WorldView {
+        // Feet at y=300: `self_view_at`'s half extent is (10, 16), so a centre
+        // at 284 puts the feet exactly on the platform's top face.
+        self_view: self_view_at(ae::Vec2::new(x, 284.0), ActorFaction::Enemy),
+        viewport: Viewport::around(ae::Vec2::new(x, 284.0), ae::Vec2::splat(500.0)),
+        terrain: vec![platform],
+        ..Default::default()
+    };
+
+    // Well inside: the right edge is 34 away, which this always answered.
+    let inside = view_at(496.0);
+    assert_eq!(inside.floor_ahead(1.0), Some(34.0));
+
+    // ON the lip — centre 7px past the edge, feet still supported. The distance
+    // is NEGATIVE, which is the honest answer: being past an edge is not the
+    // absence of one.
+    let on_the_lip = view_at(537.0);
+    let ahead = on_the_lip
+        .floor_ahead(1.0)
+        .expect("a body whose feet are on the platform can see its edge");
+    assert!(
+        ahead < 0.0,
+        "a body 7px past the right edge reported {ahead} of floor ahead"
+    );
+    assert!(
+        on_the_lip
+            .floor_edge_distance()
+            .is_some_and(|distance| distance < 0.0),
+        "the nearer edge is behind the body, so the distance to it is negative — \
+         and `None` here is what made L1 answer 'not cornered' one step from a \
+         self-KO"
+    );
+
+    // Genuinely off the end: no part of the body is over the platform any more,
+    // and `None` is then correct — that is an AIRBORNE question, not a ledge one.
+    assert_eq!(view_at(560.0).floor_ahead(1.0), None);
+}

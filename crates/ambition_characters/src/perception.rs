@@ -432,8 +432,26 @@ impl WorldView {
             .iter()
             .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
             .filter(|solid| {
-                solid.aabb.min.x <= me.pos.x
-                    && solid.aabb.max.x >= me.pos.x
+                // ⚠ **the body's FOOTPRINT, not its centre.** This compared
+                // `me.pos.x` against the solid's span, so a body standing on the
+                // very lip of a platform — centre a few px past the edge, feet
+                // still on it, `on_ground` still true — matched NO solid, and
+                // `floor_ahead` answered `None`: *"I cannot see a floor"*. Every
+                // ledge question in the brain reads through here, so the fighter
+                // went blind about the edge at exactly the position where the
+                // edge is the only thing that matters.
+                //
+                // Traced 2026-07-31 in `ladder_probe` (`AMBITION_FIGHTER_TRACE=1`),
+                // level 9, on the frame before a self-KO:
+                //
+                //     x=496 ... floor_edge=Some(34.0)   <- sees the lip
+                //     x=537 ... floor_edge=None         <- ON the lip, blind
+                //
+                // The platform ends at x=530. Being past the edge is not the
+                // absence of an edge; it is a NEGATIVE distance to one, and
+                // `floor_ahead` reports it as such now.
+                solid.aabb.min.x <= me.pos.x + me.half_extent.x
+                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
                     && solid.aabb.min.y >= feet - me.half_extent.y
                     && solid.aabb.min.y <= feet + me.half_extent.y * 2.0
             })

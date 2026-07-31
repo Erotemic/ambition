@@ -99,6 +99,7 @@
 //! can be read in one line beats a suite nobody has run.
 
 use ambition::actor::{FighterStocks, MatchSeat};
+use ambition::characters::brain::ActorControl;
 use ambition::characters::brain::{Brain, StateMachineCfg};
 use ambition_demo_smash_app::build_demo_app;
 use bevy::app::App;
@@ -139,6 +140,15 @@ fn main() {
     for depth in [0u32, 12] {
         report(&run_seeds(9, Some(depth), seeds));
     }
+}
+
+/// Whether the brain/seam trace is on. Same switch the brain reads, so the two
+/// halves of the trace are never half-enabled.
+fn trace_enabled() -> bool {
+    static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
+    });
+    *ENABLED
 }
 
 /// `--seeds N`, else [`DEFAULT_SEEDS`].
@@ -301,6 +311,33 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         }
         if !seed_applied {
             seed_applied = force_noise_seed(&mut app, noise_seed);
+        }
+        // ⚠ **the APPLIED control, beside the body it is supposed to move.**
+        // `AMBITION_FIGHTER_TRACE=1` prints what the BRAIN emitted; this prints
+        // what reached `ActorControl`, which is the seam between the brain phase
+        // and the movement phase. The two together answer the question the brain
+        // trace could only pose: on 2026-07-31 the brain emitted full LEFT for
+        // three decisions while the body accelerated RIGHT, and nothing said
+        // whether the intent was lost on the way or ignored on arrival.
+        if trace_enabled() {
+            let world = app.world_mut();
+            let mut seam = world.query::<(
+                &MatchSeat,
+                &ActorControl,
+                &ambition::platformer::body::BodyKinematics,
+            )>();
+            for (seat, control, kinematics) in seam.iter(world) {
+                if seat.0 == 1 && tick % 5 == 0 {
+                    eprintln!(
+                        "[seam] t={tick} x={:.0} vx={:.0} control_x={:.1} dash={} jump={}",
+                        kinematics.pos.x,
+                        kinematics.vel.x,
+                        control.0.locomotion.x,
+                        control.0.dash_pressed,
+                        control.0.jump_pressed,
+                    );
+                }
+            }
         }
         let world = app.world_mut();
         let mut q = world.query::<(

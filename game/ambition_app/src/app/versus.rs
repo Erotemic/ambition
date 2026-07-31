@@ -662,6 +662,13 @@ pub fn compose_versus_experience(app: &mut App) {
         );
     }
 
+    // The ROUND lifetime (Campaign 3A). Installed by the thing that composes a
+    // MATCH rather than by the engine at large — a single-player platformer has
+    // no rounds and should carry no round culler. `settle_versus_round` mints the
+    // next round; this despawns whatever belonged to the last one, so the rules
+    // never enumerate the transient families that might exist.
+    app.add_plugins(ambition::platformer::lifecycle::RoundScopePlugin);
+
     // Publishing the scoreboard IS presentation: it reads `VersusMatch` and
     // writes HUD text, and it writes nothing the simulation reads back.
     app.add_systems(Update, super::versus_rules::publish_versus_hud);

@@ -27,6 +27,11 @@ pub fn apply_player_spawn_projectile_messages(
     mut seq: ResMut<ProjectileSeqCounter>,
     mut spawn_projectiles: MessageReader<SpawnProjectile>,
     active_session: Option<Res<ActiveSessionScope>>,
+    // ROUND scope, when a match owns one. Nothing in flight crosses a round
+    // boundary, and the boundary must not have to know that a projectile is one
+    // of the things in flight (Campaign 3A). `None` outside a match, where the
+    // round lifetime does not exist and a shot is session-scoped only.
+    active_round: Option<Res<ambition_platformer_primitives::lifecycle::ActiveRoundScope>>,
     // Stamped at materialization, like the enemy pool. A player shot first steps
     // NEXT frame, so the engine's inheritance pass would reach it in time — but
     // depending on that is depending on a schedule edge nobody declared, and the
@@ -38,6 +43,12 @@ pub fn apply_player_spawn_projectile_messages(
         spawn_projectiles.clear();
         return;
     };
+    // Captured BEFORE the loop, so every shot drained this frame belongs to the
+    // round that was current when they were requested.
+    let round_scope = active_round
+        .as_deref()
+        .map(|round| round.spawn_scope())
+        .unwrap_or_default();
     for msg in spawn_projectiles.read() {
         let ProjectilePool::Player { owner } = msg.pool else {
             continue;
@@ -58,6 +69,7 @@ pub fn apply_player_spawn_projectile_messages(
             entity.insert(source.clone());
         }
         scope.apply_to(&mut entity);
+        round_scope.apply_to(&mut entity);
         // The named gameplay kind rides as its own component (the engine body is
         // generic): combat attribution and trace read it off the entity. The
         // OPEN visual id — the key the content art catalog registers under —

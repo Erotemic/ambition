@@ -33,6 +33,10 @@ pub fn apply_enemy_projectile_effect_requests(
     mut seq: ResMut<ProjectileSeqCounter>,
     mut requests: MessageReader<ambition_vfx::EffectRequest>,
     active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    // The ROUND lifetime, when a match owns one (Campaign 3A). Same reasoning as
+    // the player pool: a shot must not cross a round boundary, and the boundary
+    // must not know that a shot is one of the things that crosses it.
+    active_round: Option<Res<ambition_platformer_primitives::lifecycle::ActiveRoundScope>>,
     // Whose voice the shot lands in. Stamped HERE, at materialization, rather than
     // by the engine's inheritance pass — this executor is followed immediately by
     // `step_projectiles`, so a bolt that spawns and hits a wall inside one tick had
@@ -48,6 +52,10 @@ pub fn apply_enemy_projectile_effect_requests(
         requests.clear();
         return;
     };
+    let round_scope = active_round
+        .as_deref()
+        .map(|round| round.spawn_scope())
+        .unwrap_or_default();
     for req in requests.read() {
         let ambition_vfx::Effect::Projectiles { shots } = &req.effect else {
             continue;
@@ -72,6 +80,7 @@ pub fn apply_enemy_projectile_effect_requests(
                 Name::new("Enemy projectile (sim)"),
             ));
             scope.apply_to(&mut entity);
+            round_scope.apply_to(&mut entity);
             if req.owner != Entity::PLACEHOLDER {
                 entity.insert(ProjectileOwner(req.owner));
                 if let Ok(source) = sources.get(req.owner) {

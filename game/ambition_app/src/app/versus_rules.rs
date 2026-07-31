@@ -43,7 +43,7 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition::actors::character_runtime::{seat_placement, MatchSeat};
+use ambition::actors::character_runtime::{MatchSeat, seat_placement};
 use ambition::characters::actor::{BodyCombat, BodyHealth};
 use ambition::combat::targeting::MatchTeam;
 use ambition::engine_core as ae;
@@ -185,7 +185,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 /// near-duplicate that drifts on the three-side case.
 ///
 /// What stays here is the ADAPTER: rounds are settled on health.
-use ambition::combat::stocks::{last_side_standing, SidesOutcome as RoundResult};
+use ambition::combat::stocks::{SidesOutcome as RoundResult, last_side_standing};
 
 fn round_result<'a>(
     rows: impl Iterator<Item = (usize, Option<&'a MatchTeam>, i32)>,
@@ -256,7 +256,10 @@ pub fn settle_versus_round(
     active_match: Option<Res<ambition::actors::character_runtime::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
-    projectiles: Query<Entity, With<ambition::projectiles::LiveProjectile>>,
+    // The round LIFETIME, which replaced this system's hand-written projectile
+    // query. Campaign 3A: a round boundary must not enumerate the transient
+    // families that might exist.
+    mut rounds: ResMut<ambition::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
     mut firing: Query<&mut ambition::projectiles::PlayerProjectileState, With<MatchSeat>>,
@@ -314,6 +317,14 @@ pub fn settle_versus_round(
             }
 
             // GO.
+            //
+            // **THE ROUND'S LIFETIME OPENS HERE**, at the one place a round
+            // actually goes live, and not in `begin_round` — which runs at a
+            // TRANSITION and therefore never ran for the first round at all. A
+            // scope minted only on transitions leaves round one unscoped, so its
+            // debris would survive into round two: exactly the leak Campaign 3A
+            // exists to close, reintroduced by the shape of the state machine.
+            rounds.begin();
             state.phase = MatchPhase::Fighting;
             for (entity, ..) in fighters.iter() {
                 commands
@@ -452,7 +463,7 @@ pub fn settle_versus_round(
         &mut fighters,
         &mut reactions,
         &mut commands,
-        &projectiles,
+        &mut rounds,
     );
     *state = if match_over {
         VersusMatch::opening()
@@ -528,13 +539,18 @@ fn begin_round(
     fighters: &mut FighterQuery,
     reactions: &mut Query<&mut BodyCombat, With<MatchSeat>>,
     commands: &mut Commands,
-    projectiles: &Query<Entity, With<ambition::projectiles::LiveProjectile>>,
+    rounds: &mut ambition::platformer::lifecycle::ActiveRoundScope,
 ) {
-    // Nothing in flight crosses the round boundary. `try_despawn` because a
-    // projectile that expired on its own this tick is already gone.
-    for shot in projectiles {
-        commands.entity(shot).try_despawn();
-    }
+    // **NOTHING IN FLIGHT CROSSES THE ROUND BOUNDARY**, and this function no
+    // longer knows what "in flight" is made of.
+    //
+    // ⚠ this opened with a hand-written `for shot in projectiles { try_despawn }`
+    // — one query naming one transient family (Campaign 3A). Every family added
+    // after it needed another query HERE, and forgetting one fails silently: an
+    // entity from the previous round is simply still there, in a round that
+    // never asked for it. Minting the next round is now the whole statement;
+    // `despawn_departed_round_entities` culls whatever belonged to the last one.
+    rounds.begin();
     let centre = geometry.0.spawn;
     for (entity, seat, _, mut health, item, mut model) in fighters.iter_mut() {
         health.health.current = health.health.max;
@@ -791,16 +807,18 @@ mod tests {
     fn a_team_survives_while_one_partner_stands() {
         let blue = team("blue");
         let red = team("red");
-        assert!(round_result(
-            [
-                (0, Some(&blue), 0),
-                (1, Some(&red), 40),
-                (2, Some(&blue), 7),
-                (3, Some(&red), 12),
-            ]
-            .into_iter()
-        )
-        .is_none());
+        assert!(
+            round_result(
+                [
+                    (0, Some(&blue), 0),
+                    (1, Some(&red), 40),
+                    (2, Some(&blue), 7),
+                    (3, Some(&red), 12),
+                ]
+                .into_iter()
+            )
+            .is_none()
+        );
     }
 
     #[test]

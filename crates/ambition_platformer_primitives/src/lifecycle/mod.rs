@@ -8,6 +8,7 @@
 
 mod cleanup;
 mod markers;
+mod round;
 mod session;
 mod spawn_ext;
 
@@ -16,12 +17,16 @@ pub use markers::{
     FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PersistentEntity, PlayerVisual,
     RoomScopedEntity, RoomVisual, RunScopedEntity,
 };
+pub use round::{
+    ActiveRoundScope, RoundScopeId, RoundScopePlugin, RoundScopedEntity, RoundSpawnScope,
+    despawn_departed_round_entities,
+};
 pub use session::{
-    despawn_retired_session_entities, insert_session_world_component, session_world_component,
-    session_world_component_mut, session_world_entity, session_world_exists, simulation_authorized,
     ActiveSessionScope, InitialGameplayReadiness, SessionCommands, SessionGatedSimulation,
     SessionRoot, SessionScopeId, SessionScopePlugin, SessionScopeRetired, SessionScopeSet,
     SessionScopedEntity, SessionSpawnScope, SessionWorldMut, SessionWorldRef,
-    SpawnSessionScopedExt,
+    SpawnSessionScopedExt, despawn_retired_session_entities, insert_session_world_component,
+    session_world_component, session_world_component_mut, session_world_entity,
+    session_world_exists, simulation_authorized,
 };
 pub use spawn_ext::SpawnScopedExt;

@@ -1739,10 +1739,46 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     app.world_mut()
         .entity_mut(seat_zero)
         .insert(MovePlayback::new(smash, 1.0));
-    let shot = app
-        .world_mut()
-        .spawn(ambition::projectiles::LiveProjectile)
-        .id();
+    // ⚠ FIRED, not hand-spawned. This used to be
+    // `world.spawn(LiveProjectile)`, which is not a projectile — it is a marker
+    // on a bare entity. That was invisible while `begin_round` despawned
+    // `With<LiveProjectile>`, because a marker was all the boundary looked at.
+    // Now a shot's round membership is stamped by its SPAWNER (Campaign 3A), so
+    // a fixture that skips the spawner is testing a population the game never
+    // produces — and it would have reported a leak that does not exist.
+    app.world_mut()
+        .write_message(ambition::projectiles::SpawnProjectile {
+            pool: ambition::projectiles::ProjectilePool::Player { owner: seat_zero },
+            projectile: ambition::projectiles::InFlightProjectile {
+                body: ambition::projectiles::ProjectileBody::from_spec(
+                    ambition::projectiles::ProjectileSpec {
+                        origin: ambition::engine_core::Vec2::new(400.0, 300.0),
+                        direction: ambition::engine_core::Vec2::new(1.0, 0.0),
+                        damage: 1,
+                        speed: 200.0,
+                        // Long enough that it cannot expire on its own inside the
+                        // KO hold — an expiry would look exactly like the cull
+                        // this test is about.
+                        max_lifetime: 30.0,
+                        half_extent: ambition::engine_core::Vec2::splat(4.0),
+                        gravity: 0.0,
+                        bounces: 0,
+                        world_hit: ambition::projectiles::WorldHitPolicy::Bouncing,
+                        charge_tier: 0,
+                    },
+                ),
+                owner_id: String::new(),
+            },
+            kind: None,
+        });
+    app.update();
+    let shot = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<ambition::projectiles::LiveProjectile>>();
+        q.iter(world)
+            .next()
+            .expect("the player pool materialized the shot this fixture fired")
+    };
 
     app.world_mut()
         .get_mut::<BodyHealth>(seat_one)
@@ -2585,5 +2621,67 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         heard_seat_zero,
         "seat 0 lost the round and NOTHING was heard. The ruleset owns where the \
          body goes and who scores it — not the sound of losing."
+    );
+}
+
+/// **A round boundary culls what the round created, without naming it.** (3A)
+///
+/// `begin_round` used to open with one hand-written query despawning
+/// `LiveProjectile`. Every transient family added afterwards — a strike volume,
+/// a summon, a lingering hitbox — needed another query in that function, and
+/// forgetting one fails silently: the entity is simply still there in a round
+/// that never asked for it.
+///
+/// This asserts the boundary works on a family the RULES never mention: the
+/// entity below is round-scoped and nothing else, so the only thing that can
+/// despawn it is the scope itself.
+#[test]
+fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
+    use ambition::characters::actor::BodyHealth;
+    use ambition::platformer::lifecycle::{ActiveRoundScope, RoundScopedEntity};
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    settle_into_a_live_round(&mut app);
+
+    let round = app
+        .world()
+        .resource::<ActiveRoundScope>()
+        .current()
+        .expect("a live round has a round scope");
+    // Not a projectile, not anything the versus rules have heard of.
+    let debris = app.world_mut().spawn(RoundScopedEntity(round)).id();
+    app.update();
+    assert!(
+        app.world().get_entity(debris).is_ok(),
+        "the round is still live; nothing should have been culled yet"
+    );
+
+    // Force the round over by emptying a fighter, and let the KO hold elapse.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition::actors::character_runtime::MatchSeat,
+            &mut BodyHealth,
+        )>();
+        for (seat, mut health) in q.iter_mut(world) {
+            if seat.0 == 1 {
+                health.health.current = 0;
+            }
+        }
+    }
+    for _ in 0..600 {
+        app.update();
+        if app.world().get_entity(debris).is_err() {
+            break;
+        }
+    }
+
+    assert!(
+        app.world().get_entity(debris).is_err(),
+        "a round-scoped entity outlived its round. The boundary is back to \
+         enumerating families, and the one it does not name is the one that leaks"
     );
 }

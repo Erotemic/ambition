@@ -189,6 +189,29 @@ impl SmashSelect {
     }
 }
 
+/// **How many seats this screen offers, from the pads that are actually
+/// plugged in.**
+///
+/// Jon's *"up to 4 players"* is a CEILING, not a count. The floor is one,
+/// because a keyboard is player one on every other route in this game and a
+/// select screen that showed zero seats when nobody had a gamepad would be a
+/// demo you cannot start.
+///
+/// ⚠ this reads the live device order rather than a frozen topology, and that is
+/// correct HERE and would be wrong one route later. A select screen is exactly
+/// where somebody plugs a controller in — that is what the screen is for — so it
+/// must follow discovery. A rollback session freezes its seating precisely so the
+/// MATCH cannot; the two answers are different on purpose, and the seam between
+/// them is the moment the roster is published.
+pub fn seats_offered(devices: &ambition::input::LocalDeviceOrder) -> usize {
+    devices.devices().len().clamp(1, MAX_SMASH_SEATS)
+}
+
+/// Which seats a player may join, given the pads present.
+pub fn joinable_seats(devices: &ambition::input::LocalDeviceOrder) -> std::ops::Range<usize> {
+    0..seats_offered(devices)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +343,36 @@ mod tests {
         assert!(!select.ready());
         assert!(select.roster().is_none());
         assert_eq!(select.joined(), 0);
+    }
+
+    /// **The seat count comes from the pads, and the floor is one.**
+    ///
+    /// A screen that showed zero seats when nobody had a gamepad would be a demo
+    /// you cannot start — the keyboard is player one on every other route here.
+    #[test]
+    fn the_screen_offers_a_seat_per_pad_with_a_keyboard_floor() {
+        use ambition::input::LocalDeviceOrder;
+        use bevy::prelude::Entity;
+
+        let pads = |count: u32| {
+            LocalDeviceOrder::from_devices(
+                (0..count).filter_map(Entity::from_raw_u32).collect::<Vec<_>>(),
+            )
+        };
+        assert_eq!(
+            seats_offered(&pads(0)),
+            1,
+            "no gamepads offered no seats, so the demo cannot be started from a \
+             keyboard"
+        );
+        assert_eq!(seats_offered(&pads(2)), 2);
+        assert_eq!(
+            seats_offered(&pads(9)),
+            MAX_SMASH_SEATS,
+            "nine pads offered nine seats; four is the ceiling the screen, the \
+             stage and `SlotControls` all share"
+        );
+        assert_eq!(joinable_seats(&pads(3)).len(), 3);
     }
 
     /// Four is the ceiling, and a fifth seat is not a panic.

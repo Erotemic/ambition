@@ -1296,6 +1296,15 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     wear_oracle_armor(&mut sim);
     stage_player_on_arena_floor(&mut sim);
 
+    // The session count AFTER staging, because staging deliberately rebases:
+    // both setup helpers fold a `world_mut` mutation into frame zero, and each
+    // fold installs a session. Counting from here is what makes the pin below a
+    // statement about the WALK rather than about how the baseline was built.
+    let sessions_at_the_start = sim
+        .rollback_execution_stats()
+        .expect("GGRS instrumentation is installed")
+        .sessions_installed;
+
     let RouteWalk {
         health,
         events,
@@ -1390,6 +1399,54 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
         stats.lifetime_advance_runs > frames_run as u64,
         "resimulation must execute more GGRS frames than the {frames_run} \
          harness steps, or the same frames were never replayed: {stats:?}"
+    );
+
+    // ── COVERAGE, PINNED rather than left to the content (AC22) ──
+    //
+    // AC18 stopped a content edit from BREAKING this oracle. What it did not
+    // stop is a content edit changing what the oracle COVERS: the authored
+    // enemy set decides whether a confirmed Track-B lifecycle commit lands
+    // inside the rollback window, and a run that crosses a mid-window session
+    // rebase proves something different from one that does not. Both were green
+    // and nothing said which had happened — *a proof whose coverage moves when
+    // a designer edits a room is a weaker proof than it looks.*
+    //
+    // So the count is asserted — against the count at the START of the walk, not
+    // against 1. Measured 2026-07-31: this run reports `sessions_installed: 3`,
+    // and all three are the SETUP's (the initial session plus one rebase for
+    // each of the two `world_mut` folds). `advance_runs: 2980` against
+    // `lifetime_advance_runs: 2981` is the same fact from the other side: the
+    // current session has done essentially all of the work, so nothing rebased
+    // mid-walk. Pinning the literal 3 would have made this a test of the
+    // SETUP's shape; pinning the delta makes it a test of the walk's coverage.
+    //
+    // This run is the NO-REBASE walk: one session, rewound and resimulated for
+    // its whole length. The crossed-rebase case is covered deliberately and far
+    // more thoroughly by
+    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`,
+    // which walks a body through an `EdgeExit`, proves the intent is recorded
+    // while predicted and committed exactly once on confirmation, and keeps
+    // running checksum-clean past the rebase.
+    //
+    // ⚠ **a fixture room of the oracle's own was the other option and is not
+    // taken.** It would be a second copy of authored content to keep alive, and
+    // it does not buy what it looks like it buys: this route's four objectives
+    // are already asserted by AUTHORED ID, so a content edit that moves them
+    // fails loudly at `calibrate_targets` either way. Coverage was the only part
+    // that could move silently, and an assertion is the whole fix for that.
+    assert_eq!(
+        stats.sessions_installed,
+        sessions_at_the_start,
+        "this oracle's COVERAGE changed. The walk installed {} further \
+         session(s) on top of the {sessions_at_the_start} the setup built, so \
+         the route now crosses a confirmed lifecycle commit that rebases the \
+         session mid-window — which proves something different from what this \
+         run is written to prove, and the difference used to be invisible. \
+         Either restore the route/content so the walk stays inside one session, \
+         or move the claim: the crossed-rebase case belongs to \
+         `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`. \
+         Full stats: {stats:?}",
+        stats.sessions_installed - sessions_at_the_start
     );
 }
 

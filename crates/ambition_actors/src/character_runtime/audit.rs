@@ -142,6 +142,26 @@ pub enum CharacterAuthorityConflict {
         display_name: String,
         ids: Vec<String>,
     },
+    /// One id, two different NAMES — the inverse of the case above, and the one
+    /// it cannot see.
+    ///
+    /// ⚠ **found by AF4b's residue, 2026-07-31.** `player_robot_lineage.rs`
+    /// authors each incarnation's display name in Rust and
+    /// `character_catalog.ron` authors it again in content, with no rule saying
+    /// which wins — and both are live: `id_for_display_name` resolves content
+    /// addressing through the PREPARED REGISTRY while a pedestal label, a bark
+    /// header and the launcher list read the CATALOG. Rename a character in one
+    /// authority and it answers to one name and is labelled with the other.
+    ///
+    /// The sibling variants caught the two ways that had already bitten (one
+    /// name many ids; one id two sheets) and this third way was simply never
+    /// asked, which is the recurring shape: a parity audit is only as wide as
+    /// the fields somebody thought to compare.
+    DisplayNameDisagreement {
+        character_id: String,
+        registry_display_name: String,
+        catalog_display_name: String,
+    },
     /// One id declared by both authorities, with different art.
     ///
     /// ⚠ **both sheets are the CANONICAL sheet target**, never the raw strings
@@ -181,6 +201,19 @@ impl std::fmt::Display for CharacterAuthorityConflict {
                  sprite alias table each resolve it their own way, so a demand for it can \
                  stage one character and decode another's art. Give one a distinct name.",
                 quoted(ids)
+            ),
+            Self::DisplayNameDisagreement {
+                character_id,
+                registry_display_name,
+                catalog_display_name,
+            } => write!(
+                f,
+                "`{character_id}` presents as `{registry_display_name}` according to the \
+                 prepared registry and as `{catalog_display_name}` according to the \
+                 catalog. Both are read: content addresses characters by name through \
+                 the registry (`id_for_display_name`), while labels, barks and rosters \
+                 read the catalog row — so this character answers to one name and is \
+                 shown under the other. Author it once."
             ),
             Self::SheetDisagreement {
                 character_id,
@@ -247,6 +280,25 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
                 display_name: display_name.to_string(),
                 ids: ids.into_iter().map(str::to_string).collect(),
             });
+        }
+    }
+
+    // And the NAME, for an id both authorities declare. The check above asks
+    // "does this name belong to more than one character"; this one asks "does
+    // this character have more than one name", which is a different question and
+    // was never asked. Both authorities answer it to different consumers.
+    if let (Some(registry), Some(catalog)) = (registry, catalog) {
+        for (id, prepared) in registry.iter() {
+            let Some(entry) = catalog.get(id) else {
+                continue;
+            };
+            if entry.display_name != prepared.display_name {
+                conflicts.push(CharacterAuthorityConflict::DisplayNameDisagreement {
+                    character_id: id.to_string(),
+                    registry_display_name: prepared.display_name.clone(),
+                    catalog_display_name: entry.display_name.clone(),
+                });
+            }
         }
     }
 
@@ -482,5 +534,49 @@ mod authority_parity_tests {
             "registration rejects an ambiguous name within the registry, and this is \
              the half it cannot reach: {conflicts:?}"
         );
+    }
+
+    /// **The inverse question, which was never asked.** (AF4b residue,
+    /// 2026-07-31)
+    ///
+    /// The test above asks whether one NAME belongs to several characters. This
+    /// asks whether one CHARACTER has several names, and the audit could not
+    /// answer it: both authorities author a display name, both are read — the
+    /// registry answers `id_for_display_name`, which is how content addresses a
+    /// character; the catalog answers the label on the pedestal — and nothing
+    /// compared them. Rename in one place and the character answers to one name
+    /// while being shown under the other.
+    #[test]
+    fn one_character_presenting_under_two_names_is_a_conflict() {
+        let mut app = app_with_catalog();
+        // The same id the catalog declares, renamed in the registry only —
+        // exactly what editing one of two authorities looks like.
+        app.register_character(CharacterDefinition::new("mary_o", "Mary O", "mary_o_demo"));
+
+        finalize(&mut app);
+        let conflicts = audit_character_authority_parity(app.world());
+        assert!(
+            conflicts.contains(&CharacterAuthorityConflict::DisplayNameDisagreement {
+                character_id: "mary_o".to_string(),
+                registry_display_name: "Mary O".to_string(),
+                catalog_display_name: "Mary-O".to_string(),
+            }),
+            "one id with two display names must be reported: content addressing \
+             resolves through one authority and every label reads the other: \
+             {conflicts:?}"
+        );
+    }
+
+    /// And agreement is not a conflict — the ordinary state of the whole shipped
+    /// cast, where both authorities declare the same character on purpose. A
+    /// parity check that fires on agreement is the failure mode
+    /// `SheetDisagreement` already had once, and it made the audit unreadable
+    /// for ten characters.
+    #[test]
+    fn agreeing_display_names_are_not_a_conflict() {
+        let mut app = app_with_catalog();
+        app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+        finalize(&mut app);
+        assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 }

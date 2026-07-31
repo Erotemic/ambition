@@ -23,13 +23,20 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v6 (2026-07-31): `BodyHealth` carries its damage METER and DEATH POLICY
+/// on the wire.** It had gained both when the stocks loop landed and encoded
+/// neither, so every rewind restored a fighter at 0% under `HpDepleted` — a
+/// value change the checksum could not see, because it hashed the same
+/// incomplete encoding (GPT 5.6 review, finding 1). A peer on v5 stores three
+/// fields where this stores five; they must not believe they agree.
+///
 /// ⚠ **v5 (2026-07-31): the fingerprint stopped hashing the registration
 /// OWNER.** The owner is an organisational label nothing reads, and hashing it
 /// made "which module registered this" a wire-format fact — so moving a
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 5;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

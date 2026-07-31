@@ -443,3 +443,87 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
         "the reconstructed activation forgot which frozen topology decided it"
     );
 }
+
+/// **A stocks fighter's PERCENT and death policy survive a real rewind.**
+///
+/// GPT 5.6, 2026-07-31 (finding 1): `BodyHealth` gained an uncapped damage meter
+/// and a `DeathPolicy` when the stocks loop landed, and the canonical codec
+/// carried neither — `decode` rebuilt the component with `BodyHealth::new`, which
+/// is 0% under `HpDepleted`. `CanonicalCodecStrategy` uses that encoding for the
+/// STORED value, so this was not a checksum omission: a fighter at 188% came back
+/// from any rewind as a fresh one, its knockback scaling reset, and later damage
+/// began draining a pool the ruleset says only the world may empty.
+///
+/// ⚠ **the checksum could not have caught it, and neither could a sync test.**
+/// Both sides hashed the same incomplete representation, so they agreed
+/// perfectly about a value that was being thrown away. This asserts the VALUE
+/// after the rewind, which is the only thing that could have seen it — probed
+/// against the original codec, where `rollback_health()` stayed silent for all
+/// thirty ticks and this reported *"went into the rewind at 3760% and came out
+/// at 0%"*.
+#[test]
+fn a_fighters_percent_and_policy_survive_a_rewind() {
+    use ambition::characters::actor::{BodyHealth, DeathPolicy};
+
+    let mut sim = match_sim();
+    introduce_the_roster(&mut sim);
+    // Seat the match, then let it settle so the bodies exist and nothing is
+    // mid-construction.
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+    }
+
+    // Put one seated fighter well past 100% under the stocks policy, and make
+    // THAT the rollback baseline — a direct `world_mut` write behind the cursor
+    // is the harness's one documented way to lie to itself.
+    let (before_percent, before_policy) = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&mut BodyHealth, bevy::prelude::With<MatchSeat>>();
+        let mut health = q
+            .iter_mut(world)
+            .next()
+            .expect("the roster seated at least one fighter");
+        health.set_policy(DeathPolicy::Unbounded);
+        health.damage(188);
+        (health.damage_percent(), health.policy())
+    };
+    sim.rebase_rollback_history()
+        .expect("the damaged fighter becomes the rollback baseline");
+    assert!(
+        before_percent > 1.0,
+        "the fixture meant to put a fighter ABOVE 100%, and it is at {:.0}%",
+        before_percent * 100.0
+    );
+    assert_eq!(before_policy, DeathPolicy::Unbounded);
+
+    // Every frame of this sim is saved, rewound and resimulated.
+    for tick in 0..30 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("tick {tick}: {error}"));
+    }
+
+    let (after_percent, after_policy) = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&BodyHealth, bevy::prelude::With<MatchSeat>>();
+        let health = *q
+            .iter(world)
+            .next()
+            .expect("the seated fighter is still there");
+        (health.damage_percent(), health.policy())
+    };
+    assert!(
+        (after_percent - before_percent).abs() < 1e-3,
+        "the fighter went into the rewind at {:.0}% and came out at {:.0}%. The \
+         meter is what knockback scales off, so this is a fighter that launches \
+         like a fresh one after every rollback",
+        before_percent * 100.0,
+        after_percent * 100.0
+    );
+    assert_eq!(
+        after_policy,
+        DeathPolicy::Unbounded,
+        "the death policy came back as the default, so damage now drains this \
+         body's pool and it can die by HP in a ruleset where only the world kills"
+    );
+}

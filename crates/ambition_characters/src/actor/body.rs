@@ -142,6 +142,21 @@ impl BodyHealth {
         self
     }
 
+    /// **Rebuild a body's health EXACTLY, meter and policy included.**
+    ///
+    /// For the rollback decoder, and named for it: every other construction site
+    /// authors a fresh body, where a zero meter and the default policy are the
+    /// right answer. A RESTORE is the opposite — the values are the whole point,
+    /// and `new()` silently substituting its own is how a fighter at 188% under
+    /// `Unbounded` came back at 0% under `HpDepleted` (GPT 5.6, 2026-07-31).
+    pub fn restored(health: Health, damage_taken: i32, policy: DeathPolicy) -> Self {
+        Self {
+            health,
+            accumulated: damage_taken,
+            policy,
+        }
+    }
+
     pub fn policy(self) -> DeathPolicy {
         self.policy
     }

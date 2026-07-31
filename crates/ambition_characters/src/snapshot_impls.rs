@@ -51,18 +51,50 @@ snapshot_pod!(crate::actor::pose::ActorPose {
     facing: f32,
 });
 
+snapshot_unit_enum!(crate::actor::DeathPolicy {
+    HpDepleted = 0,
+    Unbounded = 1,
+});
+
+/// **A body's health is three facts, and the codec used to carry one.**
+///
+/// ⚠ **wire-format change, 2026-07-31 (GPT 5.6 review, finding 1).** `BodyHealth`
+/// gained an uncapped damage METER (the smash-percent axis) and a DEATH POLICY
+/// when the stocks loop landed. This encoding still carried only the pool, and
+/// `decode` rebuilt the component with `BodyHealth::new` — which resets the meter
+/// to 0 and the policy to `HpDepleted`.
+///
+/// `CanonicalCodecStrategy` uses this encoding for the STORED GGRS value, so it
+/// was not a checksum omission: a fighter at 188% under `Unbounded` came back
+/// from any rewind at 0% under `HpDepleted`. Knockback scales off the meter, so
+/// its launch distance silently reset; and under the restored policy later damage
+/// began draining the pool, so it could die by HP in a ruleset whose whole design
+/// is that only the world kills. The checksum could not see any of it, because it
+/// was computed over the same incomplete representation.
+///
+/// The policy rides as a coded unit enum rather than a bool, so a third variant
+/// is a new code rather than a re-interpretation of an old byte.
 impl SnapshotState for crate::actor::BodyHealth {
     fn encode(&self, out: &mut Vec<u8>) {
         put_i32(out, self.health.current);
         put_i32(out, self.health.max);
         put_bool(out, self.health.invulnerable);
+        put_i32(out, self.damage_taken());
+        self.policy().encode(out);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::actor::BodyHealth::new(crate::actor::Health {
+        let health = crate::actor::Health {
             current: r.i32()?,
             max: r.i32()?,
             invulnerable: r.bool()?,
-        }))
+        };
+        let damage_taken = r.i32()?;
+        let policy = crate::actor::DeathPolicy::decode(r)?;
+        Some(crate::actor::BodyHealth::restored(
+            health,
+            damage_taken,
+            policy,
+        ))
     }
 }
 
@@ -854,4 +886,57 @@ fn read_attack_gesture_intent(
             _ => return None,
         },
     })
+}
+
+#[cfg(test)]
+mod body_health_wire_tests {
+    use crate::actor::{BodyHealth, DeathPolicy, Health};
+
+    fn round_trip(health: &BodyHealth) -> BodyHealth {
+        let bytes = ambition_engine_core::snapshot::encode_state(health);
+        ambition_engine_core::snapshot::decode_state::<BodyHealth>(&bytes)
+            .expect("the encoding decodes")
+    }
+
+    /// **A fighter above 100% under `Unbounded` comes back as itself.**
+    ///
+    /// The encoding carried the pool only, and `decode` rebuilt the component
+    /// with `BodyHealth::new` — a zero meter and the default policy. This is the
+    /// smallest statement of what that cost.
+    #[test]
+    fn a_body_over_100_percent_keeps_its_meter_and_its_policy() {
+        let mut health =
+            BodyHealth::new(Health::new(100)).with_policy(DeathPolicy::Unbounded);
+        health.damage(188);
+        assert_eq!(health.damage_taken(), 188);
+        assert!(health.alive(), "an unbounded pool does not drain");
+
+        let restored = round_trip(&health);
+        assert_eq!(
+            restored.damage_taken(),
+            188,
+            "the meter reset across the wire, so the body's knockback scaling \
+             silently went back to a fresh fighter's"
+        );
+        assert_eq!(
+            restored.policy(),
+            DeathPolicy::Unbounded,
+            "the policy reset to HpDepleted, so later damage drains the pool and \
+             the fighter can die by HP in a ruleset where only the world kills"
+        );
+        assert_eq!(restored.current(), health.current());
+        assert_eq!(restored.max(), health.max());
+    }
+
+    /// The ordinary body is unchanged — the default policy and an empty meter
+    /// survive as themselves rather than by accident.
+    #[test]
+    fn an_ordinary_damaged_body_round_trips_too() {
+        let mut health = BodyHealth::new(Health::new(50));
+        health.damage(20);
+        let restored = round_trip(&health);
+        assert_eq!(restored.current(), 30);
+        assert_eq!(restored.damage_taken(), 20);
+        assert_eq!(restored.policy(), DeathPolicy::HpDepleted);
+    }
 }

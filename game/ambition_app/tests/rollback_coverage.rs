@@ -1380,3 +1380,228 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
         written.join("\n  ")
     );
 }
+
+// ── An inert registration is worse than a missing one ────────────────────────
+//
+// API finding (a), made measurable. `rollback_component_canonical::<T>` installs
+// a `ComponentSnapshotPlugin`, and bevy_ggrs' snapshot plugins act ONLY on
+// entities carrying `bevy_ggrs::Rollback`. That marker is installed by
+// `require_rollback::<A>` for some ANCHOR component `A`. So a component that is
+// registered canonical, but only ever lives on entities that carry no anchor,
+// is registered and inert: the registry lists it, `encoded_types()` counts it,
+// the sweep above says the component is "accounted", and nothing rewinds it.
+//
+// That is strictly worse than forgetting to register it, because every
+// instrument reports success. It is the same shape as the module-family waiver
+// that swallowed `ActiveMatch` and the single-file collector that read one of
+// two codec files: green, about less than it claimed.
+//
+// The check cannot be static — which entities carry which components is a
+// runtime fact — so it runs over the SAME real populations the sweeps above
+// build, and asks the co-occurrence question directly. It deliberately does not
+// look for `bevy_ggrs::Rollback` itself: that marker is absent under the
+// fixed-tick fixtures these sweeps use, so a check written against it would be
+// vacuous exactly where it runs.
+
+/// **Archetypes deliberately OUTSIDE the rollback envelope**, keyed by a
+/// component whose presence identifies them, with the reason.
+///
+/// A waiver here is a CLAIM: *this entity's registered components never change
+/// during simulation, so nothing is lost by not restoring them.* That is a much
+/// narrower statement than "this entity does not matter", and it is the only one
+/// that makes an unanchored registration harmless rather than silently broken.
+///
+/// ⚠ each of these earns its place by being IMMUTABLE-after-construction, not by
+/// being unimportant. `SpawnOrigin`, `TransactionId` and `SimId` are construction
+/// provenance (ADR 0030) — written once when the entity is built and never
+/// again — so a rewind that does not restore them restores the same values they
+/// already hold. A prop that started MOVING would fall out of this justification
+/// immediately, which is why the waiver names a marker rather than a module.
+const INERT_WAIVED: &[(&str, &str)] = &[
+    (
+        "ambition_platformer_primitives::lifecycle::markers::RoomVisual",
+        "presentation-only: a room visual carries a Transform the renderer reads \
+         and the simulation never writes. It is rebuilt with its room, not \
+         restored with the frame.",
+    ),
+    (
+        "ambition_portal::gun_pickup::PortalGunPickup",
+        "an authored world FIXTURE, placed by the room and never moved. Taking it \
+         is a portal-gun grant, and THAT is rollback state on the taker \
+         (`PlacedPortal` is anchored); the pedestal itself holds only its \
+         construction provenance.",
+    ),
+];
+
+/// **Construction provenance is written ONCE and never again** (ADR 0030), so an
+/// entity whose only snapshot-registered components are provenance is outside
+/// the envelope by construction rather than by exception: a rewind that does not
+/// restore them restores exactly the values they already hold.
+///
+/// A RULE rather than a per-archetype waiver, deliberately. Every room prop, every
+/// authored fixture, every future one lands here without anybody adding a line —
+/// and the moment a prop gains a component that CHANGES, its stranded set stops
+/// being a subset of this and the sweep speaks up. A waiver list would have grown
+/// one entry per prop and gone unread by the third.
+const PROVENANCE_ONLY: &[&str] = &[
+    "ambition_platformer_primitives::construction::SpawnOrigin",
+    "ambition_platformer_primitives::construction::TransactionId",
+    "ambition_platformer_primitives::sim_id::SimId",
+    "ambition_platformer_primitives::lifecycle::markers::RoomScopedEntity",
+    "bevy_ecs::name::Name",
+];
+
+fn is_provenance_only(stranded: &BTreeSet<String>) -> bool {
+    !stranded.is_empty()
+        && stranded
+            .iter()
+            .all(|name| PROVENANCE_ONLY.contains(&name.as_str()))
+}
+
+fn inert_waiver(components: &BTreeSet<String>) -> Option<&'static str> {
+    INERT_WAIVED
+        .iter()
+        .find(|(marker, _)| components.contains(*marker))
+        .map(|(_, reason)| *reason)
+}
+
+/// Type names registered as SNAPSHOT state for a component (not resources, not
+/// anchors, not derived declarations).
+fn component_state_registrations(sim: &mut SandboxSim) -> BTreeSet<String> {
+    use ambition::runtime::rollback::RollbackEntryKind as K;
+    sim.world()
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .filter(|d| {
+            matches!(
+                d.kind,
+                K::ComponentCanonical
+                    | K::ComponentCloneCursor
+                    | K::ComponentCloneResolved
+                    | K::ComponentClone
+                    | K::ComponentCloneCanonicalChecksum
+                    | K::ComponentCloneCustomChecksum
+            )
+        })
+        .map(|d| d.type_name.clone())
+        .collect()
+}
+
+/// Type names whose PRESENCE puts an entity in the rollback envelope.
+fn rollback_anchors(sim: &mut SandboxSim) -> BTreeSet<String> {
+    use ambition::runtime::rollback::RollbackEntryKind as K;
+    sim.world()
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .descriptors()
+        .filter(|d| matches!(d.kind, K::RequiredRollback | K::DynamicAnchor))
+        .map(|d| d.type_name.clone())
+        .collect()
+}
+
+/// Every entity in `sim`'s swept population that carries snapshot-registered
+/// components but NO anchor, with the registrations that are therefore inert on
+/// it.
+fn inert_registrations(sim: &mut SandboxSim) -> BTreeMap<String, BTreeSet<String>> {
+    let state = component_state_registrations(sim);
+    let anchors = rollback_anchors(sim);
+    let population = simulated_population(sim);
+    let world = sim.world();
+    let mut inert: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for entity in population {
+        let Ok(components) = world.inspect_entity(entity) else {
+            continue;
+        };
+        let names: BTreeSet<String> = components.map(|info| info.name().to_string()).collect();
+        if names.intersection(&anchors).next().is_some() {
+            continue;
+        }
+        if inert_waiver(&names).is_some() {
+            continue;
+        }
+        let stranded: BTreeSet<String> = names.intersection(&state).cloned().collect();
+        if stranded.is_empty() || is_provenance_only(&stranded) {
+            continue;
+        }
+        // Keyed by the stranded SET rather than by entity: the same archetype
+        // strands the same way however many copies of it the room holds, and a
+        // failure listing 40 entities is a failure nobody reads.
+        let key = stranded.iter().cloned().collect::<Vec<_>>().join(" + ");
+        inert.entry(key).or_default().extend(names.intersection(&anchors).cloned());
+    }
+    inert
+}
+
+fn assert_no_inert_registrations(sim: &mut SandboxSim, room: &str) {
+    let inert = inert_registrations(sim);
+    assert!(
+        inert.is_empty(),
+        "in {room}: these components are registered as rollback STATE but live on \
+         entities carrying no rollback anchor, so their registration is INERT — \
+         the registry lists them, the coverage sweep counts them as accounted, \
+         and nothing restores them. Either give the archetype an anchor \
+         (`require_rollback::<A>` for a component it already carries), or the \
+         registration is a claim the engine does not honour:\n{inert:#?}"
+    );
+}
+
+/// **The boot world's snapshot registrations all actually apply.**
+#[test]
+fn no_snapshot_registration_is_inert_in_the_boot_world() {
+    let mut sim = SandboxSim::new().expect("sandbox sim boots");
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert_no_inert_registrations(&mut sim, "the boot world");
+}
+
+/// **A live match's are too** — the population that produced this defect class
+/// twice (`MatchSeat` and friends were registered canonical while nothing
+/// proved the bodies were anchored).
+#[test]
+fn no_snapshot_registration_is_inert_in_a_live_match() {
+    // Fixed-tick, like its sibling sweep: `seat_a_two_cpu_match` drives the
+    // seating retry to completion and the default timestep does not reach it.
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    // ⚠ the helper returns the TICK the match activated, not a seat count — and
+    // with the S2 transaction that tick is 0, because every seat now resolves
+    // and commits together. Count the bodies, like the sibling sweep does.
+    seat_a_two_cpu_match(&mut sim);
+    let seated = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition::actors::character_runtime::MatchSeat>();
+        q.iter(world).count()
+    };
+    assert_eq!(
+        seated, 2,
+        "the match fixture seated {seated} fighters, so this check swept a world \
+         with no match in it"
+    );
+    assert_no_inert_registrations(&mut sim, "a live match");
+}
+
+/// **The instrument itself goes red**, which is the only reason to trust the two
+/// tests above. Spawn a body-shaped entity carrying a snapshot-registered
+/// component and NO anchor — exactly the mistake — and confirm it is named.
+#[test]
+fn the_inert_sweep_actually_catches_an_unanchored_registration() {
+    let mut sim = SandboxSim::new().expect("sandbox sim boots");
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    // `MatchSeat` is registered canonical and is normally worn by a body, which
+    // carries the `BodyKinematics` anchor. On a bare entity it is stranded.
+    sim.world_mut()
+        .spawn(ambition::actors::character_runtime::MatchSeat(0));
+
+    let inert = inert_registrations(&mut sim);
+    assert!(
+        inert
+            .keys()
+            .any(|key| key.contains("MatchSeat")),
+        "the sweep did not notice a snapshot-registered component on an \
+         unanchored entity, so its green result above proves nothing: {inert:#?}"
+    );
+}

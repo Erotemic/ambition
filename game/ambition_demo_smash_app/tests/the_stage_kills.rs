@@ -143,3 +143,100 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
         "the players locked in and the demo stayed on the select screen"
     );
 }
+
+/// **A launched fighter leaves the world, spends a stock, and comes back.**
+///
+/// The last unproven link, and the only one that needed the physics rather than
+/// a message. Everything upstream is covered by unit tests that WRITE
+/// `BodyKnockedOut`; nothing had ever earned one. So this launches a real body
+/// off a real platform with a real velocity and waits for the world to take it.
+///
+/// If this fails while `ambition_combat::stocks` stays green, the gap is between
+/// the blast gate and the KO announcement — which is exactly the seam no test
+/// below the app can reach.
+#[test]
+fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
+    use ambition::actor::{FighterStocks, MatchSeat};
+    use ambition_demo_smash::select::SmashSelect;
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    {
+        let mut select = app.world_mut().resource_mut::<SmashSelect>();
+        select.join(0);
+        select.lock_in(0);
+        select.join(1);
+        select.browse(1, 1);
+        select.lock_in(1);
+    }
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let stocks_of = |app: &mut App, seat: usize| -> Option<u32> {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &FighterStocks)>();
+        query
+            .iter(world)
+            .find(|(s, _)| s.0 == seat)
+            .map(|(_, stocks)| stocks.remaining)
+    };
+    let before = stocks_of(&mut app, 1).expect(
+        "seat 1 has no stocks, so the match never seated a stocks fighter and \
+         this test is about to prove nothing",
+    );
+
+    // LAUNCH. Hard enough and sideways enough that the blast line is reached
+    // rather than approached — the stage's margin is a fraction of the platform,
+    // and this is several times that per second.
+    {
+        use ambition::actor::BodyKinematics;
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+        for (seat, mut kin) in query.iter_mut(world) {
+            if seat.0 == 1 {
+                kin.vel = ambition::engine_core::Vec2::new(2_400.0, -200.0);
+            }
+        }
+    }
+
+    // Long enough to cross the margin and for the KO to settle. A body moving at
+    // 2400px/s clears a 120px margin in a handful of ticks; the rest is the
+    // announcement, the spend and the placement.
+    let mut spent = None;
+    for tick in 0..240 {
+        app.update();
+        if let Some(now) = stocks_of(&mut app, 1) {
+            if now < before {
+                spent = Some((tick, now));
+                break;
+            }
+        }
+    }
+
+    let (tick, remaining) = spent.expect(
+        "a fighter launched at 2400px/s off a stage whose blast margin is a \
+         fraction of its platform never left the world — the blast gate and the \
+         KO announcement are not connected, which no test below the app can see",
+    );
+    assert_eq!(
+        remaining,
+        before - 1,
+        "the knockout spent {} stocks instead of one (tick {tick})",
+        before - remaining
+    );
+
+    // NON-VACUITY: the fighter that was NOT launched still has everything.
+    // Without this the test would pass just as happily on a stock counter that
+    // decremented on its own, which is the failure mode of every "did the number
+    // change" assertion.
+    assert_eq!(
+        stocks_of(&mut app, 0),
+        Some(before),
+        "the fighter that was never launched also lost a stock, so the counter \
+         is moving on its own and this test proves nothing about the blast gate"
+    );
+}

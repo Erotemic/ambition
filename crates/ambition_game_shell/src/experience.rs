@@ -86,6 +86,27 @@ impl ExperienceRegistration {
         self
     }
 
+    /// **Enter through a route other than the one that owns the session.**
+    ///
+    /// The default — and what every experience did before this existed — is that
+    /// the launcher opens the gameplay route directly. That is right for a game
+    /// whose first frame IS gameplay, and wrong for one that asks a question
+    /// first: a character select, a stage select, a save-slot picker. Those are
+    /// not loading screens (nothing is loading) and not the launcher (the
+    /// launcher lists games, not fighters), so the shell had nowhere to put
+    /// them and the smash demo's select screen could only exist as its own
+    /// app's HOME — unreachable from a host that lists more than one game.
+    ///
+    /// The entry route is an ordinary shell route the provider registers itself,
+    /// under an experience id of its own that is NOT a gameplay session (a
+    /// frontend screen the provider draws). It must already be in the
+    /// [`ShellRouteCatalog`] when the experience registers — advertising an
+    /// entry nobody registered is the one failure this cannot detect later.
+    pub fn entered_at(mut self, route: impl Into<ShellRouteId>) -> Self {
+        self.launch_route = route.into();
+        self
+    }
+
     /// The derived launcher entry for this registration.
     pub fn launch_entry(&self) -> ShellLaunchEntry {
         ShellLaunchEntry {
@@ -149,8 +170,13 @@ impl ShellExperienceRegistry {
 /// Ergonomic provider registration at app-build time.
 pub trait ShellExperienceAppExt {
     /// Register one experience: install its `route` in the [`ShellRouteCatalog`]
-    /// and publish its `registration` in the [`ShellExperienceRegistry`]. The
-    /// route's id must equal the registration's `launch_route`.
+    /// and publish its `registration` in the [`ShellExperienceRegistry`].
+    ///
+    /// `route` is the experience's SESSION route. The registration's
+    /// `launch_route` is where the launcher sends the player, which is normally
+    /// the same route — an experience that opens on a screen of its own
+    /// ([`ExperienceRegistration::entered_at`]) must have registered that route
+    /// FIRST, and this refuses an entry route nobody registered.
     ///
     /// A provider plugin calls this in its `build`; the host installs the
     /// provider plugin. There is no central match over demo identities.
@@ -167,12 +193,28 @@ impl ShellExperienceAppExt for App {
         registration: ExperienceRegistration,
         route: ShellRouteSpec,
     ) -> &mut Self {
-        assert_eq!(
-            registration.launch_route, route.id,
-            "experience {} launch_route must match its route spec id",
-            registration.id
-        );
         let world = self.world_mut();
+        // The entry route either IS this session route, or is a route somebody
+        // already registered. A launcher row pointing at an unknown route is a
+        // dead entry that fails at the worst possible moment — when a player
+        // presses it — so it fails here, naming what does exist.
+        if registration.launch_route != route.id {
+            let registered = world
+                .get_resource::<ShellRouteCatalog>()
+                .is_some_and(|catalog| catalog.contains(&registration.launch_route));
+            assert!(
+                registered,
+                "experience {} enters at route '{}', which no one registered; its \
+                 session route is '{}' and the registered routes are [{}]",
+                registration.id,
+                registration.launch_route.as_str(),
+                route.id.as_str(),
+                world
+                    .get_resource::<ShellRouteCatalog>()
+                    .map(|catalog| catalog.ids().collect::<Vec<_>>().join(", "))
+                    .unwrap_or_default(),
+            );
+        }
         // Validate the COMPLETE candidate against BOTH catalogs before mutating
         // either, so a conflicting registration leaves prior valid state intact
         // (transactional). Two failure modes, both deterministic composition
@@ -429,6 +471,55 @@ mod register_tests {
         assert!(
             message.contains("duplicate shell route id 'home'"),
             "a manually-registered route is still protected: {message}"
+        );
+    }
+
+    /// **The launcher opens the SCREEN, the session stays on its own route.**
+    ///
+    /// A character select is the case: the row says "Smash" and leads to a
+    /// question, and the stage route it eventually reaches still owns the
+    /// session, the preparation plan and the completion policy.
+    #[test]
+    fn an_experience_can_enter_at_a_screen_of_its_own() {
+        let mut app = App::new();
+        app.world_mut()
+            .get_resource_or_insert_with(ShellRouteCatalog::default)
+            .register(ShellRouteSpec::new("smash_select", "smash.select"));
+        app.register_experience(
+            reg("smash", "Smash", "smash_gameplay").entered_at("smash_select"),
+            ShellRouteSpec::new("smash_gameplay", "smash"),
+        );
+        let entries = app
+            .world()
+            .resource::<ShellExperienceRegistry>()
+            .launch_entries();
+        assert_eq!(
+            entries[0].route_id,
+            ShellRouteId::new("smash_select"),
+            "the launcher row opens the select screen, not the stage"
+        );
+        assert!(
+            app.world()
+                .resource::<ShellRouteCatalog>()
+                .contains(&ShellRouteId::new("smash_gameplay")),
+            "the session route is registered all the same"
+        );
+    }
+
+    /// The failure this rule exists to catch: a row nobody can press twice —
+    /// it resolves to nothing, and the first player to try finds out.
+    #[test]
+    fn entering_at_an_unregistered_route_is_refused_by_name() {
+        let message = capture_panic(|| {
+            let mut app = App::new();
+            app.register_experience(
+                reg("smash", "Smash", "smash_gameplay").entered_at("smash_select"),
+                ShellRouteSpec::new("smash_gameplay", "smash"),
+            );
+        });
+        assert!(
+            message.contains("enters at route 'smash_select'"),
+            "the refusal names the missing entry route: {message}"
         );
     }
 

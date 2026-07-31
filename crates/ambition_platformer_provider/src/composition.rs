@@ -148,12 +148,25 @@ impl ShellComposition {
         app.add_plugins(ambition_load_presentation::MinimalShellLoadPresentationPlugins);
         app.add_plugins(experience);
 
-        app.world_mut()
-            .resource_mut::<ShellRouteCatalog>()
-            .register(ShellRouteSpec::new(
+        // Home is the generic launcher list — UNLESS the experience already
+        // registered this route, in which case home is a screen the provider
+        // draws itself and overwriting it here would replace a character select
+        // with a list of one game. (That was literally the smash demo's home
+        // for a day: its select panels rendered over the launcher's own rows.)
+        let home_is_the_providers_own = app
+            .world()
+            .resource::<ShellRouteCatalog>()
+            .contains(&ambition_game_shell::ShellRouteId::new(
                 self.launcher_route.as_str(),
-                ShellLaunchCatalog::basic_experience_id(),
             ));
+        if !home_is_the_providers_own {
+            app.world_mut()
+                .resource_mut::<ShellRouteCatalog>()
+                .register(ShellRouteSpec::new(
+                    self.launcher_route.as_str(),
+                    ShellLaunchCatalog::basic_experience_id(),
+                ));
+        }
         app.world_mut()
             .resource_mut::<ShellHostConfiguration>()
             .spec = Some(ShellHostSpec::new(

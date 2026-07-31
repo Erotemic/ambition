@@ -395,6 +395,9 @@ mod tests {
 pub struct PlatformerExperienceAuthoring {
     pub experience_id: String,
     pub route_id: String,
+    /// Where the launcher sends the player, when that is not the session route.
+    /// See [`PlatformerExperienceAuthoring::entered_at`].
+    pub entry_route: Option<String>,
     pub label: String,
     pub description: String,
     pub preparation_label: String,
@@ -421,6 +424,7 @@ impl PlatformerExperienceAuthoring {
         Self {
             experience_id: experience_id.into(),
             route_id: route_id.into(),
+            entry_route: None,
             label: label.into(),
             description: description.into(),
             preparation_label: preparation_label.into(),
@@ -429,6 +433,20 @@ impl PlatformerExperienceAuthoring {
             presentation: None,
             hud: None,
         }
+    }
+
+    /// **The launcher opens this route; the session still lives on the
+    /// gameplay one.**
+    ///
+    /// For an experience that asks a question before it starts — a character
+    /// select, a stage select — and therefore cannot be entered by activating
+    /// its stage. The route must be one the provider has ALREADY registered
+    /// (a frontend screen under an experience id of its own, not a gameplay
+    /// session), because a launcher row pointing at an unregistered route is a
+    /// dead row and the shell refuses it at build time.
+    pub fn entered_at(mut self, route: impl Into<String>) -> Self {
+        self.entry_route = Some(route.into());
+        self
     }
 
     /// Declare gameplay presentation with one tested preset, e.g.
@@ -521,13 +539,18 @@ impl PlatformerExperienceAuthoring {
             .resource_mut::<PlatformerAuthoredCatalogRegistry>()
             .try_register(self.experience_id.as_str(), self.catalogs.clone())
             .unwrap_or_else(|error| panic!("{error}"));
+        let registration = ExperienceRegistration::new(
+            self.experience_id.clone(),
+            self.label.clone(),
+            self.route_id.clone(),
+        )
+        .with_description(self.description.clone());
+        let registration = match self.entry_route.as_deref() {
+            Some(entry) => registration.entered_at(entry),
+            None => registration,
+        };
         app.register_gameplay_experience(
-            ExperienceRegistration::new(
-                self.experience_id.clone(),
-                self.label.clone(),
-                self.route_id.clone(),
-            )
-            .with_description(self.description.clone()),
+            registration,
             ShellRouteSpec::new(self.route_id.clone(), self.experience_id.clone())
                 .preparing_with(standard_platformer_preparation_plan(
                     self.preparation_label.clone(),

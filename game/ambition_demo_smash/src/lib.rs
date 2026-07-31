@@ -130,6 +130,27 @@ where
     roster
 }
 
+/// The same roster, at a named ladder level.
+///
+/// Exists for the ladder probe: the archetype authors one level, and measuring
+/// whether L3 buys anything needs the SAME match at two of them. The brain
+/// profile is a per-seat fact, so this is a per-seat override rather than a
+/// second archetype — a second archetype would also vary its speed, reach and
+/// health, and then the measurement would be about the archetype.
+pub fn smash_roster_at_level<I, S>(characters: I, level: u8) -> MatchParticipantRoster
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let mut roster = smash_roster(characters);
+    for participant in &mut roster.participants {
+        if let ControllerBinding::Cpu { brain_profile } = &mut participant.controller {
+            *brain_profile = Some(format!("{SMASH_DUELIST_BRAIN}_l{level}"));
+        }
+    }
+    roster
+}
+
 /// **Where a knocked-out fighter comes back.**
 ///
 /// The engine spends the stock and clears the meter; it refuses to place the
@@ -666,6 +687,76 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
 /// NPC, a placement, a `default_brain` — and both exist because the engine has
 /// two brain vocabularies and a rig has to appear in both to be selectable.
 const SMASH_ROSTER_RON: &str = r#"{
+    "duelist_l1": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(1),
+        move_style: Walk,
+        attacks_player: true,
+    ),
+    "duelist_l3": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(3),
+        move_style: Walk,
+        attacks_player: true,
+    ),
+    "duelist_l5": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(5),
+        move_style: Walk,
+        attacks_player: true,
+    ),
+    "duelist_l6": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(6),
+        move_style: Walk,
+        attacks_player: true,
+    ),
+    "duelist_l9": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(9),
+        move_style: Walk,
+        attacks_player: true,
+    ),
     "duelist": (
         max_health: 100,
         run_speed: 200.0,

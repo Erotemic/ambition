@@ -37,7 +37,6 @@
 // is a fact about what a prelude is for, not a gap.
 use ambition::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition::engine_core as ae;
-use ambition::engine_core::AabbExt;
 use ambition::engine_core::Vec2;
 use ambition::world::rooms::RoomSpec;
 
@@ -184,9 +183,110 @@ pub fn victory_banner(winner: Option<&str>) -> String {
     }
 }
 
+/// **The two answers the engine refuses to guess, wired to the messages it
+/// writes.**
+///
+/// `ambition_combat::stocks` spends the stock, clears the meter and marks the
+/// elimination — then stops, because placing a body needs a stage and announcing
+/// a winner needs a scoreboard. This plugin is the other side of that seam, and
+/// it is the whole reason the split is a design rather than an omission.
+pub struct SmashRulesPlugin {
+    hosted: bool,
+}
+
+impl SmashRulesPlugin {
+    /// Ambition hosts this demo alongside its own rooms: the rules sleep
+    /// outside the smash stage.
+    pub fn hosted() -> Self {
+        Self { hosted: true }
+    }
+
+    /// The demo IS the game.
+    pub fn global() -> Self {
+        Self { hosted: false }
+    }
+}
+
+impl bevy::prelude::Plugin for SmashRulesPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::IntoScheduleConfigs;
+
+        // The plugin owns its channels. A full app registers these through the
+        // engine plugins; a rules-only harness may not, and `add_message` is
+        // idempotent.
+        app.add_message::<ambition::actor::FighterStockSpent>();
+        app.add_message::<ambition::actor::StocksMatchDecided>();
+
+        let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
+        // there, and placing a body before it has been spent would put the
+        // fighter back on the stage for a knockout that had not been counted.
+        let rules = (place_respawning_fighters, announce_the_winner)
+            .chain()
+            .in_set(ambition::platformer::schedule::CombatSet::Settle)
+            .after(ambition::combat::stocks::spend_fighter_stocks);
+        if self.hosted {
+            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMASH_MODE)));
+        } else {
+            app.add_systems(sim, rules);
+        }
+    }
+}
+
+/// Put a respawning fighter back over the platform.
+///
+/// ⚠ through `transit_body`, not by writing the position. That seam is the ONE
+/// authority that re-resolves a body's pose against the world (ADR 0024), and a
+/// respawn is exactly the case it exists for: a body appearing at a new place
+/// has to arrive there, not be teleported into whatever is standing at the
+/// coordinates.
+fn place_respawning_fighters(
+    mut spent: bevy::prelude::MessageReader<ambition::actor::FighterStockSpent>,
+    mut bodies: bevy::prelude::Query<(
+        ambition::actor::BodyClusterQueryData,
+        &mut ambition::actors::features::MotionModel,
+    )>,
+) {
+    for event in spent.read() {
+        // An ELIMINATED fighter is not placed. It has no stock to come back on,
+        // and putting it back would make the last knockout the only one that did
+        // not count.
+        if event.eliminated {
+            continue;
+        }
+        let Ok((clusters, mut model)) = bodies.get_mut(event.body) else {
+            continue;
+        };
+        let mut item = clusters;
+        let mut clusters = item.as_clusters_mut();
+        ambition::actor::transit_body(
+            &mut model,
+            &mut clusters,
+            respawn_placement(stage_centre()),
+            // ZERO. A fighter that keeps the velocity that threw it off the stage
+            // respawns already travelling toward the blast zone it just left.
+            ambition::actor::TransitVelocity::Zero,
+        );
+    }
+}
+
+/// Say who won, once.
+fn announce_the_winner(
+    mut decided: bevy::prelude::MessageReader<ambition::actor::StocksMatchDecided>,
+    mut banner: bevy::prelude::MessageWriter<ambition::combat::GameplayBannerRequested>,
+) {
+    for outcome in decided.read() {
+        banner.write(ambition::combat::GameplayBannerRequested::new(
+            victory_banner(outcome.winner.as_deref()),
+            3.0,
+        ));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition::engine_core::AabbExt;
 
     /// **A stocks roster declares the pair the engine insists on.**
     #[test]
@@ -318,6 +418,70 @@ mod tests {
              supposed to come back to"
         );
         assert!(respawn.y < platform.top(), "the respawn is not above the stage");
+    }
+
+    /// **The banner says who won, once per ending.**
+    ///
+    /// The plugin's half of the seam, driven through the message the engine
+    /// actually writes rather than by calling `victory_banner` directly — which
+    /// would test the string and not the wiring.
+    #[test]
+    fn deciding_the_match_raises_a_banner_naming_the_winner() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<ambition::actor::StocksMatchDecided>();
+        app.add_message::<ambition::combat::GameplayBannerRequested>();
+        app.add_systems(Update, announce_the_winner);
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<Messages<ambition::actor::StocksMatchDecided>>()
+            .write(ambition::actor::StocksMatchDecided {
+                winner: Some("seat 2".to_string()),
+            });
+        app.update();
+
+        let messages = app
+            .world()
+            .resource::<Messages<ambition::combat::GameplayBannerRequested>>();
+        let mut cursor = messages.get_cursor();
+        let raised: Vec<_> = cursor.read(messages).collect();
+        assert_eq!(
+            raised.len(),
+            1,
+            "the ending raised {} banners; a ruleset that announces twice \
+             announces on every frame after the match ends",
+            raised.len()
+        );
+        assert_eq!(raised[0].text, "seat 2 wins");
+    }
+
+    /// A DRAW reaches the banner as a draw, not as a winner with an empty name.
+    #[test]
+    fn a_drawn_match_is_announced_as_one() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<ambition::actor::StocksMatchDecided>();
+        app.add_message::<ambition::combat::GameplayBannerRequested>();
+        app.add_systems(Update, announce_the_winner);
+        app.update();
+        app.world_mut()
+            .resource_mut::<Messages<ambition::actor::StocksMatchDecided>>()
+            .write(ambition::actor::StocksMatchDecided { winner: None });
+        app.update();
+
+        let messages = app
+            .world()
+            .resource::<Messages<ambition::combat::GameplayBannerRequested>>();
+        let mut cursor = messages.get_cursor();
+        let raised: Vec<_> = cursor.read(messages).collect();
+        assert!(
+            raised[0].text.contains("Draw"),
+            "a draw was announced as a win: {}",
+            raised[0].text
+        );
     }
 
     /// A draw has a name. The engine's `winner: Option<String>` exists so this

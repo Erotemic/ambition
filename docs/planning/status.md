@@ -107,7 +107,15 @@ require widening visibility that the design deliberately keeps closed, which is
 a worse trade than a long inline module. None is a policy check that happens to
 live inline (the `guardrail` kind), which is the case extraction exists for.
 
-⚠ **36 now, not 35.** `features/npcs.rs` crossed the threshold on 2026-07-31
+⚠ **37 now.** `game/ambition_demo_smash/src/lib.rs` joined on 2026-07-31 as a
+NEW crate rather than by growth — the stocks demo's tests build rosters, author
+the stage and drive the rules plugin through the engine's own messages, all of
+which reach `super::*` for private consts (`BLAST_MARGIN_PX`) and the plugin's
+systems. `behavioral-local`, and a demo whose tests could be extracted to
+`tests/` would be a demo asserting only its public surface, which is the half
+that never breaks.
+
+⚠ **36 before that.** `features/npcs.rs` crossed the threshold on 2026-07-31
 when AD8 added the hit/provoked voice-floor case. Reviewed on the way past: its
 module builds catalogs from RON literals and a `PreparedCharacterRegistry` by
 hand, then asserts the bark precedence chain (catalog pool, then the definition's
@@ -154,6 +162,7 @@ worth a maintainer's attention first.
 <!-- planning-evidence: inline-test path=game/ambition_app/src/app/versus.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/falling_sand_sim/sand_grid.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/presentation/dialog.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_smash/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/flag.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/powerups.rs kind=behavioral-local disposition=maintainer-review-pending -->

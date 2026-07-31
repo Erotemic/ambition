@@ -821,3 +821,48 @@ fn the_sdk_worked_room_example_compiles_and_runs() {
         status.refusal()
     );
 }
+
+/// **A declaration refusal SAYS that later checks did not run.** (2026-07-31)
+///
+/// `CompositionError`'s own doc quotes ADR 0032 — *"a draft yields one build
+/// error listing every conflict in the experience"* — and that promise is true
+/// WITHIN a pass and cannot be true across them: the capability-dependent checks
+/// (routes, roster) need the capabilities BUILT, so a draft that does not
+/// assemble cannot be asked whether its roster exists.
+///
+/// That funnel was SILENT until the slice-H red probe walked into it. Building
+/// this fixture without the render capability, with no cast declared, reported
+/// only the capability and said `1 problem(s)` as if that were the whole list —
+/// fix it, rebuild for ten minutes, meet the next one.
+///
+/// The passes cannot be merged. What they can do is say which one spoke, so
+/// "this is everything" and "this is everything I could see from here" stop
+/// looking identical.
+#[test]
+fn a_declaration_refusal_says_the_later_checks_have_not_run() {
+    struct Silent;
+
+    impl GameModule for Silent {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("silent")
+        }
+        fn define(&self, _module: &mut ModuleDraft) {}
+    }
+
+    let error = PlatformerApp::headless()
+        .mount(Silent)
+        .try_build()
+        .expect_err("a module declaring no experience id cannot compose");
+    assert_eq!(
+        error.stage,
+        ambition::app::CompositionStage::Declaration,
+        "a draft refusal was reported as an assembly one, so it claims every \
+         capability-dependent check already passed"
+    );
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("have not run yet"),
+        "the refusal does not say that later checks are still pending, so its \
+         problem count reads as the complete list: {rendered}"
+    );
+}

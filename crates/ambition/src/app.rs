@@ -612,6 +612,53 @@ pub trait GameModule {
 #[derive(Debug, Clone)]
 pub struct CompositionError {
     pub problems: Vec<String>,
+    /// Which pass produced these, and therefore what has NOT been checked yet.
+    pub stage: CompositionStage,
+}
+
+/// **Which pass of composition refused.**
+///
+/// ADR 0032's promise — *"a draft yields one build error listing every conflict
+/// in the experience"* — is true WITHIN a pass and cannot be true across them:
+/// the second pass's checks need the capabilities BUILT (a module may
+/// legitimately register its roster through one), so a draft that does not
+/// assemble cannot be asked whether its roster exists.
+///
+/// That is a funnel, and it was a SILENT one until 2026-07-31, when the
+/// slice-H red probe walked into it: a fixture built without the render
+/// capability and declaring no cast was told only about the capability, and its
+/// error said `1 problem(s)` as if that were the whole list. Fix it, rebuild for
+/// ten minutes, discover the next one.
+///
+/// Naming the stage does not merge the passes — that is not possible — but it
+/// turns a funnel into a STATED funnel, which is the difference between "this is
+/// everything" and "this is everything I could see from here".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompositionStage {
+    /// The DRAFT was refused: nothing was assembled, so no capability-dependent
+    /// check has run.
+    Declaration,
+    /// The draft was accepted and the capabilities built; this is a fact about
+    /// the assembled app, and everything before it passed.
+    Assembly,
+}
+
+impl CompositionError {
+    /// A refusal from the declaration pass. Later checks did NOT run.
+    pub fn declaration(problems: Vec<String>) -> Self {
+        Self {
+            problems,
+            stage: CompositionStage::Declaration,
+        }
+    }
+
+    /// A refusal from the assembly pass. Everything before it passed.
+    pub fn assembly(problems: Vec<String>) -> Self {
+        Self {
+            problems,
+            stage: CompositionStage::Assembly,
+        }
+    }
 }
 
 impl std::fmt::Display for CompositionError {
@@ -623,6 +670,14 @@ impl std::fmt::Display for CompositionError {
         )?;
         for problem in &self.problems {
             writeln!(formatter, "  - {problem}")?;
+        }
+        if self.stage == CompositionStage::Declaration {
+            writeln!(
+                formatter,
+                "  (these are the DECLARATION's problems. The capability-dependent \
+                 checks — routes, roster — have not run yet, so fixing these may \
+                 reveal more.)"
+            )?;
         }
         Ok(())
     }
@@ -864,7 +919,8 @@ impl PlatformerApp {
             }
         }
         if !problems.is_empty() {
-            return Err(CompositionError { problems });
+            return Err(CompositionError {
+                stage: CompositionStage::Declaration, problems });
         }
 
         // ── Rule 1 ── before any AssetPlugin, in every face.
@@ -893,6 +949,7 @@ impl PlatformerApp {
                 use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
                 let fragment = AudioCatalogFragment::new(experience.id.clone(), None, None)
                     .map_err(|error| CompositionError {
+                        stage: CompositionStage::Assembly,
                         problems: vec![format!(
                             "`{}` declared silence and the empty audio fragment was \
                              rejected: {error}",
@@ -920,6 +977,7 @@ impl PlatformerApp {
                         known.join(", ")
                     };
                     return Err(CompositionError {
+                        stage: CompositionStage::Assembly,
                         problems: vec![format!(
                             "`{}` starts as character `{}`, which no declared roster \
                              contains, so the host would prepare NOTHING and wait \
@@ -1050,6 +1108,7 @@ impl PlatformerApp {
                         available.join(", ")
                     };
                     return Err(CompositionError {
+                        stage: CompositionStage::Assembly,
                         problems: missing
                             .into_iter()
                             .map(|problem| format!("{problem}. Registered routes: {known}"))
@@ -1073,6 +1132,7 @@ impl PlatformerApp {
                 .is_none()
         {
             return Err(CompositionError {
+                stage: CompositionStage::Assembly,
                 problems: vec![
                     "this composition prepares art and no character roster exists: no \
                      experience declared one and no mounted capability registered one. \
@@ -1226,6 +1286,7 @@ fn register_declared_cast(
     };
     let fragment = CharacterCatalogFragment::from_ron(experience.id.clone(), None::<String>, ron)
         .map_err(|error| CompositionError {
+            stage: CompositionStage::Assembly,
         problems: vec![format!(
             "the character roster declared by `{}` did not parse: {error}",
             experience.id
@@ -1233,6 +1294,7 @@ fn register_declared_cast(
     })?;
     app.try_register_character_catalog_fragment(fragment)
         .map_err(|error| CompositionError {
+            stage: CompositionStage::Assembly,
             problems: vec![format!(
                 "the character roster declared by `{}` conflicts with one already \
                  registered: {error}",

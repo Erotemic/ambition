@@ -10,6 +10,22 @@
 # be deleted to reclaim the shared-disk space it currently occupies.
 target-dir = "/home/joncrall/ambition-target"
 
+# ⛔ **INCREMENTAL OFF, because mold + incremental produces BROKEN LINKS here.**
+#
+# Three times on 2026-07-31 a `cargo test -p ambition_app` died with
+# `mold: error: undefined symbol: anon.<hash>.llvm.<hash>` referenced from a
+# stale `libambition_runtime` rlib — a link failure with no source cause, cured
+# only by discarding the incremental cache. It is not cosmetic: every goal-guard
+# check that builds the app's test binary fails at the LINK step, so a green
+# repository reports itself red and the reason is in a linker dump nobody reads.
+#
+# Two other facts point the same way. `./run_tests.sh` already exports
+# `CARGO_INCREMENTAL=0` (the disk filled at 110G on 2026-07-31, and the cache was
+# 25G of it), so this only makes an ad-hoc `cargo test` agree with the suite; and
+# with mold on a 24-core box a cold workspace build is ~3 minutes, against three
+# full rebuilds lost to bad links in one afternoon.
+incremental = false
+
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]

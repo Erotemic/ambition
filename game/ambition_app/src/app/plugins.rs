@@ -664,12 +664,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition::platformer::lifecycle::session_world_exists),
     )
-    .add_systems(
-        Update,
-        ambition::render::rendering::sync_parallax_layers
-            .after(camera_follow)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
-    )
+    // ⚠ `sync_parallax_layers` left this list on 2026-07-31, with the theme
+    // load and the refresh: `SessionRoomVisualsPlugin` registers it
+    // `.after(camera_follow)` for every composition, because a backdrop that
+    // does not move is not a parallax layer.
     // Encounter / intro LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against the collision overlay's `gate_solids` (the
     // lock walls the gate contributors derive each frame in WorldPrep,

@@ -112,6 +112,21 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .chain()
                 .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
         );
+        // ⚠ **and the layers have to MOVE.** `sync_parallax_layers` was
+        // app-local too, which is the same class one step further along: in
+        // every other composition the backdrop spawned at the world origin and
+        // stayed there, so it slid out of frame as the camera walked away and
+        // the one thing a parallax layer is for — moving at its own rate —
+        // never happened. `camera_follow` is DEFINED in this crate and
+        // REGISTERED by `ambition_host`, so ordering against it here is legal
+        // and is a no-op in a composition that has no camera follow.
+        //
+        // No `session_world_exists` guard: it reads a camera transform and layer
+        // transforms, both of which exist or do not on their own.
+        app.add_systems(
+            Update,
+            crate::rendering::sync_parallax_layers.after(crate::rendering::camera_follow),
+        );
     }
 }
 

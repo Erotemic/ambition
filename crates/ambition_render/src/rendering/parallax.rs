@@ -486,6 +486,55 @@ mod theme_load_tests {
         );
     }
 
+    /// **The layers MOVE with the camera, in every composition.**
+    ///
+    /// `sync_parallax_layers` was app-local too — the same class one step
+    /// further along. A composition that got its backdrop spawned still left it
+    /// at the world origin forever, so it slid out of frame as the camera walked
+    /// away and the one thing a parallax layer is for never happened. Nothing
+    /// about that reads as a missing system: the art is correct, in the wrong
+    /// place, and only when you walk.
+    #[test]
+    fn the_backdrop_follows_the_camera_in_a_composition_that_is_not_the_app() {
+        use ambition_platformer_primitives::camera_layers::MainCamera;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.insert_resource(GameAssets::default());
+        app.insert_resource(packaged_catalog());
+        app.world_mut()
+            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
+
+        // A camera well away from the origin, and one layer sitting at it.
+        app.world_mut()
+            .spawn((MainCamera, Transform::from_xyz(900.0, 0.0, 0.0)));
+        let layer = app
+            .world_mut()
+            .spawn((
+                Transform::from_xyz(0.0, 0.0, -18.0),
+                ParallaxLayerVisual {
+                    factor: Vec2::splat(0.5),
+                    z: -18.0,
+                    travel: Vec2::new(120.0, 0.0),
+                    world_size: Vec2::new(2000.0, 480.0),
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let moved = app.world().get::<Transform>(layer).unwrap().translation;
+        assert!(
+            moved.x != 0.0,
+            "the layer never moved: the backdrop is pinned to the world origin \
+             while the camera stands at x=900, which is what a composition \
+             without `sync_parallax_layers` draws"
+        );
+    }
+
     /// **And it does not touch `GameAssets` once the theme is in.**
     ///
     /// A mutable deref alone marks the resource changed, and

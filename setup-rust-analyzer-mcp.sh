@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 # Install and register the rust-analyzer-mcp server
 # (https://github.com/zeenix/rust-analyzer-mcp)
-# so Claude Code can query this repository's Rust language-server state directly:
-# diagnostics, hover/type info, definitions, references, completions, formatting,
-# and code actions.
-#
-# This complements your normal Rust setup. It assumes Rust/Cargo are already
-# installed and will install the rust-analyzer component plus the MCP server.
-#
-# The MCP server is launched from this repository root via a small `bash -lc`
-# wrapper, so rust-analyzer sees the intended Cargo workspace regardless of
-# where Claude Code itself was launched from.
+# so Claude Code can query this repository's Rust language-server state directly.
 
 set -Eeuo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$REPO_ROOT"
 
 CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
@@ -34,10 +25,10 @@ DO_INSTALL=1
 DO_UNINSTALL=0
 CLAUDE_DIRS=()
 
-# `--uninstall` sweeps every scope rather than just $SCOPE. A registration you have
-# forgotten the scope of is exactly the one you are trying to get rid of, and removing
-# from a scope that does not hold it is a no-op that exits 1.
 ALL_SCOPES=(local project user)
+MCP_BIN_PATH=""
+RUST_ANALYZER_BIN_PATH=""
+REGISTERED_COUNT=0
 
 log() {
     printf '[setup_rust_analyzer_mcp] %s\n' "$*"
@@ -53,7 +44,7 @@ fail() {
 }
 
 usage() {
-    cat <<'EOF'
+    cat <<'USAGE'
 Usage: ./setup_rust_analyzer_mcp.sh [options]
 
 Options:
@@ -62,17 +53,15 @@ Options:
                      visible in sessions started there. Defaults to this repo root.
   --scope SCOPE      local (default), project, or user.
                        local   - private to you, per --claude-dir, not committed
-                       project - writes .mcp.json in --claude-dir, shared via git
-                       user    - visible in every project on this machine
-  --uninstall        Undo this script: unregister the server from every scope under
-                     each --claude-dir, then `cargo uninstall` the binary. Combine
-                     with --no-install to keep the binary, or --no-register to keep
-                     the registration. Ignores --scope; it sweeps all of them.
-                     Leaves the rustup rust-analyzer component alone -- your editor
-                     needs it -- and never touches the cargo target dir.
-  --no-install       Do not run cargo install (or, with --uninstall, cargo uninstall).
-  --no-register      Do not touch Claude config, in either direction.
-  --no-smoke-test    Skip the stdio handshake check.
+                       project - writes a portable .mcp.json in --claude-dir
+                       user    - visible in every project on this machine, but always
+                                 analyzes this repository
+  --uninstall        Unregister the server from every scope under each --claude-dir,
+                     then `cargo uninstall` the binary. Combine with --no-install to
+                     keep the binary, or --no-register to keep registrations.
+  --no-install       Do not run cargo install (or cargo uninstall with --uninstall).
+  --no-register      Do not touch Claude configuration.
+  --no-smoke-test    Skip the MCP initialize + tools/list handshake check.
   -h, --help         Show this help.
 
 Environment:
@@ -83,12 +72,13 @@ Environment:
 
 Examples:
   ./setup_rust_analyzer_mcp.sh
-  ./setup_rust_analyzer_mcp.sh --claude-dir ../..          # superproject checkout
+  ./setup_rust_analyzer_mcp.sh --claude-dir ../..
+  ./setup_rust_analyzer_mcp.sh --scope project
   ./setup_rust_analyzer_mcp.sh --scope user
   FORCE=1 ./setup_rust_analyzer_mcp.sh
-  ./setup_rust_analyzer_mcp.sh --uninstall                 # remove registration + binary
-  ./setup_rust_analyzer_mcp.sh --uninstall --no-install    # unregister, keep the binary
-EOF
+  ./setup_rust_analyzer_mcp.sh --uninstall
+  ./setup_rust_analyzer_mcp.sh --uninstall --no-install
+USAGE
 }
 
 parse_args() {
@@ -122,28 +112,31 @@ parse_args() {
         CLAUDE_DIRS=("$REPO_ROOT")
     fi
 
-    # Resolve to absolute paths up front: the launch directory is what `local` scope is
-    # keyed on, so it must be reported accurately even when --no-register skips the
-    # code path that would otherwise resolve it.
     local i dir
     for i in "${!CLAUDE_DIRS[@]}"; do
         dir="${CLAUDE_DIRS[$i]}"
         [ -d "$dir" ] || fail "--claude-dir does not exist: $dir"
-        CLAUDE_DIRS[$i]="$(cd "$dir" && pwd)"
+        CLAUDE_DIRS[$i]="$(cd "$dir" && pwd -P)"
     done
 }
 
 verify_workspace() {
-    if [ ! -f "$REPO_ROOT/Cargo.toml" ]; then
+    [ -f "$REPO_ROOT/Cargo.toml" ] ||
         fail "$REPO_ROOT does not look like a Rust workspace; no Cargo.toml found"
-    fi
-
     log "Rust workspace: $REPO_ROOT"
 }
 
+verify_python() {
+    command -v python3 >/dev/null 2>&1 ||
+        fail "python3 is required for metadata inspection and the MCP smoke test"
+    log "python3: $(python3 --version 2>&1)"
+}
+
 verify_rust_tools() {
-    command -v cargo >/dev/null 2>&1 || fail "cargo not found on PATH. Install Rust first: https://rustup.rs/"
-    command -v rustc >/dev/null 2>&1 || fail "rustc not found on PATH. Install Rust first: https://rustup.rs/"
+    command -v cargo >/dev/null 2>&1 ||
+        fail "cargo not found on PATH. Install Rust first: https://rustup.rs/"
+    command -v rustc >/dev/null 2>&1 ||
+        fail "rustc not found on PATH. Install Rust first: https://rustup.rs/"
 
     log "cargo: $(cargo --version)"
     log "rustc: $(rustc --version)"
@@ -155,7 +148,11 @@ verify_rust_tools() {
         fail "rustup is not installed and rust-analyzer is not on PATH"
     fi
 
-    command -v rust-analyzer >/dev/null 2>&1 || fail "rust-analyzer is not on PATH after installation"
+    command -v rust-analyzer >/dev/null 2>&1 ||
+        fail "rust-analyzer is not on PATH after installation"
+
+    RUST_ANALYZER_BIN_PATH="$(command -v rust-analyzer)"
+    RUST_ANALYZER_BIN_PATH="$(cd "$(dirname "$RUST_ANALYZER_BIN_PATH")" && pwd -P)/$(basename "$RUST_ANALYZER_BIN_PATH")"
     log "rust-analyzer: $(rust-analyzer --version | head -1)"
 }
 
@@ -167,18 +164,13 @@ check_ripgrep() {
     fi
 }
 
-# rust-analyzer indexes on demand. If the workspace has never been checked, the
-# first MCP tool call can spend a while downloading/building dependencies, which
-# can look like a broken server from inside Claude Code.
 check_cargo_artifacts() {
     local target_dir
 
-    # `target/` is only the default. A `[build] target-dir` in .cargo/config.toml (as
-    # this repo uses) puts artifacts elsewhere, so ask cargo instead of guessing --
-    # otherwise a fully warm workspace still gets the "may be slow" warning.
     target_dir="$(
-        cd "$REPO_ROOT" && cargo metadata --no-deps --format-version 1 2>/dev/null |
-            python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null
+        cd "$REPO_ROOT" &&
+            cargo metadata --no-deps --format-version 1 2>/dev/null |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null
     )" || true
     [ -n "$target_dir" ] || target_dir="$REPO_ROOT/target"
 
@@ -188,18 +180,28 @@ check_cargo_artifacts() {
     fi
 
     warn "no cargo build/check artifacts found under $target_dir"
-    warn "the first MCP tool call may be slow while rust-analyzer indexes dependencies"
-    warn "recommended warmup: run 'cargo check' in $REPO_ROOT before using the server"
+    warn "the first rust-analyzer tool call may be slow while dependencies are indexed"
+    warn "recommended warmup: run 'cargo check' in $REPO_ROOT"
+}
+
+resolve_server_binary() {
+    command -v "$MCP_BIN" >/dev/null 2>&1 || fail "$MCP_BIN not found on PATH"
+    MCP_BIN_PATH="$(command -v "$MCP_BIN")"
+    MCP_BIN_PATH="$(cd "$(dirname "$MCP_BIN_PATH")" && pwd -P)/$(basename "$MCP_BIN_PATH")"
+    [ -x "$MCP_BIN_PATH" ] || fail "$MCP_BIN_PATH is not executable"
+    log "server binary: $MCP_BIN_PATH"
 }
 
 install_server() {
     if [ "$DO_INSTALL" -eq 0 ]; then
         log "skipping cargo install (--no-install)"
+        resolve_server_binary
         return
     fi
 
     if command -v "$MCP_BIN" >/dev/null 2>&1 && [ "${FORCE:-0}" != "1" ]; then
         log "$MCP_BIN is already installed: $(command -v "$MCP_BIN")"
+        resolve_server_binary
         return
     fi
 
@@ -210,56 +212,307 @@ install_server() {
         cargo install "$CARGO_PACKAGE"
     fi
 
-    command -v "$MCP_BIN" >/dev/null 2>&1 || fail "$MCP_BIN was installed but is not on PATH"
+    resolve_server_binary
 }
 
-prefetch_server() {
-    command -v "$MCP_BIN" >/dev/null 2>&1 || fail "$MCP_BIN not found on PATH"
-
-    # Do not run `$MCP_BIN --help` here. rust-analyzer-mcp currently treats its
-    # first positional argument as a workspace path, so `--help` starts the MCP
-    # server with workspace path "--help" and then waits forever on stdin.
-    log "server binary: $(command -v "$MCP_BIN")"
+reinstall_server() {
+    log "reinstalling $CARGO_PACKAGE with cargo install --force"
+    cargo install "$CARGO_PACKAGE" --force || fail "reinstall of $CARGO_PACKAGE failed"
+    resolve_server_binary
 }
 
-# The single source of truth for how the server is launched. Both registration and
-# the smoke test must use this, or the smoke test validates a command nobody runs.
+# Build the exact command registered for one Claude launch directory.
 #
-# `bash -lc` starts a login shell, whose PATH is not this script's PATH: the
-# CARGO_HOME/bin prepend at the top of this file applies only to our own process.
-# Without restoring it here the registered command dies with
-# "exec: rust-analyzer-mcp: not found" and Claude reports "Failed to connect".
+# local/user scope intentionally use absolute executable and workspace paths.
+# project scope must be portable, so it derives the checkout root from
+# CLAUDE_PROJECT_DIR and uses the executable name from the normal Cargo PATH.
 build_launch_cmd() {
-    local quoted_repo quoted_bin quoted_cargo_bin
+    local claude_dir="$1"
+    local quoted_repo quoted_mcp quoted_mcp_dir quoted_ra_dir quoted_cargo_bin
+    local rel_repo quoted_rel
+
+    if [ "$SCOPE" = "project" ]; then
+        case "$MCP_BIN" in
+            */*) fail "project scope requires MCP_BIN to be a command name, not a path: $MCP_BIN" ;;
+        esac
+
+        rel_repo="$(python3 - "$claude_dir" "$REPO_ROOT" <<'PY'
+import os
+import sys
+print(os.path.relpath(sys.argv[2], sys.argv[1]))
+PY
+)"
+        case "$rel_repo" in
+            ..|../*)
+                fail "project scope requires the Rust workspace to be inside --claude-dir: $claude_dir"
+                ;;
+        esac
+
+        printf -v quoted_rel '%q' "$rel_repo"
+        printf -v quoted_mcp '%q' "$MCP_BIN"
+
+        printf '%s' \
+            'export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$HOME/.local/bin:$PATH"; ' \
+            'project_root="${CLAUDE_PROJECT_DIR:-$PWD}"; ' \
+            "cd \"\$project_root\"/$quoted_rel && exec $quoted_mcp"
+        return
+    fi
 
     printf -v quoted_repo '%q' "$REPO_ROOT"
-    printf -v quoted_bin '%q' "$MCP_BIN"
+    printf -v quoted_mcp '%q' "$MCP_BIN_PATH"
+    printf -v quoted_mcp_dir '%q' "$(dirname "$MCP_BIN_PATH")"
+    printf -v quoted_ra_dir '%q' "$(dirname "$RUST_ANALYZER_BIN_PATH")"
     printf -v quoted_cargo_bin '%q' "$CARGO_HOME/bin"
 
-    # `$PATH` is left unquoted on purpose: bash does not word-split the value of an
-    # `export name=value` assignment, and it keeps the string embeddable in JSON.
-    printf 'export PATH=%s:$PATH; cd %s && exec %s' \
-        "$quoted_cargo_bin" "$quoted_repo" "$quoted_bin"
+    printf 'export PATH=%s:%s:%s:$HOME/.local/bin:$PATH; cd %s && exec %s' \
+        "$quoted_mcp_dir" "$quoted_ra_dir" "$quoted_cargo_bin" \
+        "$quoted_repo" "$quoted_mcp"
+}
+
+# Probe one exact registered command. The Python driver:
+#   * uses nonblocking reads with a real wall-clock deadline;
+#   * waits for initialize before sending initialized and tools/list;
+#   * launches from / so an accidental dependence on the caller's cwd is exposed;
+#   * supplies CLAUDE_PROJECT_DIR for portable project-scope commands.
+probe_server() {
+    local claude_dir="$1"
+    local launch_cmd
+    launch_cmd="$(build_launch_cmd "$claude_dir")"
+
+    python3 - "$launch_cmd" "$claude_dir" <<'PY'
+import json
+import os
+import selectors
+import subprocess
+import sys
+import tempfile
+import time
+
+launch_cmd = sys.argv[1]
+claude_dir = sys.argv[2]
+env = os.environ.copy()
+env["CLAUDE_PROJECT_DIR"] = claude_dir
+
+stderr_file = tempfile.TemporaryFile(mode="w+b")
+proc = subprocess.Popen(
+    ["bash", "-lc", launch_cmd],
+    cwd="/",
+    env=env,
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    stderr=stderr_file,
+    bufsize=0,
+)
+
+selector = selectors.DefaultSelector()
+selector.register(proc.stdout, selectors.EVENT_READ)
+buffer = bytearray()
+
+def send(message):
+    payload = json.dumps(message, separators=(",", ":")).encode("utf-8") + b"\n"
+    proc.stdin.write(payload)
+    proc.stdin.flush()
+
+def read_message(deadline):
+    while True:
+        newline = buffer.find(b"\n")
+        if newline >= 0:
+            raw = bytes(buffer[:newline]).strip()
+            del buffer[: newline + 1]
+            if not raw:
+                continue
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("timed out waiting for MCP response")
+
+        events = selector.select(remaining)
+        if not events:
+            raise TimeoutError("timed out waiting for MCP response")
+
+        chunk = os.read(proc.stdout.fileno(), 65536)
+        if not chunk:
+            code = proc.poll()
+            raise RuntimeError(f"server stdout closed before the expected response (exit={code})")
+        buffer.extend(chunk)
+
+def wait_for_id(request_id, deadline):
+    while True:
+        message = read_message(deadline)
+        if message.get("id") == request_id:
+            return message
+
+def stderr_tail():
+    stderr_file.flush()
+    stderr_file.seek(0)
+    data = stderr_file.read().decode("utf-8", errors="replace")
+    return data[-4000:].strip()
+
+try:
+    deadline = time.monotonic() + 30.0
+
+    send({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "setup_rust_analyzer_mcp",
+                "version": "1",
+            },
+        },
+    })
+
+    initialized = wait_for_id(1, deadline)
+    if "error" in initialized:
+        raise RuntimeError(f"initialize failed: {initialized['error']}")
+    if "result" not in initialized:
+        raise RuntimeError("initialize response had neither result nor error")
+
+    info = initialized["result"].get("serverInfo", {})
+    name = info.get("name", "unknown-server")
+    version = info.get("version", "unknown-version")
+    print(f"[setup_rust_analyzer_mcp] connected to {name} {version}")
+
+    send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+    send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+
+    listed = wait_for_id(2, deadline)
+    if "error" in listed:
+        raise RuntimeError(f"tools/list failed: {listed['error']}")
+
+    tools = listed.get("result", {}).get("tools")
+    if not tools:
+        raise RuntimeError("server advertised no tools")
+
+    names = sorted(tool.get("name", "") for tool in tools)
+    print(f"[setup_rust_analyzer_mcp] server advertises {len(names)} tools")
+    preview = ", ".join(names[:8]) + (", ..." if len(names) > 8 else "")
+    print(f"[setup_rust_analyzer_mcp]   {preview}")
+
+    required_any = {
+        "rust_analyzer_diagnostics",
+        "rust_analyzer_workspace_diagnostics",
+    }
+    if required_any.isdisjoint(names):
+        raise RuntimeError("missing expected rust-analyzer diagnostic tools")
+except Exception as ex:
+    probe_error = ex
+else:
+    probe_error = None
+finally:
+    selector.close()
+    if proc.stdin:
+        try:
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+
+if probe_error is not None:
+    print(f"[setup_rust_analyzer_mcp] probe: {probe_error}", file=sys.stderr)
+    tail = stderr_tail()
+    if tail:
+        print("[setup_rust_analyzer_mcp] server stderr tail:", file=sys.stderr)
+        print(tail, file=sys.stderr)
+    stderr_file.close()
+    sys.exit(1)
+
+stderr_file.close()
+PY
+}
+
+smoke_test_all() {
+    local dir
+    for dir in "${CLAUDE_DIRS[@]}"; do
+        log "smoke test for sessions launched from $dir"
+        probe_server "$dir" || return 1
+    done
+}
+
+smoke_test() {
+    if [ "$DO_SMOKE_TEST" -eq 0 ]; then
+        log "skipping smoke test (--no-smoke-test)"
+        return
+    fi
+
+    log "smoke test: MCP initialize + tools/list"
+    if smoke_test_all; then
+        return
+    fi
+
+    if [ "$DO_INSTALL" -eq 0 ]; then
+        fail "server is not usable, and --no-install forbids repairing it"
+    fi
+
+    if [ "${FORCE:-0}" = "1" ]; then
+        fail "server is not usable even after the forced reinstall performed earlier"
+    fi
+
+    warn "server is installed but not usable; reinstalling once"
+    reinstall_server
+
+    log "smoke test retry after reinstall"
+    smoke_test_all || fail "server is still not usable after reinstalling $CARGO_PACKAGE"
+    log "reinstall repaired the server"
+}
+
+clear_registrations_for_dir() {
+    local claude_dir="$1"
+    local scope
+
+    # Remove every same-name entry visible from this launch directory. Otherwise an
+    # older local/project entry can shadow a newly added lower-precedence scope.
+    for scope in "${ALL_SCOPES[@]}"; do
+        (
+            cd "$claude_dir"
+            claude mcp remove "$SERVER_NAME" -s "$scope" >/dev/null 2>&1
+        ) || true
+    done
 }
 
 register_one() {
-    # Already validated and made absolute by parse_args.
     local claude_dir="$1"
     local launch_cmd
-
-    launch_cmd="$(build_launch_cmd)"
+    launch_cmd="$(build_launch_cmd "$claude_dir")"
 
     log "registering '$SERVER_NAME' (scope=$SCOPE) for sessions launched from $claude_dir"
-    log "server launch command: bash -lc '$launch_cmd'"
+    log "server launch command: bash -lc $(printf '%q' "$launch_cmd")"
 
-    # Re-registering is an error if the name is taken, so drop any prior entry first.
-    # A missing entry is the normal case, hence the tolerated failure.
-    ( cd "$claude_dir" && claude mcp remove "$SERVER_NAME" -s "$SCOPE" >/dev/null 2>&1 ) || true
+    clear_registrations_for_dir "$claude_dir"
 
     (
-        cd "$claude_dir" &&
+        cd "$claude_dir"
         claude mcp add "$SERVER_NAME" -s "$SCOPE" -- bash -lc "$launch_cmd"
     ) || fail "claude mcp add failed for $claude_dir"
+
+    REGISTERED_COUNT=$((REGISTERED_COUNT + 1))
+}
+
+print_manual_registration() {
+    local dir launch_cmd
+
+    warn "the 'claude' CLI is not on PATH; automatic registration was skipped"
+    warn "after installing Claude Code, run the following command(s):"
+    printf '\n' >&2
+    for dir in "${CLAUDE_DIRS[@]}"; do
+        launch_cmd="$(build_launch_cmd "$dir")"
+        printf '  (cd %q && claude mcp add %q -s %q -- bash -lc %q)\n' \
+            "$dir" "$SERVER_NAME" "$SCOPE" "$launch_cmd" >&2
+    done
+    printf '\n' >&2
 }
 
 register_server() {
@@ -269,18 +522,7 @@ register_server() {
     fi
 
     if ! command -v claude >/dev/null 2>&1; then
-        warn "the 'claude' CLI is not on PATH; skipping automatic registration."
-        warn "Add this to your MCP config by hand:"
-        cat >&2 <<EOF
-
-  "mcpServers": {
-    "$SERVER_NAME": {
-      "command": "bash",
-      "args": ["-lc", "$(build_launch_cmd)"]
-    }
-  }
-
-EOF
+        print_manual_registration
         return
     fi
 
@@ -295,9 +537,10 @@ unregister_one() {
     local scope removed=0
 
     for scope in "${ALL_SCOPES[@]}"; do
-        # Exits 1 when the name is not registered in that scope, which is the common
-        # case for two of the three. Only a 0 means we actually removed something.
-        if ( cd "$claude_dir" && claude mcp remove "$SERVER_NAME" -s "$scope" >/dev/null 2>&1 ); then
+        if (
+            cd "$claude_dir"
+            claude mcp remove "$SERVER_NAME" -s "$scope" >/dev/null 2>&1
+        ); then
             log "removed '$SERVER_NAME' (scope=$scope) registered from $claude_dir"
             removed=1
         fi
@@ -313,8 +556,8 @@ unregister_server() {
     fi
 
     if ! command -v claude >/dev/null 2>&1; then
-        warn "the 'claude' CLI is not on PATH; cannot unregister automatically."
-        warn "delete the '$SERVER_NAME' entry from your MCP config by hand."
+        warn "the 'claude' CLI is not on PATH; cannot unregister automatically"
+        warn "delete the '$SERVER_NAME' entry from your Claude MCP configuration manually"
         return
     fi
 
@@ -337,7 +580,10 @@ uninstall_binary() {
 
     log "removing $CARGO_PACKAGE with cargo uninstall"
     cargo uninstall "$CARGO_PACKAGE" || fail "cargo uninstall $CARGO_PACKAGE failed"
-    ! command -v "$MCP_BIN" >/dev/null 2>&1 || warn "$MCP_BIN is STILL on PATH: $(command -v "$MCP_BIN")"
+
+    if command -v "$MCP_BIN" >/dev/null 2>&1; then
+        warn "$MCP_BIN is still on PATH: $(command -v "$MCP_BIN")"
+    fi
 }
 
 uninstall() {
@@ -345,272 +591,81 @@ uninstall() {
     unregister_server
     uninstall_binary
 
-    cat <<EOF
+    cat <<EOF2
 
 ================================================================================
-[setup_rust_analyzer_mcp] Uninstalled. One manual step remains.
+[setup_rust_analyzer_mcp] Uninstalled
 ================================================================================
 
-  A Claude Code session binds its MCP servers once, at startup. The session you
-  ran this from still holds a live '$SERVER_NAME' connection, and will keep
-  answering from it until you start a new session. Nothing was left running on
-  disk; the process exits with the session.
+A running Claude Code session keeps the MCP connections it opened at startup.
+Start a new session before checking that the server has disappeared.
 
-  Deliberately NOT removed:
+Deliberately not removed:
+  * the rustup rust-analyzer component
+  * this repository's Cargo target directory
 
-    rustup component rust-analyzer   your editor's language server uses this.
-                                     'rustup component remove rust-analyzer' if
-                                     you really want it gone.
-    the cargo target dir             untouched; this script never wrote to it.
+To reinstall:
+  ./$(basename "$0")
 
-  To reinstall:  ./$(basename "$0")
-
-EOF
-}
-
-# Drive the server over stdio and confirm it completes an MCP handshake and advertises
-# tools. stdin is held open until the reply arrives; closing it early shuts the server
-# down mid-request, which looks like a hang.
-#
-# Returns 0 if the server is usable, non-zero otherwise. It reports *why* on stderr but
-# never exits the script: the caller decides whether a failure is fatal or repairable.
-probe_server() {
-    # Drive the exact command that gets registered, from a directory that is NOT the
-    # workspace, in a login shell. Anything less can pass while the registered server
-    # fails to connect: this script's own PATH contains CARGO_HOME/bin, a login
-    # shell's need not, and running from $REPO_ROOT would mask a broken `cd`.
-    python3 - "$(build_launch_cmd)" <<'PY'
-import json
-import subprocess
-import sys
-import time
-
-launch_cmd = sys.argv[1]
-
-proc = subprocess.Popen(
-    ["bash", "-lc", launch_cmd],
-    cwd="/",
-    stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.DEVNULL,
-    text=True,
-    bufsize=1,
-)
-
-def send(msg):
-    proc.stdin.write(json.dumps(msg) + "\n")
-    proc.stdin.flush()
-
-try:
-    send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-        "protocolVersion": "2024-11-05",
-        "capabilities": {},
-        "clientInfo": {"name": "setup_rust_analyzer_mcp", "version": "1"},
-    }})
-    send({"jsonrpc": "2.0", "method": "notifications/initialized"})
-    send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
-
-    tools = None
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        line = proc.stdout.readline()
-        if not line:
-            if proc.poll() is not None:
-                break
-            continue
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if msg.get("id") == 1 and "result" in msg:
-            info = msg["result"].get("serverInfo", {})
-            name = info.get("name", "unknown-server")
-            version = info.get("version", "unknown-version")
-            print(f"[setup_rust_analyzer_mcp] connected to {name} {version}")
-        if msg.get("id") == 2:
-            tools = msg.get("result", {}).get("tools")
-            break
-finally:
-    proc.terminate()
-    try:
-        proc.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-
-if not tools:
-    # Also the "binary not on PATH" case: the exec fails, so stdout closes and the
-    # handshake never lands.
-    print("[setup_rust_analyzer_mcp] probe: no handshake, or server advertised no tools", file=sys.stderr)
-    sys.exit(1)
-
-names = sorted(t["name"] for t in tools)
-print(f"[setup_rust_analyzer_mcp] server advertises {len(names)} tools")
-print("[setup_rust_analyzer_mcp]   " + ", ".join(names[:8]) + (", ..." if len(names) > 8 else ""))
-
-# Current zeenix/rust-analyzer-mcp tool names. Keep this check narrow enough to
-# catch a wrong server, but broad enough for harmless additions.
-required_any = (
-    "rust_analyzer_diagnostics",
-    "rust_analyzer_workspace_diagnostics",
-)
-if not any(name in names for name in required_any):
-    print("[setup_rust_analyzer_mcp] probe: missing expected rust-analyzer diagnostic tools", file=sys.stderr)
-    sys.exit(1)
-PY
-}
-
-reinstall_server() {
-    log "reinstalling $CARGO_PACKAGE with cargo install --force"
-    cargo install "$CARGO_PACKAGE" --force || fail "reinstall of $CARGO_PACKAGE failed"
-    command -v "$MCP_BIN" >/dev/null 2>&1 || fail "$MCP_BIN is not on PATH after reinstall"
-    log "reinstalled: $(command -v "$MCP_BIN")"
-}
-
-# `command -v` proves a file exists, not that it speaks MCP. A binary can be present and
-# still broken: a half-written install, a build against an incompatible rust-analyzer, or
-# one left over from an older protocol version. Those all register happily and report
-# "Connected", then answer nothing. Probing is the only real health check -- the binary
-# cannot be asked its version, because it treats argv[1] as a workspace path and blocks
-# on stdin. So: probe, and if it is broken, reinstall once and probe again.
-smoke_test() {
-    if [ "$DO_SMOKE_TEST" -eq 0 ]; then
-        log "skipping smoke test (--no-smoke-test)"
-        return
-    fi
-
-    log "smoke test: MCP handshake + tools/list"
-    if probe_server; then
-        return
-    fi
-
-    if [ "$DO_INSTALL" -eq 0 ]; then
-        fail "server is not usable, and --no-install forbids repairing it (rerun without --no-install)"
-    fi
-
-    if [ "${FORCE:-0}" = "1" ]; then
-        # install_server already did a --force install this run; a second one would
-        # produce the identical binary. The fault is elsewhere.
-        fail "server is not usable even after the forced reinstall performed earlier"
-    fi
-
-    warn "server is installed but not usable; treating it as broken and reinstalling"
-    reinstall_server
-
-    log "smoke test (retry after reinstall): MCP handshake + tools/list"
-    probe_server || fail "server is still not usable after reinstalling $CARGO_PACKAGE"
-    log "reinstall repaired the server"
+EOF2
 }
 
 print_next_steps() {
-    cat <<EOF
+    if [ "$REGISTERED_COUNT" -eq 0 ]; then
+        cat <<EOF2
 
 ================================================================================
-[setup_rust_analyzer_mcp] MANUAL STEPS REQUIRED — the setup is not usable yet
+[setup_rust_analyzer_mcp] Server installed and validated, but not registered
 ================================================================================
 
-Everything above is done. The following steps cannot be automated, because a
-Claude Code session connects to its MCP servers once, at startup. The session you
-ran this script from will never see '$SERVER_NAME', no matter what the config says.
+No Claude MCP registration was written. Either --no-register was supplied or the
+'claude' CLI was unavailable. Use the manual command printed above, or rerun this
+script after Claude Code is available.
 
-  STEP 1 (required) — Start a NEW Claude Code session.
+Rust workspace validated by the smoke test:
+    $REPO_ROOT
 
-      Terminal CLI:      exit and run 'claude' again.
-      VS Code extension: open a new Claude Code chat/session. A full restart of
-                         VS Code is normally NOT needed. If the server still does
-                         not appear, reload the window:
-                           Ctrl/Cmd+Shift+P -> "Developer: Reload Window"
+EOF2
+        return
+    fi
 
-  STEP 2 (required) — Verify the server is connected.
+    cat <<EOF2
 
-      Run:   claude mcp list
-      Want:  $SERVER_NAME: bash -lc ... - OK Connected
+================================================================================
+[setup_rust_analyzer_mcp] Setup completed; start a new Claude Code session
+================================================================================
 
-      If it is missing, you are launching Claude from a directory this script did
-      not register. '$SCOPE' scope is keyed to the launch directory. Re-run with:
-          ./setup_rust_analyzer_mcp.sh --claude-dir /path/you/launch/claude
-      or register everywhere at once:
-          ./setup_rust_analyzer_mcp.sh --scope user
+Claude Code binds MCP servers when a session starts. The session that ran this
+script will not gain '$SERVER_NAME' dynamically.
 
-  STEP 3 (recommended) — Confirm rust-analyzer itself responds, not just the server.
+1. Start a new Claude Code session.
+2. Verify the registration:
 
-      'OK Connected' only means the process started. It does NOT mean
-      rust-analyzer has finished indexing this project. In the new session, ask
-      Claude to use the MCP tools on a known Rust file:
+       claude mcp list
 
-          "use rust_analyzer_hover on crates/my_crate/src/lib.rs line 10 character 5"
-          "use rust_analyzer_definition on the same position"
+   Expected: '$SERVER_NAME' reports OK/Connected.
+3. Exercise rust-analyzer itself with hover or definition on a known Rust symbol.
+   The first call may return null while indexing; retry after rust-analyzer settles.
+   Use 'cargo check' as the compile gate.
 
-      Expect type/doc information, and a target location. Use hover or definition,
-      NOT a diagnostics tool: an empty diagnostics result is indistinguishable from
-      a healthy workspace, so it cannot tell you the server is working. Hover has
-      no such false-clean -- it either names the symbol or it does not.
-
-      The FIRST call after the server starts returns null while rust-analyzer
-      indexes (~15s on a warm target dir). null is not an error; ask again. If it
-      never answers, run 'cargo check' once and retry.
-
---------------------------------------------------------------------------------
-KNOWN DEFECTS in rust-analyzer-mcp v0.2.0 — read before trusting a result
---------------------------------------------------------------------------------
-
-  * The document buffer FREEZES. The server sends textDocument/didOpen the first
-    time it touches a file and never sends didChange. Per LSP, an open document's
-    buffer belongs to the client, so rust-analyzer deliberately ignores later
-    writes to that file on disk. Every position-based tool -- hover, definition,
-    references, diagnostics -- then answers from the content the file had when
-    this server process first read it.
-
-    So: EDIT A FILE AND THE ANSWERS GO STALE, silently, for the life of the
-    session. Diagnostics both miss errors you just introduced and keep reporting
-    errors you just fixed. Only a new session re-reads the file.
-    Treat these tools as valid for reading code you have not modified.
-
-  * 'cargo check' is the only compile gate. rust_analyzer_diagnostics is a
-    convenience for unmodified files, never a green light.
-
-  * rust_analyzer_workspace_diagnostics is broken: it always returns
-    {"diagnostics": null, "note": "Unexpected response format from rust-analyzer"}.
-    Reinstalling does not help; it is broken in the latest published version.
-
-  * rust_analyzer_format returns null when a file needs no changes. That is the
-    correct answer, not a failure. It does emit real edits for unformatted files.
-
---------------------------------------------------------------------------------
 Registered for sessions launched from:
 $(printf '    %s\n' "${CLAUDE_DIRS[@]}")
-Rust workspace launch directory used by the server:
+Rust workspace analyzed by the server:
     $REPO_ROOT
---------------------------------------------------------------------------------
 
-Useful tools for Rust work (all read the frozen buffer -- see KNOWN DEFECTS):
-    rust_analyzer_hover                  type/doc information at a position
-    rust_analyzer_definition             go-to-definition at a position
-    rust_analyzer_references             find references for a symbol
-    rust_analyzer_symbols                file-level symbols
-    rust_analyzer_completion             completion suggestions at a position
-    rust_analyzer_code_actions           quick fixes/refactor actions
-    rust_analyzer_format                 rustfmt edits (null == already clean)
-    rust_analyzer_diagnostics            one file; NOT a compile gate, use cargo check
-    rust_analyzer_workspace_diagnostics  BROKEN in v0.2.0, always returns null
+Known rust-analyzer-mcp v0.2.0 limitations:
+  * Files are opened once and no didChange notification is sent. Position-based
+    answers become stale after edits until a new MCP server/session is started.
+  * rust_analyzer_workspace_diagnostics returns an unexpected/null response.
+  * rust_analyzer_format may return null when no formatting changes are needed.
 
-Why bother, given all that: 'references' is semantic, so it ignores prose. On
-SimTick it finds the 12 real uses; ripgrep finds 18, the extra 6 being doc
-comments and a string literal. Across 42 crates with re-exports like
-'pub use ambition_time::SimTick', that difference is rename safety.
-
-EOF
+EOF2
 }
 
 main() {
     parse_args "$@"
-    verify_workspace
 
     if [ "$DO_UNINSTALL" -eq 1 ]; then
-        # Deliberately skips verify_rust_tools: that runs `rustup component add
-        # rust-analyzer`, and installing something on the way out would be absurd.
         if [ "$DO_INSTALL" -eq 1 ]; then
             command -v cargo >/dev/null 2>&1 ||
                 fail "cargo not found on PATH; rerun with --no-install to unregister only"
@@ -620,13 +675,17 @@ main() {
         return
     fi
 
+    verify_workspace
+    verify_python
     verify_rust_tools
     check_ripgrep
     check_cargo_artifacts
     install_server
-    prefetch_server
-    register_server
+
+    # Validate before writing any Claude configuration, so a failed setup does not
+    # leave behind a known-broken registration.
     smoke_test
+    register_server
     print_next_steps
     log "done"
 }

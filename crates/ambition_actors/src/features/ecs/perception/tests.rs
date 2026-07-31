@@ -20,6 +20,9 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         can_blink: false,
         can_dash: false,
         can_shield: false,
+        // A fresh body with its air game intact; the fixture is about what a
+        // viewer SEES, and a recovery budget of zero would be a different test.
+        air_jumps_left: 1,
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
         invulnerable: false,

@@ -65,7 +65,7 @@
 
 use ambition_entity_catalog::MoveFrameData;
 
-use super::situation::{is_punishable, Situation};
+use super::situation::{Situation, is_punishable};
 use crate::perception::Perceived;
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
@@ -361,13 +361,22 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
         out.push(MoveOption { verb, score })
     };
 
+    // **JUMP IS A CAPABILITY LIKE THE OTHERS.** Every verb below asks whether
+    // the body can do it — `can_blink`, `can_shield`, `can_dash` — and Jump
+    // alone was offered unconditionally, so a body airborne with an empty jump
+    // budget was handed an option pressing does nothing for. That is worse than
+    // a wasted press: L3 rolls the verb, the shadow's `Jump` is gated on the
+    // same budget so the line goes nowhere, and "nowhere" scores as safe.
+    let can_jump = me.on_ground || me.air_jumps_left > 0;
     match situation {
         Situation::Recovery => {
             push(MovementVerb::Recover, 1.0);
             if me.can_blink {
                 push(MovementVerb::Blink, 0.9);
             }
-            push(MovementVerb::Jump, 0.5);
+            if can_jump {
+                push(MovementVerb::Jump, 0.5);
+            }
         }
         Situation::Disadvantage => {
             if me.can_shield {
@@ -377,19 +386,25 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
             if me.can_dash {
                 push(MovementVerb::Dash, 0.6);
             }
-            push(MovementVerb::Jump, 0.4);
+            if can_jump {
+                push(MovementVerb::Jump, 0.4);
+            }
         }
         Situation::EdgeGuard | Situation::Advantage => {
             push(MovementVerb::Approach, 0.8);
             if me.can_dash {
                 push(MovementVerb::Dash, 0.7);
             }
-            push(MovementVerb::Jump, 0.3);
+            if can_jump {
+                push(MovementVerb::Jump, 0.3);
+            }
         }
         Situation::Neutral => {
             push(MovementVerb::Approach, 0.5);
             push(MovementVerb::Retreat, 0.4);
-            push(MovementVerb::Jump, 0.3);
+            if can_jump {
+                push(MovementVerb::Jump, 0.3);
+            }
             if me.can_dash {
                 push(MovementVerb::Dash, 0.3);
             }

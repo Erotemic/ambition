@@ -555,9 +555,17 @@ fn apply_intent(
             }
         }
         ShadowIntent::Jump => {
+            // Grounded jumps are free; airborne ones SPEND the budget, exactly
+            // as the body's do. A shadow that jumped only from the ground made
+            // every air jump a no-op — the line went nowhere, and going nowhere
+            // scores as safe, which is the most dangerous thing a rollout can
+            // report about a body over a pit.
             if f.on_ground {
                 f.vel -= down * tuning.jump_speed;
                 f.on_ground = false;
+            } else if f.air_jumps > 0 {
+                f.air_jumps -= 1;
+                f.vel = f.vel - down * (f.vel.dot(down) + tuning.jump_speed);
             }
         }
         // **RECOVERY IS AN AIRBORNE JUMP PLUS DRIFT, AND IT IS BUDGETED.** A

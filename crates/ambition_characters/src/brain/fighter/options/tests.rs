@@ -255,10 +255,11 @@ fn the_capability_mask_gates_every_verb() {
     v.self_view.can_dash = false;
 
     let opts = generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w);
-    assert!(opts
-        .movement
-        .iter()
-        .all(|m| m.verb != MovementVerb::Shield && m.verb != MovementVerb::Dash));
+    assert!(
+        opts.movement
+            .iter()
+            .all(|m| m.verb != MovementVerb::Shield && m.verb != MovementVerb::Dash)
+    );
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Retreat);
 }
 
@@ -424,8 +425,18 @@ fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward()
     let mid_platform = on_a_platform(250.0, 500.0, (100.0, 400.0));
 
     let weights = UtilityWeights::default();
-    let edge = generate_options(Perceived::cheating(&at_the_edge), Situation::Neutral, &[], &weights);
-    let safe = generate_options(Perceived::cheating(&mid_platform), Situation::Neutral, &[], &weights);
+    let edge = generate_options(
+        Perceived::cheating(&at_the_edge),
+        Situation::Neutral,
+        &[],
+        &weights,
+    );
+    let safe = generate_options(
+        Perceived::cheating(&mid_platform),
+        Situation::Neutral,
+        &[],
+        &weights,
+    );
 
     assert!(
         score_of(&edge, MovementVerb::Approach) < score_of(&safe, MovementVerb::Approach),
@@ -447,11 +458,57 @@ fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward()
 fn a_view_with_no_terrain_scores_movement_exactly_as_before() {
     let no_terrain = view_with(390.0, 500.0);
     let weights = UtilityWeights::default();
-    let options = generate_options(Perceived::cheating(&no_terrain), Situation::Neutral, &[], &weights);
+    let options = generate_options(
+        Perceived::cheating(&no_terrain),
+        Situation::Neutral,
+        &[],
+        &weights,
+    );
     assert_eq!(
         score_of(&options, MovementVerb::Approach),
         0.5,
         "a view with no terrain acquired a ledge penalty, so a brain that cannot \
          see the floor refuses to move"
+    );
+}
+
+#[test]
+fn a_body_with_no_jumps_left_is_not_offered_a_jump() {
+    // Every other verb in `generate_options` asks whether the body can do it.
+    // Jump was the one that did not, and an option that presses to nothing is
+    // worse than a wasted press: the rollout rolls the verb, the shadow's air
+    // jump is budgeted too so the line goes nowhere, and nowhere scores as safe.
+    let mut view = view_with(300.0, 500.0);
+    view.self_view.on_ground = false;
+    view.self_view.air_jumps_left = 0;
+    let options = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &[],
+        &UtilityWeights::v1(),
+    );
+    assert!(
+        !options
+            .movement
+            .iter()
+            .any(|option| option.verb == MovementVerb::Jump),
+        "a body with no jumps left was offered one: {:?}",
+        options.movement
+    );
+
+    view.self_view.air_jumps_left = 1;
+    let options = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &[],
+        &UtilityWeights::v1(),
+    );
+    assert!(
+        options
+            .movement
+            .iter()
+            .any(|option| option.verb == MovementVerb::Jump),
+        "and one jump left is a jump on offer: {:?}",
+        options.movement
     );
 }

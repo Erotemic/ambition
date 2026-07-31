@@ -350,7 +350,7 @@ fn decide(
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
     }
-    trace_decision(view, &options, vetoed, chosen);
+    trace_decision(view, &options, vetoed, chosen, frame);
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
     // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
@@ -393,6 +393,7 @@ fn trace_decision(
     options: &crate::brain::fighter::options::OptionSet,
     vetoed: &[crate::brain::fighter::options::MovementVerb],
     chosen: Option<crate::brain::fighter::options::MovementVerb>,
+    frame: &ActorControlFrame,
 ) {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
@@ -402,7 +403,7 @@ fn trace_decision(
     }
     let me = view.self_view;
     eprintln!(
-        "[fighter] x={:.0} vx={:.0} ground={} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?}",
+        "[fighter] x={:.0} vx={:.0} ground={} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
         me.pos.x,
         me.vel.x,
         me.on_ground,
@@ -417,6 +418,7 @@ fn trace_decision(
             .collect::<Vec<_>>(),
         vetoed,
         chosen,
+        frame.locomotion.x,
     );
 }
 

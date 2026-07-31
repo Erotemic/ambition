@@ -82,15 +82,72 @@ gates did not include it. Two mechanical items were fixed in the 2026-07-30
 review pass (the `SCRIPT.md` relative link; `## Current implications for
 agents` sections for ADRs 0031/0032). What remains needs review, not typing:
 
-- **34 source files carry a ≥200-line inline `#[cfg(test)]` module with no
-  inline-test review marker in this file.** The check's own contract: review
-  each module and record a `planning-evidence: inline-test` marker with a
-  `kind` finding and `disposition=maintainer-review-pending` (or extract the
-  tests). Run the script for the current list; it spans `ambition_actors`,
-  `ambition_characters`, `ambition_runtime/rollback`, the demo crates, and
-  others.
-- **`AGENTS.md` is 193 lines against its 180 budget** — route content to docs
-  rather than trimming meaning.
+- **35 source files carry a ≥200-line inline `#[cfg(test)]` module.** Reviewed
+  2026-07-30 and marked below; see *Inline-test review* for what the review
+  actually consisted of and what a maintainer still owes.
+- **`AGENTS.md` is 227 lines against its 180 budget** (not the 193 this file
+  claimed — that number was itself stale) — route content to docs rather than
+  trimming meaning.
+
+## Inline-test review (2026-07-30)
+
+Every module in the marker block below was opened and its test surface read:
+the fixtures it builds, the names of the cases, and what they reach for. **That
+is the extent of the review — the test bodies were not audited assertion by
+assertion**, and saying so is the point of `disposition=maintainer-review-pending`.
+An agent may record a finding and a recommendation; only a maintainer grants a
+permanent inline exception (`MAINTAINER_APPROVED_INLINE` in the checker).
+
+**Finding: all 35 are `behavioral-local`, and the reason is uniform.** Each one
+exercises real behaviour through private constructors, private fixtures, or
+`super::` items that are not part of the crate's public surface —
+`ActorClusterSeed`-style seed builders, `app_with(..)`/`spawn_seat(..)` harness
+fns, private `resolve`/`prepare` helpers. Extracting them to `tests/` would
+require widening visibility that the design deliberately keeps closed, which is
+a worse trade than a long inline module. None is a policy check that happens to
+live inline (the `guardrail` kind), which is the case extraction exists for.
+
+⚠ **the marker is a review record, not a green light.** Two modules are large
+enough that their SIZE is a finding on its own, independent of placement:
+`game/ambition_demo_mary_o/src/lib.rs` (2896 test lines) and
+`crates/ambition_actors/src/features/enemies/mod.rs` (1039). Those are the two
+worth a maintainer's attention first.
+
+<!-- planning-evidence: inline-test path=crates/ambition_actors/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_actors/src/features/ecs/autonomous_reconcile.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_actors/src/features/enemies/mod.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_actors/src/world/rooms/stage.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_audio/src/catalog.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_audio/src/selection.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_characters/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_characters/src/actor/character_catalog/binding.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_characters/src/actor/character_catalog/mod.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_characters/src/actor/control.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_characters/src/equipment.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_encounter/src/lifecycle.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_encounter/src/waves.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_game_shell/src/basic_presentation.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_game_shell/src/pause_menu.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_input/src/local_seats.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_ldtk_map/src/conversion/mod.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_persistence/src/save.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_persistence/src/save_data.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_platformer_provider/src/lifecycle.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_render/src/hud.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_render/src/rendering/label_layout.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_runtime/src/rollback/probes.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_runtime/src/rollback/session.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_sim_view/src/camera_snapshot.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_sim_view/src/control_prompt.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_sim_view/src/presented_pose.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_touch_input/src/bevy_plugin.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_touch_input/src/placement.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_app/src/app/versus.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_content/src/falling_sand_sim/sand_grid.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_content/src/presentation/dialog.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/flag.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/powerups.rs kind=behavioral-local disposition=maintainer-review-pending -->
 
 ## Mechanically recomputed evidence
 

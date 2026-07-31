@@ -13,45 +13,41 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 ## Cold start
 
-For non-trivial work, read and localize in this order:
-
-1. `README.md`, `AGENTS.md`, `.agent/README.md`, and `docs/README.md`.
-2. Run `python scripts/agent_query.py "<task words>"` before broad source search.
-3. Read `docs/concepts/engine-mental-model.md` for the durable ownership/data-flow picture, and skim `docs/concepts/invariants.md` — the traps that actually bite.
-4. Read `docs/planning/vision.md` plus the relevant entry in `docs/planning/tracks.md`.
-5. Inspect the likely crate's generated packet and `MODULES.md`.
-6. Read one focused concept, system doc, recipe, tool doc, or ADR.
-7. Search `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
+For non-trivial work, read and localize in this order: (1) `README.md`,
+`AGENTS.md`, `.agent/README.md`, `docs/README.md`; (2) `python
+scripts/agent_query.py "<task words>"`, before any broad source search; (3)
+`docs/concepts/engine-mental-model.md` for durable ownership/data-flow, skimming
+`docs/concepts/invariants.md` — the traps that actually bite; (4)
+`docs/planning/vision.md` plus the relevant `docs/planning/tracks.md` entry; (5)
+the likely crate's generated packet and `MODULES.md`; (6) ONE focused
+concept/system/recipe/tool doc or ADR; (7) `dev/journals` and
+`dev/benchmark-candidates` for the symptom or invariant.
 
 Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
 See `docs/recipes/fresh-agent-navigation.md` for the drill-down protocol.
 
 ## Generated navigation protocol
 
-Agent archives contain commit-matched navigation under `.agent/`. Use
-`.agent/index/catalog.json` for the overview, per-crate packets under
-`.agent/index/crates/`, and `.agent/ecs_inventory/crates/` for Bevy ownership,
-scheduling, resources, messages, and spawn sites. Use `scripts/agent_query.py`
-as the normal interface rather than dumping whole JSON indexes into context.
-Generated data localizes likely owners; confirm every result in source before
-editing. Source wins for implementation fact, and active planning/ADRs win for
-intended direction.
+`.agent/` holds commit-matched navigation: `.agent/index/catalog.json` for the
+overview, per-crate packets under `.agent/index/crates/`, and
+`.agent/ecs_inventory/crates/` for Bevy ownership, scheduling, resources,
+messages and spawn sites. Reach them through `scripts/agent_query.py` rather than
+dumping whole JSON indexes into context. Generated data only LOCALIZES an owner —
+confirm in source, which wins for implementation fact (active planning/ADRs win
+for intended direction).
 
 ## Source-of-truth order
 
-1. Fresh user instructions.
-2. **The master plan under `docs/planning/`** — the primary coordination surface
-   for direction and tasking. Keep it current when work materially changes status
-   or direction; exact same-commit bookkeeping is not a universal requirement.
-3. ADRs under `docs/adr/`; concept pages under `docs/concepts/`.
-4. Focused system/tool docs and recipes under `docs/systems/`, `docs/tools/`, `docs/recipes/`.
-5. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
-6. Engineering memory under `dev/`; generated navigation indexes under `.agent/`.
+(1) fresh user instructions; (2) **the master plan under `docs/planning/`**, the
+primary coordination surface for direction and tasking — keep it current when
+work materially changes status or direction (exact same-commit bookkeeping is not
+required); (3) ADRs under `docs/adr/` and concepts under `docs/concepts/`; (4)
+focused docs under `docs/systems/`, `docs/tools/`, `docs/recipes/`; (5)
+brainstorms under `docs/brainstorms/` (Jon's — agents never write there); (6)
+engineering memory under `dev/` and generated indexes under `.agent/`.
 
-`docs/current/` is retired (archived 2026-07-05); `docs/vision/` holds auxiliary
-vision notes only — direction lives in `docs/planning/`. Historical notes under
-`docs/archive/` are evidence, not authority; generated indexes aid localization
-but do not override source files.
+`docs/current/` is retired; `docs/vision/` holds auxiliary notes only — direction
+lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
 
 ## Current architectural stance
 
@@ -59,17 +55,14 @@ but do not override source files.
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-- **Binary asset payloads are git-ignored but PRESENT on disk.** Images, audio,
-  fonts and generated sheets are excluded by pattern (`*.png`, `*.ogg`, …) and by
-  directory; Jon hydrates them out of band (some are IPFS-pinned, with `.ipfs`
-  sidecars tracked beside them). *Git-ignored is not missing.* `ls` the directory
-  before concluding an asset is unavailable, assume payloads are there, and do
-  NOT build fetch/hydration machinery as part of a feature — asset distribution
-  is Jon's, not a task's. What a feature DOES owe: degrade visibly when a file is
-  absent, since another checkout may legitimately lack it. Text that describes a
-  payload (manifests, catalogs) is committed even when the payload is not — that
-  split is deliberate, so absence can be reported precisely.
-  See `docs/recipes/adding-an-asset.md`.
+- **Binary asset payloads are git-ignored but PRESENT on disk.** *Git-ignored is
+  not missing* — `ls` before concluding an asset is unavailable, and never build
+  fetch/hydration machinery as part of a feature (distribution is Jon's). A
+  feature owes only: degrade visibly when a file is absent. ⚠ **they do not
+  travel to a `git worktree`** — `crates/ambition_actors/assets/sprites/` has 972
+  files on `main` and 4 in a fresh worktree, so an asset-touching test run there
+  fails for reasons that have nothing to do with the change. Full rules:
+  `docs/recipes/adding-an-asset.md`.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
   compose it; game providers own named content. `ambition_actors` is not awaiting
@@ -98,71 +91,41 @@ invariants hold.
   re-baseline when the diff isn't egregious. Full doctrine:
   `docs/planning/engine/headless-verification.md`.
 * **`cargo check -p <one_crate>` is not the gate — `cargo check -p ambition_app`
-  is.** A per-crate check (and even `cargo test -p <crate> --lib`) has been
-  observed reporting success on a crate that fails to compile as part of the app
-  build. Treat a green per-crate check as encouragement, never as evidence; the
-  claim "it compiles" means the app compiled. Same for tests: app-level tests
-  build into ONE `app_it` target, so `--test <file_name>` will not resolve —
-  use `cargo test -p ambition_app --test app_it -- <module>`.
+  is.** A per-crate check (even `cargo test -p <crate> --lib`) has been observed
+  green on a crate that fails to compile in the app build. "It compiles" means
+  the app compiled. App-level tests build into ONE `app_it` target, so
+  `--test <file_name>` will not resolve: `cargo test -p ambition_app --test
+  app_it -- <module>`.
 
 ## Test placement
 
-A test lives at the **narrowest scope that owns its invariant**: small local
-invariants inline; large private modules in an adjacent `src/foo/tests.rs`
-(**never widen a production API to move a test**); public/assembled-system
-behavior in the owning crate's `tests/`; workspace source/dependency/module-size/
-architecture rules ONLY in `tests/ambition_workspace_policy` (links no production
-crate, so never compiles `ambition_app`). Use poison/non-vacuity checks for
-reusable scanner infrastructure or realistic harmful cases, not automatically
-for every declarative rule. Full guidance + commands:
+A test lives at the **narrowest scope that owns its invariant** — inline for
+small local ones, an adjacent `src/foo/tests.rs` for large private modules
+(**never widen a production API to move a test**), the crate's `tests/` for
+assembled behavior, and `tests/ambition_workspace_policy` for workspace
+source/dependency/architecture rules. Full guidance + commands:
 `docs/concepts/test-placement.md`.
-
-## Spatial authoring discipline (LDtk, gates, hitboxes)
-
-Before asking "where exactly?", read
-`docs/concepts/llm-spatial-authoring-discipline.md`: read the map, infer the
-component's PURPOSE, place it on the seam that fulfils it, state the reasoning in
-the commit. Asking "where?" is the wrong default.
 
 ## The Hall of Characters is NOT a special case
 
-`hall_of_characters` stages ~144 characters in one room. It is the most expensive
-room in the game and it will keep getting more expensive, because it is a **dual
-purpose stress test and exhibition** — Jon, 2026-07-30:
+`hall_of_characters` stages ~144 characters and is the most expensive room in the
+game — a **dual purpose stress test and exhibition** (Jon, 2026-07-30: *"The only
+thing special about it is that its generated."*). ⛔ **When it is slow, do not fix
+the Hall. Fix the engine.** Quality variants, load-path caps/exclusions and "it's
+only a debug room" are each rejected, with reasons, in
+`docs/concepts/hall-of-characters-is-not-special.md` — read it before optimising
+anything that touches this room. ⚠ it is GENERATED from the character catalog:
+never hand-edit the level.
 
-> *"I feel like you are treating the hall as special. It is not. It is a dual
-> purpose stress test and exhibition. Eventually we are going to give all those
-> characters normal brains, or at least have the option for it. The only thing
-> special about it is that its generated."*
+## Before a non-trivial patch
 
-⛔ **Therefore, when it is slow, do not fix the Hall. Fix the engine.** Every one
-of these has been proposed and is wrong:
-
-* *render it at a lower texture-quality variant* — explicitly rejected. It makes
-  the game look worse to make a number better. The only redeemable form is real
-  LOD (cheap asset first, upgraded in place as the full one streams in), and Jon
-  does not want that opened yet: *"its very easy to do that wrong and have it just
-  look sloppy"*;
-* *cap, special-case, or exclude it from a load path* — it is an ordinary room
-  reached by an ordinary loading zone. A budget that happens to exclude it is a
-  budget that will not protect the next big room either;
-* *treat its cost as acceptable because it is a debug/exhibition room* — it is
-  content, it will gain brains and behaviour, and a player walks into it.
-
-The correct response to "the Hall is slow" is a general engine fix that any room
-with many actors benefits from — and the Hall is the room that PROVES it, which is
-half of what it is for. If a load genuinely takes a hot second, the answer Jon
-asked for is *"just have a loading screen"*, not less content.
-
-⚠ it is GENERATED (`tools/ambition_ldtk_tools/.../generate_hall_of_characters.py`
-from the character catalog), so it grows on its own whenever the cast does. That
-is the only thing about it that needs special handling: never hand-edit the level.
-
-## Engineering memory and benchmark candidates
-
-Before a non-trivial patch: `rg -n "<subsystem>|<symptom>" dev/journals
-dev/benchmark-candidates` (postmortems + invariant traps). Add durable lessons to
-`dev/benchmark-candidates/` + its index — never transient state.
+- **Spatial questions** (LDtk, gates, hitboxes): read the map, infer the
+  component's PURPOSE, place it on the seam that fulfils it, and state the
+  reasoning in the commit. Asking "where exactly?" is the wrong default —
+  `docs/concepts/llm-spatial-authoring-discipline.md`.
+- **Engineering memory:** `rg -n "<subsystem>|<symptom>" dev/journals
+  dev/benchmark-candidates` (postmortems + invariant traps). Add durable lessons
+  to `dev/benchmark-candidates/` + its index — never transient state.
 
 ## Commit messages: detailed, plus a summary of the prompt that inspired them (why).
 
@@ -173,28 +136,16 @@ dev/benchmark-candidates` (postmortems + invariant traps). Add durable lessons t
   memory when a durable invariant changes.
 - Formatting is advisory rather than an acceptance gate; do not fail or block a
   change solely because `cargo fmt` or `ruff format` was not run.
-- Expected working-tree noise, never a mystery to investigate or stage on its
-  own: a git hook rewrites `.llm_resource_tally/` (the `ledger.jsonl`, rollup,
-  and badge) on every turn as resource-accounting bookkeeping. Leave those
-  changes to ride along with an ordinary commit; do not flag them as suspicious,
-  revert them, or treat them as another session's work. See the managed
-  "LLM resource accounting" block below for the full policy.
-
-## Script output convention
-
-Any script that writes a file/artifact (a tool, not a pure library) ENDS its
-stdout with a `rich` clickable `file://` link to the artifact AND its containing
-directory. Use `[link=file://…]…[/link]` via `rich.print`, with a graceful
-`try/except ImportError` fallback to plain paths. Pattern:
-`scripts/git_debloat.py`, `scripts/archive_agent_source.py`.
-
-## Common validation commands
-
-```bash
-./run_tests.sh
-```
-
-Use narrower tests when a focused test already covers the touched concept.
+- Expected working-tree noise, never a mystery: a git hook rewrites
+  `.llm_resource_tally/` every turn. Let it ride along with an ordinary commit —
+  do not flag, revert, or attribute it to another session. Policy: the managed
+  block below.
+- A script that writes an artifact ENDS its stdout with a `rich` clickable
+  `file://` link to the artifact AND its directory (`[link=file://…]…[/link]`,
+  `try/except ImportError` fallback to plain paths). Pattern:
+  `scripts/git_debloat.py`, `scripts/archive_agent_source.py`.
+- `./run_tests.sh` is the suite; use narrower tests when a focused one already
+  covers the touched concept.
 
 ## Avoid bullshit guardrails
 

@@ -75,6 +75,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
+            None,
             (0.0, 0.0),
         );
     }
@@ -134,6 +135,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             &mut model,
             ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
+            None,
             (0.0, 0.0),
         );
         let expected = -gravity;
@@ -183,6 +185,7 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
+            None,
             stagger,
         );
     }
@@ -244,6 +247,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         &mut model,
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         crate::time::feel::SandboxFeelTuning::default(),
+        None,
         (0.0, 0.0),
     );
     let crate::features::MotionModel::AxisSwept(axis) = &model else {
@@ -294,6 +298,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
+            None,
             (0.0, 0.0),
         );
     }

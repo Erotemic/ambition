@@ -118,6 +118,13 @@ impl<'a> ActorMut<'a> {
         // to the FINAL InputState by the SAME gate the player's input bridge
         // uses. (hitstun_timer, recoil_lock_timer).
         feel: crate::time::feel::SandboxFeelTuning,
+        // **The body's OWN feel, when its character authored one.**
+        //
+        // ⚠ without this the line below overwrote the axis params from the
+        // SHARED dev tuning every tick, so a seated fighter's authored feel was
+        // granted by seating and discarded by movement — the asymmetry the
+        // grant site's own comment says it exists to prevent.
+        authored_tuning: Option<ae::MovementTuning>,
         stagger: (f32, f32),
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
@@ -182,6 +189,7 @@ impl<'a> ActorMut<'a> {
             dt,
             motion_frame,
             feel,
+            authored_tuning,
             stagger,
         );
 
@@ -228,6 +236,13 @@ impl<'a> ActorMut<'a> {
         dt: f32,
         motion_frame: ae::MotionFrame,
         feel: crate::time::feel::SandboxFeelTuning,
+        // **The body's OWN feel, when its character authored one.**
+        //
+        // ⚠ without this the line below overwrote the axis params from the
+        // SHARED dev tuning every tick, so a seated fighter's authored feel was
+        // granted by seating and discarded by movement — the asymmetry the
+        // grant site's own comment says it exists to prevent.
+        authored_tuning: Option<ae::MovementTuning>,
         stagger: (f32, f32),
     ) -> ae::FrameEvents {
         // Wall-stop detection on the frame-PERPENDICULAR "side" axis the actor
@@ -290,7 +305,9 @@ impl<'a> ActorMut<'a> {
         // Live authored tuning refreshes only the active policy's parameters —
         // the frame is environmental and cannot ride along.
         if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
-            axis.params = tuning.axis_swept_params();
+            axis.params = authored_tuning
+                .map(|authored| authored.axis_swept_params())
+                .unwrap_or_else(|| tuning.axis_swept_params());
         }
         let mut clusters = self.clusters_mut();
         let result = ae::step_motion(

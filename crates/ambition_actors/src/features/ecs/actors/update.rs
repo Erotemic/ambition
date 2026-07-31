@@ -692,6 +692,12 @@ pub(crate) fn integrate_actor_body(
     move_motion_scale: f32,
     dt: f32,
     feel: crate::time::feel::SandboxFeelTuning,
+    // **This body's own movement feel, when its character authored one.**
+    //
+    // The actor twin of the player loop's `authored_tuning`. Threaded rather
+    // than resolved here because the component lives on the entity and this
+    // function takes clusters, not a `World`.
+    authored_tuning: Option<ae::MovementTuning>,
     sfx: &mut ambition_sfx::SfxWriter,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
     hit_events: &mut MessageWriter<HitEvent>,
@@ -754,6 +760,7 @@ pub(crate) fn integrate_actor_body(
         motion_model,
         motion_frame,
         feel,
+        authored_tuning,
         (combat.hitstun_timer, combat.recoil_lock_timer),
     );
     if was_dead && em.health.alive() {
@@ -922,6 +929,17 @@ pub fn integrate_sim_bodies(
             // The body's live move, if any — its authored per-window motion
             // lock scales the steering intent inside `integrate_actor_body`.
             Option<&crate::combat::moveset::MovePlayback>,
+            // **The body's own FEEL, if its character authored one.**
+            //
+            // ⚠ this component was GRANTED to every seated fighter and read by
+            // nobody on this path: `presentation.rs` inserts it precisely so a
+            // seated fighter and a worn player move alike, and the only consumer
+            // in the repository was the PLAYER loop below. So a character's
+            // authored tuning reached it when worn and vanished when seated —
+            // the exact asymmetry the seating comment says it exists to prevent
+            // (found 2026-07-31 by authoring `slash_recoil: 0` on the smash
+            // duelists and measuring no change at all).
+            Option<&ambition_engine_core::AuthoredMovementTuning>,
         ),
         (
             With<FeatureSimEntity>,
@@ -981,6 +999,7 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         clusters,
         playback,
+        authored_tuning,
     ) in &mut actors
     {
         let Some(mut cq) = clusters else {
@@ -1008,6 +1027,7 @@ pub fn integrate_sim_bodies(
             playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
             dt,
             *feel_tuning,
+            authored_tuning.map(|t| t.0),
             &mut sfx,
             &mut vfx,
             &mut hit_events,

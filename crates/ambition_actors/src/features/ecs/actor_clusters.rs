@@ -762,6 +762,7 @@ impl ActorClusterSeed {
                 motion_model,
                 motion_frame,
                 crate::time::feel::SandboxFeelTuning::default(),
+                None,
                 (0.0, 0.0),
             )
             .0

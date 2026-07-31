@@ -783,6 +783,32 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // player learns "around 120 I get launched" as a number that means
             // something across characters.
             definition.vitals.max_health = Some(SMASH_PERCENT_REFERENCE);
+            // **A PLATFORM FIGHTER DOES NOT RECOIL LIKE AN EXPLORER.**
+            // (measured 2026-07-31, `ladder_probe` + `AMBITION_FIGHTER_TRACE=1`)
+            //
+            // `SLASH_RECOIL` is 110 px/s BACKWARDS on every melee press — a feel
+            // detail for the exploration protagonist, whose swings are
+            // occasional and whose rooms have walls. A fighter brain presses an
+            // attack on most decisions, so the recoils RATCHET: the trace reads
+            // 200, 310, 420, 530 px/s in exact 110 steps, against a 270 px/s
+            // run, while the brain's own emitted input points the other way.
+            // **Every CPU on this stage swung itself off the edge, backwards.**
+            //
+            // The A/B is unambiguous. Same build, `slash_recoil` alone:
+            //
+            //     110 (engine default)   level 9 survives 5.2s, loses 3 stocks
+            //       0                    level 9 survives 15.1s; at rollout
+            //                            depth 0 it does not self-KO AT ALL in
+            //                            a 60s match
+            //
+            // So the number is authored HERE rather than changed in the engine:
+            // it is this game's kit that is wrong for it, not every game's.
+            // Mary-O and the exploration protagonist keep the recoil they were
+            // tuned with.
+            definition.movement_tuning = Some(ambition::engine_core::MovementTuning {
+                slash_recoil: 0.0,
+                ..ambition::engine_core::DEFAULT_TUNING
+            });
             app.register_character(definition);
         }
     }
@@ -1225,7 +1251,7 @@ mod tests {
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
-        use ambition::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
+        use ambition::characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
         assert!(

@@ -778,6 +778,9 @@ pub fn integrate_boss_bodies(
             playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
             dt,
             *feel_tuning,
+            // A boss authors its feel through its own catalog today; when one
+            // grows an `AuthoredMovementTuning` this is the line that reads it.
+            None,
             &mut sfx,
             &mut vfx,
             &mut hit_events,

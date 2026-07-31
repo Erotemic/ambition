@@ -173,6 +173,10 @@ pub(crate) struct CharacterArchetypeSpec {
     /// aggro_radius, attack_range) for its cfg; Wanderer + StandStill
     /// ignore them.
     pub brain_template: CharacterBrainTemplate,
+    /// Which rung of the fighter ladder a `Fighter`-template archetype plays at.
+    /// `None` is the middle rung; every other template ignores it.
+    #[serde(default)]
+    pub fighter_level: Option<u8>,
     /// Concrete melee action this archetype's `ActionSet` carries.
     /// `None` = no melee capability (peaceful patrollers, ranged-only
     /// actors).
@@ -356,6 +360,9 @@ impl CharacterArchetypeSpec {
     pub(super) fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
         crate::features::ecs::actor_tuning::CharacterBrainSpec {
             template: self.brain_template,
+            // The archetype's authored rung, or the middle one. A fighter
+            // archetype that says nothing plays at 5 rather than refusing.
+            fighter_level: self.fighter_level.unwrap_or(5),
             smash_hit_band: self.smash_hit_band.unwrap_or(
                 crate::features::ecs::actor_tuning::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND,
             ),

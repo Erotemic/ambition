@@ -189,6 +189,17 @@ pub enum CharacterBrainTemplate {
     /// recover). Shares its code with the peaceful catalog `Aerial` bird via
     /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
     Aerial,
+    /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
+    /// human cadence with an APM ceiling and execution noise.
+    ///
+    /// ⚠ added 2026-07-31, and it is the THIRD brain vocabulary the rig needed a
+    /// variant in — `BrainPreset` (catalog rows), `CharacterBrainTemplate`
+    /// (archetypes), and the `brain_profile` STRING that selects an archetype.
+    /// A match seat travels the archetype path, so a rig reachable only from the
+    /// catalog was reachable from everything except a match. Worth stating
+    /// plainly because the next brain will need all three too, and nothing
+    /// currently says so.
+    Fighter,
 }
 
 /// The generic brain-construction inputs projected from an actor's
@@ -235,6 +246,9 @@ pub struct CharacterBrainSpec {
     /// with at least this aggro radius (cove PirateHeavy crew).
     /// `None` = use the template's default aggressive brain.
     pub provoke_forced_brute_min_aggro: Option<f32>,
+    /// Which rung of the fighter ladder a [`CharacterBrainTemplate::Fighter`]
+    /// archetype plays at. Ignored by every other template.
+    pub fighter_level: u8,
 }
 
 impl CharacterBrainSpec {
@@ -255,6 +269,9 @@ impl Default for CharacterBrainSpec {
             smash_can_fly: false,
             smash_can_shield: false,
             provoke_forced_brute_min_aggro: None,
+            // The middle rung, so an archetype that names the fighter template
+            // and nothing else gets a fighter rather than a refusal.
+            fighter_level: 5,
         }
     }
 }

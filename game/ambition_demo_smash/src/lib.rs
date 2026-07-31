@@ -602,11 +602,48 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             app.register_character(definition);
         }
     }
+    // **THE ARCHETYPE A CPU SEAT ACTUALLY NAMES.**
+    //
+    // `ControllerBinding::Cpu { brain_profile }` is a `CharacterRoster` key, not
+    // a catalog preset — two vocabularies sharing one word, which cost an hour
+    // on 2026-07-31. Without this fragment the seat is now REFUSED (seating
+    // stopped falling back to a generic enemy the same day); before that it
+    // silently became a stand-still body.
+    {
+        use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron(SMASH_EXPERIENCE, None::<String>, SMASH_ROSTER_RON)
+                .expect("the smash duelist roster fragment is valid"),
+        );
+    }
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(SMASH_EXPERIENCE, None, None)
             .expect("the silent smash audio fragment is valid"),
     );
 }
+
+/// The duelist archetype, which is what makes a CPU seat a FIGHTER.
+///
+/// `brain_template: Fighter` is the FB4b rig on the path a match seat travels.
+/// The catalog's `duelist` preset (also `Fighter`) covers the other path — an
+/// NPC, a placement, a `default_brain` — and both exist because the engine has
+/// two brain vocabularies and a rig has to appear in both to be selectable.
+const SMASH_ROSTER_RON: &str = r#"{
+    "duelist": (
+        max_health: 100,
+        run_speed: 200.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 600.0,
+        attack_range: 48.0,
+        contact_strength: 0.0,
+        damage_amount: 4,
+        brain_template: Fighter,
+        fighter_level: Some(5),
+        move_style: Walk,
+        attacks_player: true,
+    ),
+}"#;
 
 /// The stage, as the shared preparation lifecycle wants it.
 fn smash_prepared_session_world() -> ambition::runtime::PreparedPlatformerSource {

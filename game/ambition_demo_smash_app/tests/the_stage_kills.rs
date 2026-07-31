@@ -240,3 +240,79 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
          is moving on its own and this test proves nothing about the blast gate"
     );
 }
+
+/// **The fighter brain closes the distance and lands a hit.**
+///
+/// FB4b's first damage against an OPPONENT rather than a fixture. Everything
+/// below this — classify, options, rollout, the delay buffer, the APM ledger —
+/// was unit-tested against hand-built `Perceived` values; nothing had ever put
+/// the rig on a body and let it decide what to do about somebody else.
+///
+/// The assertion is deliberately weak on WHAT it does and strict on THAT it
+/// does: a brain that travels and connects is working, and pinning a distance or
+/// a damage number here would be pinning the tuning of a demo rather than the
+/// rig. What it must never do is what it did for an hour on 2026-07-31 — stand
+/// perfectly still while every test passed.
+#[test]
+fn the_fighter_brain_engages_rather_than_standing_still() {
+    use ambition::actor::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    // CPU seats: the select screen's roster is all humans, and a human with no
+    // controller correctly does nothing.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ]));
+    app.world_mut()
+        .write_message(ambition::game_shell::ShellCommand::GoTo(
+            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        ));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let snapshot = |app: &mut App| -> Vec<(usize, f32, f32)> {
+        let world = app.world_mut();
+        let mut q = world.query::<(&MatchSeat, &ambition::actor::BodyKinematics, &BodyHealth)>();
+        let mut rows: Vec<(usize, f32, f32)> = q
+            .iter(world)
+            .map(|(seat, kin, health)| (seat.0, kin.pos.x, health.damage_percent()))
+            .collect();
+        rows.sort_by_key(|(seat, ..)| *seat);
+        rows
+    };
+    let before = snapshot(&mut app);
+    assert_eq!(before.len(), 2, "the match did not seat two fighters");
+
+    for _ in 0..240 {
+        app.update();
+    }
+    let after = snapshot(&mut app);
+
+    let travelled: f32 = after
+        .iter()
+        .zip(before.iter())
+        .map(|((_, now, _), (_, then, _))| (now - then).abs())
+        .sum();
+    assert!(
+        travelled > 1.0,
+        "neither fighter moved in 240 ticks — a fighter brain that emits nothing \
+         is indistinguishable from one that was never installed, and that is \
+         exactly what an unresolved brain profile used to produce: {before:?} -> \
+         {after:?}"
+    );
+
+    let hurt = after.iter().any(|(_, _, percent)| *percent > 0.0);
+    assert!(
+        hurt,
+        "the fighters moved and nobody was hit, so the brain travels but never \
+         commits: {after:?}"
+    );
+}

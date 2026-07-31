@@ -79,6 +79,24 @@ pub(super) fn held_item_for_spec(
 pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
     match enemy.brain_spec.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
+        CharacterBrainTemplate::Fighter => {
+            let level = enemy.brain_spec.fighter_level;
+            let cfg = ambition_characters::brain::fighter::FighterCfg::new(
+                ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
+            );
+            let state = ambition_characters::brain::fighter::FighterState::new(
+                &cfg,
+                // Seeded from the LEVEL, so two fighters on one rung are the same
+                // fighter and a replay reproduces both. A clock-seeded stream
+                // would make the brain the one part of the sim that does not
+                // rewind.
+                0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
+            );
+            Brain::StateMachine(StateMachineCfg::Fighter {
+                cfg: Box::new(cfg),
+                state: Box::new(state),
+            })
+        }
         CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
         }),

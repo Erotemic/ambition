@@ -100,6 +100,9 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         seat_topology: Some(11),
         fighter_abilities: None,
         fighter_stocks: None,
+        // A fixture's roster has no publisher: nothing else in this App claims
+        // one, which is the case `None` is for.
+        published_by: None,
     }
 }
 

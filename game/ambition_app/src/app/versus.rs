@@ -290,6 +290,10 @@ pub fn versus_roster_from(
         // travel together.
         fighter_stocks: None,
         seat_topology,
+        // **WHOSE MATCH THIS IS.** The exit rule below removes the roster it
+        // finds; with a second stage in the same host publishing one from its
+        // own route, "the roster" stopped meaning "mine".
+        published_by: Some(VERSUS_EXPERIENCE.to_owned()),
     }
 }
 
@@ -456,7 +460,15 @@ fn track_versus_roster(
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE);
-    match (on_versus, roster.is_some()) {
+    // MINE, not "a roster exists". Smash's character select publishes one from
+    // a different route, and this system ran every frame: not on the versus
+    // route, a roster present, remove it — deleting another game's match before
+    // it could open. Neither stage was wrong on its own; the resource is global
+    // and had no owner until it did.
+    let mine = roster
+        .as_ref()
+        .is_some_and(|roster| roster.is_published_by(VERSUS_EXPERIENCE));
+    match (on_versus, mine) {
         (true, false) => {
             // One local player per connected controller, capped by the stage's
             // two seats. Zero controllers is one seat: the keyboard is player

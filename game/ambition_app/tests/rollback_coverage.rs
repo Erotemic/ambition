@@ -677,6 +677,9 @@ fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
         seat_topology: Some(7),
         fighter_abilities: None,
         fighter_stocks: None,
+        // A fixture's roster has no publisher: nothing else in this App claims
+        // one, which is the case `None` is for.
+        published_by: None,
     });
     // A direct world mutation is setup, not gameplay: it becomes frame zero.
     sim.rebase_rollback_history()

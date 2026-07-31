@@ -243,6 +243,22 @@ pub struct MatchParticipantRoster {
     /// `fighter_abilities` and `opens_suspended`: the engine does not get an
     /// opinion about what a match's economy is.
     pub fighter_stocks: Option<u32>,
+    /// **Which experience published this roster.**
+    ///
+    /// ⚠ **added because one host now has TWO stages that publish one**, and the
+    /// resource is global: it has to exist before the session it describes, so it
+    /// cannot be session-scoped. The versus stage's exit rule read *"not on my
+    /// route and a roster exists → remove it"*, which was exactly right while it
+    /// was the only publisher and became **"delete the other game's match"** the
+    /// day the smash demo's character select published one from a different
+    /// route. The symptom was not a crash: the stage simply never opened, because
+    /// the select screen re-published and re-requested the route every frame
+    /// against a resource something else deleted every frame.
+    ///
+    /// `None` is an unowned roster — a fixture, a scripted encounter, anything
+    /// with one publisher — and the rule for a consumer is the same either way:
+    /// clear what YOU published, not "the roster".
+    pub published_by: Option<String>,
 }
 
 impl MatchParticipantRoster {
@@ -258,6 +274,21 @@ impl MatchParticipantRoster {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    /// Stamp the experience that published this roster. See
+    /// [`Self::published_by`] for why a global roster needs an owner.
+    pub fn published_by(mut self, experience_id: impl Into<String>) -> Self {
+        self.published_by = Some(experience_id.into());
+        self
+    }
+
+    /// Was this roster published by `experience_id`?
+    ///
+    /// The question a teardown must ask before removing one, and an entry must
+    /// ask before seating one.
+    pub fn is_published_by(&self, experience_id: &str) -> bool {
+        self.published_by.as_deref() == Some(experience_id)
     }
 }
 

@@ -79,7 +79,8 @@ impl Plugin for HostInputBindingsPlugin {
         use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
-            populate_menu_control_frame_from_actions, populate_secondary_slot_controls,
+            populate_menu_control_frame_from_actions, populate_seat_menu_frames,
+            populate_secondary_slot_controls,
             publish_latched_slot_controls, seat_input_participants_for_roster,
             spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
@@ -230,6 +231,7 @@ impl Plugin for HostInputBindingsPlugin {
 
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()
+            .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<PlayerDashTriggerState>()
             .init_resource::<ambition_input::ActiveInputKind>()
             .add_plugins(InputManagerPlugin::<SandboxAction>::default())
@@ -306,6 +308,10 @@ impl Plugin for HostInputBindingsPlugin {
                 (
                     populate_menu_control_frame_from_actions
                         .in_set(ambition_input::InputSet::Route),
+                    // The per-seat companion. Same phase, same inputs, different
+                    // question: the global frame answers "did anybody press
+                    // this", this one answers "which seat did".
+                    populate_seat_menu_frames.in_set(ambition_input::InputSet::Route),
                     populate_control_frame_from_actions.in_set(ambition_input::InputSet::Route),
                     // Every seat past the first writes its own slot directly.
                     // Same phase as the primary bridge: both are device→control

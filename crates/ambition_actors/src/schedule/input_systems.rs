@@ -16,15 +16,14 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use ambition_input::participant::{context_priority, ContextClaim};
+use ambition_input::participant::{ContextClaim, context_priority};
 use ambition_input::{
-    analog_to_dir, ActiveInputContext, ControlFrame, InputParticipant, KeyboardPreset,
-    MenuControlFrame, MenuInputState, ParticipantContexts, PlayerDashTriggerState,
-    GAMEPLAY_CONTEXT,
+    ActiveInputContext, ControlFrame, GAMEPLAY_CONTEXT, InputParticipant, KeyboardPreset,
+    MenuControlFrame, MenuInputState, ParticipantContexts, PlayerDashTriggerState, analog_to_dir,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
+    SandboxAction, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -469,44 +468,7 @@ pub fn populate_menu_control_frame_from_actions(
     }
 
     if let Ok(actions) = player_input.single() {
-        let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
-        let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
-        let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
-        let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
-
-        let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
-        let (sx, sy) = ambition_persistence::settings::ControlSettings::apply_deadzone(
-            raw.x,
-            raw.y,
-            user_settings.controls.left_stick_deadzone,
-        );
-        let analog_dir = analog_to_dir(sx, sy, 0.5);
-
-        let input = menu_input_state.step(
-            edge_up,
-            edge_down,
-            edge_left,
-            edge_right,
-            analog_dir,
-            actions.just_pressed(&SandboxAction::MenuSelect),
-            actions.just_pressed(&SandboxAction::MenuBack),
-            actions.just_pressed(&SandboxAction::Start),
-            wall_dt,
-            user_settings.controls.menu_repeat_initial_delay,
-            user_settings.controls.menu_repeat_interval,
-        );
-        next = MenuControlFrame::from_menu_input(input);
-        next.select_held = actions.pressed(&SandboxAction::MenuSelect)
-            || actions.pressed(&SandboxAction::Jump)
-            || actions.pressed(&SandboxAction::Interact);
-        next.back_held =
-            actions.pressed(&SandboxAction::MenuBack) || actions.pressed(&SandboxAction::Reset);
-        next.inventory = actions.just_pressed(&SandboxAction::Inventory);
-        next.map = actions.just_pressed(&SandboxAction::Map);
-        // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
-        // turns exactly one page, independent of the arrow/d-pad item cursor.
-        next.page_left = actions.just_pressed(&SandboxAction::MenuPageLeft);
-        next.page_right = actions.just_pressed(&SandboxAction::MenuPageRight);
+        next = decode_menu_frame(actions, &mut menu_input_state, &user_settings, wall_dt);
     }
 
     for ev in mouse_wheel.read() {
@@ -514,6 +476,100 @@ pub fn populate_menu_control_frame_from_actions(
     }
 
     *menu_frame = next;
+}
+
+/// **One decode, so the global menu frame and every seat's frame agree.**
+///
+/// Extracted 2026-07-31 when the seat-keyed frames landed: two implementations
+/// of "what does this controller mean in a menu" would drift the first time one
+/// of them learned about a new binding, and the drift would show up as one
+/// screen where the shoulder buttons work and another where they do not.
+#[cfg(feature = "input")]
+pub fn decode_menu_frame(
+    actions: &ActionState<SandboxAction>,
+    menu_input_state: &mut MenuInputState,
+    user_settings: &ambition_persistence::settings::UserSettings,
+    wall_dt: f32,
+) -> MenuControlFrame {
+    let mut next = MenuControlFrame::default();
+    let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
+    let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
+    let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
+    let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
+
+    let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
+    let (sx, sy) = ambition_persistence::settings::ControlSettings::apply_deadzone(
+        raw.x,
+        raw.y,
+        user_settings.controls.left_stick_deadzone,
+    );
+    let analog_dir = analog_to_dir(sx, sy, 0.5);
+
+    let input = menu_input_state.step(
+        edge_up,
+        edge_down,
+        edge_left,
+        edge_right,
+        analog_dir,
+        actions.just_pressed(&SandboxAction::MenuSelect),
+        actions.just_pressed(&SandboxAction::MenuBack),
+        actions.just_pressed(&SandboxAction::Start),
+        wall_dt,
+        user_settings.controls.menu_repeat_initial_delay,
+        user_settings.controls.menu_repeat_interval,
+    );
+    next = MenuControlFrame::from_menu_input(input);
+    next.select_held = actions.pressed(&SandboxAction::MenuSelect)
+        || actions.pressed(&SandboxAction::Jump)
+        || actions.pressed(&SandboxAction::Interact);
+    next.back_held =
+        actions.pressed(&SandboxAction::MenuBack) || actions.pressed(&SandboxAction::Reset);
+    next.inventory = actions.just_pressed(&SandboxAction::Inventory);
+    next.map = actions.just_pressed(&SandboxAction::Map);
+    // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
+    // turns exactly one page, independent of the arrow/d-pad item cursor.
+    next.page_left = actions.just_pressed(&SandboxAction::MenuPageLeft);
+    next.page_right = actions.just_pressed(&SandboxAction::MenuPageRight);
+    next
+}
+
+/// **Fill one menu frame PER SEAT.**
+///
+/// The global [`MenuControlFrame`] folds every participant into one answer via
+/// `single()`, which is right for a pause menu and useless for a character
+/// select screen: four people navigating four cursors need four frames, and the
+/// question "who pressed lock-in" has no answer in a folded one.
+///
+/// Repeat state is per seat too. One shared [`MenuInputState`] would make seat 2
+/// holding a direction reset seat 1's repeat clock — a bug that reads as
+/// "the menu is laggy when someone else is scrolling".
+#[cfg(feature = "input")]
+pub fn populate_seat_menu_frames(
+    world_time: Option<Res<ambition_time::WorldTime>>,
+    participants: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
+    mut frames: ResMut<ambition_input::SeatMenuFrames>,
+    mut states: Local<std::collections::BTreeMap<u8, MenuInputState>>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
+    windows: Query<&Window>,
+) {
+    frames.clear();
+    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
+        return;
+    }
+    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
+    // Sorted by slot so the order this writes in is the order it reads in — a
+    // menu whose seats resolve in query order is a menu that resolves
+    // differently between runs (ADR 0023).
+    let mut rows: Vec<(u8, &ActionState<SandboxAction>)> = participants
+        .iter()
+        .map(|(participant, actions)| (participant.id.slot(), actions))
+        .collect();
+    rows.sort_by_key(|(slot, _)| *slot);
+    for (slot, actions) in rows {
+        let state = states.entry(slot).or_default();
+        let frame = decode_menu_frame(actions, state, &user_settings, wall_dt);
+        frames.set(slot, frame);
+    }
 }
 
 /// Cutscene controls are UI/menu intent, not gameplay movement. Keep this
@@ -571,8 +627,8 @@ mod focus_gate_tests {
         spawn_primary_input_participant, update_cutscene_request_from_menu,
     };
     use ambition_input::{
-        resolve_active_input_context, ActiveInputContext, InputParticipant, MenuControlFrame,
-        ParticipantContexts, ParticipantId, SandboxAction,
+        ActiveInputContext, InputParticipant, MenuControlFrame, ParticipantContexts, ParticipantId,
+        SandboxAction, resolve_active_input_context,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
@@ -676,8 +732,10 @@ mod focus_gate_tests {
 
         let mut app = App::new();
         app.world_mut().insert_resource(MatchParticipantRoster {
-            participants: vec![MatchParticipant::new("sanic")
-                .driven_by(ControllerBinding::Human { device_slot: 1 })],
+            participants: vec![
+                MatchParticipant::new("sanic")
+                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+            ],
             ..Default::default()
         });
         app.add_systems(Update, super::seat_input_participants_for_roster);
@@ -790,10 +848,11 @@ mod focus_gate_tests {
         // participant entity itself is untouched either way.
         let root = app.world_mut().spawn(SessionRoot(SessionScopeId(7))).id();
         app.update();
-        assert!(app
-            .world()
-            .resource::<ActiveInputContext>()
-            .gameplay_owned());
+        assert!(
+            app.world()
+                .resource::<ActiveInputContext>()
+                .gameplay_owned()
+        );
         let participant = {
             let mut q = app
                 .world_mut()

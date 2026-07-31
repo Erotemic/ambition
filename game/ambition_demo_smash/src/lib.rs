@@ -444,7 +444,84 @@ pub struct SmashSelectPlugin;
 impl bevy::prelude::Plugin for SmashSelectPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<select::SmashSelect>();
-        app.add_systems(bevy::prelude::Update, start_the_battle_when_everyone_is_ready);
+        // **THE SCREEN DECLARES ITS OWN INPUT PORT.** The host fills
+        // `SeatMenuFrames` when a windowed host is installed; `init_resource`
+        // will not clobber one that already exists. Declaring it here means the
+        // screen is drivable in a headless app too — which is what lets a TEST
+        // press a button instead of reaching into `SmashSelect` and setting the
+        // answer, and reaching into the answer is how this screen came to be
+        // fully unit-tested and completely inert.
+        app.init_resource::<ambition::input::SeatMenuFrames>();
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::chain((
+                drive_the_select_screen,
+                start_the_battle_when_everyone_is_ready,
+            )),
+        );
+    }
+}
+
+/// **Turn what each seat pressed into what each seat decided.**
+///
+/// ⚠ this is the system the screen went without, and its absence is the exact
+/// defect shape this repo keeps catching: `SmashSelect` was initialised, read by
+/// the transition below, unit-tested through every state — and NOTHING ever
+/// wrote to it. `ready()` could not become true, so the battle could not start,
+/// and every test passed because they all drove the resource directly. A state
+/// machine with no driver is a state machine that has never run.
+///
+/// Reads [`SeatMenuFrames`] rather than the global `MenuControlFrame`, because
+/// on this screen "who pressed it" is the entire question.
+fn drive_the_select_screen(
+    mut select: bevy::prelude::ResMut<select::SmashSelect>,
+    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    frames: Option<bevy::prelude::Res<ambition::input::SeatMenuFrames>>,
+    devices: Option<bevy::prelude::Res<ambition::input::LocalDeviceOrder>>,
+) {
+    let on_select = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    if !on_select {
+        return;
+    }
+    let Some(frames) = frames else { return };
+    // A keyboard-only desktop has no device rows and still has a player, so the
+    // offered seats never fall below one (`seats_offered` clamps).
+    let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1);
+    for seat in 0..offered {
+        let frame = frames.for_seat(seat as u8);
+        if frame.back {
+            select.cancel(seat);
+            continue;
+        }
+        match select.seat(seat) {
+            // Confirm at an empty seat IS the join. There is no separate
+            // "press start": pressing anything at a seat nobody is using is
+            // unambiguous, and a second button to learn is a second button
+            // somebody at a party does not know about.
+            select::SeatSelection::Empty => {
+                if frame.select || frame.start {
+                    select.join(seat);
+                }
+            }
+            select::SeatSelection::Browsing { .. } => {
+                if frame.left {
+                    select.browse(seat, -1);
+                }
+                if frame.right {
+                    select.browse(seat, 1);
+                }
+                if frame.select {
+                    select.lock_in(seat);
+                }
+            }
+            // A locked seat only listens for `back`, handled above. Ignoring
+            // `select` here is deliberate: a double-tap of confirm must not
+            // reach through to anything else.
+            select::SeatSelection::LockedIn { .. } => {}
+        }
     }
 }
 
@@ -500,10 +577,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             // fighters bring their own cues. Claiming procedural sfx it never
             // registers would be the same shape as the empty function above —
             // a declaration with nothing behind it.
-            ambition::provider::AuthoredCatalogFragments::new(
-                SMASH_CHARACTER_ID,
-                SMASH_EXPERIENCE,
-            ),
+            ambition::provider::AuthoredCatalogFragments::new(SMASH_CHARACTER_ID, SMASH_EXPERIENCE),
         )
         .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);
@@ -926,7 +1000,10 @@ mod tests {
             "a respawning fighter is dropped past the edge of the platform it is \
              supposed to come back to"
         );
-        assert!(respawn.y < platform.top(), "the respawn is not above the stage");
+        assert!(
+            respawn.y < platform.top(),
+            "the respawn is not above the stage"
+        );
     }
 
     /// **The banner says who won, once per ending.**
@@ -1047,7 +1124,10 @@ mod tests {
     #[test]
     fn the_prepared_session_is_the_smash_stage() {
         let prepared = smash_prepared_session_world();
-        assert_eq!(prepared.starting_character().character_id, SMASH_CHARACTER_ID);
+        assert_eq!(
+            prepared.starting_character().character_id,
+            SMASH_CHARACTER_ID
+        );
         assert_eq!(
             prepared.geometry().0.blocks.len(),
             1,
@@ -1093,7 +1173,7 @@ mod tests {
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
-        use ambition::characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+        use ambition::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
         assert!(

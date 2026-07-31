@@ -25,6 +25,45 @@ impl MenuInputFrame {
     }
 }
 
+/// **Per-SEAT menu intent, for the screens where "who pressed it" is the whole
+/// question.**
+///
+/// [`MenuControlFrame`] is one global answer, and that is right for a pause menu
+/// (whoever reached for a controller pauses the game) and wrong for a character
+/// select screen, where four people navigate four cursors and lock in
+/// independently. The two coexist on purpose: this does not replace the global
+/// frame, it answers a different question.
+///
+/// Keyed by the participant's SLOT, which is also the seat and also the device
+/// index — one numbering, because two that have to agree eventually disagree
+/// (see [`crate::ParticipantId::slot`]).
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct SeatMenuFrames {
+    seats: std::collections::BTreeMap<u8, MenuControlFrame>,
+}
+
+impl SeatMenuFrames {
+    /// What this seat pressed this frame. A seat with no controller reads as
+    /// `default()` — pressing nothing — rather than as an error, because "slot 3
+    /// has no pad" is the ordinary state of a couch, not a fault.
+    pub fn for_seat(&self, slot: u8) -> MenuControlFrame {
+        self.seats.get(&slot).copied().unwrap_or_default()
+    }
+
+    /// Every seat that has a controller, in slot order.
+    pub fn seats(&self) -> impl Iterator<Item = (u8, MenuControlFrame)> + '_ {
+        self.seats.iter().map(|(slot, frame)| (*slot, *frame))
+    }
+
+    pub fn set(&mut self, slot: u8, frame: MenuControlFrame) {
+        self.seats.insert(slot, frame);
+    }
+
+    pub fn clear(&mut self) {
+        self.seats.clear();
+    }
+}
+
 /// Device-agnostic per-frame UI/menu intent.
 ///
 /// This is the menu-side companion to [`ControlFrame`]. Keyboard/gamepad,

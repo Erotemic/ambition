@@ -99,7 +99,9 @@ pub enum InputSet {
     Consume,
 }
 pub use cues::{ActiveUiCues, UiCue};
-pub use menu::{analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState};
+pub use menu::{
+    analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
+};
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
     InputParticipant, ParticipantContexts, ParticipantId, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT,

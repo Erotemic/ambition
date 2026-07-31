@@ -74,6 +74,7 @@ mod repro_walls;
 mod resolved_combat_tuning;
 mod rollback_contact;
 mod rollback_coverage;
+mod rollback_schema_baseline;
 mod rollback_exit_oracle;
 mod rollback_full_reset;
 mod rollback_lifecycle_reset;

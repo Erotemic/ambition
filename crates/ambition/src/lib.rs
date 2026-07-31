@@ -105,10 +105,12 @@ pub mod actor {
     /// gamepads seats two — so a consumer needs this to check that the match
     /// it asked for is the match it got.
     ///
-    /// ⚠ This is the QUERY half only. There is still no public seam for
-    /// driving input to a NAMED seat: `ambition::sim::drive_control_frame`
-    /// writes one frame for the composition. A driver that needs two
-    /// independent streams cannot yet express it.
+    /// ⚠ **the input half is CLOSED as of 2026-07-31**:
+    /// `ambition::sim::drive_seat_frame` drives a named seat, beside
+    /// `drive_control_frame` for the primary. The seam had existed in
+    /// `ambition_runtime` since queue Y1 and was simply never re-exported — so
+    /// the finding described the FACADE, not the engine, which is the more
+    /// embarrassing of the two and the harder one to notice.
     pub use ambition_actors::character_runtime::MatchSeat;
 
     /// **Declaring a MATCH: who is in it, who drives them, and what it costs to
@@ -243,6 +245,30 @@ pub mod sim {
     /// has to know which host it is on.
     pub use ambition_input::ControlFrame;
     pub use ambition_runtime::rollback::drive_control_frame;
+
+    /// **Drive input to a NAMED seat** — the twin of
+    /// [`drive_control_frame`](ambition_runtime::rollback::drive_control_frame),
+    /// and the half blind run 7's finding (g) recorded as missing.
+    ///
+    /// ⚠ the seam has existed in `ambition_runtime::rollback` since queue Y1; it
+    /// was never re-exported, so from a consumer's side "no public seam drives
+    /// input to a named seat" was true of the SDK while being false of the
+    /// engine. That is a worse shape than a missing feature: the capability was
+    /// built, tested, and unreachable, and the finding it produced described the
+    /// facade rather than the code.
+    ///
+    /// A driver that needs two independent streams — couch versus, a character
+    /// select where four people press their own buttons, a two-peer replay —
+    /// writes seat 0 through `drive_control_frame` and every other seat through
+    /// this. Slot 0 is REFUSED here rather than silently redirected: it belongs
+    /// to the other seam, and a driver that meant the primary seat should say so.
+    ///
+    /// Under a latching host it folds into that seat's latch, so a sub-tick press
+    /// survives exactly as the primary seat's does; without one it writes the
+    /// pending seat input directly, which is what a headless or replay driver
+    /// wants.
+    pub use ambition_characters::brain::PlayerSlot;
+    pub use ambition_runtime::rollback::drive_seat_frame;
 }
 
 /// **What is drawn, as a game observes it.**

@@ -866,3 +866,37 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
          problem count reads as the complete list: {rendered}"
     );
 }
+
+/// **A consumer can drive two INDEPENDENT seats through the SDK.** (finding (g),
+/// input half)
+///
+/// Blind run 7 recorded that no public seam drove input to a named seat, so
+/// couch-versus was not expressible through the SDK. The seam had existed in
+/// `ambition_runtime::rollback` since queue Y1 — it was simply never re-exported,
+/// which made the finding true of the FACADE and false of the engine. That is
+/// the harder of the two to notice, because nothing is missing and nothing
+/// fails; the capability is just unreachable from where a consumer stands.
+///
+/// This asserts what the finding asked for: both halves reachable, by name, from
+/// `ambition` alone.
+#[test]
+fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
+    use ambition::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
+
+    let mut app = PlatformerApp::headless()
+        .mount(the_one_module())
+        .try_build()
+        .expect("the smallest game composes headless");
+
+    // Seat 0 through the primary seam, seat 1 through the named one. Neither
+    // call needs to know which host is running — that is the whole point of the
+    // pair, and a driver that guessed wrong would move nothing and be told
+    // nothing.
+    drive_control_frame(app.world_mut(), ControlFrame::default());
+    drive_seat_frame(app.world_mut(), PlayerSlot(1), ControlFrame::default());
+
+    // Slot 0 is REFUSED by the named seam rather than silently redirected: it
+    // belongs to `drive_control_frame`, and a driver that meant the primary seat
+    // should say so. Asserted as a no-panic, since the refusal is a return.
+    drive_seat_frame(app.world_mut(), PlayerSlot(0), ControlFrame::default());
+}

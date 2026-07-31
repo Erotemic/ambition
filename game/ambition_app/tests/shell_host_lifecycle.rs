@@ -415,13 +415,32 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "Versus"],
+        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "Smash", "Versus"],
         "launcher entries derive from the registered experiences. `Versus` is the \
          app-composed crossover stage (C4): its fighters belong to two different \
          provider plugins, so the multi-game host is the only composition where \
          both casts exist and it is registered here rather than inside a provider. \
          An exact list on purpose — a launcher that silently gains or loses a row \
          is the first thing a player sees."
+    );
+
+    // **A ROW MAY LEAD TO A QUESTION RATHER THAN TO A GAME.** Smash is the first
+    // one that does: its entry opens character select, and the stage route it
+    // reaches afterwards is a different route entirely. A launcher that could
+    // only address gameplay routes would have had to drop a lone duelist onto the
+    // platform with nobody to fight.
+    let smash_row = app
+        .world()
+        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .entries
+        .iter()
+        .find(|entry| entry.label == "Smash")
+        .expect("the smash row exists")
+        .clone();
+    assert_eq!(
+        smash_row.route_id,
+        ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        "the Smash row must open the select screen, not the stage"
     );
 
     let mut seen_scopes: Vec<SessionScopeId> = Vec::new();

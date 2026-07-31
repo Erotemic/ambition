@@ -250,6 +250,7 @@ dependencies = [
  "ambition_demo_mary_o",
  "ambition_demo_pocket",
  "ambition_demo_sanic",
+ "ambition_demo_smash",
  "ambition_menu_kaleidoscope",
  "ambition_sim_harness",
  "bevy",

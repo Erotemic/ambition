@@ -132,6 +132,7 @@ profile = ["ambition/profile"]
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
+ambition_demo_smash = { path = "../ambition_demo_smash" }
 ambition = { path = "../../crates/ambition" }
 ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).

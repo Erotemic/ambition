@@ -85,6 +85,7 @@ mod room_spatial_integrity;
 mod scripted_gameplay;
 mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;
+mod smash_in_the_host;
 mod shell_host_rendered;
 mod shell_host_startup;
 mod stocks;

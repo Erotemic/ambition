@@ -27,7 +27,7 @@ extra_features=()
 game_args=()
 
 # Launch target. Defaults to the multi-game host (the Ambition title screen).
-# The `sanic` / `mary-o` mode aliases retarget this to a demo's OWN standalone
+# The `sanic` / `mary-o` / `smash` mode aliases retarget this to a demo's OWN standalone
 # shell crate — the same binary `game/ambition_demo_*_app` ships, unrelated to
 # the host. This script is a launcher: demos default to WINDOWED
 # (`--features visible` + the `--window` game arg). `--headless` opts a demo
@@ -66,6 +66,7 @@ Common commands:
 
   ./run_game.sh sanic
   ./run_game.sh mary-o
+  ./run_game.sh smash
       Launch a demo's OWN standalone shell (windowed) instead of the host.
 
   ./run_game.sh sanic --headless -- --ticks 600
@@ -90,6 +91,9 @@ Launch targets (mode aliases):
   sandbox                 Direct Ambition sandbox entry; passes --direct.
   sanic, sanic-demo       Sanic's standalone shell (ambition_demo_sanic_app).
   mary-o, mary_o, maryo   Mary-O's standalone shell (ambition_demo_mary_o_app).
+  smash, smash-demo       The stocks demo's standalone shell — opens on
+                          CHARACTER SELECT (ambition_demo_smash_app). The same
+                          experience is also listed on the host's title screen.
                           Demos default to windowed (--features visible + the
                           --window game arg).
   --headless, headless    Opt the selected demo into its sim-only shell (no
@@ -225,6 +229,11 @@ while [[ $# -gt 0 ]]; do
         mary-o|mary_o|maryo|mary-o-demo)
             target_pkg="ambition_demo_mary_o_app"
             target_bin="mary_o_demo"
+            target_kind="demo"
+            ;;
+        smash|smash-demo)
+            target_pkg="ambition_demo_smash_app"
+            target_bin="smash_demo"
             target_kind="demo"
             ;;
         --headless|headless)

@@ -4,10 +4,16 @@
 //! `compose_ambition_shell_host` turns the visible Ambition app into a
 //! shell-routed host: `./run_game.sh` boots into the Ambition launcher
 //! (title screen), whose entries derive from registered experience providers
-//! (Ambition, Sanic, Mary-O, Pocket — plus Exit). Selecting an entry activates that
-//! provider's gameplay session through the shared shell/session/load
-//! lifecycle; `QuitToHome` retires the exact session and resumes the
-//! launcher; Exit leaves the process.
+//! (Ambition, Sanic, Mary-O, Pocket, Smash, Versus — plus Exit). Selecting an
+//! entry activates that provider's gameplay session through the shared
+//! shell/session/load lifecycle; `QuitToHome` retires the exact session and
+//! resumes the launcher; Exit leaves the process.
+//!
+//! ⚠ **a row need not lead to GAMEPLAY.** Smash's entry opens its character
+//! select — a frontend route the provider registers itself — and the stage
+//! arrives when that screen has decided. The host knows nothing about it: the
+//! row is derived from the registration like every other, and the registration
+//! names an ENTRY route distinct from its session one.
 //!
 //! The Ambition GAME lives behind [`AmbitionExperiencePlugin`] — the same
 //! provider contract the demos use. Its activation constructs a fresh
@@ -97,6 +103,12 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition_demo_sanic::SanicExperiencePlugin,
         ambition_demo_mary_o::MaryOExperiencePlugin,
         ambition_demo_pocket::PocketExperiencePlugin,
+        // The stocks demo. It is the first provider whose launcher row does NOT
+        // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
+        // demo registers as a frontend route of its own and which then asks the
+        // shell for the stage once every seat has locked in. Nothing here knows
+        // that — the row is derived from the registration like every other.
+        ambition_demo_smash::SmashExperiencePlugin,
     ));
 
     // The versus stage. Registered AFTER the providers because its fighters are

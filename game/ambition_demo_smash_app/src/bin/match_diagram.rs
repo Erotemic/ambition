@@ -78,6 +78,31 @@ fn main() {
         .map(|(now, then)| (now - then).abs())
         .collect::<Vec<_>>();
     println!("[match_diagram] travel over 180 ticks: {moved:?}");
+    // **Does a real fight ever produce a KO?** Run it long and report the peak
+    // percent and any stock spent. If damage climbs and nothing is ever launched
+    // off, the knockback curve does not reach this stage's blast line — which is
+    // a tuning fact no unit test can hold an opinion about.
+    {
+        use ambition::actor::{FighterStocks, MatchSeat};
+        use ambition::characters::actor::BodyHealth;
+        let mut peak = 0.0f32;
+        let mut spent = 0u32;
+        for _ in 0..3_600 {
+            app.update();
+            let world = app.world_mut();
+            let mut q = world.query::<(&MatchSeat, &BodyHealth, Option<&FighterStocks>)>();
+            for (_, health, stocks) in q.iter(world) {
+                peak = peak.max(health.damage_percent());
+                if let Some(stocks) = stocks {
+                    spent = spent.max(3u32.saturating_sub(stocks.remaining));
+                }
+            }
+        }
+        println!(
+            "[match_diagram] 60s of fighting: peak {:.0}%, {spent} stock(s) spent",
+            peak * 100.0
+        );
+    }
     {
         use ambition::actor::MatchSeat;
         use ambition::characters::brain::{Brain, ScriptedControl};

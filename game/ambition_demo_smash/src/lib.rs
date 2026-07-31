@@ -269,7 +269,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.
-        let rules = (release_the_opening_hold, place_respawning_fighters, announce_the_winner)
+        let rules = (
+            release_the_opening_hold,
+            place_respawning_fighters,
+            take_eliminated_fighters_out_of_play,
+            announce_the_winner,
+        )
             .chain()
             .in_set(ambition::platformer::schedule::CombatSet::Settle)
             .after(ambition::combat::stocks::spend_fighter_stocks);
@@ -352,6 +357,38 @@ fn place_respawning_fighters(
             // respawns already travelling toward the blast zone it just left.
             ambition::actor::TransitVelocity::Zero,
         );
+    }
+}
+
+/// **Take an eliminated fighter OUT OF PLAY.**
+///
+/// `ambition_combat::stocks` says this in as many words — a fighter with no
+/// stocks left "is still standing until a ruleset removes it" — and for a day
+/// this ruleset did not. The result, measured over sixty seconds of real
+/// fighting: the loser fell out of the world, was correctly eliminated, and then
+/// KEPT FALLING, taking a fresh `LeftTheWorld` hit every tick. It reached
+/// y=34430 and **270900%**.
+///
+/// Nothing was wrong upstream. The stock was spent exactly once — the engine's
+/// `Without<FighterEliminated>` filter held — the match was decided, and the
+/// body simply never stopped being a body. That is the difference between "the
+/// count is correct" and "the match is over", and it is the ruleset's half.
+///
+/// Despawn rather than park: a fighter that is out has no state anybody reads,
+/// and leaving it somewhere off-screen is how a match ends with an invisible
+/// participant still generating hit events.
+fn take_eliminated_fighters_out_of_play(
+    mut commands: bevy::prelude::Commands,
+    eliminated: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition::actor::FighterEliminated>,
+            bevy::prelude::With<ambition::actor::MatchSeat>,
+        ),
+    >,
+) {
+    for body in eliminated.iter() {
+        commands.entity(body).despawn();
     }
 }
 

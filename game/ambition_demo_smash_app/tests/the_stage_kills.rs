@@ -316,3 +316,57 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
          commits: {after:?}"
     );
 }
+
+/// **An eliminated fighter leaves the stage.**
+///
+/// `ambition_combat::stocks` is explicit that a fighter with no stocks "is still
+/// standing until a ruleset removes it", and for a day this ruleset did not.
+/// Measured over sixty seconds of real fighting: the loser fell out of the
+/// world, was correctly eliminated, and then KEPT FALLING — taking a fresh
+/// `LeftTheWorld` hit every tick, reaching y=34430 and 270900%.
+///
+/// Nothing upstream was wrong. The stock was spent exactly once, the engine's
+/// `Without<FighterEliminated>` filter held, and the body simply never stopped
+/// being a body. That is the gap between "the count is correct" and "the match
+/// is over".
+#[test]
+fn an_eliminated_fighter_does_not_keep_falling_forever() {
+    use ambition::actor::MatchSeat;
+    use ambition::characters::actor::BodyHealth;
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ]));
+    app.world_mut()
+        .write_message(ambition::game_shell::ShellCommand::GoTo(
+            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        ));
+
+    let mut peak = 0.0f32;
+    for _ in 0..3_600 {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<(&MatchSeat, &BodyHealth)>();
+        for (_, health) in q.iter(world) {
+            peak = peak.max(health.damage_percent());
+        }
+    }
+
+    // A percent this side of absurd. Before eliminated fighters were removed
+    // this reached 2709.0, because a body below the stage is knocked out of the
+    // world again on every tick forever.
+    assert!(
+        peak < 20.0,
+        "a fighter reached {:.0}% over one minute — a body that keeps falling \
+         out of the world keeps being knocked out of it, which is what an \
+         eliminated fighter nobody removed does",
+        peak * 100.0
+    );
+}

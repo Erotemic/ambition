@@ -9,7 +9,7 @@ use super::*;
 use crate::actor::ActorFaction;
 use crate::brain::fighter::habit::Choice;
 use crate::brain::fighter::options::AttackOption;
-use crate::perception::{PerceivedProjectile, WorldView};
+use crate::perception::WorldView;
 
 fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> MoveFrameData {
     MoveFrameData {

@@ -35,7 +35,7 @@ const BASELINE: &str = include_str!("rollback_schema_baseline.txt");
 
 #[test]
 fn the_rollback_schema_matches_its_recorded_baseline() {
-    let mut sim = SandboxSim::new_with_options(
+    let sim = SandboxSim::new_with_options(
         ambition_app::rl_sim::SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
@@ -95,7 +95,7 @@ fn the_schema_is_the_same_from_a_second_build() {
         if let Some(room) = room {
             options = options.with_start_room(room);
         }
-        let mut sim = SandboxSim::new_with_options(options).expect("sandbox sim builds");
+        let sim = SandboxSim::new_with_options(options).expect("sandbox sim builds");
         sim.world()
             .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
             .expect("rollback registry is installed")

@@ -257,7 +257,7 @@ fn the_ceiling_kills_only_when_a_stage_says_so_and_it_follows_gravity() {
 
     // 120px ABOVE the world (negative y is up under default gravity).
     let above = Vec2::new(800.0, -120.0);
-    let mut probe = |world: &World| {
+    let probe = |world: &World| {
         let mut scratch = BodyClusterScratch::new_with_abilities(above, AbilitySet::sandbox_all());
         let (model, mut clusters) = scratch.parts();
         update_player_simulation_with_clusters(

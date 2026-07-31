@@ -137,15 +137,6 @@ pub(crate) fn update_player_with_tuning_scratch(
     update_player_with_tuning_clusters(world, model, &mut clusters, input, raw_dt, tuning)
 }
 
-pub(crate) fn update_player_scratch(
-    world: &World,
-    scratch: &mut BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_with_tuning_scratch(world, scratch, input, raw_dt, TEST_TUNING)
-}
-
 pub(crate) fn update_player_clusters(
     world: &World,
     model: &mut MotionModel,
@@ -185,15 +176,6 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         );
     }
     events
-}
-
-pub(crate) fn update_player_control_scratch(
-    world: &World,
-    scratch: &mut BodyClusterScratch,
-    input: InputState,
-    control_dt: f32,
-) -> FrameEvents {
-    update_player_control_with_tuning_scratch(world, scratch, input, control_dt, TEST_TUNING)
 }
 
 /// Simulation PHASE only (kernel-private phase vocabulary) + the home respawn
@@ -236,15 +218,6 @@ pub(crate) fn update_player_simulation_with_clusters(
         );
     }
     events
-}
-
-pub(crate) fn update_player_simulation_scratch(
-    world: &World,
-    scratch: &mut BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_simulation_with_tuning_scratch(world, scratch, input, raw_dt, TEST_TUNING)
 }
 
 /// Scratch-based wrapper over the frame-explicit ledge runtime.

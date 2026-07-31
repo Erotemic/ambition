@@ -429,6 +429,14 @@ fn apply_movement(
     // does not set it (Jump, Blink) leaves the body with no walk rather than
     // with the previous decision's. Facing is deliberately not cleared: which
     // way a body looks between decisions is the held intent doing its job.
+    //
+    // **AND THE JUMP BUTTON IS RELEASED THE SAME WAY.** `jump_held` was written
+    // `true` at two verbs and `false` nowhere, so one jump pinned the button down
+    // for the rest of the match — the `locomotion.x` leak again, one field over,
+    // and I fixed the stick and left the button. A held jump is a real input (it
+    // is what buys height), which is exactly why it has to be re-stated by
+    // whichever verb is chosen rather than inherited by whichever verb is not.
+    frame.jump_held = false;
     match verb {
         MovementVerb::Approach => {
             frame.locomotion.x = toward;

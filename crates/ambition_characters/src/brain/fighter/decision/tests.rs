@@ -363,3 +363,39 @@ fn a_body_whose_every_option_is_fatal_takes_the_longest_lived_one() {
         "a falling body that freezes has thrown away its last option: {out:?}"
     );
 }
+
+/// **The jump button is RELEASED by whichever verb runs next.**
+///
+/// `jump_held` was written `true` at two verbs and `false` nowhere, and `frame`
+/// starts each tick as `state.held`, so one jump pinned the button down for the
+/// rest of the match. That is a held input the brain never chose to keep — the
+/// same leak as `locomotion.x`, one field over.
+///
+/// Asserts the RELEASE, not the press: a test that only checked the press was
+/// green throughout the entire time this was broken.
+#[test]
+fn the_jump_button_does_not_stay_held_after_the_jump() {
+    let (cfg, mut state) = rig(immediate_profile());
+    // Enter the decision already holding jump, as a body that jumped last time
+    // would be.
+    state.held.jump_held = true;
+
+    let snapshot = BrainSnapshot::idle();
+    // Solid ground and a foe in reach: L2 answers with an approach, not a jump.
+    let mut view = scene(300.0, 340.0);
+    view.terrain = vec![crate::perception::PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    }];
+
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..cfg.interval() + 1 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    }
+
+    assert!(
+        !out.jump_held,
+        "the fighter is still holding jump a decision after it stopped choosing \
+         to. One jump used to hold the button for the whole match: {out:?}"
+    );
+}

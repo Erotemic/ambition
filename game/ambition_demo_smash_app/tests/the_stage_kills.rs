@@ -61,3 +61,76 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
         );
     }
 }
+
+/// **The demo opens on character select, and the battle starts when the players
+/// lock in.** (Jon, 2026-07-31)
+///
+/// The whole path, through the real shell: boot lands on select, two seats join
+/// and commit, and the roster the screen decided is published before the route
+/// leaves for the stage.
+///
+/// That ORDER is the correctness argument rather than an implementation detail.
+/// Seating reads `MatchParticipantRoster` on the sim schedule; if the route
+/// changed first the stage would come up with no roster, seating would find
+/// nothing to do, and the match would open with an empty cast that nothing
+/// retries into existence.
+#[test]
+fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
+    use ambition_demo_smash::select::SmashSelect;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let route_now = |app: &bevy::prelude::App| -> Option<String> {
+        app.world()
+            .resource::<ambition::game_shell::ShellRouter>()
+            .active
+            .as_ref()
+            .map(|active| active.route_id.as_str().to_string())
+    };
+    assert_eq!(
+        route_now(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        "the demo booted straight onto the stage, so it decided who the players \
+         are before asking them"
+    );
+    assert!(
+        app.world()
+            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .is_none(),
+        "a roster exists before anybody chose, so the select screen is decoration"
+    );
+
+    // Two players join and commit.
+    {
+        let mut select = app.world_mut().resource_mut::<SmashSelect>();
+        select.join(0);
+        select.lock_in(0);
+        select.join(1);
+        select.browse(1, 1);
+        select.lock_in(1);
+    }
+    app.update();
+
+    let roster = app
+        .world()
+        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .expect("locking in published the match the screen decided");
+    assert_eq!(roster.participants.len(), 2);
+    assert_eq!(
+        roster.fighter_stocks,
+        Some(ambition_demo_smash::STARTING_STOCKS),
+        "the decided match is not a stocks match"
+    );
+
+    for _ in 0..60 {
+        app.update();
+    }
+    assert_eq!(
+        route_now(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the players locked in and the demo stayed on the select screen"
+    );
+}

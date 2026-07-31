@@ -61,6 +61,9 @@ pub struct ShellComposition {
     launcher_route: String,
     gameplay_route: String,
     frontend_audio: Option<ambition_audio::selection::FrontendAudioProfile>,
+    /// Where the host lands on boot. `None` means the gameplay route, which is
+    /// what every caller got before [`ShellComposition::starting_at`] existed.
+    initial_route: Option<String>,
 }
 
 impl ShellComposition {
@@ -83,7 +86,25 @@ impl ShellComposition {
             launcher_route: launcher_route.into(),
             gameplay_route: gameplay_route.into(),
             frontend_audio: None,
+            initial_route: None,
         }
+    }
+
+    /// **Boot into a route that is neither the gameplay nor the launcher one.**
+    ///
+    /// ⚠ added 2026-07-31, and it is the FOURTH time this exact shape has been
+    /// recorded: the SDK expressed the options its first consumer needed, and a
+    /// later real host needed another. `StartAt` in the facade already names the
+    /// first three (*"one face, one experience, one start policy"*); this is the
+    /// same note one layer down.
+    ///
+    /// The smash demo is the consumer. It opens on CHARACTER SELECT, because a
+    /// platform fighter that boots onto the stage has already decided who you
+    /// are — and that is neither `PrimaryGameplay` nor `Launcher`, so a
+    /// two-variant policy could not say it. A named route can say all three.
+    pub fn starting_at(mut self, route: impl Into<String>) -> Self {
+        self.initial_route = Some(route.into());
+        self
     }
 
     /// A frontend audio context richer than "this experience, no cues".
@@ -136,7 +157,9 @@ impl ShellComposition {
         app.world_mut()
             .resource_mut::<ShellHostConfiguration>()
             .spec = Some(ShellHostSpec::new(
-            self.gameplay_route.as_str(),
+            self.initial_route
+                .as_deref()
+                .unwrap_or(self.gameplay_route.as_str()),
             self.launcher_route.as_str(),
         ));
     }

@@ -28,10 +28,17 @@ pub fn build_demo_app() -> App {
 }
 
 fn compose_smash_shell(app: &mut App) {
+    // HOME is the select screen, not the stage. A platform fighter that opens on
+    // the stage has already decided who you are, and leaving a match should
+    // return to the screen that chose it rather than to a launcher listing one
+    // experience.
     ambition::provider::ShellComposition::new(
         ambition_demo_smash::SMASH_EXPERIENCE,
-        ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        ambition_demo_smash::SMASH_SELECT_ROUTE,
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )
+    // Boot onto SELECT. Neither `PrimaryGameplay` nor `Launcher` says this, which
+    // is why `starting_at` exists.
+    .starting_at(ambition_demo_smash::SMASH_SELECT_ROUTE)
     .install(app, ambition_demo_smash::SmashExperiencePlugin);
 }

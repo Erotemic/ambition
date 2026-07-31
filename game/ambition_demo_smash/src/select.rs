@@ -66,7 +66,7 @@ impl SeatSelection {
 }
 
 /// The whole screen's decision.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SmashSelect {
     seats: [SeatSelection; MAX_SMASH_SEATS],
 }

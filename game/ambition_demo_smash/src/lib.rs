@@ -285,6 +285,59 @@ fn announce_the_winner(
     }
 }
 
+/// **The screen the demo opens on, and the transition out of it.**
+///
+/// The decision itself is [`select::SmashSelect`], which has no Bevy in it. This
+/// is the part that has to: it holds the value, and when the value says the
+/// match is decided it publishes the roster and asks the shell to go to the
+/// stage.
+///
+/// ⚠ **the roster is inserted BEFORE the route changes**, and the order is the
+/// whole correctness argument. Seating runs on the sim schedule and reads
+/// `MatchParticipantRoster`; if the route changed first, the stage would come up
+/// with no roster, seating would find nothing to do, and the match would open
+/// with an empty cast that nothing retries into existence — the roster arrives
+/// once, and it has to arrive before the thing that reads it.
+pub struct SmashSelectPlugin;
+
+impl bevy::prelude::Plugin for SmashSelectPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<select::SmashSelect>();
+        app.add_systems(bevy::prelude::Update, start_the_battle_when_everyone_is_ready);
+    }
+}
+
+/// Publish the decided roster and leave the select screen.
+///
+/// Runs on `Update`, not the sim schedule: choosing a fighter is shell
+/// lifecycle, and the sim is not even running yet — the stage has no session
+/// until the route this system requests actually resolves.
+fn start_the_battle_when_everyone_is_ready(
+    mut commands: bevy::prelude::Commands,
+    select: bevy::prelude::Res<select::SmashSelect>,
+    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
+    mut shell: bevy::prelude::MessageWriter<ambition::game_shell::ShellCommand>,
+) {
+    // Only from the select screen. Without this the system would re-fire during
+    // the match — `ready()` stays true while the roster stands — and ask the
+    // shell to re-enter the stage on every frame of the fight.
+    let on_select = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    if !on_select || roster.is_some() {
+        return;
+    }
+    let Some(decided) = select.roster() else {
+        return;
+    };
+    commands.insert_resource(decided);
+    shell.write(ambition::game_shell::ShellCommand::GoTo(
+        ambition::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
+    ));
+}
+
 /// **The experience: what a launcher lists and a player can enter.**
 ///
 /// Until this existed the demo was three correct pieces nobody could reach — a
@@ -314,12 +367,20 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
+        app.add_plugins(SmashSelectPlugin);
     }
 }
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
 pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
+/// **Where the demo STARTS.** (Jon, 2026-07-31)
+///
+/// Not the stage. A platform fighter that opens on the stage has already decided
+/// who you are, and the whole point of up-to-four-players is that it has not.
+/// This is also the host's HOME route, so leaving a match returns to the screen
+/// that chose it rather than to a launcher listing one experience.
+pub const SMASH_SELECT_ROUTE: &str = "smash_select";
 /// The fighter a lone visitor wears. The MATCH seats its own cast from the
 /// roster; this is who is standing there before one starts.
 pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";

@@ -72,7 +72,8 @@ APP_ROOTS = ["game"]
 ENGINE_ROOTS = ["crates"]
 
 # ⚠ **PRESENTATION only, and the narrowing is the point.** The first version of
-# this script asked the question of every engine crate and reported 42 systems, of
+# this script asked the question of every engine crate and reported 42 systems (18
+# once ordering edges stopped being read as registrations), of
 # which most are a game legitimately composing its own sim features, HUD and
 # menus. A guard with 42 waivers is a guard nobody reads — this file's sibling
 # says so in its own docstring — and the class that has actually bitten is

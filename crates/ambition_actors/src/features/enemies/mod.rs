@@ -567,6 +567,15 @@ impl CharacterRoster {
         self.by_brain.keys().cloned().collect()
     }
 
+    /// Whether this roster actually has an archetype for `key`.
+    ///
+    /// The question [`Self::spec_for_brain`] does not ask before falling back.
+    /// Exposed so a caller that can REFUSE — match seating does — asks it first
+    /// rather than receiving a generic enemy and reporting success.
+    pub fn has_brain_key(&self, key: &str) -> bool {
+        self.by_brain.contains_key(key)
+    }
+
     pub(crate) fn spec_for_brain(
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,

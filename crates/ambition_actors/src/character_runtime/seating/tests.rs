@@ -12,9 +12,20 @@ use crate::character_runtime::{
     CharacterDefinition, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
 };
 
+/// A CPU seat asking for a brain this fixture's roster ACTUALLY HAS.
+///
+/// ⚠ it said `medium_striker` until 2026-07-31, which the content-free default
+/// roster does not contain — so every one of these tests was seating the
+/// `combatant` fallback (a `StandStill` body) while naming a striker, and
+/// passing, because nothing they assert depends on the brain. That silence is
+/// what seating now refuses: a match seat whose brain profile is unknown is
+/// unsatisfiable rather than handed a generic enemy.
+///
+/// `combatant` is the one archetype `CONTENT_FREE_ROSTER_RON` defines, so the
+/// name now says what the fixture is really seating.
 fn cpu(character: &str) -> MatchParticipant {
     MatchParticipant::new(character).driven_by(ControllerBinding::Cpu {
-        brain_profile: Some("medium_striker".into()),
+        brain_profile: Some("combatant".into()),
     })
 }
 
@@ -1506,6 +1517,56 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
          requires, so it does not match the ONE writer that turns a worn character \
          into a persona — it will wear a character and derive nothing from it, \
          silently"
+    );
+}
+
+/// **A CPU seat naming a brain the roster does not have is REFUSED.**
+///
+/// `spec_for_brain` falls back to the `combatant` row for an unknown key, and
+/// its own doc says a provider that misspells an archetype "gets a generic enemy
+/// instead of an error". For a placement that is defensible. For a MATCH SEAT it
+/// is not: the fighter the roster asked for is not the fighter that arrives, the
+/// match activates anyway, and the symptom is a duelist standing still — which is
+/// indistinguishable from a brain that was never installed. The smash demo spent
+/// an hour on exactly that, and needed a diagram to see it.
+///
+/// `resolve_initial_brain` already holds this line for placement overrides
+/// ("never a silent fall back to the default"); this is the same class of mistake
+/// on the other path.
+///
+/// ⚠ built as a RELEASE-mode assertion, because the engine's refusal is the
+/// `return` — the `debug_assert` beside it is the diagnostic, and a test that
+/// only ran in debug would prove the message rather than the behaviour.
+#[cfg(not(debug_assertions))]
+#[test]
+fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Cpu {
+                brain_profile: Some("no_such_archetype".into()),
+            }),
+            cpu("mary_o"),
+        ],
+        ..Default::default()
+    });
+
+    for _ in 0..5 {
+        finalize_and_update(&mut app);
+    }
+
+    assert!(
+        app.world().get_resource::<ActiveMatch>().is_none(),
+        "a match activated with a fighter the roster could not describe"
+    );
+    let world = app.world_mut();
+    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    assert_eq!(
+        worn.iter(world).count(),
+        0,
+        "a body was built for a seat whose brain profile does not exist, so the \
+         match holds a generic enemy wearing a fighter's name"
     );
 }
 

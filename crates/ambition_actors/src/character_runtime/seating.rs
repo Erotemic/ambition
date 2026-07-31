@@ -691,6 +691,34 @@ pub fn seat_match_participants(
                 if registry.get(character).is_none() {
                     return;
                 }
+                // **A CPU SEAT NAMING AN UNKNOWN BRAIN IS UNSATISFIABLE, not a
+                // generic enemy.** `spec_for_brain` falls back to the roster's
+                // `combatant` row for an unknown key — its own doc says a
+                // provider that misspells an archetype "gets a generic enemy
+                // instead of an error" — and for a PLACEMENT that is a defensible
+                // default. For a match seat it is not: the fighter the roster
+                // asked for is not the fighter that arrives, the match activates
+                // anyway, and the symptom is a duelist standing still, which is
+                // indistinguishable from a brain that was never installed. That
+                // cost an hour to find in the smash demo on 2026-07-31, with a
+                // diagram, because nothing anywhere said no.
+                //
+                // `resolve_initial_brain` already holds this line for placement
+                // overrides — an override that does not resolve is a loud
+                // `UnknownPreset`, "never a silent fall back to the default" —
+                // and this is the same class of mistake on the other path.
+                if !archetypes.has_brain_key(profile) {
+                    debug_assert!(
+                        false,
+                        "seat {index} asked for brain profile `{profile}`, which \
+                         this composition's CharacterRoster does not have. Known \
+                         keys: {:?}. A match seat is refused rather than handed \
+                         the generic fallback — a fighter that is not the one the \
+                         roster asked for is worse than no match.",
+                        archetypes.brain_keys()
+                    );
+                    return;
+                }
                 SeatPlan::Spawn {
                     index,
                     character,

@@ -157,6 +157,17 @@ WAIVERS: dict[str, str] = {
     "sync_portal_ring_rotation_system": ("portal, as above."),
     "hide_portal_loading_zone_visuals": ("portal, as above."),
     "sync_portal_quality_budget": ("portal, feature-gated, Ambition's."),
+    "sync_cutscene_ui": (
+        "WAIVED ON THE STANDARD, not on the architecture (2026-07-31). It is "
+        "generic — `ambition_cutscene` is an engine crate and the engine group "
+        "installs `CutsceneSchedulePlugin`, so a demo that played a cutscene "
+        "would get the beats and no overlay. But no demo opens one, the app "
+        "registers it inside a four-system `.chain()` with its own HUD, and "
+        "moving it would reorder the shipped host's UI to serve a consumer that "
+        "does not exist. Move it the day a demo plays a cutscene: the params "
+        "must become `Option` first (`Res<ActiveCutscene>` panics rather than "
+        "skips), and the app's chain loses a member."
+    ),
     "report_image_census": (
         "a startup diagnostic the app prints; it draws nothing."
     ),
@@ -181,11 +192,12 @@ WAIVERS: dict[str, str] = {
 # footprint ratchet in `check_absence_contracts.py` carries the same rule for the
 # same reason. Fix one, lower this by one, in the same commit.
 #
-# The current occupants, and why each looks like the class rather than a choice:
-#
-# * `sync_cutscene_ui` — `ambition_cutscene` is an engine crate; a demo that
-#   plays a cutscene gets no UI for it.
-UNCLAIMED_BUDGET = 1
+# ⚠ **It is ZERO, and that is a claim about DECISIONS, not about perfection.**
+# Every engine presentation system a game registers alone is now either moved or
+# waived with a reason above. The budget stays as the mechanism: the next one
+# somebody adds fails this check, and the fix is either a move or a sentence
+# saying why the engine should not own it.
+UNCLAIMED_BUDGET = 0
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _LINE_COMMENT = re.compile(r"//[^\n]*")

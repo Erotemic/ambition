@@ -454,11 +454,52 @@ impl ActiveMatch {
     }
 }
 
-/// Seat every CPU participant in [`MatchParticipantRoster`], once.
+/// **What one seat needs, decided before anything is built.**
+///
+/// A plan value, not a body: it names the seat, where it sits and what will fill
+/// it, and producing one is guaranteed not to touch the world. That guarantee is
+/// the whole point — see the RESOLVE block in [`seat_match_participants`] for the
+/// half-applied adoption it exists to prevent.
+///
+/// It borrows the character id from the roster rather than cloning it: the plan
+/// never outlives the pass that built it, and a `String` per seat per retried
+/// tick is allocation for nothing.
+enum SeatPlan<'roster> {
+    /// Construct a new body for this seat.
+    Spawn {
+        index: usize,
+        character: &'roster str,
+        at: Vec2,
+        facing: f32,
+        faction: crate::combat::components::ActorFaction,
+        brain: ambition_entity_catalog::placements::CharacterBrain,
+        /// A human seat past `PRIMARY`: the spawned body is handed this slot, so
+        /// the couch's second writer drives it.
+        player_slot: Option<ambition_characters::brain::PlayerSlot>,
+        team: Option<crate::combat::targeting::MatchTeam>,
+    },
+    /// Take the body the primary player already has.
+    Adopt {
+        index: usize,
+        body: Entity,
+        character: &'roster str,
+        at: Vec2,
+        facing: f32,
+        team: Option<crate::combat::targeting::MatchTeam>,
+    },
+}
+
+/// Seat every participant in [`MatchParticipantRoster`] in ONE transaction.
 ///
 /// Runs on the sim schedule so a seated body exists on a tick boundary like every
 /// other constructed entity, rather than mid-frame where half the pipeline has
 /// already run.
+///
+/// **Resolve, validate, commit.** Every seat is proven satisfiable before any
+/// seat is built, so a roster that cannot yet be filled leaves the world byte-for-
+/// byte as it found it and retries next tick. A roster that can be filled is
+/// filled completely, in one command flush, together with the [`ActiveMatch`]
+/// latch that says so.
 pub fn seat_match_participants(
     mut commands: Commands,
     roster: Option<Res<MatchParticipantRoster>>,
@@ -522,12 +563,31 @@ pub fn seat_match_participants(
         .map(|(entity, seat)| (seat.0, entity))
         .collect();
     let occupied: std::collections::BTreeSet<usize> = by_seat.keys().copied().collect();
-    let mut seated_count = occupied.len();
-    // Every body this pass produced, so the roster's suspension lands on all of
-    // them in the SAME command flush that creates them. A body is therefore never
-    // observable in a state the ruleset did not ask for — no window to narrow.
-    let mut seated_bodies: Vec<Entity> = Vec::new();
-    let mut seated_this_pass: Vec<(usize, Entity)> = Vec::new();
+    // ── RESOLVE ─────────────────────────────────────────────────────────────
+    //
+    // **Every seat is decided before any seat is built.** Nothing in this loop
+    // touches the world: it reads the roster, the registry and the player's own
+    // body through a READ-ONLY view, and produces one plan value per unfilled
+    // seat. A seat that cannot be satisfied yet returns from the system having
+    // mutated NOTHING, and seating retries next tick exactly as it always has.
+    //
+    // ⚠ **this replaced a loop that resolved and constructed one seat at a
+    // time, and the defect it closes is sharper than "only the latch was
+    // atomic".** The ADOPTION path below writes the primary player's health,
+    // body size and pose THROUGH THE QUERY — immediately, not through deferred
+    // `Commands`. So seat 0 could be re-pooled, resized and teleported to its
+    // mark on a tick where seat 1 then failed to resolve, and the player wore
+    // that half-applied match state for as many ticks as the roster took to
+    // complete. Validation completing before ANY mutation is the fix, and it is
+    // why this is a resolve/commit pair rather than a tidier single loop.
+    //
+    // What the one-flush commit buys beyond that: activation happens entirely
+    // within one tick, so a rewind lands either BEFORE it (no bodies, no latch —
+    // `bevy_ggrs` restores ABSENCE, so seating re-runs and rebuilds) or AFTER it
+    // (both restored). There is no "between two seats" state left to land in,
+    // which is AA2's lifecycle half — and it is reached without the route
+    // reordering the reviews assumed was necessary.
+    let mut plans: Vec<SeatPlan<'_>> = Vec::new();
     for (index, participant) in roster.participants.iter().enumerate() {
         let MatchParticipant {
             character,
@@ -535,6 +595,12 @@ pub fn seat_match_participants(
             team,
             ..
         } = participant;
+        // Already has a body from an earlier tick, or from a rewind that
+        // restored the bodies without the latch. Derived from the world, so a
+        // seat can never be counted twice.
+        if occupied.contains(&index) {
+            continue;
+        }
         // The roster's declared TEAM, on the body. It had been declared and read
         // by nothing since §7.8; `MatchTeam` is what the damage relation
         // consults, and it is what lets two human seats hit each other without
@@ -543,27 +609,125 @@ pub fn seat_match_participants(
         let team_tag = team
             .as_ref()
             .map(|team| crate::combat::targeting::MatchTeam::new(team.clone()));
-        // Already has a body from an earlier tick's partial seating.
-        if occupied.contains(&index) {
-            continue;
-        }
         let (at, facing) = seat_for(index, centre);
-        // A HUMAN seat is the body the player already has. Adopt it — move it to
-        // its seat and face it inward — rather than spawning a second body
-        // wearing the same character, which is what produced two Mary-Os in the
-        // arena the first time this stage shipped.
-        if let super::ControllerBinding::Human { device_slot } = controller {
-            let slot = ambition_characters::brain::PlayerSlot(*device_slot);
-            // A SECOND human is a second body. Only slot 0 has a body already —
-            // the one the session spawned as the primary player — so every other
-            // seat is spawned and handed its own `Brain::Player(slot)`.
-            //
-            // `tick_player_brains` already drives any body whose brain names a
-            // slot, and `SlotControls` already holds four. What couch versus was
-            // missing is not the engine: it is a writer for the second slot. This
-            // seats the body that writer will drive.
-            if slot != ambition_characters::brain::PlayerSlot::PRIMARY {
-                if let Some(body) = seat_character(
+        // **A seat is satisfiable when its body can be produced from what is
+        // already here.** `seat_character` has exactly one failure mode —
+        // `registry.get(character_id)?` — so asking the registry the same
+        // question is a COMPLETE precondition rather than an optimistic one.
+        // That completeness is what makes the commit below infallible, and it is
+        // the property to preserve if `seat_character` ever grows a second way
+        // to fail.
+        let plan = match controller {
+            // A HUMAN seat is the body the player already has. Adopt it — move
+            // it to its seat and face it inward — rather than spawning a second
+            // body wearing the same character, which is what produced two
+            // Mary-Os in the arena the first time this stage shipped.
+            super::ControllerBinding::Human { device_slot } => {
+                let slot = ambition_characters::brain::PlayerSlot(*device_slot);
+                if slot == ambition_characters::brain::PlayerSlot::PRIMARY {
+                    // Read-only: `single()` on a mutable query yields the
+                    // read-only item, which is what keeps RESOLVE pure. The
+                    // `single_mut()` that actually writes lives in COMMIT.
+                    let Ok((body, .., worn)) = player.single() else {
+                        return;
+                    };
+                    if worn.id() != character {
+                        // The stage's starting character and this seat disagree.
+                        // Seating does not re-dress the player body — that is
+                        // `WornCharacter`'s job, and a stage that wants a
+                        // different fighter should say so in its
+                        // `StartingCharacter`.
+                        return;
+                    }
+                    SeatPlan::Adopt {
+                        index,
+                        body,
+                        character,
+                        at,
+                        facing,
+                        team: team_tag,
+                    }
+                } else {
+                    // A SECOND human is a second body. Only slot 0 has a body
+                    // already — the one the session spawned as the primary
+                    // player — so every other seat is spawned and handed its own
+                    // `Brain::Player(slot)`.
+                    //
+                    // `tick_player_brains` already drives any body whose brain
+                    // names a slot, and `SlotControls` already holds four. What
+                    // couch versus was missing is not the engine: it is a writer
+                    // for the second slot. This seats the body that writer will
+                    // drive.
+                    if registry.get(character).is_none() {
+                        return;
+                    }
+                    SeatPlan::Spawn {
+                        index,
+                        character,
+                        at,
+                        facing,
+                        faction: faction_for(index),
+                        // `Passive` is the authored brain the seed needs; the
+                        // player slot below replaces the runtime `Brain`. A
+                        // passive placeholder rather than a wandering one so a
+                        // body whose player writer never arrives stands still
+                        // instead of strolling off looking possessed.
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+                        player_slot: Some(slot),
+                        team: team_tag,
+                    }
+                }
+            }
+            _ => {
+                let Some(profile) = controller.brain_profile() else {
+                    return;
+                };
+                if registry.get(character).is_none() {
+                    return;
+                }
+                SeatPlan::Spawn {
+                    index,
+                    character,
+                    at,
+                    facing,
+                    faction: faction_for(index),
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        profile.to_string(),
+                    ),
+                    player_slot: None,
+                    team: team_tag,
+                }
+            }
+        };
+        plans.push(plan);
+    }
+
+    // ── COMMIT ──────────────────────────────────────────────────────────────
+    //
+    // Past this point every seat is known to be satisfiable, so the match is
+    // built to completion in ONE command flush. Nothing below may return early:
+    // a `return` here would reintroduce exactly the partial activation the
+    // resolve pass exists to prevent.
+    //
+    // Every body this pass produced, so the roster's abilities and suspension
+    // land on all of them in the SAME flush that creates them. A body is
+    // therefore never observable in a state the ruleset did not ask for — no
+    // window to narrow.
+    let mut seated_bodies: Vec<Entity> = Vec::new();
+    let mut seated_this_pass: Vec<(usize, Entity)> = Vec::new();
+    for plan in plans {
+        match plan {
+            SeatPlan::Spawn {
+                index,
+                character,
+                at,
+                facing,
+                faction,
+                brain,
+                player_slot,
+                team,
+            } => {
+                let Some(body) = seat_character(
                     &mut commands,
                     session_scope,
                     &registry,
@@ -573,138 +737,127 @@ pub fn seat_match_participants(
                     character,
                     at,
                     facing,
-                    faction_for(index),
-                    // `Passive` is the authored brain the seed needs; the insert
-                    // below replaces the runtime `Brain` with the player slot. A
-                    // passive placeholder rather than a wandering one so a body
-                    // whose player writer never arrives stands still instead of
-                    // strolling off looking possessed.
-                    ambition_entity_catalog::placements::CharacterBrain::Passive,
-                ) {
-                    seated_count += 1;
-                    if let Some(team) = team_tag.clone() {
-                        commands.entity(body).insert(team);
-                    }
-                    commands.entity(body).insert((
-                        MatchSeat(index),
+                    faction,
+                    brain,
+                ) else {
+                    // RESOLVE already proved the registry entry exists, and that
+                    // is `seat_character`'s only failure. Reaching this means the
+                    // precondition and the constructor have drifted apart —
+                    // which is a contract break to fix, not a seat to skip, so
+                    // say so loudly in a debug build and leave the world as the
+                    // resolve pass found it.
+                    debug_assert!(
+                        false,
+                        "seat {index} resolved but `seat_character` refused it: the \
+                         satisfiability precondition no longer matches the constructor"
+                    );
+                    return;
+                };
+                let mut seated = commands.entity(body);
+                seated.insert(MatchSeat(index));
+                if let Some(team) = team {
+                    seated.insert(team);
+                }
+                if let Some(slot) = player_slot {
+                    seated.insert((
                         ambition_characters::brain::Brain::Player(slot),
                         crate::control::components::LocalPlayer,
                         crate::control::components::PlayerInputFrame::default(),
                     ));
-                    seated_bodies.push(body);
-                    seated_this_pass.push((index, body));
                 }
-                continue;
+                seated_bodies.push(body);
+                seated_this_pass.push((index, body));
             }
-            let Ok((body, mut health, clusters, mut model, worn)) = player.single_mut() else {
-                continue;
-            };
-            if worn.id() != character {
-                // The stage's starting character and this seat disagree. Seating
-                // does not re-dress the player body — that is `WornCharacter`'s
-                // job and a stage that wants a different fighter should say so in
-                // its `StartingCharacter`.
-                continue;
-            }
-            // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its death
-            // runs `death_respawn_player`, which teleports it to the room spawn
-            // and restores full health BEFORE any rules layer can look — so seat 0
-            // could never be seen at zero health, and the match was rigged in
-            // its favour (GPT 5.6, 2026-07-27).
-            let mut adopted = commands.entity(body);
-            adopted.insert((
-                MatchSeat(index),
-                crate::combat::components::RulesetOwnsDeath,
-            ));
-            let mut item = clusters;
-            let mut clusters = item.as_clusters_mut();
-            // **MATCH ACTIVATION IS A CONSTRUCTION BOUNDARY**, so the adopted body
-            // gets the same physical identity a spawned seat gets — from the same
-            // resolver, through the same call.
-            //
-            // Each of these three was a separate divergence, found one at a time,
-            // and the pattern is what made them worth unifying (GPT 5.6,
-            // 2026-07-29):
-            //
-            // * **health** — a spawned seat took the authored maximum; the adopted
-            //   player kept whatever its session established. The versus duelists
-            //   author 60 and 52, a deliberate trade with one fighter paying for a
-            //   faster smash, and that trade did not apply to seat 0.
-            // * **box** — a mirror match could put two different body shapes on
-            //   the stage, and the wrong one was always player one.
-            // * **mass** — the same character weighed different amounts depending
-            //   on which seat it took.
-            //
-            // Written BEFORE `transit_body`, deliberately: the transit seam is the
-            // one authority that re-resolves a body's pose against the world
-            // (ADR 0024), so a size change followed by a transit is a body
-            // arriving at its seat correctly sized, not a live resize that could
-            // leave it intersecting the floor it was standing on. That ordering is
-            // exactly why this path may pass a `size` and the re-wear path may not.
-            if let Some(prepared) = registry.get(character) {
-                super::PhysicalBaseline::of(prepared).apply_to_body(
-                    super::BaselineBoundary::Construction,
-                    &mut adopted,
-                    Some(&mut health),
-                    Some(super::BodyGeometry {
-                        live: &mut clusters.kinematics.size,
-                        base: &mut clusters.base_size.base_size,
-                    }),
-                    // Adoption into a match is CONSTRUCTION, so there is nothing
-                    // to retract: what the body brought is what a silent
-                    // character keeps.
-                    super::PhysicalRetraction::NONE,
-                );
-            } else {
-                // No prepared character to speak for it; a seat still opens full.
-                health.health.current = health.health.max;
-            }
-            ambition_engine_core::movement::transit_body(
-                &mut model,
-                &mut clusters,
+            SeatPlan::Adopt {
+                index,
+                body,
+                character,
                 at,
-                ambition_engine_core::movement::TransitVelocity::Zero,
-            );
-            clusters.kinematics.facing = facing;
-            seated_bodies.push(body);
-            // The TEAM, which this branch dropped when the death-ownership
-            // insert was added over it. A seat with no team is judged by FACTION
-            // alone, and `effective_faction` maps every player-brained body to
-            // `Player` — so in an all-human match the adopted seat 0 could not
-            // be hit by anybody, which is the 1v1 rigging bug again wearing a
-            // different hat. Found by the 2v2 test (2026-07-27).
-            if let Some(team) = team_tag.clone() {
-                commands.entity(body).insert(team);
+                facing,
+                team,
+            } => {
+                // Resolved above through the read-only view; the mutable single
+                // cannot disagree with it within one system run.
+                let Ok((_, mut health, clusters, mut model, _)) = player.single_mut() else {
+                    debug_assert!(false, "seat {index} adopted a player body that vanished mid-system");
+                    return;
+                };
+                // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its
+                // death runs `death_respawn_player`, which teleports it to the
+                // room spawn and restores full health BEFORE any rules layer can
+                // look — so seat 0 could never be seen at zero health, and the
+                // match was rigged in its favour (GPT 5.6, 2026-07-27).
+                let mut adopted = commands.entity(body);
+                adopted.insert((MatchSeat(index), crate::combat::components::RulesetOwnsDeath));
+                // The TEAM, which this branch dropped when the death-ownership
+                // insert was added over it. A seat with no team is judged by
+                // FACTION alone, and `effective_faction` maps every
+                // player-brained body to `Player` — so in an all-human match the
+                // adopted seat 0 could not be hit by anybody, which is the 1v1
+                // rigging bug again wearing a different hat. Found by the 2v2
+                // test (2026-07-27).
+                if let Some(team) = team {
+                    adopted.insert(team);
+                }
+                let mut item = clusters;
+                let mut clusters = item.as_clusters_mut();
+                // **MATCH ACTIVATION IS A CONSTRUCTION BOUNDARY**, so the adopted
+                // body gets the same physical identity a spawned seat gets — from
+                // the same resolver, through the same call.
+                //
+                // Each of these three was a separate divergence, found one at a
+                // time, and the pattern is what made them worth unifying (GPT
+                // 5.6, 2026-07-29):
+                //
+                // * **health** — a spawned seat took the authored maximum; the
+                //   adopted player kept whatever its session established. The
+                //   versus duelists author 60 and 52, a deliberate trade with one
+                //   fighter paying for a faster smash, and that trade did not
+                //   apply to seat 0.
+                // * **box** — a mirror match could put two different body shapes
+                //   on the stage, and the wrong one was always player one.
+                // * **mass** — the same character weighed different amounts
+                //   depending on which seat it took.
+                //
+                // Written BEFORE `transit_body`, deliberately: the transit seam is
+                // the one authority that re-resolves a body's pose against the
+                // world (ADR 0024), so a size change followed by a transit is a
+                // body arriving at its seat correctly sized, not a live resize
+                // that could leave it intersecting the floor it was standing on.
+                // That ordering is exactly why this path may pass a `size` and the
+                // re-wear path may not.
+                if let Some(prepared) = registry.get(character) {
+                    super::PhysicalBaseline::of(prepared).apply_to_body(
+                        super::BaselineBoundary::Construction,
+                        &mut adopted,
+                        Some(&mut health),
+                        Some(super::BodyGeometry {
+                            live: &mut clusters.kinematics.size,
+                            base: &mut clusters.base_size.base_size,
+                        }),
+                        // Adoption into a match is CONSTRUCTION, so there is
+                        // nothing to retract: what the body brought is what a
+                        // silent character keeps.
+                        super::PhysicalRetraction::NONE,
+                    );
+                } else {
+                    // No prepared character to speak for it; a seat still opens
+                    // full.
+                    health.health.current = health.health.max;
+                }
+                ambition_engine_core::movement::transit_body(
+                    &mut model,
+                    &mut clusters,
+                    at,
+                    ambition_engine_core::movement::TransitVelocity::Zero,
+                );
+                clusters.kinematics.facing = facing;
+                seated_bodies.push(body);
+                seated_this_pass.push((index, body));
             }
-            seated_count += 1;
-            continue;
-        }
-        let Some(profile) = controller.brain_profile() else {
-            continue;
-        };
-        let faction = faction_for(index);
-        if let Some(body) = seat_character(
-            &mut commands,
-            session_scope,
-            &registry,
-            &catalog,
-            &authored_sheets,
-            &archetypes,
-            character,
-            at,
-            facing,
-            faction,
-            ambition_entity_catalog::placements::CharacterBrain::Custom(profile.to_string()),
-        ) {
-            commands.entity(body).insert(MatchSeat(index));
-            if let Some(team) = team_tag.clone() {
-                commands.entity(body).insert(team);
-            }
-            seated_bodies.push(body);
-            seated_this_pass.push((index, body));
-            seated_count += 1;
         }
     }
+    let seated_count = occupied.len() + seated_this_pass.len();
     // **A fighter that opens suspended is suspended BEFORE it exists.**
     //
     // Not narrowed — closed. These inserts flush with the spawns above, so no
@@ -760,6 +913,16 @@ pub fn seat_match_participants(
         // The BODIES are not recorded. They wear `MatchSeat` and
         // `match_participants` reads them off the world, which is what keeps the
         // activation free of entity references a rewind could invalidate.
+        //
+        // ⚠ **the ADOPTED seat belongs in here too**, and it did not used to be.
+        // The old adoption branch pushed to `seated_bodies` and bumped the count
+        // but never recorded `(index, body)`, so a match that adopted seat 0 and
+        // spawned seat 1 on the SAME tick activated with `seats: 1` — a two-seat
+        // match whose latch said one, which is precisely the "is the cast still
+        // whole?" comparison reading false from the moment it opened. Invisible
+        // until now because no test seated an adoption and a spawn on one tick;
+        // the transaction makes that the ONLY way a match can activate, so it
+        // would have gone from latent to certain.
         by_seat.extend(seated_this_pass);
         commands.insert_resource(ActiveMatch {
             seats: by_seat.len(),

@@ -253,3 +253,180 @@ fn the_activation_count_still_matches_the_bodies_after_resimulation() {
         );
     }
 }
+
+// ── AC24 ─────────────────────────────────────────────────────────────────────
+//
+// The fixture the two tests above cannot be: one whose rollback window genuinely
+// contains a PRE-activation frame.
+//
+// The blocker was never the assertions, it was the arrival time. Seating
+// completes on the first frame it can, `PreparedCharacterRegistry` is published
+// at `PreStartup` (before any frame exists), and the room, the session scope and
+// the geometry are all standing at frame zero — so a roster present at the
+// baseline activates on frame one, and a `check_distance: 4` sync test restores
+// frame `n - 4`, which is never earlier than the activation. The window and the
+// event were adjacent and never overlapped.
+//
+// **The fix is to make the ROSTER'S ARRIVAL a function of rollback state.** Both
+// arrangements recorded above failed for the same underlying reason — they tried
+// to introduce the roster from OUTSIDE the simulation, either before it could be
+// rewound past or behind the cursor where resimulation disagreed. A roster
+// derived from `SimTick`, which is itself registered rollback state, is neither:
+// it is reconstructed identically on every replay of a given frame, so no rebase
+// is needed and there is nothing behind the cursor to diverge.
+//
+// That also makes this the shipped shape rather than a test trick. The versus
+// route's bodies are constructed several ticks after the route is entered, which
+// is exactly "activation lands mid-window"; this reproduces that timing without
+// needing the route.
+
+use ambition::sim::{SandboxSet, SimScheduleExt};
+use ambition::time::SimTick;
+use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
+
+/// The `SimTick` the roster appears on. Chosen well past `check_distance: 4` so
+/// the restored frame is unambiguously earlier than the activation rather than
+/// arithmetically adjacent to it.
+const ROSTER_ARRIVES_AT: u64 = 12;
+
+/// **Every frame that was simulated, and whether the match was live at the end
+/// of it.**
+///
+/// Deliberately NOT rollback state, which is what makes it an instrument: it
+/// keeps the entries a rewind erases from the world, so the log is a record of
+/// what the session actually did rather than of what survived. A frame index
+/// that appears twice is a resimulation, and a resimulated index lower than the
+/// activation index is the crossing this fixture exists to produce.
+#[derive(Resource, Default)]
+struct ActivationTrace(Vec<(u64, bool)>);
+
+/// The roster as a pure function of `SimTick` — present from
+/// [`ROSTER_ARRIVES_AT`] onward and absent before it.
+///
+/// The `else` branch is the load-bearing half and the easy one to omit: without
+/// it the roster would persist through a rewind to a frame that never had one,
+/// seating would activate early on the replay, and the sync test would report a
+/// divergence that is the fixture's fault rather than the engine's.
+fn the_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
+    if tick.get() >= ROSTER_ARRIVES_AT {
+        commands.insert_resource(two_cpu_roster());
+    } else {
+        commands.remove_resource::<MatchParticipantRoster>();
+    }
+}
+
+/// Runs in `SandboxSet::Trace`, after everything: `ActiveMatch` is published
+/// through `Commands` during `PlayerInputSet::CharacterProjection`, so a reader
+/// in that same set would record the tick before the one it activated on.
+fn trace_the_activation(
+    mut trace: ResMut<ActivationTrace>,
+    tick: Res<SimTick>,
+    active: Option<Res<ActiveMatch>>,
+) {
+    trace.0.push((tick.get(), active.is_some()));
+}
+
+fn late_arriving_roster_sim() -> SandboxSim {
+    SandboxSim::build(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<ActivationTrace>();
+            let sim = app.sim_schedule();
+            app.add_systems(
+                sim,
+                (
+                    the_roster_arrives_on_a_tick
+                        .before(ambition::actors::character_runtime::seat_match_participants),
+                    trace_the_activation.in_set(SandboxSet::Trace),
+                ),
+            );
+            Ok(())
+        },
+    )
+    .expect("Ambition GGRS sync-test harness builds")
+}
+
+/// **A rewind that lands BEFORE the activation reconstructs the identical
+/// match.**
+///
+/// This is the reviews' acceptance condition, and the first fixture in the
+/// repository that can state it honestly. The proof is not arithmetic about
+/// `check_distance`: the trace records every frame the session simulated, so the
+/// crossing is READ OFF the run — a frame index earlier than the activation
+/// index, simulated after the activation index had already been reached.
+#[test]
+fn a_rewind_across_the_activation_frame_reconstructs_the_same_match() {
+    let mut sim = late_arriving_roster_sim();
+
+    for tick in 0..(ROSTER_ARRIVES_AT as usize + 40) {
+        sim.step(AgentAction::default());
+        // Every tick, not once at the end: a divergence ON the activation frame
+        // is repaired by later frames agreeing with each other, so a run that
+        // only checks the end can watch the interesting frame go wrong and
+        // report success.
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("tick {tick}: {error}"));
+    }
+
+    let trace = std::mem::take(&mut sim.world_mut().resource_mut::<ActivationTrace>().0);
+    let activated_at = trace
+        .iter()
+        .find(|(_, active)| *active)
+        .map(|(frame, _)| *frame)
+        .expect(
+            "no roster seat ever produced a live match, so this test rewound a \
+             world with no match in it and would have passed either way",
+        );
+
+    // THE CROSSING, observed. Walk the trace in the order the session executed
+    // it: once a frame at or after the activation has been simulated, any later
+    // entry for an earlier frame is a rewind that restored a world in which the
+    // match did not yet exist.
+    let mut reached_activation = false;
+    let mut crossed_from = None;
+    for (frame, _) in &trace {
+        if *frame >= activated_at {
+            reached_activation = true;
+        } else if reached_activation {
+            crossed_from = Some(*frame);
+            break;
+        }
+    }
+    let crossed_from = crossed_from.unwrap_or_else(|| {
+        panic!(
+            "no frame earlier than the activation (tick {activated_at}) was ever \
+             resimulated, so this run never rewound ACROSS the activation and \
+             proves exactly what the two fixtures above already proved. Trace: \
+             {trace:?}"
+        )
+    });
+    assert!(
+        !trace
+            .iter()
+            .any(|(frame, active)| *frame == crossed_from && *active),
+        "the frame this run rewound to (tick {crossed_from}) is recorded as \
+         having a live match, so the restored world was not pre-activation \
+         after all"
+    );
+
+    // …and the match that came back is the match that was there.
+    let roster = seats(&mut sim);
+    assert_eq!(
+        roster,
+        vec![(0, "blue".to_string()), (1, "red".to_string())],
+        "the cast did not survive a rewind to before it existed"
+    );
+    let active = sim
+        .world()
+        .get_resource::<ActiveMatch>()
+        .expect("the match is live again after the window closed");
+    assert_eq!(active.seats(), 2);
+    assert_eq!(
+        active.seat_topology(),
+        Some(11),
+        "the reconstructed activation forgot which frozen topology decided it"
+    );
+}

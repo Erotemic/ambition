@@ -1251,6 +1251,19 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
 /// never reaches the participant count and the latch stays open — which is the
 /// state the countdown must refuse to advance through, and the state a fighter
 /// arriving late would otherwise join a live round from.
+///
+/// ⚠ **the second assertion was REVERSED when activation became a transaction**,
+/// and the reversal is the finding, not a weakened test. It used to read *"the
+/// seatable participant should still have got its body — an incomplete roster
+/// must not also mean nobody is staged"*. That is exactly what an incomplete
+/// roster must now mean. A body staged for a match that never activates is an
+/// ORPHAN: the latch never closes, so no ruleset ever owns it, and it stands in
+/// the arena at full health for the rest of the session. Worse, the seat-0
+/// ADOPTION path reached that state by rewriting the primary player's health,
+/// body size and pose THROUGH THE QUERY — so a roster that could never complete
+/// left the player permanently re-pooled and resized for a match that never
+/// began. Resolve-then-commit means an unsatisfiable roster leaves the world
+/// byte-for-byte as it found it.
 #[test]
 fn a_roster_with_an_unseatable_participant_never_latches() {
     let mut app = seating_app();
@@ -1278,9 +1291,10 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
     let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
     assert_eq!(
         worn.iter(world).count(),
-        1,
-        "the seatable participant should still have got its body — an incomplete \
-         roster must not also mean nobody is staged"
+        0,
+        "a seat was constructed for a roster that can never complete, so the \
+         arena now holds an orphan fighter no ruleset owns — activation resolves \
+         every seat before it builds any"
     );
 }
 

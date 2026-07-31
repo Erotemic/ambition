@@ -222,7 +222,7 @@ for 4300 updates while the sim was frozen. Ask `ambition::rollback::health`:
 
 ```rust
 match ambition::rollback::health(&app) {
-    RollbackHealth::Healthy { frame } => { /* compare frame across updates */ }
+    RollbackHealth::Healthy { frame, .. } => { /* compare frame across updates */ }
     RollbackHealth::Desynced { frames, .. } => panic!("nondeterminism at {frames:?}"),
     RollbackHealth::Invalidated { reason } => panic!("{reason}"),
     RollbackHealth::NoSession => {}
@@ -238,11 +238,25 @@ sees.
 |---|---|
 | `is_healthy()` | simulating, nothing mismatched — the one-line check |
 | `frame()` | the session's current frame, if there is a session |
+| `generation()` | WHICH session — see below |
 
 ⚠ **Liveness needs TWO samples.** A frozen session reports `Healthy` forever;
 what a stall looks like is a `frame()` that stops advancing. Sample it before
 and after a batch of updates — the engine cannot decide for you how long a
 quiet frame is allowed to be.
+
+⚠ **and a frame number cannot tell you WHICH session it belongs to.** Every
+session starts numbering at zero, and the engine legitimately installs a new one
+— a confirmed lifecycle commit rebases the timeline, and so does
+[`ambition::rollback::stop`] followed by another `start`. A `frame()` that went
+backwards is a restart, not a rewind, and `generation()` is what says so: it
+changes on every session install and never repeats.
+
+`ambition::rollback::stop(&mut app)` ends the session. After it, `health` reports
+`NoSession` — the session, not a leftover read model, is what it asks — unless
+the timeline it tore down had diverged, in which case the DIAGNOSIS survives as
+`Invalidated { reason }`. A divergence that disappeared when its timeline ended
+would be exactly the laundering the engine refuses everywhere else.
 
 ### Putting your own state in the wire format
 

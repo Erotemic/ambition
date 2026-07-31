@@ -207,6 +207,20 @@ fn launcher_row_count(app: &App) -> usize {
 }
 
 fn launch_entry(app: &mut App, index: usize) {
+    select_entry(app, index);
+    app.world_mut()
+        .write_message(ShellLauncherCommand::LaunchSelected);
+    settle(app);
+}
+
+/// Move the launcher cursor to `index` and prove it arrived, without launching.
+///
+/// Split out of [`launch_entry`] for the EXIT row, which cannot be settled
+/// blindly: `Messages<AppExit>` is double-buffered and dropped after two
+/// updates, so a caller that settles four and then asks whether an exit was
+/// raised is asking a question whose answer has already been thrown away. See
+/// the exit block in the lifecycle walk.
+fn select_entry(app: &mut App, index: usize) {
     // Reset the cursor to the top deterministically, then walk down.
     for _ in 0..8 {
         app.world_mut().write_message(ShellLauncherCommand::Next);
@@ -237,9 +251,6 @@ fn launch_entry(app: &mut App, index: usize) {
         index,
         "launcher cursor reached entry {index}"
     );
-    app.world_mut()
-        .write_message(ShellLauncherCommand::LaunchSelected);
-    settle(app);
 }
 
 /// The in-session identity contract. Returns the session's scope for
@@ -652,15 +663,33 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .resource::<ambition::game_shell::ShellLaunchCatalog>()
         .entries
         .len();
-    launch_entry(&mut app, exit_index);
-    app.update();
+    select_entry(&mut app, exit_index);
+    app.world_mut()
+        .write_message(ShellLauncherCommand::LaunchSelected);
+
+    // ⚠ **WATCHED, not sampled at the end.** `Messages<AppExit>` is
+    // double-buffered and dropped after two updates, so this used to launch,
+    // settle FOUR updates, run one more, and then ask whether an exit message
+    // existed — a question about a buffer that had already been cleared if the
+    // host answered early. It passed when the exit landed in the last update or
+    // two and failed when it landed sooner, which made it a test that FAILED IN
+    // THE FULL BINARY AND PASSED ALONE (2026-07-31, the whole suite's only red
+    // besides an SDK-doc ratchet). A flaky standing guard is worse than no
+    // guard: it teaches the reader to re-run rather than to look.
+    let mut saw_app_exit = false;
+    for _ in 0..8 {
+        app.update();
+        if !app.world().resource::<Messages<AppExit>>().is_empty() {
+            saw_app_exit = true;
+            break;
+        }
+    }
     assert!(
         app.world().resource::<ShellRouter>().exit_requested,
         "selecting Exit raises the shell exit request"
     );
-    let exit_events = app.world().resource::<Messages<AppExit>>();
     assert!(
-        !exit_events.is_empty(),
+        saw_app_exit,
         "the HOST maps the shell exit request to Bevy AppExit"
     );
 }

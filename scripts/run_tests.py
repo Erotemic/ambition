@@ -75,8 +75,28 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # ambition_host left this set 2026-07-19: its portal_render seam tests are
 # feature-gated, and the portal feature now forwards ambition_runtime/portal
 # so the composition is complete.
+#
+# `ambition` JOINED it 2026-07-31, and it is the same rule applied to the
+# umbrella: every one of its 17 extra features is a FORWARDER to an
+# `ambition_actors` feature (`visible`, `dev_tools`, `ldtk_runtime`, `profile`,
+# ...), and that crate is skipped here for exactly this reason. The facade's own
+# tests gate on no feature.
+#
+# It appeared at all only because the facade gained its first `#[cfg(test)]`
+# module that day — `crate_has_tests` is what admits a crate to this pass — and
+# the job it created FAILED immediately, which is worth recording where the next
+# person to remove this entry will read it:
+#
+#   Tracy Profiler initialization failure: CPU doesn't support invariant TSC.
+#
+# The `profile` feature forwards `bevy/trace_tracy`, whose static initializer
+# ABORTS the test binary on a CPU without an invariant TSC — before libtest lists
+# a single test, so `--list` and a filter matching nothing fail identically.
+# Nothing in the repo gates a test on `profile`. If you remove this skip, expect
+# to deny `profile` (or set `TRACY_NO_INVARIANT_CHECK=1`) in the same commit —
+# and to pay a full-graph feature-variant rebuild, measured at 488s.
 SKIP_FEATURE_JOB = {
-    "ambition_app", "ambition_actors",
+    "ambition", "ambition_app", "ambition_actors",
     "ambition_menu", "ambition_runtime",
 }
 

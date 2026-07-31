@@ -638,6 +638,20 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "actor.match_team",
         )
+        // S4 — the stocks loop's own state. A stock count that is NOT rollback
+        // state un-spends itself on a rewind: the body comes back and the count
+        // does not, so a fighter loses the same stock twice or never loses it at
+        // all. Elimination is the same fact one step later, and a rewind that
+        // restores a fighter while leaving it eliminated is a body standing in a
+        // match nothing will ever let it play.
+        .rollback_component_canonical::<ambition_combat::components::FighterStocks>(
+            ENGINE,
+            "entity:fighter_stocks",
+        )
+        .rollback_component_canonical::<ambition_combat::stocks::FighterEliminated>(
+            ENGINE,
+            "entity:fighter_eliminated",
+        )
         .rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
             ENGINE,
             "actor.ruleset_owns_death",
@@ -1581,6 +1595,19 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.actor_action",
     )
     .clear_message_on_rollback::<ambition_combat::events::HitEvent>(ENGINE, "message.hit_event")
+    // S4 — the stocks loop's two messages. Both are written INSIDE the sim
+    // schedule, so a rewind that un-happens the KO must un-happen the
+    // announcement too: a `BodyKnockedOut` left in the buffer would be re-read on
+    // the replay and spend a second stock for one knockout, and a stale
+    // `FighterStockSpent` would have a ruleset respawn a fighter that never fell.
+    .clear_message_on_rollback::<ambition_combat::stocks::BodyKnockedOut>(
+        ENGINE,
+        "message.body_knocked_out",
+    )
+    .clear_message_on_rollback::<ambition_combat::stocks::FighterStockSpent>(
+        ENGINE,
+        "message.fighter_stock_spent",
+    )
     .clear_message_on_rollback::<ambition_combat::on_hit::OnHitEffectMessage>(
         ENGINE,
         "message.on_hit_effect",

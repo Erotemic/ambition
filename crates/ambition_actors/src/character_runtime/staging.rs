@@ -224,6 +224,25 @@ pub struct MatchParticipantRoster {
     /// same reason `opens_suspended` is: the engine does not get an opinion about
     /// what a fighter may do.
     pub fighter_abilities: Option<ambition_engine_core::AbilitySet>,
+    /// **How many stocks each fighter starts with, if this match runs on
+    /// stocks.** (S4)
+    ///
+    /// `None` is a match with no stock economy — every existing roster, and the
+    /// right answer for a scripted encounter or a boss.
+    ///
+    /// `Some(n)` declares BOTH halves at once, and that is deliberate: a fighter
+    /// gets `FighterStocks::new(n)` AND `DeathPolicy::Unbounded`, because the two
+    /// are not independently meaningful. Stocks over a meter that kills at max
+    /// are never consulted — the body dies of damage before the world can throw
+    /// it out — and an unbounded meter with no stocks is a fighter that cannot
+    /// lose. Letting a roster set one without the other would let a match
+    /// declare a rule that silently does nothing, which is the failure mode this
+    /// whole slice exists to remove.
+    ///
+    /// On the roster rather than in seating for the same reason as
+    /// `fighter_abilities` and `opens_suspended`: the engine does not get an
+    /// opinion about what a match's economy is.
+    pub fighter_stocks: Option<u32>,
 }
 
 impl MatchParticipantRoster {

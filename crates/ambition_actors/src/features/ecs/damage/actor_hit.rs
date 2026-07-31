@@ -411,6 +411,16 @@ pub(crate) fn apply_actor_hit(
             }
         }
         if killed && ruleset_owns_death {
+            // **THE KO, announced** (S4). This branch is exactly where a match
+            // rather than the world takes over, so it is where the stocks loop
+            // is told. Health is the wrong signal for it: an `Unbounded`
+            // fighter's pool is FULL at the moment it is thrown off the stage,
+            // so a rule watching `alive()` would watch a healthy fighter fall
+            // out of the world forever.
+            writers.knockouts.write(crate::combat::stocks::BodyKnockedOut {
+                body: actor_entity,
+                cause: event.source.clone(),
+            });
             // A RULESET owns this body's death (`RulesetOwnsDeath`). Health is
             // already zero and stays zero, and NONE of the world's death
             // consequences run: no bounty coin, no heart, no death explosion, no

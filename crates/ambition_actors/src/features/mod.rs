@@ -282,6 +282,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             crate::features::combat_rules::project_combat_rules
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
+        // S4: spend a stock per KO. `CombatSet::Settle` is the phase for
+        // "everything that reads this tick's damage outcome rather than
+        // producing it", which is exactly what this is — the KO was decided in
+        // Resolve, and spending is bookkeeping over it.
+        app.add_systems(
+            sim,
+            ambition_combat::stocks::spend_fighter_stocks
+                .in_set(crate::schedule::CombatSet::Settle),
+        );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Hazard,
             "ambition_actors",

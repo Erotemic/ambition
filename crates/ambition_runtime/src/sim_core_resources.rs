@@ -47,6 +47,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_actors::features::SwitchActivated>()
             .add_message::<ambition_combat::GameplaySfxRequested>()
             .add_message::<ambition_combat::HitEvent>()
+            // S4: the stocks loop. A KO of a body whose death a RULESET owns,
+            // and the count that was spent for it.
+            .add_message::<ambition_combat::stocks::BodyKnockedOut>()
+            .add_message::<ambition_combat::stocks::FighterStockSpent>()
             .add_message::<ambition_actors::features::ActorStimulus>()
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()

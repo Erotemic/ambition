@@ -99,6 +99,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         opens_suspended: true,
         seat_topology: Some(11),
         fighter_abilities: None,
+        fighter_stocks: None,
     }
 }
 

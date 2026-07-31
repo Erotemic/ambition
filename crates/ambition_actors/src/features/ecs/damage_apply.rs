@@ -313,6 +313,23 @@ pub(crate) fn death_respawn_player(
     died.write(ActorDiedMessage { pos: from, cause });
 }
 
+/// **The two things a death ANNOUNCES**, bundled because Bevy caps a system at
+/// 16 parameters and the player-damage system was at the cap.
+///
+/// Grouping by meaning rather than to make a number fit: both are written at the
+/// same moment for the same reason, and a future consumer of "this body died"
+/// belongs in here beside them rather than as a 17th parameter.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct BodyDeathWriters<'w> {
+    /// The world's own death record — position and attribution.
+    pub died: MessageWriter<'w, ActorDiedMessage>,
+    /// S4: a KO of a body whose death a RULESET owns, for the stocks loop. A
+    /// separate message rather than a flag on `ActorDiedMessage` because the two
+    /// do not fire together: an `Unbounded` fighter is knocked out without dying
+    /// in the world's sense at all.
+    pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+}
+
 /// Resolve this frame's hits against one body. Returns **true when the body was
 /// Class-B remapped** (`collision-and-ccd.md` §3.2) — a death respawn or a
 /// hazard safe-respawn both teleport it. Knockback does not: it writes velocity,
@@ -332,7 +349,7 @@ pub(crate) fn handle_player_damage_events(
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
-    died: &mut MessageWriter<ActorDiedMessage>,
+    death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
@@ -407,6 +424,27 @@ pub(crate) fn handle_player_damage_events(
         // game, armed by the very launch that throws them off the stage.
         matches!(damage.source, crate::combat::HitSource::LeftTheWorld),
     );
+    // **THE KO, announced.** (S4) Two things count as one for a body whose death
+    // a ruleset owns: the meter emptying its pool, and the world throwing it out.
+    // An `Unbounded` fighter only ever reaches the second — its pool is full at
+    // the moment it is knocked off the stage — so a signal derived from health
+    // alone would never fire for exactly the bodies stocks exist for.
+    if ruleset_owns_death {
+        let knocked_out = match resolution {
+            BodyHitResolution::Damaged { died, .. } => {
+                died || matches!(damage.source, crate::combat::HitSource::LeftTheWorld)
+            }
+            // An i-framed or already-refused hit is not a KO. `LeftTheWorld` is
+            // passed as unstoppable above, so a ring-out cannot land here.
+            _ => false,
+        };
+        if knocked_out {
+            death_writers.knockouts.write(crate::combat::stocks::BodyKnockedOut {
+                body: player_entity,
+                cause: damage.source.clone(),
+            });
+        }
+    }
     match resolution {
         BodyHitResolution::Ignored => false,
         BodyHitResolution::Blocked => {
@@ -518,7 +556,7 @@ pub(crate) fn handle_player_damage_events(
                 sfx,
                 victim_source,
                 vfx,
-                died,
+                &mut death_writers.died,
                 clusters,
                 sim_state,
                 clock_resets,
@@ -971,7 +1009,7 @@ pub fn apply_player_hit_events(
     // frame after it is produced, and cross-frame combat truth must be
     // snapshot state (see `PendingPlayerHitEvents`).
     mut pending_hits: ResMut<crate::combat::events::PendingPlayerHitEvents>,
-    mut died_writer: MessageWriter<ActorDiedMessage>,
+    mut death_writers: BodyDeathWriters,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
@@ -1137,7 +1175,7 @@ pub fn apply_player_hit_events(
             &mut sfx_writer,
             &mut vfx_writer,
             &mut debris_writer,
-            &mut died_writer,
+            &mut death_writers,
             &mut clusters,
             &mut sim_state,
             &mut clock_resets,

@@ -226,6 +226,15 @@ pub fn versus_roster_from(
         // Stated by the match rather than assumed by seating: a stage that wants
         // asymmetric fighters says something else here.
         fighter_abilities: Some(ae::AbilitySet::basic()),
+        // S4: NOT a stocks match yet, and the `None` is a decision rather than a
+        // gap. The shipped stage settles ROUNDS off health, and switching it to
+        // stocks changes what a versus match IS — a product call, not a
+        // refactor. The loop it would switch to exists and is proven
+        // (`ambition_combat::stocks`, plus the app-level fixture); this line is
+        // where a stage opts in, and flipping it to `Some(n)` also flips every
+        // fighter to `DeathPolicy::Unbounded`, which is the pair that has to
+        // travel together.
+        fighter_stocks: None,
         seat_topology,
     }
 }

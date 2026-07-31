@@ -90,6 +90,11 @@ pub fn seat_character(
     facing: f32,
     faction: crate::combat::components::ActorFaction,
     brain: ambition_entity_catalog::placements::CharacterBrain,
+    // S4: the death policy this body plays under. Applied to the SEED rather
+    // than to the spawned component, because a second `&mut BodyHealth` query in
+    // `seat_match_participants` conflicts with the primary-player one it already
+    // holds — and construction is where a body's policy belongs anyway.
+    death_policy: ambition_characters::actor::DeathPolicy,
 ) -> Option<Entity> {
     let prepared = registry.get(character_id)?;
     // **THE AUTHORED PHYSICAL IDENTITY**, resolved once and read three times
@@ -130,7 +135,8 @@ pub fn seat_character(
     seed.health =
         ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
             baseline.max_health_over(seed.health.health.max.max(1)),
-        ));
+        ))
+        .with_policy(death_policy);
     seed.kin.facing = facing;
     let centered = ambition_engine_core::CenteredAabb::from_center_size(at, body_px);
     let motion_model = seed.config.tuning.motion_model();
@@ -715,6 +721,14 @@ pub fn seat_match_participants(
     // window to narrow.
     let mut seated_bodies: Vec<Entity> = Vec::new();
     let mut seated_this_pass: Vec<(usize, Entity)> = Vec::new();
+    // S4: a stocks match's fighters die to the WORLD, not to the meter. Declared
+    // once here so a spawned seat and the adopted player cannot disagree about
+    // it — that divergence is the one this file has now had three times.
+    let stocks_policy = if roster.fighter_stocks.is_some() {
+        ambition_characters::actor::DeathPolicy::Unbounded
+    } else {
+        ambition_characters::actor::DeathPolicy::default()
+    };
     for plan in plans {
         match plan {
             SeatPlan::Spawn {
@@ -739,6 +753,7 @@ pub fn seat_match_participants(
                     facing,
                     faction,
                     brain,
+                    stocks_policy,
                 ) else {
                     // RESOLVE already proved the registry entry exists, and that
                     // is `seat_character`'s only failure. Reaching this means the
@@ -852,6 +867,11 @@ pub fn seat_match_participants(
                     ambition_engine_core::movement::TransitVelocity::Zero,
                 );
                 clusters.kinematics.facing = facing;
+                // The adopted player plays under the same death policy as every
+                // spawned seat. `set_policy` rather than a fresh `BodyHealth`:
+                // the pool was resolved from the authored baseline three lines
+                // ago and rebuilding the component would throw that away.
+                health.set_policy(stocks_policy);
                 seated_bodies.push(body);
                 seated_this_pass.push((index, body));
             }
@@ -887,6 +907,25 @@ pub fn seat_match_participants(
                 ambition_engine_core::BodyAbilities::new(abilities),
                 ambition_engine_core::AbilityBase::new(abilities),
             ));
+        }
+    }
+    // **THE STOCK ECONOMY, handed out in the same flush that builds the bodies.**
+    // (S4)
+    //
+    // Both halves together, because neither is meaningful alone: stocks over a
+    // meter that kills at max are never consulted (the body dies of damage
+    // before the world can throw it out), and an unbounded meter with no stocks
+    // is a fighter that cannot lose. The roster declares one number and gets
+    // both, so a match cannot express the broken half.
+    //
+    // `set_policy` rather than a fresh `BodyHealth`: the adopted primary player's
+    // pool was already resolved from its authored baseline earlier in this same
+    // transaction, and rebuilding the component here would throw that away.
+    if let Some(stocks) = roster.fighter_stocks {
+        for body in &seated_bodies {
+            commands
+                .entity(*body)
+                .try_insert(crate::combat::components::FighterStocks::new(stocks));
         }
     }
     if roster.opens_suspended {

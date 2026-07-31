@@ -44,6 +44,10 @@ pub struct FeatureHitWriters<'w, 's> {
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
     pub wallet_shield_spent:
         MessageWriter<'w, crate::features::ecs::damage_apply::WalletShieldSpent>,
+    /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
+    /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
+    /// the consequence over.
+    pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.

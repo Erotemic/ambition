@@ -15,7 +15,8 @@
     "was encoded in `motion_codec.rs`, a SECOND file the single-file collector",
     "never read. A guard that says 'the wire format' while reading one of two",
     "files is the failure this repo keeps rediscovering \u2014 it was green, and it",
-    "was green about less than it claimed."
+    "was green about less than it claimed.",
+    "\u26a0 S4 (2026-07-30) added five entries, and they are a JOIN rather than a drift: FighterStocks and FighterEliminated are the stocks loop's own state \u2014 a stock count that is not rollback state UN-SPENDS itself on a rewind, so a fighter loses the same stock twice or never loses it at all \u2014 plus message.body_knocked_out and message.fighter_stock_spent, which must be CLEARED on load or a rewound KO is re-read and spends a second stock. derived.resolved_combat_tuning is AE6's projection, declared derived rather than registered as state on purpose: restoring it independently of the declaration that produced it is the borrow the seam removed."
   ],
   "measured_on": "2026-07-30",
   "stable_schema_names": [
@@ -149,6 +150,7 @@
     "derived.portal_transitable",
     "derived.projectile_view",
     "derived.resolved_attack_gesture",
+    "derived.resolved_combat_tuning",
     "derived.resolved_hurtboxes",
     "derived.resolved_motion_frame",
     "derived.resolved_technique_edges",
@@ -220,6 +222,7 @@
     "message.actor_action",
     "message.actor_died",
     "message.actor_stimulus",
+    "message.body_knocked_out",
     "message.body_teleported",
     "message.brain_command",
     "message.clear_portals",
@@ -232,6 +235,7 @@
     "message.encounter_event",
     "message.encounter_gate",
     "message.explosion_request",
+    "message.fighter_stock_spent",
     "message.fire_portal_gun",
     "message.fireworks_request",
     "message.gameplay_banner_requested",
@@ -339,7 +343,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 319,
+  "stable_schema_name_count": 322,
   "encoded_types": [
     "ambition_actors::SandboxSimState",
     "ambition_actors::avatar::PlayerSafetyState",
@@ -372,7 +376,9 @@
     "ambition_combat::components::BodyEnvelope",
     "ambition_combat::components::BodyMelee",
     "ambition_combat::components::BossPatternTimer",
+    "ambition_combat::components::FighterStocks",
     "ambition_combat::components::RulesetOwnsDeath",
+    "ambition_combat::stocks::FighterEliminated",
     "ambition_combat::targeting::MatchTeam",
     "ambition_encounter::EncounterLifecycle",
     "ambition_encounter::EncounterParticipants",
@@ -405,7 +411,7 @@
     "ambition_time::WorldTime",
     "ambition_world::collision::MovingPlatformSet"
   ],
-  "encoded_type_count": 63,
+  "encoded_type_count": 65,
   "encoding_crates": [
     "ambition_actors",
     "ambition_characters",

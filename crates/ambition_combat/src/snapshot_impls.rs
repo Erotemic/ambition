@@ -34,6 +34,32 @@ impl SnapshotState for crate::components::RulesetOwnsDeath {
     }
 }
 
+// S4 — the stocks loop's own state. A stock count that is not rollback state
+// UN-SPENDS itself on a rewind: the body comes back, the count does not, and a
+// fighter can lose the same stock twice or never lose it at all. Elimination is
+// the same fact one step later.
+impl SnapshotState for crate::components::FighterStocks {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.remaining);
+        put_u32(out, self.started_with);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let remaining = r.u32()?;
+        let started_with = r.u32()?;
+        Some(crate::components::FighterStocks {
+            remaining,
+            started_with,
+        })
+    }
+}
+
+impl SnapshotState for crate::stocks::FighterEliminated {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::FighterEliminated)
+    }
+}
+
 impl SnapshotState for crate::components::ActorIntent {
     fn encode(&self, out: &mut Vec<u8>) {
         self.0.encode(out);

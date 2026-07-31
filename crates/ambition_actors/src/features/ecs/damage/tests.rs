@@ -27,6 +27,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
 }
 

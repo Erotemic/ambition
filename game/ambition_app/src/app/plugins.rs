@@ -727,48 +727,34 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // spawn / tick / collision before the visuals are rebuilt —
     // otherwise newly-fired projectiles would only become visible
     // one frame late.
-    app.add_systems(
-        Update,
-        (
-            // One unified, kind-driven visual pass for ALL projectiles (player +
-            // enemy); the charge indicator is its own player-only pass.
-            ambition::render::rendering::projectile_visuals::sync_projectile_visuals
-                .after(ambition::runtime::projectile_schedule::step_projectiles),
-            ambition::render::rendering::projectile_visuals::sync_projectile_charge_visuals
-                .after(ambition::runtime::projectile_schedule::step_projectiles),
+    // ⚠ the projectile visual passes left this file on 2026-07-31:
+    // `ambition_host::HostProjectileVisualsPlugin` registers them, with their
+    // two ordering edges intact, for every composition. Until then this app was
+    // the only one that DREW a projectile it had fired.
+    app
+        // VFX + debris subscribe on the visible binary only. Audio's
+        // subscriber lives in `add_audio_plugins` so the entire kira
+        // chain stays behind the `audio` feature. Headless builds omit
+        // these so the message queues drain without entity spawns or
+        // audio playback.
+        .add_systems(
+            Update,
+            (
+                fx::process_fireworks_requests,
+                fx::tick_firework_sequences,
+                fx::process_explosion_requests,
+            )
+                .chain()
+                .after(SandboxSet::CoreSimulation)
+                .before(vfx_spawn_messages)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
         )
-            // Both passes hang art off the PRESENTED body pose (the charge orb
-            // tracks the hand; a projectile's origin tracks the firer), so the
-            // frame-clock resample must already have run. Without this edge they
-            // read last frame's presented pose while the camera is on this one,
-            // and the art shears away from the body it belongs to by a frame of
-            // motion — the same missing-edge shape as the debug collision box.
-            .after(ambition::sim_view::PresentedPoseSet)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
-    )
-    // VFX + debris subscribe on the visible binary only. Audio's
-    // subscriber lives in `add_audio_plugins` so the entire kira
-    // chain stays behind the `audio` feature. Headless builds omit
-    // these so the message queues drain without entity spawns or
-    // audio playback.
-    .add_systems(
-        Update,
-        (
-            fx::process_fireworks_requests,
-            fx::tick_firework_sequences,
-            fx::process_explosion_requests,
-        )
-            .chain()
-            .after(SandboxSet::CoreSimulation)
-            .before(vfx_spawn_messages)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
-    )
-    .add_systems(
-        Update,
-        vfx_spawn_messages
-            .after(fx::process_explosion_requests)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
-    );
+        .add_systems(
+            Update,
+            vfx_spawn_messages
+                .after(fx::process_explosion_requests)
+                .run_if(ambition::platformer::lifecycle::session_world_exists),
+        );
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.

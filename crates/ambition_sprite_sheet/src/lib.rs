@@ -589,8 +589,32 @@ pub fn baked_sheet_registry() -> SheetRegistry {
 /// install sheet metadata without routing through the actor crate.
 pub struct SheetRegistryPlugin;
 
+/// Present once [`SheetRegistryPlugin`] has built. See its `is_unique`.
+#[derive(Resource)]
+struct SheetRegistryInstalled;
+
 impl Plugin for SheetRegistryPlugin {
+    /// ⚠ **Idempotent, because more than one plugin legitimately NEEDS this.**
+    /// Sprite metadata is not a game's choice — a render system that draws from
+    /// a sheet cannot run without it — so any plugin that installs such a system
+    /// installs this too, and the composition that already had it must not
+    /// panic. `WorldLabelLayoutPlugin` carries the same pair for the same
+    /// reason; a marker resource rather than `is_plugin_added` because the
+    /// answer has to survive being asked by a plugin group mid-build.
+    ///
+    /// Until 2026-07-31 the only installer was `game/ambition_app`, which is
+    /// why `HostProjectileVisualsPlugin` could not simply be moved out of it:
+    /// the systems failed `Res<SheetRegistry>` validation the moment another
+    /// composition ran them.
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut App) {
+        if app.world().contains_resource::<SheetRegistryInstalled>() {
+            return;
+        }
+        app.insert_resource(SheetRegistryInstalled);
         app.init_resource::<SheetRegistry>()
             // The provider-authored half (U1). Initialised here so a provider
             // can register its sheets in ANY plugin-build order, and never

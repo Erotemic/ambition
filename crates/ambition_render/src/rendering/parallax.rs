@@ -140,14 +140,25 @@ pub fn spawn_parallax_layers(
     }
 }
 
+/// ⚠ **The two session-world reads are OPTIONAL, and that is a fact about who
+/// runs this now.** While it was registered by `game/ambition_app` alone, its
+/// `Single` params were always satisfied — that host's session root carries both.
+/// Installing it engine-side (S12) ran it in compositions whose root carries
+/// neither, and a `Single` that matches nothing is a system-param VALIDATION
+/// PANIC, not a skip: eight tests across `ambition_host` and both consumer
+/// fixtures died on *"Resource does not exist"* with the system name compiled
+/// out. A world with no room geometry has no parallax to refresh, which is an
+/// ordinary state and not an error.
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<
+            ambition_engine_core::RoomGeometry,
+        >,
     >,
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_world::rooms::RoomSet,
+    room_set: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
     >,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -159,7 +170,7 @@ pub fn refresh_parallax_layers_on_quality_change(
         ),
     >,
 ) {
-    let Some(assets) = assets else {
+    let (Some(assets), Some(world), Some(room_set)) = (assets, world, room_set) else {
         return;
     };
     let assets_changed = assets.is_changed();

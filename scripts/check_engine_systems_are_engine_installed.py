@@ -182,9 +182,6 @@ WAIVERS: dict[str, str] = {
 #
 # The current occupants, and why each looks like the class rather than a choice:
 #
-# * `sync_projectile_visuals`, `sync_projectile_charge_visuals` — projectiles are
-#   an ENGINE feature (`ambition_projectiles`). A demo that fires one gets the
-#   simulation and no sprite.
 # * `sync_bubble_shield_visual`, `sync_morph_ball_visual` — ability visuals for
 #   abilities any body can be granted (`AbilitySet::sandbox_all`).
 # * `sync_cutscene_ui` — `ambition_cutscene` is an engine crate; a demo that
@@ -192,7 +189,7 @@ WAIVERS: dict[str, str] = {
 # * `sync_resolved_visual_quality` — every quality-aware system reads
 #   `ResolvedVisualQuality`; without this it never leaves its default, so a
 #   demo's quality settings are inert.
-UNCLAIMED_BUDGET = 6
+UNCLAIMED_BUDGET = 4
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 _LINE_COMMENT = re.compile(r"//[^\n]*")

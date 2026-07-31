@@ -15,6 +15,11 @@ ambition_portal_presentation = { path = "../ambition_portal_presentation", optio
 ambition_render = { path = "../ambition_render" }
 ambition_runtime = { path = "../ambition_runtime" }
 ambition_sim_view = { path = "../ambition_sim_view" }
+# Sprite metadata for the projectile visual passes this crate registers:
+# `SheetRegistryPlugin` provides the `SheetRegistry` they read. The edge already
+# existed transitively through `ambition_render`; naming it is what lets this
+# crate install the plugin rather than assume somebody else did.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_asset",
     "bevy_image",

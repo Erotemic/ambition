@@ -54,7 +54,8 @@ impl PluginGroup for PlatformerHostPlugins {
     fn build(self) -> PluginGroupBuilder {
         let builder = PluginGroupBuilder::start::<Self>()
             .add(ambition_platformer_primitives::developer_hotkeys::DeveloperHotkeyPlugin)
-            .add(HostCameraPlugin);
+            .add(HostCameraPlugin)
+            .add(HostProjectileVisualsPlugin);
         #[cfg(feature = "input")]
         let builder = builder.add(HostInputBindingsPlugin);
         builder
@@ -80,9 +81,8 @@ impl Plugin for HostInputBindingsPlugin {
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
-            populate_secondary_slot_controls,
-            publish_latched_slot_controls, seat_input_participants_for_roster,
-            spawn_primary_input_participant,
+            populate_secondary_slot_controls, publish_latched_slot_controls,
+            seat_input_participants_for_roster, spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -361,6 +361,57 @@ fn tune_clash_strategy_to_bindings(
     };
     if *strategy != desired {
         *strategy = desired;
+    }
+}
+
+/// **Projectiles that were fired are projectiles that are drawn.**
+///
+/// ⚠ **This lived in `game/ambition_app` until 2026-07-31**, which meant every
+/// other composition simulated projectiles it never rendered: the ring of
+/// bodies ticked, collided and expired with nothing on screen. Found by
+/// `scripts/check_engine_systems_are_engine_installed.py`, built after the same
+/// shape cost three defects in four days (the world-label pass, the parallax
+/// theme load, the parallax layer sync).
+///
+/// It lives in the HOST rather than in `PlatformerPresentationPlugin` for a
+/// layering reason, not a taste one: the ordering edges name
+/// `ambition_runtime::projectile_schedule::step_projectiles` and
+/// `ambition_sim_view::PresentedPoseSet`, and `ambition_render` depends on
+/// neither runtime nor the schedule. This crate's own description says it MAY
+/// name render, runtime and sim_view — that is what the host layer is for, and
+/// `camera_follow` is already here for exactly the same reason.
+pub struct HostProjectileVisualsPlugin;
+
+impl Plugin for HostProjectileVisualsPlugin {
+    fn build(&self, app: &mut App) {
+        // The systems below draw from sheet metadata, and the registry that
+        // holds it was ALSO app-local — moving the systems out without this
+        // made them fail `Res<SheetRegistry>` validation in eight tests, which
+        // is the class one layer down: not a system nobody installed, a
+        // RESOURCE nobody installed. `SheetRegistryPlugin` is idempotent for
+        // exactly this reason.
+        app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
+        app.add_systems(
+            Update,
+            (
+                // One unified, kind-driven visual pass for ALL projectiles
+                // (player + enemy); the charge indicator is its own player-only
+                // pass. Both after the step so a projectile fired this frame is
+                // visible this frame rather than one frame late.
+                ambition_render::rendering::projectile_visuals::sync_projectile_visuals
+                    .after(ambition_runtime::projectile_schedule::step_projectiles),
+                ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
+                    .after(ambition_runtime::projectile_schedule::step_projectiles),
+            )
+                // Both passes hang art off the PRESENTED body pose (the charge
+                // orb tracks the hand; a projectile's origin tracks the firer),
+                // so the frame-clock resample must already have run. Without
+                // this edge they read last frame's presented pose while the
+                // camera is on this one, and the art shears away from the body
+                // it belongs to by a frame of motion.
+                .after(ambition_sim_view::PresentedPoseSet)
+                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+        );
     }
 }
 

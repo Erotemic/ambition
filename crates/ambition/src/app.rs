@@ -580,6 +580,21 @@ impl ModuleDraft {
     ///
     /// Capabilities belong to the COMPOSITION rather than to one experience: a
     /// plugin installs systems into an `App`, and an App has one schedule.
+    ///
+    /// ⚠ **PROVISIONAL, and deliberately under-promised.** A capability is an
+    /// opaque closure: the engine can run it, and cannot ask it what it
+    /// provides, needs, or conflicts with. So there is no dependency
+    /// resolution, no conflict detection, and no claim that two modules
+    /// declaring overlapping capabilities compose in either order — today they
+    /// install in declaration order and whichever wrote last wins, which is
+    /// Bevy's own behaviour and not a contract this API is defending.
+    ///
+    /// It stays this way until a real second consumer produces an overlap, a
+    /// conflict, or an ordering requirement. Building a capability plan with
+    /// stable identities and a dependency solver before then would fix the
+    /// shape of the answer to a question nobody has asked — and the one thing
+    /// the shape must not be is *guessed*, because a capability identity is the
+    /// part a third party would author against.
     pub fn capability<M>(&mut self, plugin: impl Plugins<M> + Send + 'static) -> &mut Self {
         self.capabilities.push(Box::new(move |app: &mut App| {
             app.add_plugins(plugin);
@@ -859,6 +874,22 @@ impl PlatformerApp {
     /// ADR 0031 decision 5 — a studio must be able to add this without
     /// surrendering its `App`.
     ///
+    /// ⚠ **A failed installation is FATAL to that `App`, and retrying is not a
+    /// supported operation.** Everything decidable from the declaration is
+    /// decided before the first mutation — a `CompositionStage::Declaration`
+    /// refusal has touched nothing, and there is a test that asks the `App`
+    /// rather than trusting the stage. An `Assembly` refusal is the other case
+    /// by definition: those checks need the built App, so by the time one fails,
+    /// asset sources, the Bevy foundation and some capabilities are installed.
+    /// Drop it and compose again.
+    ///
+    /// This is a stated limit rather than a plan. A transactional installer —
+    /// prepared composition, then one infallible commit — is the 1.0 shape and
+    /// the engine already uses it where failure is cheap to defer (the rollback
+    /// rebase, the room reset, the cast prepared above). Extending it to the
+    /// whole installation is not worth a campaign while every consumer's
+    /// response to a refusal is to fix the declaration and rebuild.
+    ///
     /// ⚠ **This form cannot honor rule 1, and says so instead of pretending.**
     /// Asset sources must be registered before `AssetPlugin` builds; an `App`
     /// that already has `DefaultPlugins` is past that point, and no ordering
@@ -947,6 +978,30 @@ impl PlatformerApp {
                 ));
             }
         }
+        // ── PREPARE the declared content, before anything is installed ──
+        //
+        // ⚠ **the fallible half of the cast is PURE, and it used to run after the
+        // Bevy foundation was already in the App.** Parsing a roster's RON and
+        // constructing a silence fragment depend on nothing but the declaration,
+        // so a malformed roster was reported at the ASSEMBLY stage — after asset
+        // sources were registered and the whole foundation installed — when it
+        // could be reported before the `App` was touched at all.
+        //
+        // The review that asked for this ("run cheap validation before mutation
+        // where practical") is explicit that a fully transactional installer is
+        // NOT required. This is the practical half: everything that can be
+        // decided from the declaration is decided here, and what remains in
+        // assembly genuinely needs the built App to answer — a fragment conflict
+        // is a fact about what is already registered.
+        let mut prepared_casts: Vec<(String, PreparedCast)> = Vec::new();
+        for experience in &draft.experiences {
+            match prepare_declared_cast(experience) {
+                Ok(Some(prepared)) => prepared_casts.push((experience.id.clone(), prepared)),
+                Ok(None) => {}
+                Err(reasons) => problems.extend(reasons),
+            }
+        }
+
         if !problems.is_empty() {
             return Err(CompositionError {
                 stage: CompositionStage::Declaration,
@@ -992,19 +1047,26 @@ impl PlatformerApp {
 
         // ── The cast and the silence, per experience, through the seams a
         // provider plugin would have used.
-        for experience in &draft.experiences {
-            register_declared_cast(app, experience)?;
-            if experience.declared_silence {
-                use crate::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-                let fragment = AudioCatalogFragment::new(experience.id.clone(), None, None)
+        //
+        // Both fragments were BUILT in the declaration pass; what is left here is
+        // registration, and only the roster's can still fail — on a conflict with
+        // a fragment some capability registered, which is a fact about the built
+        // App and cannot be known earlier.
+        for (id, prepared) in prepared_casts {
+            let PreparedCast { characters, audio } = prepared;
+            if let Some(fragment) = characters {
+                use crate::characters::actor::character_catalog::registry::CharacterCatalogAppExt as _;
+                app.try_register_character_catalog_fragment(fragment)
                     .map_err(|error| CompositionError {
                         stage: CompositionStage::Assembly,
                         problems: vec![format!(
-                            "`{}` declared silence and the empty audio fragment was \
-                             rejected: {error}",
-                            experience.id
+                            "the character roster declared by `{id}` conflicts with one \
+                             already registered: {error}"
                         )],
                     })?;
+            }
+            if let Some(fragment) = audio {
+                use crate::audio::catalog::AudioCatalogAppExt as _;
                 app.register_audio_catalog_fragment(fragment);
             }
         }
@@ -1342,42 +1404,73 @@ impl PlatformerApp {
     }
 }
 
-/// Register one experience's declared cast, through the fragment seam every
-/// in-repo provider uses.
+/// One experience's declared content, built and ready to register.
+///
+/// The output of the declaration pass's prepare step. Holding the fragments
+/// rather than re-deriving them at registration keeps ONE parse of a roster: the
+/// one whose failure is reported.
+struct PreparedCast {
+    characters:
+        Option<crate::characters::actor::character_catalog::registry::CharacterCatalogFragment>,
+    audio: Option<crate::audio::catalog::AudioCatalogFragment>,
+}
+
+/// Build one experience's cast and silence fragments from its declaration.
+///
+/// PURE — it reads the draft and touches no `App`. That is what lets its
+/// failures be declaration problems rather than half-installed apps, and it is
+/// the same prepare/commit split the rollback rebase uses: do the only fallible
+/// work first, then commit infallibly.
 ///
 /// Not `insert_resource(CharacterCatalog)`: that would be a second authority on
 /// what the cast is, and fragments MERGE, which is what lets several
 /// experiences coexist in one composition at all.
-fn register_declared_cast(
-    app: &mut App,
+fn prepare_declared_cast(
     experience: &ExperienceDraft,
-) -> Result<(), CompositionError> {
-    use crate::characters::actor::character_catalog::registry::{
-        CharacterCatalogAppExt as _, CharacterCatalogFragment,
-    };
-    let ron = match experience.characters {
-        Some(CharacterContent::Ron(ron)) => ron,
-        Some(CharacterContent::DeclaredEmpty) => EMPTY_CHARACTER_ROSTER_RON,
-        None => return Ok(()),
-    };
-    let fragment = CharacterCatalogFragment::from_ron(experience.id.clone(), None::<String>, ron)
-        .map_err(|error| CompositionError {
-        stage: CompositionStage::Assembly,
-        problems: vec![format!(
-            "the character roster declared by `{}` did not parse: {error}",
-            experience.id
-        )],
-    })?;
-    app.try_register_character_catalog_fragment(fragment)
-        .map_err(|error| CompositionError {
-            stage: CompositionStage::Assembly,
-            problems: vec![format!(
-                "the character roster declared by `{}` conflicts with one already \
-                 registered: {error}",
+) -> Result<Option<PreparedCast>, Vec<String>> {
+    use crate::characters::actor::character_catalog::registry::CharacterCatalogFragment;
+
+    let mut problems = Vec::new();
+    let characters = match experience.characters {
+        Some(CharacterContent::Ron(ron)) => Some(ron),
+        Some(CharacterContent::DeclaredEmpty) => Some(EMPTY_CHARACTER_ROSTER_RON),
+        None => None,
+    }
+    .and_then(|ron| {
+        match CharacterCatalogFragment::from_ron(experience.id.clone(), None::<String>, ron) {
+            Ok(fragment) => Some(fragment),
+            Err(error) => {
+                problems.push(format!(
+                    "the character roster declared by `{}` did not parse: {error}",
+                    experience.id
+                ));
+                None
+            }
+        }
+    });
+
+    let audio = experience.declared_silence.then(|| {
+        crate::audio::catalog::AudioCatalogFragment::new(experience.id.clone(), None, None)
+    });
+    let audio = match audio {
+        Some(Ok(fragment)) => Some(fragment),
+        Some(Err(error)) => {
+            problems.push(format!(
+                "`{}` declared silence and the empty audio fragment was rejected: {error}",
                 experience.id
-            )],
-        })?;
-    Ok(())
+            ));
+            None
+        }
+        None => None,
+    };
+
+    if !problems.is_empty() {
+        return Err(problems);
+    }
+    if characters.is_none() && audio.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(PreparedCast { characters, audio }))
 }
 
 /// Lower one experience's playable declaration into a deferred install.
@@ -1550,6 +1643,74 @@ mod tests {
         assert!(
             !message.contains("`first` declared"),
             "the well-formed module was blamed too: {message}"
+        );
+    }
+
+    /// **A roster that does not parse is refused BEFORE the `App` is touched.**
+    ///
+    /// Parsing a declared roster depends on nothing but the declaration, and it
+    /// used to run after the asset sources and the whole Bevy foundation were
+    /// already installed — so a typo in a RON string was reported at the
+    /// ASSEMBLY stage, against an `App` the consumer had handed over and could
+    /// no longer use. The prepare step moved to the declaration pass.
+    ///
+    /// The `install_into` form is what makes this observable: the consumer owns
+    /// the `App`, so "was anything installed" is a question it can ask.
+    #[test]
+    fn a_roster_that_does_not_parse_is_refused_before_anything_is_installed() {
+        struct MalformedRoster;
+        impl GameModule for MalformedRoster {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("malformed")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("malformed")
+                    .launcher_route("home")
+                    .gameplay_route("malformed/play")
+                    .characters("this is not a catalog");
+            }
+        }
+
+        let mut app = App::new();
+        let refused = PlatformerApp::headless()
+            .mount(MalformedRoster)
+            .install_into(&mut app)
+            .expect_err("a roster that does not parse must refuse");
+
+        assert_eq!(
+            refused.stage,
+            CompositionStage::Declaration,
+            "the parse is pure, so its failure belongs to the pass that runs \
+             before any mutation: {refused}"
+        );
+        assert!(
+            refused.to_string().contains("did not parse"),
+            "the refusal must say what was wrong with the roster: {refused}"
+        );
+        // ⚠ the half that makes the stage mean anything. A `Declaration`
+        // refusal claims nothing was installed; this asks the `App`.
+        assert!(
+            !app.is_plugin_added::<bevy::asset::AssetPlugin>(),
+            "the composition refused at the declaration stage and had still \
+             installed the Bevy foundation into the consumer's App"
+        );
+
+        // NON-VACUITY, and the control that makes the assertion above mean
+        // something: a refusal from the ASSEMBLY pass has installed the
+        // foundation, because assembly is defined as the pass that needs the
+        // built App. `FirstGame` declares a route no capability registers, which
+        // is exactly that kind of check.
+        let mut assembled = App::new();
+        let assembly_refusal = PlatformerApp::headless()
+            .mount(FirstGame)
+            .install_into(&mut assembled)
+            .expect_err("a route nothing registers must refuse");
+        assert_eq!(assembly_refusal.stage, CompositionStage::Assembly);
+        assert!(
+            assembled.is_plugin_added::<bevy::asset::AssetPlugin>(),
+            "an assembly-stage refusal is supposed to have built the App it \
+             refused on — if it has not, the check above proves nothing"
         );
     }
 

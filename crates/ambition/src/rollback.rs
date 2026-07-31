@@ -118,6 +118,16 @@ impl RollbackPlan {
     /// activation would land on GGRS frame 1 where nothing can rewind across
     /// it. The knob exists because a game with a different activation shape
     /// may need MORE, not because zero is a supported choice.
+    ///
+    /// ⚠ **and a tick count is not a readiness CONTRACT.** No number here
+    /// proves a host is settled; it buys frames, and the default buys enough
+    /// for every activation shape in this repo. Do not read a passing run as
+    /// "eight ticks is the requirement", do not tune it to make a flaky test
+    /// pass, and do not build a claim on top of it — the durable version is a
+    /// semantic barrier that waits for the activation to be CONFIRMED, and it
+    /// belongs with atomic match/session activation rather than here. Until
+    /// then this is a harness detail that happens to be public because
+    /// [`start`] needs it.
     pub fn settle_ticks(mut self, ticks: usize) -> Self {
         self.settle_ticks = ticks;
         self

@@ -610,12 +610,39 @@ out, and FB6b must pick one:
 **Stated omissions (v1 models NONE of these, on purpose):** FUTURE projectile
 fire (in-flight ones are modeled; whether the camper fires again is an
 opponent-policy question, D3's, and v1's policy does not spawn), projectile
-knockback (damage only), terrain other than the stage box, platforms and
-drop-through, portals, DI, shield damage/break, move cancels, charge scaling,
-more than one hostile. The list is closed so nobody mistakes coverage, and
-§12.6's fidelity instrument is what tells us when an omission starts costing
-decisions. Extending the model is a new slice with a new fidelity
-measurement, not a patch.
+knockback (damage only), one-way platforms as anything but floor, drop-through,
+portals, DI, shield damage/break, move cancels, charge scaling, more than one
+hostile. The list is closed so nobody mistakes coverage, and §12.6's fidelity
+instrument is what tells us when an omission starts costing decisions.
+Extending the model is a new slice with a new fidelity measurement, not a patch.
+
+**2026-07-31 — the instrument spoke, and four omissions came off this list at
+once.** `ladder_probe` (`ambition_demo_smash_app`) measured a fighter that lost
+every stock to ITSELF at every difficulty, and the depth A/B moved nothing. Each
+of these was individually defensible and together they made the model blind to
+the commonest death in the game — walk to a ledge, jump, hold a direction:
+
+* **terrain other than the stage box.** The floor a body stood on had a height
+  and no EDGE (`ShadowFighter::ground_span`), so a body driven off a platform
+  walked on at the same height forever.
+* **air control.** `ShadowIntent::Drive` was gated on `on_ground`, so a shadow
+  body that jumped went straight up and landed exactly where it took off. This
+  is the one that mattered most and was written down nowhere.
+* **recovery.** `MovementVerb::Recover` was the one verb `movement_intent`
+  refused to judge — and the only verb that can save an airborne body, in the
+  only situation where a body has nothing else. It now models an air jump
+  against a real budget (`SelfView::air_jumps_left`) with drift after.
+* **the dash.** Modelled as `Drive`: a 160 px/s grounded walk against the
+  engine's 760 px/s impulse that works mid-air.
+
+Two lessons worth more than the fixes. First, **the KO gate has to distinguish
+"offstage and reeling" from "past the point of return"** — requiring `Hitstun`
+made every self-inflicted exit free. Second, **a veto that empties the option
+list must not fall through to doing nothing**: standing still is a fallback only
+where standing still is survivable, which in the air it never is. The first cut
+halted instead, the fighter reasoned itself into never moving, and survival went
+UP — a paralysis reads exactly like a success on a metric that counts staying
+alive.
 
 ### 12.4 What L3 does with it
 
@@ -623,6 +650,7 @@ measurement, not a patch.
 pub fn refine_by_rollout(
     view: Perceived<'_>, situation: Situation, options: &OptionSet,
     habits: &HabitModel, profile: &FighterBrainProfile,
+    tuning: &ShadowTuning, tick_hz: f32, commit_ticks: u32,
 ) -> Option<RefinedChoice>   // None ⇢ caller uses L2's order unchanged
 ```
 
@@ -639,6 +667,26 @@ Re-rank the k candidates by rollout score, ties broken by L2 score then move
 id; options below the top k keep L2's order. `rollout_k == 0` or
 `rollout_depth == 0` ⇒ return `None` — the existing
 `the_whole_shipped_ladder_plays_without_l3` pin keeps meaning what it says.
+
+**L3 also vetoes MOVEMENT, added 2026-07-31, and an empty attack list is not a
+reason to skip it.** Each verb L2 offered is rolled as its own line; a line
+ending with this body out of the world names the verb in
+`RefinedChoice::suicidal_movement`, and the caller takes the best verb NOT in
+that list. Two structural facts about it, each of which was a bug first:
+
+* **`OptionSet::attacks` is empty in exactly one situation — `Recovery`** — so
+  short-circuiting on it made the veto skip the body with one problem. The
+  refined choice is two independent answers: `move_id` (empty when there is
+  nothing to swing) and the veto.
+* **the verb is sustained for `commit_ticks`, not for the horizon.** A brain
+  re-deciding every 5 ticks never walks for 3.2 s; asking what if it did
+  condemns every direction from every position. The horizon
+  (`rollout_depth × MOVEMENT_HORIZON_MULTIPLE`) is for the CONSEQUENCE — the
+  fall, the body leaving the world — which needs seconds. The input does not.
+
+When every verb is vetoed the caller takes the longest-lived
+(`least_bad_movement`) rather than standing still, because standing still is
+only a fallback where standing still is survivable.
 
 **Rollback obligations: L3 adds NOTHING.** The rollout is a pure function of
 `(Perceived, HabitModel, profile)`; no state survives the call. What must be
@@ -675,6 +723,26 @@ the discipline §9 already pinned.
 * **`l3_earns_its_depth`** — the ladder rig plays level N with L3 on against
   the same row with `rollout_k = 0`; L3 ships only if it wins ≥ 60%. "An
   upgrade, not a dependency" becomes a measured claim instead of a promise.
+  **First evidence 2026-07-31** — `ladder_probe`, which is NOT the rig (one
+  scenario, one opponent, no repeats) but is the first thing in this repository
+  to hold a whole profile fixed and move `rollout_depth` alone:
+
+  ```text
+    level 9, depth  0   5.2s to first self-KO,  11.4s survived
+    level 9, depth 12   2.7s to first self-KO,  23.5s survived
+  ```
+
+  Read both columns. The rollout does not stop the brain dying early; it stops
+  it dying repeatedly. **Reporting only survival is how a paralysis passed as a
+  3× improvement earlier the same day** — a veto with too long a commitment
+  window condemned every direction, the fighter stood still, and every number
+  said success.
+
+  ⚠ **this measures the VETO, not attack refinement.** Survival on a stage with
+  edges is dominated by movement, so a survival win credits the half of L3 that
+  says "not that way" and is silent about re-ranking attacks. Authoring a
+  nonzero `rollout_depth` on the strength of an ATTACK claim is still blocked;
+  authoring one at all is not.
 * **The fidelity instrument** — shadow prediction versus the REAL sim.
   As landed (2026-07-30): the shipped versus stage seats its two fighters,
   the attacker's swing is captured from the sim's own `MovePlayback` (so the
@@ -711,7 +779,7 @@ the discipline §9 already pinned.
 | FB6b | ~~`ShadowState`/`shadow_step` + unit properties~~ ✅ **LANDED 2026-07-30**, route 1 taken: the hit-response kernel (types + `di_adjust` + `knockback_velocity` + `hitstun_duration`) carved to `ambition_engine_core::hit_response`, `damage_apply` and the shadow model call ONE formula, and `the_hit_response_is_the_authoritative_kernel_not_an_imitation` goes red if a private copy reappears. Ballistic projectiles are in v1 | [opus] |
 | FB6c | ~~D3's predicted-opponent policy~~ ✅ **LANDED 2026-07-30** — `predicted_foe_intent`: modal habit only when it strictly beats the uniform prior AND `read_weight > 0`; otherwise inertia; no RNG | [opus] |
 | FB6d | ~~`refine_by_rollout`~~ ✅ **LANDED 2026-07-30** — re-ranks L2's top k against a do-nothing baseline; `None` at zero k/depth; the marquee test re-ranks a whiffing jab under a connecting lunge | [opus] |
-| FB6e | §12.6's instruments. Landed 2026-07-30: `l3_decides_identically_twice`, the bench pin (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`, 100 worst-case decisions < 100 ms), and the fidelity instrument (`the_shadow_model_agrees_with_the_real_sim_about_what_lands` in `app_it` — shadow prediction vs a REAL versus-stage swing at four gaps, frame data captured from the sim's own `MovePlayback`, floor 3 of 4). **Still owed to FB4's rig:** `l3_earns_its_depth` and the GGRS-resimulation half of determinism; ladder rows keep `rollout_depth: 0` until the ladder gate exists | [opus] |
+| FB6e | §12.6's instruments. Landed 2026-07-30: `l3_decides_identically_twice`, the bench pin (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`, 100 worst-case decisions < 100 ms), and the fidelity instrument (`the_shadow_model_agrees_with_the_real_sim_about_what_lands` in `app_it` — shadow prediction vs a REAL versus-stage swing at four gaps, frame data captured from the sim's own `MovePlayback`, floor 3 of 4). **Still owed to FB4's rig:** the GGRS-resimulation half of determinism. `l3_earns_its_depth` has its FIRST measurement (2026-07-31, `ladder_probe` — see §12.6), which unblocks authoring a nonzero `rollout_depth` on a survival claim but not on an attack one; the real rig is still owed | [opus] |
 
 FB6a–FB6d are pure-module work implementable today. FB6e's `l3_earns_its_depth`
 and the resimulation half of the determinism test require FB4's owed decision

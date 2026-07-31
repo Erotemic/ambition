@@ -140,28 +140,31 @@ fn main() {
         );
     }
 
-    let png = stage_diagram::render_match_diagram(&fighters);
+    let png = ambition_demo_smash_app::stage_diagram::render_match_diagram(&fighters);
     std::fs::write(&out, png).expect("write the match diagram");
     println!("[match_diagram] wrote {out}");
 }
 
-#[path = "stage_diagram.rs"]
-mod stage_diagram;
-
-fn collect_fighters(app: &mut bevy::prelude::App) -> Vec<stage_diagram::DrawnFighter> {
+fn collect_fighters(
+    app: &mut bevy::prelude::App,
+) -> Vec<ambition_demo_smash_app::stage_diagram::DrawnFighter> {
     use ambition::actor::{FighterStocks, MatchSeat};
     use ambition::characters::actor::BodyHealth;
     use ambition::engine_core::CenteredAabb;
 
     let world = app.world_mut();
-    let mut query =
-        world.query::<(&MatchSeat, &CenteredAabb, &BodyHealth, Option<&FighterStocks>)>();
-    let mut rows: Vec<(usize, stage_diagram::DrawnFighter)> = query
+    let mut query = world.query::<(
+        &MatchSeat,
+        &CenteredAabb,
+        &BodyHealth,
+        Option<&FighterStocks>,
+    )>();
+    let mut rows: Vec<(usize, ambition_demo_smash_app::stage_diagram::DrawnFighter)> = query
         .iter(world)
         .map(|(seat, aabb, health, stocks)| {
             (
                 seat.0,
-                stage_diagram::DrawnFighter {
+                ambition_demo_smash_app::stage_diagram::DrawnFighter {
                     aabb: ambition::engine_core::Aabb::new(aabb.center, aabb.half_size),
                     percent: health.damage_percent(),
                     stocks: stocks.map(|s| s.remaining).unwrap_or(0),

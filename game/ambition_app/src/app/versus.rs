@@ -33,10 +33,10 @@ use ambition::actors::character_runtime::{
 };
 use ambition::engine_core as ae;
 use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition::runtime::PreparedPlatformerSource;
 use ambition::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PreparedPlatformerSource;
 use ambition::world::rooms::RoomSpec;
 
 pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
@@ -180,6 +180,60 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// faction distinguishes nobody and `MatchTeam` is the only thing that decides
 /// who may hit whom. A 2v2 is not a bigger 1v1; it is the first arrangement
 /// where the relation is load-bearing.
+/// **The archetype a versus CPU seat asks for**, and this experience registers.
+///
+/// ⚠ it used to be `"medium_striker"` — a row in `ambition_content`'s archetype
+/// table, which the versus experience does not compose. So the lookup missed,
+/// and before seating learned to REFUSE an unresolvable profile (2026-07-31) the
+/// seat silently became a `stand_still` body: a versus match against an opponent
+/// that has never once moved. The refusal turned that into a panic in
+/// `versus_through_the_sdk`, which is the guard doing exactly its job.
+///
+/// The name is this experience's own, because the experience owns the row. A
+/// demo naming another provider's archetype is the same borrowed-authority bug
+/// one namespace over.
+pub const VERSUS_CPU_BRAIN: &str = "versus_duelist";
+
+/// The archetype behind [`VERSUS_CPU_BRAIN`].
+///
+/// `Smash`, and the numbers mirror `ambition_content`'s `medium_striker` — the
+/// row this stage was ACTUALLY running before, through the fallback. Owning a
+/// copy rather than naming that row is the point of the fix; changing what the
+/// opponent does at the same time would have been a second, unmeasured change
+/// riding on a composition fix.
+///
+/// ⚠ **it is deliberately NOT the `Fighter` template**, and that is a finding
+/// rather than a preference: seated here, `Fighter` moved 0.4 px in five seconds
+/// with an opponent in front of it (`the_cpu_opponent_is_not_a_statue`), while
+/// the same brain fights on the smash stage. Whatever the difference is, it is
+/// not known yet — see the queue row — and shipping a statue to prove a point
+/// about which brain is newer would make the default versus experience worse.
+const VERSUS_ROSTER_RON: &str = r#"{
+    "versus_duelist": (
+        respawn: OnRoomReenter,
+        max_health: 5,
+        run_speed: 170.0,
+        patrol_effort: 0.6176,
+        chase_effort: 1.0,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
+        // No `ranged`: this stage is a duel on one screen, and a rock arcing
+        // across it is the content row's answer to a dungeon corridor, not to
+        // an opponent standing four body-widths away.
+        move_style: Walk,
+    ),
+}"#;
+
 pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
     versus_roster_from(local_players, None)
 }
@@ -200,7 +254,7 @@ pub fn versus_roster_from(
                 }
             } else {
                 ControllerBinding::Cpu {
-                    brain_profile: Some("medium_striker".into()),
+                    brain_profile: Some(VERSUS_CPU_BRAIN.into()),
                 }
             };
             MatchParticipant::new(FIGHTERS[seat % FIGHTERS.len()])
@@ -506,6 +560,16 @@ pub fn compose_versus_experience(app: &mut App) {
     use ambition::actors::character_runtime::CharacterDefinitionAppExt;
     for fighter in super::versus_fighters::duelists() {
         app.register_character(fighter);
+    }
+    // The ARCHETYPE a CPU seat resolves against — a different table from the
+    // catalog above, and the one `ControllerBinding::Cpu { brain_profile }`
+    // actually consults.
+    {
+        use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, None::<String>, VERSUS_ROSTER_RON)
+                .expect("the versus archetype roster is valid"),
+        );
     }
 
     PlatformerExperienceAuthoring::new(

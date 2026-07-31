@@ -345,7 +345,6 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
 fn an_eliminated_fighter_does_not_keep_falling_forever() {
     use ambition::actor::MatchSeat;
     use ambition::characters::actor::BodyHealth;
-    use bevy::prelude::*;
 
     let mut app = build_demo_app();
     for _ in 0..30 {

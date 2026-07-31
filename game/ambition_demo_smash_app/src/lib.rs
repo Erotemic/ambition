@@ -15,6 +15,8 @@ use bevy::prelude::*;
 /// Assemble the demo: foundation + engine group + host group + the smash
 /// experience under a standalone shell host. Zero engine edits, zero
 /// `ambition_app`.
+pub mod stage_diagram;
+
 pub fn build_demo_app() -> App {
     let mut app = App::new();
     ambition::engine::add_headless_foundation(&mut app);

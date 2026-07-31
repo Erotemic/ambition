@@ -52,8 +52,8 @@ pub fn direct_entry(hosted: Option<Res<AmbitionShellHosted>>) -> bool {
 /// re-exports its public identities for compatibility while owning only home,
 /// startup, platform, and process policy.
 pub use ambition_content::provider::{
-    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
-    AMBITION_GAMEPLAY_ROUTE,
+    AMBITION_EXPERIENCE, AMBITION_GAMEPLAY_ROUTE, AmbitionExperienceConfig,
+    AmbitionExperiencePlugin, AmbitionPreparedWorld,
 };
 
 /// Compose the shell-routed multi-game host on top of the already-composed
@@ -120,7 +120,17 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         AMBITION_LAUNCHER_ROUTE,
     ));
 
-    app.add_systems(Update, exit_on_shell_request);
+    // ⚠ ORDERED, not ambiguous. This reads `ShellEvent`, and the shell writes
+    // them in `AmbitionGameShellSet::Commands`; unordered it landed wherever
+    // Bevy put it, so whether `Exit` produced an `AppExit` in the SAME frame
+    // depended on system insertion order across unrelated plugins. Adding one
+    // system to the host's input chain on 2026-07-31 flipped it, and
+    // `the_full_multi_game_lifecycle_is_leak_free` went red for a reason that
+    // had nothing to do with what it tests.
+    app.add_systems(
+        Update,
+        exit_on_shell_request.after(ambition::game_shell::AmbitionGameShellSet::Commands),
+    );
     // The pause-suppression bridge only exists when the universal pause menu it
     // yields to does — that menu (and its `ShellPauseMenuSuppressed`) ships with
     // `basic_presentation`. The minimal web build omits both, exactly the

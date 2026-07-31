@@ -68,13 +68,26 @@ pub struct Incarnation {
     /// Provenance only — see the module doc. It exists so the lineage is a fact
     /// the code owns rather than a sentence in an authoring description.
     pub replaces: Option<&'static str>,
-    /// What it says when nothing more specific does.
-    ///
-    /// Each incarnation talks about its own place in the sequence, which is the
-    /// whole joke of preserving them: the Hall is a room full of drafts of you.
-    /// These are the FLOOR — a yarn node or a catalog bark pool still wins.
-    pub voice: &'static [&'static str],
 }
+
+// ⚠ **no `voice` field, and its removal is AF4b** (Jon ruled 2026-07-31: each
+// version is a different CHARACTER, so version-specific facts belong to the
+// per-character content row and Rust owns reusable lineage COMPOSITION).
+//
+// It was authored here AND in `character_catalog.ron`, with v0's two lines
+// duplicated verbatim between them — and the duplicate was not symmetric. The
+// catalog outranks a definition's voice (`npc_ambient_bark_line` asks
+// `catalog.bark_line` first; the definition answers only when the catalog had
+// nothing), and `CatalogEntry::bark` falls through `barks.pick` to
+// `fallback_dialogue`. So `player_robot_v2`, which authored BOTH, could never
+// reach its Rust voice at all — it was dead, and the test asserting every
+// incarnation "says something" was green over it because it read the struct
+// rather than the runtime.
+//
+// v0 and v3 authored only `barks.hall`, so their Rust lines DID speak — but only
+// away from a pedestal, which is the one place they are usually seen. Both rows
+// gained a `fallback_dialogue` carrying exactly those lines, so the voice they
+// had is the voice they keep, from one authority.
 
 /// **v0 — the original.** Its own bark: *"Version zero. Everything after me was
 /// a patch note."*
@@ -83,11 +96,6 @@ pub const V0: Incarnation = Incarnation {
     display_name: "Robot",
     sheet: "robot",
     replaces: None,
-    voice: &[
-        "Version zero. Everything after me was a patch note.",
-        "Beep. ...I don't actually beep. People expect it.",
-        "They kept the antenna. I consider that a win.",
-    ],
 };
 
 /// **v2 — the build that shipped before the SVG rig.**
@@ -99,11 +107,6 @@ pub const V2: Incarnation = Incarnation {
     display_name: "Player Robot v2",
     sheet: "player_robot_v2",
     replaces: Some(V0.id),
-    voice: &[
-        "I was the build that worked.",
-        "There is no v1. Ask someone else why.",
-        "Deprecated is not the same as wrong.",
-    ],
 };
 
 /// **v3 — the body you are playing right now.**
@@ -117,11 +120,6 @@ pub const V3: Incarnation = Incarnation {
     display_name: "Player Robot v3",
     sheet: "player_robot_v3",
     replaces: Some(V2.id),
-    voice: &[
-        "Currently shipping. Ask me again in a version.",
-        "I inherited the antenna and the debt.",
-        "Every version of you thinks it is the last one.",
-    ],
 };
 
 /// The whole lineage, oldest first.
@@ -138,8 +136,7 @@ pub fn definition(incarnation: &Incarnation) -> CharacterDefinition {
         incarnation.display_name,
         crate::AMBITION_CONTENT_PROVIDER,
     )
-    .with_sheet(incarnation.sheet)
-    .with_voice(incarnation.voice.iter().copied());
+    .with_sheet(incarnation.sheet);
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
         // Left `None` deliberately. These are hand-authored incarnations, not
@@ -236,22 +233,33 @@ mod tests {
         }
     }
 
-    /// **Nobody in the lineage stands mute.**
+    /// **Nobody in the lineage stands mute — asked of the RUNTIME, not the
+    /// struct.** (AF4b)
     ///
-    /// A registered character has no catalog row to hold bark pools, and the
-    /// Hall's ambient ticker skips whoever has nothing to say — so "registered"
-    /// and "silent on a pedestal" were the same state until definitions could
-    /// carry a voice.
+    /// This used to assert `!definition.voice.is_empty()`, which is a fact about
+    /// a Rust literal and not about what anybody hears. It was green while
+    /// `player_robot_v2`'s lines were unreachable: the catalog outranks a
+    /// definition's voice, and v2's row authored both a `barks.hall` pool AND a
+    /// `fallback_dialogue`, so `CatalogEntry::bark` always answered first.
+    ///
+    /// So ask the question the ticker asks. `bark` falls through the situation
+    /// pool to `fallback_dialogue`, and a row with neither returns `None` — which
+    /// is exactly the silence this test is named for.
     #[test]
     fn every_incarnation_says_something() {
+        let catalog = crate::character_catalog::load_catalog();
         for incarnation in LINEAGE {
-            let definition = definition(incarnation);
-            assert!(
-                !definition.voice.is_empty(),
-                "incarnation '{}' brought no lines, so it stands on its pedestal \
-                 saying nothing",
-                incarnation.id,
-            );
+            for situation in [
+                ambition_characters::actor::character_catalog::BarkSituation::Hall,
+                ambition_characters::actor::character_catalog::BarkSituation::Idle,
+            ] {
+                assert!(
+                    catalog.bark_line(incarnation.id, situation, 0).is_some(),
+                    "incarnation '{}' has nothing to say in {situation:?}, so the \
+                     ambient ticker skips it and it stands there silent",
+                    incarnation.id,
+                );
+            }
         }
     }
 

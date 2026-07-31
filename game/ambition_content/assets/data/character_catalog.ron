@@ -173,6 +173,13 @@
             // whose default authors its own kit (Sanic) gets that kit.
             playable_kit: HostCode,
             tags: ["player"],
+            // AF4b: v3's OWN voice, which used to be authored a second time in
+            // `player_robot_lineage.rs`. `barks.hall` only covers a pedestal.
+            fallback_dialogue: [
+                "Currently shipping. Ask me again in a version.",
+                "I inherited the antenna and the debt.",
+                "Every version of you thinks it is the last one.",
+            ],
         barks: (
             hall: ["Jump, fall, repeat. That's the whole job.", "Somewhere, someone is holding a controller. I try not to dwell."],
         ),
@@ -195,6 +202,15 @@
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["base", "robot"],
+            // AF4b: the incarnation's OWN voice, which used to be authored a
+            // second time in `player_robot_lineage.rs`. `barks.hall` only covers
+            // a pedestal; this covers every other situation, so v0 is not mute
+            // the moment it is anywhere else.
+            fallback_dialogue: [
+                "Version zero. Everything after me was a patch note.",
+                "Beep. ...I don't actually beep. People expect it.",
+                "They kept the antenna. I consider that a win.",
+            ],
         barks: (
             hall: ["Beep. ...I don't actually beep. People expect it.", "Version zero. Everything after me was a patch note."],
         ),

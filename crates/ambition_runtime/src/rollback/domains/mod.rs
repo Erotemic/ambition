@@ -25,6 +25,8 @@ pub(super) mod actors;
 pub(super) mod characters;
 pub(super) mod combat;
 pub(super) mod encounter;
+pub(super) mod items;
 pub(super) mod portal;
 pub(super) mod primitives;
 pub(super) mod projectiles;
+pub(super) mod vfx;

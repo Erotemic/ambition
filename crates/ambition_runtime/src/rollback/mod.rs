@@ -172,9 +172,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     domains::actors::register(app);
     domains::characters::register(app);
     domains::primitives::register(app);
+    domains::vfx::register(app);
+    domains::items::register(app);
     domains::portal::register(app);
     domains::projectiles::register(app);
-
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
@@ -189,7 +190,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // victim twice (the Phase-5 second-hit desync — an armed strike
     // re-staged its player hit on every late resim pass).
     // ⚠ this chain's head moved to a domain adapter (Campaign 2).
-    app.require_rollback::<ambition_vfx::Hitbox>(ENGINE, "entity:hitbox");
 
     // Canonical live-session root. Authored definitions are immutable and bound
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
@@ -243,10 +243,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.quest_registry",
         )
-        .rollback_resource_clone::<ambition_items::OwnedItems>(
-            ENGINE,
-            "resource.owned_items",
-        )
         // G2b: id → live encounter entity, remapped on every load. A presence
         // probe over a singleton resource sees "still present"; this sees an id
         // pointing at the wrong encounter. Folded in the map's own (sorted) key
@@ -295,7 +291,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_component_canonical::<bc::BodyBaseSize>(ENGINE, "body.base_size")
         .rollback_component_canonical::<bc::SweepSample>(ENGINE, "body.sweep_sample")
         .rollback_component_canonical::<bc::BodyMana>(ENGINE, "body.mana");
-
     // In-flight strike volumes — the components on the `entity:hitbox` family
     // (see the require_rollback anchor above). Clone restore + entity mapping;
     // the hit-once sets are dedup truth whose loss re-lands landed hits, and
@@ -305,27 +300,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // own — the same treatment `ProjectileOwner` has. A strike volume remapped onto
     // the wrong body damages the wrong faction's targets, and a presence count
     // could not tell that from a correct restore.
-    app.rollback_component_clone_entity_ref::<ambition_vfx::Hitbox>(
-        ENGINE,
-        "combat.hitbox",
-        |hitbox| hitbox.owner,
-    )
-    .rollback_map_entities::<ambition_vfx::Hitbox>(ENGINE, "map.hitbox")
     // The victims this strike has ALREADY hit. Losing one from the set is a
     // sustained overlap re-hitting a body it already hit, which is exactly the
     // kind of one-frame difference the aggregate reports as a desync with no
     // name attached.
-    .rollback_component_clone_entity_set::<ambition_vfx::HitboxHits>(
-        ENGINE,
-        "combat.hitbox_hits",
-        |hits| hits.hit.iter().copied().collect(),
-    )
-    .rollback_map_entities::<ambition_vfx::HitboxHits>(ENGINE, "map.hitbox_hits")
-    .rollback_component_clone_probed::<ambition_vfx::HitboxLifetime>(
-        ENGINE,
-        "combat.hitbox_lifetime",
-        |lifetime| lifetime.remaining_s.to_bits() as u64,
-    )
     // G2b: probed through the fired victims' stable identities. A presence
     // count sees the component and nothing of WHO is in the set, so a remap
     // redirecting one victim to the wrong body changes no census — and the
@@ -335,7 +313,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // ⚠ this chain ENDS here: its combat registrations moved to
     // `domains::combat` and the tail it used to flow into is now a separate
     // statement.
-    ;
 
     // Actor, combat, and brain state.
     // Armor rows are SPENT by `resolve_body_hit`, so this is mutable combat
@@ -695,20 +672,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.quest_advance_requested",
     )
     .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx")
-    .clear_message_on_rollback::<ambition_vfx::EffectRequest>(ENGINE, "message.effect_request")
-    .clear_message_on_rollback::<ambition_vfx::vfx::DebrisBurstMessage>(
-        ENGINE,
-        "message.debris_burst",
-    )
-    .clear_message_on_rollback::<ambition_vfx::ExplosionRequest>(
-        ENGINE,
-        "message.explosion_request",
-    )
-    .clear_message_on_rollback::<ambition_vfx::FireworksRequest>(
-        ENGINE,
-        "message.fireworks_request",
-    )
-    .clear_message_on_rollback::<ambition_vfx::VfxMessage>(ENGINE, "message.vfx")
     .clear_message_on_rollback::<ambition_world::rooms::RespawnRoomVisualsRequested>(
         ENGINE,
         "message.respawn_room_visuals",

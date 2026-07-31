@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""Which ENGINE systems does only the SHIPPED APP install?
+
+That question has cost this repo three defects in four days, each found by
+accident and each invisible in every test that ran:
+
+* **the world-label placement pass** (queue AE1, 2026-07-30) — `spawn_room_visuals`
+  is engine code and spawns `WorldLabel`s; the pass that places, fades and
+  typefaces them was installed by `ActorNameplatePresentationPlugin`, which only
+  `ambition_app` adds. Mary-O, Sanic and the external consumer drew their labels
+  at raw anchors in Bevy's fallback font.
+* **the parallax THEME LOAD** (S12, 2026-07-31) — `ensure_parallax_layers_for_room`
+  was called from `ambition_app`'s room-transition machinery alone, so a room in
+  a second biome had no background anywhere else. Silently:
+  `spawn_parallax_layers` skips a layer whose handle is absent.
+* **the parallax LAYER SYNC** (same day, found by sweeping for the first two) —
+  `sync_parallax_layers` was app-local too, so a backdrop that DID spawn sat at
+  the world origin and never moved with the camera.
+
+The shape is always the same and it is never a crash. The engine owns the code;
+the shipped app owns the *registration*; and every other composition — the
+demos, `fixtures/external_consumer`, anything built through `PlatformerApp` —
+gets an engine that half-runs. The tests stay green because the shipped app is
+what the acceptance tests drive.
+
+## What this checks
+
+For every `add_systems` call in an APP crate, take the systems whose path names
+an ENGINE crate. If no engine crate registers that same system anywhere, this
+composition is the only one that has it, and the row must either move into an
+engine plugin or be WAIVED here with a reason.
+
+⚠ **A waiver is the normal outcome, not a failure.** Plenty of engine systems
+are a GAME's choice — floating health bars, dev-tool sprite overrides, a portal
+feature only one game has. The point is not that every engine system belongs in
+an engine plugin; it is that the choice is *made* and written down, instead of
+being whatever the app happened to wire in 2024.
+
+## What it deliberately is not
+
+Not a parser. It matches `add_systems(` call sites by paren balance and reads
+qualified paths out of the text between them — enough to see `foo::bar::baz` and
+take `baz`. A system passed as a bare local identifier, built by a helper, or
+hidden inside a plugin the app adds is invisible here, and that is stated rather
+than papered over: this instrument catches the shape that has actually bitten
+three times, and a cleverer one nobody trusts is worse.
+
+Conventions follow `check_absence_contracts.py`: production source only,
+comments stripped before matching (a doc comment naming a system is not a
+registration), and every waiver carries an id and a reason.
+
+Usage:
+    python3 scripts/check_engine_systems_are_engine_installed.py
+    python3 scripts/check_engine_systems_are_engine_installed.py --list
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+
+# Compositions that are a GAME rather than the engine. A system registered only
+# here is registered by exactly one composition.
+APP_ROOTS = ["game"]
+
+# Where an engine plugin may register a system so that every composition gets it.
+ENGINE_ROOTS = ["crates"]
+
+# ⚠ **PRESENTATION only, and the narrowing is the point.** The first version of
+# this script asked the question of every engine crate and reported 42 systems, of
+# which most are a game legitimately composing its own sim features, HUD and
+# menus. A guard with 42 waivers is a guard nobody reads — this file's sibling
+# says so in its own docstring — and the class that has actually bitten is
+# PRESENTATION BINDING, three times, all in the render crate: a label pass, a
+# theme load, a layer sync. So the question is asked where the answer has been
+# wrong.
+#
+# Widening this is a deliberate act with a cost: run `--list --all` first and
+# read what comes back before deciding the rest is signal.
+RENDER_PATH_PREFIXES = (
+    "ambition_render::",
+    "ambition::render::",
+)
+
+# The broad form, kept for `--all`: every engine crate, umbrella included.
+ENGINE_PATH_ROOTS = (
+    "ambition",
+    "ambition_actors",
+    "ambition_audio",
+    "ambition_combat",
+    "ambition_encounter",
+    "ambition_engine_core",
+    "ambition_game_shell",
+    "ambition_host",
+    "ambition_input",
+    "ambition_interaction",
+    "ambition_items",
+    "ambition_ldtk_map",
+    "ambition_load_presentation",
+    "ambition_menu",
+    "ambition_persistence",
+    "ambition_platformer_primitives",
+    "ambition_platformer_provider",
+    "ambition_portal",
+    "ambition_portal_presentation",
+    "ambition_projectiles",
+    "ambition_render",
+    "ambition_runtime",
+    "ambition_settings_menu",
+    "ambition_sfx",
+    "ambition_sim_view",
+    "ambition_sprite_sheet",
+    "ambition_touch_input",
+    "ambition_ui_nav",
+    "ambition_vfx",
+    "ambition_world",
+)
+
+# ── The waivers ──
+#
+# id → why this engine system is deliberately registered by the app alone. Every
+# entry is a DECISION about who owns a behaviour, and deleting one is how you say
+# "actually every composition should have this".
+WAIVERS: dict[str, str] = {
+    "refresh_entity_sprite_handles_on_game_assets_change": (
+        "pairs with `reload_visual_quality_assets_on_scale_change` — an "
+        "app-local system, because the settings menu is. A demo's GameAssets "
+        "does not "
+        "change after startup, so there is nothing for it to refresh."
+    ),
+    "sync_health_overlays": (
+        "generic code, but floating health bars over every body are a GAME's "
+        "choice. Installing them engine-side would decide a demo's HUD for it."
+    ),
+    "sync_lock_wall_visuals": (
+        "encounter lock walls: same reasoning. A game without encounters would "
+        "pay for a system that reconciles an empty set."
+    ),
+    "sync_boss_health_bar_overlay": (
+        "a boss HUD is Ambition's, and no other composition ships a boss."
+    ),
+    "apply_placeholder_sprites_override": (
+        "dev tool. The app owns its dev overlay and its hotkeys."
+    ),
+    "apply_hide_sprites_override": ("dev tool, as above."),
+    "sync_portal_capture_parallax_layers": (
+        "portal is Ambition's feature and is feature-gated behind "
+        "`portal_render`; nothing else composes a portal rig."
+    ),
+    "sync_portal_sprite_visibility": ("portal, as above."),
+    "sync_portal_sprite_animation": ("portal, as above."),
+    "sync_portal_ring_rotation_system": ("portal, as above."),
+    "hide_portal_loading_zone_visuals": ("portal, as above."),
+    "sync_portal_quality_budget": ("portal, feature-gated, Ambition's."),
+    "report_image_census": (
+        "a startup diagnostic the app prints; it draws nothing."
+    ),
+    "spawn_player_hud": (
+        "the built-in HUD is opt-in per game — `toggle_builtin_hud_for_declared_games` "
+        "is the seam a game uses to say it wants one. Installing it for every "
+        "composition would give every demo Ambition's HUD."
+    ),
+    "place_player_hud": ("the built-in HUD, as above."),
+    "update_player_hud": ("the built-in HUD, as above."),
+    "toggle_builtin_hud_for_declared_games": ("the built-in HUD, as above."),
+}
+
+# ── The ratchet ──
+#
+# What is left after the waivers: engine presentation that ONE composition
+# installs, where the honest answer is "this is probably a defect and has not
+# been fixed yet". Each is a system whose absence draws nothing and says nothing.
+#
+# ⚠ **The number may not GROW, and it may not silently shrink either.** A budget
+# that is never tightened is a budget that rots into a permanent allowance — the
+# footprint ratchet in `check_absence_contracts.py` carries the same rule for the
+# same reason. Fix one, lower this by one, in the same commit.
+#
+# The current occupants, and why each looks like the class rather than a choice:
+#
+# * `sync_projectile_visuals`, `sync_projectile_charge_visuals` — projectiles are
+#   an ENGINE feature (`ambition_projectiles`). A demo that fires one gets the
+#   simulation and no sprite.
+# * `sync_bubble_shield_visual`, `sync_morph_ball_visual` — ability visuals for
+#   abilities any body can be granted (`AbilitySet::sandbox_all`).
+# * `sync_cutscene_ui` — `ambition_cutscene` is an engine crate; a demo that
+#   plays a cutscene gets no UI for it.
+# * `sync_resolved_visual_quality` — every quality-aware system reads
+#   `ResolvedVisualQuality`; without this it never leaves its default, so a
+#   demo's quality settings are inert.
+UNCLAIMED_BUDGET = 6
+
+_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+_LINE_COMMENT = re.compile(r"//[^\n]*")
+_QUALIFIED_PATH = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)")
+_ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
+_RUN_IF = re.compile(r"\brun_if\s*\(")
+
+
+def strip_comments(source: str) -> str:
+    """Comment text is not a registration. Same rule, same reason, as the
+    absence checker: three guards there went red on a doc comment explaining a
+    removal, and a paragraph naming `sync_parallax_layers` is the opposite of
+    evidence that somebody registered it."""
+    return _LINE_COMMENT.sub("", _BLOCK_COMMENT.sub(" ", source))
+
+
+def add_systems_bodies(source: str) -> list[str]:
+    """The text inside each `add_systems( … )`, by paren balance."""
+    bodies = []
+    for match in _ADD_SYSTEMS.finditer(source):
+        depth = 1
+        index = match.end()
+        while index < len(source) and depth:
+            char = source[index]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            index += 1
+        bodies.append(source[match.end() : index - 1])
+    return bodies
+
+
+def strip_run_conditions(body: str) -> str:
+    """Remove every `run_if( … )` argument.
+
+    A run condition is not a system, and reading one as a system is how the
+    first version of this script reported `in_mode`, `in_base_mode`,
+    `simulation_authorized` and `phase_mark` as unregistered engine
+    presentation. They are predicates the app supplies to systems it is
+    registering, which is the opposite of the thing being looked for.
+    """
+    out = []
+    index = 0
+    for match in _RUN_IF.finditer(body):
+        if match.start() < index:
+            continue
+        out.append(body[index : match.start()])
+        depth = 1
+        cursor = match.end()
+        while cursor < len(body) and depth:
+            if body[cursor] == "(":
+                depth += 1
+            elif body[cursor] == ")":
+                depth -= 1
+            cursor += 1
+        index = cursor
+    out.append(body[index:])
+    return "".join(out)
+
+
+def registered_engine_systems(
+    root: Path, subdirs: list[str], every_crate: bool = False
+) -> dict[str, set[str]]:
+    """system name → the files under `subdirs` whose `add_systems` name it
+    through an engine-rooted path."""
+    found: dict[str, set[str]] = {}
+    for subdir in subdirs:
+        for path in (root / subdir).rglob("*.rs"):
+            relative = path.relative_to(root).as_posix()
+            # Test files register systems to exercise them, which says nothing
+            # about what a composition installs.
+            if "/tests/" in relative or relative.endswith("tests.rs"):
+                continue
+            source = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
+            for body in add_systems_bodies(source):
+                body = strip_run_conditions(body)
+                for qualified in _QUALIFIED_PATH.findall(body):
+                    segments = qualified.split("::")
+                    if len(segments) < 2:
+                        continue
+                    if every_crate:
+                        if segments[0] not in ENGINE_PATH_ROOTS:
+                            continue
+                    elif not qualified.startswith(RENDER_PATH_PREFIXES):
+                        continue
+                    name = segments[-1]
+                    # `Type::method` and set names are not systems; a system's
+                    # last segment is snake_case by this repo's convention.
+                    if not name.islower():
+                        continue
+                    found.setdefault(name, set()).add(relative)
+    return found
+
+
+def app_only_systems(root: Path, every_crate: bool = False) -> dict[str, set[str]]:
+    """Engine systems an app registers that no engine crate registers."""
+    by_app = registered_engine_systems(root, APP_ROOTS, every_crate)
+    by_engine = registered_engine_systems(root, ENGINE_ROOTS, every_crate)
+    return {
+        name: files
+        for name, files in by_app.items()
+        if name not in by_engine and name not in WAIVERS
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="print every app-registered engine system, waived or not",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="ask the question of every engine crate, not just presentation "
+        "(reports a lot; read before believing)",
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        by_app = registered_engine_systems(REPO, APP_ROOTS, args.all)
+        by_engine = registered_engine_systems(REPO, ENGINE_ROOTS, args.all)
+        for name in sorted(by_app):
+            if name in by_engine:
+                continue
+            mark = "waived" if name in WAIVERS else "UNCLAIMED"
+            print(f"{mark:>9}  {name}  ({', '.join(sorted(by_app[name]))})")
+        return 0
+
+    offenders = app_only_systems(REPO, args.all)
+    if args.all:
+        # The wide question is a report, never a gate: most of what it returns is
+        # a game composing its own sim, and pretending otherwise is how a guard
+        # becomes noise.
+        for name in sorted(offenders):
+            print(f"  {name}  ({', '.join(sorted(offenders[name]))})")
+        print(f"\n{len(offenders)} unclaimed across every engine crate (report only)")
+        return 0
+
+    if len(offenders) > UNCLAIMED_BUDGET:
+        print(
+            f"{len(offenders)} engine presentation systems are installed by ONE "
+            f"composition; the ratchet allows {UNCLAIMED_BUDGET}. Every other "
+            "composition runs an engine with these missing, and the failure is "
+            "silent every time:\n"
+        )
+        for name in sorted(offenders):
+            print(f"  {name}")
+            for file in sorted(offenders[name]):
+                print(f"      registered in {file}")
+        print(
+            "\nMove the registration into the engine plugin that owns the family, "
+            "or add the system to WAIVERS in this file with the reason it belongs "
+            "to a GAME rather than to the engine."
+        )
+        return 1
+
+    if len(offenders) < UNCLAIMED_BUDGET:
+        print(
+            f"only {len(offenders)} unclaimed, and the ratchet still allows "
+            f"{UNCLAIMED_BUDGET}. Lower UNCLAIMED_BUDGET to {len(offenders)} in "
+            "the commit that fixed one — a budget nobody tightens becomes a "
+            "permanent allowance."
+        )
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

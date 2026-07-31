@@ -506,6 +506,22 @@ enum SeatPlan<'roster> {
 /// byte as it found it and retries next tick. A roster that can be filled is
 /// filled completely, in one command flush, together with the [`ActiveMatch`]
 /// latch that says so.
+/// **Why the last seating attempt refused**, when it did.
+///
+/// ⚠ the refusal used to be a `debug_assert!` and nothing else, so a release
+/// build silently declined to seat and the match activated around the hole. That
+/// is the shape of the very bug it was added for — a fighter that is not the one
+/// the roster asked for — reintroduced by the guard's own build configuration.
+///
+/// Present only while a roster the composition cannot seat is published; removed
+/// as soon as one it can is. A consumer reads it to tell the player something
+/// true, and a TEST reads it instead of relying on a panic that only fires in
+/// debug.
+#[derive(bevy::prelude::Resource, Debug, Clone, PartialEq, Eq)]
+pub struct MatchSeatingRefused {
+    pub problems: Vec<crate::character_runtime::RosterProblem>,
+}
+
 pub fn seat_match_participants(
     mut commands: Commands,
     roster: Option<Res<MatchParticipantRoster>>,
@@ -708,15 +724,20 @@ pub fn seat_match_participants(
                 // `UnknownPreset`, "never a silent fall back to the default" —
                 // and this is the same class of mistake on the other path.
                 if !archetypes.has_brain_key(profile) {
-                    debug_assert!(
-                        false,
-                        "seat {index} asked for brain profile `{profile}`, which \
-                         this composition's CharacterRoster does not have. Known \
-                         keys: {:?}. A match seat is refused rather than handed \
-                         the generic fallback — a fighter that is not the one the \
-                         roster asked for is worse than no match.",
-                        archetypes.brain_keys()
+                    // Refuse the WHOLE roster, out loud, in every build. The
+                    // per-seat `debug_assert!` this replaced was invisible in
+                    // release — which reintroduced the exact bug it guards.
+                    let problems = roster.unsatisfiable_seats(&archetypes);
+                    bevy::log::error!(
+                        target: "ambition::seating",
+                        "match seating refused: {}",
+                        problems
+                            .iter()
+                            .map(|problem| problem.to_string())
+                            .collect::<Vec<_>>()
+                            .join("; ")
                     );
+                    commands.insert_resource(MatchSeatingRefused { problems });
                     return;
                 }
                 SeatPlan::Spawn {
@@ -747,6 +768,10 @@ pub fn seat_match_participants(
     // land on all of them in the SAME flush that creates them. A body is
     // therefore never observable in a state the ruleset did not ask for — no
     // window to narrow.
+    // The refusal, if one is standing, is over: this roster resolved. Removed
+    // here rather than on roster CHANGE so it cannot go stale — a refusal that
+    // outlives the roster it was about is a worse lie than no refusal.
+    commands.remove_resource::<MatchSeatingRefused>();
     let mut seated_bodies: Vec<Entity> = Vec::new();
     let mut seated_this_pass: Vec<(usize, Entity)> = Vec::new();
     // S4: a stocks match's fighters die to the WORLD, not to the meter. Declared
@@ -822,7 +847,10 @@ pub fn seat_match_participants(
                 // Resolved above through the read-only view; the mutable single
                 // cannot disagree with it within one system run.
                 let Ok((_, mut health, clusters, mut model, _)) = player.single_mut() else {
-                    debug_assert!(false, "seat {index} adopted a player body that vanished mid-system");
+                    debug_assert!(
+                        false,
+                        "seat {index} adopted a player body that vanished mid-system"
+                    );
                     return;
                 };
                 // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its
@@ -831,7 +859,10 @@ pub fn seat_match_participants(
                 // look — so seat 0 could never be seen at zero health, and the
                 // match was rigged in its favour (GPT 5.6, 2026-07-27).
                 let mut adopted = commands.entity(body);
-                adopted.insert((MatchSeat(index), crate::combat::components::RulesetOwnsDeath));
+                adopted.insert((
+                    MatchSeat(index),
+                    crate::combat::components::RulesetOwnsDeath,
+                ));
                 // The TEAM, which this branch dropped when the death-ownership
                 // insert was added over it. A seat with no team is judged by
                 // FACTION alone, and `effective_faction` maps every

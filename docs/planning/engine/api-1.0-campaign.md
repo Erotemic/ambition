@@ -206,11 +206,25 @@ absolute; "spawn your rollback entities in `Startup`"), closed the same day.
    > where it belongs: on the SDK composition, against the roster the experience
    > itself declares.
    >
-   > ▢ still open: making it a REFUSAL rather than a check a consumer must
-   > remember to call. `PlatformerApp::build` already refuses with
-   > `CompositionError { problems }` for exactly this shape, but a roster
-   > published at runtime (a select screen) is not visible at build time — so
-   > the refusal belongs at the publish seam, and that seam does not exist yet.
+   > **✔ AND IT IS A REFUSAL NOW, in every build.** Seating already declined an
+   > unresolvable profile — through `debug_assert!`, which does nothing in
+   > release, so the shipped behaviour was "return quietly and let the match
+   > activate around the hole". That is the bug the guard was written for,
+   > reintroduced by the guard's own build configuration; a guard whose
+   > `--release` flag decides whether it guards is not one.
+   >
+   > `MatchSeatingRefused { problems: Vec<RosterProblem> }` is published instead:
+   > present in every build, logged at error, removed the moment a roster that
+   > DOES resolve reaches the commit pass (so a refusal cannot outlive its
+   > roster, which would be a worse lie than none). A consumer reads it to tell
+   > the player something true; a test reads it instead of relying on a panic
+   > that only fires in debug.
+   >
+   > ▢ still open: a consumer can still `insert_resource` a roster the engine
+   > never saw. Making the insert engine-only would touch 22 files, almost all
+   > tests, for a payoff that is already covered — the engine refuses at seating
+   > in every build now, and the two production publishers have guards. Reopen if
+   > a third publisher appears.
 2. **(a) An inert registration should be unrepresentable.**
    `rollback_component_canonical` on an entity the consumer spawned is
    accepted, counted by `encoded_types()`, and inert until

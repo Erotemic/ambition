@@ -128,7 +128,8 @@ pub mod actor {
     /// A second consumer is the only instrument that finds this class, which is
     /// the entire argument for keeping one.
     pub use ambition_actors::character_runtime::{
-        ControllerBinding, MatchParticipant, MatchParticipantRoster, RosterProblem,
+        ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeatingRefused,
+        RosterProblem,
     };
 
     /// **The stocks economy**: the count on a body, the fact that it is out, and

@@ -66,8 +66,8 @@ pub use presentation::{
     provider_of_character, publish_body_presentation_sources,
 };
 pub use seating::{
-    ActiveMatch, MatchSeat, match_participants, seat_character, seat_match_participants,
-    seat_placement,
+    ActiveMatch, MatchSeat, MatchSeatingRefused, match_participants, seat_character,
+    seat_match_participants, seat_placement,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,

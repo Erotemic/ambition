@@ -29,14 +29,14 @@
 //! throw a different jab on a replay.
 
 use crate::actor::control::ActorControlFrame;
-use crate::brain::BrainSnapshot;
 use crate::brain::fighter::habit::{Choice, HabitModel};
 use crate::brain::fighter::options::{
-    AttackCandidate, MovementVerb, UtilityWeights, generate_options,
+    generate_options, AttackCandidate, MovementVerb, UtilityWeights,
 };
 use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::brain::fighter::rollout::{ShadowTuning, refine_by_rollout};
-use crate::brain::fighter::situation::{Situation, classify};
+use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
+use crate::brain::fighter::situation::{classify, Situation};
+use crate::brain::BrainSnapshot;
 use crate::perception::{DelayedPerception, WorldView};
 
 /// Sim rate the cadence and reaction conversions assume when nothing says
@@ -350,6 +350,7 @@ fn decide(
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
     }
+    trace_decision(view, &options, vetoed, chosen);
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
     // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
@@ -366,6 +367,57 @@ fn decide(
         };
         state.pending_press = Some(jitter);
     }
+}
+
+/// **One line per decision, when `AMBITION_FIGHTER_TRACE=1`.**
+///
+/// A diagnostic affordance for `ladder_probe`, and it exists because the last
+/// two attempts to fix the fighter walking off the stage were reasoning where a
+/// measurement was available — one produced a paralysis that read as a 3×
+/// improvement, the other made the number worse. What the probe could see was
+/// WHERE the body died and how fast; what it could not see is which verb the
+/// brain picked and which ones the rollout struck off, and that is the whole
+/// question.
+///
+/// ⚠ **off by default and read ONCE.** The env lookup is a `LazyLock`, so a
+/// production tick pays one relaxed atomic load. It prints to stderr rather than
+/// through `bevy::log` deliberately: the probe is a binary that prints a table
+/// to stdout, and the trace has to be separable from it by redirection.
+///
+/// ⚠ **it is not rollback-safe and does not pretend to be.** Under a rollback
+/// host a resimulated frame decides again and prints again. The probe is a
+/// fixed-tick host; anyone turning this on under GGRS is reading a log with
+/// repeats in it, which is a fact about the trace and not about the brain.
+fn trace_decision(
+    view: crate::perception::Perceived<'_>,
+    options: &crate::brain::fighter::options::OptionSet,
+    vetoed: &[crate::brain::fighter::options::MovementVerb],
+    chosen: Option<crate::brain::fighter::options::MovementVerb>,
+) {
+    static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
+    });
+    if !*ENABLED {
+        return;
+    }
+    let me = view.self_view;
+    eprintln!(
+        "[fighter] x={:.0} vx={:.0} ground={} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?}",
+        me.pos.x,
+        me.vel.x,
+        me.on_ground,
+        view.stage.is_known(),
+        view.stage.bounds.min.x,
+        view.stage.bounds.max.x,
+        view.floor_edge_distance().map(|d| d.round()),
+        options
+            .movement
+            .iter()
+            .map(|option| option.verb)
+            .collect::<Vec<_>>(),
+        vetoed,
+        chosen,
+    );
 }
 
 /// What the foe looks like from across the stage, or `None` when there is no foe.

@@ -352,6 +352,7 @@ fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
                 &profile(k, depth, 0.0),
                 &tuning,
                 60.0,
+                6,
             ),
             None,
             "k={k} depth={depth} must degrade to L2, not to a zero-step rollout"
@@ -381,6 +382,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
         &profile(4, 30, 0.0),
         &ShadowTuning::default(),
         60.0,
+        6,
     )
     .expect("rollouts are on and a hostile is in view");
     assert_eq!(refined.move_id, "lunge");
@@ -426,6 +428,7 @@ fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
             &p,
             &tuning,
             60.0,
+            6,
         );
         assert!(refined.is_some());
     }
@@ -463,6 +466,7 @@ fn l3_decides_identically_twice() {
         &p,
         &tuning,
         60.0,
+        6,
     );
     let two = refine_by_rollout(
         Perceived::cheating(&view),
@@ -472,6 +476,7 @@ fn l3_decides_identically_twice() {
         &p,
         &tuning,
         60.0,
+        6,
     );
     assert_eq!(one, two);
     // And the state trajectory itself is bit-identical, not merely the label.
@@ -609,6 +614,9 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
         &profile(4, 12, 0.0),
         &ShadowTuning::default(),
         60.0,
+        // A body committed for a full second: long enough that walking 400 px to
+        // a foe off the end of a 120 px platform is genuinely underway.
+        60,
     );
     let refined = refined.expect("no attacks is not a reason to skip movement vetting");
     assert!(

@@ -62,11 +62,7 @@ fn rig(profile: FighterBrainProfile) -> (FighterCfg, FighterState) {
     (cfg, state)
 }
 
-fn run(
-    cfg: &FighterCfg,
-    state: &mut FighterState,
-    ticks: u32,
-) -> Vec<ActorControlFrame> {
+fn run(cfg: &FighterCfg, state: &mut FighterState, ticks: u32) -> Vec<ActorControlFrame> {
     let snapshot = BrainSnapshot::idle();
     let view = scene(300.0, 500.0);
     let mut frames = Vec::new();
@@ -240,4 +236,125 @@ fn a_brain_that_has_seen_nothing_emits_neutral() {
     tick_fighter(&cfg, &mut state, &snapshot, None, &mut out);
     assert_eq!(out.locomotion, ae::Vec2::ZERO);
     assert!(!out.melee_pressed);
+}
+
+/// A body standing on a ledge narrower than it can commit to walking across.
+///
+/// ⚠ the width is load-bearing and 80 px was NOT narrow enough. The veto asks
+/// what a COMMITTED walk does — one decision interval of input, then coasting —
+/// and at 160 px/s an interval is only a few px. A ledge the body can step
+/// around inside one decision is a ledge no honest veto fires on, which is the
+/// veto working. 20 px is inside the commitment window in both directions.
+fn on_a_ledge(me_x: f32) -> WorldView {
+    let mut view = scene(me_x, me_x + 400.0);
+    view.terrain = vec![crate::perception::PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(me_x, 316.0), ae::Vec2::new(10.0, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    }];
+    view
+}
+
+/// **A chosen verb replaces the held movement; it does not add to it.**
+///
+/// `frame` arrives holding the last decision's answer, so a verb that only adds
+/// inherits the rest. Jump used to do exactly that: veto Retreat, choose Jump,
+/// and the body jumps while still walking the direction the veto struck off.
+#[test]
+fn choosing_a_verb_cancels_the_walk_the_last_decision_left_running() {
+    let profile = FighterBrainProfile {
+        rollout_depth: 12,
+        rollout_k: 4,
+        ..immediate_profile()
+    };
+    let (cfg, mut state) = rig(profile);
+    // It is already walking right, off the end of the ledge.
+    state.held.locomotion.x = 1.0;
+
+    let snapshot = BrainSnapshot::idle();
+    let view = on_a_ledge(300.0);
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..cfg.interval() + 1 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    }
+
+    // On a 20 px ledge L2 offers Retreat and Jump; the rollout strikes Retreat
+    // (it leaves the ledge inside the commitment window) and keeps Jump, which
+    // goes straight up and lands where it started. So the surviving verb is
+    // Jump — and the assertion is that choosing it CANCELS the walk rather than
+    // jumping on top of it.
+    assert_eq!(
+        out.locomotion.x, 0.0,
+        "the held walk had to be actively cancelled by the chosen verb, not \
+         left running underneath it"
+    );
+    assert!(out.jump_held, "and the verb it chose was Jump");
+}
+
+/// The other half, and the one that says the veto is not just paralysis: given
+/// room, the same brain still moves.
+#[test]
+fn the_same_brain_on_solid_ground_still_walks() {
+    let profile = FighterBrainProfile {
+        rollout_depth: 12,
+        rollout_k: 4,
+        ..immediate_profile()
+    };
+    let (cfg, mut state) = rig(profile);
+    let mut view = scene(300.0, 500.0);
+    view.terrain = vec![crate::perception::PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    }];
+
+    let snapshot = BrainSnapshot::idle();
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..cfg.interval() + 1 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    }
+
+    assert_ne!(
+        out.locomotion.x, 0.0,
+        "on a stage 800px wide with the foe 200px away, refusing to move is not \
+         caution — it is a veto whose horizon outgrew the stage"
+    );
+}
+
+/// **A veto that empties the option list has to author what happens next.**
+///
+/// L2's verbs are Approach, Retreat, Jump, Dash — none of them means "stop", so
+/// the all-vetoed branch cannot fall through to applying nothing. `frame` starts
+/// life as `state.held`, so applying nothing PRESERVES the input just judged
+/// fatal, and the brain keeps doing the thing it decided would kill it.
+///
+/// The scenario is a body already in the air with no floor beneath it, which is
+/// where the shadow model has no `ground_level` at all: nothing it can do inside
+/// the horizon stops the fall, so every modelled verb comes back fatal. It is
+/// also not hypothetical — `ladder_probe` hits this branch 164 times in five
+/// one-minute matches.
+#[test]
+fn a_body_whose_every_option_is_fatal_stops_instead_of_coasting() {
+    let profile = FighterBrainProfile {
+        rollout_depth: 12,
+        rollout_k: 4,
+        ..immediate_profile()
+    };
+    let (cfg, mut state) = rig(profile);
+    state.held.locomotion.x = 1.0;
+
+    // Airborne, well inside the stage, over nothing.
+    let mut view = scene(300.0, 700.0);
+    view.self_view.on_ground = false;
+    view.self_view.vel = ae::Vec2::new(160.0, 40.0);
+
+    let snapshot = BrainSnapshot::idle();
+    let mut out = ActorControlFrame::neutral();
+    for _ in 0..cfg.interval() + 1 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    }
+
+    assert_eq!(
+        out.locomotion.x, 0.0,
+        "with every option vetoed there is no verb to author the frame, and the \
+         held walk survives unless the empty case says otherwise"
+    );
 }

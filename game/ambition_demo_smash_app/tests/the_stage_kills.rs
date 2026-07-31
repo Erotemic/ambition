@@ -274,7 +274,13 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
         .write_message(ambition::game_shell::ShellCommand::GoTo(
             ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
-    for _ in 0..240 {
+    // ⚠ the sampling window has to sit inside the fighter's LIFE. This test used
+    // to sample at ticks 240 and 480, and seat 1 is eliminated around tick 400 —
+    // it self-KOs three times in the first seven seconds (see `ladder_probe`),
+    // so the second sample found one body and the zip below silently compared
+    // seat 0 against itself. "Neither fighter moved" was the message for "one
+    // fighter was dead", which is a different bug with a different fix.
+    for _ in 0..60 {
         app.update();
     }
 
@@ -291,10 +297,16 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
     let before = snapshot(&mut app);
     assert_eq!(before.len(), 2, "the match did not seat two fighters");
 
-    for _ in 0..240 {
+    for _ in 0..120 {
         app.update();
     }
     let after = snapshot(&mut app);
+    assert_eq!(
+        after.len(),
+        2,
+        "a fighter died inside the sampling window, so this measures nothing \
+         about engagement: {before:?} -> {after:?}"
+    );
 
     let travelled: f32 = after
         .iter()

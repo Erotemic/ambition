@@ -912,6 +912,7 @@ pub fn refine_by_rollout(
     profile: &FighterBrainProfile,
     tuning: &ShadowTuning,
     tick_hz: f32,
+    commit_ticks: u32,
 ) -> Option<RefinedChoice> {
     // ⚠ `attacks.is_empty()` used to short-circuit here, which silently made the
     // MOVEMENT veto conditional on having something to swing. A fighter with no
@@ -974,10 +975,24 @@ pub fn refine_by_rollout(
             let mut probe = start.clone();
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
-            for _ in 0..horizon {
+            for tick in 0..horizon {
+                // **THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED
+                // TO IT**, and then the line coasts. A brain that re-decides
+                // every `commit_ticks` never actually walks for 3.2 s; asking
+                // "what if I did" answers a question nobody faces, and answers
+                // it fatally for every direction from every position.
+                //
+                // What the rest of the horizon is for is the CONSEQUENCE — the
+                // walk-off already begun, the fall that follows, the body
+                // leaving the world. Those need seconds. The input does not.
+                let held = if tick < commit_ticks {
+                    intent.clone()
+                } else {
+                    ShadowIntent::Hold
+                };
                 let foe_intent =
                     predicted_foe_intent(&probe, situation, habits, profile.read_weight, tuning);
-                for event in shadow_step(&mut probe, dt, &intent, &foe_intent, tuning) {
+                for event in shadow_step(&mut probe, dt, &held, &foe_intent, tuning) {
                     if matches!(event, ShadowEvent::Ko { of_me: true }) {
                         died = true;
                     }
@@ -1017,13 +1032,17 @@ pub fn refine_by_rollout(
 ///   that moved NOTHING: 7.2 s to first self-KO at `rollout_depth` 0 and 12
 ///   alike, because both horizons were blind to the thing doing the killing.
 ///
-/// 16× is sized to the SECOND number, not chosen for roundness: at 160 px/s a
-/// body needs 2.0 s to walk from the middle of a 640 px stage to its edge, so a
-/// horizon of 12 × 16 = 192 ticks = 3.2 s covers that crossing with room for the
-/// fall that follows it. 8× was tried first and is 1.6 s — SHORT of the
-/// crossing, and short in a way that reads as fine until you write the
-/// multiplication down (`the_veto_horizon_reaches_past_the_edge_...` is that
-/// multiplication, pinned).
+/// 16× is sized to the second number: at 160 px/s a body needs 2.0 s to walk
+/// from the middle of a 640 px stage to its edge, so 12 × 16 = 192 ticks = 3.2 s
+/// covers that crossing with room for the fall that follows it.
+///
+/// ⚠ **and the line is NOT the verb sustained for all of it** — see
+/// [`commit_ticks`](refine_by_rollout). Sustaining a walk for 3.2 s is 512 px,
+/// which is wider than the stage; every lateral verb would be fatal from every
+/// position, the veto would fire on every decision, and the "fighter" would be a
+/// body that had reasoned itself into never moving. That is what the first cut
+/// of this did, and the survival number went UP, which is exactly how a
+/// paralysis reads on a metric that counts staying alive.
 ///
 /// The cost is `modelled_verbs × depth × 16` steps against `rollout_k × depth`
 /// for attacks; there are four modelled verbs, and FB6e's bench pin

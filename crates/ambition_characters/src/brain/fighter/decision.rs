@@ -29,14 +29,14 @@
 //! throw a different jab on a replay.
 
 use crate::actor::control::ActorControlFrame;
+use crate::brain::BrainSnapshot;
 use crate::brain::fighter::habit::{Choice, HabitModel};
 use crate::brain::fighter::options::{
-    generate_options, AttackCandidate, MovementVerb, UtilityWeights,
+    AttackCandidate, MovementVerb, UtilityWeights, generate_options,
 };
 use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
-use crate::brain::fighter::situation::{classify, Situation};
-use crate::brain::BrainSnapshot;
+use crate::brain::fighter::rollout::{ShadowTuning, refine_by_rollout};
+use crate::brain::fighter::situation::{Situation, classify};
 use crate::perception::{DelayedPerception, WorldView};
 
 /// Sim rate the cadence and reaction conversions assume when nothing says
@@ -181,10 +181,7 @@ pub struct FoeSample {
 impl FighterState {
     pub fn new(cfg: &FighterCfg, seed: u64) -> Self {
         Self {
-            perception: DelayedPerception::from_reaction_ms(
-                cfg.profile.reaction_ms,
-                cfg.tick_hz,
-            ),
+            perception: DelayedPerception::from_reaction_ms(cfg.profile.reaction_ms, cfg.tick_hz),
             habits: HabitModel::new(cfg.profile.read_weight.max(0.0)),
             held: ActorControlFrame::neutral(),
             ticks_until_decision: 0,
@@ -304,6 +301,9 @@ fn decide(
         &cfg.profile,
         &cfg.tuning,
         cfg.tick_hz,
+        // How long this body is COMMITTED to whatever it decides: exactly until
+        // it decides again.
+        cfg.interval(),
     );
 
     // MOVEMENT: the best verb the rollout did not veto.
@@ -322,12 +322,24 @@ fn decide(
         .as_ref()
         .map(|refined| refined.suicidal_movement.as_slice())
         .unwrap_or(&[]);
-    if let Some(best) = options
+    match options
         .movement
         .iter()
         .find(|option| !vetoed.contains(&option.verb))
     {
-        apply_movement(best.verb, view, frame);
+        Some(best) => apply_movement(best.verb, view, frame),
+        // **EVERY OFFERED VERB IS FATAL, AND STANDING STILL IS NOT AMONG THE
+        // OFFERS.** L2 emits verbs — Approach, Retreat, Jump, Dash — and none of
+        // them means "stop". So the empty case cannot fall through to "apply
+        // nothing": `frame` starts as `state.held`, and applying nothing PRESERVES
+        // the input the veto just called fatal. The brain would keep walking the
+        // exact direction it decided would kill it, at every decision tick, until
+        // it did.
+        //
+        // ⚠ this is the quieter half of the veto and the half that bites. A veto
+        // that removes options from a list has done nothing until something
+        // authors what happens when the list empties.
+        None => halt(frame),
     }
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
@@ -381,6 +393,17 @@ fn infer_choice(previous: FoeSample, current: FoeSample) -> Choice {
     }
 }
 
+/// Stand still. The verb L2 does not offer, authored here because a veto has to
+/// leave the body doing SOMETHING and the held frame is not it.
+///
+/// Deliberately does not touch `facing` (which way the body looks is not what
+/// walked it off) or `jump_held` (releasing a held jump mid-recovery is its own
+/// way to die).
+fn halt(frame: &mut ActorControlFrame) {
+    frame.locomotion.x = 0.0;
+    frame.dash_pressed = false;
+}
+
 /// Translate a movement verb into control-frame fields.
 ///
 /// ⚠ **the sign comes from the perceived foe, not from the actor's facing.**
@@ -397,6 +420,17 @@ fn apply_movement(
         .map(|foe| (foe.pos.x - view.self_view.pos.x).signum())
         .unwrap_or(0.0);
     frame.shield_held = false;
+    // **EVERY VERB AUTHORS THE WHOLE MOVEMENT INTENT.** `frame` arrives holding
+    // the last decision's answer, so a verb that merely adds to it inherits the
+    // rest — and `Jump` used to add a jump on top of whatever walk was already
+    // running. That is a body still walking in a direction THIS decision did not
+    // choose, and on a stage with edges it is the direction the veto had just
+    // struck off the list: veto Retreat, choose Jump, keep walking right.
+    //
+    // Lateral is the field that carries a body off a stage, so lateral is the
+    // one that gets cleared before the verb speaks. Facing is not: which way a
+    // body looks between decisions is the held intent doing its job.
+    frame.locomotion.x = 0.0;
     match verb {
         MovementVerb::Approach => {
             frame.locomotion.x = toward;

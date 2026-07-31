@@ -1516,8 +1516,13 @@ mod ac23_tests {
             "frame numbers from a dead timeline were carried into a live one, so \
              the new session reports a mismatch at frames it has not reached"
         );
-        let reason = carried.invalidation.expect("the mismatch survives as prose");
-        assert!(reason.contains("41"), "the reason lost the evidence: {reason}");
+        let reason = carried
+            .invalidation
+            .expect("the mismatch survives as prose");
+        assert!(
+            reason.contains("41"),
+            "the reason lost the evidence: {reason}"
+        );
         assert!(
             reason.contains("PREVIOUS"),
             "the reason does not say the mismatch belongs to the old timeline: {reason}"

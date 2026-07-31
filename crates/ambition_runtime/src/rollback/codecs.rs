@@ -11,7 +11,6 @@ use super::*;
 // field the sim reads is a restore that silently rewinds to a different world; the
 // round-trip oracle in this module's tests is what catches one.
 
-
 /// **A unit enum's wire discriminant, written down.**
 ///
 /// The mapping is EXPLICIT and the numbers are load-bearing: reordering a variant in
@@ -55,10 +54,10 @@ use super::*;
 ///
 /// Skips gracefully when the world has no `CharacterCatalog` (headless fixtures).
 pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
+    use ambition_characters::actor::ActorPose;
     use ambition_characters::actor::character_catalog::{
         AuthoredBrainContext, BrainBinding, BrainBuildContext,
     };
-    use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::Brain;
 
     struct Job {
@@ -337,4 +336,3 @@ pub fn heal_projectile_owners(
 // values participate in sync-test/desync checks as well.
 
 // ── GGRS resource/state additions ───────────────────────────────────────────
-

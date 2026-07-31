@@ -173,7 +173,9 @@ fn ldtk_runtime_index_checksum(index: &ambition_actors::ldtk_world::LdtkRuntimeI
 /// but everything that decides what the hit DOES participates, so a diverged
 /// queue surfaces as a sync-test mismatch at the staging frame instead of one
 /// frame later as mystery damage.
-fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayerHitEvents) -> u64 {
+pub(super) fn pending_player_hits_checksum(
+    pending: &ambition_combat::events::PendingPlayerHitEvents,
+) -> u64 {
     use ambition_combat::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
     let mut bytes = Vec::new();
     put_u64(&mut bytes, pending.0.len() as u64);
@@ -260,6 +262,9 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // domain went first — 15 registrations, no reverse dependency, and a state
     // model nothing else writes. `rollback_schema_baseline` is what says the move
     // changed nothing.
+    domains::encounter::register(app);
+    domains::combat::register(app);
+    domains::portal::register(app);
     domains::projectiles::register(app);
 
     // Rollback participation. These anchors cover the canonical session root,
@@ -274,16 +279,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "entity:body_kinematics",
     )
-    .require_rollback::<ambition_encounter::EncounterLifecycle>(
-        ENGINE,
-        "entity:encounter_lifecycle",
-    )
     .require_rollback::<ambition_platformer_primitives::lifecycle::FeatureSimEntity>(
         ENGINE,
         "entity:feature_sim_entity",
     )
     .require_rollback::<ambition_actors::items::pickup::GroundItem>(ENGINE, "entity:ground_item")
-    .require_rollback::<ambition_portal::PlacedPortal>(ENGINE, "entity:placed_portal")
     .require_rollback::<ambition_actors::gravity::GravityFlipSwitch>(
         ENGINE,
         "entity:gravity_flip_switch",
@@ -319,10 +319,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .rollback_component_clone::<ambition_actors::rooms::RoomMusicRequest>(
         ENGINE,
         "root.room_music_request",
-    )
-    .rollback_component_clone::<ambition_encounter::EncounterMusicRequest>(
-        ENGINE,
-        "root.encounter_music_request",
     );
 
     // Global authoritative resources.
@@ -364,10 +360,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_resource_canonical::<ambition_world::collision::MovingPlatformSet>(
             ENGINE,
             "resource.moving_platform_set",
-        )
-        .rollback_resource_cursor::<ambition_combat::slots::CombatSlotsRes>(
-            ENGINE,
-            "resource.combat_slot_board",
         )
         .rollback_resource_clone::<crate::InputStreamRecorder>(
             ENGINE,
@@ -426,15 +418,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // probe over a singleton resource sees "still present"; this sees an id
         // pointing at the wrong encounter. Folded in the map's own (sorted) key
         // order, so a permutation between two ids is a difference.
-        .rollback_resource_clone_entity_set::<ambition_encounter::EncounterRegistry>(
-            ENGINE,
-            "resource.encounter_registry",
-            |registry| registry.ids.values().copied().collect(),
-        )
-        .rollback_resource_map_entities::<ambition_encounter::EncounterRegistry>(
-            ENGINE,
-            "map.resource.encounter_registry",
-        )
         // G2b: probed through the possessed/home pair's stable identities. A
         // presence probe over a singleton resource sees "still present" and
         // nothing else — and a restore that exchanged the possessed body for the
@@ -449,10 +432,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "map.resource.possession_state",
         )
-        .rollback_resource_clone::<ambition_portal::PortalFrameHistory>(
-            ENGINE,
-            "resource.portal_frame_history",
-        )
         // Cross-frame FIFO: produced in `GameplayEffects`, drained in
         // `EncounterSimulation` — which is ordered EARLIER, so the queue is
         // non-empty across a save boundary and a rewind would otherwise replay
@@ -465,14 +444,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // Latent until something mutates them in-session, but a rewind that
         // keeps a predicted faction flip would be a silent desync — registered
         // ahead of the first mutating feature (Phase 5 resource-coverage pass).
-        .rollback_resource_clone::<ambition_combat::targeting::FactionRelations>(
-            ENGINE,
-            "resource.faction_relations",
-        )
-        .rollback_resource_clone::<ambition_combat::targeting::FriendlyFire>(
-            ENGINE,
-            "resource.friendly_fire",
-        )
         // Cross-frame FIFO: victim-side hits staged in `Combat`, drained by
         // `apply_player_hit_events` in the NEXT frame's `PlayerSimulation` —
         // same shape as `SwitchActivationQueue` above. Found by the Phase-5
@@ -480,16 +451,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // rewind between the strike and the victim resolver un-hit the player.
         // Checksummed (entity-free projection) so a diverged queue trips the
         // sync test at the staging frame, not a frame later as applied damage.
-        .rollback_resource_clone_checksum::<ambition_combat::events::PendingPlayerHitEvents>(
-            ENGINE,
-            "resource.pending_player_hit_events",
-            "bevy_ggrs clone snapshot + entity-free staged-hit checksum projection",
-            pending_player_hits_checksum,
-        )
-        .rollback_resource_map_entities::<ambition_combat::events::PendingPlayerHitEvents>(
-            ENGINE,
-            "map.resource.pending_player_hit_events",
-        );
+;
 
     // Core body state.
     app.rollback_component_canonical::<ambition_platformer_primitives::sim_id::SimId>(
@@ -564,39 +526,19 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "combat.hitbox_lifetime",
         |lifetime| lifetime.remaining_s.to_bits() as u64,
     )
-    .rollback_component_clone_entity_ref::<ambition_combat::moveset::StrikeVolume>(
-        ENGINE,
-        "combat.strike_volume",
-        |volume| volume.owner,
-    )
-    .rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(ENGINE, "map.strike_volume")
     // G2b: probed through the fired victims' stable identities. A presence
     // count sees the component and nothing of WHO is in the set, so a remap
     // redirecting one victim to the wrong body changes no census — and the
     // visible consequence is a sustained overlap re-firing an on-hit at a body
     // it has already fired at.
-    .rollback_component_clone_entity_set::<ambition_combat::on_hit::HitboxOnHit>(
-        ENGINE,
-        "combat.hitbox_on_hit",
-        |on_hit| on_hit.fired_victims(),
-    )
-    .rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(ENGINE, "map.hitbox_on_hit");
+    //
+    // ⚠ this chain ENDS here: its combat registrations moved to
+    // `domains::combat` and the tail it used to flow into is now a separate
+    // statement.
+    ;
 
     // Actor, combat, and brain state.
-    app.rollback_component_canonical::<ambition_combat::components::BodyMelee>(ENGINE, "actor.body_melee")
-        .rollback_component_canonical::<ambition_combat::components::ActorDisposition>(
-            ENGINE,
-            "actor.disposition",
-        )
-        .rollback_component_cursor::<ambition_combat::components::ActorAggression>(
-            ENGINE,
-            "actor.aggression",
-        )
-        .rollback_map_entities::<ambition_combat::components::ActorAggression>(
-            ENGINE,
-            "map.actor_aggression",
-        )
-        .rollback_component_canonical::<ambition_characters::actor::pose::ActorPose>(
+    app.rollback_component_canonical::<ambition_characters::actor::pose::ActorPose>(
             ENGINE,
             "actor.pose",
         )
@@ -617,10 +559,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "actor.roll",
         )
-        .rollback_component_canonical::<ambition_combat::components::ActorCooldowns>(
-            ENGINE,
-            "actor.cooldowns",
-        )
         .rollback_component_canonical::<ambition_characters::actor::body::BodyCombat>(
             ENGINE,
             "actor.body_combat",
@@ -633,37 +571,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "actor.match_seat",
         )
-        .rollback_component_canonical::<ambition_combat::targeting::MatchTeam>(
-            ENGINE,
-            "actor.match_team",
-        )
         // S4 — the stocks loop's own state. A stock count that is NOT rollback
         // state un-spends itself on a rewind: the body comes back and the count
         // does not, so a fighter loses the same stock twice or never loses it at
         // all. Elimination is the same fact one step later, and a rewind that
         // restores a fighter while leaving it eliminated is a body standing in a
         // match nothing will ever let it play.
-        .rollback_component_canonical::<ambition_combat::components::FighterStocks>(
-            ENGINE,
-            "entity:fighter_stocks",
-        )
-        .rollback_component_canonical::<ambition_combat::stocks::FighterEliminated>(
-            ENGINE,
-            "entity:fighter_eliminated",
-        )
         // The "already announced" latch for a stocks match's outcome. Registered
         // as STATE rather than left a `Local`, because a rewind across the
         // deciding frame must be able to UN-decide the match — a latch that
         // survives it would swallow the re-announcement on the replay and the
         // ruleset would never hear that the match ended.
-        .rollback_resource_canonical::<ambition_combat::stocks::StocksMatchSettled>(
-            ENGINE,
-            "resource.stocks_match_settled",
-        )
-        .rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
-            ENGINE,
-            "actor.ruleset_owns_death",
-        )
         .rollback_component_canonical::<ambition_engine_core::geometry::CenteredAabb>(
             ENGINE,
             "actor.centered_aabb",
@@ -676,34 +594,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_component_canonical::<ambition_actors::features::ActorStatus>(
             ENGINE,
             "actor.status",
-        )
-        .rollback_component_canonical::<ambition_combat::components::ActorIntent>(
-            ENGINE,
-            "actor.intent",
-        )
-        .rollback_component_cursor::<ambition_combat::components::ActorTarget>(
-            ENGINE,
-            "actor.target",
-        )
-        .rollback_map_entities::<ambition_combat::components::ActorTarget>(
-            ENGINE,
-            "map.actor_target",
-        )
-        .rollback_component_resolved::<ambition_combat::moveset::MovePlayback>(
-            ENGINE,
-            "actor.move_playback",
-        )
-        .rollback_map_entities::<ambition_combat::moveset::MovePlayback>(
-            ENGINE,
-            "map.move_playback",
-        )
-        .rollback_component_canonical::<ambition_combat::components::BossPatternTimer>(
-            ENGINE,
-            "boss.pattern_timer",
-        )
-        .rollback_component_canonical::<ambition_combat::components::BossPhase>(
-            ENGINE,
-            "boss.phase",
         )
         .rollback_component_canonical::<ambition_characters::brain::boss_pattern::BossAttackState>(
             ENGINE,
@@ -737,10 +627,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_component_canonical::<ambition_actors::features::ActorSurfaceState>(
             ENGINE,
             "actor.surface_state",
-        )
-        .rollback_component_canonical::<ambition_combat::components::BodyEnvelope>(
-            ENGINE,
-            "actor.body_envelope",
         )
         .rollback_component_canonical::<bc::BodyLedgeState>(ENGINE, "actor.ledge")
         .rollback_component_canonical::<ambition_engine_core::MotionModel>(ENGINE, "actor.motion_model")
@@ -982,30 +868,9 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "boss.capability",
     )
-    .rollback_component_clone::<ambition_combat::components::CombatCapabilities>(
-        ENGINE,
-        "combat.capabilities",
-    )
-    .rollback_component_clone::<ambition_combat::components::CombatTuning>(ENGINE, "combat.tuning")
-    .rollback_component_clone::<ambition_combat::components::ActorIdentity>(
-        ENGINE,
-        "actor.identity",
-    )
-    .rollback_component_clone::<ambition_combat::components::ActorInteraction>(
-        ENGINE,
-        "actor.interaction",
-    )
-    .rollback_component_clone::<ambition_combat::components::ActorRenderSize>(
-        ENGINE,
-        "actor.render_size",
-    )
     // The quad's placement travels with its size: both are re-derived per pose
     // from the sheet, so restoring one without the other would leave a body
     // drawn at the right scale in the wrong place until the next pose change.
-    .rollback_component_clone::<ambition_combat::components::ActorSpriteOffset>(
-        ENGINE,
-        "actor.sprite_offset",
-    )
     // The pose→geometry binding itself. Constant per body, but a body the
     // rewind RE-CREATES must come back still bound to its sheet — otherwise it
     // silently reverts to whatever box it was spawned with and never recovers.
@@ -1029,25 +894,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "actor.sprite_posed_body",
     )
-    .rollback_component_clone::<ambition_combat::components::BossDeathAnimation>(
-        ENGINE,
-        "boss.death_animation",
-    )
-    .rollback_component_clone::<ambition_combat::components::CombatKit>(ENGINE, "combat.kit")
-    .rollback_component_clone::<ambition_combat::components::DamageableVolumes>(
-        ENGINE,
-        "feature.damageable_volumes",
-    )
-    .rollback_component_clone::<ambition_combat::components::FeatureId>(ENGINE, "feature.id")
-    .rollback_component_clone::<ambition_combat::components::FeatureName>(ENGINE, "feature.name")
     // World features that MUTATE during play (deep review 2026-07-19 §2.2).
     // Without these a brick broken in an abandoned future stays broken through
     // the rewind, and the crumble/respawn countdowns resume from predicted
     // values instead of confirmed ones.
-    .rollback_component_clone::<ambition_combat::components::BreakableFeature>(
-        ENGINE,
-        "feature.breakable",
-    )
     // A chest's PAYLOAD AND STATE, and the marker that says it was opened.
     //
     // `Collected` and `PickupFeature` were both registered; their chest
@@ -1059,22 +909,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     //
     // Found by A19's unswept-population sweep; no room the sweep visited had ever
     // contained a chest.
-    .rollback_component_clone::<ambition_combat::components::ChestFeature>(ENGINE, "feature.chest")
-    .rollback_component_clone::<ambition_combat::components::Opened>(ENGINE, "feature.opened")
-    .rollback_component_clone_probed::<ambition_combat::components::RespawnTimer>(
-        ENGINE,
-        "feature.respawn_timer",
-        |timer| timer.0.to_bits() as u64,
-    )
-    .rollback_component_clone_probed::<ambition_combat::components::StandTimer>(
-        ENGINE,
-        "feature.stand_timer",
-        |timer| timer.0.to_bits() as u64,
-    )
-    .rollback_component_clone::<ambition_combat::hazard_runtime::HazardFeature>(
-        ENGINE,
-        "feature.hazard",
-    )
     // Switch liveness. The `SwitchActivated` MESSAGE is cleared on rollback, but
     // the state that message produced was not rewound — so a switch flipped in an
     // abandoned future stayed on.
@@ -1103,10 +937,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "lifecycle.player_visual",
     )
-    .rollback_component_clone::<ambition_combat::components::PogoPolicy>(
-        ENGINE,
-        "feature.pogo_policy",
-    )
     // The two pogo CAPABILITY markers, beside the policy and volumes that were
     // already registered. Same reasoning as `PlayerVisual`: bevy_ggrs recreates
     // the entity, and a marker that does not come back silently revokes a
@@ -1117,21 +947,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     //
     // Found by sweeping rooms nobody had swept before (A19). Their registered
     // siblings sat two lines away this whole time.
-    .rollback_component_clone::<ambition_combat::on_hit::PogoTarget>(ENGINE, "feature.pogo_target")
-    .rollback_component_clone::<ambition_combat::components::PogoTargetContributor>(
-        ENGINE,
-        "feature.pogo_target_contributor",
-    )
-    .rollback_component_clone::<ambition_combat::components::PogoTargetVolumes>(
-        ENGINE,
-        "feature.pogo_target_volumes",
-    )
-    .rollback_component_clone::<ambition_combat::held_items::HeldItem>(ENGINE, "actor.held_item")
-    .rollback_component_clone::<ambition_combat::moveset::ActorMoveset>(ENGINE, "actor.moveset")
-    .rollback_component_clone::<ambition_combat::moveset::MovesetMelee>(
-        ENGINE,
-        "actor.moveset_melee",
-    )
     // The ranged sibling, and the pickup/solid-contributor features — found by
     // the combat-calibration-lab coverage sweep (the boot room has no ranged
     // enemy, no pickups, and no breakable, so the boot-room sweep could not
@@ -1140,16 +955,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "actor.moveset_ranged",
     )
-    .rollback_component_clone::<ambition_combat::components::PickupFeature>(
-        ENGINE,
-        "feature.pickup",
-    )
     // The collected latch. Unregistered, a rewind past a collection could not
     // REMOVE it: the resimulated pickup started already-collected, the magnet
     // skipped it (`Without<Collected>`), and its registered `CenteredAabb`
     // froze while the first pass had it moving — the exit oracle's first
     // checksum divergence (combat_calibration_lab, frames 10–12).
-    .rollback_component_clone::<ambition_combat::components::Collected>(ENGINE, "feature.collected")
     // The mid-toss collection lock (a scattered ring's uncollectible window),
     // registered for the SAME reason `Collected` is: a rewind past the lock's
     // removal must restore it, or the resimulated ring would be collectible a
@@ -1163,24 +973,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // re-creates — dropping it would leave the resimulated loot invisible while
     // the original was drawn, which is the bug this component exists to fix.
     .rollback_component_clone::<ambition_actors::features::PickupArt>(ENGINE, "feature.pickup_art")
-    .rollback_component_clone::<ambition_combat::components::SandboxSolidContributor>(
-        ENGINE,
-        "feature.sandbox_solid_contributor",
-    )
-    .rollback_component_clone::<ambition_encounter::Encounter>(ENGINE, "encounter.identity")
-    .rollback_component_clone::<ambition_encounter::EncounterObjective>(
-        ENGINE,
-        "encounter.objective",
-    )
-    .rollback_component_clone::<ambition_encounter::EncounterCameraZoom>(
-        ENGINE,
-        "encounter.camera_zoom",
-    )
-    .rollback_component_clone::<ambition_encounter::EncounterLockWall>(
-        ENGINE,
-        "encounter.lock_wall",
-    )
-    .rollback_component_clone::<ambition_encounter::EncounterTrack>(ENGINE, "encounter.track")
     .rollback_component_clone::<ambition_engine_core::body_clusters::AbilityBase>(
         ENGINE,
         "body.ability_base",
@@ -1204,10 +996,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // Same class as `PlayerVisual`, which this instrument caught the same way:
     // presentation, but presentation whose ABSENCE is permanent. Surfaced by the
     // A20 mounted-pair sweep — no swept ROOM stages an actor imperatively.
-    .rollback_component_clone::<ambition_combat::components::RuntimeStagedActor>(
-        ENGINE,
-        "marker.runtime_staged_actor",
-    )
     // Which provider's bank an entity's cues come out of (G1). For a BODY this is
     // republished every sim tick from its worn character, so it would survive a
     // restore either way — but for a PROJECTILE it is stamped once, at spawn, from a
@@ -1233,30 +1021,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "marker.primary_player",
     )
-    .rollback_component_clone::<ambition_portal::PortalBody>(ENGINE, "portal.body")
-    .rollback_component_clone::<ambition_portal::PortalPolicy>(ENGINE, "portal.policy")
-    .rollback_component_clone::<ambition_portal::PortalTransit>(ENGINE, "portal.transit")
-    .rollback_component_clone::<ambition_portal::PlacedPortal>(ENGINE, "portal.placed")
     // Portal-gun runtime (deep review 2026-07-19 §2.2). `PortalBody`/`Policy`/
     // `Transit`/`PlacedPortal` were registered but the gun-side state was not,
     // so a rewind could carry a cooldown latch or an in-flight shot in from an
     // abandoned future — permitting or blocking a transit the confirmed
     // timeline never saw.
-    .rollback_component_clone_probed::<ambition_portal::PortalTransitCooldown>(
-        ENGINE,
-        "portal.transit_cooldown",
-        |cooldown| cooldown.remaining.to_bits() as u64,
-    )
     // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
     // rewind that kept an abandoned future's timer would let the same press that
     // dropped a gun immediately re-grab it — or refuse a grab the confirmed
     // timeline allowed. Surfaced by the coverage sweep only once its population was
     // derived from the rollback vocabulary: a pickup carries neither
     // `FeatureSimEntity` nor `BodyKinematics`.
-    .rollback_component_clone::<ambition_portal::PortalGunPickup>(ENGINE, "portal.gun_pickup")
-    .rollback_component_clone::<ambition_portal::PortalEmission>(ENGINE, "portal.emission")
-    .rollback_component_clone::<ambition_portal::PortalShot>(ENGINE, "portal.shot")
-    .rollback_component_clone::<ambition_portal::PortalGun>(ENGINE, "portal.gun")
     .rollback_component_clone::<ambition_actors::items::pickup::GroundItem>(
         ENGINE,
         "item.ground_item",
@@ -1292,11 +1067,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // authoritative `GroundItem` (registered state) before portal core reads it, and
     // `sync_transitable_to_ground_items` mirrors the possibly-teleported result
     // straight back. Snapshotting it would give one body two restorable positions.
-    .declare_rollback_derived_component::<ambition_portal::PortalTransitable>(
-        ENGINE,
-        "derived.portal_transitable",
-        "mirrored from the item's authoritative body every frame, before transit reads it",
-    )
     .declare_rollback_derived_component::<ambition_actors::body_mode::BodyModeCapabilities>(
         ENGINE,
         "derived.body_mode_capabilities",
@@ -1348,11 +1118,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // Registering it as STATE would be the borrow again: a rewind would restore
     // a rules value independently of the declaration that produced it, and the
     // two could then disagree for a frame.
-    .declare_rollback_derived_resource::<ambition_combat::rules::ResolvedCombatTuning>(
-        ENGINE,
-        "derived.resolved_combat_tuning",
-        "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
-    )
     .declare_rollback_derived_resource::<ambition_characters::brain::SlotControls>(
         ENGINE,
         "derived.slot_controls",
@@ -1362,16 +1127,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "derived.controlled_subject",
         "resolved from the entity carrying Brain::Player for the active slot",
-    )
-    .declare_rollback_derived_resource::<ambition_portal::PlayerMovementIntent>(
-        ENGINE,
-        "derived.portal_player_movement_intent",
-        "republished from the current controller frame before portal transit",
-    )
-    .declare_rollback_derived_resource::<ambition_portal::PortalCarves>(
-        ENGINE,
-        "derived.portal_carves",
-        "rebuilt from placed portals and transit occupancy each frame",
     )
     .declare_rollback_derived_resource::<ambition_platformer_primitives::class_b::ClassBRemapLog>(
         ENGINE,
@@ -1383,11 +1138,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "derived.gravity_zones",
         "rebuilt from authoritative GravityZone components before body integration",
     )
-    .declare_rollback_derived_resource::<ambition_portal::PortalHostDepths>(
-        ENGINE,
-        "derived.portal_host_depths",
-        "republished from the authoritative collision world each frame",
-    );
+;
 
     // Scope, projectile, and encounter state.
     app.rollback_component_canonical::<ambition_platformer_primitives::lifecycle::RoomScopedEntity>(
@@ -1402,22 +1153,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "projectile.gameplay",
     )
-    .rollback_component_canonical::<ambition_encounter::EncounterLifecycle>(
-        ENGINE,
-        "encounter.lifecycle",
-    )
-    .rollback_component_clone_state::<ambition_encounter::EncounterParticipants>(
-        ENGINE,
-        "encounter.participants",
-    )
-    .rollback_map_entities::<ambition_encounter::EncounterParticipants>(
-        ENGINE,
-        "map.encounter_participants",
-    )
-    .rollback_component_resolved::<ambition_encounter::EncounterWaves>(
-        ENGINE,
-        "encounter.waves",
-    );
+;
 
     // Derived state: one maintenance path, never restore-only repair code.
     // NOTE this justification was wrong until 2026-07-22: it named
@@ -1527,11 +1263,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "derived.encounter_switch_index",
         "rebuilt from SwitchFeature + SwitchOn components each frame",
     )
-    .declare_rollback_derived_resource::<ambition_encounter::entity::EncounterView>(
-        ENGINE,
-        "derived.encounter_view",
-        "presentation-intent read model republished each tick",
-    )
     .declare_rollback_derived_resource::<ambition_actors::affordances::PlayerAffordances>(
         ENGINE,
         "derived.player_affordances",
@@ -1564,40 +1295,11 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.actor_action",
     )
-    .clear_message_on_rollback::<ambition_combat::events::HitEvent>(ENGINE, "message.hit_event")
     // S4 — the stocks loop's two messages. Both are written INSIDE the sim
     // schedule, so a rewind that un-happens the KO must un-happen the
     // announcement too: a `BodyKnockedOut` left in the buffer would be re-read on
     // the replay and spend a second stock for one knockout, and a stale
     // `FighterStockSpent` would have a ruleset respawn a fighter that never fell.
-    .clear_message_on_rollback::<ambition_combat::stocks::BodyKnockedOut>(
-        ENGINE,
-        "message.body_knocked_out",
-    )
-    .clear_message_on_rollback::<ambition_combat::stocks::FighterStockSpent>(
-        ENGINE,
-        "message.fighter_stock_spent",
-    )
-    .clear_message_on_rollback::<ambition_combat::stocks::StocksMatchDecided>(
-        ENGINE,
-        "message.stocks_match_decided",
-    )
-    .clear_message_on_rollback::<ambition_combat::on_hit::OnHitEffectMessage>(
-        ENGINE,
-        "message.on_hit_effect",
-    )
-    .clear_message_on_rollback::<ambition_combat::moveset::MoveEventMessage>(
-        ENGINE,
-        "message.move_event",
-    )
-    .clear_message_on_rollback::<ambition_encounter::EncounterCommand>(
-        ENGINE,
-        "message.encounter_command",
-    )
-    .clear_message_on_rollback::<ambition_encounter::EncounterEventMsg>(
-        ENGINE,
-        "message.encounter_event",
-    )
     .clear_message_on_rollback::<ambition_actors::features::BrainCommand>(
         ENGINE,
         "message.brain_command",
@@ -1641,10 +1343,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.payload_released",
     )
-    .clear_message_on_rollback::<ambition_encounter::EncounterGate>(
-        ENGINE,
-        "message.encounter_gate",
-    )
     .clear_message_on_rollback::<ambition_actors::encounter::SwitchActivated>(
         ENGINE,
         "message.switch_activated",
@@ -1662,61 +1360,9 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.clock_scale_request",
     )
-    .clear_message_on_rollback::<ambition_combat::events::ActorStimulus>(
-        ENGINE,
-        "message.actor_stimulus",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::GameplayBannerRequested>(
-        ENGINE,
-        "message.gameplay_banner_requested",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::GameplaySfxRequested>(
-        ENGINE,
-        "message.gameplay_sfx_requested",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::ResetRoomFeaturesEvent>(
-        ENGINE,
-        "message.reset_room_features",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::SetFlagRequested>(
-        ENGINE,
-        "message.set_flag_requested",
-    )
     .clear_message_on_rollback::<ambition_persistence::quest::QuestAdvanceRequested>(
         ENGINE,
         "message.quest_advance_requested",
-    )
-    .clear_message_on_rollback::<ambition_portal::ClearPortals>(ENGINE, "message.clear_portals")
-    .clear_message_on_rollback::<ambition_portal::DropPortalGun>(ENGINE, "message.drop_portal_gun")
-    .clear_message_on_rollback::<ambition_portal::FirePortalGun>(ENGINE, "message.fire_portal_gun")
-    .clear_message_on_rollback::<ambition_portal::PickUpPortalGun>(
-        ENGINE,
-        "message.pick_up_portal_gun",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalBodyEntered>(
-        ENGINE,
-        "message.portal_body_entered",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalFireIntent>(
-        ENGINE,
-        "message.portal_fire_intent",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalGunEquipped>(
-        ENGINE,
-        "message.portal_gun_equipped",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalShotFired>(
-        ENGINE,
-        "message.portal_shot_fired",
-    )
-    .clear_message_on_rollback::<ambition_portal::TogglePortalGun>(
-        ENGINE,
-        "message.toggle_portal_gun",
-    )
-    .clear_message_on_rollback::<ambition_portal::BodyTeleported>(ENGINE, "message.body_teleported")
-    .clear_message_on_rollback::<ambition_portal::PortalBodyTransited>(
-        ENGINE,
-        "message.portal_body_transited",
     )
     .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx")
     .clear_message_on_rollback::<ambition_vfx::EffectRequest>(ENGINE, "message.effect_request")
@@ -1757,64 +1403,8 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.clock_scale_request",
     )
-    .clear_message_on_rollback::<ambition_combat::events::ActorStimulus>(
-        ENGINE,
-        "message.actor_stimulus",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::GameplayBannerRequested>(
-        ENGINE,
-        "message.gameplay_banner_requested",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::GameplaySfxRequested>(
-        ENGINE,
-        "message.gameplay_sfx_requested",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::ResetRoomFeaturesEvent>(
-        ENGINE,
-        "message.reset_room_features",
-    )
-    .clear_message_on_rollback::<ambition_combat::events::SetFlagRequested>(
-        ENGINE,
-        "message.set_flag_requested",
-    )
-    .clear_message_on_rollback::<ambition_encounter::timeline::EncounterGate>(
-        ENGINE,
-        "message.encounter_gate",
-    )
     .clear_message_on_rollback::<ambition_persistence::quest::QuestAdvanceRequested>(
         ENGINE,
         "message.quest_advance_requested",
-    )
-    .clear_message_on_rollback::<ambition_portal::ClearPortals>(ENGINE, "message.portal_clear")
-    .clear_message_on_rollback::<ambition_portal::DropPortalGun>(ENGINE, "message.portal_gun_drop")
-    .clear_message_on_rollback::<ambition_portal::FirePortalGun>(ENGINE, "message.portal_gun_fire")
-    .clear_message_on_rollback::<ambition_portal::PickUpPortalGun>(
-        ENGINE,
-        "message.portal_gun_pick_up",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalBodyEntered>(
-        ENGINE,
-        "message.portal_body_entered",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalFireIntent>(
-        ENGINE,
-        "message.portal_fire_intent",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalGunEquipped>(
-        ENGINE,
-        "message.portal_gun_equipped",
-    )
-    .clear_message_on_rollback::<ambition_portal::PortalShotFired>(
-        ENGINE,
-        "message.portal_shot_fired",
-    )
-    .clear_message_on_rollback::<ambition_portal::TogglePortalGun>(
-        ENGINE,
-        "message.portal_gun_toggle",
-    )
-    .clear_message_on_rollback::<ambition_portal::BodyTeleported>(ENGINE, "message.body_teleported")
-    .clear_message_on_rollback::<ambition_portal::PortalBodyTransited>(
-        ENGINE,
-        "message.portal_body_transited",
     );
 }

@@ -404,6 +404,24 @@ pub fn begin_room_transition_load_system(
         next_mode.set(ambition_platformer_primitives::schedule::GameMode::RoomTransition);
 
         let cover_required = presentation_available.is_some();
+        // **A transition always says it started.**
+        //
+        // The completion telemetry
+        // (`ambition::room_transition::performance`) is emitted at RETIREMENT,
+        // behind `runtime.owner.take()`, so a transition that never spawned a
+        // cover reports nothing at all — and a 34.6s desktop capture containing a
+        // real hub -> Hall transition produced ZERO lines from that target while
+        // this module's other logs printed fine (2026-07-30). An instrument that
+        // is silent exactly when the thing it measures goes wrong is worse than
+        // no instrument: it reads as "no transitions happened".
+        //
+        // This one is unconditional and at the START, so the pair (begin, retire)
+        // is readable in any capture and a MISSING retirement is itself the
+        // signal.
+        bevy::log::info!(
+            target: "ambition::room_transition::performance",
+            "room transition {sequence} BEGIN {source_room_id} -> {target_label}              (cover_required={cover_required})",
+        );
         let mut active = ActiveRoomTransitionLoad {
             sequence,
             content_epoch: content_epoch.get(),

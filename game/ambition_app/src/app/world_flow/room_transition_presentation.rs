@@ -47,6 +47,15 @@ pub(crate) struct RoomTransitionPresentationConfig {
     /// Covered commits above this provisional budget are correctness-safe but
     /// still performance regressions that need construction/render optimization.
     pub(crate) covered_commit_budget: Duration,
+    /// How long the cover may wait, after commit, for the target room to become
+    /// PRESENTABLE — no unclaimed-body placeholders left on screen.
+    ///
+    /// Generous on purpose. It is not a performance budget; it is the point at
+    /// which waiting longer is worse than showing the diagnosis, and a room that
+    /// legitimately draws slowly should get the loading screen rather than a
+    /// flash of magenta. The `warn!` on expiry is what turns a slow room into a
+    /// reported number instead of a feeling.
+    pub(crate) presentation_settle_deadline: Duration,
 }
 
 impl Default for RoomTransitionPresentationConfig {
@@ -56,6 +65,7 @@ impl Default for RoomTransitionPresentationConfig {
             minimum_visible: Duration::from_millis(300),
             no_cover_commit_budget: Duration::from_millis(4),
             covered_commit_budget: Duration::from_millis(50),
+            presentation_settle_deadline: Duration::from_secs(8),
         }
     }
 }
@@ -244,6 +254,9 @@ fn drive_room_transition_presentation(
     mut runtime: ResMut<RoomTransitionPresentationState>,
     mut transitions: ResMut<RoomTransitionLoadState>,
     covers: Query<(Entity, &RoomTransitionCoverRoot)>,
+    // Features the sim published that no render family has drawn yet. The cover
+    // waits on these: see the retirement block below.
+    unclaimed: Query<(), With<ambition::render::rendering::UnclaimedBodyPlaceholder>>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -363,6 +376,51 @@ fn drive_room_transition_presentation(
         !runtime.visible_before_commit || runtime.visible_elapsed >= config.minimum_visible;
     if !target_rendered_under_cover || !foreground_minimum_satisfied {
         return;
+    }
+
+    // **PRESENTABLE, not merely committed.**
+    //
+    // One update after commit was the old condition, and it is enough for a room
+    // whose visuals all spawn in that update. It is not a general condition:
+    // render families spawn through `Commands`, and a room with many actors takes
+    // several flushes to draw. `draw_unclaimed_feature_views` fills the gap with a
+    // deliberately-ugly magenta box — a DIAGNOSIS, per its own docs — so retiring
+    // the cover here showed the player that diagnosis as a stage of loading.
+    //
+    // Jon, 2026-07-30, on the Hall: *"It flashes squares, which then flash the
+    // placeholder sprite, and then it flashes to the characters. It looks
+    // disorienting. its not smooth. It doesn't work. It would just be better to
+    // have a loading screen if the load is going to take a hot second."* And on
+    // the way out too, because leaving is another transition.
+    //
+    // ⚠ this is a retirement condition, NOT a commit precondition, and the
+    // difference is load-bearing: the target room's feature views do not exist
+    // until it commits, so a barrier that waited for them before committing would
+    // wait forever.
+    let unsettled = unclaimed.iter().count();
+    let since_commit = active_snapshot
+        .committed_at
+        .map(|committed| time.elapsed().saturating_sub(committed))
+        .unwrap_or_default();
+    if unsettled > 0 {
+        // ⛔ never a hang. A feature that NO family will ever claim is a real bug
+        // this diagnostic exists to show, and holding a black screen over it
+        // forever would hide the bug behind a worse one.
+        if since_commit < config.presentation_settle_deadline {
+            return;
+        }
+        bevy::log::warn!(
+            target: "ambition::room_transition::performance",
+            "room transition {} {} -> {} revealed with {unsettled} unclaimed body \
+             placeholder(s) still drawn after {:.0} ms — the cover gave up waiting. \
+             Those are features the sim published and no render family claimed, so \
+             either a spawn path is missing its family marker or this room draws \
+             more slowly than the deadline allows.",
+            active_snapshot.sequence,
+            active_snapshot.source_room_id,
+            active_snapshot.target_room_id,
+            since_commit.as_secs_f64() * 1000.0,
+        );
     }
 
     let Some(owner) = runtime.owner.take() else {

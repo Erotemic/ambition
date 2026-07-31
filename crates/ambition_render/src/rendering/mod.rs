@@ -77,6 +77,10 @@ pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureReque
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, CameraViewState};
+/// The presentation FLOOR's marker: a feature the sim published that no render
+/// family has drawn. Exported because it is the readable form of "this room is
+/// not presentable yet" — the room-transition cover waits on it.
+pub use features::UnclaimedBodyPlaceholder;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
     layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,

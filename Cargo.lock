@@ -422,6 +422,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_demo_smash"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_dev_tools"
 version = "0.1.0"
 dependencies = [

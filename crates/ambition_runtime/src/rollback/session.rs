@@ -126,6 +126,53 @@ pub struct RollbackSessionStatus {
     pub invalidation: Option<String>,
 }
 
+impl RollbackSessionStatus {
+    /// **The status a NEW session starts from, given the outgoing one.** (AC23)
+    ///
+    /// Installing a session used to write `default()` unconditionally, which
+    /// laundered a divergence: a sync-test mismatch reported on the old timeline
+    /// vanished the moment a new session replaced it, and the replacement looked
+    /// clean. Exactly one of four call sites guarded against it, and its comment
+    /// explained precisely why it had to — which is a seam asking every caller to
+    /// remember a rule the seam could enforce.
+    ///
+    /// So the diagnostic CARRIES. An unhealthy timeline hands its reason to the
+    /// timeline that replaces it, and the only way to clear it is to say so
+    /// (`acknowledge_and_clear`).
+    ///
+    /// ⚠ `mismatch_frames` does NOT carry, and that is not an oversight: frame
+    /// numbers restart at zero for every GGRS session, so carrying them forward
+    /// would report a mismatch at frames the new timeline has not reached yet.
+    /// The reason survives as prose, which is the part a reader acts on.
+    pub fn carried_from(previous: Option<&Self>) -> Self {
+        let Some(previous) = previous else {
+            return Self::default();
+        };
+        let inherited = previous.invalidation.clone().or_else(|| {
+            (!previous.mismatch_frames.is_empty()).then(|| {
+                format!(
+                    "GGRS sync-test checksum mismatch at frames {:?} on the PREVIOUS timeline",
+                    previous.mismatch_frames
+                )
+            })
+        });
+        Self {
+            mismatch_frames: Vec::new(),
+            invalidation: inherited,
+        }
+    }
+
+    /// Clear an inherited diagnostic DELIBERATELY.
+    ///
+    /// The escape hatch, named for what it is. A tool that has shown the
+    /// divergence to a human and been told to carry on calls this; nothing on
+    /// the ordinary install path does.
+    pub fn acknowledge_and_clear(&mut self) {
+        self.mismatch_frames.clear();
+        self.invalidation = None;
+    }
+}
+
 /// Monotonic identity for rollback timelines.
 ///
 /// This resource deliberately survives session teardown. Frame numbers restart
@@ -380,7 +427,13 @@ fn install_session_with_ownership(
         .schema_fingerprint();
     let content = live_content_identity(world);
     world.insert_resource(RollbackSessionContract { content, schema });
-    world.insert_resource(RollbackSessionStatus::default());
+    // AC23: an unhealthy timeline hands its reason to the one replacing it. A
+    // session install must never LAUNDER a divergence into a clean baseline, and
+    // making that the seam's behaviour is what stops it depending on each caller
+    // remembering — one of the four remembered.
+    let carried_status =
+        RollbackSessionStatus::carried_from(world.get_resource::<RollbackSessionStatus>());
+    world.insert_resource(carried_status);
     // Per-session counters restart; lifetime totals do not. A caller measuring
     // a whole run must not have its measurement silently zeroed by a rebase it
     // did not ask for and cannot see (AC18).
@@ -1418,5 +1471,82 @@ mod multi_seat_input_tests {
             "slot 0 is NOT written here — the primary seat is `ControlFrame`, and \
              two homes for one seat is how the two come to disagree"
         );
+    }
+}
+
+#[cfg(test)]
+mod ac23_tests {
+    use super::*;
+
+    /// **A new session inherits an unhealthy timeline's reason.** (AC23)
+    ///
+    /// The defect: installing a session wrote `RollbackSessionStatus::default()`
+    /// unconditionally, so a divergence reported on the old timeline vanished
+    /// the instant a new session replaced it. One of four call sites guarded
+    /// against that, with a comment explaining exactly why it had to — a seam
+    /// asking every caller to remember a rule the seam can enforce.
+    #[test]
+    fn an_invalidated_session_hands_its_reason_to_its_replacement() {
+        let previous = RollbackSessionStatus {
+            mismatch_frames: Vec::new(),
+            invalidation: Some("room reconstructed under a live timeline".to_string()),
+        };
+        let carried = RollbackSessionStatus::carried_from(Some(&previous));
+        assert_eq!(
+            carried.invalidation.as_deref(),
+            Some("room reconstructed under a live timeline"),
+            "the replacement session came up clean, so the divergence was \
+             laundered by the install"
+        );
+    }
+
+    /// A checksum mismatch carries as PROSE, not as frame numbers.
+    ///
+    /// Frames restart at zero for every GGRS session, so carrying the numbers
+    /// would report a mismatch at frames the new timeline has not reached.
+    #[test]
+    fn a_mismatch_carries_its_reason_but_not_its_frame_numbers() {
+        let previous = RollbackSessionStatus {
+            mismatch_frames: vec![41, 42],
+            invalidation: None,
+        };
+        let carried = RollbackSessionStatus::carried_from(Some(&previous));
+        assert!(
+            carried.mismatch_frames.is_empty(),
+            "frame numbers from a dead timeline were carried into a live one, so \
+             the new session reports a mismatch at frames it has not reached"
+        );
+        let reason = carried.invalidation.expect("the mismatch survives as prose");
+        assert!(reason.contains("41"), "the reason lost the evidence: {reason}");
+        assert!(
+            reason.contains("PREVIOUS"),
+            "the reason does not say the mismatch belongs to the old timeline: {reason}"
+        );
+    }
+
+    /// A HEALTHY session installs clean, which is the ordinary case and must not
+    /// acquire a phantom diagnostic.
+    #[test]
+    fn a_healthy_session_installs_clean() {
+        let previous = RollbackSessionStatus::default();
+        assert_eq!(
+            RollbackSessionStatus::carried_from(Some(&previous)),
+            RollbackSessionStatus::default()
+        );
+        assert_eq!(
+            RollbackSessionStatus::carried_from(None),
+            RollbackSessionStatus::default()
+        );
+    }
+
+    /// Clearing is possible, but only by SAYING SO.
+    #[test]
+    fn a_diagnostic_can_be_cleared_only_deliberately() {
+        let mut status = RollbackSessionStatus {
+            mismatch_frames: vec![7],
+            invalidation: Some("diverged".to_string()),
+        };
+        status.acknowledge_and_clear();
+        assert_eq!(status, RollbackSessionStatus::default());
     }
 }

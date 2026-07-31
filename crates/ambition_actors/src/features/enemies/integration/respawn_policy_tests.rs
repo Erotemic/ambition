@@ -87,3 +87,46 @@ fn a_room_reset_restores_a_live_actor_to_full_health_regardless_of_policy() {
         "a living actor resets to full health under every policy"
     );
 }
+
+/// **A respawn RESTARTS the body, and says so.** (Campaign 3B)
+///
+/// `reset_to_spawn` moved the body with `transit_body` under the comment
+/// "respawn is a discrete transit (ADR 0024 authority)". That is right about the
+/// POSE and silent about everything else: `transit_body` documents that maneuver
+/// state (coyote, buffers, dash timers) is deliberately KEPT — true of a blink,
+/// false of coming back from the dead — and it does not raise
+/// `restart_pending`, so `ae::BodyRestarted` never fired for an enemy and no
+/// provider ever heard that one had respawned.
+#[test]
+fn a_respawn_announces_a_restart_and_keeps_the_bodys_own_size() {
+    let size = ae::Vec2::new(24.0, 40.0);
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, size);
+    let mut seed = ActorClusterSeed::new(
+        "reviver".to_string(),
+        "Reviver".to_string(),
+        aabb,
+        CharacterBrain::Custom("cellular_automaton_fighter".into()),
+        &[],
+    );
+    seed.config.tuning.respawn = RespawnPolicy::OnRoomReenter;
+    let mut model = crate::features::MotionModel::default();
+    let mut em = seed.as_actor_mut();
+    let spawn_size = em.config.spawn.size;
+    assert!(!em.lifetime.restart_pending);
+
+    em.reset_to_spawn(&mut model);
+
+    assert!(
+        em.lifetime.restart_pending,
+        "an enemy came back without the engine saying its body had restarted, so \
+         every provider holding life-scoped state kept it"
+    );
+    // ⚠ `BodyBaseSize::default()` is the default PLAYER size, and nothing on the
+    // enemy spawn path wrote it — so a reset that restores `base_size` would
+    // silently resize every enemy in the game to a player. The respawn records
+    // the identity size before resetting; without that this assertion fails.
+    assert_eq!(
+        em.kin.size, spawn_size,
+        "the respawn resized this body to somebody else's default"
+    );
+}

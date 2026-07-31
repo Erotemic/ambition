@@ -135,14 +135,17 @@ impl<'a> ActorMut<'a> {
             {
                 // `health.reset()` IS the revive — restoring HP makes `alive()` true.
                 self.health.reset();
-                // Respawn is a discrete transit: arrive at rest with departure
-                // contacts and any attachment reconciled (ADR 0024 authority).
+                // A revive is a RESTART. Same reasoning as the respawn below:
+                // `transit_body` keeps maneuver state on purpose, which is right
+                // for a blink and wrong for coming back from the dead, and it
+                // does not announce `ae::BodyRestarted` to any provider.
+                self.base_size.base_size = self.config.spawn.size;
                 let spawn = self.config.spawn.pos;
-                ae::movement::transit_body(
+                ae::reset_body_clusters(
                     motion_model,
                     &mut self.clusters_mut(),
                     spawn,
-                    ae::movement::TransitVelocity::Zero,
+                    ae::DEFAULT_TUNING.air_jumps,
                 );
             }
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
@@ -464,15 +467,32 @@ impl<'a> ActorMut<'a> {
                 | ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
         );
         let stays_dead = was_dead && !revives_on_room_reset;
-        self.kin.size = self.config.spawn.size;
-        // Respawn is a discrete transit (ADR 0024 authority): arrive at rest,
-        // departure contacts and any attachment reconciled.
+        // **THE IDENTITY SIZE, recorded where the reset authority reads it.**
+        //
+        // ⚠ `BodyBaseSize::default()` is the default PLAYER size and nothing on
+        // the enemy spawn path ever wrote it, so every enemy body in the game
+        // carries a base size that is not its own. Latent until something reset
+        // one — and the line below is now that something.
+        self.base_size.base_size = self.config.spawn.size;
+        // A respawn is a RESTART, not a transit.
+        //
+        // ⚠ this was `transit_body` under the comment "respawn is a discrete
+        // transit (ADR 0024 authority)". Right about the POSE — a body arriving
+        // somewhere must reconcile departure contacts and attachment — and
+        // silent about everything else: `transit_body` documents that maneuver
+        // state (coyote, buffers, dash timers) is deliberately KEPT, which is
+        // true of a blink and false of coming back from the dead. It also does
+        // not raise `restart_pending`, so `ae::BodyRestarted` never fired for an
+        // enemy respawn and no provider heard about it.
+        //
+        // `reset_body_clusters` transits internally, so the ADR 0024 property
+        // that comment was protecting is not lost by saying the stronger thing.
         let spawn = self.config.spawn.pos;
-        ae::movement::transit_body(
+        ae::reset_body_clusters(
             motion_model,
             &mut self.clusters_mut(),
             spawn,
-            ae::movement::TransitVelocity::Zero,
+            ae::DEFAULT_TUNING.air_jumps,
         );
         // Fresh full-HP body → `alive()` is true; no separate liveness flag.
         // Skipped entirely for a corpse whose policy forbids a room-scoped

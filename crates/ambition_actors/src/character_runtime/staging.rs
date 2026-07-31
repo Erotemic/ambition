@@ -261,6 +261,74 @@ impl MatchParticipantRoster {
     }
 }
 
+/// **What a roster asked for that its composition cannot provide.**
+///
+/// One entry per unsatisfiable seat, phrased for a human reading a refusal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RosterProblem {
+    /// Which seat, by roster index — the same numbering `MatchSeat` uses.
+    pub seat: usize,
+    pub detail: String,
+}
+
+impl std::fmt::Display for RosterProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "seat {}: {}", self.seat, self.detail)
+    }
+}
+
+impl MatchParticipantRoster {
+    /// **Can this roster actually be seated by this composition?** (API 1.0
+    /// row (g))
+    ///
+    /// The campaign's words: *"a composition can declare four participants and
+    /// seat two, and no error says so."* This is the seam that says so, and it
+    /// is callable BEFORE the roster is published — which is the whole point,
+    /// because seating is past the point of no return. `seat_match_participants`
+    /// refuses an unresolvable profile, and a refusal at that point is a
+    /// half-built match in a release build and a panic in a debug one.
+    ///
+    /// ⚠ **it checks what the composition can ANSWER, not what the content
+    /// means.** A brain profile is looked up in the `CharacterRoster` archetype
+    /// table — the table a seated CPU actually consults — because that is the
+    /// lookup that silently fell back to a stand-still body twice on
+    /// 2026-07-31: the versus stage naming `medium_striker`, an
+    /// `ambition_content` row its own composition never registered, and the
+    /// smash demo naming `duelist` before it registered one. Both shipped, both
+    /// looked composed, and both were fights against a statue.
+    ///
+    /// Character ids are NOT checked here: `PreparedCharacterRegistry` answers
+    /// that, refuses on its own, and asking twice would put two authorities on
+    /// one question.
+    pub fn unsatisfiable_seats(
+        &self,
+        archetypes: &crate::features::CharacterRoster,
+    ) -> Vec<RosterProblem> {
+        self.participants
+            .iter()
+            .enumerate()
+            .filter_map(|(seat, participant)| {
+                let profile = participant.controller.brain_profile()?;
+                if archetypes.has_brain_key(profile) {
+                    return None;
+                }
+                let mut known = archetypes.brain_keys();
+                known.sort();
+                Some(RosterProblem {
+                    seat,
+                    detail: format!(
+                        "asks for brain profile `{profile}`, which this composition's \
+                         CharacterRoster does not have. Known keys: {known:?}. \
+                         ⚠ this is the ARCHETYPE table a seated CPU consults, not the \
+                         catalog's `brain_presets` — the two share the word `brain` and \
+                         nothing else."
+                    ),
+                })
+            })
+            .collect()
+    }
+}
+
 impl StagesCharacters for MatchParticipantRoster {
     fn character_tokens(&self) -> Vec<String> {
         self.participants
@@ -408,5 +476,71 @@ mod tests {
             NormalizedEffort::new(0.9).applied_to(100.0),
             NormalizedEffort::new(0.3).applied_to(300.0)
         );
+    }
+}
+
+#[cfg(test)]
+mod roster_validation_tests {
+    use super::*;
+    use crate::character_runtime::ControllerBinding;
+
+    fn archetypes(keys: &[&str]) -> crate::features::CharacterRoster {
+        let mut map = std::collections::BTreeMap::new();
+        for key in keys {
+            map.insert((*key).to_string(), crate::features::enemies::test_spec(key));
+        }
+        crate::features::CharacterRoster::new(map, crate::features::enemies::test_spec("combatant"))
+    }
+
+    /// **The bug this seam exists for, twice on 2026-07-31.**
+    ///
+    /// A CPU seat naming a brain profile the composition never registered.
+    /// `spec_for_brain` falls back to a generic row whose brain is
+    /// `stand_still`, so the match composes, seats, runs — and the opponent
+    /// never moves.
+    #[test]
+    fn a_cpu_seat_naming_an_unregistered_profile_is_unsatisfiable() {
+        let mut roster = MatchParticipantRoster::of(["fighter_a", "fighter_b"]);
+        roster.participants[1] = roster.participants[1]
+            .clone()
+            .driven_by(ControllerBinding::Cpu {
+                brain_profile: Some("medium_striker".into()),
+            });
+
+        let problems = roster.unsatisfiable_seats(&archetypes(&["combatant"]));
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert_eq!(problems[0].seat, 1);
+        assert!(
+            problems[0].detail.contains("medium_striker"),
+            "the refusal has to name what was asked for: {}",
+            problems[0].detail
+        );
+    }
+
+    #[test]
+    fn a_roster_its_composition_can_seat_reports_nothing() {
+        let mut roster = MatchParticipantRoster::of(["fighter_a", "fighter_b"]);
+        roster.participants[1] = roster.participants[1]
+            .clone()
+            .driven_by(ControllerBinding::Cpu {
+                brain_profile: Some("duelist".into()),
+            });
+        assert!(
+            roster
+                .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]))
+                .is_empty()
+        );
+    }
+
+    /// A HUMAN seat asks the archetype table for nothing, so it cannot be
+    /// unsatisfiable this way — and a check that flagged it would make every
+    /// couch game unpublishable.
+    #[test]
+    fn a_human_seat_needs_no_archetype() {
+        let mut roster = MatchParticipantRoster::of(["fighter_a"]);
+        roster.participants[0] = roster.participants[0]
+            .clone()
+            .driven_by(ControllerBinding::Human { device_slot: 0 });
+        assert!(roster.unsatisfiable_seats(&archetypes(&[])).is_empty());
     }
 }

@@ -7,7 +7,7 @@
 //! No process-resident projection or synchronization bridge exists.
 
 pub use ambition_platformer_primitives::lifecycle::{
-    session_world_exists, SessionRoot, SessionWorldMut, SessionWorldRef,
+    SessionRoot, SessionWorldMut, SessionWorldRef, session_world_exists,
 };
 pub use ambition_runtime::{
     ContentDiagnostic, ContentEpoch, ContentFingerprint, ContentFingerprintSchemaVersion,

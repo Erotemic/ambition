@@ -176,8 +176,6 @@ fn the_versus_stage_rolls_back_with_two_participants() {
     );
 }
 
-
-
 /// **The match has two distinct seated bodies, and it simulates with both.**
 ///
 /// ⚠ **Read the limit before the assertion.** This does NOT prove that the
@@ -201,7 +199,10 @@ fn the_versus_stage_rolls_back_with_two_participants() {
 fn the_match_has_two_distinct_seats_and_simulates_with_both() {
     use ambition::rollback::RollbackPlan;
 
-    let mut app = PlatformerApp::headless().rollback(2).mount(VersusModule).build();
+    let mut app = PlatformerApp::headless()
+        .rollback(2)
+        .mount(VersusModule)
+        .build();
     let session = ambition::rollback::start(&mut app, RollbackPlan::new())
         .expect("the versus stage must reach a running rollback session");
     assert_eq!(session.participants(), 2);
@@ -244,5 +245,46 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
     assert!(
         health.frame().expect("a frame") > before && health.is_healthy(),
         "the two-seat match did not advance cleanly: {health:?}"
+    );
+}
+
+/// **The versus stage's CPU roster is seatable by the composition the SDK
+/// builds.** (API 1.0 row (g))
+///
+/// This is the guard for the bug that shipped here: `versus_roster_from` named
+/// `medium_striker`, a row in `ambition_content`'s archetype table that
+/// `compose_versus_experience` does not compose. The lookup fell back to a
+/// generic row whose brain is `stand_still`, so the SDK path had been seating a
+/// statue and calling it an opponent.
+///
+/// ⚠ **it has to run against THIS composition, not the full app.** Written first
+/// against `versus_app()` — the whole game, which composes `ambition_content` and
+/// therefore does have `medium_striker` — and it stayed green with the original
+/// bug put back. A guard that cannot go red on the defect it names is noise, and
+/// the population this one serves is the SDK consumer with no content crate.
+#[test]
+fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
+    use ambition::actors::features::CharacterRoster;
+
+    let app = PlatformerApp::headless()
+        .start_at_launcher()
+        .mount(VersusModule)
+        .try_build()
+        .expect("the versus stage must compose through the public API");
+
+    let archetypes = app
+        .world()
+        .get_resource::<CharacterRoster>()
+        .expect("the composition installs an archetype table")
+        .clone();
+
+    // One local player: seat 1 is the CPU, which is the default versus
+    // experience and the one anybody with a single controller plays.
+    let roster = ambition_app::app::versus::versus_roster(1);
+    let problems = roster.unsatisfiable_seats(&archetypes);
+    assert!(
+        problems.is_empty(),
+        "the versus stage declares a CPU seat the SDK composition cannot seat, \
+         so that fighter is a stand-still body: {problems:?}"
     );
 }

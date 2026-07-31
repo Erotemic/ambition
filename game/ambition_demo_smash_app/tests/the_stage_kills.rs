@@ -465,3 +465,48 @@ fn losing_a_stock_announces_a_body_restart() {
          had restarted, so every provider holding round-or-life state kept it"
     );
 }
+
+/// **This demo's own CPU roster is seatable by its own composition.**
+/// (API 1.0 row (g))
+///
+/// The bug this guards shipped twice on 2026-07-31 — here and on the versus
+/// stage. A `ControllerBinding::Cpu { brain_profile }` is looked up in the
+/// composition's `CharacterRoster` ARCHETYPE table, and `spec_for_brain` falls
+/// back to a generic row whose brain is `stand_still` when the key is absent.
+/// The match composes, seats, and runs; the opponent never moves.
+///
+/// Asked here rather than at the select screen, and that is the point: every
+/// seat the screen produces is a HUMAN, and a human seat asks the archetype
+/// table for nothing. A guard placed there would have been unreachable —
+/// protection that reads as protection and cannot fire.
+#[test]
+fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
+    use ambition::actors::features::CharacterRoster;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let archetypes = app
+        .world()
+        .get_resource::<CharacterRoster>()
+        .expect("the composition installs an archetype table")
+        .clone();
+
+    for level in [1u8, 5, 9] {
+        let roster = ambition_demo_smash::smash_roster_at_level(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            level,
+        );
+        let problems = roster.unsatisfiable_seats(&archetypes);
+        assert!(
+            problems.is_empty(),
+            "level {level}: this demo declares a CPU seat its own composition \
+             cannot seat, so the fighter would silently be a stand-still body: \
+             {problems:?}"
+        );
+    }
+}

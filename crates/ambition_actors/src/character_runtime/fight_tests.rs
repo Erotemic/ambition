@@ -282,7 +282,7 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 
 use crate::combat::hitbox::apply_hitbox_damage;
 use crate::combat::moveset::{
-    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
+    MovePlayback, advance_move_playback, resolve_attack_gestures, trigger_moveset_moves,
 };
 use crate::features::apply_feature_hit_events;
 use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};

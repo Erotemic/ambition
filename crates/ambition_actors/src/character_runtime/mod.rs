@@ -43,35 +43,35 @@ pub mod seating;
 pub mod staging;
 
 pub use audit::{
-    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
-    CharacterCapabilityGap,
+    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
+    unsettled_staged_characters,
 };
-#[cfg(test)]
-pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
     BodySource, CharacterBindings, CharacterCatalogGeneration, CharacterDefinition,
     CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError, Lineage,
     PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit, Vitals,
 };
+#[cfg(test)]
+pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use hurtbox::{
-    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
-    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
+    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
+    ResolvedHurtboxes, resolve_hurtboxes,
 };
 pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use presentation::{
-    authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
-    project_prepared_character_definitions, provider_of_character,
-    publish_body_presentation_sources, ProjectedCharacterKit,
+    ProjectedCharacterKit, authorize_staged_character_presentation_sources,
+    inherit_projectile_presentation_sources, project_prepared_character_definitions,
+    provider_of_character, publish_body_presentation_sources,
 };
 pub use seating::{
-    match_participants, seat_character, seat_match_participants, seat_placement, ActiveMatch,
-    MatchSeat,
+    ActiveMatch, MatchSeat, match_participants, seat_character, seat_match_participants,
+    seat_placement,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
-    NormalizedEffort, RoomStagingPlan, StagesCharacters,
+    NormalizedEffort, RoomStagingPlan, RosterProblem, StagesCharacters,
 };
 
 use std::collections::{BTreeMap, BTreeSet};

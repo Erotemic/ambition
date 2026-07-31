@@ -177,6 +177,40 @@ absolute; "spawn your rollback entities in `Startup`"), closed the same day.
    [`consumer-matrix.json`](slice-evidence/consumer-matrix.json)); the test
    claims only what it proves
    (`the_match_has_two_distinct_seats_and_simulates_with_both`).
+
+   > **PARTLY CLOSED 2026-07-31, in two halves.**
+   >
+   > * **The input half is BUILT.** `ambition_input::SeatMenuFrames` drives a
+   >   NAMED seat: keyed by participant slot, written by
+   >   `populate_seat_menu_frames`, with per-seat repeat state and a
+   >   `decode_menu_frame` shared with the global frame so the two cannot drift.
+   >   The smash demo's select screen is the consumer, and four people join,
+   >   browse and lock in independently through it.
+   > * **The reconciliation half is BUILT as a seam, not yet as a refusal.**
+   >   `MatchParticipantRoster::unsatisfiable_seats(&CharacterRoster)` answers
+   >   "can this composition seat this roster", callable BEFORE the roster is
+   >   published — which is the point, since seating is past the point of no
+   >   return.
+   >
+   > ⚠ **the evidence this row was missing arrived the same day: the bug shipped
+   > TWICE.** The versus stage named `medium_striker`, an `ambition_content`
+   > archetype `compose_versus_experience` does not compose; the smash demo named
+   > `duelist` before registering one. Both fell back to a generic row whose
+   > brain is `stand_still`. Both looked composed. Both were fights against a
+   > statue, and neither was caught by reading.
+   >
+   > ⚠ **and the guard's PLACEMENT is the lesson.** It was written first at the
+   > smash select screen — where every seat is a HUMAN, so it could never fire —
+   > and then against the full `versus_app()`, which composes `ambition_content`
+   > and therefore stayed green with the original bug put back. It only goes red
+   > where it belongs: on the SDK composition, against the roster the experience
+   > itself declares.
+   >
+   > ▢ still open: making it a REFUSAL rather than a check a consumer must
+   > remember to call. `PlatformerApp::build` already refuses with
+   > `CompositionError { problems }` for exactly this shape, but a roster
+   > published at runtime (a select screen) is not visible at build time — so
+   > the refusal belongs at the publish seam, and that seam does not exist yet.
 2. **(a) An inert registration should be unrepresentable.**
    `rollback_component_canonical` on an entity the consumer spawned is
    accepted, counted by `encoded_types()`, and inert until

@@ -20,7 +20,7 @@ use super::*;
 /// not knowing any character's id, so its fixture should not either. The first
 /// baked target is whatever the sheet table happens to hold.
 fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
-    use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
+    use ambition_sprite_sheet::character::sheets::{SheetTuning, try_load_spec_for_target};
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     // Not every baked target is a CHARACTER sheet — effect sheets
     // (`robot_slash`) are in the same table and load no character spec. Take the
@@ -230,8 +230,8 @@ fn a_later_identity_swap_demands_the_new_sheet() {
 // ── §7.2: composition parity as a readiness invariant ──────────────────────────
 
 use super::audit::{
-    audit_character_capabilities, character_reveal_ready, report_character_capability_gaps,
-    unsettled_staged_characters, CharacterCapabilityGap,
+    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
+    report_character_capability_gaps, unsettled_staged_characters,
 };
 use super::staging::{
     DirectStartupSpec, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,

@@ -128,7 +128,7 @@ pub mod actor {
     /// A second consumer is the only instrument that finds this class, which is
     /// the entire argument for keeping one.
     pub use ambition_actors::character_runtime::{
-        ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        ControllerBinding, MatchParticipant, MatchParticipantRoster, RosterProblem,
     };
 
     /// **The stocks economy**: the count on a body, the fact that it is out, and
@@ -152,9 +152,9 @@ pub mod actor {
     /// concept and this is where a consumer looks for it (LEAK CLOSED, slice F).
     pub use ambition_actors::construction::ActorConstructionRegistry;
 
-    /// Where the body is, and how it moves.
-    pub use ambition_engine_core::movement::{transit_body, TransitVelocity};
     pub use ambition_engine_core::BodyClusterQueryData;
+    /// Where the body is, and how it moves.
+    pub use ambition_engine_core::movement::{TransitVelocity, transit_body};
     pub use ambition_platformer_primitives::body::BodyKinematics;
 
     /// What a game spawns and configures.
@@ -196,7 +196,7 @@ pub mod character {
     pub use ambition_actors::features::CharacterRosterAppExt;
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
-        parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
+        CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment, parse_catalog,
     };
 
     /// What providers have authored, for a game that wants to inspect its own
@@ -216,9 +216,9 @@ pub mod character {
     /// What a character looks like, and whether its art has arrived.
     pub use ambition_actors::character_runtime::CharacterLoadStates;
     pub use ambition_actors::character_sprites::sheet_for_declared_character;
-    pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
-    pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
+    pub use ambition_sprite_sheet::character::CharacterSheetState;
+    pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
 }
 
 /// **The simulation schedule a game joins its own systems to.**
@@ -283,7 +283,7 @@ pub mod view {
 
     /// Where the art comes from: every asset path/source policy the
     /// presentation reads.
-    pub use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
+    pub use ambition_asset_manager::sandbox_assets::{SandboxAssetCatalog, ids};
 }
 
 /// **Rollback, as a supported session mode.**
@@ -324,8 +324,8 @@ pub use bevy;
 /// Engine assembly helpers most games need first.
 pub mod engine {
     pub use ambition_runtime::{
-        add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SandboxSetsPlugin,
-        SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
+        PlatformerEnginePlugins, SandboxSetsPlugin, SimCoreResourcesPlugin, SimulationHost,
+        SimulationHostAppExt, add_headless_foundation, init_engine_states,
     };
 }
 

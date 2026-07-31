@@ -92,6 +92,26 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
         );
+        // ⚠ **the same lesson as the label pass above, one family over.** The
+        // parallax THEME load lived in `game/ambition_app`'s room-transition
+        // machinery, so a room in a second biome had a backdrop in the shipped
+        // host and none anywhere else — silently, because `spawn_parallax_layers`
+        // skips a layer whose handle is absent. The composition that spawns the
+        // layers is the composition that must load them.
+        //
+        // The refresh moves with it: it is what turns the load into visible
+        // layers (it watches `GameAssets` for change), and leaving it in the app
+        // would have made the load a no-op everywhere else — a fix that reads as
+        // a fix and changes no picture.
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::ensure_active_room_parallax_theme,
+                crate::rendering::refresh_parallax_layers_on_quality_change,
+            )
+                .chain()
+                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+        );
     }
 }
 

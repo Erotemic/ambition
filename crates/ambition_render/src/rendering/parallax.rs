@@ -185,6 +185,76 @@ pub fn refresh_parallax_layers_on_quality_change(
     );
 }
 
+/// **Load the ACTIVE room's parallax theme, in whatever composition is
+/// running.**
+///
+/// ⚠ **This was app-local, and it is the recurring class.** The lazy load lived
+/// in `game/ambition_app`'s room-transition machinery
+/// (`build_room_asset_manifest`), so the shipped host got a backdrop in every
+/// biome and every other composition — the demos, the external consumer, any
+/// game built through `PlatformerApp` — got the STARTUP room's theme and nothing
+/// else. And it failed the quiet way: [`spawn_parallax_layers`] skips a layer
+/// whose handle is absent, so a room in a second biome simply has no background
+/// and says nothing. Same shape as the world-label placement pass (AE1), which
+/// is why the plugin that spawns the layers now owns the load as well.
+///
+/// It is a lazy load rather than a preload for the reason the original comment
+/// gives: startup pays for the first room's zone art only, and a theme is loaded
+/// the first time a room asks for it.
+///
+/// The load MUTATES [`GameAssets`], which is exactly the signal
+/// [`refresh_parallax_layers_on_quality_change`] watches — so the layers that
+/// were skipped respawn on the next frame with no extra wiring. `attempted`
+/// keeps a theme whose art is genuinely absent from re-deriving its paths (and
+/// re-touching `GameAssets`) every frame, which would respawn every layer in
+/// the world forever.
+pub fn ensure_active_room_parallax_theme(
+    assets: Option<ResMut<GameAssets>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
+    asset_server: Option<Res<AssetServer>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    room_set: Option<
+        ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+    >,
+    mut attempted: Local<Vec<ParallaxTheme>>,
+) {
+    let (Some(mut assets), Some(catalog), Some(asset_server), Some(room_set)) =
+        (assets, catalog, asset_server, room_set)
+    else {
+        return;
+    };
+    // A rebuilt `GameAssets` (a fresh bind) starts with no themes at all, so the
+    // memo has to start again with it — otherwise a theme this system already
+    // "attempted" would never be loaded into the new set.
+    if assets.is_added() {
+        attempted.clear();
+    }
+    let metadata = room_set.active_spec().metadata.clone();
+    let theme = ParallaxTheme::from_room_metadata(&metadata);
+    if attempted.contains(&theme) {
+        return;
+    }
+    attempted.push(theme);
+    // Already present — the startup bind loads the first room's theme, and the
+    // Ambition host's own transition path may have loaded others. Returning
+    // without touching `GameAssets` matters: a mutable deref alone marks it
+    // changed, and the refresh system would despawn and respawn every layer in
+    // the world to arrive at the same picture.
+    if ParallaxLayerAsset::ALL
+        .iter()
+        .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+    {
+        return;
+    }
+    ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
+        &mut assets,
+        &catalog,
+        &asset_server,
+        &metadata,
+        quality.as_deref().map(|q| &q.budget),
+    );
+}
+
 pub fn sync_parallax_layers(
     // `With<MainCamera>`: ignore the #31 cube overlay Camera3d AND the portal
     // view-cone capture `Camera2d`s, so `.single()` still resolves the one main
@@ -331,5 +401,117 @@ mod tests {
 
         assert!(copy_layers.intersects(&capture_layers));
         assert!(!copy_layers.intersects(&RenderLayers::layer(0)));
+    }
+}
+
+/// **A second biome gets its own backdrop, in a composition that is not the
+/// shipped app.**
+#[cfg(test)]
+mod theme_load_tests {
+    use super::*;
+    use ambition_asset_manager::profile::AssetProfile;
+    use ambition_asset_manager::sandbox_assets::SandboxAssetCatalog;
+    use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
+
+    /// Trusts packaging rather than the filesystem — `AndroidBundle` is the
+    /// profile whose `should_attempt_resolved_load` is unconditionally true, so
+    /// this test asks "does the engine REQUEST the theme's art" without also
+    /// asking whether a generated PNG happens to exist next to the test binary.
+    fn packaged_catalog() -> SandboxAssetCatalog {
+        let manifest = ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites");
+        SandboxAssetCatalog::new(
+            ambition_asset_manager::AmbitionAssetCatalog::new(manifest),
+            AssetProfile::AndroidBundle,
+        )
+    }
+
+    /// One room, in a biome that is deliberately NOT the engine's default.
+    fn room_set_in(theme_key: &str) -> ambition_world::rooms::RoomSet {
+        let mut room = ambition_world::rooms::RoomSpec::new(
+            "second_biome",
+            ambition_engine_core::World::new(
+                "second_biome",
+                ambition_engine_core::Vec2::new(640.0, 480.0),
+                ambition_engine_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        room.metadata.visual_profile.parallax_theme = Some(theme_key.to_string());
+        ambition_world::rooms::RoomSet::from_parts("second_biome", vec![room], Vec::new())
+    }
+
+    /// **The theme the ACTIVE room asks for is loaded by whoever presents it.**
+    ///
+    /// This lived in `game/ambition_app`'s room-transition machinery, so the
+    /// shipped host had a backdrop in every biome and every other composition —
+    /// the demos, the external consumer, anything built through `PlatformerApp`
+    /// — drew the startup room's theme and nothing else. Silently:
+    /// [`spawn_parallax_layers`] skips a layer whose handle is absent, so the
+    /// second biome simply had no sky.
+    #[test]
+    fn a_room_in_a_second_biome_loads_its_own_parallax_theme() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.insert_resource(GameAssets::default());
+        app.insert_resource(packaged_catalog());
+        app.world_mut()
+            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        // ⚠ the PLUGIN, not the system: the defect was never that the load did
+        // not work, it was that only one composition installed it. A test that
+        // adds the system by hand cannot go red on the thing that was wrong.
+        app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
+
+        // Non-vacuity: nothing has this theme before the frame runs, so the
+        // assertion below is about the system and not about a default.
+        assert!(app
+            .world()
+            .resource::<GameAssets>()
+            .parallax_layers
+            .get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0])
+            .is_none());
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<GameAssets>()
+                .parallax_layers
+                .get(ParallaxTheme::Cave, ParallaxLayerAsset::ALL[0])
+                .is_some(),
+            "the active room asked for the `cave` theme and nothing loaded it, \
+             so every one of its layers would be skipped and the room would \
+             draw no background at all"
+        );
+    }
+
+    /// **And it does not touch `GameAssets` once the theme is in.**
+    ///
+    /// A mutable deref alone marks the resource changed, and
+    /// [`refresh_parallax_layers_on_quality_change`] answers that by despawning
+    /// and respawning every parallax layer in the world. A load that ran every
+    /// frame would rebuild the backdrop every frame — the fix that is worse than
+    /// the bug.
+    #[test]
+    fn a_theme_already_loaded_is_not_reloaded_every_frame() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.insert_resource(GameAssets::default());
+        app.insert_resource(packaged_catalog());
+        app.world_mut()
+            .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
+        app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
+
+        app.update();
+        // Two more frames: the theme is present, so neither may report a change.
+        app.update();
+        let changed = app.world().resource_ref::<GameAssets>().is_changed();
+        assert!(
+            !changed,
+            "the theme load ran again on a frame where nothing was missing"
+        );
     }
 }

@@ -437,10 +437,13 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     );
     app.add_systems(
         Update,
+        // ⚠ `refresh_parallax_layers_on_quality_change` left this chain on
+        // 2026-07-31: `SessionRoomVisualsPlugin` installs it now, beside the
+        // theme load it exists to make visible. Registering it here as well
+        // would run the despawn/respawn twice in one frame.
         (
             reload_visual_quality_assets_on_scale_change,
             ambition::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
-            ambition::render::rendering::refresh_parallax_layers_on_quality_change,
         )
             .chain()
             .run_if(ambition::platformer::lifecycle::session_world_exists),

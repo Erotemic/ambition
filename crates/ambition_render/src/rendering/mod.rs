@@ -93,7 +93,8 @@ pub use nameplates::{
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
-    refresh_parallax_layers_on_quality_change, spawn_parallax_layers, sync_parallax_layers,
+    ensure_active_room_parallax_theme, refresh_parallax_layers_on_quality_change,
+    spawn_parallax_layers, sync_parallax_layers,
 };
 pub use primitives::{
     FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual,

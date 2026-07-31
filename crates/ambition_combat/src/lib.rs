@@ -20,6 +20,7 @@ pub mod on_hit;
 pub mod path_motion;
 pub mod rules;
 pub mod slots;
+pub mod stocks;
 mod snapshot_impls;
 pub mod targeting;
 pub mod util;

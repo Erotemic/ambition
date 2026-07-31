@@ -25,6 +25,27 @@ An unknown -p package or an otherwise empty plan is a hard error.
   ./run_tests.sh -- --nocapture      # args after `--` go to libtest
 
 Exit code is nonzero if any job fails. A pytest-style summary is printed last.
+
+WAITING FOR A RUN (read this before you write a polling loop)
+------------------------------------------------------------
+Every run rewrites a small status file -- `target/run_tests_status.json` by
+default, `--status-json PATH` to move it. It holds `{"state": "running" |
+"done" | "crashed", ...}` plus the pass/fail tally once finished. Ask *that*
+whether the suite is still going:
+
+    python3 -c 'import json,sys; \
+      print(json.load(open("target/run_tests_status.json"))["state"])'
+
+Ctrl-C and any exception land on `"crashed"`. A SIGKILL (the OOM killer) runs
+nothing, so it can strand a `"running"` -- that is what the recorded `pid` is
+for: no such process means the file is stale, whatever it says.
+
+Do NOT poll with `pgrep -f run_tests.py`. The polling shell's own command line
+contains the string `run_tests.py`, so pgrep matches the waiter itself, the
+condition is permanently true, and the loop never exits. On 2026-07-31 seven
+such shells were found still sleeping hours after the suite they were waiting
+on had finished -- each one kept the next one alive. The bug is silent: the
+loop looks like it is waiting for work that is simply slow.
 """
 from __future__ import annotations
 
@@ -40,6 +61,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+# The run-state file another process should read to learn whether a suite is
+# still going. See the module docstring: process-scanning for the answer is
+# what hangs, because the scan matches the shell doing the scanning.
+STATUS_NAME = "run_tests_status.json"
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -383,7 +408,21 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     return jobs
 
 
-def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> int:
+def write_status(path: Path, payload: dict) -> None:
+    """Rewrite the run-state file atomically.
+
+    Atomically because this file exists to be read by another process while
+    this one is running: a reader that catches a half-written file gets a
+    JSON error, and the natural way to "handle" that is to retry forever.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
+        status_json: str | None = None) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
@@ -407,15 +446,31 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> in
     # where the edit-rebuild loop actually lives — `setdefault`, so anyone who
     # wants it back exports `CARGO_INCREMENTAL=1`.
     env.setdefault("CARGO_INCREMENTAL", "0")
+
+    status = Path(status_json) if status_json else REPO / "target" / STATUS_NAME
     results: list[JobResult] = []
-    for j in jobs:
-        print(f"\n\033[1m==> {j.name}\033[0m")
-        print("    " + " ".join(j.argv))
-        start = time.monotonic()
-        rc = subprocess.run(j.argv, cwd=j.cwd or REPO, env=env).returncode
-        results.append(JobResult(j.name, j.argv, rc == 0, time.monotonic() - start))
-        if rc != 0:
-            print(f"\033[31m    FAILED ({j.name})\033[0m")
+    base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs)}
+    write_status(status, {**base, "state": "running", "finished_jobs": 0})
+    # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
+    # exception) must not leave `"running"` behind, or a future reader waits on
+    # a run that no longer exists. SIGKILL still can, hence the `pid` above.
+    try:
+        for j in jobs:
+            print(f"\n\033[1m==> {j.name}\033[0m")
+            print("    " + " ".join(j.argv))
+            start = time.monotonic()
+            rc = subprocess.run(j.argv, cwd=j.cwd or REPO, env=env).returncode
+            results.append(
+                JobResult(j.name, j.argv, rc == 0, time.monotonic() - start))
+            if rc != 0:
+                print(f"\033[31m    FAILED ({j.name})\033[0m")
+            write_status(status, {**base, "state": "running",
+                                  "finished_jobs": len(results)})
+    except BaseException:
+        write_status(status, {**base, "state": "crashed",
+                              "finished_jobs": len(results),
+                              "failed": [r.name for r in results if not r.ok]})
+        raise
 
     passed = sum(1 for r in results if r.ok)
     failed = [r.name for r in results if not r.ok]
@@ -433,6 +488,12 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None) -> in
         Path(timings_json).write_text(
             json.dumps(timings_payload(results), indent=2) + "\n")
         print(f"  timings written to {timings_json}")
+
+    write_status(status, {**base, "state": "done", "finished_jobs": len(results),
+                          "passed": passed, "failed": failed,
+                          "seconds": round(total, 1),
+                          "exit_code": 1 if failed else 0})
+    print(f"  status written to {status}")
     return 1 if failed else 0
 
 
@@ -453,6 +514,11 @@ def main() -> int:
                     default=os.environ.get("RUN_TESTS_TIMINGS_JSON"),
                     help="also write per-job timings as JSON to PATH "
                          "(or set RUN_TESTS_TIMINGS_JSON)")
+    ap.add_argument("--status-json", metavar="PATH",
+                    default=os.environ.get("RUN_TESTS_STATUS_JSON"),
+                    help="run-state file to rewrite as the suite progresses "
+                         f"(default target/{STATUS_NAME}); read this to wait "
+                         "for a run instead of scanning for the process")
     ap.add_argument("cargo_extra", nargs="*",
                     help="args after `--` forwarded to libtest")
     args = ap.parse_args()
@@ -462,7 +528,8 @@ def main() -> int:
         libtest_args.insert(0, args.k)
 
     jobs = build_jobs(args.package, args.heavy, libtest_args, fast=args.fast)
-    return run(jobs, args.list, timings_json=args.timings_json)
+    return run(jobs, args.list, timings_json=args.timings_json,
+               status_json=args.status_json)
 
 
 if __name__ == "__main__":

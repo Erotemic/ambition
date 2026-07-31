@@ -10,6 +10,10 @@
 #   ./run_tests.sh --fast       backbone only: cargo test --workspace
 #   ./run_tests.sh -- --nocapture   args after `--` go to libtest
 #
+# Waiting for a run: read target/run_tests_status.json ("running"/"done"/
+# "crashed"), NOT `pgrep -f run_tests.py` -- that matches the polling shell
+# itself and hangs forever. See the module docstring in scripts/run_tests.py.
+#
 # The job plan (which crates run with which features) is computed from the
 # Cargo manifests in scripts/run_tests.py, so it can't drift as features change.
 set -euo pipefail

@@ -146,6 +146,12 @@ never hand-edit the level.
   `scripts/git_debloat.py`, `scripts/archive_agent_source.py`.
 - `./run_tests.sh` is the suite; use narrower tests when a focused one already
   covers the touched concept.
+- To wait on a long command, read state it WROTE — for the suite that is
+  `target/run_tests_status.json` (`state`: running/done/crashed). Never poll
+  with `pgrep -f <script>`: your polling shell's own command line contains the
+  pattern, so pgrep matches the waiter, the condition never goes false, and the
+  loop sleeps forever. Seven such shells were found stranded on 2026-07-31.
+  Better still, don't poll — a backgrounded command reports its own exit.
 
 ## Avoid bullshit guardrails
 

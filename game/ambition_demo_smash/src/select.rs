@@ -356,7 +356,9 @@ mod tests {
 
         let pads = |count: u32| {
             LocalDeviceOrder::from_devices(
-                (0..count).filter_map(Entity::from_raw_u32).collect::<Vec<_>>(),
+                (0..count)
+                    .filter_map(Entity::from_raw_u32)
+                    .collect::<Vec<_>>(),
             )
         };
         assert_eq!(

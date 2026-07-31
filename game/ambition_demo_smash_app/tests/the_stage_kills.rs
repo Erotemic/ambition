@@ -381,3 +381,87 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
         peak * 100.0
     );
 }
+
+/// **Losing a stock RESTARTS the body; it does not teleport it.** (Campaign 3B)
+///
+/// The respawn used `transit_body`, whose contract is that "axis maneuver state
+/// (coyote, buffers, dash timers) is deliberately KEPT — those are time facts,
+/// not place facts". True of a blink and false of a knockout: a fighter came
+/// back holding the dash timer and buffered jump it died with, and because
+/// `ae::BodyRestarted` is derived from `reset_body_clusters` raising
+/// `restart_pending`, no PROVIDER heard about the respawn either — a ball-dash
+/// charge or a rolling form would have survived a knockout in silence.
+///
+/// This asserts the announcement, not the position: the position was always
+/// right, which is exactly why the leak was invisible.
+#[test]
+fn losing_a_stock_announces_a_body_restart() {
+    use ambition::actor::{FighterStocks, MatchSeat};
+    use ambition::engine_core::BodyLifetime;
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ]));
+    app.world_mut()
+        .write_message(ambition::game_shell::ShellCommand::GoTo(
+            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        ));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let (fighter, before) = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat, &FighterStocks)>();
+        q.iter(world)
+            .find(|(_, seat, _)| seat.0 == 1)
+            .map(|(entity, _, stocks)| (entity, stocks.remaining))
+            .expect("the match seats a second fighter")
+    };
+
+    // Throw it out of the world, which is how a stock is spent here.
+    {
+        let world = app.world_mut();
+        let mut kin = world
+            .get_mut::<ambition::actor::BodyKinematics>(fighter)
+            .expect("the fighter has a body");
+        kin.pos.y = 100_000.0;
+    }
+
+    let mut announced = false;
+    for _ in 0..120 {
+        app.update();
+        // `restart_pending` is raised by the reset and cleared by
+        // `announce_body_restarts` the next tick, so catching it means sampling
+        // every frame — which is the honest way to observe a one-tick flag.
+        if app
+            .world()
+            .get::<BodyLifetime>(fighter)
+            .is_some_and(|lifetime| lifetime.restart_pending)
+        {
+            announced = true;
+        }
+        if app
+            .world()
+            .get::<FighterStocks>(fighter)
+            .is_some_and(|stocks| stocks.remaining < before)
+        {
+            if announced {
+                break;
+            }
+        }
+    }
+
+    assert!(
+        announced,
+        "a fighter came back from a knockout without the engine saying its body \
+         had restarted, so every provider holding round-or-life state kept it"
+    );
+}

@@ -347,11 +347,26 @@ fn release_the_opening_hold(
 
 /// Put a respawning fighter back over the platform.
 ///
-/// ⚠ through `transit_body`, not by writing the position. That seam is the ONE
-/// authority that re-resolves a body's pose against the world (ADR 0024), and a
-/// respawn is exactly the case it exists for: a body appearing at a new place
-/// has to arrive there, not be teleported into whatever is standing at the
-/// coordinates.
+/// ⚠ through `reset_body_clusters`, not `transit_body`, and the difference is a
+/// leak. Both re-resolve a body's pose against the world (ADR 0024 — a body
+/// appearing somewhere has to ARRIVE there, not be teleported into whatever is
+/// standing at the coordinates), but `transit_body` documents that "axis
+/// maneuver state (coyote, buffers, dash timers) is deliberately KEPT — those
+/// are time facts, not place facts". That is right for a blink and wrong for
+/// losing a stock: a fighter came back holding the dash timer and buffered jump
+/// it died with.
+///
+/// `reset_body_clusters` is the verb that means "this body starts again" — the
+/// same one the sandbox reset and the versus round boundary use — and it raises
+/// `BodyLifetime::restart_pending`, so `announce_body_restarts` triggers
+/// `ae::BodyRestarted` and every PROVIDER hears about the respawn too. Through
+/// `transit_body` none of them did: a ball-dash charge or a rolling form would
+/// have survived a knockout in silence.
+///
+/// This is the versus stage's 2026-07-28 bug reintroduced in a new demo three
+/// days later, which is the argument for the announcement being DERIVED rather
+/// than announced by hand — the derivation is what makes this a one-line fix
+/// instead of a hunt for every provider that cares.
 fn place_respawning_fighters(
     mut spent: bevy::prelude::MessageReader<ambition::actor::FighterStockSpent>,
     mut bodies: bevy::prelude::Query<(
@@ -371,13 +386,13 @@ fn place_respawning_fighters(
         };
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
-        ambition::actor::transit_body(
+        // Velocity is zeroed by the reset itself, which is what a fighter that
+        // keeps the velocity that threw it off the stage needs: otherwise it
+        // respawns already travelling toward the blast zone it just left.
+        ambition::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
             respawn_placement(stage_centre()),
-            // ZERO. A fighter that keeps the velocity that threw it off the stage
-            // respawns already travelling toward the blast zone it just left.
-            ambition::actor::TransitVelocity::Zero,
         );
     }
 }

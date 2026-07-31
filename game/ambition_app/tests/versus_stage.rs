@@ -17,7 +17,7 @@ use bevy::time::TimeUpdateStrategy;
 use ambition::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter};
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 
 /// Push a raw gamepad button value, the way the device backend would.
 fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
@@ -697,14 +697,30 @@ fn the_cpu_opponent_is_not_a_statue() {
          ActorControl and it cannot move whatever else is right"
     );
 
-    let start = app.world().get::<BodyKinematics>(cpu).unwrap().pos;
+    // **PATH LENGTH, not displacement.** Comparing the position before and after
+    // measures nothing if a whole ROUND happened in between: this fighter walks
+    // at its opponent, falls into the arena, dies, and `begin_round` puts it back
+    // on its seat — so both samples read "at the seat" and the test reported
+    // "moved 0.4px" about a body that had covered 350. It is the same shape as
+    // asserting a pendulum never moved because it came back.
+    let mut travelled = 0.0f32;
+    let mut previous = app.world().get::<BodyKinematics>(cpu).unwrap().pos;
     for _ in 0..300 {
         app.update();
+        let Some(kin) = app.world().get::<BodyKinematics>(cpu) else {
+            break;
+        };
+        let step = (kin.pos - previous).length();
+        // A round reset TELEPORTS the body back to its seat. Counting that jump
+        // as travel would let a fighter pass this test by dying repeatedly.
+        if step < 64.0 {
+            travelled += step;
+        }
+        previous = kin.pos;
     }
-    let moved = (app.world().get::<BodyKinematics>(cpu).unwrap().pos - start).length();
     assert!(
-        moved > 8.0,
-        "the CPU opponent moved {moved:.1}px in five seconds with a player \
+        travelled > 8.0,
+        "the CPU opponent covered {travelled:.1}px in five seconds with a player \
          standing in front of it. Player-vs-CPU is what anybody with one \
          controller plays, and it is a fight against a statue."
     );
@@ -1051,8 +1067,8 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 #[test]
 fn a_decided_round_takes_the_controls_away() {
     use ambition::actors::character_runtime::MatchSeat;
-    use ambition::characters::actor::control::ActorControlFrame;
     use ambition::characters::actor::BodyHealth;
+    use ambition::characters::actor::control::ActorControlFrame;
     use ambition::characters::brain::{ActorControl, ScriptedControl};
 
     let mut app = versus_app();
@@ -1396,7 +1412,7 @@ fn every_seated_fighter_has_something_on_screen() {
 #[test]
 fn four_controllers_make_versus_a_two_versus_two() {
     use ambition::actors::character_runtime::MatchSeat;
-    use ambition::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+    use ambition::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1972,7 +1988,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
 /// round one.
 #[test]
 fn the_round_counter_counts_rounds_and_not_wins() {
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ANNOUNCE_HUD_SLOT};
+    use ambition_app::app::versus_rules::{ANNOUNCE_HUD_SLOT, MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);

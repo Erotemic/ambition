@@ -52,6 +52,14 @@ pub const SMASH_MODE: &str = "smash";
 /// still be playing the same match, which is the thing rounds cannot express.
 pub const STARTING_STOCKS: u32 = 3;
 
+/// **What 100% means.**
+///
+/// The denominator of `damage_percent()`. Under `DeathPolicy::Unbounded` the
+/// pool never kills, so this is purely the scale a percent is read against —
+/// which is exactly why it has to be authored: an unauthored pool is ONE, and a
+/// meter divided by one reports 14000%.
+pub const SMASH_PERCENT_REFERENCE: i32 = 100;
+
 /// Where a respawning fighter comes back, above the stage centre.
 ///
 /// ⚠ **above**, not at the spawn point. A fighter that reappears on the floor
@@ -505,9 +513,24 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
             (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
         ] {
-            app.register_character(
-                CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet),
-            );
+            let mut definition =
+                CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
+            // **THE PERCENT REFERENCE.** (found by drawing it, 2026-07-31)
+            //
+            // A character that authors no vitals gets a ONE-HIT pool — the
+            // seating code names this exact trap in its own comment — and under
+            // `DeathPolicy::Unbounded` the pool never kills, so nothing goes
+            // wrong except the number. `damage_percent()` is
+            // `accumulated / max`, so with `max = 1` a 140-damage hit read as
+            // **14000%**. Every test passed: the meter was accumulating
+            // correctly and the division was correct, over a denominator nobody
+            // had authored.
+            //
+            // 100 makes percent read the way a platform fighter's does, where a
+            // player learns "around 120 I get launched" as a number that means
+            // something across characters.
+            definition.vitals.max_health = Some(SMASH_PERCENT_REFERENCE);
+            app.register_character(definition);
         }
     }
     app.register_audio_catalog_fragment(
@@ -801,6 +824,30 @@ mod tests {
             Some(BLAST_MARGIN_PX),
             "the prepared geometry lost the stage's blast margins, so a fighter \
              knocked off would drift instead of dying"
+        );
+    }
+
+    /// **A fighter's percent is read against an AUTHORED pool.** (found by
+    /// drawing a match, 2026-07-31)
+    ///
+    /// A character that authors no vitals gets a ONE-HIT pool, and under
+    /// `DeathPolicy::Unbounded` the pool never kills — so nothing goes wrong
+    /// except the number, and the number is the entire user-facing output of the
+    /// stocks model. A 140-damage hit read as 14000%, with every test green:
+    /// the meter accumulated correctly and divided correctly, by a denominator
+    /// nobody had authored.
+    #[test]
+    fn each_duelist_authors_the_pool_its_percent_is_read_against() {
+        assert!(
+            SMASH_CATALOG_RON.contains("smash_duelist_a"),
+            "the catalog rows moved; this test guards the pool that goes with them"
+        );
+        // The reference is what makes a percent comparable across characters.
+        // One would make every hit read in the thousands.
+        assert!(
+            SMASH_PERCENT_REFERENCE >= 50,
+            "a percent reference of {SMASH_PERCENT_REFERENCE} makes a single hit \
+             read in the hundreds, which is the 14000% bug in a smaller hat"
         );
     }
 

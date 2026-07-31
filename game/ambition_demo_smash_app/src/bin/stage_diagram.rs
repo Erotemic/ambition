@@ -37,8 +37,22 @@ fn main() {
     );
 }
 
+/// One fighter, as the diagram draws it.
+pub struct DrawnFighter {
+    pub aabb: ambition::engine_core::Aabb,
+    /// Damage percent — `1.88` is 188%, and the bar is allowed past full for
+    /// exactly that reason.
+    pub percent: f32,
+    pub stocks: u32,
+}
+
 /// The diagram, as PNG bytes.
 pub fn render_stage_diagram() -> Vec<u8> {
+    render_match_diagram(&[])
+}
+
+/// The stage with fighters on it.
+pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
     let room = ambition_demo_smash::smash_stage();
     let world = &room.world;
     let platform = world.blocks[0].aabb;
@@ -94,6 +108,38 @@ pub fn render_stage_diagram() -> Vec<u8> {
     for y in py0..=py1 {
         for x in px0..=px1 {
             put(x, y, [210, 214, 226, 255]);
+        }
+    }
+
+    // THE FIGHTERS, each with a percent bar over its head. The bar is the one
+    // thing a geometry view has never shown and the one the stocks loop is
+    // about: it is allowed to run PAST full, because that is what an unbounded
+    // meter does and a bar that clamped would hide the whole point.
+    for (index, fighter) in fighters.iter().enumerate() {
+        let tint = if index % 2 == 0 {
+            [110u8, 170, 240, 255]
+        } else {
+            [240u8, 150, 110, 255]
+        };
+        let (fx0, fy0) = to_px(fighter.aabb.left(), fighter.aabb.top());
+        let (fx1, fy1) = to_px(fighter.aabb.right(), fighter.aabb.bottom());
+        for y in fy0..=fy1 {
+            for x in fx0..=fx1 {
+                put(x, y, tint);
+            }
+        }
+        // The percent bar, above the body. Length is percent-relative, so 188%
+        // is visibly longer than the body is wide.
+        let bar_len = ((fx1 - fx0).max(6) as f32 * fighter.percent.max(0.0)) as i32;
+        for step in 0..bar_len {
+            put(fx0 + step, fy0 - 4, [230, 90, 90, 255]);
+            put(fx0 + step, fy0 - 5, [230, 90, 90, 255]);
+        }
+        // Stocks, as ticks under the body.
+        for stock in 0..fighter.stocks as i32 {
+            for dx in 0..3 {
+                put(fx0 + stock * 5 + dx, fy1 + 4, [120, 220, 140, 255]);
+            }
         }
     }
 

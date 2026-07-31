@@ -346,6 +346,65 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_u8(out, 2);
                 put_smash_state(out, state);
             }
+            // FB4b. EVERY field of `FighterState` gates what the brain does next,
+            // so every field is projected — the derive-memo rule applied in
+            // advance. The two that would be easiest to leave out are the two
+            // that matter most: `noise` decides press timing (the same fighter
+            // would throw a different jab on a replay) and `apm` decides whether
+            // a press happens at all.
+            //
+            // The perception buffer is deliberately NOT projected. It is a
+            // window over views the world already owns and rewinds, and encoding
+            // it would put every observed actor's full state into the checksum
+            // of every fighter that can see them — quadratic, and a duplicate of
+            // truth the population sweep already covers. Its DEPTH is a config,
+            // not state.
+            Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => {
+                put_u8(out, 3);
+                put_u32(out, state.ticks_until_decision);
+                put_u32(out, state.apm.presses);
+                put_u32(out, state.apm.elapsed_ticks);
+                match state.pending_press {
+                    None => put_bool(out, false),
+                    Some(ticks) => {
+                        put_bool(out, true);
+                        put_u32(out, ticks);
+                    }
+                }
+                put_u64(out, state.noise);
+                match &state.last_foe {
+                    None => put_bool(out, false),
+                    Some(foe) => {
+                        put_bool(out, true);
+                        put_bool(out, foe.attacking);
+                        put_bool(out, foe.on_ground);
+                        put_bool(out, foe.shielding);
+                        put_f32(out, foe.closing);
+                    }
+                }
+                // The habit model is a read of the opponent that survives across
+                // decisions, so a rewind that restored a fighter with somebody
+                // else's reads would play differently. Rows in a stable order —
+                // `rows()` is over a BTreeMap, not a hash map.
+                let rows: Vec<_> = state.habits.rows().collect();
+                put_u32(out, rows.len() as u32);
+                for ((situation, choice), weight) in rows {
+                    put_u8(out, situation as u8);
+                    put_u8(out, choice as u8);
+                    put_f32(out, weight);
+                }
+                // The HELD intent, by the fields the emission actually uses.
+                // `ActorControlFrame` is not `SnapshotState` — it is a per-tick
+                // command, not stored state — and projecting the whole struct
+                // here would freeze a wire format over a type that exists to
+                // change.
+                put_f32(out, state.held.locomotion.x);
+                put_f32(out, state.held.locomotion.y);
+                put_f32(out, state.held.facing);
+                put_bool(out, state.held.jump_held);
+                put_bool(out, state.held.shield_held);
+                put_bool(out, state.held.melee_held);
+            }
             _ => put_u8(out, 0),
         }
     }

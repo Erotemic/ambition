@@ -30,7 +30,13 @@ use ambition_engine_core as ae;
 
 /// What a brain sees this tick. Read-only; brains never mutate the
 /// snapshot (they write to `&mut ActorControlFrame` instead).
-#[derive(Clone, Copy, Debug)]
+/// ⚠ **not `Copy` since FB4b.** `attack_kit` is a `Vec`, and the alternatives
+/// were worse: a lifetime on `BrainSnapshot` would infect every brain signature
+/// in the crate, and passing the kit beside the snapshot would put body-derived
+/// truth on a second channel — which is the split the world-in port exists to
+/// prevent. Every hot path already takes `&BrainSnapshot`; the copies that
+/// remained were test fixtures.
+#[derive(Clone, Debug)]
 pub struct BrainSnapshot {
     /// Actor's current world position (px).
     pub actor_pos: ae::Vec2,
@@ -57,6 +63,18 @@ pub struct BrainSnapshot {
     /// builder from the body's gravity scale. Defaults `false` so grounded
     /// brains and inert test snapshots are unaffected.
     pub actor_aerial: bool,
+    /// **The attacks this body can actually throw** (FB4b §13.2).
+    ///
+    /// L2 scores real moves with real frame data, and the brain cannot reach a
+    /// moveset: `ambition_combat` depends on `ambition_characters`, not the
+    /// reverse. So the actors-side snapshot builder fills this from the body's
+    /// live `ActorMoveset` — body-derived truth arriving through the world-in
+    /// port, exactly like [`Self::actor_aerial`].
+    ///
+    /// Empty by default, which is the honest answer for every non-fighter brain
+    /// and for an inert test snapshot: `generate_options` then produces no
+    /// attacks and the fighter plays movement only.
+    pub attack_kit: Vec<crate::brain::fighter::options::AttackCandidate>,
     /// Whether the actor is alive. State-machine brain templates
     /// emit a neutral frame when `alive == false`; the player brain
     /// (`Brain::Player`) currently doesn't gate on this — dead
@@ -158,6 +176,7 @@ impl BrainSnapshot {
             aim_frame_mode: ae::ControlFrameModes::default().aim,
             actor_on_ground: true,
             actor_aerial: false,
+            attack_kit: Vec::new(),
             alive: true,
             target_pos: ae::Vec2::ZERO,
             target_alive: true,
@@ -181,7 +200,7 @@ impl BrainSnapshot {
     }
 
     /// Acceleration frame that defines this actor's local side/down axes.
-    pub fn acceleration_frame(self) -> ae::AccelerationFrame {
+    pub fn acceleration_frame(&self) -> ae::AccelerationFrame {
         ae::AccelerationFrame::new(self.control_down)
     }
 
@@ -191,7 +210,7 @@ impl BrainSnapshot {
     /// how a brain that reasons in absolute speeds (patrol/chase, with per-spawn
     /// jitter) expresses intent so the integrator can scale it back by the same
     /// capability — no actor-type branch downstream.
-    pub fn locomotion_for(self, desired_local_velocity: ae::Vec2) -> ae::Vec2 {
+    pub fn locomotion_for(&self, desired_local_velocity: ae::Vec2) -> ae::Vec2 {
         if self.max_run_speed > 1e-3 {
             desired_local_velocity / self.max_run_speed
         } else {
@@ -201,14 +220,14 @@ impl BrainSnapshot {
 
     /// Vector from the actor to its current target in actor-local coordinates.
     /// `x` is local side/right; `y` is toward the actor's feet/down.
-    pub fn target_delta_local(self) -> ae::Vec2 {
+    pub fn target_delta_local(&self) -> ae::Vec2 {
         self.acceleration_frame()
             .to_local(self.target_pos - self.actor_pos)
     }
 
     /// Actor velocity in actor-local coordinates. Brains that make body-relative
     /// movement decisions should prefer this over reading world `x/y` directly.
-    pub fn actor_vel_local(self) -> ae::Vec2 {
+    pub fn actor_vel_local(&self) -> ae::Vec2 {
         self.acceleration_frame().to_local(self.actor_vel)
     }
 
@@ -219,7 +238,7 @@ impl BrainSnapshot {
     /// / chase / attack decisions; this helper threads the fields
     /// through without copy-pasting in each tick fn.
     pub fn to_character_ai_snapshot(
-        self,
+        &self,
         aggro_radius: f32,
         attack_range: f32,
         patrol_enabled: bool,

@@ -93,6 +93,7 @@ fn tick_peaceful(
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,
         actor_on_ground: seed.body.0.ground.on_ground,
+        attack_kit: Vec::new(),
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,
         target_pos: target,

@@ -66,6 +66,20 @@ pub enum StateMachineCfg {
     /// only when the caller threads the ActionSet in. See
     /// [`tick_state_machine_with_actions`] below.
     Smash { cfg: SmashCfg, state: SmashState },
+    /// **The fighter brain that PLAYS** (FB4b §13). L1 classify → L2 options →
+    /// L3 rollout → a held control frame, on a human cadence with an APM ceiling
+    /// and execution noise.
+    ///
+    /// A `StateMachineCfg` variant rather than a new `Brain` arm on purpose: this
+    /// is where the dispatcher already threads `Option<&WorldView>`, which the
+    /// delay buffer needs, and where the snapshot cursor already rewinds per-arm
+    /// state. Every field of `FighterState` gates behaviour, so all of it is
+    /// rollback state — the derive-memo rule applied before the desync rather
+    /// than after it.
+    Fighter {
+        cfg: Box<super::fighter::FighterCfg>,
+        state: Box<super::fighter::FighterState>,
+    },
     /// Lively flyer: peaceful (perch/fly/walk/land-by-player) or hostile
     /// (stalk/dive/recover), selected by `cfg.aggressiveness`.
     Aerial { cfg: AerialCfg, state: AerialState },
@@ -92,6 +106,9 @@ impl StateMachineCfg {
             Self::Sniper { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::ChargeCrash { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::BossPattern { cfg, .. } => cfg.aggressiveness > 0.0,
+            // A fighter is in a MATCH. There is no peaceful fighter brain: the
+            // thing it exists to do is fight somebody who agreed to it.
+            Self::Fighter { .. } => true,
             // Smash brain is always hostile by construction — peaceful
             // archetypes don't use it (they get Patrol / Wanderer
             // instead). If we add a peaceful Smash variant later, this
@@ -149,6 +166,9 @@ pub fn tick_state_machine_with_actions(
         }
         StateMachineCfg::Smash { cfg, state } => {
             tick_smash(cfg, state, actions, snapshot, perception, out)
+        }
+        StateMachineCfg::Fighter { cfg, state } => {
+            super::fighter::tick_fighter(cfg, state, snapshot, perception, out)
         }
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
         StateMachineCfg::PlayerDemo { cfg, state } => tick_player_demo(cfg, state, snapshot, out),

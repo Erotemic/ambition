@@ -314,6 +314,7 @@ impl Brain {
                 StateMachineCfg::ChargeCrash { .. } => "charge_crash",
                 StateMachineCfg::BossPattern { .. } => "boss_pattern",
                 StateMachineCfg::Smash { .. } => "smash",
+                StateMachineCfg::Fighter { .. } => "fighter",
                 StateMachineCfg::Aerial { .. } => "aerial",
                 StateMachineCfg::PlayerDemo { .. } => "player_demo",
             },

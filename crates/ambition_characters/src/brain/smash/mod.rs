@@ -530,7 +530,10 @@ pub fn tick_smash(
         .obs_history
         .push(snapshot.sim_time, snapshot.target_pos);
     let perceived = {
-        let mut s = *snapshot;
+        // `clone` since FB4b: `BrainSnapshot` carries the attack kit and is no
+        // longer `Copy`. One clone per smash brain per tick, on a path that
+        // already allocates its observation history.
+        let mut s = snapshot.clone();
         if let Some(delayed_target) = state
             .obs_history
             .delayed(snapshot.sim_time, cfg.difficulty.reaction_delay_s)

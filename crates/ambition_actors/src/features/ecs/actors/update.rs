@@ -1376,6 +1376,13 @@ fn build_enemy_brain_snapshot(
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
         actor_on_ground: em.ground.on_ground,
+        // FB4b §13.2: the fighter brain's attack kit. EMPTY here, and that is a
+        // recorded gap rather than a default: `ActorMut` does not carry the
+        // body's `ActorMoveset`, so filling this needs the moveset threaded into
+        // the actor query. A fighter with an empty kit plays MOVEMENT ONLY —
+        // `generate_options` produces no attacks — which is honest degradation
+        // and not a silent wrong answer. See the S7 row in the 72h queue.
+        attack_kit: Vec::new(),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a

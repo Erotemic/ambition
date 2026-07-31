@@ -104,6 +104,13 @@ pub fn tick_player_brains(
             movement_frame_mode: control_frame_modes.movement,
             aim_frame_mode: control_frame_modes.aim,
             actor_on_ground: ground.on_ground,
+        // FB4b §13.2: the fighter brain's attack kit. EMPTY here, and that is a
+        // recorded gap rather than a default: `ActorMut` does not carry the
+        // body's `ActorMoveset`, so filling this needs the moveset threaded into
+        // the actor query. A fighter with an empty kit plays MOVEMENT ONLY —
+        // `generate_options` produces no attacks — which is honest degradation
+        // and not a silent wrong answer. See the S7 row in the 72h queue.
+        attack_kit: Vec::new(),
             // The player brain reads input, not the Smash aerial path; grounded
             // locomotion semantics regardless of fly mode.
             actor_aerial: false,

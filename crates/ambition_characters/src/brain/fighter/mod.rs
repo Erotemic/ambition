@@ -36,6 +36,7 @@
 //! that emits inputs), which also gate FB6e's `l3_earns_its_depth` ladder gate —
 //! ladder rows keep `rollout_depth: 0` until that instrument exists.
 
+pub mod decision;
 pub mod habit;
 pub mod options;
 pub mod profile;
@@ -43,6 +44,7 @@ pub mod rollout;
 pub mod scenarios;
 pub mod situation;
 
+pub use decision::{tick_fighter, ApmLedger, FighterCfg, FighterState};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{FighterBrainLadder, FighterBrainProfile};

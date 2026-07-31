@@ -456,6 +456,25 @@ impl ModuleDraft {
     /// A composition may hold several. Declaring the SAME id twice is a
     /// conflict naming both modules; declaring a different one starts a new
     /// experience beside the first.
+    ///
+    /// ⚠ **A secondary experience launches, and its ASSET POLICY is the
+    /// primary's.** Measured, not reasoned — `the_second_mounted_experience_
+    /// launches_and_its_asset_policy_is_the_primarys` mounts two shipped games
+    /// and routes into the second. What works: the route activates under the
+    /// second experience's own id with a prepared session, and its cast is
+    /// drawn correctly, because character catalog fragments MERGE. What follows
+    /// the primary instead of the caller:
+    ///
+    /// * the music registry folded into the asset catalog, so a secondary
+    ///   experience's declared tracks have no asset path there;
+    /// * the published `SfxBankAssetPath`, attributed to the primary's id;
+    /// * the startup room theme (block and biome art) from [`Self::room`].
+    ///
+    /// Stated rather than fixed, deliberately. Repairing it means per-experience
+    /// asset virtualization, and no consumer is blocked on it today — the
+    /// shipped host and both demos launch their primary. If your game needs a
+    /// secondary experience with its own art or music, install its assets
+    /// through a capability rather than expecting this to resolve them.
     pub fn experience(&mut self, id: impl Into<String>) -> &mut Self {
         let id = id.into();
         let owner = self.defining.clone();
@@ -1188,6 +1207,14 @@ impl PlatformerApp {
                     app.init_asset::<Image>();
                     app.init_asset::<TextureAtlasLayout>();
                 }
+                // ⚠ **The PRIMARY's policy, for every mounted experience**, and
+                // that is a stated limit rather than an oversight — see
+                // `ModuleDraft::experience`. The plugin resolves three things
+                // per experience id (the music fold, the SFX bank attribution,
+                // the startup room theme) and installs once, so a secondary
+                // experience gets the primary's three. The cast is unaffected:
+                // catalog fragments merge, which is what makes the second
+                // experience's characters draw correctly anyway.
                 let room = draft
                     .experiences
                     .first()

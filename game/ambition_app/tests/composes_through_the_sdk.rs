@@ -96,3 +96,128 @@ fn the_shipped_games_compose_through_the_public_api() {
         );
     }
 }
+
+/// **Can the SECOND mounted experience be launched, with its own content?**
+///
+/// The narrow acceptance test the 2026-07-31 review asked for, and it is
+/// deliberately narrow: entry room, one character visual, one audio mapping,
+/// one logical asset path. The suspicion it tests is specific — the facade
+/// installs `PlatformerAssetsPlugin::for_experience(experiences[0])` and
+/// `.with_room(experiences[0].room)`, so everything that plugin resolves PER
+/// EXPERIENCE is resolved for the primary and handed to every other one.
+///
+/// What the answer turned out to be, measured rather than reasoned:
+///
+/// * the CAST is shared and correct — catalog fragments merge, so Mary-O's
+///   sheet is in the asset catalog of a host whose primary is Sanic;
+/// * the ROUTE is reachable and activates with Mary-O's own experience id;
+/// * the MUSIC is not — the catalog folds `music_for(primary)` only, so a
+///   secondary experience's declared tracks have no asset path in it;
+/// * the SFX bank is published attributed to the PRIMARY's id.
+///
+/// So the last two are asserted as the LIMIT they currently are, in the test
+/// rather than only in prose, and `PlatformerApp`'s docs now say so. The review
+/// is explicit that the alternative — building multi-experience asset
+/// virtualization on no failing consumer — is the wrong trade today.
+#[test]
+fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys() {
+    use ambition::game_shell::{ShellCommand, ShellRouteId};
+    use ambition::view::{ids, SandboxAssetCatalog};
+
+    let mut app = PlatformerApp::headless()
+        .with_game_assets()
+        .start_at_launcher()
+        .mount(SanicGame)
+        .mount(MaryOGame)
+        .try_build()
+        .expect("two games must compose");
+
+    for _ in 0..600 {
+        app.update();
+        if host_status(&app).is_running() || host_status(&app).is_refused() {
+            break;
+        }
+    }
+    assert!(
+        !host_status(&app).is_refused(),
+        "the two-game host was refused: {:?}",
+        host_status(&app).refusal()
+    );
+
+    // ── Launch the SECOND one ──
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
+        )));
+    let mut status = host_status(&app);
+    for _ in 0..900 {
+        app.update();
+        status = host_status(&app);
+        if matches!(&status, HostStatus::Running { experience, prepared: true, .. }
+            if experience == ambition_demo_mary_o::provider::MARY_O_EXPERIENCE)
+        {
+            break;
+        }
+        if status.is_refused() {
+            break;
+        }
+    }
+    let HostStatus::Running {
+        route,
+        experience,
+        prepared,
+    } = &status
+    else {
+        panic!("the second mounted experience never activated: {status:?}");
+    };
+    assert_eq!(
+        (route.as_str(), experience.as_str(), *prepared),
+        (
+            ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
+            ambition_demo_mary_o::provider::MARY_O_EXPERIENCE,
+            true
+        ),
+        "the second experience's ENTRY ROOM did not come up under its own \
+         route and id"
+    );
+
+    let catalog = app.world().resource::<SandboxAssetCatalog>();
+
+    // ── One character visual, and therefore one logical asset path ──
+    let sheet = catalog.path_for(&ids::character_sprite(
+        ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID,
+    ));
+    assert!(
+        sheet.is_some(),
+        "the secondary experience's own character has no sprite path in the \
+         asset catalog the primary's policy built — its cast would draw as the \
+         fallback body"
+    );
+
+    // ── One audio mapping: the KNOWN limit, pinned ──
+    //
+    // ⚠ asserted as a limit rather than left unmeasured. A secondary
+    // experience's music is declared (its audio fragment registers a real
+    // `MusicRegistry`) and has no path in the asset catalog, because the
+    // catalog folds the PRIMARY's registry only.
+    let registry = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+    let declared = registry
+        .music_for(ambition_demo_mary_o::provider::MARY_O_EXPERIENCE)
+        .expect("Mary-O's provider registers a music registry")
+        .default_track
+        .clone();
+    assert!(
+        !declared.is_empty(),
+        "non-vacuity: the secondary experience declares a default track"
+    );
+    let catalog = app.world().resource::<SandboxAssetCatalog>();
+    assert!(
+        catalog.path_for(&ids::music_track(&declared)).is_none(),
+        "the secondary experience's music track `{declared}` now HAS an asset \
+         path, so the per-experience asset policy has been widened — good, but \
+         `PlatformerApp`'s stated limit is stale and this test is the record of \
+         it"
+    );
+}

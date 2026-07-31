@@ -1887,3 +1887,106 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
         "and nothing was recorded as displaced, because nothing displaced it"
     );
 }
+
+/// **A HOT RELOAD that drops an override from `Some` to `None` retracts it.**
+///
+/// The other half the review named (GPT 5.6), and the one no test covered: the
+/// body never changes which character it wears, so nothing about the swap path
+/// fires. What changes is the CAST — the same id, re-prepared with the mass and
+/// health lines deleted — and the derive re-runs because the registry
+/// generation moved, not because `WornCharacter` did.
+///
+/// The record is what makes this work: `displaced` was captured at the first
+/// projection, from the BODY, and it does not move when the definition behind
+/// the id does. Without it, editing an override out of a RON file would leave
+/// its value on every live body until the next room load, which is precisely
+/// the "I deleted the line and nothing happened" that makes authors distrust
+/// hot reload.
+#[test]
+fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    const BODY_MAX_HEALTH: i32 = 100;
+    const BODY_MASS: f32 = 1.0;
+
+    /// One publication of `heavy_duelist`, with whatever physicals it authors
+    /// this time round.
+    fn prepared_duelist(
+        vitals: crate::character_runtime::Vitals,
+    ) -> crate::character_runtime::PreparedCharacterDefinition {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(
+            "heavy_duelist",
+            "heavy_duelist",
+            "demo",
+        );
+        definition.vitals = vitals;
+        crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        )
+        .prepared
+    }
+
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    registry.insert_prepared(prepared_duelist(crate::character_runtime::Vitals {
+        max_health: Some(60),
+        mass: Some(2.0),
+    }));
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(CharacterCatalog::empty());
+    app.insert_resource(registry);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("heavy_duelist"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                BODY_MAX_HEALTH,
+            )),
+            crate::features::Mass(BODY_MASS),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+
+    let health_max = |app: &App| {
+        app.world()
+            .get::<ambition_characters::actor::BodyHealth>(body)
+            .unwrap()
+            .max()
+    };
+    let mass = |app: &App| app.world().get::<crate::features::Mass>(body).map(|m| m.0);
+    assert_eq!((health_max(&app), mass(&app)), (60, Some(2.0)));
+
+    // The reload: the SAME character, re-prepared with both lines removed.
+    // `insert_prepared` publishes, which moves the generation the derive
+    // compares against — the body's `WornCharacter` is never touched.
+    app.world_mut()
+        .resource_mut::<crate::character_runtime::PreparedCharacterRegistry>()
+        .insert_prepared(prepared_duelist(crate::character_runtime::Vitals::default()));
+    app.update();
+
+    assert_eq!(
+        (health_max(&app), mass(&app)),
+        (BODY_MAX_HEALTH, Some(BODY_MASS)),
+        "the reloaded definition authors neither, and the body kept the values \
+         the deleted lines had given it — an author editing a RON file would \
+         see nothing happen and conclude hot reload does not work"
+    );
+}

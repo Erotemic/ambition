@@ -178,6 +178,14 @@ pub fn tick_actor_brains(
                 // default `Perception::Omniscient` (the basic mode) when absent — so a
                 // fixture that wires up no perception targets omnisciently, no fallback.
                 Option<&crate::features::ecs::perception::Perception>,
+                // FB4b §13.2: the body's own moveset, so the brain snapshot can
+                // carry the ATTACK KIT. The fighter brain scores real moves with
+                // real frame data and cannot reach a moveset itself —
+                // `ambition_combat` depends on `ambition_characters`, not the
+                // reverse — so this is the world-in port doing what it is for.
+                // `Option` because a body with no moveset (a peaceful NPC, a
+                // prop) has no kit, and an empty kit is the honest answer.
+                Option<&crate::combat::moveset::ActorMoveset>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -279,7 +287,7 @@ pub fn tick_actor_brains(
     for (entity, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction, _, _, _)) in
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction, _, _, _, _)) in
         &actors
     {
         if let Some(c) = &clusters {
@@ -354,7 +362,7 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, resolved_frame, faction, aggression, mut perception_memory, perception),
+        (clusters, resolved_frame, faction, aggression, mut perception_memory, perception, moveset),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -431,6 +439,7 @@ pub fn tick_actor_brains(
                         dt,
                         sim_now,
                         enemy_gravity_dir,
+                        moveset,
                     );
                     // POSSESSION IS BRAIN TRANSFER: a body carrying
                     // `Brain::Player(slot)` (transferred by possession) reads its
@@ -1354,6 +1363,31 @@ pub(crate) fn compute_crowding_by_id(
     crowding_by_id
 }
 
+/// **The attacks this body can actually throw**, as the fighter brain reads them.
+///
+/// One row per move in the contract, with the frame data a player who read the
+/// tables would know. Declaration order, which `MovesetContract.moves` is a
+/// `Vec` — so the kit is stable across ticks and across a replay, and no sort is
+/// needed to make it deterministic.
+fn attack_kit_of(
+    moveset: Option<&crate::combat::moveset::ActorMoveset>,
+) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
+    let Some(moveset) = moveset else {
+        return Vec::new();
+    };
+    moveset
+        .0
+        .moves
+        .iter()
+        .map(
+            |spec| ambition_characters::brain::fighter::options::AttackCandidate {
+                move_id: spec.id.clone(),
+                frames: spec.frame_data(),
+            },
+        )
+        .collect()
+}
+
 /// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
 /// Carries the per-frame body / target / cooldown view every brain
 /// backend reads from; `crowding` is only consulted by the Smash
@@ -1367,6 +1401,8 @@ fn build_enemy_brain_snapshot(
     dt: f32,
     sim_time: f32,
     gravity_dir: ae::Vec2,
+    // FB4b §13.2: the body's own moveset, or `None` for a body that has none.
+    moveset: Option<&crate::combat::moveset::ActorMoveset>,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
@@ -1376,13 +1412,15 @@ fn build_enemy_brain_snapshot(
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
         actor_on_ground: em.ground.on_ground,
-        // FB4b §13.2: the fighter brain's attack kit. EMPTY here, and that is a
-        // recorded gap rather than a default: `ActorMut` does not carry the
-        // body's `ActorMoveset`, so filling this needs the moveset threaded into
-        // the actor query. A fighter with an empty kit plays MOVEMENT ONLY —
-        // `generate_options` produces no attacks — which is honest degradation
-        // and not a silent wrong answer. See the S7 row in the 72h queue.
-        attack_kit: Vec::new(),
+        // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
+        // brain scores real moves with real frame data and cannot reach a
+        // moveset itself, so this is body-derived truth arriving through the
+        // world-in port — exactly like `actor_aerial`.
+        //
+        // Built every tick like every other snapshot field. Correctness first:
+        // if profiling ever complains, the fix is to rebuild it on moveset
+        // CHANGE, not to let it go stale.
+        attack_kit: attack_kit_of(moveset),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a

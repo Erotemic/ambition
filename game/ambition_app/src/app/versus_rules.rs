@@ -175,39 +175,24 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 }
 
 /// Who, if anyone, took the round.
-enum RoundResult {
-    Winner(String),
-    Draw,
-}
-
-/// **A team is out when every one of its members is down.**
 ///
-/// Returns `None` while the round is still live — including the three-team case
-/// where one side has been wiped out and two are still fighting, which is a
-/// round that continues rather than a round somebody won.
+/// ⚠ **the predicate itself lives in the engine now**
+/// (`ambition_combat::stocks::last_side_standing`, S4), because a stocks match
+/// asks the identical question with a different liveness input: a round asks
+/// "is this fighter's health above zero", a stocks match asks "does this
+/// fighter have a stock left", and everything after that question is the same.
+/// Two copies of "a side is out when every member is out" is exactly the kind of
+/// near-duplicate that drifts on the three-side case.
+///
+/// What stays here is the ADAPTER: rounds are settled on health.
+use ambition::combat::stocks::{last_side_standing, SidesOutcome as RoundResult};
+
 fn round_result<'a>(
     rows: impl Iterator<Item = (usize, Option<&'a MatchTeam>, i32)>,
 ) -> Option<RoundResult> {
-    let mut standing: BTreeMap<String, bool> = BTreeMap::new();
-    for (seat, team, health) in rows {
-        let alive = standing.entry(team_of(seat, team)).or_insert(false);
-        *alive |= health > 0;
-    }
-    // One team is not a match. Without this the sole team is "wiped out" the
-    // instant it falls and the stage scores a round against nobody.
-    if standing.len() < 2 {
-        return None;
-    }
-    let survivors: Vec<&String> = standing
-        .iter()
-        .filter(|(_, alive)| **alive)
-        .map(|(team, _)| team)
-        .collect();
-    match survivors.len() {
-        0 => Some(RoundResult::Draw),
-        1 => Some(RoundResult::Winner(survivors[0].clone())),
-        _ => None,
-    }
+    // `team_of` stays the naming authority — it numbers a teamless seat from ONE,
+    // and the stage's scoreboard reads the same function.
+    last_side_standing(rows.map(|(seat, team, health)| (team_of(seat, team), health > 0)))
 }
 
 type FighterQuery<'w, 's> = Query<

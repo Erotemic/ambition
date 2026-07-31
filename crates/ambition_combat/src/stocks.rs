@@ -108,6 +108,57 @@ pub fn spend_fighter_stocks(
     }
 }
 
+/// **Which side, if any, is the only one left.**
+///
+/// The predicate a match-end condition is, lifted out of the versus stage so a
+/// stocks match and a rounds match cannot drift apart on it. `in_play` is the
+/// only thing that differs between them: a round asks "is this fighter's health
+/// above zero", a stocks match asks "does this fighter have a stock left", and
+/// everything after that question is identical.
+///
+/// `None` means the match continues — INCLUDING the three-side case where one
+/// side has been wiped out and two are still fighting, which is the case a
+/// `survivors.len() == 1` test written the obvious way gets wrong in the other
+/// direction.
+/// ⚠ **the caller names the sides.** An earlier draft resolved a teamless seat to
+/// a label here and immediately baked a display convention into the engine — the
+/// versus stage numbers its seats from ONE, and the engine numbered from zero, so
+/// the two disagreed about who won. What a side is CALLED is the game's business;
+/// this only answers whether one of them is the last.
+pub fn last_side_standing(
+    rows: impl Iterator<Item = (String, bool)>,
+) -> Option<SidesOutcome> {
+    let mut standing: std::collections::BTreeMap<String, bool> = std::collections::BTreeMap::new();
+    for (side, in_play) in rows {
+        let entry = standing.entry(side).or_insert(false);
+        *entry |= in_play;
+    }
+    // ONE side is not a match. Without this the sole side is "wiped out" the
+    // instant it falls and the stage awards a win against nobody.
+    if standing.len() < 2 {
+        return None;
+    }
+    // BTreeMap, so the survivor list is in a stable order rather than a hash
+    // one — a tie broken by iteration order is a different winner on a replay.
+    let survivors: Vec<&String> = standing
+        .iter()
+        .filter(|(_, in_play)| **in_play)
+        .map(|(side, _)| side)
+        .collect();
+    match survivors.len() {
+        0 => Some(SidesOutcome::Draw),
+        1 => Some(SidesOutcome::Winner(survivors[0].clone())),
+        _ => None,
+    }
+}
+
+/// Who took it, if anyone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SidesOutcome {
+    Winner(String),
+    Draw,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,6 +265,62 @@ mod tests {
             None,
             "a fighter that was already out spent another stock, so 'somebody \
              was eliminated' fires again on every later KO of the same corpse"
+        );
+    }
+
+    /// One side is not a match: without the guard the sole side is "wiped out"
+    /// the instant it falls and the stage awards a win against nobody.
+    #[test]
+    fn a_single_side_never_wins() {
+        assert_eq!(
+            last_side_standing(
+                [("blue".to_string(), false), ("blue".to_string(), false)].into_iter()
+            ),
+            None
+        );
+    }
+
+    /// A side is out only when EVERY member is out — one partner left standing
+    /// keeps it in.
+    #[test]
+    fn a_side_survives_while_one_member_is_in_play() {
+        assert_eq!(
+            last_side_standing(
+                [
+                    ("blue".to_string(), false),
+                    ("blue".to_string(), true),
+                    ("red".to_string(), false),
+                ]
+                .into_iter()
+            ),
+            Some(SidesOutcome::Winner("blue".to_string()))
+        );
+    }
+
+    /// Three sides, one wiped out: the match CONTINUES. The obvious
+    /// `survivors.len() == 1` reading gets this wrong in the other direction.
+    #[test]
+    fn a_third_side_falling_does_not_end_a_match_two_are_still_fighting() {
+        assert_eq!(
+            last_side_standing(
+                [
+                    ("blue".to_string(), true),
+                    ("red".to_string(), true),
+                    ("green".to_string(), false),
+                ]
+                .into_iter()
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn both_sides_going_out_together_is_a_draw() {
+        assert_eq!(
+            last_side_standing(
+                [("blue".to_string(), false), ("red".to_string(), false)].into_iter()
+            ),
+            Some(SidesOutcome::Draw)
         );
     }
 

@@ -13,6 +13,23 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 # carries an `EffectRef`'s opaque `ParamValue` so a content technique hydrates
 # its own params (fable review A1 / R2.2).
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# The content compiler. A downward edge to a foundation crate with no Bevy and
+# no domain types: the character capability OWNS its authored schema, so the
+# registration lives here rather than in a central content enum.
+#
+# OPTIONAL and default-OFF, and the footprint ratchet is what said so: a
+# movement-only game (`fixtures/minimal_game`) must not link a content compiler
+# it never asked for — §2e, "a perfectly semantic API can still force a game to
+# link every unrelated domain". Nothing at RUNTIME consumes a prepared pack yet;
+# the compiler is a build-time and tooling concern, so the honest default is
+# off. Turn it on when a composition wants its content validated (see
+# `ambition_content_cli`), and again when the runtime starts reading a
+# `PreparedContentPack` instead of an `include_str!`.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
 ron = { workspace = true }
 serde = { workspace = true }
+
+[features]
+# The authored-content schema this capability owns. See the dependency note.
+content_pack = ["dep:ambition_content_pack"]

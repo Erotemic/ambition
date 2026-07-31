@@ -456,6 +456,9 @@ pub struct CharacterPortraitRef {
     reason = "Public catalog schema; future consumers (Hall layout generator, dialogue UI, faction-aware spawn rules) read tier / body_kind / composition / tags. Today the validator + sprite loader use a subset."
 )]
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+// An authored field nobody consumes must not be silently dropped: the mechanic
+// simply never fires and the author sees content that looks correct.
+#[serde(deny_unknown_fields)]
 pub struct CharacterCatalogEntry {
     /// Human-facing label (UI, dialogue, debug overlays).
     pub display_name: String,
@@ -795,6 +798,7 @@ pub struct ActionSetPreset {
 /// Top-level RON shape: brain presets + action-set presets + the
 /// character map keyed by `character_id`.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct CharacterCatalogData {
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,

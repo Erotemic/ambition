@@ -14,6 +14,8 @@
 use bevy::prelude::*;
 
 pub mod binding;
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod entry;
 pub mod loader;
 pub mod registry;
@@ -29,6 +31,12 @@ pub use binding::{
     unused_imports,
     reason = "public surface; downstream phases consume these as they land"
 )]
+#[cfg(feature = "content_pack")]
+pub use content_schema::{
+    ActionSetPresetRef, BrainPresetRef, Character, character_catalog_schema,
+    ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY,
+    CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
+};
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,

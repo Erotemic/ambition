@@ -1,0 +1,23 @@
+[package]
+name = "ambition_content_cli"
+version = "0.1.0"
+edition = "2024"
+description = "The content-pack validator's diagnostic front door. Composes the same schema registry the app composes and calls the same `ambition_content_pack::compile`."
+
+# ⛔ THIS CRATE MUST NOT EMBED CONTENT.
+#
+# Its whole reason to exist is that editing a character RON does not rebuild
+# Rust. An `include_str!` here — or a dependency on a crate that has one for the
+# pack being validated — reintroduces exactly the coupling the tool removes, and
+# it would do so silently: the tool would still work, just slowly, and nobody
+# would notice until someone timed it.
+[dependencies]
+ambition_content_pack = { path = "../ambition_content_pack" }
+# Capability crates, for their schema registrations. Each contributes the
+# schemas it owns; which ones are linked here IS the composition this CLI
+# validates against, and it is why "uninstalled capability" is a real refusal.
+ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
+
+[[bin]]
+name = "ambition_content"
+path = "src/main.rs"

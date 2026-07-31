@@ -122,7 +122,20 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     };
 
     // 2. Self is the one with a problem.
-    let cornered = view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX;
+    //
+    // ⚠ **cornered is about the FLOOR as well as the room** (2026-07-31). It was
+    // only ever asked of `stage.distance_to_edge`, and on an enclosed room the
+    // room's edge and the floor's edge are the same line — which is why nothing
+    // needed the distinction until the smash stage, the first room in this
+    // engine you can walk out of. On a platform stage a fighter standing on the
+    // very lip of the floor is still 110px from the room boundary, so this
+    // answered "not cornered" while the body was one step from a self-KO.
+    //
+    // A fighter that loses stocks to the floor has no difficulty curve, which
+    // makes this the first thing the ladder needs to be true.
+    let floor_edge = view.floor_edge_distance().unwrap_or(f32::INFINITY);
+    let cornered =
+        view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX || floor_edge < CORNER_MARGIN_PX;
     if me.phase == BodyPhase::Hitstun || cornered {
         return Situation::Disadvantage;
     }

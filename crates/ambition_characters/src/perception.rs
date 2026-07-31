@@ -377,6 +377,56 @@ pub struct WorldView {
 }
 
 impl WorldView {
+    /// **How much floor is left in a direction, from the solid underfoot.**
+    ///
+    /// `None` means no supporting solid was perceived — an AIRBORNE body, or a
+    /// view whose terrain was never built. Neither is a ledge question, and
+    /// reading "I cannot see the floor" as "the floor ends here" would freeze
+    /// every brain in a composition that does not build terrain.
+    ///
+    /// ⚠ **not [`StageView::distance_to_edge`], and the difference is a whole
+    /// class of bug.** The stage is the ROOM. On an enclosed room the room's edge
+    /// and the floor's edge coincide, which is why nothing needed this until the
+    /// smash stage — the first room in this engine you can walk out of. On a
+    /// platform stage a body at the very edge of the floor is still 110px from
+    /// the room boundary, so every "am I cornered" question answered against the
+    /// stage says no while the fighter walks into the sky.
+    ///
+    /// One authority, because L1 asks it to classify and L2 asks it to score, and
+    /// two implementations of "where does the floor end" would drift the moment
+    /// one of them learned about one-way platforms.
+    pub fn floor_ahead(&self, toward: f32) -> Option<f32> {
+        let me = &self.self_view;
+        let feet = me.pos.y + me.half_extent.y;
+        let support = self
+            .terrain
+            .iter()
+            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| {
+                solid.aabb.min.x <= me.pos.x
+                    && solid.aabb.max.x >= me.pos.x
+                    && solid.aabb.min.y >= feet - me.half_extent.y
+                    && solid.aabb.min.y <= feet + me.half_extent.y * 2.0
+            })
+            .min_by(|a, b| {
+                (a.aabb.min.y - feet)
+                    .abs()
+                    .total_cmp(&(b.aabb.min.y - feet).abs())
+            })?;
+        Some(if toward >= 0.0 {
+            support.aabb.max.x - me.pos.x
+        } else {
+            me.pos.x - support.aabb.min.x
+        })
+    }
+
+    /// The nearer of the two floor edges, or `None` when there is no floor.
+    pub fn floor_edge_distance(&self) -> Option<f32> {
+        match (self.floor_ahead(1.0), self.floor_ahead(-1.0)) {
+            (Some(right), Some(left)) => Some(right.min(left)),
+            _ => None,
+        }
+    }
     /// Is self outside the stage envelope? L1's `Recovery` predicate.
     pub fn self_offstage(&self) -> bool {
         self.stage.offstage(self.self_view.pos)

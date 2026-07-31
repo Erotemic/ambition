@@ -309,43 +309,6 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
 /// attack scorer and in L3's rollouts; movement's job at L2 is to express the
 /// situation's ONE obligation — get back, get out, get in — so that a brain with
 /// no L3 still plays a recognizable game.
-/// **How much ground is left in a direction before the floor ends.**
-///
-/// `None` means "no supporting solid was perceived", which is an AIRBORNE body or
-/// a view with no terrain — neither is a ledge question, so neither is penalised.
-///
-/// Measured from the solid the body is actually standing on rather than from the
-/// stage bounds: the stage is the room, and on a platform stage the room extends
-/// well past the floor. That difference is the entire bug this exists for.
-fn ground_ahead(view: &crate::perception::WorldView, toward: f32) -> Option<f32> {
-    use crate::perception::SolidKind;
-    let me = &view.self_view;
-    let feet = me.pos.y + me.half_extent.y;
-    let support = view
-        .terrain
-        .iter()
-        .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
-        // Directly underfoot: horizontally overlapping and within a body's own
-        // height below the feet. A solid the body is not on says nothing about
-        // where this body may walk.
-        .filter(|solid| {
-            solid.aabb.min.x <= me.pos.x
-                && solid.aabb.max.x >= me.pos.x
-                && solid.aabb.min.y >= feet - me.half_extent.y
-                && solid.aabb.min.y <= feet + me.half_extent.y * 2.0
-        })
-        .min_by(|a, b| {
-            (a.aabb.min.y - feet)
-                .abs()
-                .total_cmp(&(b.aabb.min.y - feet).abs())
-        })?;
-    Some(if toward >= 0.0 {
-        support.aabb.max.x - me.pos.x
-    } else {
-        me.pos.x - support.aabb.min.x
-    })
-}
-
 /// **Would moving `toward` walk this body off the floor it is standing on?**
 ///
 /// ⛔ the defect this closes, measured 2026-07-31 in the smash demo: a fighter
@@ -360,7 +323,10 @@ fn ground_ahead(view: &crate::perception::WorldView, toward: f32) -> Option<f32>
 /// The margin is a body-width rather than a tuned distance: a fighter that stops
 /// exactly at the edge is standing on the one pixel a knockback removes.
 fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
-    let Some(ahead) = ground_ahead(view, toward) else {
+    // ONE authority: `WorldView::floor_ahead`, which L1 also asks to classify
+    // `Disadvantage`. Two implementations of "where does the floor end" would
+    // drift the moment one of them learned about one-way platforms.
+    let Some(ahead) = view.floor_ahead(toward) else {
         return false;
     };
     ahead < view.self_view.half_extent.x * 2.0

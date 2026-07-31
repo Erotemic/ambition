@@ -149,12 +149,24 @@ fn npc_character_id(interactable: &Interactable) -> Option<&str> {
 /// or no on-hit pool gets the engine-generic default.
 pub(crate) fn npc_hit_bark_line<'a>(
     catalog: &'a CharacterCatalog,
+    // AD8: the prepared cast, so a REGISTERED-only character is hurt in its own
+    // voice. Without it the floor for this situation was engine-generic English
+    // — see the fall-through below.
+    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     interactable: &Interactable,
     strikes: i32,
 ) -> &'a str {
     let rotation = strikes.saturating_sub(1).max(0) as u32;
     if let Some(cid) = npc_character_id(interactable) {
         if let Some(line) = catalog.bark_line(cid, BarkSituation::OnHit, rotation) {
+            return line;
+        }
+        // **THE FLOOR** — the same one the ambient ticker uses, which this path
+        // did not consult. `CharacterDefinition::voice`'s doc calls itself the
+        // floor so that "the floor is 'says something in character' rather than
+        // silence", and for a hit that was not true: a registered-only character
+        // said "Hey." in the engine's voice (AD8).
+        if let Some(line) = registry.and_then(|registry| registry.get(cid)?.voice_line(rotation)) {
             return line;
         }
     }
@@ -165,10 +177,16 @@ pub(crate) fn npc_hit_bark_line<'a>(
 /// `barks.provoked` pool (rotation 0), else the engine-generic default.
 pub(crate) fn npc_hostile_bark_line<'a>(
     catalog: &'a CharacterCatalog,
+    // AD8: as above — the moment a character turns on you is the worst one to
+    // say it in somebody else's words.
+    registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     interactable: &Interactable,
 ) -> &'a str {
     if let Some(cid) = npc_character_id(interactable) {
         if let Some(line) = catalog.bark_line(cid, BarkSituation::Provoked, 0) {
+            return line;
+        }
+        if let Some(line) = registry.and_then(|registry| registry.get(cid)?.voice_line(0)) {
             return line;
         }
     }
@@ -392,6 +410,70 @@ mod tests {
         );
     }
 
+    /// **The voice is a floor for EVERY situation, not only the ambient one.**
+    /// (AD8)
+    ///
+    /// `CharacterDefinition::voice` calls itself the floor so that "the floor is
+    /// 'says something in character' rather than silence". It was reached by the
+    /// ambient ticker and by nothing else: a registered-only character that got
+    /// hit said "Hey." and one that turned hostile said "That's it!" — the
+    /// engine's words in a character's mouth, which is the failure the whole
+    /// registered-character voice seam exists to end.
+    #[test]
+    fn a_registered_characters_voice_is_the_floor_when_it_is_hit_and_provoked() {
+        // A row that authors an IDLE pool and nothing for being hit or provoked
+        // — the ordinary state of a character somebody has written ambience for
+        // and not combat lines. `FIRST` authors both, so the catalog would
+        // correctly win there and the floor would never be reached.
+        const AMBIENT_ONLY: &str = r#"(
+            brain_presets: { "idle": StandStill },
+            action_set_presets: { "peaceful": (move_style: Walk) },
+            characters: {
+                "voice": (
+                    display_name: "Voice", spritesheet: "voice.png",
+                    manifest: "voice_spritesheet.ron", tier: MainHall,
+                    body_kind: Standard, composition: None,
+                    default_brain: "idle", default_action_set: "peaceful", tags: [],
+                    barks: ( idle: ["first idle"] ),
+                ),
+            },
+        )"#;
+        let catalog = CharacterCatalog::from_data(parse_catalog(AMBIENT_ONLY));
+        let npc = interactable();
+        let registry = registry_with(
+            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+                .with_voice(["ow, my paint", "that is enough"]),
+        );
+
+        // VACUITY FIRST: without the registry these are the engine's lines, which
+        // is the state this closes.
+        assert_eq!(
+            npc_hit_bark_line(&catalog, None, &npc, 1),
+            GENERIC_HIT_BARKS[0],
+            "vacuity check: with no prepared cast the engine speaks, which is what \
+             made this a defect rather than a preference"
+        );
+        assert_eq!(npc_hostile_bark_line(&catalog, None, &npc), GENERIC_HOSTILE_BARK);
+
+        assert_eq!(
+            npc_hit_bark_line(&catalog, Some(&registry), &npc, 1),
+            "ow, my paint",
+            "a struck character still spoke in the engine's voice"
+        );
+        assert_eq!(
+            npc_hit_bark_line(&catalog, Some(&registry), &npc, 2),
+            "that is enough",
+            "the hit rotation must cycle the character's own pool, like the \
+             catalog's does"
+        );
+        assert_eq!(
+            npc_hostile_bark_line(&catalog, Some(&registry), &npc),
+            "ow, my paint",
+            "a character turning hostile spoke in the engine's voice — the worst \
+             moment to borrow somebody else's words"
+        );
+    }
+
     /// The CATALOG still outranks a definition's voice: the voice is a floor,
     /// not an override.
     #[test]
@@ -417,10 +499,10 @@ mod tests {
         let second = CharacterCatalog::from_data(parse_catalog(SECOND));
         let npc = interactable();
 
-        assert_eq!(npc_hit_bark_line(&first, &npc, 1), "first hit");
-        assert_eq!(npc_hit_bark_line(&second, &npc, 1), "second hit");
-        assert_eq!(npc_hostile_bark_line(&first, &npc), "first provoked");
-        assert_eq!(npc_hostile_bark_line(&second, &npc), "second provoked");
+        assert_eq!(npc_hit_bark_line(&first, None, &npc, 1), "first hit");
+        assert_eq!(npc_hit_bark_line(&second, None, &npc, 1), "second hit");
+        assert_eq!(npc_hostile_bark_line(&first, None, &npc), "first provoked");
+        assert_eq!(npc_hostile_bark_line(&second, None, &npc), "second provoked");
         assert_eq!(
             npc_ambient_bark_line(&first, None, &npc, BarkSituation::Idle, 0),
             Some("first idle")

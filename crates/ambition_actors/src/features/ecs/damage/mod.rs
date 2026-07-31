@@ -102,6 +102,11 @@ pub struct FeatureHitCatalogs<'w> {
     pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     pub hostile_archetypes: Res<'w, crate::features::CharacterRoster>,
     pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
+    /// AD8: the prepared cast, so a struck or provoked character speaks in its
+    /// OWN voice rather than the engine's. `Option` because a bare engine App
+    /// legitimately has no prepared cast — the same shape the ambient ticker
+    /// already uses.
+    pub prepared: Option<Res<'w, crate::character_runtime::PreparedCharacterRegistry>>,
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -283,6 +288,8 @@ pub fn apply_feature_hit_events(
     let mut feel = feel_tuning.map(|r| *r).unwrap_or_default();
     feel.di_max_angle = combat_rules.map(|r| *r).unwrap_or_default().di_max_angle;
     let catalog = &*catalogs.characters;
+    // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
+    let prepared = catalogs.prepared.as_deref();
     // Wave-1 follow-up: apply the player's outgoing power-slider scale to their
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
     // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming
@@ -403,6 +410,7 @@ pub fn apply_feature_hit_events(
             if apply_actor_hit(
                 &event,
                 catalog,
+                prepared,
                 &catalogs.sheets,
                 &catalogs.hostile_archetypes,
                 actor_entity,

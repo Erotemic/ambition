@@ -309,10 +309,91 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
 /// attack scorer and in L3's rollouts; movement's job at L2 is to express the
 /// situation's ONE obligation — get back, get out, get in — so that a brain with
 /// no L3 still plays a recognizable game.
+/// **How much ground is left in a direction before the floor ends.**
+///
+/// `None` means "no supporting solid was perceived", which is an AIRBORNE body or
+/// a view with no terrain — neither is a ledge question, so neither is penalised.
+///
+/// Measured from the solid the body is actually standing on rather than from the
+/// stage bounds: the stage is the room, and on a platform stage the room extends
+/// well past the floor. That difference is the entire bug this exists for.
+fn ground_ahead(view: &crate::perception::WorldView, toward: f32) -> Option<f32> {
+    use crate::perception::SolidKind;
+    let me = &view.self_view;
+    let feet = me.pos.y + me.half_extent.y;
+    let support = view
+        .terrain
+        .iter()
+        .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+        // Directly underfoot: horizontally overlapping and within a body's own
+        // height below the feet. A solid the body is not on says nothing about
+        // where this body may walk.
+        .filter(|solid| {
+            solid.aabb.min.x <= me.pos.x
+                && solid.aabb.max.x >= me.pos.x
+                && solid.aabb.min.y >= feet - me.half_extent.y
+                && solid.aabb.min.y <= feet + me.half_extent.y * 2.0
+        })
+        .min_by(|a, b| {
+            (a.aabb.min.y - feet)
+                .abs()
+                .total_cmp(&(b.aabb.min.y - feet).abs())
+        })?;
+    Some(if toward >= 0.0 {
+        support.aabb.max.x - me.pos.x
+    } else {
+        me.pos.x - support.aabb.min.x
+    })
+}
+
+/// **Would moving `toward` walk this body off the floor it is standing on?**
+///
+/// ⛔ the defect this closes, measured 2026-07-31 in the smash demo: a fighter
+/// lost all three of its stocks WITHOUT BEING HIT, by running past its opponent
+/// and off the edge, repeatedly.
+///
+/// The brain was not wrong — the world changed. L1 has `Situation::Recovery` for
+/// a body ALREADY offstage, and until the smash stage every room in this engine
+/// was enclosed, so `Approach` was always safe and nothing had to score a ledge.
+/// A platform-fighter stage is the first room you can walk out of.
+///
+/// The margin is a body-width rather than a tuned distance: a fighter that stops
+/// exactly at the edge is standing on the one pixel a knockback removes.
+fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
+    let Some(ahead) = ground_ahead(view, toward) else {
+        return false;
+    };
+    ahead < view.self_view.half_extent.x * 2.0
+}
+
 fn movement_options(view: &crate::perception::WorldView, situation: Situation) -> Vec<MoveOption> {
     let me = &view.self_view;
+    // Which way the foe is, so "approach" and "retreat" can be asked whether the
+    // floor is still there. Zero when there is nobody to approach, and a zero
+    // direction reads as "no ledge question", which is correct: a brain with no
+    // foe is not closing on anything.
+    let toward_foe = view
+        .actors
+        .iter()
+        .find(|actor| actor.hostile_to_self && actor.alive)
+        .map(|foe| (foe.pos.x - me.pos.x).signum())
+        .unwrap_or(0.0);
+    let approach_walks_off = toward_foe != 0.0 && walks_off(view, toward_foe);
+    let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
     let mut out = Vec::new();
-    let mut push = |verb: MovementVerb, score: f32| out.push(MoveOption { verb, score });
+    let mut push = |verb: MovementVerb, score: f32| {
+        // **The ledge penalty is applied HERE, at the one place every verb is
+        // scored**, rather than at each `push` site. A per-situation penalty is
+        // the kind that gets added to three arms and forgotten in the fourth —
+        // and the forgotten arm is always the one a real match spends its time
+        // in.
+        let score = match verb {
+            MovementVerb::Approach | MovementVerb::Dash if approach_walks_off => score - 1.0,
+            MovementVerb::Retreat if retreat_walks_off => score - 1.0,
+            _ => score,
+        };
+        out.push(MoveOption { verb, score })
+    };
 
     match situation {
         Situation::Recovery => {

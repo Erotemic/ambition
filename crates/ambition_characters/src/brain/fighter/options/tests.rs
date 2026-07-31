@@ -381,3 +381,77 @@ fn a_brain_with_no_opponent_offers_no_attacks() {
     assert!(opts.attacks.is_empty());
     assert!(!opts.movement.is_empty());
 }
+
+// ── the ledge ────────────────────────────────────────────────────────────────
+
+/// A platform with edges, and a body standing on it.
+fn on_a_platform(me_x: f32, foe_x: f32, platform: (f32, f32)) -> WorldView {
+    use crate::perception::{PerceivedSolid, SolidKind};
+    let mut view = view_with(me_x, foe_x);
+    // Half-extents, so "a body width" is a real number rather than the default 0.
+    view.self_view.half_extent = ae::Vec2::new(12.0, 24.0);
+    view.terrain = vec![PerceivedSolid {
+        aabb: ae::Aabb {
+            min: ae::Vec2::new(platform.0, 324.0),
+            max: ae::Vec2::new(platform.1, 380.0),
+        },
+        kind: SolidKind::Solid,
+    }];
+    view
+}
+
+fn score_of(options: &OptionSet, verb: MovementVerb) -> f32 {
+    options
+        .movement
+        .iter()
+        .find(|option| option.verb == verb)
+        .map(|option| option.score)
+        .unwrap_or(f32::NAN)
+}
+
+/// **Approaching toward a ledge is penalised.** (2026-07-31)
+///
+/// The defect: a fighter lost all three of its stocks WITHOUT BEING HIT, by
+/// running past its opponent and off the edge. The brain was not wrong — until
+/// the smash stage, every room in this engine was ENCLOSED, so `Approach` was
+/// always safe and nothing had to score a ledge.
+#[test]
+fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward() {
+    // Foe to the RIGHT, and the platform ends 10px to the right: closing means
+    // walking off.
+    let at_the_edge = on_a_platform(390.0, 500.0, (100.0, 400.0));
+    // The same fighter with the same foe, in the middle of the platform.
+    let mid_platform = on_a_platform(250.0, 500.0, (100.0, 400.0));
+
+    let weights = UtilityWeights::default();
+    let edge = generate_options(Perceived::cheating(&at_the_edge), Situation::Neutral, &[], &weights);
+    let safe = generate_options(Perceived::cheating(&mid_platform), Situation::Neutral, &[], &weights);
+
+    assert!(
+        score_of(&edge, MovementVerb::Approach) < score_of(&safe, MovementVerb::Approach),
+        "closing toward a ledge scores the same as closing across open floor, so \
+         the brain walks off the stage chasing somebody"
+    );
+    assert!(
+        score_of(&edge, MovementVerb::Approach) < score_of(&edge, MovementVerb::Retreat),
+        "at the edge, walking off still outranks backing away — which is how a \
+         fighter loses a stock without being hit"
+    );
+}
+
+/// **A body with no perceived terrain is not penalised.** An airborne fighter,
+/// or a view whose terrain was never filled, is not a ledge question — and
+/// treating "I cannot see the floor" as "the floor ends here" would freeze every
+/// brain in a composition that does not build terrain.
+#[test]
+fn a_view_with_no_terrain_scores_movement_exactly_as_before() {
+    let no_terrain = view_with(390.0, 500.0);
+    let weights = UtilityWeights::default();
+    let options = generate_options(Perceived::cheating(&no_terrain), Situation::Neutral, &[], &weights);
+    assert_eq!(
+        score_of(&options, MovementVerb::Approach),
+        0.5,
+        "a view with no terrain acquired a ledge penalty, so a brain that cannot \
+         see the floor refuses to move"
+    );
+}

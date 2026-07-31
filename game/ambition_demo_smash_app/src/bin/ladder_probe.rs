@@ -57,6 +57,41 @@
 //! ⛔ it is not a fix either way. Every rung still loses all three stocks inside
 //! ~10 s: the brain kills itself, and depth changes only how fast.
 //!
+//! ## What the two new columns say, and what they rule OUT
+//!
+//! ```text
+//!   1      died at x≈-119 (3L/0R), vmax 400
+//!   3      died at x≈-117 (3L/0R), vmax 586
+//!   5      died at x≈-116 (3L/0R), vmax 658
+//!   6      died at x≈756  (0L/3R), vmax 609
+//!   9      died at x≈758  (0L/3R), vmax 752
+//!   9/d0   died at x≈752  (0L/3R), vmax 773
+//!   9/d12  died at x≈758  (0L/3R), vmax 752
+//! ```
+//!
+//! The platform spans x 110..530 of a 640-wide stage and the blast margin is
+//! 120, so `-119` is off the left lip and `756` off the right. Two facts fall
+//! straight out, and both narrow the search:
+//!
+//! * **the direction is a property of the LEVEL, not of the rollout.** Levels
+//!   1–5 leave to the left, 6–9 to the right, and level 9 leaves right at BOTH
+//!   depths. Whatever the rollout is doing, it is not steering.
+//! * **`vmax` is dash speed at both depths** (`dash_speed` is 760; a run tops
+//!   out at `MAX_RUN_SPEED` 270). So the fighter DASHES off the stage with the
+//!   rollout on and with it off. The rollout does not introduce the dash; it
+//!   changes when it happens — 2.7 s instead of 5.2 s.
+//!
+//! ▢ **so the open question is narrow**: why does the movement veto let a dash
+//!   that leaves the stage through? The shadow models a dash as `dash_speed`
+//!   held for `dash_time` and then coasts under `ShadowIntent::Hold`, which
+//!   zeroes lateral velocity instantly WHEN GROUNDED — while the real body that
+//!   dashes off a lip becomes airborne, where `AIR_FRICTION` (650) lets 760 px/s
+//!   carry it several hundred px further. Confirming that needs a per-decision
+//!   trace of one level-9 match, which this probe does not have and should get
+//!   before anybody changes the veto: the last two attempts at this were a
+//!   paralysis that read as a 3× improvement and a fix that made the number
+//!   worse.
+//!
 //! ⚠ this is a PROBE, not the ladder rig. It runs one scenario, one opponent,
 //! no repeats — enough to say whether depth changes behaviour at all, and not
 //! enough to author a row from. §8's scenario suite and the survival/damage
@@ -143,12 +178,17 @@ fn report(runs: &[LadderRun]) {
         None => first.level.to_string(),
     };
     println!(
-        "[ladder_probe]   {:<5}   {:>13}  {:>13}   {}         {:.0}%",
+        "[ladder_probe]   {:<5}   {:>13}  {:>13}   {}         {:.0}%   {}",
         tag,
         spread_label(runs.iter().map(|r| r.first_loss)),
         spread_label(runs.iter().map(|r| r.eliminated)),
         median(runs.iter().map(|r| r.lost as usize)).unwrap_or(0),
         runs.iter().map(|r| r.peak).fold(0.0f32, f32::max) * 100.0,
+        format!(
+            "{}, vmax {:.0}",
+            death_side(runs),
+            runs.iter().map(|r| r.peak_speed).fold(0.0f32, f32::max)
+        ),
     );
 }
 
@@ -180,6 +220,20 @@ fn spread_label(values: impl Iterator<Item = Option<usize>> + Clone) -> String {
     }
 }
 
+/// WHERE it died, as a side rather than a number. The platform spans x 110..530
+/// of a 640-wide stage; `<110` is off the left lip and `>530` off the right, and
+/// which one it is separates a veto that steers wrong from a veto that is blind.
+fn death_side(runs: &[LadderRun]) -> String {
+    let xs: Vec<f32> = runs.iter().filter_map(|r| r.death_x).collect();
+    if xs.is_empty() {
+        return "no self-KO".to_string();
+    }
+    let left = xs.iter().filter(|x| **x < 320.0).count();
+    let right = xs.len() - left;
+    let mean = xs.iter().sum::<f32>() / xs.len() as f32;
+    format!("died at x≈{mean:.0} ({left}L/{right}R)")
+}
+
 fn median(values: impl Iterator<Item = usize>) -> Option<usize> {
     let mut sorted: Vec<usize> = values.collect();
     sorted.sort_unstable();
@@ -193,6 +247,19 @@ struct LadderRun {
     first_loss: Option<usize>,
     /// Tick at which it ran out of stocks entirely.
     eliminated: Option<usize>,
+    /// The fastest horizontal speed the body ever reached, in px/s.
+    ///
+    /// A run tops out near `MAX_RUN_SPEED`; a dash is an impulse several times
+    /// that. So this separates "walked off" from "dashed off" without having to
+    /// instrument the brain's chosen verb — and those are different bugs.
+    peak_speed: f32,
+    /// Where the body was standing on the tick before its FIRST self-KO.
+    ///
+    /// The platform spans x 110..530 of a 640-wide stage, so a death off the
+    /// LEFT and a death off the RIGHT are different bugs — one is the veto
+    /// steering, the other is the veto blind. A time alone cannot tell them
+    /// apart, and this probe reported only times until 2026-07-31.
+    death_x: Option<f32>,
     lost: u32,
     peak: f32,
 }
@@ -220,6 +287,9 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
 
     let mut lost = 0u32;
     let mut peak = 0.0f32;
+    let mut last_x: Option<f32> = None;
+    let mut peak_speed = 0.0f32;
+    let mut death_x: Option<f32> = None;
     let mut first_loss = None;
     let mut eliminated = None;
     let mut depth_applied = forced_depth.is_none();
@@ -237,19 +307,27 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
             &MatchSeat,
             &FighterStocks,
             &ambition::characters::actor::BodyHealth,
+            &ambition::platformer::body::BodyKinematics,
         )>();
         let mut present = false;
-        for (seat, stocks, health) in q.iter(world) {
+        let mut seat_x = None;
+        for (seat, stocks, health, kinematics) in q.iter(world) {
             if seat.0 == 1 {
                 present = true;
+                seat_x = Some(kinematics.pos.x);
+                peak_speed = peak_speed.max(kinematics.vel.x.abs());
                 let now = ambition_demo_smash::STARTING_STOCKS.saturating_sub(stocks.remaining);
                 if now > 0 && first_loss.is_none() {
                     first_loss = Some(tick);
+                    // The position on the tick BEFORE: a respawn has already
+                    // moved the body by the time the stock count drops.
+                    death_x = last_x;
                 }
                 lost = lost.max(now);
                 peak = peak.max(health.damage_percent());
             }
         }
+        last_x = seat_x.or(last_x);
         // Elimination despawns the body, so its absence AFTER it was present is
         // the signal — there is no last frame to read a zero off.
         if !present && eliminated.is_none() && first_loss.is_some() {
@@ -280,6 +358,8 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         eliminated,
         lost,
         peak,
+        death_x,
+        peak_speed,
     }
 }
 

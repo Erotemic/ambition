@@ -1190,10 +1190,25 @@ pub fn refine_by_rollout(
 /// whether that is still free.
 pub const MOVEMENT_HORIZON_MULTIPLE: u32 = 16;
 
-/// How much of a body's ground speed it can steer with while airborne. v1's air
-/// game is one number, and it is deliberately pessimistic: a rollout that
-/// overestimates drift certifies recoveries that will not happen, and a fighter
-/// that dives off the stage on a promise is worse than one that never leaves it.
+/// How much of a body's ground speed it can steer with while airborne, once its
+/// jumps are spent.
+///
+/// **It is a SAFETY MARGIN, not a physical fact, and the engine's numbers say
+/// so.** `ae::AIR_ACCEL` is 3100 px/s² against a shared `MAX_RUN_SPEED` cap of
+/// 270 — so a real body reaches the SAME top speed in the air as on the ground,
+/// differing only in how long it takes to get there (~0.09 s). The shadow sets
+/// velocity instantly and models no acceleration at all, so a fraction below 1
+/// approximates the average achieved over that ramp rather than describing a
+/// weaker air game.
+///
+/// The pessimism is still the right direction: a rollout that overestimates
+/// drift certifies recoveries that will not happen, and a fighter that dives off
+/// the stage on a promise is worse than one that never leaves it.
+///
+/// ⚠ **measured 2026-07-31: moving it to 1.0 changes `ladder_probe` by NOTHING**
+/// — same first self-KO, same survival, at every rung. Whatever is killing this
+/// fighter, out-of-jumps drift is not on the path. Do not tune this number
+/// hoping to move that measurement.
 pub const AIR_DRIFT_FRACTION: f32 = 0.6;
 
 /// The sustained shadow intent a movement verb means.

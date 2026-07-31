@@ -30,6 +30,10 @@ from check_absence_contracts import (  # noqa: E402
 
 # One line that each contract must reject, written the way real code would.
 VIOLATING_LINE = {
+    # The shortest path back to a 1,870-line function: adding a registration
+    # where all the others used to be. Campaign 2 R5.
+    "central-rollback-does-not-enumerate-domains":
+        '    app.rollback_component_clone::<ambition_portal::PortalBody>(ENGINE, "portal.body");',
     "registration-does-not-demand-art": "    CharacterLoadDemand::request(&mut demand, id);",
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",

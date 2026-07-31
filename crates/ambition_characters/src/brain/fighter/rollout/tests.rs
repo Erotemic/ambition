@@ -78,6 +78,10 @@ fn profile(rollout_k: u32, rollout_depth: u32, read_weight: f32) -> FighterBrain
 
 fn attack(id: &str, frames: MoveFrameData) -> AttackOption {
     AttackOption {
+        binding: crate::brain::fighter::options::AttackBinding {
+            verb: crate::brain::fighter::options::AttackVerb::Basic,
+            direction: crate::actor::attack_gesture::AttackDir::Forward,
+        },
         move_id: id.to_string(),
         frames,
         score: 0.0,

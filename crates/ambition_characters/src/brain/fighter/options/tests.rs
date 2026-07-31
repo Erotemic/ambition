@@ -4,6 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::actor::attack_gesture::AttackDir;
 use crate::actor::ActorFaction;
 use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
 use ambition_engine_core as ae;
@@ -26,6 +27,13 @@ fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
     AttackCandidate {
         move_id: id.to_string(),
         frames: frames(startup_s, reach, 0.2),
+        // The plain forward press. What binding a candidate carries is the
+        // CALLER's answer (it enumerates them against the real moveset); L2
+        // scores the move and hands the binding back untouched.
+        binding: AttackBinding {
+            verb: AttackVerb::Basic,
+            direction: AttackDir::Forward,
+        },
     }
 }
 
@@ -338,9 +346,17 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             max_damage: 20,
             ..frames(0.25, 100.0, 0.4)
         },
+        binding: AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Forward,
+        },
     };
     let jab = AttackCandidate {
         move_id: "jab".to_string(),
+        binding: AttackBinding {
+            verb: AttackVerb::Basic,
+            direction: AttackDir::Forward,
+        },
         frames: MoveFrameData {
             max_damage: 4,
             ..frames(0.1, 100.0, 0.2)

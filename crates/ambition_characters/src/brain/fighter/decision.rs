@@ -28,6 +28,8 @@
 //! reason, and a noise stream that did not rewind would make the same fighter
 //! throw a different jab on a replay.
 
+use ambition_engine_core::Vec2;
+
 use crate::actor::control::ActorControlFrame;
 use crate::brain::fighter::habit::{Choice, HabitModel};
 use crate::brain::fighter::options::{
@@ -136,6 +138,24 @@ fn next_signed_unit(seed: &mut u64) -> f32 {
     (unit * 2.0 - 1.0) as f32
 }
 
+/// **A press the brain has committed to, and the press it is.**
+///
+/// ⚠ this was a bare `Option<u32>` — a delay with no memory of what it was
+/// delaying (GPT 5.6, 2026-07-31, finding 2). The scored move was chosen, the
+/// count matured, and a NEUTRAL melee edge came out; `trigger_moveset_moves`
+/// then resolved whatever the default gesture maps to, which for a body with
+/// directional variants is the plain jab whatever the brain had picked.
+///
+/// The binding rides the jitter because the jitter is EXECUTION noise — a human
+/// who decides to up-tilt and presses two frames late still up-tilts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PendingAttack {
+    /// Ticks remaining before the press is emitted. Counts DOWN.
+    pub ticks: u32,
+    /// What to press when it matures.
+    pub binding: super::options::AttackBinding,
+}
+
 /// **The mutable half.** Every field decides what the brain does next, so every
 /// field is rollback state.
 ///
@@ -158,7 +178,7 @@ pub struct FighterState {
     /// A press the brain has committed to, `Some(ticks_until_press)`. The delay
     /// is the execution noise: a human who decides to jab does not jab on the
     /// same frame every time.
-    pub pending_press: Option<u32>,
+    pub pending_press: Option<PendingAttack>,
     /// The noise stream. Advanced only when a sample is consumed.
     pub noise: u64,
     /// The foe as it was at the LAST decision, so the next one can name what the
@@ -238,17 +258,22 @@ pub fn tick_fighter(
     // A committed press matures. Checked BEFORE the decision so a press armed by
     // the previous decision is not silently replaced by the next one.
     match state.pending_press {
-        Some(0) => {
+        Some(PendingAttack { ticks: 0, binding }) => {
             state.pending_press = None;
             // **THE ONE EMISSION POINT.** A press with no APM token is DROPPED
             // and the held movement stays, which is what makes the humanity
             // histogram a measurement of behaviour rather than of intent.
             if state.apm.may_press(cfg.profile.apm_cap, cfg.tick_hz) {
-                frame.melee_pressed = true;
+                press_the_chosen_attack(binding, &mut frame);
                 state.apm.presses = state.apm.presses.saturating_add(1);
             }
         }
-        Some(ticks) => state.pending_press = Some(ticks - 1),
+        Some(pending) => {
+            state.pending_press = Some(PendingAttack {
+                ticks: pending.ticks - 1,
+                ..pending
+            })
+        }
         None => {}
     }
 
@@ -381,18 +406,65 @@ fn decide(
     // preferred attack and it is `None` when L2 offered none — `map` wrapped
     // that in a second `Some`, so every decision that ran a rollout requested an
     // attack that named no move, including in `Recovery`. See the field's doc.
+    //
+    // ⚠ **the BINDING travels with it**, which is the whole of GPT 5.6's finding
+    // 2: the winner used to be reduced to "yes, attack" and a tick count, and the
+    // press that matured was a neutral melee edge — so the reach, frame-advantage
+    // and rollout work decided WHETHER to swing and never WHICH move.
     let wants_attack = refined
         .as_ref()
-        .and_then(|refined| refined.move_id.clone())
-        .or_else(|| options.attacks.first().map(|attack| attack.move_id.clone()));
-    if wants_attack.is_some() && state.pending_press.is_none() {
+        .and_then(|refined| refined.binding)
+        .or_else(|| options.attacks.first().map(|attack| attack.binding));
+    if let (Some(binding), None) = (wants_attack, state.pending_press) {
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();
             (sample * cfg.profile.execution_noise * cfg.interval() as f32).round() as u32
         } else {
             0
         };
-        state.pending_press = Some(jitter);
+        state.pending_press = Some(PendingAttack {
+            ticks: jitter,
+            binding,
+        });
+    }
+}
+
+/// **Press the move the brain chose**, in the ordinary gesture vocabulary.
+///
+/// The verb picks the button and the direction picks the stick, which is exactly
+/// what `resolve_attack_gesture` reads and `move_for_directional_verb` resolves —
+/// so a fighter reaches its up-tilt the same way a player does, and a move with
+/// no binding was never in the kit to be chosen.
+///
+/// ⚠ **the axis is in the BODY's local frame and the direction is relative to
+/// FACING**, so `Forward` is `+x` and `Back` is `-x` before the frame applies
+/// facing (`attack_dir_from_axis` multiplies `axis.x * facing`, and the emitted
+/// axis is pre-facing). Up is NEGATIVE y — the screen convention `InputState`
+/// carries, stated here because getting it backwards silently swaps a body's
+/// up-tilt and its down-air.
+fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut ActorControlFrame) {
+    use super::options::AttackVerb;
+    use crate::actor::attack_gesture::AttackDir;
+
+    frame.attack_axis = match binding.direction {
+        AttackDir::Neutral => Vec2::ZERO,
+        AttackDir::Forward => Vec2::new(1.0, 0.0),
+        AttackDir::Back => Vec2::new(-1.0, 0.0),
+        AttackDir::Up => Vec2::new(0.0, -1.0),
+        AttackDir::Down => Vec2::new(0.0, 1.0),
+    };
+    match binding.verb {
+        AttackVerb::Basic => {
+            frame.melee_pressed = true;
+            frame.melee_strong_hint = false;
+        }
+        AttackVerb::Smash => {
+            frame.melee_pressed = true;
+            frame.melee_strong_hint = true;
+        }
+        AttackVerb::Special => {
+            frame.special_pressed = true;
+        }
     }
 }
 

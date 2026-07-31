@@ -408,11 +408,25 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_u32(out, state.ticks_until_decision);
                 put_u32(out, state.apm.presses);
                 put_u32(out, state.apm.elapsed_ticks);
+                // ⚠ the pending press is a DECISION, not just a clock: since
+                // 2026-07-31 it carries the binding that will be pressed when it
+                // matures (GPT 5.6 finding 2), and a rewind that restored the
+                // count without the choice would resimulate the same delay into
+                // a different move.
                 match state.pending_press {
                     None => put_bool(out, false),
-                    Some(ticks) => {
+                    Some(pending) => {
                         put_bool(out, true);
-                        put_u32(out, ticks);
+                        put_u32(out, pending.ticks);
+                        put_u8(
+                            out,
+                            match pending.binding.verb {
+                                crate::brain::fighter::options::AttackVerb::Basic => 0,
+                                crate::brain::fighter::options::AttackVerb::Smash => 1,
+                                crate::brain::fighter::options::AttackVerb::Special => 2,
+                            },
+                        );
+                        put_u8(out, attack_dir_tag(pending.binding.direction));
                     }
                 }
                 put_u64(out, state.noise);

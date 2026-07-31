@@ -1416,6 +1416,8 @@ pub(crate) fn compute_crowding_by_id(
 /// needed to make it deterministic.
 fn attack_kit_of(
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
+    // The body's REAL posture this tick. The kit is what it can press NOW.
+    grounded: bool,
     // ⚠ **only a FIGHTER brain reads the kit**, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
     // the game would have paid for a list nothing looks at, which is a cost
@@ -1434,17 +1436,65 @@ fn attack_kit_of(
     let Some(moveset) = moveset else {
         return Vec::new();
     };
-    moveset
-        .0
-        .moves
-        .iter()
-        .map(
-            |spec| ambition_characters::brain::fighter::options::AttackCandidate {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::fighter::options::{
+        AttackBinding, AttackCandidate, AttackVerb,
+    };
+
+    // **ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.**
+    //
+    // ⚠ this listed `moveset.moves` — every move the body owns, whether or not
+    // any input can invoke it — and the candidate carried no way to invoke the
+    // one that won (GPT 5.6, 2026-07-31, finding 2). Two failures in one line: a
+    // move with no binding (a buff, a summon, an on-hit technique) could be
+    // SCORED and then come out as a generic swing, and the winner's identity had
+    // nowhere to travel.
+    //
+    // Asking the moveset's OWN resolver — `move_for_directional_verb`, the same
+    // function `trigger_moveset_moves` calls — makes the kit executable by
+    // construction: every candidate is a move some press reaches, and the press
+    // is the candidate. The chain falls back (`attack_air_up` → `attack_up` →
+    // `attack_air` → `attack`), so a body that authors only a base attack yields
+    // that move once and a body with the full directional set yields each.
+    //
+    // The POSTURE is the body's real one, never a choice: a brain that could
+    // claim `Grounded` while airborne would pick a move its body cannot perform,
+    // which is the no-cheat contract's whole subject.
+    let mut kit: Vec<AttackCandidate> = Vec::new();
+    for (verb, verb_name) in [
+        (AttackVerb::Basic, crate::combat::moveset::ATTACK_VERB),
+        (AttackVerb::Smash, crate::combat::moveset::SMASH_VERB),
+        (AttackVerb::Special, crate::combat::moveset::SPECIAL_VERB),
+    ] {
+        for direction in [
+            AttackDir::Neutral,
+            AttackDir::Forward,
+            AttackDir::Back,
+            AttackDir::Up,
+            AttackDir::Down,
+        ] {
+            let Some(spec) = moveset
+                .0
+                .move_for_directional_verb(verb_name, direction, grounded)
+            else {
+                continue;
+            };
+            // One entry per (move, press). A base-only moveset answers all five
+            // directions with the same move, and the NEUTRAL press is the
+            // honest binding for it — the others would claim a direction the
+            // resolution ignores, and a scored duplicate is a thumb on the
+            // scale for whichever move happens to answer more presses.
+            if kit.iter().any(|c| c.move_id == spec.id) {
+                continue;
+            }
+            kit.push(AttackCandidate {
                 move_id: spec.id.clone(),
                 frames: spec.frame_data(),
-            },
-        )
-        .collect()
+                binding: AttackBinding { verb, direction },
+            });
+        }
+    }
+    kit
 }
 
 /// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.
@@ -1482,7 +1532,7 @@ fn build_enemy_brain_snapshot(
         // Built every tick like every other snapshot field. Correctness first:
         // if profiling ever complains, the fix is to rebuild it on moveset
         // CHANGE, not to let it go stale.
-        attack_kit: attack_kit_of(moveset, brain),
+        attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a

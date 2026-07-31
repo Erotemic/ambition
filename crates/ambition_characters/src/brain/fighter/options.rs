@@ -65,6 +65,8 @@
 
 use ambition_entity_catalog::MoveFrameData;
 
+use crate::actor::attack_gesture::AttackDir;
+
 use super::situation::{is_punishable, Situation};
 use crate::perception::Perceived;
 
@@ -98,6 +100,9 @@ pub struct MoveOption {
 pub struct AttackOption {
     pub move_id: String,
     pub frames: MoveFrameData,
+    /// The press that reaches [`Self::move_id`]. Carried from the candidate so
+    /// the decision that WINS can be executed as the move it scored.
+    pub binding: AttackBinding,
     pub score: f32,
     /// The features that produced `score`, so a failing ladder run can be read
     /// rather than guessed at. `Σ weight_i · feature_i` is `score` by construction.
@@ -168,12 +173,51 @@ impl Default for UtilityWeights {
     }
 }
 
+/// **How a chosen attack is actually PRESSED.**
+///
+/// ⚠ **this is the half the brain used to score and then discard** (GPT 5.6,
+/// 2026-07-31, finding 2). L2 scored every move in the kit, L3 refined the
+/// choice, `RefinedChoice::move_id` named a concrete move — and the emission set
+/// `melee_pressed = true` with a neutral axis, so `trigger_moveset_moves`
+/// resolved whatever the DEFAULT gesture maps to. The brain decided whether to
+/// attack and never which attack.
+///
+/// It is the ordinary gesture vocabulary, not a fighter-only bypass: a verb plus
+/// a direction is exactly what a human's stick and button produce, and what
+/// `move_for_directional_verb` consumes. The POSTURE is deliberately absent — the
+/// body's real grounded state decides it at press time, and a brain that could
+/// claim a posture it does not have would be reaching past the no-cheat contract
+/// to pick a move its body cannot reach.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttackBinding {
+    pub verb: AttackVerb,
+    pub direction: AttackDir,
+}
+
+/// The three press KINDS a moveset distinguishes. Not the move — the button.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AttackVerb {
+    /// The plain attack button (`"attack"` and its directional variants).
+    #[default]
+    Basic,
+    /// Attack with a smash/strong hint (`"smash_*"`, falling back to `attack_*`).
+    Smash,
+    /// The special button (`"special"` and its directional variants).
+    Special,
+}
+
 /// One attack the caller's kit offers. The caller resolves these from the body's
 /// moveset; L2 never queries anything.
+///
+/// The caller enumerates BINDINGS and asks the moveset what each one reaches, so
+/// a candidate is a move the body can actually be made to perform — a move with
+/// no binding (a buff, a summon, an on-hit technique) never enters the kit, and
+/// a scored choice is executable by construction.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttackCandidate {
     pub move_id: String,
     pub frames: MoveFrameData,
+    pub binding: AttackBinding,
 }
 
 /// L2's working set for one decision tick.
@@ -267,6 +311,7 @@ pub fn generate_options(
             AttackOption {
                 move_id: c.move_id.clone(),
                 frames: c.frames.clone(),
+                binding: c.binding,
                 score: features.dot(weights),
                 features,
             }

@@ -919,6 +919,10 @@ pub struct RefinedChoice {
     /// were fine — which is exactly the shape of the A/B that said the rollout
     /// made things worse.
     pub move_id: Option<String>,
+    /// **The press that reaches [`Self::move_id`]**, carried beside it so the
+    /// refinement's winner can be EXECUTED as the move it won with. `None`
+    /// exactly when `move_id` is.
+    pub binding: Option<super::options::AttackBinding>,
     /// **Movement lines the rollout found SUICIDAL**, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
@@ -1197,6 +1201,7 @@ pub fn refine_by_rollout(
     Some(RefinedChoice {
         least_bad_movement: longest_lived.map(|(verb, _)| verb),
         move_id: best.map(|(index, _)| options.attacks[index].move_id.clone()),
+        binding: best.map(|(index, _)| options.attacks[index].binding),
         value_over_baseline: best.map_or(0.0, |(_, value)| value),
         suicidal_movement,
     })

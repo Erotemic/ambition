@@ -5,6 +5,8 @@
 //! APM ceiling, and a noise stream that does not reproduce.
 
 use super::*;
+use crate::actor::attack_gesture::AttackDir;
+use crate::brain::fighter::options::{AttackBinding, AttackVerb};
 use crate::actor::ActorFaction;
 use crate::brain::fighter::options::UtilityWeights;
 use crate::brain::fighter::profile::FighterBrainProfile;
@@ -38,6 +40,19 @@ fn scene(me_x: f32, foe_x: f32) -> WorldView {
             ..Default::default()
         }],
         ..Default::default()
+    }
+}
+
+/// A press planted mid-flight: the ordinary forward jab, at `ticks` from
+/// maturing. The BINDING is what the press will be — since 2026-07-31 the
+/// pending action carries it, so a planted press has to name one too.
+fn planted_press(ticks: u32) -> PendingAttack {
+    PendingAttack {
+        ticks,
+        binding: AttackBinding {
+            verb: AttackVerb::Basic,
+            direction: AttackDir::Forward,
+        },
     }
 }
 
@@ -422,7 +437,7 @@ fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
     // attack kit, so no scene here can arm one, and what is under test is the
     // CANCELLATION rather than the arming.
     let mut recovering = FighterState::new(&cfg, 1);
-    recovering.pending_press = Some(6);
+    recovering.pending_press = Some(planted_press(6));
     let mut offstage = scene(300.0, 340.0);
     // `stage()`'s envelope is the room; a body outside it is recovering by the
     // oldest of L1's rules.
@@ -439,12 +454,12 @@ fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
     // AGES. Without this the assertion above would pass against a rig that
     // dropped every press for any reason.
     let mut fighting = FighterState::new(&cfg, 1);
-    fighting.pending_press = Some(6);
+    fighting.pending_press = Some(planted_press(6));
     let on_stage = scene(300.0, 340.0);
     tick_fighter(&cfg, &mut fighting, &snapshot, Some(&on_stage), &mut out);
     assert_eq!(
         fighting.pending_press,
-        Some(5),
+        Some(planted_press(5)),
         "a press on a body with a stage under it must age, not vanish"
     );
 }
@@ -536,4 +551,62 @@ fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
         "a SUSTAIN was cleared — a held button that lets go between decisions is \
          a fighter that cannot block: {out:?}"
     );
+}
+
+/// **The chosen attack is PRESSED as itself.**
+///
+/// GPT 5.6, 2026-07-31 (finding 2): L2 scored every move, L3 refined the choice,
+/// `RefinedChoice::move_id` named one — and the emission set `melee_pressed` with
+/// a neutral axis, so the moveset resolved whatever the default gesture maps to.
+/// The binding now rides the pending press through the execution jitter, and
+/// this is the frame that comes out the other side.
+///
+/// ⚠ **this is the emission half only.** The review's acceptance condition is a
+/// production `MovePlayback.spec.id`, and a test that observes `melee_pressed` is
+/// the disconnected seam itself — see the S26 row in the 72h queue for the
+/// end-to-end fixture this does not replace.
+#[test]
+fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    // An up-smash, decided two ticks ago and maturing now.
+    state.pending_press = Some(PendingAttack {
+        ticks: 0,
+        binding: AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Up,
+        },
+    });
+    state.ticks_until_decision = 30;
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+
+    assert!(out.melee_pressed, "the press never came out");
+    assert!(
+        out.melee_strong_hint,
+        "the SMASH verb arrived as a plain attack, so `move_for_directional_verb` \
+         resolves the jab the brain scored against"
+    );
+    assert!(
+        out.attack_axis.y < -0.5,
+        "the UP direction did not reach the axis ({:?}), so the up-tilt the brain \
+         chose comes out as whatever neutral maps to",
+        out.attack_axis
+    );
+
+    // …and a Special is a different button, not a melee edge with a hint.
+    let mut state = FighterState::new(&cfg, 7);
+    state.pending_press = Some(PendingAttack {
+        ticks: 0,
+        binding: AttackBinding {
+            verb: AttackVerb::Special,
+            direction: AttackDir::Neutral,
+        },
+    });
+    state.ticks_until_decision = 30;
+    let mut out = ActorControlFrame::neutral();
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    assert!(out.special_pressed && !out.melee_pressed);
 }

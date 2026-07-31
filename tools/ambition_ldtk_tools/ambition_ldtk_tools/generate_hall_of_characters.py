@@ -2,6 +2,12 @@
 """Generate the Hall of Characters area spec from the character
 catalog.
 
+⛔ THE HALL IS NOT A SPECIAL CASE. It is a dual purpose stress test AND
+exhibition (Jon, 2026-07-30), those characters will eventually get real brains,
+and the only special thing about it is that this script generates it. When it is
+slow, fix the ENGINE — not the Hall's art quality, not by excluding it from a
+load path. See "The Hall of Characters is NOT a special case" in AGENTS.md.
+
 Phase 5 of the character-catalog refactor (see
 `TODO-character-catalog-and-hall.md`). Reads
 `game/ambition_content/assets/data/character_catalog.ron`, lays out

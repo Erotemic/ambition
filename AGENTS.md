@@ -124,6 +124,40 @@ Before asking "where exactly?", read
 component's PURPOSE, place it on the seam that fulfils it, state the reasoning in
 the commit. Asking "where?" is the wrong default.
 
+## The Hall of Characters is NOT a special case
+
+`hall_of_characters` stages ~144 characters in one room. It is the most expensive
+room in the game and it will keep getting more expensive, because it is a **dual
+purpose stress test and exhibition** — Jon, 2026-07-30:
+
+> *"I feel like you are treating the hall as special. It is not. It is a dual
+> purpose stress test and exhibition. Eventually we are going to give all those
+> characters normal brains, or at least have the option for it. The only thing
+> special about it is that its generated."*
+
+⛔ **Therefore, when it is slow, do not fix the Hall. Fix the engine.** Every one
+of these has been proposed and is wrong:
+
+* *render it at a lower texture-quality variant* — explicitly rejected. It makes
+  the game look worse to make a number better. The only redeemable form is real
+  LOD (cheap asset first, upgraded in place as the full one streams in), and Jon
+  does not want that opened yet: *"its very easy to do that wrong and have it just
+  look sloppy"*;
+* *cap, special-case, or exclude it from a load path* — it is an ordinary room
+  reached by an ordinary loading zone. A budget that happens to exclude it is a
+  budget that will not protect the next big room either;
+* *treat its cost as acceptable because it is a debug/exhibition room* — it is
+  content, it will gain brains and behaviour, and a player walks into it.
+
+The correct response to "the Hall is slow" is a general engine fix that any room
+with many actors benefits from — and the Hall is the room that PROVES it, which is
+half of what it is for. If a load genuinely takes a hot second, the answer Jon
+asked for is *"just have a loading screen"*, not less content.
+
+⚠ it is GENERATED (`tools/ambition_ldtk_tools/.../generate_hall_of_characters.py`
+from the character catalog), so it grows on its own whenever the cast does. That
+is the only thing about it that needs special handling: never hand-edit the level.
+
 ## Engineering memory and benchmark candidates
 
 Before a non-trivial patch: `rg -n "<subsystem>|<symptom>" dev/journals

@@ -1,0 +1,23 @@
+[package]
+name = "ambition_demo_smash_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
+
+[[bin]]
+name = "smash_demo"
+path = "src/main.rs"
+
+[features]
+default = []
+# Draw it AND make it playable, exactly as the Sanic shell does.
+visible = ["ambition/visible", "ambition/basic_shell_presentation", "ambition/audio", "input"]
+input = ["ambition/input"]
+
+[dependencies]
+# A demo app depends on `ambition`, never on `ambition_app`. That is the demo gate.
+ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+ambition_demo_smash = { path = "../ambition_demo_smash" }
+bevy = { version = "0.18.1", default-features = false }

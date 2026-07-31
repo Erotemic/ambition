@@ -176,6 +176,6 @@ it reports. (Restored 2026-07-19: the 07-18 rewrite dropped them, which left the
 KB check red.)
 
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
-<!-- planning-evidence: workspace-members count=52 -->
+<!-- planning-evidence: workspace-members count=53 -->
 <!-- planning-evidence: module-size waivers=0 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->

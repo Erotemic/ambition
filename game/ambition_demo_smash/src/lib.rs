@@ -300,11 +300,14 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             "Smash",
             "Stocks, a platform, and nothing underneath it",
             "Prepare Smash",
+            // No `.with_procedural_sfx()`: this stage declares SILENCE and the
+            // fighters bring their own cues. Claiming procedural sfx it never
+            // registers would be the same shape as the empty function above —
+            // a declaration with nothing behind it.
             ambition::provider::AuthoredCatalogFragments::new(
                 SMASH_CHARACTER_ID,
                 SMASH_EXPERIENCE,
-            )
-            .with_procedural_sfx(),
+            ),
         )
         .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);
@@ -317,15 +320,125 @@ pub const SMASH_EXPERIENCE: &str = "smash";
 pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
 /// The fighter a lone visitor wears. The MATCH seats its own cast from the
 /// roster; this is who is standing there before one starts.
-pub const SMASH_CHARACTER_ID: &str = "player_robot_v3";
+pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
+/// The opponent.
+pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
+
+/// ⚠ **this demo authors its own two fighters, and the reason is a leak worth
+/// recording.**
+///
+/// The first version borrowed Ambition's robot lineage — a crossover stage
+/// fighting the cast the game already ships, which is the more interesting
+/// claim. It does not compile as a claim: that lineage lives in
+/// `game/ambition_content`, which is ABOVE the facade, so a demo naming it would
+/// break the `ambition` + `bevy` rule that makes this crate an oracle at all.
+///
+/// The engine caught it the only way it could — at BOOT, with
+/// `character_catalog: Resource does not exist`, because the demo had declared a
+/// starting character no catalog in its own composition contained. Not at
+/// compile time, and not by any test in the content crate: only by running.
+///
+/// So the demo is self-contained, and the crossover claim moves to where it
+/// belongs — Ambition HOSTING this experience alongside its own, where both
+/// catalogs are present.
+const SMASH_CATALOG_RON: &str = r#"(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {
+        "duelist": (
+            move_style: Walk,
+            // A real swipe, not a placeholder: the whole point of the stage is
+            // that a hit LAUNCHES, and a fighter with no melee cannot knock
+            // anybody off anything.
+            melee: Some(Swipe(
+                windup_s: 0.22,
+                active_s: 0.08,
+                recover_s: 0.26,
+                damage: 4,
+                reach_px: 34.0,
+            )),
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "smash_duelist_a": (
+            display_name: "Duelist A",
+            spritesheet: "sprites/player_robot_v3_spritesheet.png",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "duelist",
+            playable_kit: HostCode,
+            tags: ["player", "smash"],
+            fallback_dialogue: ["Off the edge is the only way out."],
+        ),
+        "smash_duelist_b": (
+            display_name: "Duelist B",
+            spritesheet: "sprites/player_robot_v2_spritesheet.png",
+            manifest: "sprites/player_robot_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "duelist",
+            tags: ["smash"],
+            fallback_dialogue: ["Percent is not health. I learned that the hard way."],
+        ),
+    },
+)"#;
 
 /// Register this demo's content.
 ///
-/// ⚠ deliberately thin. The fighters are Ambition's own robot lineage, which is
-/// the point of a crossover stage — a demo that authored its own duelists would
-/// prove the stocks loop against content nobody else has, and the interesting
-/// claim is that it works on the cast the game already ships.
-fn install_smash_content(_app: &mut bevy::prelude::App) {}
+/// ⚠ **thin, but not empty — and the difference is a refusal that fired.** The
+/// fighters are Ambition's own robot lineage, which is the point of a crossover
+/// stage: a demo that authored its own duelists would prove the stocks loop
+/// against content nobody else has, and the interesting claim is that it works
+/// on the cast the game already ships. So there is no character to register.
+///
+/// There is still AUDIO to declare. Preparation refuses an experience whose
+/// provider registered no audio fragment, and this function being empty is
+/// exactly what that refusal is for — the shell panicked with *"frontend audio
+/// provider 'smash' registered no audio fragment"* on its first boot. Declaring
+/// SILENCE is a registration, not the absence of one: the fighters bring their
+/// own cues, which is what a crossover stage means.
+fn install_smash_content(app: &mut bevy::prelude::App) {
+    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition::characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron(
+            SMASH_EXPERIENCE,
+            Some(SMASH_CHARACTER_ID),
+            SMASH_CATALOG_RON,
+        )
+        .expect("the smash character catalog is valid"),
+    );
+    // **REGISTER the characters, not only their catalog rows.** A catalog
+    // fragment declares what a character IS; registration is what makes the art
+    // pipeline know it exists — `declare_registered_characters` reads the
+    // PREPARED REGISTRY, so a catalog-only character draws the marked
+    // placeholder. Pocket shipped that way and nobody noticed until somebody
+    // looked at the screen.
+    {
+        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        for (id, name, sheet) in [
+            (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
+            (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
+        ] {
+            app.register_character(
+                CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet),
+            );
+        }
+    }
+    app.register_audio_catalog_fragment(
+        AudioCatalogFragment::new(SMASH_EXPERIENCE, None, None)
+            .expect("the silent smash audio fragment is valid"),
+    );
+}
 
 /// The stage, as the shared preparation lifecycle wants it.
 fn smash_prepared_session_world() -> ambition::runtime::PreparedPlatformerSource {

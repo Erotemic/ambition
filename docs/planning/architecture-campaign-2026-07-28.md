@@ -641,6 +641,29 @@ stable-value projection helpers. Initially this may remain a module rather than 
 new crate. Extract a crate only if dependency direction requires it. The schema
 layer must not depend on GGRS session hosting.
 
+> **✔ ANSWERED 2026-07-31 — the extraction is DECLINED, on evidence.**
+>
+> 1. The vocabulary is already public and already used from outside the runtime:
+>    `ambition::runtime::rollback::AmbitionRollbackApp` is re-exported by the
+>    facade, and `ambition_content` (bosses, portal), `ambition_demo_sanic` and
+>    `ambition_app` register through it today. Domain ownership is not blocked —
+>    it is demonstrated, and those are the only non-runtime rows in the schema.
+> 2. Every domain this campaign still names sits BELOW the runtime.
+>    `ambition_actors`, `_combat`, `_portal`, `_characters` and `_projectiles`
+>    carry no `ambition_runtime` dependency; the runtime depends on them. None
+>    can own an adapter without inverting the graph.
+> 3. Extraction relocates that problem rather than solving it. A registration
+>    installs `ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>`, generic
+>    over the type — so the type and the GGRS vocabulary must meet at one call
+>    site, and "install for T" is a closure rather than data. An extracted
+>    schema crate would pull `bevy_ggrs` into every primitive that registers.
+>
+> **The shape that follows:** a module per domain inside `ambition_runtime` for
+> the crates below it, and real crate-level ownership for anything above it.
+> That satisfies R4 — the central function aggregates rather than enumerates —
+> at no dependency cost. Reopen only if a crate below the runtime must register
+> something the runtime cannot name.
+
 **R2 — Add domain registration plugins or functions.**
 
 ```rust

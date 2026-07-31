@@ -85,16 +85,19 @@ fn show(app: &mut App, what: &str) {
     let select = *app.world().resource::<SmashSelect>();
     println!("\n── {what} ──");
     println!("   ┌──────────────────────────────────┐");
-    // Three pads, so three seats. The fourth panel is hidden on the real screen
-    // and is not printed here either — a walkthrough that showed a row the
-    // player cannot see would be lying about the screen it claims to show.
+    // EVERY seat is printed, because every seat is on the real screen: the ones
+    // past the pad count cannot be joined, and can still be CPUs. `offered` is
+    // what changes the WORDS on a panel, not whether it exists.
     let offered = app
         .world()
         .get_resource::<ambition::input::LocalDeviceOrder>()
         .map(ambition_demo_smash::select::seats_offered)
         .unwrap_or(1);
-    for seat in 0..offered.min(MAX_SMASH_SEATS) {
-        println!("   │ {:<32} │", panel_text(seat, select.seat(seat)));
+    for seat in 0..MAX_SMASH_SEATS {
+        println!(
+            "   │ {:<32} │",
+            panel_text(seat, select.seat(seat), seat < offered)
+        );
     }
     println!("   ├──────────────────────────────────┤");
     println!("   │ {:<32} │", prompt_text(&select));

@@ -128,7 +128,7 @@ where
         .collect();
     roster.opens_suspended = true;
     roster.fighter_stocks = Some(STARTING_STOCKS);
-    roster
+    roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// The same roster, at a named ladder level.
@@ -461,8 +461,29 @@ fn announce_the_winner(
 /// once, and it has to arrive before the thing that reads it.
 pub struct SmashSelectPlugin;
 
+/// **When the select screen reads its input**, as something another system can
+/// be ordered against.
+///
+/// Exists because "before the screen" is a real question with no other answer: a
+/// windowed host REBUILDS `SeatMenuFrames` from its participants every frame
+/// (clearing first), so anything that wants to put a press into that port —
+/// a test, a replay, a remote seat — has to land between the producer and this.
+/// Without a named set, a system that tried ran wherever Bevy put it and the
+/// press was silently dropped about half the time.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct SmashSelectSet;
+
 impl bevy::prelude::Plugin for SmashSelectPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        // The screen is a ROUTE, so it says so. `get_resource_or_insert_with`
+        // rather than `resource_mut` because the rules-and-screen plugins are
+        // also composed in harnesses that never installed the shell.
+        app.world_mut()
+            .get_resource_or_insert_with(ambition::game_shell::ShellRouteCatalog::default)
+            .register(ambition::game_shell::ShellRouteSpec::new(
+                SMASH_SELECT_ROUTE,
+                SMASH_SELECT_EXPERIENCE,
+            ));
         app.init_resource::<select::SmashSelect>();
         // **THE SCREEN DECLARES ITS OWN INPUT PORT.** The host fills
         // `SeatMenuFrames` when a windowed host is installed; `init_resource`
@@ -472,19 +493,41 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // answer, and reaching into the answer is how this screen came to be
         // fully unit-tested and completely inert.
         app.init_resource::<ambition::input::SeatMenuFrames>();
-        app.add_systems(
+        // **AND THE SEATS IT OFFERS.** A host seats input participants from the
+        // match roster, and this screen is what PRODUCES the roster — so until
+        // it declares them, only player one exists and the other panels are
+        // chairs no controller can reach. See `DeclaredInputSeats`.
+        app.init_resource::<ambition::input::DeclaredInputSeats>();
+        // **ONE CHAIN, IN `InputSet::Consume`.** Two things were ambiguous and
+        // both are the same mistake — a reader with no stated order.
+        //
+        // 1. Against the PRODUCER. A windowed host rebuilds `SeatMenuFrames`
+        //    from the participants every frame (`frames.clear()` first), so
+        //    unordered, whether this screen saw a press at all depended on where
+        //    Bevy happened to put it. In the demo's own app the producer is not
+        //    installed and it always worked; in the multi-game host it is.
+        // 2. Against ITSELF. Arriving at the screen resets the previous match's
+        //    decision, and the transition out reads that decision — running in
+        //    the other order, re-entering the screen leaves for the stage again
+        //    on the frame it arrives.
+        app.configure_sets(
             bevy::prelude::Update,
-            bevy::prelude::IntoScheduleConfigs::chain((
-                present_the_select_screen,
-                select_ui::update_select_ui,
-            )),
+            bevy::prelude::IntoScheduleConfigs::in_set(
+                SmashSelectSet,
+                ambition::input::InputSet::Consume,
+            ),
         );
         app.add_systems(
             bevy::prelude::Update,
-            bevy::prelude::IntoScheduleConfigs::chain((
-                drive_the_select_screen,
-                start_the_battle_when_everyone_is_ready,
-            )),
+            bevy::prelude::IntoScheduleConfigs::in_set(
+                bevy::prelude::IntoScheduleConfigs::chain((
+                    present_the_select_screen,
+                    select_ui::update_select_ui,
+                    drive_the_select_screen,
+                    start_the_battle_when_everyone_is_ready,
+                )),
+                SmashSelectSet,
+            ),
         );
     }
 }
@@ -495,8 +538,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 /// panels to `SmashSelect` would leave them standing through the match (the
 /// resource keeps its decision, which is what the match was built from).
 fn present_the_select_screen(
-    commands: bevy::prelude::Commands,
+    mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    mut select: bevy::prelude::ResMut<select::SmashSelect>,
+    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
+    devices: Option<bevy::prelude::Res<ambition::input::LocalDeviceOrder>>,
+    mut lobby_seats: bevy::prelude::ResMut<ambition::input::DeclaredInputSeats>,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -507,7 +554,35 @@ fn present_the_select_screen(
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    // **WHILE THIS SCREEN IS UP, THE PADS ARE SEATS.** Declared here and dropped
+    // on the way out, so the participants it asks for live exactly as long as
+    // the question does — the same lifetime rule the match's own seats have.
+    let offered = devices
+        .as_deref()
+        .map(select::seats_offered)
+        .unwrap_or(1) as u8;
+    let want_seats = ambition::input::DeclaredInputSeats(if on_select { offered } else { 0 });
+    if *lobby_seats != want_seats {
+        *lobby_seats = want_seats;
+    }
     if on_select {
+        // **ARRIVING is where a rematch becomes possible.** The screen's own
+        // exit condition is "everyone is locked in AND no roster exists yet", so
+        // a match that ended and came home left both of those permanently
+        // wrong: the roster it was built from is a plain resource that outlives
+        // the session, and every seat was still locked in. The result was a
+        // select screen you could look at and never leave — reachable only from
+        // a host that can return here, which is exactly what listing this demo
+        // in a multi-game launcher made possible.
+        if existing.is_empty() {
+            *select = select::SmashSelect::default();
+            // THIS demo's roster. Another stage in the same host publishes its
+            // own into the same global resource, and clearing "the roster" is
+            // how one game deletes another's match.
+            if roster.is_some_and(|roster| roster.is_published_by(SMASH_EXPERIENCE)) {
+                commands.remove_resource::<MatchParticipantRoster>();
+            }
+        }
         select_ui::spawn_select_ui(commands, existing);
     } else {
         select_ui::despawn_select_ui(commands, roots);
@@ -548,13 +623,27 @@ fn drive_the_select_screen(
             select.cancel(seat);
             continue;
         }
+        // **DOWN ADDS A CPU, UP TAKES ONE AWAY — from ANY seat, in every state.**
+        //
+        // The seats nobody holds a controller for are the ones being edited, so
+        // the press cannot come from them; it comes from whoever is here. Up and
+        // down are the two directions this screen has no other use for
+        // (left/right browse), which is what makes them free — and unlike
+        // `start`, they exist on a keyboard. `SandboxAction::Start` is ESCAPE
+        // there, and Escape opens the pause menu: the one press that made the
+        // demo playable alone was the one press a keyboard could not make.
+        if frame.down {
+            select.add_cpu(seat);
+        }
+        if frame.up {
+            select.remove_cpu();
+        }
         match select.seat(seat) {
             // Confirm at an empty seat IS the join. There is no separate
-            // "press start": pressing anything at a seat nobody is using is
-            // unambiguous, and a second button to learn is a second button
-            // somebody at a party does not know about.
+            // "press start" to sit down, and a second button to learn is a
+            // second button somebody at a party does not know about.
             select::SeatSelection::Empty => {
-                if frame.select || frame.start {
+                if frame.select {
                     select.join(seat);
                 }
             }
@@ -569,10 +658,17 @@ fn drive_the_select_screen(
                     select.lock_in(seat);
                 }
             }
-            // A locked seat only listens for `back`, handled above. Ignoring
-            // `select` here is deliberate: a double-tap of confirm must not
-            // reach through to anything else.
+            // A locked seat listens for nothing but `back` (handled above) and
+            // the CPU keys. Ignoring `select` here is deliberate: a double-tap of
+            // confirm must not reach through to anything else.
             select::SeatSelection::LockedIn { .. } => {}
+            // A CPU is holding this chair. Confirm sits down in it; `back` (above)
+            // sends the machine away.
+            select::SeatSelection::Cpu { .. } => {
+                if frame.select {
+                    select.join(seat);
+                }
+            }
         }
     }
 }
@@ -619,6 +715,10 @@ pub struct SmashExperiencePlugin;
 impl bevy::prelude::Plugin for SmashExperiencePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         install_smash_content(app);
+        // BEFORE the authoring below, which advertises the select screen as this
+        // experience's entry and refuses a route nobody has registered. The
+        // ordering is load-bearing and the refusal says so by name.
+        app.add_plugins(SmashSelectPlugin);
         ambition::provider::PlatformerExperienceAuthoring::new(
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
@@ -631,10 +731,16 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             // a declaration with nothing behind it.
             ambition::provider::AuthoredCatalogFragments::new(SMASH_CHARACTER_ID, SMASH_EXPERIENCE),
         )
+        // **A LAUNCHER ROW LEADS TO THE QUESTION, NOT TO THE STAGE.** Without
+        // this the only way into the select screen was to make it a whole app's
+        // home route — which is what the demo's own shell does and no
+        // multi-game host can, because its home lists games. Selecting "Smash"
+        // in the Ambition title screen would have dropped a lone duelist onto
+        // the platform with nobody to fight.
+        .entered_at(SMASH_SELECT_ROUTE)
         .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
-        app.add_plugins(SmashSelectPlugin);
     }
 }
 
@@ -645,9 +751,22 @@ pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
 ///
 /// Not the stage. A platform fighter that opens on the stage has already decided
 /// who you are, and the whole point of up-to-four-players is that it has not.
-/// This is also the host's HOME route, so leaving a match returns to the screen
-/// that chose it rather than to a launcher listing one experience.
+///
+/// It is the demo app's HOME route (leaving a match returns to the screen that
+/// chose it) AND the ENTRY route this experience advertises to any launcher, so
+/// a multi-game host's "Smash" row opens the same question rather than dropping
+/// a lone duelist onto the platform.
 pub const SMASH_SELECT_ROUTE: &str = "smash_select";
+/// **The select screen is its OWN shell experience, and it has to be.**
+///
+/// Not `smash`: an activation carrying the gameplay experience id starts a
+/// gameplay SESSION, and this screen has no prepared world to activate — the
+/// shell would panic with *"requires an exact prepared-session publication"*
+/// before a single panel drew. Not the basic launcher's id either, which is
+/// what the standalone demo used to say and why the select panels rendered on
+/// top of a list of experiences. A screen a provider draws itself is a frontend
+/// experience of its own.
+pub const SMASH_SELECT_EXPERIENCE: &str = "smash.select";
 /// The fighter a lone visitor wears. The MATCH seats its own cast from the
 /// roster; this is who is standing there before one starts.
 pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
@@ -1173,13 +1292,33 @@ mod tests {
             .resource::<ShellExperienceRegistry>()
             .get(&ShellExperienceId::new(SMASH_EXPERIENCE))
             .expect("a host that composed this plugin lists the smash experience");
-        assert_eq!(registration.launch_route.as_str(), SMASH_GAMEPLAY_ROUTE);
+        assert_eq!(
+            registration.launch_route.as_str(),
+            SMASH_SELECT_ROUTE,
+            "a launcher row for this demo opens CHARACTER SELECT; entering at the \
+             stage would seat whoever the host happened to have lying around"
+        );
+        let select = app
+            .world()
+            .resource::<ShellRouteCatalog>()
+            .get(&ShellRouteId::new(SMASH_SELECT_ROUTE))
+            .expect("the select screen is a registered route, not an app's home only");
+        assert_eq!(
+            select.experience.as_str(),
+            SMASH_SELECT_EXPERIENCE,
+            "the screen is a frontend experience of its own: under the gameplay id \
+             the shell would try to activate a session that has nothing prepared"
+        );
+        assert!(
+            select.preparation.is_none(),
+            "nothing is loading on a character select"
+        );
 
         let route = app
             .world()
             .resource::<ShellRouteCatalog>()
             .get(&ShellRouteId::new(SMASH_GAMEPLAY_ROUTE))
-            .expect("the launch route is registered");
+            .expect("the session route is registered");
         assert!(
             route.preparation.is_some(),
             "the route has no preparation, so entering it would drop a player into \

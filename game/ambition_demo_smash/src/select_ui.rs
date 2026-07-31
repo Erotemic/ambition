@@ -24,26 +24,41 @@ pub struct SmashSelectUiRoot;
 #[derive(Component, Clone, Copy)]
 pub struct SmashSeatPanel(pub usize);
 
-/// What a seat's panel says. Public because the test asserts on it: a UI test
+/// What one seat's panel says. Public because the test asserts on it: a UI test
 /// that checks entities EXIST is a test that passes over an empty box.
-pub fn panel_text(seat: usize, selection: SeatSelection) -> String {
+///
+/// `manned` is whether a controller actually offers this seat: an unmanned one
+/// cannot be joined, and telling somebody to "press confirm" at a chair the
+/// device order does not reach is an invitation the screen cannot honour. What
+/// it CAN be is a CPU, so that is what its panel offers.
+pub fn panel_text(seat: usize, selection: SeatSelection, manned: bool) -> String {
     match selection {
-        SeatSelection::Empty => format!("P{} — press confirm to join", seat + 1),
+        SeatSelection::Empty if manned => format!("P{} — press confirm to join", seat + 1),
+        SeatSelection::Empty => format!("P{} — empty · Down adds a CPU", seat + 1),
         SeatSelection::Browsing { cursor } => {
             format!("P{} — < {} >", seat + 1, SELECTABLE[cursor])
         }
         SeatSelection::LockedIn { character } => {
             format!("P{} — {} READY", seat + 1, SELECTABLE[character])
         }
+        SeatSelection::Cpu { character } => {
+            format!("P{} — CPU · {} READY", seat + 1, SELECTABLE[character])
+        }
     }
 }
 
-/// The line under the panels: what the screen is waiting for.
+/// The line under the panels: what the screen is waiting for, or what to press
+/// to get past it.
+///
+/// ⚠ it used to read "Two players needed" and stop there, which was true and
+/// useless: on a keyboard there was no second player available and no press that
+/// produced one. A prompt that names a requirement without naming the button
+/// that satisfies it is a dead end with punctuation.
 pub fn prompt_text(select: &SmashSelect) -> String {
     if select.ready() {
         "Starting…".to_string()
     } else if select.joined() < 2 {
-        "Two players needed".to_string()
+        "Press Down to add a CPU opponent (Up removes one)".to_string()
     } else {
         "Waiting for everyone to lock in".to_string()
     }
@@ -74,10 +89,16 @@ pub fn spawn_select_ui(mut commands: Commands, existing: Query<(), With<SmashSel
             for seat in 0..crate::select::MAX_SMASH_SEATS {
                 root.spawn((
                     SmashSeatPanel(seat),
-                    Text::new(panel_text(seat, SeatSelection::Empty)),
+                    // Spawned as an unmanned empty seat; `update_select_ui`
+                    // corrects it against the live device order on the same
+                    // frame, before anything is presented.
+                    Text::new(panel_text(seat, SeatSelection::Empty, false)),
                 ));
             }
-            root.spawn((SmashSelectPrompt, Text::new("Two players needed")));
+            root.spawn((
+                SmashSelectPrompt,
+                Text::new(prompt_text(&SmashSelect::default())),
+            ));
         });
 }
 
@@ -93,22 +114,24 @@ pub fn update_select_ui(
     mut panels: Query<(&SmashSeatPanel, &mut Text, &mut Node), Without<SmashSelectPrompt>>,
     mut prompt: Query<&mut Text, With<SmashSelectPrompt>>,
 ) {
-    // **A SEAT WITH NO CONTROLLER IS NOT SHOWN.** Its panel used to read "press
-    // confirm to join" at a chair nobody could sit in — an invitation the screen
-    // could not honour, because `drive_the_select_screen` only walks the seats
-    // the pads actually offer. Hidden rather than removed: pads appear and
-    // disappear, and a select screen is exactly where that happens.
+    // **EVERY SEAT IS SHOWN, and what it OFFERS depends on whether a controller
+    // reaches it.** (Jon, 2026-07-31: *"a seat without a controller should be
+    // able to become a CPU or be left empty."*)
+    //
+    // The panels used to be hidden past the pad count, and that was the right
+    // fix for the wrong problem: the complaint was a chair nobody could sit in
+    // saying "press confirm to join", and hiding it also hid the only other
+    // thing that chair could be. On a keyboard it hid three quarters of the
+    // screen and left one seat that could never reach the two a match needs.
     let offered = devices
         .as_deref()
         .map(crate::select::seats_offered)
         .unwrap_or(1);
     for (panel, mut text, mut node) in &mut panels {
-        let shown = panel.0 < offered;
-        let want = if shown { Display::Flex } else { Display::None };
-        if node.display != want {
-            node.display = want;
+        if node.display != Display::Flex {
+            node.display = Display::Flex;
         }
-        let next = panel_text(panel.0, select.seat(panel.0));
+        let next = panel_text(panel.0, select.seat(panel.0), panel.0 < offered);
         if text.0 != next {
             text.0 = next;
         }

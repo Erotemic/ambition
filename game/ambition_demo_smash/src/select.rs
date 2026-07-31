@@ -18,14 +18,23 @@
 //!
 //! ## The rule, stated once
 //!
-//! **The battle starts when every JOINED seat is locked in, and at least two
-//! are.** Both halves matter and each is a different bug:
+//! **The battle starts when every JOINED seat is locked in, at least two are,
+//! and at least one of them is a person.** Each part is a different bug:
 //!
 //! * without "every joined seat", a player who has joined and is still browsing
 //!   gets dropped into a fight as whoever the cursor happened to be on;
 //! * without "at least two", the first player to lock in starts a match against
 //!   nobody — and a stocks match with one side never ends, because
-//!   `last_side_standing` correctly refuses to call a sole survivor a winner.
+//!   `last_side_standing` correctly refuses to call a sole survivor a winner;
+//! * without "at least one person", the second CPU somebody adds starts a match
+//!   they are not in, before they have chosen a character.
+//!
+//! ## Who is at a seat
+//!
+//! A seat is empty, a person, or a CPU — and the third exists because the
+//! screen offered one seat per PAD, so a player alone at a keyboard could never
+//! reach the two decided seats a match needs. Down adds a CPU to the lowest
+//! empty seat; Up takes the last one back off.
 
 use crate::{MatchParticipant, MatchParticipantRoster, STARTING_STOCKS};
 
@@ -50,6 +59,20 @@ pub enum SeatSelection {
     Browsing { cursor: usize },
     /// Committed. `character` indexes [`SELECTABLE`].
     LockedIn { character: usize },
+    /// **A seat the players ADDED rather than sat at.** `character` indexes
+    /// [`SELECTABLE`].
+    ///
+    /// ⚠ this is the difference between a demo and a demo two people have to be
+    /// in the room for. The screen offered one seat per PAD (floor one), the
+    /// match needed two decided seats, and every decided seat was a human — so
+    /// on a keyboard, alone, there was no sequence of presses that started a
+    /// match at all. Jon, 2026-07-31: *"there seems to be no way to have player
+    /// 2 be a CPU player."*
+    ///
+    /// A CPU seat is decided the moment it exists: nobody is browsing on its
+    /// behalf, and a seat waiting for input from something that has none is a
+    /// screen that never becomes ready.
+    Cpu { character: usize },
 }
 
 impl SeatSelection {
@@ -57,11 +80,20 @@ impl SeatSelection {
         !matches!(self, SeatSelection::Empty)
     }
 
+    /// The character this seat has COMMITTED to, human or otherwise. `None`
+    /// while a seat is empty or still browsing — the two states the match waits
+    /// on.
     pub fn locked_character(self) -> Option<usize> {
         match self {
-            SeatSelection::LockedIn { character } => Some(character),
+            SeatSelection::LockedIn { character } | SeatSelection::Cpu { character } => {
+                Some(character)
+            }
             _ => None,
         }
+    }
+
+    pub fn is_cpu(self) -> bool {
+        matches!(self, SeatSelection::Cpu { .. })
     }
 }
 
@@ -87,7 +119,11 @@ impl SmashSelect {
         if seat >= MAX_SMASH_SEATS {
             return;
         }
-        if self.seats[seat] == SeatSelection::Empty {
+        // A CPU's chair is takeable: sitting down at one replaces it, which is
+        // what pressing confirm at a seat a machine is holding obviously means.
+        if !matches!(self.seats[seat], SeatSelection::LockedIn { .. })
+            && !matches!(self.seats[seat], SeatSelection::Browsing { .. })
+        {
             self.seats[seat] = SeatSelection::Browsing { cursor: 0 };
         }
     }
@@ -117,6 +153,50 @@ impl SmashSelect {
         }
     }
 
+    /// **Add a CPU to the lowest empty seat.**
+    ///
+    /// ⚠ **bound to DOWN, and the binding is the feature.** The first cut used
+    /// `start`, which reads well in a prompt and does not exist: on a keyboard
+    /// `SandboxAction::Start` is Escape, which opens the pause menu, so the one
+    /// press that made the demo playable alone was the one press a keyboard
+    /// could not make. Jon, 2026-07-31: *"Start does not add a CPU. And there is
+    /// no start on a keyboard."* Down/Up are the two directions this screen does
+    /// nothing else with — left/right browse characters — and they are the same
+    /// two keys/d-pad rows on every device.
+    ///
+    /// A CPU never lands on a seat somebody is at, and never on the seat of the
+    /// player who ASKED for it — `pressed_by` is still empty when a lone player
+    /// adds an opponent before sitting down, and taking that chair would answer
+    /// "give me somebody to fight" by handing their own seat to a machine.
+    ///
+    /// Its character is the seat's own default, so pressing this once from seat
+    /// 0 produces the fight the demo is about: Duelist A against Duelist B.
+    pub fn add_cpu(&mut self, pressed_by: usize) {
+        let empty = self
+            .seats
+            .iter()
+            .enumerate()
+            .position(|(seat, selection)| seat != pressed_by && *selection == SeatSelection::Empty);
+        if let Some(seat) = empty {
+            self.seats[seat] = SeatSelection::Cpu {
+                character: default_character_for(seat),
+            };
+        }
+    }
+
+    /// Take the last added CPU back off, highest seat first — the opposite of
+    /// [`Self::add_cpu`], so a press too many costs a press.
+    pub fn remove_cpu(&mut self) {
+        if let Some(seat) = self.seats.iter().rposition(|seat| seat.is_cpu()) {
+            self.seats[seat] = SeatSelection::Empty;
+        }
+    }
+
+    /// How many seats are CPUs.
+    pub fn cpus(&self) -> usize {
+        self.seats.iter().filter(|seat| seat.is_cpu()).count()
+    }
+
     /// Back out: a locked seat returns to browsing, a browsing seat leaves.
     ///
     /// ⚠ **the ladder matters.** A single "cancel" that emptied the seat would
@@ -129,6 +209,10 @@ impl SmashSelect {
         self.seats[seat] = match self.seats[seat] {
             SeatSelection::LockedIn { character } => SeatSelection::Browsing { cursor: character },
             SeatSelection::Browsing { .. } => SeatSelection::Empty,
+            // Backing out AT a CPU's seat removes that CPU. Reachable when a pad
+            // is plugged in after the CPU was added, which is exactly when
+            // somebody wants the chair back.
+            SeatSelection::Cpu { .. } => SeatSelection::Empty,
             SeatSelection::Empty => SeatSelection::Empty,
         };
     }
@@ -146,12 +230,24 @@ impl SmashSelect {
             .count()
     }
 
+    /// Seats a PERSON has committed to, as opposed to ones somebody added.
+    pub fn humans_locked_in(&self) -> usize {
+        self.seats
+            .iter()
+            .filter(|seat| matches!(seat, SeatSelection::LockedIn { .. }))
+            .count()
+    }
+
     /// **Can the battle start?**
     ///
-    /// Every joined seat is locked in, AND at least two are. See the module doc
-    /// for why each half is load-bearing.
+    /// Every joined seat is locked in, at least two are, and at least one of
+    /// them is a person. See the module doc for why the first two are
+    /// load-bearing; the third arrived with CPU seats and is the same argument
+    /// one step on — two CPUs decide the moment they exist, so without it the
+    /// SECOND press of "add a CPU" started a match nobody was in, before the
+    /// player who pressed it had chosen a character.
     pub fn ready(&self) -> bool {
-        self.locked_in() >= 2 && self.joined() == self.locked_in()
+        self.locked_in() >= 2 && self.joined() == self.locked_in() && self.humans_locked_in() >= 1
     }
 
     /// The match this screen decided.
@@ -172,12 +268,18 @@ impl SmashSelect {
                 let character = SELECTABLE[selection.locked_character()?];
                 Some(
                     MatchParticipant::new(character)
-                        // EVERY locked seat is a human. This is a couch game and
-                        // the whole point of the screen is that the people at it
-                        // chose; filling an empty seat with a CPU would make the
-                        // screen a suggestion.
-                        .driven_by(crate::ControllerBinding::Human {
-                            device_slot: seat as u8,
+                        // A seat is driven by whoever the SCREEN says is at it.
+                        // Nothing is filled in on anybody's behalf: an empty
+                        // seat stays out of the match, and a CPU seat is one
+                        // somebody asked for.
+                        .driven_by(if selection.is_cpu() {
+                            crate::ControllerBinding::Cpu {
+                                brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
+                            }
+                        } else {
+                            crate::ControllerBinding::Human {
+                                device_slot: seat as u8,
+                            }
                         })
                         .on_team(format!("seat {}", seat + 1)),
                 )
@@ -185,7 +287,24 @@ impl SmashSelect {
             .collect();
         roster.opens_suspended = true;
         roster.fighter_stocks = Some(STARTING_STOCKS);
-        Some(roster)
+        // WHOSE match this is. A host with a second stage in it removes "the
+        // roster" on leaving its own route, and without an owner that teardown
+        // reaches this one — which is how the stage stopped opening the day this
+        // demo was listed on the title screen.
+        Some(roster.published_by(crate::SMASH_EXPERIENCE))
+    }
+}
+
+/// The character a seat starts on when nobody chose for it.
+///
+/// Seat-indexed rather than constant, so the first CPU somebody adds is the
+/// OTHER duelist: a solo player pressing one button gets Duelist A against
+/// Duelist B, which is the fight this demo is about.
+fn default_character_for(seat: usize) -> usize {
+    if SELECTABLE.is_empty() {
+        0
+    } else {
+        seat % SELECTABLE.len()
     }
 }
 
@@ -334,6 +453,38 @@ mod tests {
             "the roster renumbered the seats, so a player's controller drives \\
              somebody else's fighter"
         );
+    }
+
+    /// **A match nobody is in is not one anybody asked for.**
+    ///
+    /// A CPU seat is decided the moment it exists, so two of them satisfied
+    /// "every joined seat is locked in, and at least two are" on the SECOND
+    /// press of the add-a-CPU button — the screen started a fight between two
+    /// machines while the player who pressed it had not chosen a character.
+    #[test]
+    fn two_cpus_and_nobody_playing_is_not_a_match() {
+        let mut select = SmashSelect::default();
+        select.add_cpu(0);
+        select.add_cpu(0);
+        assert_eq!(select.cpus(), 2);
+        assert!(!select.ready(), "a match with no people in it started");
+        assert!(select.roster().is_none());
+
+        // The person joins and commits: now it is a match.
+        select.join(0);
+        select.lock_in(0);
+        assert!(select.ready());
+        let roster = select.roster().expect("one player and two CPUs is a match");
+        assert_eq!(roster.participants.len(), 3);
+    }
+
+    /// The presser's own chair is never the one that gets filled.
+    #[test]
+    fn a_cpu_never_takes_the_seat_of_the_player_who_asked_for_it() {
+        let mut select = SmashSelect::default();
+        select.add_cpu(0);
+        assert_eq!(select.seat(0), SeatSelection::Empty);
+        assert_eq!(select.seat(1), SeatSelection::Cpu { character: 1 });
     }
 
     /// A screen nobody joined decides nothing.

@@ -453,3 +453,80 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
         texts[0]
     );
 }
+
+/// **The speedway's BACKDROP moves.** (72h S12)
+///
+/// OV1's original question was whether a demo can draw its world at all. This is
+/// the same question one frame later: the backdrop spawned, and then
+/// `sync_parallax_layers` — the system that slides each layer against the camera
+/// at its own rate — was registered by `game/ambition_app` ALONE. So this demo,
+/// whose entire subject is a camera travelling fast along a speedway, drew its
+/// sky pinned to the world origin and let it slide out of frame.
+///
+/// Nothing about that reads as a missing system: the art is correct, in the
+/// wrong place, and only once you move. Sanic is the demo where it is most
+/// visible and the one that had no guard for it.
+#[test]
+fn the_speedway_backdrop_follows_the_camera() {
+    use ambition::renderer::rendering::ParallaxLayerVisual;
+
+    let mut app = drawn_demo();
+
+    // Long enough for the session to activate and the asset bind to land: the
+    // layers cannot exist before `GameAssets` carries this room's theme.
+    let mut spawned = false;
+    for _ in 0..600 {
+        app.update();
+        let mut query = app.world_mut().query::<&ParallaxLayerVisual>();
+        if query.iter(app.world()).next().is_some() {
+            spawned = true;
+            break;
+        }
+    }
+    assert!(
+        spawned,
+        "the speedway never spawned a parallax layer, so the motion assertion \
+         below would compare two empty lists. Either the theme's art is absent \
+         from the asset catalog or nothing loaded it for this room — both are \
+         real answers and neither is 'the backdrop moves'."
+    );
+
+    let positions = |app: &mut App| -> Vec<f32> {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<&Transform, With<ParallaxLayerVisual>>();
+        query
+            .iter(app.world())
+            .map(|transform| transform.translation.x)
+            .collect()
+    };
+    let before = positions(&mut app);
+
+    // Hold right. The body accelerates down the speedway, the camera follows it,
+    // and each layer follows the camera at its own factor.
+    for _ in 0..240 {
+        ambition::sim::drive_control_frame(
+            app.world_mut(),
+            ambition::sim::ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
+
+    let after = positions(&mut app);
+    assert_eq!(
+        before.len(),
+        after.len(),
+        "the layer set changed while running, so the comparison is not about \
+         motion"
+    );
+    assert!(
+        before.iter().zip(&after).any(|(a, b)| a != b),
+        "after 240 frames of holding right, every parallax layer is exactly \
+         where it started. The sky is pinned to the world while the camera runs \
+         down the speedway — which is what a composition without \
+         `sync_parallax_layers` draws."
+    );
+}

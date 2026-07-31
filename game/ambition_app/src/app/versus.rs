@@ -851,7 +851,6 @@ mod roster_topology_tests {
     use super::*;
     use ambition::actors::character_runtime::{ActiveMatch, CharacterLoadDemand};
     use ambition::input::{LocalDeviceOrder, LocalSeatTopology};
-    use bevy::prelude::*;
 
     fn topology_of(pads: usize) -> LocalSeatTopology {
         let mut topology = LocalSeatTopology::default();

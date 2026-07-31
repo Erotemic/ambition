@@ -307,9 +307,15 @@ fn enemy_positions(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
 #[derive(Clone, Copy, Debug)]
 struct PropBox {
     x: f32,
-    y: f32,
     half_w: f32,
 }
+
+// ⚠ no `y`. It was recorded and never read, and the compiler said so. The
+// standoff this feeds is a HORIZONTAL question — which side to approach from and
+// where to stop — so a centre height is a fact the oracle does not use. Carrying
+// it anyway is how a reader concludes the approach considers height when it does
+// not. If the oracle ever needs to reach a brick above or below the player, the
+// field comes back WITH the code that reads it.
 
 /// Where to STAND to hit the brick, rather than where the brick is.
 ///
@@ -347,7 +353,6 @@ fn target_positions(
             .find(|(id, feature, _)| id.0 == targets.brick && !feature.broken())
             .map(|(_, _, aabb)| PropBox {
                 x: aabb.center.x,
-                y: aabb.center.y,
                 half_w: aabb.size().x / 2.0,
             })
     };

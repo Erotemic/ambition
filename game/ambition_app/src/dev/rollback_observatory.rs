@@ -804,7 +804,6 @@ mod tests {
         assert!(settings.check_distance < settings.max_prediction_window);
     }
 
-    #[test]
     /// **The session seats every controller, not just the first.**
     ///
     /// The production builder used `..Default::default()`, whose player count is

@@ -153,9 +153,9 @@ pub mod actor {
     /// concept and this is where a consumer looks for it (LEAK CLOSED, slice F).
     pub use ambition_actors::construction::ActorConstructionRegistry;
 
-    pub use ambition_engine_core::BodyClusterQueryData;
     /// Where the body is, and how it moves.
-    pub use ambition_engine_core::movement::{TransitVelocity, transit_body};
+    pub use ambition_engine_core::movement::{transit_body, TransitVelocity};
+    pub use ambition_engine_core::BodyClusterQueryData;
     pub use ambition_platformer_primitives::body::BodyKinematics;
 
     /// What a game spawns and configures.
@@ -197,7 +197,7 @@ pub mod character {
     pub use ambition_actors::features::CharacterRosterAppExt;
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
-        CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment, parse_catalog,
+        parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
     /// What providers have authored, for a game that wants to inspect its own
@@ -217,9 +217,9 @@ pub mod character {
     /// What a character looks like, and whether its art has arrived.
     pub use ambition_actors::character_runtime::CharacterLoadStates;
     pub use ambition_actors::character_sprites::sheet_for_declared_character;
-    pub use ambition_sprite_sheet::AuthoredSheetAppExt;
-    pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
+    pub use ambition_sprite_sheet::character::CharacterSheetState;
+    pub use ambition_sprite_sheet::AuthoredSheetAppExt;
 }
 
 /// **The simulation schedule a game joins its own systems to.**
@@ -284,7 +284,20 @@ pub mod view {
 
     /// Where the art comes from: every asset path/source policy the
     /// presentation reads.
-    pub use ambition_asset_manager::sandbox_assets::{SandboxAssetCatalog, ids};
+    pub use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
+
+    /// The marker on a generated background layer.
+    ///
+    /// Exported so a consumer can ask whether its backdrop is DRAWN and whether
+    /// it MOVES — two questions `fixtures/external_consumer` now asks, and could
+    /// not ask at all while the component sat behind a private module. It went
+    /// into `ambition::renderer` first, which is the raw crate re-export, and
+    /// `outlander-names-only-the-public-sdk` caught that immediately: a third
+    /// party reaching through the facade into an implementation module is the
+    /// leak ADR 0031 exists to close, and "the test needed it" is how those get
+    /// made.
+    #[cfg(feature = "ambition_render")]
+    pub use ambition_render::rendering::ParallaxLayerVisual;
 }
 
 /// **Rollback, as a supported session mode.**
@@ -325,8 +338,8 @@ pub use bevy;
 /// Engine assembly helpers most games need first.
 pub mod engine {
     pub use ambition_runtime::{
-        PlatformerEnginePlugins, SandboxSetsPlugin, SimCoreResourcesPlugin, SimulationHost,
-        SimulationHostAppExt, add_headless_foundation, init_engine_states,
+        add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SandboxSetsPlugin,
+        SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
     };
 }
 

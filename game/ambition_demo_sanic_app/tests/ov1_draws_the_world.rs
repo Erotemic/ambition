@@ -468,9 +468,18 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
 /// visible and the one that had no guard for it.
 #[test]
 fn the_speedway_backdrop_follows_the_camera() {
-    use ambition::renderer::rendering::ParallaxLayerVisual;
+    use ambition::view::ParallaxLayerVisual;
 
     let mut app = drawn_demo();
+    // ⚠ **PIN THE CLOCK.** A fixed-tick host without one runs a
+    // machine-speed-dependent number of ticks per `update()`, so the same script
+    // covers a different distance on every run — `act_completion` carries the
+    // same two lines for the same reason. Without it this test passed alone and
+    // FAILED inside the full suite binary, which is the flake shape this run
+    // already paid for once today in `shell_host_lifecycle`.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / 60.0),
+    ));
 
     // Long enough for the session to activate and the asset bind to land: the
     // layers cannot exist before `GameAssets` carries this room's theme.

@@ -31,8 +31,7 @@ fn settle_until(app: &mut App, frames: usize, ready: impl Fn(&App) -> bool) -> b
 
 fn parallax_layer_positions(app: &mut App) -> Vec<(f32, f32)> {
     let world = app.world_mut();
-    let mut query = world
-        .query_filtered::<&Transform, With<ambition::renderer::rendering::ParallaxLayerVisual>>();
+    let mut query = world.query_filtered::<&Transform, With<ambition::view::ParallaxLayerVisual>>();
     query
         .iter(world)
         .map(|transform| (transform.translation.x, transform.translation.y))
@@ -52,7 +51,7 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
 
     let spawned = settle_until(&mut app, 600, |app| {
         app.world()
-            .try_query_filtered::<(), With<ambition::renderer::rendering::ParallaxLayerVisual>>()
+            .try_query_filtered::<(), With<ambition::view::ParallaxLayerVisual>>()
             .map(|mut query| query.iter(app.world()).next().is_some())
             .unwrap_or(false)
     });

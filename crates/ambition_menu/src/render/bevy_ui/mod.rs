@@ -661,6 +661,22 @@ where
 /// text nodes and the write is change-detected, so steady-state frames touch
 /// nothing.
 ///
+/// ⚠ **and it runs in `PostUpdate`, which is the difference between a menu and
+/// a menu that FLASHES.** (Jon, 2026-07-31: *"the 'Ambition' and 'Arrow keys
+/// select' text flashes by growing and then shrinking"* on every arrow press
+/// and every mouse hover, on the title screen and in Sanic's pause menu.)
+///
+/// A text node is SPAWNED at [`MENU_REFERENCE_VIEWPORT_HEIGHT`] pixels — the
+/// spawner has no window — and this system is what makes it the window's size.
+/// In `Update` those are two different frames: the launcher rebuilds its whole
+/// tree whenever the cursor moves, so every keypress presented one frame of
+/// 1080p-sized text on a shorter window before this corrected it. In
+/// `PostUpdate`, before [`UiSystems::Content`], the commands that spawned the
+/// nodes have already been applied and the corrected size is what
+/// `measure_text_system` measures — the wrong size is never presented at all.
+///
+/// [`MENU_REFERENCE_VIEWPORT_HEIGHT`]: crate::MENU_REFERENCE_VIEWPORT_HEIGHT
+///
 /// With no primary window — headless tests, and any composition that never
 /// added `WindowPlugin` — the reference height stands and the sizes are exactly
 /// what they were before this existed.
@@ -713,8 +729,14 @@ pub fn install_bevy_ui_menu_text_scaling(app: &mut App) {
     if app.world().contains_resource::<MenuTextScalingInstalled>() {
         return;
     }
-    app.init_resource::<MenuTextScalingInstalled>()
-        .add_systems(Update, resolve_menu_text_size);
+    app.init_resource::<MenuTextScalingInstalled>().add_systems(
+        bevy::prelude::PostUpdate,
+        // Before text is MEASURED, so the size this writes is the size that
+        // frame lays out. See `resolve_menu_text_size` for why the schedule is
+        // load-bearing. Ordering against a set no plugin populated (a headless
+        // App without `UiPlugin`) is a no-op, not an error.
+        resolve_menu_text_size.before(bevy::ui::UiSystems::Content),
+    );
 }
 
 /// Install the flat `bevy_ui` scrollbar drag handling (Feature C): registers the

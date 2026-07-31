@@ -531,3 +531,58 @@ fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
     let left = text_node(12.0, 10.0, MenuTextAlign::Left);
     assert_eq!(left.left, Val::Percent(12.0));
 }
+
+/// **The size a menu is SPAWNED at is never the size it is presented at, and
+/// the gap has to close inside one frame.**
+///
+/// A text node is built with no window in reach, so it carries the 1080p
+/// reference size until `resolve_menu_text_size` corrects it against the live
+/// one. While that correction lived in `Update` it landed on the FOLLOWING
+/// frame, and the launcher — which rebuilds its whole tree whenever the cursor
+/// moves — presented one frame of oversized text on every arrow press and every
+/// mouse hover. Jon saw it as text "growing and then shrinking".
+///
+/// This asserts the closing, not the schedule: one update, spawned and
+/// corrected, whatever set it ends up in.
+#[test]
+fn text_spawned_this_frame_is_already_the_windows_size_when_the_frame_ends() {
+    use bevy::prelude::*;
+    use bevy::window::{PrimaryWindow, Window, WindowResolution};
+
+    const WINDOW_HEIGHT: f32 = 720.0;
+    let fraction = crate::MenuTextHeightFraction(5.0);
+
+    let mut app = App::new();
+    install_bevy_ui_menu_text_scaling(&mut app);
+    app.world_mut().spawn((
+        Window {
+            resolution: WindowResolution::new(1280, WINDOW_HEIGHT as u32),
+            ..default()
+        },
+        PrimaryWindow,
+    ));
+    // Spawned from a system, in `Update`, exactly like every real menu rebuild:
+    // the entity does not exist until this frame's commands are applied.
+    app.add_systems(Update, move |mut commands: Commands| {
+        commands.spawn((
+            Text::new("Ambition"),
+            TextFont {
+                font_size: fraction.reference_pixels(),
+                ..default()
+            },
+            fraction,
+        ));
+    });
+
+    app.update();
+
+    let mut query = app.world_mut().query::<&TextFont>();
+    let sizes: Vec<f32> = query.iter(app.world()).map(|font| font.font_size).collect();
+    assert_eq!(
+        sizes,
+        vec![fraction.pixels_at(WINDOW_HEIGHT)],
+        "the node still carries its {:.1}px reference size at the end of the frame \
+         it was spawned in — that size is what the player sees flash",
+        fraction.reference_pixels(),
+    );
+}

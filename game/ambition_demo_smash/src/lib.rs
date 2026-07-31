@@ -36,7 +36,10 @@
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
 use ambition::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
+use ambition::engine_core as ae;
+use ambition::engine_core::AabbExt;
 use ambition::engine_core::Vec2;
+use ambition::world::rooms::RoomSpec;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
@@ -106,6 +109,67 @@ pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {
         // answer rather than this crate.
         stage_centre.y - RESPAWN_HEIGHT_PX,
     )
+}
+
+/// Stable room id for the stage.
+pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
+
+/// Stage size, and the platform's top.
+const STAGE_SIZE: Vec2 = Vec2::new(960.0, 640.0);
+const PLATFORM_TOP: f32 = 420.0;
+const PLATFORM_WIDTH: f32 = 420.0;
+
+/// **How far past the stage a body may travel before the world takes it.**
+///
+/// Tight ON PURPOSE, and this is the number that makes the demo a fighter rather
+/// than a room with two people in it. Every other room in this game is ENCLOSED —
+/// its margin exists to catch a body that fell through the floor, so it is
+/// generous and rarely reached. Here it is the win condition, so it has to be
+/// close enough that a good hit reaches it.
+const BLAST_MARGIN_PX: f32 = 220.0;
+
+/// **The stage: a platform surrounded by nothing.**
+///
+/// That shape is the whole difference from every other room the engine has
+/// loaded. A platformer room is a box you cannot leave; a fighter stage is a
+/// thing you can be knocked OFF, and the emptiness around it is the mechanic
+/// rather than the absence of one.
+///
+/// Authored in Rust rather than LDtk deliberately, and the repo's own rule says
+/// which way that goes: LDtk is preferred for content, Rust rooms are for DEMOS.
+/// A stage this shape is four numbers, and putting it in a level file would make
+/// the ONE interesting fact about it — the blast margin — a field in an editor
+/// nobody opens.
+pub fn smash_stage() -> RoomSpec {
+    let mut world = ae::World::new(
+        "Smash Stage",
+        STAGE_SIZE,
+        // Spawn above the platform, like a respawn: the fighters are placed by
+        // seating, and this is only where a lone visitor lands.
+        Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
+        vec![ae::Block::solid(
+            "smash_platform",
+            Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
+            Vec2::new(PLATFORM_WIDTH, 32.0),
+        )],
+    );
+    world.blast_margin = BLAST_MARGIN_PX;
+    // The SIDES are the interesting ones and they are not the default. A body
+    // launched horizontally leaves through them, and without an explicit value
+    // they inherit a margin sized for "fell through the floor" — generous enough
+    // that a fighter knocked off the edge would drift for a second and a half
+    // before anything noticed.
+    world.side_blast_margin = Some(BLAST_MARGIN_PX);
+    world.ceiling_blast_margin = Some(BLAST_MARGIN_PX);
+
+    let mut room = RoomSpec::new(SMASH_STAGE_ROOM_ID, world);
+    room.metadata.mode = Some(SMASH_MODE.to_string());
+    room
+}
+
+/// The stage centre a respawn is measured from.
+pub fn stage_centre() -> Vec2 {
+    Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP)
 }
 
 /// What the match announces when it ends.
@@ -183,6 +247,77 @@ mod tests {
             "the respawn is at or below the stage floor, so a returning fighter \
              materialises inside whatever is standing there"
         );
+    }
+
+    /// **The stage is a platform surrounded by nothing**, which is the one room
+    /// shape this engine had not loaded. Every other room is a box you cannot
+    /// leave.
+    #[test]
+    fn the_stage_is_a_platform_you_can_be_knocked_off() {
+        let room = smash_stage();
+        assert_eq!(room.id, SMASH_STAGE_ROOM_ID);
+        assert_eq!(
+            room.world.blocks.len(),
+            1,
+            "a fighter stage with walls is a room, and a body knocked into one \
+             comes back — the emptiness IS the mechanic"
+        );
+        let platform = room.world.blocks[0].aabb;
+        assert!(
+            platform.width() < room.world.size.x,
+            "the platform spans the stage, so there is no off to be knocked"
+        );
+    }
+
+    /// **The blast margin has to be REACHABLE**, or stocks never spend and the
+    /// whole loop is decorative.
+    ///
+    /// The number is the win condition here, not a safety net. Every other room
+    /// sizes its margin for "fell through the floor" — generous, rarely reached —
+    /// and inheriting that default is how a fighter knocked cleanly off the edge
+    /// drifts for a second and a half before anything notices.
+    #[test]
+    fn a_body_knocked_off_the_side_leaves_the_world() {
+        let room = smash_stage();
+        let platform = room.world.blocks[0].aabb;
+        assert!(
+            platform.left() > BLAST_MARGIN_PX * 0.0,
+            "the platform starts at the world origin, so there is no space to be \
+             knocked into on the left"
+        );
+        assert_eq!(
+            room.world.side_blast_margin,
+            Some(BLAST_MARGIN_PX),
+            "the sides fell back to the enclosed-room default, which is sized for \
+             a body that fell through the floor rather than one that was hit"
+        );
+        assert_eq!(room.world.ceiling_blast_margin, Some(BLAST_MARGIN_PX));
+        assert!(
+            BLAST_MARGIN_PX < room.world.size.x / 2.0,
+            "the margin is wider than half the stage, so a body would have to \
+             cross the whole screen before the world took it"
+        );
+    }
+
+    /// The room carries the demo's MODE, so its rules sleep everywhere else.
+    #[test]
+    fn the_stage_carries_the_smash_mode() {
+        assert_eq!(smash_stage().metadata.mode.as_deref(), Some(SMASH_MODE));
+    }
+
+    /// A respawn lands above the PLATFORM, not above the stage's arbitrary
+    /// middle — the two coincide here and a future stage will separate them.
+    #[test]
+    fn a_respawn_lands_over_the_platform() {
+        let room = smash_stage();
+        let platform = room.world.blocks[0].aabb;
+        let respawn = respawn_placement(stage_centre());
+        assert!(
+            respawn.x >= platform.left() && respawn.x <= platform.right(),
+            "a respawning fighter is dropped past the edge of the platform it is \
+             supposed to come back to"
+        );
+        assert!(respawn.y < platform.top(), "the respawn is not above the stage");
     }
 
     /// A draw has a name. The engine's `winner: Option<String>` exists so this

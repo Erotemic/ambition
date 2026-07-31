@@ -831,9 +831,27 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     qualified by the file's crate. Two crates could otherwise both claim
     `crate::Foo` and the ratchet would see one entry where there are two.
     """
-    registration = (
-        root / "crates/ambition_runtime/src/rollback/mod.rs"
-    ).read_text(errors="replace")
+    # The central function AND the domain adapters (Campaign 2).
+    #
+    # ⚠ this read one file until 2026-07-31, and Campaign 2 moves registrations
+    # OUT of it by design — so the first migrated domain reported five names as
+    # having "left the schema" when they had only left the file. That is the same
+    # mistake `encoded_types` above already learned once: the wire format is not a
+    # synonym for one path, and a guard that keeps reading the old one reports a
+    # green empty set forever.
+    #
+    # Deliberately NOT a glob over the whole `rollback/` directory: `codec.rs`,
+    # `session.rs` and friends contain dotted string literals that are not
+    # registration names, and a ratchet that swallows them measures noise.
+    registration_paths = [root / "crates/ambition_runtime/src/rollback/mod.rs"]
+    registration_paths.extend(
+        sorted((root / "crates/ambition_runtime/src/rollback/domains").glob("**/*.rs"))
+    )
+    registration = "\n".join(
+        path.read_text(errors="replace")
+        for path in registration_paths
+        if path.exists() and not is_test_path(str(path))
+    )
 
     encoded: set[str] = set()
     for source in sorted(root.glob("crates/*/src/**/*.rs")):
@@ -1315,7 +1333,7 @@ def main() -> int:
             print(f"       NEW    {item} entered the CENTRAL registration")
         for item in stale:
             print(
-                f"       STALE  {item} left the central registration but is "
+                f"       STALE  {item} left the rollback registration but is "
                 f"still in the baseline — PRUNE it in this commit"
             )
 

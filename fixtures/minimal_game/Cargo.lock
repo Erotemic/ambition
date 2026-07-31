@@ -115,39 +115,22 @@ dependencies = [
  "ambition_audio",
  "ambition_characters",
  "ambition_combat",
- "ambition_cutscene",
  "ambition_dev_tools",
- "ambition_dialog",
- "ambition_encounter",
  "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_game_shell",
  "ambition_host",
  "ambition_input",
  "ambition_interaction",
- "ambition_inventory_ui",
- "ambition_items",
- "ambition_ldtk_map",
  "ambition_load",
  "ambition_load_presentation",
- "ambition_menu",
- "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_platformer_provider",
- "ambition_portal",
- "ambition_portal_presentation",
- "ambition_projectiles",
  "ambition_render",
  "ambition_runtime",
- "ambition_settings_menu",
- "ambition_sfx",
- "ambition_sfx_bank",
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
- "ambition_touch_input",
- "ambition_ui_nav",
- "ambition_vfx",
  "ambition_world",
  "bevy",
 ]
@@ -378,14 +361,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_inventory_ui"
-version = "0.1.0"
-dependencies = [
- "ambition_ui_nav",
- "bevy",
-]
-
-[[package]]
 name = "ambition_items"
 version = "0.1.0"
 dependencies = [
@@ -486,16 +461,6 @@ dependencies = [
  "ambition_platformer_primitives",
  "bevy",
  "serde",
-]
-
-[[package]]
-name = "ambition_portal_presentation"
-version = "0.1.0"
-dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
- "ambition_portal",
- "bevy",
 ]
 
 [[package]]
@@ -641,16 +606,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
  "bevy",
-]
-
-[[package]]
-name = "ambition_touch_input"
-version = "0.1.0"
-dependencies = [
- "ambition_engine_core",
- "ambition_input",
- "ambition_platformer_primitives",
- "serde",
 ]
 
 [[package]]

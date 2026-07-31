@@ -133,5 +133,26 @@
         "d": "Where to spawn a rollback entity was unstated, and the doubt was one this campaign created — slice F made the construction hazard vivid without saying which side of `start()` a consumer's own spawns fall on."
       }
     }
+  },
+  "slice_h_result": {
+    "executed_on": "2026-07-30",
+    "what_landed": "18 of the facade's 41 dependency edges became optional cargo features (implicit crate-named features, `all_capabilities` = all of them, default = [\"all_capabilities\"] so a default-features consumer gets the pre-slice-H facade exactly). `pub use` mirrors, the prelude entries, `game_assets`, `renderer` and `presentation`, and the app builder's Rule-6 block are cfg-gated; a composition that prepares art without the `ambition_render` capability is REFUSED with a structured CompositionError, probed red before shipping.",
+    "measured_closure": {
+      "sentinel": "fixtures/minimal_game",
+      "before": 41,
+      "after": 38,
+      "cut": [
+        "ambition_inventory_ui",
+        "ambition_portal_presentation",
+        "ambition_touch_input"
+      ],
+      "never_asked_for": "19 -> 15"
+    },
+    "edges_that_resisted": {
+      "ambition_render": "optional in the facade, NOT optional for this sentinel: `the_minimal_game_boots_windowed` is a slice-B exit criterion and the windowed face draws. The spec's failure-mode clause applies verbatim — minimal_game needs the feature to keep passing its tests, so it names it in its manifest and the closure keeps it. Outlander names it too, for the same reason. The edge is cuttable by a game with no windowed face; neither sentinel is one.",
+      "ambition_audio": "left unconditional: declaring silence IS an audio-catalog registration (`ModuleDraft::no_audio` -> `AudioCatalogFragment`), so the composition path compiles against the crate even for a soundless game. Gating it would also have cut nothing — it arrives via `ambition_actors`.",
+      "the_other_14": "cutscene, dialog, encounter, items, ldtk_map, menu, persistence, portal, projectiles, settings_menu, sfx, sfx_bank, ui_nav, vfx are now optional facade edges AND still in the closure, because `ambition_actors` links them all. Exactly the split the baseline predicted: these wait on the §4 carve, and no manifest can free them."
+    },
+    "ratchet_change": "the footprint ratchet now measures the sentinel's RESOLVED closure (`cargo tree` in fixtures/minimal_game) instead of a static manifest walk from `ambition` — the static walk counts optional edges the sentinel never enabled, so after this slice it measured the wrong subject and the counter could never have moved. Baseline pruned 41 -> 38 in the same commit."
   }
 }

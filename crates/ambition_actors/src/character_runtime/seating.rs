@@ -97,6 +97,51 @@ pub fn seat_character(
     death_policy: ambition_characters::actor::DeathPolicy,
 ) -> Option<Entity> {
     let prepared = registry.get(character_id)?;
+    Some(seat_prepared_character(
+        commands,
+        session_scope,
+        prepared,
+        catalog,
+        authored_sheets,
+        roster,
+        character_id,
+        at,
+        facing,
+        faction,
+        brain,
+        death_policy,
+    ))
+}
+
+/// [`seat_character`] with the registry lookup already done — **and therefore
+/// infallible.**
+///
+/// ⚠ this exists so seating's COMMIT pass cannot fail. That pass says of itself:
+/// *"Nothing below may return early: a `return` here would reintroduce exactly
+/// the partial activation the resolve pass exists to prevent"* — and then called
+/// `seat_character`, whose only failure mode is the registry lookup the RESOLVE
+/// pass had already performed, and returned on `None` under a `debug_assert`. So
+/// in a debug build it panicked and in a release build it did the one thing the
+/// pass forbids, silently.
+///
+/// The fix is not a louder refusal: it is carrying the resolved value forward so
+/// there is nothing left to refuse. The resolve pass looked the character up and
+/// threw the answer away; now it keeps it.
+#[allow(clippy::too_many_arguments)]
+pub fn seat_prepared_character(
+    commands: &mut Commands,
+    session_scope: ambition_platformer_primitives::lifecycle::SessionSpawnScope,
+    prepared: &super::PreparedCharacterDefinition,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    roster: &crate::features::CharacterRoster,
+    character_id: &str,
+    at: Vec2,
+    facing: f32,
+    faction: crate::combat::components::ActorFaction,
+    brain: ambition_entity_catalog::placements::CharacterBrain,
+    death_policy: ambition_characters::actor::DeathPolicy,
+) -> Entity {
     // **THE AUTHORED PHYSICAL IDENTITY**, resolved once and read three times
     // below — the box here, the health pool on the seed, the mass on the bundle.
     //
@@ -279,7 +324,7 @@ pub fn seat_character(
         // archetype's own mass rather than retracting to anything.
         super::PhysicalRetraction::NONE,
     );
-    Some(body)
+    body
 }
 
 /// Where a participant sits and which way it looks.
@@ -475,6 +520,14 @@ enum SeatPlan<'roster> {
     Spawn {
         index: usize,
         character: &'roster str,
+        /// **The resolved definition, carried rather than re-looked-up.**
+        ///
+        /// The resolve pass asked the registry whether this seat was
+        /// satisfiable and threw the answer away; the commit pass then asked
+        /// again and had to handle a `None` it had already ruled out. Keeping it
+        /// is what makes the commit pass infallible instead of merely unlikely
+        /// to fail.
+        prepared: &'roster super::PreparedCharacterDefinition,
         at: Vec2,
         facing: f32,
         faction: crate::combat::components::ActorFaction,
@@ -680,12 +733,13 @@ pub fn seat_match_participants(
                     // couch versus was missing is not the engine: it is a writer
                     // for the second slot. This seats the body that writer will
                     // drive.
-                    if registry.get(character).is_none() {
+                    let Some(prepared) = registry.get(character) else {
                         return;
-                    }
+                    };
                     SeatPlan::Spawn {
                         index,
                         character,
+                        prepared,
                         at,
                         facing,
                         faction: faction_for(index),
@@ -704,9 +758,9 @@ pub fn seat_match_participants(
                 let Some(profile) = controller.brain_profile() else {
                     return;
                 };
-                if registry.get(character).is_none() {
+                let Some(prepared) = registry.get(character) else {
                     return;
-                }
+                };
                 // **A CPU SEAT NAMING AN UNKNOWN BRAIN IS UNSATISFIABLE, not a
                 // generic enemy.** `spec_for_brain` falls back to the roster's
                 // `combatant` row for an unknown key — its own doc says a
@@ -743,6 +797,7 @@ pub fn seat_match_participants(
                 SeatPlan::Spawn {
                     index,
                     character,
+                    prepared,
                     at,
                     facing,
                     faction: faction_for(index),
@@ -787,6 +842,7 @@ pub fn seat_match_participants(
             SeatPlan::Spawn {
                 index,
                 character,
+                prepared,
                 at,
                 facing,
                 faction,
@@ -794,10 +850,21 @@ pub fn seat_match_participants(
                 player_slot,
                 team,
             } => {
-                let Some(body) = seat_character(
+                // **INFALLIBLE.** The resolve pass looked this character up and
+                // KEPT the answer, so there is nothing here to refuse — which is
+                // what the commit pass's own rule requires: *"Nothing below may
+                // return early: a `return` here would reintroduce exactly the
+                // partial activation the resolve pass exists to prevent."*
+                //
+                // ⚠ this used to call `seat_character`, whose only failure is the
+                // registry lookup already performed, and returned on `None` under
+                // a `debug_assert!`. Debug panicked; release did the one thing the
+                // pass forbids, silently. A louder refusal was the wrong fix: the
+                // right one is having nothing left to refuse.
+                let body = seat_prepared_character(
                     &mut commands,
                     session_scope,
-                    &registry,
+                    prepared,
                     &catalog,
                     &authored_sheets,
                     &archetypes,
@@ -807,20 +874,7 @@ pub fn seat_match_participants(
                     faction,
                     brain,
                     stocks_policy,
-                ) else {
-                    // RESOLVE already proved the registry entry exists, and that
-                    // is `seat_character`'s only failure. Reaching this means the
-                    // precondition and the constructor have drifted apart —
-                    // which is a contract break to fix, not a seat to skip, so
-                    // say so loudly in a debug build and leave the world as the
-                    // resolve pass found it.
-                    debug_assert!(
-                        false,
-                        "seat {index} resolved but `seat_character` refused it: the \
-                         satisfiability precondition no longer matches the constructor"
-                    );
-                    return;
-                };
+                );
                 let mut seated = commands.entity(body);
                 seated.insert(MatchSeat(index));
                 if let Some(team) = team {
@@ -846,13 +900,20 @@ pub fn seat_match_participants(
             } => {
                 // Resolved above through the read-only view; the mutable single
                 // cannot disagree with it within one system run.
-                let Ok((_, mut health, clusters, mut model, _)) = player.single_mut() else {
-                    debug_assert!(
-                        false,
-                        "seat {index} adopted a player body that vanished mid-system"
-                    );
-                    return;
-                };
+                //
+                // ⚠ **`expect`, not `debug_assert!` + `return`.** The two builds
+                // used to disagree: debug panicked, release skipped the seat —
+                // and skipping is the partial activation this pass exists to
+                // prevent, so the release behaviour was the worse one. Between a
+                // loud stop and a half-built match the repo has already made this
+                // call once, at initial session setup: "a silent partial start
+                // would be worse than a loud stop".
+                //
+                // Unlike the spawn arm above, there is nothing to carry forward —
+                // the commit needs a MUTABLE borrow the resolve pass cannot hold.
+                let (_, mut health, clusters, mut model, _) = player
+                    .single_mut()
+                    .expect("seat adopted a player body that vanished mid-system");
                 // The adopted PRIMARY PLAYER needs `RulesetOwnsDeath` most. Its
                 // death runs `death_respawn_player`, which teleports it to the
                 // room spawn and restores full health BEFORE any rules layer can

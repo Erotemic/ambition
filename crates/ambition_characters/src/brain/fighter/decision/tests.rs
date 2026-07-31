@@ -319,20 +319,20 @@ fn the_same_brain_on_solid_ground_still_walks() {
     );
 }
 
-/// **A veto that empties the option list has to author what happens next.**
+/// **When every option is fatal, take the one that dies LATEST — never nothing.**
 ///
-/// L2's verbs are Approach, Retreat, Jump, Dash — none of them means "stop", so
-/// the all-vetoed branch cannot fall through to applying nothing. `frame` starts
-/// life as `state.held`, so applying nothing PRESERVES the input just judged
-/// fatal, and the brain keeps doing the thing it decided would kill it.
+/// The first cut of this halted instead, on the reading that a body told every
+/// direction kills it should stop. That is right on the ground and wrong in the
+/// air, and the difference cost a measurable regression: once `Recover` became
+/// modellable the rollout could condemn it, `Recover` is the ONLY verb offered
+/// in `Situation::Recovery`, so an airborne body's list emptied and the halt
+/// replaced a doomed recovery with a certain one. Level 9 survival fell 40.2s to
+/// 9.2s the moment the model got good enough to condemn the verb.
 ///
 /// The scenario is a body already in the air with no floor beneath it, which is
-/// where the shadow model has no `ground_level` at all: nothing it can do inside
-/// the horizon stops the fall, so every modelled verb comes back fatal. It is
-/// also not hypothetical — `ladder_probe` hits this branch 164 times in five
-/// one-minute matches.
+/// where the shadow has no `ground_level` at all.
 #[test]
-fn a_body_whose_every_option_is_fatal_stops_instead_of_coasting() {
+fn a_body_whose_every_option_is_fatal_takes_the_longest_lived_one() {
     let profile = FighterBrainProfile {
         rollout_depth: 12,
         rollout_k: 4,
@@ -341,9 +341,11 @@ fn a_body_whose_every_option_is_fatal_stops_instead_of_coasting() {
     let (cfg, mut state) = rig(profile);
     state.held.locomotion.x = 1.0;
 
-    // Airborne, well inside the stage, over nothing.
-    let mut view = scene(300.0, 700.0);
+    // Airborne, over nothing, and to the RIGHT of the stage centre — so the
+    // recovery it should reach for goes left, against the held walk.
+    let mut view = scene(700.0, 780.0);
     view.self_view.on_ground = false;
+    view.self_view.air_jumps_left = 1;
     view.self_view.vel = ae::Vec2::new(160.0, 40.0);
 
     let snapshot = BrainSnapshot::idle();
@@ -352,9 +354,12 @@ fn a_body_whose_every_option_is_fatal_stops_instead_of_coasting() {
         tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
     }
 
-    assert_eq!(
-        out.locomotion.x, 0.0,
-        "with every option vetoed there is no verb to author the frame, and the \
-         held walk survives unless the empty case says otherwise"
+    assert_ne!(
+        out.locomotion.x, 1.0,
+        "the held walk must not survive the decision, whatever the decision was"
+    );
+    assert!(
+        out.jump_held || out.locomotion.x != 0.0,
+        "a falling body that freezes has thrown away its last option: {out:?}"
     );
 }

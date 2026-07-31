@@ -336,6 +336,11 @@ pub struct SelfView {
     pub can_blink: bool,
     /// Dash available this tick (capability + cooldown).
     pub can_dash: bool,
+    /// **Mid-air jumps left before this body is out of options.** The other
+    /// `can_*` flags answer "may I press this"; this one answers "how many times
+    /// more", which is the question a body falling below a ledge is actually
+    /// asking. `0` on the ground is normal — the count refreshes on landing.
+    pub air_jumps_left: u8,
     /// Reactive guard available (capability present).
     pub can_shield: bool,
     /// What self is doing. `Disadvantage` (§1's L1 state) is `Hitstun` here.

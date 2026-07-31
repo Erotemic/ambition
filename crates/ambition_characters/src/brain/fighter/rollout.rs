@@ -129,6 +129,13 @@ pub struct ShadowFighter {
     /// max)` along the gravity frame's `side` axis. `None` is the old model: an
     /// INFINITE plane at `ground_level`.
     ///
+    /// **Mid-air jumps left.** Without it the shadow has no air game at all:
+    /// every airborne body falls to its death in the imagination, so every verb
+    /// comes back fatal, the veto empties the list, and the halt fires on a body
+    /// that cannot be helped by standing still. Recovery is the one thing an
+    /// airborne fighter can DO, and it was the one thing the model could not
+    /// represent.
+    pub air_jumps: u8,
     /// ⚠ added 2026-07-31, and the absence was a whole class of blindness. v1's
     /// terrain model was one sentence — "a body that was STANDING re-lands at
     /// the height it stood at" — which is exactly right in an ENCLOSED room and
@@ -198,6 +205,11 @@ pub enum ShadowIntent {
         lateral: f32,
     },
     Jump,
+    /// Recover toward the stage: an air jump if the budget allows, drift if not.
+    /// `toward_home` is −1..=1 along local `side`.
+    Recover {
+        toward_home: f32,
+    },
     /// Begin the generic assumed foe attack (predicted `Choice::Attack`).
     StartAttack,
     /// Raise the guard (predicted `Choice::Shield`).
@@ -217,6 +229,7 @@ fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
         half_extent: view.half_extent,
         on_ground: view.on_ground,
         ground_level: view.on_ground.then(|| view.pos.dot(down)),
+        air_jumps: view.air_jumps_left,
         // Filled by `ShadowState::from_perceived`, which is the only place with
         // the terrain to fill it from.
         ground_span: None,
@@ -238,6 +251,11 @@ fn fighter_from_actor(actor: &PerceivedActor, gravity_down: ae::Vec2) -> ShadowF
         half_extent: actor.half_extent,
         on_ground: actor.on_ground,
         ground_level: actor.on_ground.then(|| actor.pos.dot(down)),
+        // A foe's remaining jumps are not observable — the body does not show
+        // them. Assuming the worst (it can still recover) is the conservative
+        // reading: the rollout does not get to plan around an opponent it has
+        // decided is already dead.
+        air_jumps: 1,
         // A perceived FOE's floor is not known — the view carries the actor, not
         // what it stands on. `None` keeps the old infinite plane for it, which is
         // the conservative reading: the rollout does not get to assume an
@@ -500,6 +518,31 @@ fn apply_intent(
             if f.on_ground {
                 f.vel -= down * tuning.jump_speed;
                 f.on_ground = false;
+            }
+        }
+        // **RECOVERY IS AN AIRBORNE JUMP PLUS DRIFT, AND IT IS BUDGETED.** A
+        // grounded body recovering is just a jump toward home; an airborne one
+        // spends an air jump, and when the budget is gone it has drift and
+        // nothing else. Modelling it as an unlimited hover would make the
+        // rollout certify every recovery, which is worse than not modelling it.
+        ShadowIntent::Recover { toward_home } => {
+            let lateral = toward_home.clamp(-1.0, 1.0);
+            if f.on_ground {
+                f.vel = side * (lateral * tuning.ground_speed) - down * tuning.jump_speed;
+                f.on_ground = false;
+            } else if f.air_jumps > 0 {
+                f.air_jumps -= 1;
+                // The air jump REPLACES downward velocity rather than adding to
+                // it, which is what makes a recovery survivable at all.
+                f.vel = side * (lateral * tuning.ground_speed) - down * tuning.jump_speed;
+            } else {
+                // Out of jumps: drift only. Lateral authority in the air is a
+                // fraction of the ground's, and the fall continues.
+                let drift = side * (lateral * tuning.ground_speed * AIR_DRIFT_FRACTION);
+                f.vel = drift + down * f.vel.dot(down);
+            }
+            if lateral.abs() > 1e-3 {
+                f.facing = lateral.signum();
             }
         }
         ShadowIntent::StartAttack => {
@@ -769,6 +812,20 @@ pub fn predicted_foe_intent(
 /// much over doing nothing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefinedChoice {
+    /// **When EVERY offered verb is fatal, the one that dies latest.**
+    ///
+    /// ⚠ a veto that can empty the list needs this, and finding out cost a
+    /// measurement: with `Recover` finally modelled the rollout could strike it,
+    /// and `Recover` is the ONLY verb offered in `Situation::Recovery`. So an
+    /// airborne body's list emptied, the halt fired, and a doomed recovery was
+    /// replaced by standing still — which for a body in the air is not caution,
+    /// it is the same death with the last option thrown away. Survival at level
+    /// 9 fell 40.2 s → 9.2 s the moment the model got good enough to condemn the
+    /// verb.
+    ///
+    /// Standing still is only a fallback where standing still is survivable. On
+    /// the ground it is; in the air it never is.
+    pub least_bad_movement: Option<crate::brain::fighter::options::MovementVerb>,
     /// The preferred attack — **empty when L2 offered none**, which is the
     /// `Recovery` situation ("a body past the blastzone has exactly one
     /// problem"). A consumer reads this for the attack and
@@ -967,6 +1024,7 @@ pub fn refine_by_rollout(
     // floor is NOW, and this is the only thing in the brain that knows where the
     // body will BE.
     let horizon = profile.rollout_depth * MOVEMENT_HORIZON_MULTIPLE;
+    let mut longest_lived: Option<(crate::brain::fighter::options::MovementVerb, u32)> = None;
     let suicidal_movement = options
         .movement
         .iter()
@@ -975,6 +1033,7 @@ pub fn refine_by_rollout(
             let mut probe = start.clone();
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
+            let mut survived = horizon;
             for tick in 0..horizon {
                 // **THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED
                 // TO IT**, and then the line coasts. A brain that re-decides
@@ -998,7 +1057,19 @@ pub fn refine_by_rollout(
                     }
                 }
                 if died {
+                    survived = tick;
                     break;
+                }
+            }
+            if died {
+                // **HOW LONG IT LASTS, not merely that it ends.** When every
+                // option is fatal the caller still has to pick one, and the
+                // longest-lived line is the one that leaves the most room for
+                // the world to change — a foe that stops chasing, a launch that
+                // was never coming. Ties fall to L2's order, which is already
+                // id-tie-broken (ADR 0023).
+                if longest_lived.is_none_or(|(_, best)| survived > best) {
+                    longest_lived = Some((option.verb, survived));
                 }
             }
             died.then_some(option.verb)
@@ -1011,6 +1082,7 @@ pub fn refine_by_rollout(
     // independent answers, and a body with nothing to swing still gets the one
     // that keeps it alive.
     Some(RefinedChoice {
+        least_bad_movement: longest_lived.map(|(verb, _)| verb),
         move_id: best
             .map(|(index, _)| options.attacks[index].move_id.clone())
             .unwrap_or_default(),
@@ -1050,6 +1122,12 @@ pub fn refine_by_rollout(
 /// whether that is still free.
 pub const MOVEMENT_HORIZON_MULTIPLE: u32 = 16;
 
+/// How much of a body's ground speed it can steer with while airborne. v1's air
+/// game is one number, and it is deliberately pessimistic: a rollout that
+/// overestimates drift certifies recoveries that will not happen, and a fighter
+/// that dives off the stage on a promise is worse than one that never leaves it.
+pub const AIR_DRIFT_FRACTION: f32 = 0.6;
+
 /// The sustained shadow intent a movement verb means.
 ///
 /// `None` for verbs the shadow model does not simulate (blink, shield-as-motion)
@@ -1067,7 +1145,18 @@ fn movement_intent(
         MovementVerb::Dash => ShadowIntent::Drive { lateral: toward },
         MovementVerb::Retreat => ShadowIntent::Drive { lateral: -toward },
         MovementVerb::Jump => ShadowIntent::Jump,
-        MovementVerb::Recover | MovementVerb::Shield | MovementVerb::Blink => return None,
+        // ⚠ `Recover` was in the unmodelled list, and it is the ONLY verb that
+        // can save an airborne body — so the one verb the model could not judge
+        // was the one the situation it could not represent depended on. Both
+        // halves closed together; neither is worth anything alone.
+        MovementVerb::Recover => ShadowIntent::Recover {
+            toward_home: ((start.stage.bounds.min.dot(frame.side)
+                + start.stage.bounds.max.dot(frame.side))
+                * 0.5
+                - start.me.pos.dot(frame.side))
+            .signum(),
+        },
+        MovementVerb::Shield | MovementVerb::Blink => return None,
     })
 }
 

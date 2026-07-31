@@ -287,8 +287,21 @@ pub fn tick_actor_brains(
     for (entity, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction, _, _, _, _)) in
-        &actors
+    for (
+        entity,
+        _,
+        _,
+        disposition,
+        _,
+        _,
+        _,
+        target,
+        _,
+        _,
+        _,
+        _,
+        (clusters, _, faction, _, _, _, _),
+    ) in &actors
     {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.health.alive());
@@ -527,6 +540,10 @@ pub fn tick_actor_brains(
                             can_blink: em.abilities.abilities.blink,
                             can_dash: em.abilities.abilities.dash,
                             can_shield: em.abilities.abilities.shield,
+                            // The same counter `actor_movement` spends; a brain
+                            // planning a recovery reads the body's real budget,
+                            // not an assumption about what a fighter usually has.
+                            air_jumps_left: em.jump.air_jumps_available,
                             phase: self_peer.map(|p| p.phase).unwrap_or_default(),
                             phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
                             invulnerable: self_peer.is_some_and(|p| p.invulnerable),

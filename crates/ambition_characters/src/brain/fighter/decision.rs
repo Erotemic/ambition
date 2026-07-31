@@ -322,24 +322,33 @@ fn decide(
         .as_ref()
         .map(|refined| refined.suicidal_movement.as_slice())
         .unwrap_or(&[]);
-    match options
+    // **NO VERB HAS SPOKEN YET, SO THERE IS NO LATERAL INPUT YET.** `frame`
+    // arrives holding the last decision's answer; clearing here rather than
+    // inside each verb makes "nothing was chosen" mean "nothing is pressed"
+    // structurally, instead of depending on every branch below to remember.
+    //
+    // ⚠ this replaced an explicit `halt()` on the empty case. That branch was
+    // correct when it was written and became UNREACHABLE the moment the
+    // least-bad fallback landed — every vetoed verb is a modelled verb, so an
+    // emptied list always has a longest-lived line to fall back to. An
+    // unreachable refusal reads as protection while protecting nothing;
+    // `ladder_probe` confirmed it fires zero times across five matches.
+    frame.locomotion.x = 0.0;
+    let chosen = options
         .movement
         .iter()
         .find(|option| !vetoed.contains(&option.verb))
-    {
-        Some(best) => apply_movement(best.verb, view, frame),
-        // **EVERY OFFERED VERB IS FATAL, AND STANDING STILL IS NOT AMONG THE
-        // OFFERS.** L2 emits verbs — Approach, Retreat, Jump, Dash — and none of
-        // them means "stop". So the empty case cannot fall through to "apply
-        // nothing": `frame` starts as `state.held`, and applying nothing PRESERVES
-        // the input the veto just called fatal. The brain would keep walking the
-        // exact direction it decided would kill it, at every decision tick, until
-        // it did.
-        //
-        // ⚠ this is the quieter half of the veto and the half that bites. A veto
-        // that removes options from a list has done nothing until something
-        // authors what happens when the list empties.
-        None => halt(frame),
+        .map(|option| option.verb)
+        // Every option is fatal — but doing nothing is not automatically the
+        // safe alternative, and for an airborne body it never is. Take the line
+        // that dies latest and leave the most room for the world to change.
+        .or_else(|| {
+            refined
+                .as_ref()
+                .and_then(|refined| refined.least_bad_movement)
+        });
+    if let Some(verb) = chosen {
+        apply_movement(verb, view, frame);
     }
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
@@ -393,17 +402,6 @@ fn infer_choice(previous: FoeSample, current: FoeSample) -> Choice {
     }
 }
 
-/// Stand still. The verb L2 does not offer, authored here because a veto has to
-/// leave the body doing SOMETHING and the held frame is not it.
-///
-/// Deliberately does not touch `facing` (which way the body looks is not what
-/// walked it off) or `jump_held` (releasing a held jump mid-recovery is its own
-/// way to die).
-fn halt(frame: &mut ActorControlFrame) {
-    frame.locomotion.x = 0.0;
-    frame.dash_pressed = false;
-}
-
 /// Translate a movement verb into control-frame fields.
 ///
 /// ⚠ **the sign comes from the perceived foe, not from the actor's facing.**
@@ -427,10 +425,10 @@ fn apply_movement(
     // choose, and on a stage with edges it is the direction the veto had just
     // struck off the list: veto Retreat, choose Jump, keep walking right.
     //
-    // Lateral is the field that carries a body off a stage, so lateral is the
-    // one that gets cleared before the verb speaks. Facing is not: which way a
-    // body looks between decisions is the held intent doing its job.
-    frame.locomotion.x = 0.0;
+    // Lateral is cleared by the CALLER before any verb speaks, so a verb that
+    // does not set it (Jump, Blink) leaves the body with no walk rather than
+    // with the previous decision's. Facing is deliberately not cleared: which
+    // way a body looks between decisions is the held intent doing its job.
     match verb {
         MovementVerb::Approach => {
             frame.locomotion.x = toward;
@@ -460,7 +458,16 @@ fn apply_movement(
             // Toward the stage centre, which is the one thing `Recovery` cares
             // about — and up, because a body below the ledge needs height more
             // than it needs lateral progress.
-            let home = -view.self_view.pos.x.signum();
+            //
+            // ⚠ this was `-pos.x.signum()`, which is "toward the WORLD ORIGIN"
+            // and is only the stage centre for a stage built around x=0. Rooms in
+            // this engine start at (0,0) and extend positive, so the origin is a
+            // CORNER: every body on the left half of every stage recovered by
+            // driving further left, into the blastzone it was trying to escape.
+            // The stage knows where its middle is; ask it.
+            let home = ((view.stage.bounds.min.x + view.stage.bounds.max.x) * 0.5
+                - view.self_view.pos.x)
+                .signum();
             frame.locomotion.x = home;
             frame.facing = home;
             frame.jump_pressed = true;

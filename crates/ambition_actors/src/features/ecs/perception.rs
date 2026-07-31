@@ -87,6 +87,8 @@ pub struct PerceptionBody {
     pub can_blink: bool,
     pub can_dash: bool,
     pub can_shield: bool,
+    /// Mid-air jumps left (`jump.air_jumps_available`). The recovery budget.
+    pub air_jumps_left: u8,
     /// What this body is doing, and how long is left of it — the no-cheat
     /// contract's "move phase / animation state" (fighter-brain.md §1).
     pub phase: BodyPhase,
@@ -189,13 +191,13 @@ pub fn body_phase(
     if let Some(m) = melee {
         match m.phase() {
             Some(ambition_combat::AttackPhase::Startup) => {
-                return (BodyPhase::AttackStartup, m.windup_remaining())
+                return (BodyPhase::AttackStartup, m.windup_remaining());
             }
             Some(ambition_combat::AttackPhase::Active) => {
-                return (BodyPhase::AttackActive, m.active_remaining())
+                return (BodyPhase::AttackActive, m.active_remaining());
             }
             Some(ambition_combat::AttackPhase::Recovery) => {
-                return (BodyPhase::AttackRecovery, 0.0)
+                return (BodyPhase::AttackRecovery, 0.0);
             }
             None => {}
         }
@@ -399,6 +401,7 @@ pub fn build_world_view(
         can_blink: body.can_blink,
         can_dash: body.can_dash,
         can_shield: body.can_shield,
+        air_jumps_left: body.air_jumps_left,
         phase: body.phase,
         phase_remaining: body.phase_remaining,
         invulnerable: body.invulnerable,

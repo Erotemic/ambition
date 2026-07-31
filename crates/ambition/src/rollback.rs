@@ -254,7 +254,8 @@ impl RollbackSession {
 /// This is the liveness half.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RollbackHealth {
-    /// No session has been started on this host.
+    /// No session has been started on this host, or the one that was has been
+    /// stopped.
     NoSession,
     /// Simulating, with no mismatch reported.
     Healthy {
@@ -262,6 +263,11 @@ pub enum RollbackHealth {
         /// that stops advancing is a stalled session even when nothing has
         /// reported a mismatch.
         frame: i32,
+        /// Which timeline this is. Frames restart at zero on every session, so
+        /// "frame 3" alone cannot distinguish a restarted session from the one
+        /// it replaced; the generation can, and it is the only fact here that
+        /// survives a rebase.
+        generation: u64,
     },
     /// The session re-simulated a frame and got a different answer.
     ///
@@ -272,6 +278,8 @@ pub enum RollbackHealth {
         frames: Vec<i32>,
         /// The frame the session had reached.
         frame: i32,
+        /// Which timeline disagreed. See [`Self::Healthy`].
+        generation: u64,
     },
     /// The session was invalidated and will not continue.
     Invalidated {
@@ -293,7 +301,21 @@ impl RollbackHealth {
     /// two observations, not one. Sample it twice.
     pub fn frame(&self) -> Option<i32> {
         match self {
-            Self::Healthy { frame } | Self::Desynced { frame, .. } => Some(*frame),
+            Self::Healthy { frame, .. } | Self::Desynced { frame, .. } => Some(*frame),
+            Self::NoSession | Self::Invalidated { .. } => None,
+        }
+    }
+
+    /// Which timeline this health is about, if a session is running.
+    ///
+    /// A stop-and-restart produces a DIFFERENT generation over the same world,
+    /// which is the only way a consumer can tell "the session I started" from
+    /// "a session started since" — both report frame numbers from zero.
+    pub fn generation(&self) -> Option<u64> {
+        match self {
+            Self::Healthy { generation, .. } | Self::Desynced { generation, .. } => {
+                Some(*generation)
+            }
             Self::NoSession | Self::Invalidated { .. } => None,
         }
     }
@@ -303,11 +325,35 @@ impl RollbackHealth {
 ///
 /// Cheap enough to call every update. See [`RollbackHealth`] for why a
 /// consumer needs it and what [`RollbackSession`] does not tell you.
+///
+/// ⚠ **The LIVE session decides first, and it did not used to.** `health` read
+/// `RollbackSessionStatus` and `RollbackFrameCount`, both of which are read
+/// models that OUTLIVE the session that wrote them — teardown removes the
+/// session, its ownership and the confirmed-frame boundary, and leaves those
+/// two behind. So a stopped host reported `Healthy { frame }` at whatever frame
+/// it had reached, forever, from a public API (GPT 5.6, 2026-07-31). The frame
+/// even looked plausible: it was the last real one.
+///
+/// What survives teardown deliberately is the DIAGNOSIS. A session that
+/// desynced and was then stopped still reports [`RollbackHealth::Invalidated`]
+/// carrying why, because a divergence that disappears when the timeline is torn
+/// down is exactly the laundering `RollbackSessionStatus::carried_from` exists
+/// to prevent — the reason is the part a reader acts on, and it is the same
+/// prose the NEXT session would inherit.
 pub fn health(app: &App) -> RollbackHealth {
-    let Some(status) = app
-        .world()
-        .get_resource::<ambition_runtime::rollback::RollbackSessionStatus>()
-    else {
+    use ambition_runtime::rollback::{RollbackFrameCount, RollbackSessionStatus};
+
+    let world = app.world();
+    let status = world.get_resource::<RollbackSessionStatus>();
+    if !ambition_runtime::rollback::session_is_active(world) {
+        // No live session: the only honest report is what is left to say about
+        // the timeline that ended, which is its diagnosis or nothing.
+        return match RollbackSessionStatus::carried_from(status).invalidation {
+            Some(reason) => RollbackHealth::Invalidated { reason },
+            None => RollbackHealth::NoSession,
+        };
+    }
+    let Some(status) = status else {
         return RollbackHealth::NoSession;
     };
     if let Some(reason) = &status.invalidation {
@@ -315,19 +361,43 @@ pub fn health(app: &App) -> RollbackHealth {
             reason: reason.clone(),
         };
     }
-    let frame = app
-        .world()
-        .get_resource::<ambition_runtime::rollback::RollbackFrameCount>()
+    let frame = world
+        .get_resource::<RollbackFrameCount>()
         .map(|count| count.0)
         .unwrap_or(0);
+    // The generation is stamped on the boundary the session install writes, so
+    // it is present exactly while a session is.
+    let generation = world
+        .get_resource::<ambition_engine_core::confirmed_frame::ConfirmedFrameBoundary>()
+        .map(|boundary| boundary.session)
+        .unwrap_or(0);
     if status.mismatch_frames.is_empty() {
-        RollbackHealth::Healthy { frame }
+        RollbackHealth::Healthy { frame, generation }
     } else {
         RollbackHealth::Desynced {
             frames: status.mismatch_frames.clone(),
             frame,
+            generation,
         }
     }
+}
+
+/// Stop the rollback session this host is running.
+///
+/// The other half of [`start`], and it exists because a consumer that can start
+/// a session and cannot stop one has no way to observe the lifecycle it is
+/// being promised: [`health`] reporting [`RollbackHealth::NoSession`] after a
+/// stop, and a restart being a NEW generation over the same world, are both
+/// facts about teardown.
+///
+/// Teardown takes the session, its ownership, the confirmed-frame boundary and
+/// the input-authority latch — the latch because it holds edges captured
+/// against a timeline that no longer exists, and leaving it installed lets the
+/// next session's frame zero begin with a jump nobody pressed in it.
+///
+/// Calling this on a host with no session is a no-op, not an error.
+pub fn stop(app: &mut App) {
+    ambition_runtime::rollback::stop_session(app.world_mut());
 }
 
 /// Bring a composed rollback host up to a running session.
@@ -383,15 +453,19 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
         return Err(RollbackRefused::NoAuthoritativeState);
     }
 
-    ambition_runtime::rollback::start_sync_test_session(
-        app.world_mut(),
-        ambition_runtime::rollback::SyncTestSettings {
-            check_distance: plan.check_distance,
-            max_prediction_window: plan.prediction_window,
-            ..ambition_runtime::rollback::SyncTestSettings::for_players(participants)
-        },
-    )
-    .map_err(|error| RollbackRefused::SessionRejected(error.to_string()))?;
+    let settings = ambition_runtime::rollback::SyncTestSettings {
+        check_distance: plan.check_distance,
+        max_prediction_window: plan.prediction_window,
+        ..ambition_runtime::rollback::SyncTestSettings::for_players(participants)
+    };
+    // ⚠ The EFFECTIVE count, not the requested one. `player_count` clamps into
+    // what a session can build, and reporting the request back would let this
+    // struct describe a topology GGRS did not seat. `PlatformerApp::rollback`
+    // refuses out-of-range counts so the clamp should now be a no-op — reading
+    // it here is what keeps that true rather than assumed.
+    let participants = settings.player_count();
+    ambition_runtime::rollback::start_sync_test_session(app.world_mut(), settings)
+        .map_err(|error| RollbackRefused::SessionRejected(error.to_string()))?;
     app.update();
 
     Ok(RollbackSession {

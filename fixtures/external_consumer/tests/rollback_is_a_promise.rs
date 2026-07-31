@@ -203,7 +203,10 @@ fn a_restarted_session_rebases_onto_the_live_world() {
         health.frame().expect("a frame") > before,
         "the session did not advance after the rebase: {health:?}"
     );
-    assert!(health.is_healthy(), "the rebase desynced the session: {health:?}");
+    assert!(
+        health.is_healthy(),
+        "the rebase desynced the session: {health:?}"
+    );
 }
 
 /// Property 6: **confirmation boundaries.**
@@ -369,5 +372,70 @@ fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
          counter that out-counts its own timeline was re-simulated without \
          being rewound, which is precisely the silent failure registration is \
          supposed to prevent."
+    );
+}
+
+/// **Health is a fact about a LIVE session, and it used to be a read model.**
+/// (GPT 5.6, 2026-07-31)
+///
+/// Teardown removes the session, its ownership and the confirmed-frame
+/// boundary — and leaves `RollbackSessionStatus` and `RollbackFrameCount`
+/// behind, because the next session inherits the first and restarts the second.
+/// `health` read only those two, so a stopped host reported
+/// `Healthy { frame }` at the last frame it ever ran, from a public API, for as
+/// long as the process lived.
+///
+/// The restart half is the reason [`RollbackHealth::generation`] exists: frames
+/// restart at zero on every session, so a consumer comparing frame numbers
+/// across a stop cannot tell a new timeline from a rewound one.
+///
+/// ENFORCED: `session_is_active` decides before any read model is consulted.
+#[test]
+fn a_stopped_session_is_not_healthy_and_a_restart_is_a_new_timeline() {
+    use ambition::rollback::RollbackHealth;
+
+    let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
+    let started = ambition::rollback::health(&app);
+    assert!(
+        started.is_healthy(),
+        "a freshly started session is not healthy: {started:?}"
+    );
+    let first = started
+        .generation()
+        .expect("a running session must report which timeline it is");
+
+    // Advance far enough that a stale frame count would be a CONVINCING lie:
+    // the old value is the last real frame this session reached.
+    for _ in 0..30 {
+        app.update();
+    }
+    let last_frame = ambition::rollback::health(&app).frame().expect("a frame");
+    assert!(last_frame > 0, "the session never advanced");
+
+    ambition::rollback::stop(&mut app);
+    assert_eq!(
+        ambition::rollback::health(&app),
+        RollbackHealth::NoSession,
+        "a stopped host still reports a session; the frame it would have \
+         claimed is {last_frame}"
+    );
+
+    let restarted = ambition::rollback::start(&mut app, RollbackPlan::new())
+        .expect("a stopped host must be restartable");
+    assert_eq!(
+        restarted.participants(),
+        1,
+        "the restart re-seated a different topology"
+    );
+    let health = ambition::rollback::health(&app);
+    assert!(
+        health.is_healthy(),
+        "the restarted session is not healthy: {health:?}"
+    );
+    let second = health.generation().expect("a running session");
+    assert!(
+        second > first,
+        "the restart reused timeline {first}, so nothing downstream can tell \
+         its work apart from the session that ended"
     );
 }

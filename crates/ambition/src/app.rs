@@ -85,9 +85,9 @@ use crate::world::rooms::RoomMetadata;
 /// a discovery problem, not a convenience.
 pub mod prelude {
     pub use super::{
-        AssetSource, CompositionError, EMPTY_CHARACTER_ROSTER_RON, GameModule, HostStatus,
-        MINIMAL_CHARACTER_ROSTER_RON, ModuleDraft, ModuleManifest, PlatformerApp, SessionMode,
-        StartAt, host_status,
+        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
+        ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
+        MINIMAL_CHARACTER_ROSTER_RON,
     };
     pub use bevy::prelude::App;
 
@@ -795,11 +795,21 @@ impl PlatformerApp {
     /// Mount a module: fold in its manifest, and let it define itself.
     ///
     /// `define` runs **now**, into an inert draft. Nothing is live.
+    ///
+    /// ⚠ **The draft's experience cursor is MODULE-LOCAL, and it was not.**
+    /// `current` survived this boundary, so a module that called an
+    /// experience-scoped method before declaring its own experience silently
+    /// edited the PREVIOUS module's — module B's `gameplay_route` landing on
+    /// experience A, deterministically, with no diagnostic. A module may only
+    /// modify an experience it declared during its own `define`; anything
+    /// cross-module has to name its target, and nothing does yet.
     pub fn mount(mut self, module: impl GameModule) -> Self {
         let manifest = module.manifest();
         self.draft.defining = manifest.id().to_string();
+        self.draft.current = None;
         module.define(&mut self.draft);
         self.draft.defining.clear();
+        self.draft.current = None;
         self.manifests.push(manifest);
         self
     }
@@ -1268,7 +1278,26 @@ impl PlatformerApp {
     /// ⚠ `participants` is asked for rather than defaulted. Every path that
     /// guessed it guessed ONE, and the engine ran a rollback oracle over a
     /// single input stream for the week its couch versus mode seated four.
+    ///
+    /// ⚠ **A count the session cannot seat is REFUSED here, not clamped
+    /// downstream.** `SyncTestSettings::player_count` clamps into `1..=MAX_SLOTS`
+    /// because it is settings data arriving from a dev tool, and that clamp used
+    /// to run *after* this value had already been reported back to the
+    /// consumer — `rollback(0)` returned a `RollbackSession` claiming zero
+    /// participants over a session GGRS built with one. A public API that
+    /// reports a topology the running session does not have is worse than one
+    /// that refuses, so this refuses.
     pub fn rollback(mut self, participants: usize) -> Self {
+        let seats = crate::characters::brain::SlotControls::MAX_SLOTS;
+        if participants == 0 || participants > seats {
+            self.draft.conflicts.push(format!(
+                "`rollback({participants})` cannot be seated: a session carries \
+                 between 1 and {seats} participants. Zero participants is a \
+                 session with no input streams to compare, and more than {seats} \
+                 is more than the control slots the engine holds."
+            ));
+            return self;
+        }
         self.rollback_participants = Some(participants);
         self
     }
@@ -1402,8 +1431,8 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
         // rather than to a manually stepped fixture.
-        use bevy::render::RenderPlugin;
         use bevy::render::settings::{RenderCreation, WgpuSettings};
+        use bevy::render::RenderPlugin;
         let plugins = plugins
             .disable::<bevy::log::LogPlugin>()
             .disable::<bevy::core_pipeline::CorePipelinePlugin>()
@@ -1427,4 +1456,105 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
     // Rule 4: after Bevy's StatesPlugin exists, before the sim plugins whose
     // run conditions read the state.
     crate::engine::init_engine_states(app);
+}
+
+/// **Declaration-time refusals that no consumer crate can reach.**
+///
+/// These live here rather than in `fixtures/external_consumer` for the reason
+/// that fixture states about itself: a consumer test proves what a third party
+/// CAN do, and both cases below are things a third party must NOT be able to
+/// do. They are also pure draft arithmetic — `try_build` refuses at the
+/// declaration pass, before an `App` is touched — so they cost a `App::new()`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Well-formed: declares its own experience and every required route.
+    struct FirstGame;
+    impl GameModule for FirstGame {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("first")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("first")
+                .launcher_route("home")
+                .gameplay_route("first/play");
+        }
+    }
+
+    /// The hazard, as a module: it routes without ever naming an experience.
+    struct SecondGameThatForgot;
+    impl GameModule for SecondGameThatForgot {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("second")
+        }
+        fn define(&self, module: &mut ModuleDraft) {
+            module.gameplay_route("second/play");
+        }
+    }
+
+    /// **A module cannot modify the experience the PREVIOUS module declared.**
+    ///
+    /// The draft's cursor used to survive the `mount` boundary, so this exact
+    /// sequence — declare, mount, route — silently overwrote experience
+    /// `first`'s gameplay route with `second/play` and built a host where the
+    /// second game was unreachable and the first one led somewhere it never
+    /// asked for. Deterministic, and with no diagnostic anywhere.
+    #[test]
+    fn a_module_that_routes_before_declaring_an_experience_is_refused() {
+        let refused = PlatformerApp::headless()
+            .mount(FirstGame)
+            .mount(SecondGameThatForgot)
+            .try_build()
+            .expect_err(
+                "a module that never named an experience must not silently \
+                 edit the previous module's",
+            );
+
+        assert_eq!(refused.stage, CompositionStage::Declaration);
+        let message = refused.to_string();
+        assert!(
+            message.contains("`second` declared a gameplay route before naming an experience"),
+            "the refusal must name the module that forgot: {message}"
+        );
+        // ⚠ Non-vacuity: the FIRST module's identical call is fine, so the
+        // refusal is about the boundary rather than about the method.
+        assert!(
+            !message.contains("`first` declared"),
+            "the well-formed module was blamed too: {message}"
+        );
+    }
+
+    /// **A participant count no session can seat is refused at composition.**
+    ///
+    /// Not clamped downstream and reported back as if it had been honoured:
+    /// `rollback(0)` used to return a `RollbackSession` claiming zero
+    /// participants over a GGRS session built with one.
+    #[test]
+    fn a_participant_count_the_session_cannot_seat_is_refused() {
+        let seats = crate::characters::brain::SlotControls::MAX_SLOTS;
+        for count in [0, seats + 1] {
+            let refused = PlatformerApp::headless()
+                .rollback(count)
+                .mount(FirstGame)
+                .try_build()
+                .expect_err("an unseatable participant count must refuse");
+            let message = refused.to_string();
+            assert!(
+                message.contains(&format!("`rollback({count})` cannot be seated")),
+                "the refusal must name the count it rejected: {message}"
+            );
+        }
+        // Non-vacuity: a count in range is accepted and travels with the
+        // composition. Read off the draft rather than by building, because
+        // building a rollback host is a whole engine and this is arithmetic.
+        let composed = PlatformerApp::headless().rollback(seats).mount(FirstGame);
+        assert!(
+            composed.draft.conflicts.is_empty(),
+            "a legal participant count was refused: {:?}",
+            composed.draft.conflicts
+        );
+        assert_eq!(composed.rollback_participants, Some(seats));
+    }
 }

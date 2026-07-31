@@ -440,6 +440,7 @@ pub fn tick_actor_brains(
                         sim_now,
                         enemy_gravity_dir,
                         moveset,
+                        Some(brain_ref),
                     );
                     // POSSESSION IS BRAIN TRANSFER: a body carrying
                     // `Brain::Player(slot)` (transferred by possession) reads its
@@ -1371,7 +1372,21 @@ pub(crate) fn compute_crowding_by_id(
 /// needed to make it deterministic.
 fn attack_kit_of(
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
+    // ⚠ **only a FIGHTER brain reads the kit**, and building it is a `Vec` of
+    // owned move ids and frame data — per actor, per tick. Every other brain in
+    // the game would have paid for a list nothing looks at, which is a cost
+    // §13.2 explicitly said to fix by rebuilding on moveset CHANGE. It does not
+    // need that yet: the cheaper answer is not to build it for a brain that
+    // cannot use it, and this is the one place that knows which brain a body has.
+    brain: Option<&ambition_characters::brain::Brain>,
 ) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+    if !matches!(
+        brain,
+        Some(Brain::StateMachine(StateMachineCfg::Fighter { .. }))
+    ) {
+        return Vec::new();
+    }
     let Some(moveset) = moveset else {
         return Vec::new();
     };
@@ -1403,6 +1418,9 @@ fn build_enemy_brain_snapshot(
     gravity_dir: ae::Vec2,
     // FB4b §13.2: the body's own moveset, or `None` for a body that has none.
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
+    // Which brain this body carries, so the kit is built only for one that reads
+    // it. See `attack_kit_of`.
+    brain: Option<&ambition_characters::brain::Brain>,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
@@ -1420,7 +1438,7 @@ fn build_enemy_brain_snapshot(
         // Built every tick like every other snapshot field. Correctness first:
         // if profiling ever complains, the fix is to rebuild it on moveset
         // CHANGE, not to let it go stale.
-        attack_kit: attack_kit_of(moveset),
+        attack_kit: attack_kit_of(moveset, brain),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a

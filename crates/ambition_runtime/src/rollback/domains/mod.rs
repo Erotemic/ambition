@@ -21,6 +21,7 @@
 //! What this buys before that extraction: one place per domain instead of a
 //! 1,600-line function, and a seam the extraction can move wholesale.
 
+pub(super) mod actors;
 pub(super) mod combat;
 pub(super) mod encounter;
 pub(super) mod portal;

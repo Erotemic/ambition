@@ -40,6 +40,8 @@ use ambition::engine_core as ae;
 use ambition::engine_core::Vec2;
 use ambition::world::rooms::RoomSpec;
 
+pub mod select;
+
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
 

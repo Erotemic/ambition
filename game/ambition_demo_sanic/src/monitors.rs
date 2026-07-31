@@ -180,9 +180,19 @@ pub fn break_monitor_boxes(
                 }
             }
             other => {
-                // An authored monitor with no grant is a level-authoring bug;
-                // break it visibly but loudly note the miss in debug builds.
+                // An authored monitor with no grant is a level-authoring bug.
+                //
+                // ⚠ this said "break it visibly but loudly note the miss in debug
+                // builds" and then noted it in debug builds ONLY — so in the
+                // build a player runs, breaking the monitor granted nothing and
+                // said nothing. The authoring mistake is exactly the kind nobody
+                // finds by reading a level file.
                 debug_assert!(false, "monitor block '{other}' has no authored grant");
+                bevy::log::error!(
+                    target: "ambition::sanic",
+                    "monitor block '{other}' has no authored grant; breaking it \
+                     does nothing"
+                );
             }
         }
     }

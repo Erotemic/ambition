@@ -13,8 +13,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_engine_core::snapshot::{
-    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2,
-    Reader, SnapshotCursor, SnapshotState,
+    Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
+    put_u8, put_u32, put_u64, put_vec2,
 };
 use ambition_engine_core::{snapshot_pod, snapshot_unit_enum};
 
@@ -58,13 +58,11 @@ impl SnapshotState for crate::actor::BodyHealth {
         put_bool(out, self.health.invulnerable);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::actor::BodyHealth::new(
-            crate::actor::Health {
-                current: r.i32()?,
-                max: r.i32()?,
-                invulnerable: r.bool()?,
-            },
-        ))
+        Some(crate::actor::BodyHealth::new(crate::actor::Health {
+            current: r.i32()?,
+            max: r.i32()?,
+            invulnerable: r.bool()?,
+        }))
     }
 }
 
@@ -251,17 +249,31 @@ impl SnapshotState for crate::brain::boss_pattern::BossPatternStep {
                 put_str(out, id);
             }
             // Unreachable in a resolved timeline. Tag 4 decodes to `None`.
+            //
+            // ⚠ **and if it IS reached, the release build loses state silently.**
+            // Tag 4 round-trips to `None`, so a rewind restores a timeline
+            // missing this step and the divergence surfaces later as a checksum
+            // mismatch with no name attached — the hardest kind to trace. The
+            // `debug_assert!` that used to stand alone here said so only in a
+            // debug build, which is not where the desync gets reported.
+            //
+            // The wire format is deliberately unchanged: this claims to be
+            // unreachable, and a new tag would be a schema change made on a
+            // suspicion. The log fires exactly when the claim is false.
             S::Select { .. } => {
                 debug_assert!(false, "a resolved timeline still holds a `Select`");
+                bevy::log::error!(
+                    target: "ambition::snapshot",
+                    "a resolved timeline still holds a `Select`; it encodes as \
+                     absent and will come back absent from a rewind"
+                );
                 put_u8(out, 4);
             }
         }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::brain::boss_pattern::{
-            BossAttackProfile, BossPatternStep as S, TelegraphSpec,
-        };
+        use crate::brain::boss_pattern::{BossAttackProfile, BossPatternStep as S, TelegraphSpec};
         match r.u8()? {
             0 => {
                 let profile = BossAttackProfile::decode(r)?;
@@ -501,12 +513,10 @@ impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(
-            crate::actor::character_catalog::AuthoredBrainContext {
-                spawn_anchor_x: r.f32()?,
-                patrol_radius: if r.bool()? { Some(r.f32()?) } else { None },
-            },
-        )
+        Some(crate::actor::character_catalog::AuthoredBrainContext {
+            spawn_anchor_x: r.f32()?,
+            patrol_radius: if r.bool()? { Some(r.f32()?) } else { None },
+        })
     }
 }
 
@@ -592,42 +602,40 @@ impl SnapshotState for crate::brain::ActorControl {
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
-        Some(crate::brain::ActorControl(
-            ActorControlFrame {
-                locomotion,
-                velocity_target,
-                drop_through,
-                facing,
-                melee_pressed,
-                melee_held,
-                melee_released,
-                melee_strong_hint,
-                fire,
-                attack_axis,
-                jump_pressed: flags[0],
-                jump_held: flags[1],
-                jump_released: flags[2],
-                dash_pressed: flags[3],
-                interact_pressed: flags[4],
-                body_contact_damage_enabled: flags[5],
-                shield_held: flags[6],
-                special_pressed: flags[7],
-                pogo_pressed: flags[8],
-                fast_fall_pressed: flags[9],
-                fly_toggle_pressed: flags[10],
-                projectile_pressed: flags[11],
-                projectile_held: flags[12],
-                projectile_released: flags[13],
-                blink_pressed: flags[14],
-                blink_held: flags[15],
-                blink_released: flags[16],
-                modifier_held: flags[17],
-                modifier_pressed: flags[18],
-                blink_quick_dir: r.vec2()?,
-                blink_aim_step: r.vec2()?,
-                aim: r.vec2()?,
-            },
-        ))
+        Some(crate::brain::ActorControl(ActorControlFrame {
+            locomotion,
+            velocity_target,
+            drop_through,
+            facing,
+            melee_pressed,
+            melee_held,
+            melee_released,
+            melee_strong_hint,
+            fire,
+            attack_axis,
+            jump_pressed: flags[0],
+            jump_held: flags[1],
+            jump_released: flags[2],
+            dash_pressed: flags[3],
+            interact_pressed: flags[4],
+            body_contact_damage_enabled: flags[5],
+            shield_held: flags[6],
+            special_pressed: flags[7],
+            pogo_pressed: flags[8],
+            fast_fall_pressed: flags[9],
+            fly_toggle_pressed: flags[10],
+            projectile_pressed: flags[11],
+            projectile_held: flags[12],
+            projectile_released: flags[13],
+            blink_pressed: flags[14],
+            blink_held: flags[15],
+            blink_released: flags[16],
+            modifier_held: flags[17],
+            modifier_pressed: flags[18],
+            blink_quick_dir: r.vec2()?,
+            blink_aim_step: r.vec2()?,
+            aim: r.vec2()?,
+        }))
     }
 }
 
@@ -703,10 +711,7 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
     }
 }
 
-fn put_opt_profile(
-    out: &mut Vec<u8>,
-    v: &Option<crate::brain::boss_pattern::BossAttackProfile>,
-) {
+fn put_opt_profile(out: &mut Vec<u8>, v: &Option<crate::brain::boss_pattern::BossAttackProfile>) {
     match v {
         None => put_bool(out, false),
         Some(p) => {
@@ -724,10 +729,7 @@ fn read_opt_profile(
     Some(if r.bool()? { Some(P::decode(r)?) } else { None })
 }
 
-fn put_timeline(
-    out: &mut Vec<u8>,
-    steps: &[crate::brain::boss_pattern::BossPatternStep],
-) {
+fn put_timeline(out: &mut Vec<u8>, steps: &[crate::brain::boss_pattern::BossPatternStep]) {
     put_u32(out, steps.len() as u32);
     for s in steps {
         s.encode(out);
@@ -801,9 +803,7 @@ fn put_attack_gesture_intent(
     out: &mut Vec<u8>,
     intent: crate::actor::attack_gesture::AttackGestureIntent,
 ) {
-    use crate::actor::attack_gesture::{
-        AttackInputPhase, AttackPosture, AttackStrength,
-    };
+    use crate::actor::attack_gesture::{AttackInputPhase, AttackPosture, AttackStrength};
     put_u8(out, attack_dir_tag(intent.direction));
     put_u8(
         out,

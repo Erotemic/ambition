@@ -220,10 +220,16 @@ pub fn tick_fighter(
     // decision asked for. Edges are cleared below unless something arms them
     // this tick — a `melee_pressed` that stayed true would be a button held down
     // forever.
+    // ⚠ **`clear_edges`, not three fields by hand.** This open-coded melee,
+    // jump and dash — and `MovementVerb::Blink` sets `blink_pressed`, which was
+    // not among them, so one Blink decision emitted a press edge on EVERY tick
+    // until the next decision overwrote it (GPT 5.6, 2026-07-31, finding 3).
+    // Cooldowns masked some of it; the control stream was still several presses
+    // for one choice. The helper was incomplete too — it is complete now, and
+    // this is the caller that proves it: an edge added to the frame and not to
+    // `clear_edges` re-fires here.
     let mut frame = state.held.clone();
-    frame.melee_pressed = false;
-    frame.jump_pressed = false;
-    frame.dash_pressed = false;
+    frame.clear_edges();
 
     if state.ticks_until_decision > 0 {
         state.ticks_until_decision -= 1;

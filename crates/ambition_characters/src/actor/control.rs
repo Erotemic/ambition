@@ -409,10 +409,28 @@ impl ActorControlFrame {
             || self.special_pressed
     }
 
-    /// Clear all rising-edge flags (pressed / released) without
-    /// touching sustains. Used by integrations that consume the
-    /// frame in multiple stages and need to prevent a single edge
-    /// from re-firing across stages.
+    /// Clear all rising- and falling-edge flags without touching sustains. Used
+    /// by integrations that consume the frame in multiple stages, and by any
+    /// brain that CARRIES a frame between decisions — an edge is a thing that
+    /// happened once, and a frame cloned forward re-fires every edge on it.
+    ///
+    /// ⚠ **this said "all" and cleared eight of fifteen** (GPT 5.6, 2026-07-31,
+    /// finding 3). Blink, projectile, pogo, fast-fall, fly-toggle, modifier and
+    /// drop-through were left set, so the fighter brain — which clones its held
+    /// frame every tick between decisions — emitted one `Blink` decision as a
+    /// press edge on every tick until the next decision overwrote it. Cooldowns
+    /// masked some of the consequences; the control stream was still wrong, and
+    /// anything reading `blink_pressed` directly saw several presses for one
+    /// choice.
+    ///
+    /// A helper that omits fields while claiming completeness is worse than no
+    /// helper: the fighter's own tick had open-coded three of these and was
+    /// RIGHT to distrust it. The rule for anything added to this frame is the
+    /// one this doc now states — an edge belongs here, a sustain does not.
+    ///
+    /// Sustains deliberately untouched: `jump_held`, `melee_held`,
+    /// `shield_held`, `projectile_held`, `blink_held`, `modifier_held`, and
+    /// every continuous vector (`locomotion`, `attack_axis`, aim/steer).
     pub fn clear_edges(&mut self) {
         self.jump_pressed = false;
         self.jump_released = false;
@@ -423,6 +441,18 @@ impl ActorControlFrame {
         self.melee_released = false;
         self.melee_strong_hint = false;
         self.fire = None;
+        self.pogo_pressed = false;
+        self.fast_fall_pressed = false;
+        self.fly_toggle_pressed = false;
+        self.projectile_pressed = false;
+        self.projectile_released = false;
+        self.blink_pressed = false;
+        self.blink_released = false;
+        self.modifier_pressed = false;
+        // A one-tick REQUEST rather than a state: "let me through this platform
+        // now". Held forward, a fighter that dropped through once keeps asking
+        // on every tick it is standing on anything.
+        self.drop_through = false;
     }
 }
 

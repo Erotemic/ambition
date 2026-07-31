@@ -448,3 +448,92 @@ fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
         "a press on a body with a stage under it must age, not vanish"
     );
 }
+
+/// **One decision to Blink is ONE press edge.**
+///
+/// GPT 5.6, 2026-07-31 (finding 3). The brain stores its last emitted frame in
+/// `FighterState::held` and clones it every tick between decisions, clearing the
+/// edges by hand — melee, jump and dash. `MovementVerb::Blink` sets
+/// `blink_pressed`, which was not among them, so a single choice re-emitted a
+/// press on every tick until the next decision overwrote it. Cooldowns masked
+/// some of the consequences; anything reading `blink_pressed` directly saw
+/// several presses for one choice.
+#[test]
+fn a_blink_choice_is_pressed_once_and_not_carried_forward() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    // The frame a Blink decision leaves behind, and a decision far enough away
+    // that the following ticks are pure carry.
+    state.held = ActorControlFrame::neutral();
+    state.held.blink_pressed = true;
+    state.ticks_until_decision = 30;
+
+    let mut pressed_after = 0;
+    for _ in 0..5 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        if out.blink_pressed {
+            pressed_after += 1;
+        }
+    }
+    assert_eq!(
+        pressed_after, 0,
+        "the blink press re-fired on {pressed_after} of the 5 ticks after the \
+         decision that made it — one choice, several presses"
+    );
+}
+
+/// Every EDGE the held frame carries is consumed before it can re-emit; every
+/// SUSTAIN survives, because a held button is held.
+#[test]
+fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    let mut held = ActorControlFrame::neutral();
+    held.blink_pressed = true;
+    held.blink_released = true;
+    held.projectile_pressed = true;
+    held.projectile_released = true;
+    held.pogo_pressed = true;
+    held.fast_fall_pressed = true;
+    held.fly_toggle_pressed = true;
+    held.modifier_pressed = true;
+    held.drop_through = true;
+    held.special_pressed = true;
+    held.interact_pressed = true;
+    // …and the sustains that must NOT be touched.
+    held.shield_held = true;
+    held.projectile_held = true;
+    held.blink_held = true;
+    held.modifier_held = true;
+    held.jump_held = true;
+    state.held = held;
+    state.ticks_until_decision = 30;
+
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+
+    assert!(
+        !out.blink_pressed
+            && !out.blink_released
+            && !out.projectile_pressed
+            && !out.projectile_released
+            && !out.pogo_pressed
+            && !out.fast_fall_pressed
+            && !out.fly_toggle_pressed
+            && !out.modifier_pressed
+            && !out.drop_through
+            && !out.special_pressed
+            && !out.interact_pressed,
+        "an edge survived the carry and will fire again next tick: {out:?}"
+    );
+    assert!(
+        out.shield_held && out.projectile_held && out.blink_held && out.modifier_held,
+        "a SUSTAIN was cleared — a held button that lets go between decisions is \
+         a fighter that cannot block: {out:?}"
+    );
+}

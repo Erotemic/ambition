@@ -104,12 +104,26 @@ pub struct PerceptionBody {
     /// grudge), not faction alone; without it a grudge-duelist would perceive no
     /// target. `None` for a body with no personal feud.
     pub grudge: Option<bevy::prelude::Entity>,
+    /// This viewer's match TEAM, when it is seated in one.
+    ///
+    /// ⚠ perception resolved hostility from FACTION alone, and the damage rule
+    /// stopped doing that when `damage_lands_between` gave teams precedence. In
+    /// a free-for-all — every seat its own team, which is what the smash demo
+    /// authors — `faction_for` alternates Player/Enemy by seat index, so seats 0
+    /// and 2 share a faction on different teams: they could damage each other
+    /// and could not SEE each other. A brain with no perceived foe stands still,
+    /// and every component that would explain the stillness is present and
+    /// correct.
+    pub team: Option<crate::combat::targeting::MatchTeam>,
 }
 
 /// A candidate other-body the viewer may perceive. Pre-collected (id +
 /// kinematics + faction + body-state) before the per-body loop.
 #[derive(Clone)]
 pub struct PerceptionPeer {
+    /// This peer's match team, when it is seated in one. Paired with
+    /// [`PerceptionBody::team`]; both are needed or the relation is undecidable.
+    pub team: Option<crate::combat::targeting::MatchTeam>,
     /// The source body's `Entity` — so the viewer can excludes itself AND resolve a
     /// per-entity grudge against this exact body (grudge is keyed by `Entity`, not id).
     pub entity: bevy::prelude::Entity,
@@ -228,10 +242,14 @@ pub fn collect_perception_peers(
         Option<&ae::BodyShieldState>,
         Option<&ambition_characters::actor::BodyCombat>,
         Option<&ambition_combat::components::BodyMelee>,
+        // The match team, so hostility can follow the same precedence the DAMAGE
+        // rule follows. `None` for anything not seated in a match, which is most
+        // of the world.
+        Option<&crate::combat::targeting::MatchTeam>,
     )>,
 ) {
     peers.0.clear();
-    for (entity, id, kin, health, faction, ground, shield, combat, melee) in &bodies {
+    for (entity, id, kin, health, faction, ground, shield, combat, melee, team) in &bodies {
         let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
             entity,
@@ -254,6 +272,7 @@ pub fn collect_perception_peers(
             invulnerable: body_invulnerable(combat),
             damage_taken: health.damage_taken(),
             health_max: health.max(),
+            team: team.cloned(),
         });
     }
 }
@@ -430,8 +449,19 @@ pub fn build_world_view(
             // this exact body — the SAME two-part rule `select_actor_targets` uses, so
             // `nearest_hostile` sees a same-faction grudge-duel opponent (which faction
             // hostility alone would miss).
-            hostile_to_self: relations.is_hostile(body.faction, p.faction)
-                || body.grudge == Some(p.entity),
+            // **THE SAME PRECEDENCE `damage_lands_between` USES**, through the
+            // same `team_allows_damage` authority: when both bodies are seated,
+            // the team relation decides and factions have nothing to say. A
+            // grudge still overrides, exactly as it does for damage.
+            hostile_to_self: match crate::combat::targeting::team_allows_damage(
+                body.team.as_ref(),
+                p.team.as_ref(),
+            ) {
+                Some(allowed) => allowed || body.grudge == Some(p.entity),
+                None => {
+                    relations.is_hostile(body.faction, p.faction) || body.grudge == Some(p.entity)
+                }
+            },
             alive: p.alive,
             on_ground: p.on_ground,
             shield_raised: p.shield_raised,

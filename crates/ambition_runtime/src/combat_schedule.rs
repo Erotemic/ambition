@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::SimScheduleExt;
-use ambition_platformer_primitives::schedule::{gameplay_allowed, CombatSet, SandboxSet};
+use ambition_platformer_primitives::schedule::{CombatSet, SandboxSet, gameplay_allowed};
 
 /// Schedules the `SandboxSet::Combat` system chain.
 pub struct CombatSchedulePlugin;
@@ -58,6 +58,15 @@ impl Plugin for CombatSchedulePlugin {
         // landed on-hit volume; the engine `apply_pogo_bounce` + any content
         // technique read it.
         app.add_message::<ambition_actors::combat::on_hit::OnHitEffectMessage>();
+        // **A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.**
+        // `apply_player_hit_events` and `apply_actor_hit` both write
+        // `BodyKnockedOut`, so the message has to exist wherever they run — not
+        // wherever the STOCKS rules happen to be installed. It was registered
+        // only in test fixtures, so `mary_o`'s power loop (damage pipeline, no
+        // stocks) panicked with "Message not initialized" the moment a knockout
+        // landed. A writer whose message is registered by a different plugin is
+        // a composition that works until somebody composes differently.
+        app.add_message::<ambition_actors::combat::stocks::BodyKnockedOut>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
         // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.

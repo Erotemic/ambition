@@ -23,6 +23,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         // A fresh body with its air game intact; the fixture is about what a
         // viewer SEES, and a recovery budget of zero would be a different test.
         air_jumps_left: 1,
+        team: None,
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
         invulnerable: false,
@@ -34,6 +35,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
 
 fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
     PerceptionPeer {
+        team: None,
         entity: bevy::prelude::Entity::PLACEHOLDER,
         id: id.to_string(),
         pos,
@@ -603,4 +605,59 @@ impl<T> CountOrNone for Option<T> {
     fn count_or_none(self) -> usize {
         self.map(|_| 1).unwrap_or(0)
     }
+}
+
+/// **Two seats on different teams are foes even when they share a faction.**
+///
+/// `damage_lands_between` gives the TEAM relation precedence over factions;
+/// perception did not, so it disagreed with the damage rule about who the enemy
+/// is. In a free-for-all — every seat its own team, which is what a 4-player
+/// smash authors — `faction_for` alternates Player/Enemy by seat index, so seats
+/// 0 and 2 share a faction on different teams. They could hit each other and
+/// could not SEE each other, and a brain with no perceived foe stands still.
+#[test]
+fn a_different_team_is_hostile_even_on_the_same_faction() {
+    use crate::combat::targeting::MatchTeam;
+
+    let world = arena_world();
+    let relations = FactionRelations::default();
+
+    let mut me = body(ae::Vec2::new(0.0, 0.0), ActorFaction::Player);
+    me.team = Some(MatchTeam::new("seat 1"));
+    let mut them = peer("them", ae::Vec2::new(50.0, 0.0), ActorFaction::Player);
+    them.team = Some(MatchTeam::new("seat 3"));
+
+    let view = build_world_view(
+        &me,
+        &[them.clone()],
+        &[],
+        &[],
+        &world,
+        &relations,
+        DEFAULT_VIEWPORT_HALF,
+        0.0,
+    );
+    assert!(
+        view.actors[0].hostile_to_self,
+        "a different team is a foe; the damage rule already says so"
+    );
+
+    // And the converse: the same team is NOT, whatever the factions say.
+    let mut ally = peer("ally", ae::Vec2::new(50.0, 0.0), ActorFaction::Enemy);
+    ally.team = Some(MatchTeam::new("seat 1"));
+    let view = build_world_view(
+        &me,
+        &[ally],
+        &[],
+        &[],
+        &world,
+        &relations,
+        DEFAULT_VIEWPORT_HALF,
+        0.0,
+    );
+    assert!(
+        !view.actors[0].hostile_to_self,
+        "a teammate is not a target, and reading factions instead would make \
+         every 2v2 a free-for-all in the brain's eyes"
+    );
 }

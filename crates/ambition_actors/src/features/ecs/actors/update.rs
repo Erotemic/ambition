@@ -553,6 +553,13 @@ pub fn tick_actor_brains(
                             // mechanism); carry it so this body's `nearest_hostile`
                             // matches the foe `select_actor_targets` would pick.
                             grudge: aggression.and_then(|a| a.grudge),
+                            // Read off this body's OWN peer row rather than a
+                            // fresh query, exactly like `phase` above — one
+                            // derivation, so a body cannot disagree with the rest
+                            // of the world about which team it is on. (It also
+                            // keeps this system under Bevy's 16-parameter cap,
+                            // which it is already close to.)
+                            team: self_peer.and_then(|p| p.team.clone()),
                         },
                         &view_peers,
                         perception_projectiles

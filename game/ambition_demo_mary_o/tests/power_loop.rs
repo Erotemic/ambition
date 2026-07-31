@@ -23,10 +23,10 @@ use bevy::prelude::*;
 use ambition::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition::actors::avatar::PlayerBodyFrameOutput;
 use ambition::actors::equipment::reconcile_equipment_grants;
-use ambition::actors::items::{collect_world_items, WorldItem};
+use ambition::actors::items::{WorldItem, collect_world_items};
 use ambition::characters::actor::WornCharacter;
-use ambition::characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition::characters::brain::ActorControl;
+use ambition::characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition::characters::equipment::WornEquipment;
 use ambition::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition::engine_core as ae;
@@ -34,12 +34,12 @@ use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition::platformer::markers::ControlledSubject;
 
 use ambition_demo_mary_o::movement::{
-    fire_spark_on_run_press, tick_spark_cooldown, walk_by_default_run_while_held, MaryOGait,
-    MaryOSparkCooldown, WALK_THROTTLE,
+    MaryOGait, MaryOSparkCooldown, WALK_THROTTLE, fire_spark_on_run_press, tick_spark_cooldown,
+    walk_by_default_run_while_held,
 };
 use ambition_demo_mary_o::powerups::{
-    bonk_power_blocks, spark_blossom, sync_grown_form, SpentPowerBlocks, GROW_CAP_ID,
-    SPARK_BLOSSOM_ID,
+    GROW_CAP_ID, SPARK_BLOSSOM_ID, SpentPowerBlocks, bonk_power_blocks, spark_blossom,
+    sync_grown_form,
 };
 use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
 
@@ -401,11 +401,11 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition::actors::features::{
-        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
-        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
+        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
+        SetFlagRequested, apply_feature_hit_events, spawn_encounter_mob,
     };
-    use ambition::actors::projectile::{step_projectiles, ProjectileBody};
-    use ambition::characters::actor::{character_catalog::CharacterCatalog, BodyHealth};
+    use ambition::actors::projectile::{ProjectileBody, step_projectiles};
+    use ambition::characters::actor::{BodyHealth, character_catalog::CharacterCatalog};
     use ambition::characters::equipment::apply_equipment_grants;
     use ambition::entity_catalog::placements::CharacterBrain;
     use ambition::platformer::lifecycle::SessionSpawnScope;
@@ -446,6 +446,11 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition::actors::features::ActorStimulus>();
     app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    // A body reaching zero says so through `BodyKnockedOut` whether or not a
+    // stocks ruleset is listening. This fixture hand-picks its systems, so it
+    // hand-registers their messages; `CombatSchedulePlugin` covers the apps that
+    // install the whole schedule.
+    app.add_message::<ambition::actors::combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition::vfx::VfxMessage>();
     app.add_message::<ambition::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition::sfx::OwnedSfxMessage>();
@@ -562,14 +567,14 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition::actors::features::{
-        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent,
+        ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner,
+        HitEvent, spawn_encounter_mob,
     };
     use ambition::characters::actor::character_catalog::CharacterCatalog;
     use ambition::characters::actor::{BodyCombat, BodyHealth};
     use ambition::entity_catalog::placements::CharacterBrain;
     use ambition::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     // Snake head sits at y = 300 - 16 = 284 (size.y = 32). Player feet land in the
     // stomp band just onto that head, falling (+y is down), overlapping in x.
@@ -697,13 +702,13 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     use ambition::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent, HitSource, HitTarget,
+        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
+        HitSource, HitTarget, spawn_encounter_mob,
     };
     use ambition::characters::actor::character_catalog::CharacterCatalog;
     use ambition::entity_catalog::placements::CharacterBrain;
     use ambition::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
@@ -826,14 +831,14 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent,
+        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
+        spawn_encounter_mob,
     };
-    use ambition::characters::actor::character_catalog::CharacterCatalog;
     use ambition::characters::actor::BodyHealth;
+    use ambition::characters::actor::character_catalog::CharacterCatalog;
     use ambition::entity_catalog::placements::CharacterBrain;
     use ambition::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
+    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
@@ -967,7 +972,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     use ambition::characters::actor::BodyCombat;
     use ambition::characters::brain::ActorControl;
     use ambition::engine_core::AabbExt;
-    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::pipe::{EMERGE_S, PipeTransit, SWALLOW_S};
     use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
 
     let mut app = App::new();

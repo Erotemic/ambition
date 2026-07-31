@@ -35,6 +35,7 @@ mod dash_stability;
 mod declared_art_resolves;
 mod desync_canary;
 mod dive_drill_reachability;
+mod door_entry;
 mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;

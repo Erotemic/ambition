@@ -1,0 +1,295 @@
+//! **A door, entered the way a player enters one.**
+//!
+//! Jon, 2026-07-31: *"in the last build I can't seem to enter doors anymore?"*
+//!
+//! Every existing room-transition test in this tree synthesises the transition:
+//! it reaches into the room graph, calls `transition_for_player(zone.aabb, ZERO,
+//! true)` with the interact flag already decided, and writes the resulting
+//! `RoomTransitionRequested` by hand. That covers what happens AFTER the door
+//! opens and nothing at all about whether a press opens it — which is the half a
+//! player uses, and the half that broke.
+//!
+//! So this one presses the button. It stands the controlled body inside an
+//! authored `Door` zone, holds the interact action, and asserts the active room
+//! actually changed:
+//!
+//! ```text
+//!   device → ControlFrame.interact_pressed
+//!          → interaction_input_system (hit-stun gate, Down+Interact suppression)
+//!          → SlotInteractionState::primary().buffered()
+//!          → detect_room_transition_system → transition_for_player(.., wants_interact)
+//!          → RoomTransitionRequested → the room actually changes
+//! ```
+//!
+//! Any link in that chain going quiet reads as "doors do not work" and, until
+//! this existed, as nothing else.
+
+use ambition::engine_core::AabbExt;
+use ambition_app::{AgentAction, SandboxSim};
+use bevy::prelude::With;
+
+use crate::common::{base, fixed_60hz_sim};
+
+/// The active room's id, as the sim reports it.
+fn active_room(sim: &mut SandboxSim) -> String {
+    sim.observation().active_room.clone()
+}
+
+/// Stand the controlled body in the centre of an authored `Door` zone of the
+/// active room, and report the zone's name. `None` when the room authors none.
+fn stand_in_a_door(sim: &mut SandboxSim) -> Option<String> {
+    let door = {
+        let world = sim.world_mut();
+        let mut query = world.query::<&ambition::actors::rooms::RoomSet>();
+        let room_set = query.iter(world).next()?;
+        room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| {
+                zone.activation == ambition::world::rooms::LoadingZoneActivation::Door
+            })
+            .cloned()?
+    };
+    let world = sim.world_mut();
+    let mut player = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+    let mut kin = player.single_mut(world).ok()?;
+    kin.pos = door.aabb.center();
+    kin.vel = ambition::engine_core::Vec2::ZERO;
+    Some(door.name.clone())
+}
+
+fn interact() -> AgentAction {
+    AgentAction {
+        interact: true,
+        interact_held: true,
+        ..base()
+    }
+}
+
+/// **Pressing interact in a door goes through it.**
+#[test]
+fn standing_in_a_door_and_pressing_interact_changes_the_room() {
+    let mut sim = fixed_60hz_sim();
+    // Let the room finish constructing before anything is placed in it.
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before = active_room(&mut sim);
+    let Some(door) = stand_in_a_door(&mut sim) else {
+        panic!(
+            "the start room '{before}' authors no `Door` loading zone, so this \
+             test is measuring nothing — point it at a room that has one"
+        );
+    };
+
+    // Press and hold. A door is buffered-interact, and the transition commits a
+    // frame or two later (a rollback host defers it to a confirmed boundary), so
+    // the press is held across the window rather than tapped once.
+    for _ in 0..30 {
+        sim.step(interact());
+        if active_room(&mut sim) != before {
+            return;
+        }
+    }
+
+    panic!(
+        "held interact inside the `{door}` door of '{before}' for 30 frames and \
+         the room never changed. The transition itself is covered elsewhere by \
+         writing `RoomTransitionRequested` directly — so what this failure names \
+         is the INPUT half: the press reaching \
+         `SlotInteractionState::primary().buffered()` and \
+         `detect_room_transition_system` consuming it"
+    );
+}
+
+/// **And the same door, in the SHIPPED HOST, pressed as a key.**
+///
+/// The sim-harness case above is fixed-tick and session-free: it proves the
+/// buffer and the room graph agree, and it cannot see the two things the host
+/// puts between a finger and that buffer — the input CONTEXT (a live gameplay
+/// session has to own the participant's actions before `ControlFrame` carries
+/// anything) and the participant's own binding of `SandboxAction::Interact`.
+/// Jon plays the host, so the host is where "I can't enter doors" is answered.
+///
+/// The key is READ from the live input map rather than hardcoded: the interact
+/// key differs per preset (`F` on the arrow presets, `E` on the WASD ones), and
+/// a test that pins one of them would go green on a build where the other is
+/// active and the player's key does nothing.
+#[cfg(feature = "input")]
+#[test]
+fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
+    use ambition::game_shell::ShellCommand;
+    use ambition::input::{InputParticipant, SandboxAction};
+    use ambition_app::app::shell_host;
+    use bevy::asset::AssetPlugin;
+    use bevy::image::ImagePlugin;
+    use bevy::prelude::*;
+    use bevy::state::app::StatesPlugin;
+    use bevy::transform::TransformPlugin;
+    use bevy::MinimalPlugins;
+    use leafwing_input_manager::prelude::InputMap;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(ImagePlugin::default());
+    app.add_plugins(TransformPlugin);
+    app.add_plugins(StatesPlugin);
+    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.insert_resource(shell_host::AmbitionShellHosted);
+    ambition_app::app::init_sandbox_resources(&mut app);
+    ambition_app::app::add_simulation_plugins(&mut app);
+    app.add_plugins(ambition::host::PlatformerHostPlugins);
+    shell_host::compose_ambition_shell_host(&mut app);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+
+    for _ in 0..8 {
+        app.update();
+    }
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    for _ in 0..40 {
+        app.update();
+    }
+
+    // The interact key THIS build binds, from the participant's own map.
+    let interact_key = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<&InputMap<SandboxAction>, With<InputParticipant>>();
+        let map = q
+            .iter(world)
+            .next()
+            .expect("the host spawns a primary input participant at boot");
+        map.get_buttonlike(&SandboxAction::Interact)
+            .and_then(|bindings| bindings.first().cloned())
+            .expect("Interact has a binding, or no key opens a door at all")
+    };
+
+    // Stand in an authored Door zone of the live session's room.
+    let door = {
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        let zone = rooms
+            .iter(world)
+            .next()
+            .expect("a live session room set")
+            .active_loading_zones()
+            .iter()
+            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
+            .cloned();
+        // ⚠ LOUD, not a quiet `return`. A test that skips itself when it cannot
+        // find its subject is a test that reports green for the one reason it
+        // exists to catch.
+        let zone = zone.unwrap_or_else(|| {
+            let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+            let room = rooms
+                .iter(world)
+                .next()
+                .map(|set| set.active_spec().id.clone())
+                .unwrap_or_default();
+            panic!(
+                "the host's gameplay start room '{room}' authors no `Door` \
+                 loading zone, so this test pressed a key at nothing. Point it \
+                 at a room that has one."
+            )
+        });
+        let mut player = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+        if let Ok(mut kin) = player.single_mut(world) {
+            kin.pos = zone.aabb.center();
+            kin.vel = ambition::engine_core::Vec2::ZERO;
+        }
+        zone
+    };
+
+    let room_before = {
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        rooms
+            .iter(world)
+            .next()
+            .expect("a live session room set")
+            .active_spec()
+            .id
+            .clone()
+    };
+
+    interact_key.press(app.world_mut());
+    for _ in 0..40 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        let now = rooms
+            .iter(world)
+            .next()
+            .map(|set| set.active_spec().id.clone());
+        if now.as_deref() != Some(room_before.as_str()) {
+            return;
+        }
+    }
+
+    panic!(
+        "the shipped host held its own Interact binding inside the `{}` door of \
+         '{room_before}' for 40 frames and the room never changed. The sim-harness \
+         case in this file passes, so the break is in what the HOST adds: the \
+         input context that has to grant the participant's actions to gameplay, \
+         or the binding above reaching `ControlFrame.interact_pressed`",
+        door.name
+    );
+}
+
+/// **The other way in: double-tap Up.**
+///
+/// The binding rule is that a SINGLE press of Up must not open anything — Up is
+/// too useful as a direction — and that a deliberate double-tap stays as the
+/// fallback. It is the gesture a player who has been in this game a while
+/// reaches for, so "I can't enter doors anymore" can mean this half broke while
+/// the explicit Interact key still works.
+#[test]
+fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before = active_room(&mut sim);
+    let door = stand_in_a_door(&mut sim).unwrap_or_else(|| {
+        panic!("the start room '{before}' authors no `Door` loading zone")
+    });
+
+    let up = AgentAction {
+        up_pressed: true,
+        move_y: -1.0,
+        ..base()
+    };
+
+    // ONE tap, held for a beat, then released. Nothing may open.
+    sim.step(up);
+    for _ in 0..6 {
+        sim.step(base());
+    }
+    assert_eq!(
+        active_room(&mut sim),
+        before,
+        "a single Up opened the `{door}` door. Up is a direction — a door that \
+         opens on one press of it opens while somebody is jumping past it"
+    );
+
+    // The second tap, inside the window.
+    sim.step(up);
+    for _ in 0..30 {
+        sim.step(base());
+        if active_room(&mut sim) != before {
+            return;
+        }
+    }
+
+    panic!(
+        "double-tapping Up inside the `{door}` door of '{before}' did not open \
+         it. The explicit Interact key is covered above, so what this names is \
+         the GESTURE half: `register_up_tap` seeing the second edge inside \
+         `up_double_tap_window`, and `double_tap_up_pending` reaching the \
+         interact buffer"
+    );
+}

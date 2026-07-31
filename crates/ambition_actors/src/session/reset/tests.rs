@@ -68,14 +68,16 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 
     // No reset queued → nothing changes.
     app.update();
-    assert!(app
-        .world()
-        .get::<crate::items::pickup::GroundItem>(ground)
-        .is_some());
-    assert!(app
-        .world()
-        .get::<crate::features::HeldItem>(player)
-        .is_some());
+    assert!(
+        app.world()
+            .get::<crate::items::pickup::GroundItem>(ground)
+            .is_some()
+    );
+    assert!(
+        app.world()
+            .get::<crate::features::HeldItem>(player)
+            .is_some()
+    );
 
     // A reset that was ASKED FOR but refused: the request resource is set and
     // no commitment was announced. Nothing may be taken away.
@@ -97,8 +99,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
 
     // Committed → transient entities despawn + player held-state stripped.
-    app.world_mut()
-        .write_message(SandboxResetCommitted);
+    app.world_mut().write_message(SandboxResetCommitted);
     app.update();
     assert!(
         app.world()
@@ -301,9 +302,11 @@ fn processor_wipes_save_flags_and_clears_registries() {
     // Save is wiped.
     let save = app.world().resource::<SandboxSave>();
     assert!(!save.data().flag("npc_kira_hostile"));
-    assert!(!save
-        .data()
-        .flag("encounter_goblin_encounter_reward_dropped"));
+    assert!(
+        !save
+            .data()
+            .flag("encounter_goblin_encounter_reward_dropped")
+    );
     assert_eq!(
         save.data().encounter("goblin_encounter"),
         ambition_persistence::save_data::PersistedEncounterState::Untouched
@@ -400,4 +403,64 @@ fn processor_restores_authored_start_room_platform() {
         .resource::<ambition_world::collision::MovingPlatformSet>();
     assert_eq!(platform_set.0[0].pos, authored.pos);
     assert_eq!(platform_set.0[0].size, authored.size);
+}
+
+/// **A DECLINED reset leaves the session exactly as it was.** (Campaign 4)
+///
+/// Its completion criterion in as many words: *"a failed preparation leaves the
+/// current session byte-for-byte semantically unchanged except for
+/// diagnostics."* The decline path is documented in the processor and one test
+/// pins that teardown waits for the COMMIT rather than the request — but nothing
+/// asserted the criterion, and "the running session is untouched" was a comment.
+///
+/// An out-of-range start index makes `prepare_from_parts` return
+/// `UnknownRoom`, which is the shape of failure the path exists for: a preflight
+/// that says no before anything has been wiped.
+#[test]
+fn a_declined_reset_leaves_the_running_session_untouched() {
+    let mut app = min_app();
+    {
+        let mut save = app.world_mut().resource_mut::<SandboxSave>();
+        save.data_mut().set_flag("npc_kira_hostile", true);
+    }
+    {
+        let mut reg = app.world_mut().resource_mut::<EncounterRegistry>();
+        reg.specs_loaded = true;
+    }
+    // Point the session at a room that does not exist. Preparation must refuse.
+    //
+    // ⚠ the `RoomSet` is a session-world COMPONENT, not a resource — it belongs
+    // to the session root so it dies with the session rather than outliving it
+    // as a global.
+    {
+        let mut rooms = ambition_platformer_primitives::lifecycle::session_world_component_mut::<
+            crate::rooms::RoomSet,
+        >(app.world_mut())
+        .expect("the fixture staged a room set");
+        rooms.start = 999;
+    }
+    {
+        let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+        req.request();
+    }
+    app.update();
+
+    assert!(
+        app.world()
+            .resource::<SandboxSave>()
+            .data()
+            .flag("npc_kira_hostile"),
+        "a reset that could not be prepared still wiped the save. The preflight \
+         runs before the wipe precisely so a refusal costs nothing."
+    );
+    assert!(
+        app.world().resource::<EncounterRegistry>().specs_loaded,
+        "a declined reset cleared the registries anyway"
+    );
+    let committed = app.world().resource::<Messages<SandboxResetCommitted>>();
+    assert!(
+        committed.is_empty(),
+        "a declined reset announced a COMMIT, so every teardown system keyed on \
+         it would have run against a session that was never replaced"
+    );
 }

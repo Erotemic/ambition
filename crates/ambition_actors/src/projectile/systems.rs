@@ -469,7 +469,8 @@ pub fn step_projectiles(
     // glider hits a robot (Boss) and vice versa, and a stray hits a different-faction
     // bystander (the observer). Same-faction allies are spared unless friendly fire
     // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
-    friendly_fire: Option<Res<crate::features::FriendlyFire>>,
+    // AE6: resolved match rules, not the world's baseline toggle.
+    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     // Bundled into ONE tuple slot to stay under Bevy's 16-param ceiling:
     // - `owner_combat` — the firer's REAL faction + optional grudge, looked up from
     //   the projectile's owner entity (player / enemy / boss / player-robot). The
@@ -491,7 +492,7 @@ pub fn step_projectiles(
     ),
 ) {
     let dt = world_time.sim_dt();
-    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
+    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     let collision_world = carved.solids();
     let portal_list = carved.portal_list();
     let tick = trace.current_tick();

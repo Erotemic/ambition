@@ -71,6 +71,7 @@ mod projectile_portal_transit;
 mod registered_character_art_resolves;
 mod replay_fixture_regression;
 mod repro_walls;
+mod resolved_combat_tuning;
 mod rollback_contact;
 mod rollback_coverage;
 mod rollback_exit_oracle;

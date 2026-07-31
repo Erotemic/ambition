@@ -54,6 +54,11 @@ pub use ae::hit_response::di_adjust;
 /// this crate's business, the response math is the floor's
 /// (`ae::hit_response`). One constructor, so the velocity and hitstun calls
 /// cannot pick different rows for the same hit.
+/// ⚠ **`feel.di_max_angle` must already be the RESOLVED match value** (AE6).
+/// Directional influence is a rule of the match being played, not world tuning,
+/// so the system that reads `Res<SandboxFeelTuning>` folds the resolved rules
+/// into its LOCAL copy before the hit path sees it — see `resolved_feel`. The
+/// row travels as one struct so the launch and the hitstun cannot disagree.
 pub(crate) fn hit_response_tuning(
     feel: &SandboxFeelTuning,
     boss_hit: bool,
@@ -636,6 +641,14 @@ pub(crate) fn safe_respawn_player(
 /// the shadow rollout predicts with the same formula); this wrapper owns only
 /// the boss/enemy feel selection, which is a fact about THIS game's tuning
 /// rows and not about knockback.
+/// ⚠ **TEST-ONLY, and that is the finding.** The 07-30 handoff flagged this and
+/// `knockback_reaction_scale` as two `dead_code` warnings that might be orphans
+/// of the saturating-meter problem (S4). They are not: their production callers
+/// moved into `ae::hit_response` with the kernel carve (FB6b), and what is left
+/// is the historical local NAME that this module's tests read against. Scoped to
+/// `test` rather than deleted, because a test asserting the wrapper's feel
+/// selection is asserting something the kernel's own tests do not.
+#[cfg(test)]
 pub(crate) fn resolved_body_knockback_velocity(
     victim_pos: ae::Vec2,
     victim_facing: f32,
@@ -656,7 +669,9 @@ pub(crate) fn resolved_body_knockback_velocity(
 }
 
 /// See [`ae::hit_response::reaction_scale`] — kept under its historical local
-/// name for this module's tests and readers.
+/// name for this module's tests. Test-only for the same reason as
+/// [`resolved_body_knockback_velocity`] above.
+#[cfg(test)]
 fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> f32 {
     ae::hit_response::reaction_scale(knockback)
 }
@@ -968,7 +983,11 @@ pub fn apply_player_hit_events(
     // on the player — including a duel's stray that the observer walked into. Only
     // a same-faction attacker (co-op ally) is spared, unless friendly fire is on.
     // Whether an actor AIMS at the player is the separate targeting concern.
-    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
+    // AE6: the rules THIS MATCH plays under, resolved from its declaration
+    // folded over the world's baseline. Never `FriendlyFire` directly — a
+    // reader that consults the baseline is how a stage's rules and the
+    // world's rules got to disagree.
+    combat_rules: Option<Res<crate::combat::rules::ResolvedCombatTuning>>,
     attacker_factions: Query<&crate::combat::components::ActorFaction>,
     mut player_q: Query<
         (
@@ -1012,7 +1031,8 @@ pub fn apply_player_hit_events(
     let primary = primary_q.single().ok();
     // Drain the staged victim-side hits — attacker-side hits flow to
     // `apply_feature_hit_events` off the message channel directly (same-frame).
-    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
+    let combat_rules = combat_rules.map(|r| *r).unwrap_or_default();
+    let friendly_fire = combat_rules.friendly_fire();
     let events: Vec<FeatureHitEvent> = std::mem::take(&mut pending_hits.0)
         .into_iter()
         // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
@@ -1033,7 +1053,14 @@ pub fn apply_player_hit_events(
 
     let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);
     let tuning = active_tuning.0;
-    let feel = *feel_tuning;
+    // AE6: DIRECTIONAL INFLUENCE IS A MATCH RULE, folded into this system's
+    // local copy of the world's feel. The versus stage used to get the same
+    // effect by WRITING `SandboxFeelTuning` on route entry and putting it back
+    // on exit — correct by discipline, and one crash between the two away from
+    // leaving the borrow outstanding. Nothing is written now, so there is
+    // nothing to restore.
+    let mut feel = *feel_tuning;
+    feel.di_max_angle = combat_rules.di_max_angle;
     let safe_world = ambition_world::collision::world_with_sandbox_solids(
         &world.0,
         &moving_platforms.0,

@@ -139,10 +139,11 @@ pub fn dispatch_hitbox_on_hit(
         Has<PogoTarget>,
     )>,
     attacker_aggression: Query<&ActorAggression>,
-    friendly_fire: Option<Res<crate::targeting::FriendlyFire>>,
+    // AE6: resolved match rules, not the world's baseline toggle.
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
     mut out: MessageWriter<OnHitEffectMessage>,
 ) {
-    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
+    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (hitbox, mut on_hit) in &mut hitboxes {
         let owner_pos = if let Ok(aabb) = owners.get(hitbox.owner) {
             aabb.center

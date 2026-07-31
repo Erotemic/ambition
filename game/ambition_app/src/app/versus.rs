@@ -378,25 +378,6 @@ const VERSUS_DI_MAX_ANGLE: f32 = 0.31;
 
 /// **What the fighting stage overwrote, so leaving can put it back.**
 ///
-/// ⚠ restoring is not the same as RESETTING, and this stage did the second while
-/// its comments said the first (GPT 5.6, 2026-07-30). Exit wrote
-/// `SandboxFeelTuning::default().di_max_angle` and `FriendlyFire::enabled =
-/// false` — the engine's shipped values, not the ones that were in the resources
-/// when the route opened. Both are global, forward-only tuning: whatever another
-/// experience or host profile had authored was destroyed by the versus stage
-/// merely having been visited, and every test began from the default so none of
-/// them could tell the two apart.
-///
-/// Kept as an activation-scoped resource rather than fields on the roster
-/// because it must survive the roster's own removal, and because its presence is
-/// the "is a match currently borrowing these rules" flag: capture happens once,
-/// on the entry that finds no record.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
-struct VersusBorrowedRules {
-    di_max_angle: f32,
-    friendly_fire: bool,
-}
-
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition::game_shell::ShellRouter>,
@@ -405,12 +386,7 @@ fn track_versus_roster(
     topology: Option<Res<ambition::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
     mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
-    mut friendly_fire: ResMut<ambition::combat::targeting::FriendlyFire>,
-    // DI is a rule of THIS stage, so it is switched on with the stage and off
-    // with it. See `VERSUS_DI_MAX_ANGLE`.
-    mut feel: ResMut<ambition::actors::time::feel::SandboxFeelTuning>,
-    // What those two held before this stage borrowed them. Absent = not borrowed.
-    borrowed: Option<Res<VersusBorrowedRules>>,
+
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
     let on_versus = router
@@ -456,22 +432,19 @@ fn track_versus_roster(
             // teammates hittable too, and it is a world-wide rule change made by
             // one stage. Teams say the same thing locally and correctly.
             //
-            // BORROW, don't seize: record what these two held before the stage
-            // touched them, once, on the entry that finds no record. A re-entry
-            // (the route stays up and something else drops the roster) must not
-            // re-capture, or the stage's own values become "what was there
-            // before".
-            if borrowed.is_none() {
-                commands.insert_resource(VersusBorrowedRules {
-                    di_max_angle: feel.di_max_angle,
-                    friendly_fire: friendly_fire.enabled,
-                });
-            }
-            friendly_fire.enabled = false;
+            // DECLARE, don't borrow (AE6). The stage says what IT plays under
+            // and writes nothing global, so there is no capture to get wrong on
+            // re-entry, no restore to skip on a crash, and no window in which
+            // another writer can win. `project_combat_rules` folds this over the
+            // world's baseline every tick; removing it below IS the exit.
+            //
             // DI ON. A launched fighter can steer its own trajectory, which is
             // the difference between a knock-off that is a read and one that is a
             // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
-            feel.di_max_angle = VERSUS_DI_MAX_ANGLE;
+            commands.insert_resource(ambition::combat::rules::DeclaredCombatRules {
+                di_max_angle: VERSUS_DI_MAX_ANGLE,
+                friendly_fire: false,
+            });
             // A FRESH match. `VersusMatch` is a long-lived resource, so without
             // this, leaving mid-round and coming back resumes the old score —
             // and a KO or match-over countdown resumes with it, which reads as
@@ -485,26 +458,19 @@ fn track_versus_roster(
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
             commands.remove_resource::<ambition::actors::character_runtime::ActiveMatch>();
-            // PUT THEM BACK, for the same reason the roster is removed: a match
-            // rule that outlives its match is a rule the next game silently
-            // inherits, and "your allies can now shoot you" is a bad surprise to
-            // bring into a co-op level.
+            // DROP THE DECLARATION, which is the whole exit. A match rule that
+            // outlives its match is a rule the next game silently inherits, and
+            // "your allies can now shoot you" is a bad surprise to bring into a
+            // co-op level.
             //
-            // ⚠ back to what was BORROWED, not to the engine default. Writing
-            // the default reads as a restore and is not one: an experience that
-            // had authored `di_max_angle = 0.12` got `0.0` handed back, and the
-            // stage did not have to be played for it — visiting the route was
-            // enough. The default is only the fallback for the case where there
-            // is no record to honour, which is a roster that outlived the
-            // capture; leaking DI is the worse of the two failures.
-            let prior = borrowed.as_deref().copied().unwrap_or(VersusBorrowedRules {
-                di_max_angle: ambition::actors::time::feel::SandboxFeelTuning::default()
-                    .di_max_angle,
-                friendly_fire: ambition::combat::targeting::FriendlyFire::default().enabled,
-            });
-            friendly_fire.enabled = prior.friendly_fire;
-            feel.di_max_angle = prior.di_max_angle;
-            commands.remove_resource::<VersusBorrowedRules>();
+            // ⚠ there is nothing to put back, and that is the point. The old
+            // exit wrote values into two global resources, which had to be the
+            // BORROWED ones rather than the engine defaults — writing the
+            // defaults reads as a restore and is not one, and for a while it was
+            // what this did: an experience that authored `di_max_angle = 0.12`
+            // got `0.0` handed back merely because the route was visited. No
+            // baseline is written now, so it cannot be written wrong.
+            commands.remove_resource::<ambition::combat::rules::DeclaredCombatRules>();
         }
         _ => {}
     }
@@ -687,8 +653,26 @@ mod stage_rule_tests {
         app.init_resource::<ambition::actors::character_runtime::CharacterLoadDemand>();
         app.init_resource::<ambition::input::LocalDeviceOrder>();
         app.insert_resource(ambition::game_shell::ShellRouter::default());
-        app.add_systems(Update, track_versus_roster);
+        // The projection normally runs in `SandboxSet::WorldPrep`; here it runs
+        // straight after the declarer, which is the same ORDER and all these
+        // tests need. Asserting on the resolved value rather than on a global is
+        // the whole point of AE6 — a test that read the baseline would be
+        // asserting the borrow it replaced.
+        app.add_systems(
+            Update,
+            (
+                track_versus_roster,
+                ambition::actors::features::combat_rules::project_combat_rules,
+            )
+                .chain(),
+        );
+        app.update();
         app
+    }
+
+    fn resolved(app: &App) -> ambition::combat::rules::ResolvedCombatTuning {
+        *app.world()
+            .resource::<ambition::combat::rules::ResolvedCombatTuning>()
     }
 
     fn enter_versus(app: &mut App) {
@@ -716,20 +700,25 @@ mod stage_rule_tests {
     ///
     /// Jon: *"In smash DI is critical!"* — and also that he only *"probably"*
     /// wants Smash physics in the flagship, without naming a number. So the
-    /// budget is switched on by the versus route and restored on the way out.
+    /// budget is switched on by the versus route and gone again on the way out.
     ///
-    /// The restore half is the half worth pinning. A match rule that outlives its
+    /// The leaving half is the half worth pinning. A match rule that outlives its
     /// match is a rule the next game silently inherits, which is exactly the bug
     /// `FriendlyFire` had here: leaving the arena used to leave "your allies can
     /// now shoot you" behind in a co-op level. DI leaking would be quieter and
     /// worse — every knockback in Ambition would start steering, and nothing
     /// would say why.
+    ///
+    /// ⚠ **asserted on the RESOLVED tuning, and on the baseline NOT MOVING**
+    /// (AE6). The stage used to reach this by writing `SandboxFeelTuning`; it
+    /// declares now, so the second assertion in each pair — that the world's own
+    /// tuning is exactly where it was — is the one that would catch a relapse.
     #[test]
     fn di_switches_on_with_the_versus_route_and_off_again_when_it_ends() {
         let mut app = stage_rule_app();
 
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            resolved(&app).di_max_angle,
             0.0,
             "Ambition's PvE default is no DI; this is the case the flagship \
              actually returns to"
@@ -737,30 +726,44 @@ mod stage_rule_tests {
 
         enter_versus(&mut app);
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            resolved(&app).di_max_angle,
             VERSUS_DI_MAX_ANGLE,
             "the fighting stage must author its DI budget"
+        );
+        assert_eq!(
+            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            0.0,
+            "the stage reached its DI budget by WRITING the world's tuning \
+             again — the borrow AE6 removed"
         );
 
         leave_versus(&mut app);
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            resolved(&app).di_max_angle,
             0.0,
             "DI outlived its match, so every knockback in the game it returns to \
              now steers and nothing says why"
         );
     }
 
-    /// **The half the default-start test could not see.**
+    /// **The half the default-start test could not see, and what replaced it.**
     ///
     /// Exit used to write `SandboxFeelTuning::default()` and `FriendlyFire =
     /// false`, and the test above starts from exactly those, so reset and
-    /// restore were indistinguishable in it. Start from values NOBODY ships and
-    /// the difference is the whole assertion: an experience that authored its
-    /// own DI budget and its own friendly-fire rule must get them back, having
-    /// lost them merely because the player visited the versus route.
+    /// restore were indistinguishable in it. Starting from values NOBODY ships
+    /// made the difference visible: an experience that authored its own DI budget
+    /// and its own friendly-fire rule had to get them back, having lost them
+    /// merely because the player visited the versus route.
+    ///
+    /// ⚠ **the restore is gone, because the borrow is** (AE6). The stage declares
+    /// its rules and the projection folds them over the baseline, so the
+    /// baseline is never written and there is nothing to hand back. This test
+    /// keeps the same hostile starting values and asserts the stronger property:
+    /// the authored world is byte-identical before, DURING, and after a match.
+    /// A relapse to writing globals fails on the middle assertion, which is the
+    /// one the old shape could not make at all.
     #[test]
-    fn leaving_versus_restores_what_was_there_rather_than_the_engine_default() {
+    fn a_match_never_touches_the_world_tuning_it_plays_over() {
         let mut app = stage_rule_app();
 
         // Some other experience's authored tuning. Neither value is a default.
@@ -779,35 +782,57 @@ mod stage_rule_tests {
         );
         assert!(!ambition::combat::targeting::FriendlyFire::default().enabled);
 
+        let authored_is_intact = |app: &App, when: &str| {
+            assert_eq!(
+                app.world().resource::<SandboxFeelTuning>().di_max_angle,
+                PRIOR_DI,
+                "{when}: the versus route wrote another experience's authored DI \
+                 budget. It must DECLARE its rules, never borrow the world's."
+            );
+            assert!(
+                app.world()
+                    .resource::<ambition::combat::targeting::FriendlyFire>()
+                    .enabled,
+                "{when}: same for friendly fire — the baseline is not the stage's \
+                 to write, in either direction"
+            );
+        };
+
+        app.update();
+        authored_is_intact(&app, "before");
+        assert_eq!(resolved(&app).di_max_angle, PRIOR_DI);
+        assert!(resolved(&app).friendly_fire);
+
         enter_versus(&mut app);
+        // DURING. The old shape could not express this: while a match was live,
+        // the world's tuning WAS the match's tuning, so there was no moment at
+        // which the two could be compared.
+        authored_is_intact(&app, "during the match");
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
-            VERSUS_DI_MAX_ANGLE
+            resolved(&app).di_max_angle,
+            VERSUS_DI_MAX_ANGLE,
+            "the match is not playing under its own declared DI"
         );
         assert!(
-            !app.world()
-                .resource::<ambition::combat::targeting::FriendlyFire>()
-                .enabled,
+            !resolved(&app).friendly_fire,
             "the stage runs on teams, not on global free-for-all"
         );
 
         leave_versus(&mut app);
+        authored_is_intact(&app, "after");
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            resolved(&app).di_max_angle,
             PRIOR_DI,
-            "the versus route destroyed another experience's authored DI budget \
-             on its way out — a reset wearing a restore's comment"
+            "the match's DI outlived the match"
         );
         assert!(
-            app.world()
-                .resource::<ambition::combat::targeting::FriendlyFire>()
-                .enabled,
-            "same for friendly fire: `= false` on entry AND exit is not a restore"
+            resolved(&app).friendly_fire,
+            "the match's friendly-fire rule outlived the match"
         );
         assert!(
-            !app.world().contains_resource::<VersusBorrowedRules>(),
-            "the borrow record must not outlive the borrow, or the next match \
-             captures the last match's values as 'what was there before'"
+            !app.world()
+                .contains_resource::<ambition::combat::rules::DeclaredCombatRules>(),
+            "the declaration must not outlive the match — dropping it IS the exit"
         );
     }
 }

@@ -357,6 +357,15 @@ fn late_arriving_roster_sim() -> SandboxSim {
 /// `check_distance`: the trace records every frame the session simulated, so the
 /// crossing is READ OFF the run — a frame index earlier than the activation
 /// index, simulated after the activation index had already been reached.
+///
+/// **PROBED RED, which is the only reason it is worth having.** With
+/// `rollback_resource_optional_canonical::<ActiveMatch>` removed from
+/// `ambition_runtime::rollback`, this test FAILS and the two fixtures above
+/// still PASS — the exact asymmetry their own docstring predicted and could not
+/// demonstrate. It fails on the right assertion, too: the restored frame comes
+/// back carrying a live match, so the world the run rewound to was not
+/// pre-activation after all. That is the defect in one sentence rather than a
+/// checksum mismatch three frames downstream.
 #[test]
 fn a_rewind_across_the_activation_frame_reconstructs_the_same_match() {
     let mut sim = late_arriving_roster_sim();

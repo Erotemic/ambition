@@ -137,6 +137,10 @@ pub fn apply_feature_hit_events(
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
     feel_tuning: Option<Res<crate::time::feel::SandboxFeelTuning>>,
+    // AE6: the resolved match rules. `di_max_angle` is a rule of the match
+    // being played, not world tuning, so it is folded into the local `feel`
+    // below rather than written into the world's resource by a route.
+    combat_rules: Option<Res<crate::combat::rules::ResolvedCombatTuning>>,
     // Authored character voice for struck NPCs. This resource is required:
     // a production App that omitted provider catalog composition is malformed,
     // and must not silently degrade to anonymous barks.
@@ -272,7 +276,8 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
-    let feel = feel_tuning.map(|r| *r).unwrap_or_default();
+    let mut feel = feel_tuning.map(|r| *r).unwrap_or_default();
+    feel.di_max_angle = combat_rules.map(|r| *r).unwrap_or_default().di_max_angle;
     let catalog = &*catalogs.characters;
     // Wave-1 follow-up: apply the player's outgoing power-slider scale to their
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.

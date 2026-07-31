@@ -115,7 +115,8 @@ pub fn apply_hitbox_damage(
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
-    friendly_fire: Option<Res<crate::targeting::FriendlyFire>>,
+    // AE6: resolved match rules, not the world's baseline toggle.
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
     // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
@@ -193,7 +194,7 @@ pub fn apply_hitbox_damage(
     mut vfx: MessageWriter<VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
-    let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
+    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
         // Actors carry `CenteredAabb`; the PLAYER (a melee strike owner now) does

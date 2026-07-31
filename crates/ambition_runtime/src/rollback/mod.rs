@@ -334,10 +334,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // rewind to before activation REMOVES this, seating sees no match, and
         // the roster is reconstructed from the same authored inputs.
         //
-        // ⚠ this closes the rewind hole; it does not make activation a
-        // transaction. Fighters are still constructed seat-by-seat over several
-        // ticks and only the latch is atomic. That remains open as AA2's
-        // lifecycle half.
+        // ⚠ **this registration is load-bearing, and there is now a fixture that
+        // says so.** Remove it and
+        // `rollback_match_activation::a_rewind_across_the_activation_frame_reconstructs_the_same_match`
+        // fails on "the restored world was not pre-activation after all", while
+        // the two older tests in that file stay green — they cannot reach a
+        // pre-activation frame, and their docstring admits it.
+        //
+        // AA2's lifecycle half is CLOSED as of the seating transaction: seats
+        // are resolved and validated before any is built, then constructed in
+        // one command flush with this latch, so there is no "between two seats"
+        // state a rewind can land in.
         .rollback_resource_optional_canonical::<ambition_actors::character_runtime::ActiveMatch>(
             ENGINE,
             "resource.active_match",
@@ -1315,6 +1322,18 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
+    )
+    // AE6. Derived, not state: `project_combat_rules` rebuilds it in WorldPrep
+    // every tick from the match's declaration folded over the world's baseline,
+    // both of which outlive any rollback window — the declaration is route
+    // lifecycle (`Update`, outside the sim) and the baseline is authored tuning.
+    // Registering it as STATE would be the borrow again: a rewind would restore
+    // a rules value independently of the declaration that produced it, and the
+    // two could then disagree for a frame.
+    .declare_rollback_derived_resource::<ambition_combat::rules::ResolvedCombatTuning>(
+        ENGINE,
+        "derived.resolved_combat_tuning",
+        "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
     )
     .declare_rollback_derived_resource::<ambition_characters::brain::SlotControls>(
         ENGINE,

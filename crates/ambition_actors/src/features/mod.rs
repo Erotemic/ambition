@@ -42,6 +42,7 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod banter;
+pub mod combat_rules;
 pub mod brain_command;
 pub mod temporary_control;
 pub use temporary_control::TemporaryControl;
@@ -270,6 +271,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
         crate::combat::targeting::init_targeting_resources(app);
+        // AE6: the rules a MATCH plays under, resolved from its declaration
+        // folded over those baselines — so a stage never writes them. In
+        // WorldPrep because every reader is later (PlayerSimulation/Combat),
+        // and a resolution landing after them would hand the hit kernel last
+        // tick's rules on the one tick they differ.
+        app.init_resource::<crate::combat::rules::ResolvedCombatTuning>();
+        app.add_systems(
+            sim,
+            crate::features::combat_rules::project_combat_rules
+                .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Hazard,
             "ambition_actors",

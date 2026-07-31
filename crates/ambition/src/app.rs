@@ -466,15 +466,25 @@ impl ModuleDraft {
     /// the primary instead of the caller:
     ///
     /// * the music registry folded into the asset catalog, so a secondary
-    ///   experience's declared tracks have no asset path there;
-    /// * the published `SfxBankAssetPath`, attributed to the primary's id;
-    /// * the startup room theme (block and biome art) from [`Self::room`].
+    ///   experience's declared tracks have no entry there. ⚠ **this is not
+    ///   silence** — `AudioLibrary` falls back to the track's own `asset_path`,
+    ///   or to the `audio/music/generated/{id}/full.ogg` convention, so what is
+    ///   lost is the catalog's PATH POLICY (asset-source prefixes, quality
+    ///   variants), not the audio;
+    /// * the published `SfxBankAssetPath`, attributed to the primary's id.
+    ///   Bank playback resolves through the ACTIVE audio context's provider and
+    ///   never a process-global current bank, so a secondary experience does not
+    ///   see a bank published this way and must register its own;
+    /// * the startup room theme (block and biome art) from [`Self::room`] — the
+    ///   one with a visible consequence, since a secondary experience's room
+    ///   draws with the primary's blocks.
     ///
     /// Stated rather than fixed, deliberately. Repairing it means per-experience
     /// asset virtualization, and no consumer is blocked on it today — the
-    /// shipped host and both demos launch their primary. If your game needs a
-    /// secondary experience with its own art or music, install its assets
-    /// through a capability rather than expecting this to resolve them.
+    /// shipped host and both demos launch their primary, and the shipped host
+    /// folds one provider's music for the same reason. If your game needs a
+    /// secondary experience with its own art, install its assets through a
+    /// capability rather than expecting this to resolve them.
     pub fn experience(&mut self, id: impl Into<String>) -> &mut Self {
         let id = id.into();
         let owner = self.defining.clone();

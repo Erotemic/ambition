@@ -112,8 +112,17 @@ fn the_shipped_games_compose_through_the_public_api() {
 ///   sheet is in the asset catalog of a host whose primary is Sanic;
 /// * the ROUTE is reachable and activates with Mary-O's own experience id;
 /// * the MUSIC is not — the catalog folds `music_for(primary)` only, so a
-///   secondary experience's declared tracks have no asset path in it;
+///   secondary experience's declared tracks have no entry in it;
 /// * the SFX bank is published attributed to the PRIMARY's id.
+///
+/// ⚠ **the music limit is a PATH POLICY limit, not silence**, and the difference
+/// is worth stating where the assertion is: `AudioLibrary` resolves a track the
+/// catalog does not carry through the track's own `asset_path`, or the
+/// `audio/music/generated/{id}/full.ogg` convention. What a secondary experience
+/// loses is the catalog's asset-source prefixing and quality variants. A reader
+/// who took the assertion below for "the second game has no music" would fix the
+/// wrong thing — which is why this paragraph exists rather than a stronger
+/// assertion nobody could justify.
 ///
 /// So the last two are asserted as the LIMIT they currently are, in the test
 /// rather than only in prose, and `PlatformerApp`'s docs now say so. The review

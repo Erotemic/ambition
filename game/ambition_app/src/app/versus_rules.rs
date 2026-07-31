@@ -569,7 +569,15 @@ fn begin_round(
         // `reset_body_clusters` is the verb that means "this body starts again",
         // the same one the sandbox reset uses, and it clears the whole
         // movement/ability cluster set rather than the place-facts subset.
-        ae::reset_body_clusters(&mut model, &mut clusters, at);
+        ae::reset_body_clusters(
+            &mut model,
+            &mut clusters,
+            at,
+            // The versus stage does not override the air game; a stage that did
+            // would pass its own number, which is why this is asked rather than
+            // assumed.
+            ae::DEFAULT_TUNING.air_jumps,
+        );
         clusters.kinematics.facing = facing;
         commands
             .entity(entity)

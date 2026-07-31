@@ -393,6 +393,10 @@ fn place_respawning_fighters(
             &mut model,
             &mut clusters,
             respawn_placement(stage_centre()),
+            // This demo's fighters run the engine's default air game; a stage
+            // that tuned it would pass its own number here, which is the point
+            // of the parameter.
+            ambition::engine_core::DEFAULT_TUNING.air_jumps,
         );
     }
 }

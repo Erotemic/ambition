@@ -18,17 +18,17 @@
 
 use bevy::prelude::*;
 
+use ambition_actors::SandboxSimState;
 use ambition_actors::session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
 use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_actors::world::rooms::RoomConstructionPlan;
-use ambition_actors::SandboxSimState;
 use ambition_engine_core as ae;
 use ambition_engine_core::ConfirmedFrameBoundary;
 
 use crate::rollback::{
-    build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership,
+    RollbackSessionOwnership, build_sync_test_session, install_rebased_sync_test_session,
 };
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
@@ -73,7 +73,9 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     let session = match build_sync_test_session(settings) {
         Ok(session) => session,
         Err(error) => {
-            error!("Track B: failed to BUILD the rebase session; leaving the room and the pending intent untouched: {error}");
+            error!(
+                "Track B: failed to BUILD the rebase session; leaving the room and the pending intent untouched: {error}"
+            );
             return;
         }
     };
@@ -294,13 +296,7 @@ fn commit_transition(
             let mut clusters = cluster_item.as_clusters_mut();
             let old_velocity = clusters.kinematics.vel;
             let fly_enabled = clusters.flight.fly_enabled;
-            ae::reset_body_clusters(&mut motion_model, &mut clusters, arrival);
-            ae::refresh_movement_resources_clusters(
-                clusters.abilities,
-                &mut clusters.dash,
-                &mut clusters.jump,
-                air_jumps,
-            );
+            ae::reset_body_clusters(&mut motion_model, &mut clusters, arrival, air_jumps);
             clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
             if edge_exit {
                 clusters.kinematics.vel = old_velocity;

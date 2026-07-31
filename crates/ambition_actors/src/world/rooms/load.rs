@@ -7,14 +7,14 @@
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 
 use super::{
-    validated_spawn, LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition,
+    LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition, validated_spawn,
 };
+use crate::SandboxSimState;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
 use crate::world::platforms::MovingPlatformState;
-use crate::SandboxSimState;
 use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
@@ -67,13 +67,12 @@ pub fn commit_room_transition_geometry(
     plan.commit_deferred(commands, room_set, world, moving_platforms);
 
     let arrival = validated_spawn(&world.0, transition.arrival, player_size);
-    ae::reset_body_clusters(motion_model, clusters, arrival);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        tuning.air_jumps,
-    );
+    // The follow-up `refresh_movement_resources_clusters` that used to sit here is
+    // GONE: the reset takes the live air-jump count now and already restores dash
+    // charges from the same `BodyAbilities`, so the second call restated its
+    // answer. Four of five call sites performed that ritual and one did not,
+    // which is the whole argument for folding it in.
+    ae::reset_body_clusters(motion_model, clusters, arrival, tuning.air_jumps);
     clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
     if edge_exit {
         clusters.kinematics.vel = old_velocity;

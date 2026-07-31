@@ -16,11 +16,11 @@
 //! [`BodyClusterScratch::new_with_abilities`] and re-borrow via
 //! `BodyClusterScratch::as_mut`.
 
+use crate::Vec2;
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
 use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
-use crate::Vec2;
 
 /// Mutable cluster references aggregated for the engine
 /// `update_player_*_with_clusters` entry points.
@@ -514,12 +514,33 @@ pub fn announce_body_restarts(
 /// riding momentum body or an attached crawler cannot carry a stale surface
 /// identity into the destination room/spawn. A body reset is a full respawn,
 /// so the axis policy's private maneuver state is reset wholesale too.
+///
+/// `air_jumps_default` is the mid-air jump count to restore when the body's own
+/// `BodyAbilities` does not name one.
+///
+/// ⚠ **it is a PARAMETER because it used to be `DEFAULT_TUNING.air_jumps`**, and
+/// that made this function quietly wrong for anybody running non-default tuning.
+/// The sandbox reset knew, and carried a follow-up call:
+///
+/// ```ignore
+/// ae::reset_body_clusters(..);
+/// // reset_body_clusters uses DEFAULT_TUNING for the post-reset dash/jump
+/// // refresh; redo with the live tuning so a F3 live-tuning session sees its
+/// // overridden air_jumps / dash_charge_count immediately after a reset.
+/// ae::refresh_movement_resources_clusters(..);
+/// ```
+///
+/// Every other caller did not, and got default air jumps after a reset with
+/// nothing saying so. **An authority that requires a follow-up call is not an
+/// authority** — it is a two-step ritual, and the second step is the one people
+/// forget. Now the question is asked at the call site, where the answer is.
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     spawn: Vec2,
+    air_jumps_default: u8,
 ) {
-    use crate::movement::{ComboMark, MovementOp, DEFAULT_TUNING};
+    use crate::movement::{ComboMark, MovementOp};
 
     let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
@@ -537,7 +558,7 @@ pub fn reset_body_clusters(
     // so nothing that never sets an identity size changes behavior.
     let body = clusters.base_size.base_size;
     let dash_charges = abilities.dash_charge_count();
-    let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
+    let air_jumps = abilities.air_jump_count(air_jumps_default);
 
     clusters.kinematics.size = body;
     clusters.kinematics.facing = 1.0;
@@ -743,7 +764,7 @@ impl BodyClusterScratch {
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
     pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
-        use crate::movement::{default_player_body_size, DEFAULT_TUNING};
+        use crate::movement::{DEFAULT_TUNING, default_player_body_size};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
@@ -902,7 +923,12 @@ mod reset_tests {
 
         let spawn = Vec2::new(64.0, 352.0);
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, spawn);
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
 
         assert_eq!(
             scratch.base_size.base_size, grown,
@@ -928,10 +954,40 @@ mod reset_tests {
 
         let spawn = Vec2::new(64.0, 352.0);
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, spawn);
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
 
         assert_eq!(scratch.kinematics.size, default);
         assert_eq!(scratch.base_size.base_size, default);
+    }
+
+    /// **A reset restores the LIVE air-jump count, not the engine default.**
+    ///
+    /// This was `DEFAULT_TUNING.air_jumps` inside the function, so a body under
+    /// non-default tuning came back from every reset with default jumps. Four of
+    /// five call sites knew and followed with
+    /// `refresh_movement_resources_clusters`; one did not, and nothing said so.
+    /// An authority that requires a follow-up call is not an authority.
+    #[test]
+    fn a_reset_restores_the_air_jumps_the_caller_names() {
+        // `air_jump_count` returns 0 for a body that cannot double-jump at all,
+        // so the tuning only speaks through an ability set that grants one — a
+        // fixture without it would pass under the bug and prove nothing.
+        let mut abilities = crate::abilities::AbilitySet::default();
+        abilities.double_jump = true;
+        let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
+        let generous = crate::movement::DEFAULT_TUNING.air_jumps + 3;
+        let (model, mut clusters) = scratch.parts();
+        reset_body_clusters(model, &mut clusters, Vec2::ZERO, generous);
+        assert_eq!(
+            scratch.jump.air_jumps_available, generous,
+            "the reset restored the engine default over the tuning the caller \
+             named, which is the bug that made every call site carry a follow-up"
+        );
     }
 
     /// **Any reset announces itself.** The seven production callers of
@@ -945,7 +1001,12 @@ mod reset_tests {
         );
         assert!(!scratch.lifetime.restart_pending);
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, Vec2::new(10.0, 20.0));
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            Vec2::new(10.0, 20.0),
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
         assert!(scratch.lifetime.restart_pending);
     }
 
@@ -953,8 +1014,8 @@ mod reset_tests {
     #[test]
     fn a_pending_restart_is_announced_once() {
         use bevy_ecs::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let mut world = World::new();
         let seen = Arc::new(AtomicUsize::new(0));

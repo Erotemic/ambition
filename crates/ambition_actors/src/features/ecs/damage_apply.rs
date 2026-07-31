@@ -27,7 +27,7 @@ use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
-    remember_safe_player_position, ActorDiedMessage, SafePositionContext, SandboxSimState,
+    ActorDiedMessage, SafePositionContext, SandboxSimState, remember_safe_player_position,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -283,13 +283,12 @@ pub(crate) fn death_respawn_player(
     motion_model: &mut ae::MotionModel,
 ) {
     let to = world.spawn;
-    ae::reset_body_clusters(motion_model, clusters, world.spawn);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        tuning.air_jumps,
-    );
+    // The follow-up `refresh_movement_resources_clusters` that used to sit here is
+    // GONE: the reset takes the live air-jump count now and already restores dash
+    // charges from the same `BodyAbilities`, so the second call restated its
+    // answer. Four of five call sites performed that ritual and one did not,
+    // which is the whole argument for folding it in.
+    ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
     clock_resets.write(ClockResetRequest::sim_clock(
@@ -439,10 +438,12 @@ pub(crate) fn handle_player_damage_events(
             _ => false,
         };
         if knocked_out {
-            death_writers.knockouts.write(crate::combat::stocks::BodyKnockedOut {
-                body: player_entity,
-                cause: damage.source.clone(),
-            });
+            death_writers
+                .knockouts
+                .write(crate::combat::stocks::BodyKnockedOut {
+                    body: player_entity,
+                    cause: damage.source.clone(),
+                });
         }
     }
     match resolution {
@@ -645,13 +646,12 @@ pub(crate) fn safe_respawn_player(
     motion_model: &mut ae::MotionModel,
 ) {
     let to = safety.last_safe_pos;
-    ae::reset_body_clusters(motion_model, clusters, to);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        tuning.air_jumps,
-    );
+    // The follow-up `refresh_movement_resources_clusters` that used to sit here is
+    // GONE: the reset takes the live air-jump count now and already restores dash
+    // charges from the same `BodyAbilities`, so the second call restated its
+    // answer. Four of five call sites performed that ritual and one did not,
+    // which is the whole argument for folding it in.
+    ae::reset_body_clusters(motion_model, clusters, to, tuning.air_jumps);
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
     combat.recoil_lock_timer = 0.0;

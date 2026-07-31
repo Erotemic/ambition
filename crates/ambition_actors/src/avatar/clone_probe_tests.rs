@@ -17,11 +17,11 @@
 //! `single_mut()`-keyed to the one `PlayerEntity` — see the player-clone probe
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
+use ae::Vec2;
 use ae::movement::{
-    step_motion, InputState, MotionModel, MotionStepContext, DEFAULT_AXIS_SWEPT_PARAMS,
+    DEFAULT_AXIS_SWEPT_PARAMS, InputState, MotionModel, MotionStepContext, step_motion,
 };
 use ae::world::{Block, World};
-use ae::Vec2;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::state_machine::PlayerDemoCfg;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
@@ -52,7 +52,12 @@ fn step_axis_body(
     );
     if result.events.reset.is_some() {
         let mut model = ae::MotionModel::default();
-        ae::reset_body_clusters(&mut model, &mut clusters, world.spawn);
+        ae::reset_body_clusters(
+            &mut model,
+            &mut clusters,
+            world.spawn,
+            ae::DEFAULT_TUNING.air_jumps,
+        );
     }
 }
 

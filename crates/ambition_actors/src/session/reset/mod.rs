@@ -285,19 +285,15 @@ pub fn process_sandbox_reset_request(
     )) = player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
+        // The live tuning goes IN. This site used to pass none and then redo the
+        // refresh with a comment explaining why — "reset_body_clusters uses
+        // DEFAULT_TUNING for the post-reset dash/jump refresh". The comment was
+        // right, and it was load-bearing knowledge living at one of five call
+        // sites; the other four either restated it or (in one case) did not know.
         ae::reset_body_clusters(
             &mut motion_model,
             &mut clusters,
             room_plan.spec().world.spawn,
-        );
-        // reset_body_clusters uses DEFAULT_TUNING for the post-reset
-        // dash/jump refresh; redo with the live tuning so a F3
-        // live-tuning session sees its overridden air_jumps /
-        // dash_charge_count immediately after a reset.
-        ae::refresh_movement_resources_clusters(
-            clusters.abilities,
-            clusters.dash,
-            clusters.jump,
             tuning.air_jumps,
         );
         clusters.mana.meter.refill_full();

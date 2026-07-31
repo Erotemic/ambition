@@ -15,10 +15,10 @@
 //! multi-tick tests keep coyote windows, buffers, dash timers, and ledge
 //! grabs across steps exactly as a live entity would.
 
-use crate::body_clusters::{reset_body_clusters, BodyClusterScratch, BodyClustersMut};
+use crate::body_clusters::{BodyClusterScratch, BodyClustersMut, reset_body_clusters};
 use crate::movement::{
-    step_motion, AxisSweptParams, FrameEvents, InputState, MotionModel, MotionModelSpec,
-    MotionStepContext, MovementTuning, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
+    AxisSweptParams, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, FrameEvents, InputState, MotionModel,
+    MotionModelSpec, MotionStepContext, MovementTuning, step_motion,
 };
 use crate::{LedgeContact, LedgeGrabState, MotionFrame, Vec2, World};
 
@@ -116,7 +116,12 @@ pub(crate) fn update_player_with_tuning_clusters(
         },
     );
     if result.events.reset.is_some() {
-        reset_body_clusters(model, clusters, world.spawn);
+        reset_body_clusters(
+            model,
+            clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
     }
     result.events
 }
@@ -172,7 +177,12 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         tuning.params(),
     );
     if events.reset.is_some() {
-        reset_body_clusters(model, &mut clusters, world.spawn);
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
     }
     events
 }
@@ -218,7 +228,12 @@ pub(crate) fn update_player_simulation_with_clusters(
         tuning.params(),
     );
     if events.reset.is_some() {
-        reset_body_clusters(model, clusters, world.spawn);
+        reset_body_clusters(
+            model,
+            clusters,
+            world.spawn,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
     }
     events
 }

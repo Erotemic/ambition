@@ -23,8 +23,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
-use crate::features::ecs::attack::engine_input_from_actor_control;
 use crate::features::FeatureEcsWorldOverlay;
+use crate::features::ecs::attack::engine_input_from_actor_control;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
@@ -219,7 +219,12 @@ pub fn integrate_home_body(
         origin: clusters.kinematics.pos,
     });
     if reset.is_some() {
-        ae::reset_body_clusters(motion_model, clusters, world.spawn);
+        // ⚠ `axis_tuning.air_jumps`, not the engine default. This site was the
+        // ONE of five that never followed the reset with
+        // `refresh_movement_resources_clusters`, so a player under non-default
+        // tuning came back from a pit with default air jumps. Now the reset
+        // takes the answer and there is no follow-up to forget.
+        ae::reset_body_clusters(motion_model, clusters, world.spawn, axis_tuning.air_jumps);
     }
 
     *frame_out = PlayerBodyFrameOutput {

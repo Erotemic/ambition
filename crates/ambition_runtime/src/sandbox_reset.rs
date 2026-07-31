@@ -22,9 +22,9 @@
 
 use bevy::prelude::*;
 
+use ambition_actors::SandboxSimState;
 use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_actors::time::time_control::{ClockRequester, ClockResetRequest};
-use ambition_actors::SandboxSimState;
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
@@ -64,13 +64,7 @@ pub fn reset_sandbox(
     feel: SandboxFeelTuning,
 ) {
     let reset_from = clusters.kinematics.pos;
-    ae::reset_body_clusters(motion_model, clusters, world.spawn);
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        tuning.air_jumps,
-    );
+    ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
     clock_resets.write(ClockResetRequest::sim_clock(

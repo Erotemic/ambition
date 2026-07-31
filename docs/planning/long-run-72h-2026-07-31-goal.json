@@ -1,0 +1,97 @@
+{
+  "_comment": [
+    "72-hour run, armed 2026-07-31T01:30Z on Jon's instruction: 'run",
+    "continuously for 72 hours -- there is so much to do we won't get it all done",
+    "within that time, so there is no reason to even set a stopping criteria.'",
+    "",
+    "THE RELEASE IS THE DEADLINE, NOT THE CHECKS. Every check below names a test,",
+    "a build, or a deleted code path, and the ledger check is deliberately",
+    "unsatisfiable in spirit: if every row in the ledger is closed, the correct",
+    "response is to go read docs/planning, find the next item, WRITE IT DOWN, and",
+    "keep working -- not to stop.",
+    "",
+    "This file is COMMITTED on purpose. .goal/active.json is a copy of it, and",
+    "editing either one to end the run early leaves a diff in a tracked file with",
+    "this comment sitting next to it. That is the whole security model, stated",
+    "honestly: the guard converts 'convince a judge' into 'falsify a specific",
+    "artifact', and nothing more. Only Jon ends this run.",
+    "",
+    "max_run_hours is 74 rather than the 36h default because the default fuse",
+    "would release the run at the halfway mark. max_stalled_blocks is 40 because",
+    "the stall counter counts BLOCKS WITH NO NEW COMMIT, and a large architecture",
+    "slice legitimately spans many turns before it is committable -- but not 40.",
+    "",
+    "A check that TIMES OUT counts as failing, which keeps the run open. That is",
+    "the safe direction and it is why the per-check timeouts here are moderate",
+    "rather than generous."
+  ],
+
+  "goal": "Work continuously for 72 hours on docs/planning, prioritising ARCHITECTURE items that make future work easier -- a seam, an authority, a lifecycle boundary, or a measurement that can move -- over items that only make one game better. The spine is docs/planning/queue-72h-2026-07-31.md: S1 slice H (the facade's edges become optional capabilities), S2 match activation as a transaction, S3 the AC24 fixture that rewinds across an activation, S4 the body-generic damage authority then stocks, S5 session-owned combat tuning, S6 check_agent_kb green, S7 the FB4b decision rig. Backlog rows are carried in queue-24h-2026-07-26.md and remain in scope. THERE IS NO COMPLETION CRITERION: if the ledger looks empty, the next item has not been WRITTEN DOWN yet -- go read docs/planning, add it, and get back to work. Do not write a completion-shaped summary while time remains; that prose is the exact artifact that ends runs early.",
+
+  "deadline_utc": "2026-08-03T01:30:00Z",
+  "max_run_hours": 74,
+  "max_stalled_blocks": 40,
+
+  "checks": [
+    {
+      "name": "the ledger has no open rows (refill it rather than stopping)",
+      "cmd": "! grep -q '▢' docs/planning/queue-72h-2026-07-31.md",
+      "timeout": 60
+    },
+    {
+      "name": "the app compiles (the gate, not a per-crate check)",
+      "cmd": "$HOME/.cargo/bin/cargo check -p ambition_app --quiet",
+      "timeout": 900
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!game/ambition_content/assets/data/character_drafts' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\"",
+      "timeout": 60
+    },
+    {
+      "name": "S1 slice H: the facade's capabilities are optional and it builds without them",
+      "cmd": "git grep -q 'all_capabilities' -- crates/ambition/Cargo.toml && $HOME/.cargo/bin/cargo check -p ambition --no-default-features --quiet",
+      "timeout": 900
+    },
+    {
+      "name": "S1 slice H: the absence contracts and the footprint ratchet are green",
+      "cmd": "python3 scripts/check_absence_contracts.py >/dev/null",
+      "timeout": 300
+    },
+    {
+      "name": "S2 match activation constructs every seat in ONE transaction",
+      "cmd": "out=$( { $HOME/.cargo/bin/cargo test -p ambition_actors --lib activation_transaction 2>&1; $HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it activation_transaction 2>&1; } || true ); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "S3 AC24: a rewind ACROSS the activation frame is reproduced",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it rollback_match_activation::rewinds_across_the_activation 2>&1 || true); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "S4 the damage meter can EXCEED the pool (percent is not health)",
+      "cmd": "out=$( { $HOME/.cargo/bin/cargo test -p ambition_characters --lib damage_percent 2>&1; $HOME/.cargo/bin/cargo test -p ambition_combat --lib damage_percent 2>&1; } || true ); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "S4 stocks are a real loop (spend, respawn, eliminate, end the match)",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it stocks 2>&1 || true); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "S5 match rules are session-owned tuning, not a borrowed global",
+      "cmd": "! git grep -qn 'VersusBorrowedRules' -- 'game/**' 'crates/**' && out=$($HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it resolved_combat_tuning 2>&1 || true); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    },
+    {
+      "name": "S6 the agent-KB instrument is green (it has been red since before the API campaign)",
+      "cmd": "python3 scripts/check_agent_kb.py >/dev/null",
+      "timeout": 300
+    },
+    {
+      "name": "S7 FB4b: the fighter brain's decision rig exists",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_characters --lib brain::fighter::decision 2>&1 || true); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "timeout": 900
+    }
+  ]
+}

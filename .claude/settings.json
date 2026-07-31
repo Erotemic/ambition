@@ -9,7 +9,7 @@
           {
             "type": "command",
             "command": "python3 scripts/goal_guard.py",
-            "timeout": 900,
+            "timeout": 3600,
             "statusMessage": "Checking the armed goal..."
           }
         ]

@@ -214,3 +214,55 @@ fn the_variant_order_is_the_precedence() {
     assert!(Situation::EdgeGuard > Situation::Advantage);
     assert!(Situation::Advantage > Situation::Neutral);
 }
+
+/// **Airborne past the lip of a platform is RECOVERY, even inside the room.**
+///
+/// `StageView` is the ROOM. On a platform stage the playable floor is a subset
+/// of it, so a fighter that walked off a 420px platform in a 640px room was
+/// *inside the stage* for another hundred pixels of falling: L1 answered
+/// `Neutral`, L2 offered `Approach`/`Retreat`/`Jump`, and `Recover` — the one
+/// verb that means "get back" — was not on the list until the body had left the
+/// ROOM. Traced at level 9 on 2026-07-31: airborne at x=582 and x=627 over a
+/// platform ending at 530, drifting right at 532 px/s, offered `[Retreat, Jump]`
+/// and taking `Retreat` both times.
+#[test]
+fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
+    let platform = crate::perception::PerceivedSolid {
+        // x 110..530, top face at y=300.
+        aabb: ae::Aabb::new(ae::Vec2::new(320.0, 316.0), ae::Vec2::new(210.0, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    };
+    let airborne_at = |x: f32| {
+        let mut me = me_at(x, 240.0);
+        me.on_ground = false;
+        me.half_extent = ae::Vec2::new(10.0, 16.0);
+        WorldView {
+            self_view: me,
+            stage: stage(),
+            actors: vec![foe_at(300.0, 284.0)],
+            terrain: vec![platform],
+            ..Default::default()
+        }
+    };
+
+    // Over the platform, mid-jump: there is something to land on, so this is an
+    // ordinary airborne moment and NOT a recovery.
+    let over = airborne_at(400.0);
+    assert_ne!(classify(seen(&over)), Situation::Recovery);
+
+    // Past the lip, still 100px inside the room: nothing underneath.
+    let past = airborne_at(600.0);
+    assert_eq!(
+        classify(seen(&past)),
+        Situation::Recovery,
+        "a body with the room around it and nothing under it is recovering, \
+         whatever the room says"
+    );
+
+    // ⚠ and a view that publishes NO terrain is not a body over an abyss — it is
+    // a composition that does not build terrain, and reading that as recovery
+    // would put every brain in such a composition into permanent recovery.
+    let mut terrainless = airborne_at(600.0);
+    terrainless.terrain.clear();
+    assert_ne!(classify(seen(&terrainless)), Situation::Recovery);
+}

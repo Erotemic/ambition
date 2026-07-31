@@ -105,7 +105,31 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     let gravity_down = me.gravity_down;
 
     // 1. Self offstage. Nothing else matters.
-    if view.self_offstage() {
+    //
+    // ⚠ **"offstage" is TWO facts on a platform stage, and this asked one.**
+    // `StageView` is the ROOM, so a fighter that walked off the lip of a 420px
+    // platform in a 640px room was still *inside the stage* for another hundred
+    // pixels of falling: L1 answered `Neutral`, L2 kept offering `Retreat` — the
+    // verb pointing further out — and `Recover`, the one verb that means "get
+    // back", was not on the list until the body had left the ROOM.
+    //
+    // Traced 2026-07-31, level 9, `AMBITION_FIGHTER_TRACE=1`: airborne at
+    // x=582 and x=627 over a platform ending at 530, drifting right at 532 px/s,
+    // offered `[Retreat, Jump]` both times and taking `Retreat` both times.
+    //
+    // So the question recovery is actually about is whether there is anywhere to
+    // LAND. A body with the room around it and nothing underneath it is
+    // recovering, whatever the room says.
+    //
+    // ⚠ **and it asks whether terrain was BUILT first.** A view with no solids
+    // at all is not a body over an abyss, it is a composition that does not
+    // publish terrain — the `juggle_escape` scenario fixture is exactly that,
+    // and without this clause it read as `Recovery` the moment this landed.
+    // "I cannot see the floor" must never mean "the floor ends here";
+    // `floor_ahead` carries the same warning three screens up.
+    let nothing_to_land_on =
+        !view.terrain.is_empty() && !view.self_view.on_ground && view.ground_below().is_none();
+    if view.self_offstage() || nothing_to_land_on {
         return Situation::Recovery;
     }
 

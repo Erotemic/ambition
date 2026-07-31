@@ -463,6 +463,39 @@ impl WorldView {
         Some(support.aabb)
     }
 
+    /// **Is there anything below me to land on?**
+    ///
+    /// The top of the highest solid under the body's footprint, or `None` when
+    /// there is nothing under it at all. Unlike [`Self::supporting_floor`] this
+    /// does not care how far below: a body at the top of a jump is over its
+    /// platform, and a body that has walked off the lip is over nothing, and
+    /// those are different situations no matter what height either is at.
+    ///
+    /// ⚠ **it exists because "offstage" was a question about the ROOM.**
+    /// `StageView` is the room box, so on a platform stage a fighter that walked
+    /// off the lip was still *inside the stage* for another hundred pixels of
+    /// falling — L1 kept classifying `Neutral`, kept offering `Retreat`, and the
+    /// verb that means "get back" was not on the list until the body had left
+    /// the room. Having somewhere to land is the question recovery is actually
+    /// about.
+    pub fn ground_below(&self) -> Option<f32> {
+        let me = &self.self_view;
+        let feet = me.pos.y + me.half_extent.y;
+        self.terrain
+            .iter()
+            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| {
+                solid.aabb.min.x <= me.pos.x + me.half_extent.x
+                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
+                    // Below the feet, in the gravity sense this view is written
+                    // in (+y down). A solid the body is already inside counts:
+                    // it is still something to stand on.
+                    && solid.aabb.max.y >= feet
+            })
+            .map(|solid| solid.aabb.min.y)
+            .min_by(f32::total_cmp)
+    }
+
     /// The nearer of the two floor edges, or `None` when there is no floor.
     pub fn floor_edge_distance(&self) -> Option<f32> {
         match (self.floor_ahead(1.0), self.floor_ahead(-1.0)) {

@@ -52,6 +52,7 @@ registration), and every waiver carries an id and a reason.
 Usage:
     python3 scripts/check_engine_systems_are_engine_installed.py
     python3 scripts/check_engine_systems_are_engine_installed.py --list
+    python3 scripts/check_engine_systems_are_engine_installed.py --all --list
 """
 
 from __future__ import annotations

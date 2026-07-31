@@ -13,6 +13,7 @@ members = [
     "crates/ambition_asset_manager",
     "crates/ambition_audio",
     "crates/ambition_combat",
+    "crates/ambition_causal",
     "crates/ambition_content_pack",
     "crates/ambition_content_cli",
     "game/ambition_content",

@@ -301,9 +301,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_causal"
+version = "0.1.0"
+
+[[package]]
 name = "ambition_characters"
 version = "0.1.0"
 dependencies = [
+ "ambition_causal",
  "ambition_content_pack",
  "ambition_engine_core",
  "ambition_entity_catalog",

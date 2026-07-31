@@ -468,25 +468,39 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
     }
 }
 
-/// **One line per decision, when `AMBITION_FIGHTER_TRACE=1`.**
+/// **Publish the decision as a structured causal fact — and render one line of
+/// it when `AMBITION_FIGHTER_TRACE=1`.**
 ///
-/// A diagnostic affordance for `ladder_probe`, and it exists because the last
+/// This used to be an `eprintln!` and nothing else. It exists because the last
 /// two attempts to fix the fighter walking off the stage were reasoning where a
 /// measurement was available — one produced a paralysis that read as a 3×
-/// improvement, the other made the number worse. What the probe could see was
-/// WHERE the body died and how fast; what it could not see is which verb the
+/// improvement, the other made the number worse. What `ladder_probe` could see
+/// was WHERE the body died and how fast; what it could not see is which verb the
 /// brain picked and which ones the rollout struck off, and that is the whole
 /// question.
 ///
-/// ⚠ **off by default and read ONCE.** The env lookup is a `LazyLock`, so a
-/// production tick pays one relaxed atomic load. It prints to stderr rather than
-/// through `bevy::log` deliberately: the probe is a binary that prints a table
-/// to stdout, and the trace has to be separable from it by redirection.
+/// It is a FACT now, for three reasons the text line could not meet:
 ///
-/// ⚠ **it is not rollback-safe and does not pretend to be.** Under a rollback
-/// host a resimulated frame decides again and prints again. The probe is a
-/// fixed-tick host; anyone turning this on under GGRS is reading a log with
-/// repeats in it, which is a fact about the trace and not about the brain.
+/// * **it is queryable.** `explanation.first("fighter_decision").get("chose")`
+///   is a field lookup; the same thing over stderr is a regex over prose that
+///   breaks when somebody improves the wording.
+/// * **it correlates.** A fact carries a tick, a subject and a generation, so
+///   the verb this brain chose can be joined to the movement it produced and
+///   the damage that followed. Two unrelated `eprintln!`s cannot be joined at
+///   all.
+/// * **it labels a repeat.** The old docstring conceded it was *"not
+///   rollback-safe and does not pretend to be"* — under a rollback host a
+///   resimulated frame decided again and printed again, and two identical lines
+///   are indistinguishable from one decision made twice. `Execution` says which.
+///
+/// ⚠ **one authority.** The stderr line is RENDERED from the fact, so the two
+/// cannot drift. A second `eprintln!` carrying a field the fact lacks is the
+/// bug this replaces, one level up.
+///
+/// ⚠ **the tick is stamped by the scope owner, not by this function.** A brain
+/// five hops below the ECS does not know the world's clock, and a decision
+/// counter guessed here would be a second clock that no other domain could join
+/// against. `CausalLog::set_tick` is the one place with the answer.
 fn trace_decision(
     view: crate::perception::Perceived<'_>,
     options: &crate::brain::fighter::options::OptionSet,
@@ -497,11 +511,23 @@ fn trace_decision(
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
     });
-    if !*ENABLED {
+
+    #[cfg(feature = "causal")]
+    let publishing = ambition_causal::recording();
+    #[cfg(not(feature = "causal"))]
+    let publishing = false;
+
+    if !*ENABLED && !publishing {
         return;
     }
+
     let me = view.self_view;
-    eprintln!(
+    let offered: Vec<_> = options
+        .movement
+        .iter()
+        .map(|option| option.verb)
+        .collect();
+    let line = format!(
         "[fighter] x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
         me.pos.x,
         me.vel.x,
@@ -511,15 +537,49 @@ fn trace_decision(
         view.stage.bounds.min.x,
         view.stage.bounds.max.x,
         view.floor_edge_distance().map(|d| d.round()),
-        options
-            .movement
-            .iter()
-            .map(|option| option.verb)
-            .collect::<Vec<_>>(),
+        offered,
         vetoed,
         chosen,
         frame.locomotion.x,
     );
+
+    #[cfg(feature = "causal")]
+    if publishing {
+        use ambition_causal::{CausalFact, FactDetail, domains};
+        // The summary is the same line a human reads; every value a TOOL would
+        // want is a field beside it, so nothing has to be parsed back out.
+        ambition_causal::record(
+            CausalFact::new(
+                domains::BRAIN,
+                0,
+                FactDetail::new(
+                    "fighter_decision",
+                    match chosen {
+                        Some(verb) => format!("chose {verb:?}"),
+                        None => "chose nothing — every verb was vetoed".to_string(),
+                    },
+                ),
+            )
+            .field("chose", format!("{chosen:?}"))
+            .field("offered", format!("{offered:?}"))
+            .field("vetoed", format!("{vetoed:?}"))
+            .field("vetoed_count", vetoed.len() as i64)
+            .field("pos_x", me.pos.x)
+            .field("vel_x", me.vel.x)
+            .field("on_ground", me.on_ground)
+            .field("phase", format!("{:?}", me.phase))
+            .field("stage_known", view.stage.is_known())
+            .field(
+                "floor_edge_distance",
+                view.floor_edge_distance().unwrap_or(f32::INFINITY),
+            )
+            .field("emit_locomotion_x", frame.locomotion.x),
+        );
+    }
+
+    if *ENABLED {
+        eprintln!("{line}");
+    }
 }
 
 /// What the foe looks like from across the stage, or `None` when there is no foe.

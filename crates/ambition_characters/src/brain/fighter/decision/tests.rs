@@ -610,3 +610,104 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
     assert!(out.special_pressed && !out.melee_pressed);
 }
+
+/// **Why did this fighter choose this action?** — asked headlessly, of the real
+/// brain, without reading a line of engine implementation.
+///
+/// This is the program's first required inspector question and it is answered
+/// against the SAME `tick_fighter` the game runs. What it replaces is
+/// `AMBITION_FIGHTER_TRACE=1`: one `eprintln!` per decision, unqueryable,
+/// uncorrelatable, and — by its own docstring — unable to tell an original tick
+/// from a resimulated one.
+///
+/// ⚠ the assertion is on FIELDS, never on the summary sentence. A test that
+/// greps prose breaks when somebody improves the wording, which teaches the next
+/// person that improving the wording is dangerous.
+#[cfg(feature = "causal")]
+#[test]
+fn the_inspector_answers_why_this_fighter_chose_this_action() {
+    use ambition_causal::{CausalLog, FactValue, RecordingPolicy, SubjectKey, domains, with_sink};
+
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    let mut log = CausalLog::default();
+    log.set_policy(RecordingPolicy::only([domains::BRAIN]));
+    // The scope owner stamps the world's clock; the brain never guesses one.
+    log.set_tick(41);
+
+    let (log, ()) = with_sink(log, || {
+        for _ in 0..6 {
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        }
+    });
+
+    // The brain publishes nothing about a body — it has no stable sim id down
+    // here — so the facts are about the WORLD on that tick, which `explain`
+    // returns for any subject. That is a recorded API leak, not a design: the
+    // subject arrives when the integration layer publishes the fact.
+    let explanation = log.explain(41, &SubjectKey::Sim("fighter_1".into()));
+    let decision = explanation
+        .first("fighter_decision")
+        .expect("the brain decided at least once in six ticks");
+
+    // 1. WHICH verb, as a field.
+    let chose = decision.get("chose").expect("every decision records its verb");
+    assert!(
+        !matches!(chose, FactValue::Text(text) if text == "None"),
+        "a foe 200px away and open floor: the brain chose something — {chose}"
+    );
+
+    // 2. And WHY it was available: what was offered, and what the rollout struck
+    //    off. This is the pair the old text line existed to expose and the pair
+    //    no test could previously assert on.
+    assert!(decision.get("offered").is_some());
+    assert_eq!(
+        decision.get("vetoed_count"),
+        Some(&FactValue::Int(0)),
+        "at depth 0 the rollout does not run, so nothing is vetoed"
+    );
+
+    // 3. The situation the choice was made in — enough to reconstruct the call.
+    assert_eq!(decision.get("on_ground"), Some(&FactValue::Bool(true)));
+    assert_eq!(decision.get("pos_x"), Some(&FactValue::Float(300.0)));
+
+    // 4. And what actually reached the body, so the chain from decision to
+    //    emitted input is closed without inferring it.
+    assert!(matches!(
+        decision.get("emit_locomotion_x"),
+        Some(FactValue::Float(_))
+    ));
+
+    // The tick is the one the OWNER stamped, not a brain-local counter.
+    assert!(explanation.facts().iter().all(|fact| fact.tick == 41));
+    println!("{}", explanation.render());
+}
+
+/// The instrument is OFF unless something opens a scope, and the brain behaves
+/// identically either way.
+///
+/// The second half is the one that matters: an observer that changes what it
+/// observes is not an observer. Same seed, same views, same frames.
+#[cfg(feature = "causal")]
+#[test]
+fn recording_changes_nothing_about_what_the_brain_does() {
+    use ambition_causal::{CausalLog, RecordingPolicy, with_sink};
+
+    let (cfg, mut unobserved) = rig(immediate_profile());
+    let quiet = run(&cfg, &mut unobserved, 20);
+
+    let (cfg, mut observed) = rig(immediate_profile());
+    let mut log = CausalLog::default();
+    log.set_policy(RecordingPolicy::All);
+    let (log, loud) = with_sink(log, || run(&cfg, &mut observed, 20));
+
+    assert!(!log.is_empty(), "the scope collected something to compare");
+    assert_eq!(
+        quiet, loud,
+        "the brain emitted a different frame while being watched — an observer that changes \
+         what it observes is not an observer, and under a rollback host it would be a desync"
+    );
+}

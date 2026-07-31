@@ -14,16 +14,22 @@ use bevy_ggrs::{
     ComponentSnapshotPlugin, LoadWorld, LoadWorldSystems, ResourceSnapshotPlugin, RollbackApp,
 };
 
-use crate::content_identity::SnapshotSchemaFingerprint;
 use crate::SimulationHost;
+use crate::content_identity::SnapshotSchemaFingerprint;
 
 use super::{
-    cursor_checksum, resolved_checksum, state_checksum, CanonicalCodecStrategy, SnapshotCursor,
-    SnapshotResolve, SnapshotState,
+    CanonicalCodecStrategy, SnapshotCursor, SnapshotResolve, SnapshotState, cursor_checksum,
+    resolved_checksum, state_checksum,
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 4;
+/// ⚠ **v5 (2026-07-31): the fingerprint stopped hashing the registration
+/// OWNER.** The owner is an organisational label nothing reads, and hashing it
+/// made "which module registered this" a wire-format fact — so moving a
+/// registration between modules declared two otherwise-identical peers
+/// incompatible. Bumped rather than changed silently: peers on v4 computed a
+/// different number over the same schema, and they must not believe they agree.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {
@@ -223,11 +229,40 @@ impl RollbackRegistry {
         out
     }
 
+    /// **What the schema actually IS**, with the organisational label removed.
+    ///
+    /// [`Self::deterministic_dump`] carries `owner` because a human reading a
+    /// conflict wants to know which module registered a thing. Nothing else
+    /// reads it — and until 2026-07-31 it was hashed into the fingerprint, which
+    /// made a purely organisational fact part of the WIRE FORMAT. Two peers
+    /// running identical snapshot logic would have been declared incompatible
+    /// because one of them had moved a registration to a different module.
+    ///
+    /// That is not hypothetical: Campaign 2 exists to move every registration
+    /// out of the central runtime into domain adapters, and R3 asks each move to
+    /// "verify the resulting schema fingerprint is unchanged" — which was
+    /// impossible while the fingerprint hashed who did the registering.
+    pub fn schema_dump(&self) -> String {
+        let mut out = format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}\n");
+        for entry in self.entries.values() {
+            use std::fmt::Write as _;
+            let _ = writeln!(
+                out,
+                "{}\t{}\t{}\t{}",
+                entry.name,
+                entry.kind.canonical_name(),
+                entry.type_name,
+                entry.detail
+            );
+        }
+        out
+    }
+
     pub fn schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"ambition.ggrs-rollback-schema\0");
         hasher.update(&GGRS_ROLLBACK_SCHEMA_VERSION.to_le_bytes());
-        let dump = self.deterministic_dump();
+        let dump = self.schema_dump();
         hasher.update(&(dump.len() as u64).to_le_bytes());
         hasher.update(dump.as_bytes());
         SnapshotSchemaFingerprint::from_bytes(*hasher.finalize().as_bytes())

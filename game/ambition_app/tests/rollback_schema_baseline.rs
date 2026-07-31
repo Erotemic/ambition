@@ -16,6 +16,12 @@
 //! whole point during a migration is to see WHICH line, so the baseline is the
 //! readable form and the fingerprint is derived from it.
 //!
+//! ⚠ **`schema_dump`, not `deterministic_dump`.** The latter carries the
+//! registration OWNER, which is an organisational label nothing reads — and
+//! Campaign 2 is the act of changing every one of them. A baseline over the
+//! owner column would go red on every relocation and be worthless for the one
+//! question it exists to answer: did the SCHEMA move?
+//!
 //! ⚠ **a change here is a WIRE-FORMAT change.** The fingerprint is part of
 //! content identity; two peers whose schemas differ cannot agree about a
 //! snapshot. Updating this file is a deliberate act, not a chore — if the diff
@@ -39,7 +45,7 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
         .world()
         .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
-        .deterministic_dump();
+        .schema_dump();
 
     if dump.trim() != BASELINE.trim() {
         let recorded: Vec<&str> = BASELINE.trim().lines().collect();

@@ -29,6 +29,7 @@ pub enum AmbitionLoadWorldSet {
 
 mod codec;
 mod codecs;
+mod domains;
 mod probes;
 #[cfg(test)]
 mod provenance_tests;
@@ -251,8 +252,15 @@ const ENGINE: &str = "ambition_runtime";
 /// The complete engine-owned GGRS rollback registration set. Domain content
 /// appends its own entries through [`AmbitionRollbackApp`].
 pub fn register_engine_rollback_state(app: &mut App) {
-    use ambition_engine_core::body_clusters as bc;
     use AmbitionRollbackApp as _;
+    use ambition_engine_core::body_clusters as bc;
+
+    // **DOMAIN ADAPTERS** (Campaign 2). Each owns one gameplay domain's schema;
+    // this function aggregates them and stops naming their types. The projectile
+    // domain went first — 15 registrations, no reverse dependency, and a state
+    // model nothing else writes. `rollback_schema_baseline` is what says the move
+    // changed nothing.
+    domains::projectiles::register(app);
 
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
@@ -266,7 +274,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "entity:body_kinematics",
     )
-    .require_rollback::<ambition_projectiles::LiveProjectile>(ENGINE, "entity:live_projectile")
     .require_rollback::<ambition_encounter::EncounterLifecycle>(
         ENGINE,
         "entity:encounter_lifecycle",
@@ -358,10 +365,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.moving_platform_set",
         )
-        .rollback_resource_canonical::<ambition_projectiles::ProjectileSeqCounter>(
-            ENGINE,
-            "resource.projectile_seq_counter",
-        )
         .rollback_resource_cursor::<ambition_combat::slots::CombatSlotsRes>(
             ENGINE,
             "resource.combat_slot_board",
@@ -402,10 +405,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         .rollback_resource_canonical::<ambition_actors::session::lifecycle_commit::PendingLifecycleCommit>(
             ENGINE,
             "resource.pending_lifecycle_commit",
-        )
-        .rollback_resource_canonical::<ambition_projectiles::enemy::EnemyProjectileState>(
-            ENGINE,
-            "resource.enemy_projectile_state",
         )
         .rollback_resource_canonical::<ambition_actors::SandboxSimState>(
             ENGINE,
@@ -776,10 +775,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "player.safety_state",
     )
     .rollback_component_canonical::<ambition_characters::actor::BodyWallet>(ENGINE, "body.wallet")
-    .rollback_component_canonical::<ambition_projectiles::PlayerProjectileState>(
-        ENGINE,
-        "player.projectile_state",
-    )
     .rollback_component_clone::<ambition_actors::avatar::PlayerBlinkCameraState>(
         ENGINE,
         "player.blink_camera_state",
@@ -1407,31 +1402,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "projectile.gameplay",
     )
-    .rollback_component_canonical::<ambition_projectiles::ProjectileSeq>(ENGINE, "projectile.seq")
-    .rollback_component_canonical::<ambition_projectiles::ProjectileOwnerId>(
-        ENGINE,
-        "projectile.owner_id",
-    )
-    .rollback_component_canonical::<ambition_projectiles::ProjectileVisualId>(
-        ENGINE,
-        "projectile.visual_id",
-    )
-    .rollback_component_canonical::<ambition_projectiles::ProjectileKind>(
-        ENGINE,
-        "projectile.kind",
-    )
-    .rollback_component_canonical::<ambition_projectiles::LiveProjectile>(
-        ENGINE,
-        "projectile.live_marker",
-    )
-    .rollback_component_canonical::<ambition_projectiles::PlayerProjectile>(
-        ENGINE,
-        "projectile.player_marker",
-    )
-    .rollback_component_canonical::<ambition_projectiles::enemy::EnemyProjectile>(
-        ENGINE,
-        "projectile.enemy_marker",
-    )
     .rollback_component_canonical::<ambition_encounter::EncounterLifecycle>(
         ENGINE,
         "encounter.lifecycle",
@@ -1489,16 +1459,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // put back the right number of owners and pointed a bolt at the wrong body —
     // which is the failure mode this registration exists to prevent, so the probe
     // was blind to precisely the thing it was added for.
-    app.rollback_component_clone_entity_ref::<ambition_projectiles::ProjectileOwner>(
-        ENGINE,
-        "component.projectile_owner",
-        |owner| owner.0,
-    )
-    .rollback_map_entities::<ambition_projectiles::ProjectileOwner>(
-        ENGINE,
-        "map.projectile_owner",
-    )
-    .declare_rollback_derived_component::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
+    app    .declare_rollback_derived_component::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
         ENGINE,
         "derived.body_environment_contact",
         "rewritten every movement step from body geometry and the live world",
@@ -1757,10 +1718,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.portal_body_transited",
     )
-    .clear_message_on_rollback::<ambition_projectiles::SpawnProjectile>(
-        ENGINE,
-        "message.spawn_projectile",
-    )
     .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx")
     .clear_message_on_rollback::<ambition_vfx::EffectRequest>(ENGINE, "message.effect_request")
     .clear_message_on_rollback::<ambition_vfx::vfx::DebrisBurstMessage>(
@@ -1827,10 +1784,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
     .clear_message_on_rollback::<ambition_persistence::quest::QuestAdvanceRequested>(
         ENGINE,
         "message.quest_advance_requested",
-    )
-    .clear_message_on_rollback::<ambition_projectiles::spawn_message::SpawnProjectile>(
-        ENGINE,
-        "message.spawn_projectile",
     )
     .clear_message_on_rollback::<ambition_portal::ClearPortals>(ENGINE, "message.portal_clear")
     .clear_message_on_rollback::<ambition_portal::DropPortalGun>(ENGINE, "message.portal_gun_drop")

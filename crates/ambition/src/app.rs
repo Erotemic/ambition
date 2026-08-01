@@ -424,6 +424,11 @@ enum CharacterContent {
     Ron(&'static str),
     DeclaredEmpty,
 }
+/// One module-provided rollback registration, applied at install time.
+///
+/// Boxed rather than typed because the registrations are heterogeneous — each
+/// names a different component — and a `ModuleDraft` must hold them together.
+type RollbackContribution = Box<dyn FnOnce(&mut App) + Send + Sync>;
 
 /// The inert accumulation a module writes into.
 ///
@@ -450,6 +455,9 @@ pub struct ModuleDraft {
     /// What the mounted capabilities need REWOUND, declared by the module that
     /// mounts them. See [`ModuleDraft::requires_rollback`].
     required_rollback: Vec<&'static [ambition_engine_core::snapshot::RequiredRollbackState]>,
+    /// The rollback registrations the module CONTRIBUTES, to satisfy the
+    /// requirements above. See [`ModuleDraft::provides_rollback`].
+    provided_rollback: Vec<RollbackContribution>,
     /// The SEMANTIC ACTIONS the mounted capabilities contribute. See
     /// [`ModuleDraft::actions`].
     actions: Vec<&'static [ambition_input::SemanticActionDef]>,
@@ -647,6 +655,57 @@ impl ModuleDraft {
         required: &'static [ambition_engine_core::snapshot::RequiredRollbackState],
     ) -> &mut Self {
         self.required_rollback.push(required);
+        self
+    }
+
+    /// **Provide the rollback registration a required state needs.**
+    ///
+    /// The other half of [`Self::requires_rollback`], and without it a module
+    /// could DECLARE what must rewind and had no supported way to supply it —
+    /// so a rollback-enabled game mounting a capability with required state
+    /// could not be composed at all through this API. The acceptance test for
+    /// the pulse sentinel worked around that by asserting on a REJECTED app and
+    /// reading the resources its failed installation had already written, which
+    /// proves that composition refuses and that installation mutates before
+    /// refusing — neither of which is "a game can run this capability"
+    /// (GPT 5.6, 2026-08-01, finding 3).
+    ///
+    /// ```ignore
+    /// module
+    ///     .capability(ambition_pulse::PulsePlugin::default())
+    ///     .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK)
+    ///     .provides_rollback::<ambition_pulse::PulseCooldown>(
+    ///         ambition_pulse::PULSE_CAPABILITY,
+    ///         ambition_pulse::ROLLBACK_STATE,
+    ///         |cooldown| u64::from(cooldown.remaining_ticks),
+    ///     );
+    /// ```
+    ///
+    /// ⚠ **the owner and name must MATCH the requirement**, and the composition
+    /// checks that after applying every contribution — a registration under
+    /// another owner satisfies nothing, which is what makes the pair a contract
+    /// rather than two lists.
+    ///
+    /// ⚠ **it is the MODULE that provides this, not the capability.** A
+    /// capability that registered its own rollback state would have to link the
+    /// simulation to reach the trait — `ambition_pulse` did, and cost 133
+    /// crates. Declaring here keeps that closure at 8.
+    ///
+    /// Contributions are applied only when the composition declared
+    /// `rollback(n)`; a fixed-step game carries no registry to write into.
+    pub fn provides_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy::prelude::Component<Mutability = bevy::ecs::component::Mutable> + Clone,
+    {
+        self.provided_rollback.push(Box::new(move |app: &mut App| {
+            use crate::runtime::rollback::AmbitionRollbackApp;
+            app.rollback_component_clone_probed::<T>(owner, name, projection);
+        }));
         self
     }
 
@@ -1295,6 +1354,22 @@ impl PlatformerApp {
         // session was refused for a hazard it cannot have. What distinguishes
         // them is the DECLARATION — `rollback(n)` — not the presence of a
         // registry the engine installs either way.
+        // **APPLY WHAT THE MODULE PROVIDED, then check what it required.**
+        //
+        // Order is the whole contract: a contribution that ran after the check
+        // would satisfy nothing, and a check that ran without the contributions
+        // would refuse every composition that supplied them correctly — which
+        // is the state this API was in before `provides_rollback` existed
+        // (GPT 5.6, 2026-08-01, finding 3).
+        //
+        // Only under a declared rollback session: a fixed-step game carries no
+        // registry to write into, and registering against one it does not have
+        // would be a silent no-op dressed as a contribution.
+        if rollback_participants.is_some() {
+            for contribute in draft.provided_rollback {
+                contribute(app);
+            }
+        }
         let rollback_registry = rollback_participants.is_some().then(|| {
             app.world()
                 .get_resource::<crate::runtime::rollback::RollbackRegistry>()

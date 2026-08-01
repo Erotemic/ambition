@@ -164,13 +164,29 @@ pub const REQUIRED_ROLLBACK: &[RequiredRollbackState] = &[RequiredRollbackState 
 The `why` is not decoration. A host that hits the refusal needs to know whether
 it is looking at a desync or an optional extra, and only you know.
 
-A composition installs it in one line:
+The MODULE supplies it, in the same declaration that requires it:
 
 ```rust
-app.rollback_component_clone_probed::<GrappleCooldown>(
-    my_mechanic::MY_CAPABILITY, my_mechanic::ROLLBACK_STATE,
-    |c| u64::from(c.remaining_ticks));
+module
+    .capability(my_mechanic::MyPlugin::default())
+    .requires_rollback(my_mechanic::REQUIRED_ROLLBACK)
+    .provides_rollback::<GrappleCooldown>(
+        my_mechanic::MY_CAPABILITY,
+        my_mechanic::ROLLBACK_STATE,
+        |c| u64::from(c.remaining_ticks),
+    );
 ```
+
+⚠ **owner and name must MATCH the requirement** — a registration under another
+owner satisfies nothing, which is what makes the two calls a contract rather
+than two lists.
+
+⛔ **the `requires` half shipped without the `provides` half**, so for a while a
+module could declare what must rewind and had no supported way to supply it: a
+rollback game mounting such a capability could not be composed at all. The
+capability's own acceptance test papered over that by asserting on a REJECTED
+app and reading the resources its failed installation had already written. If
+your positive test is inspecting an `Err`, you are testing the refusal.
 
 ## 5. Causal facts
 

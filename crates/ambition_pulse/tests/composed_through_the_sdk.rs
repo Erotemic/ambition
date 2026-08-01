@@ -7,12 +7,69 @@
 //! what it brings, and have the composition install all of it.
 //!
 //! ⚠ **`ambition` is a DEV-dependency.** A mechanic must not depend on the
-//! facade that mounts it; the capability's real closure is still seven
+//! facade that mounts it; the capability's real closure is still EIGHT
 //! foundation crates. This file is the consumer, not the capability.
 
 use ambition::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
 use ambition::input::{GAMEPLAY_CONTEXT, InstalledActions, SemanticActionId};
 use bevy::prelude::*;
+
+/// One character, so the composition has somebody to start as.
+///
+/// ⚠ a `playable(..)` whose starting character names nobody is refused with
+/// *"the host would prepare NOTHING and wait forever"* — which is the assembly
+/// check doing its job and is why this constant exists rather than an empty
+/// roster and a hopeful string.
+const ROSTER: &str = r#"(
+    brain_presets: { "still": StandStill },
+    action_set_presets: {
+        "walk_only": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "pulse_walker": (
+            display_name: "Walker",
+            spritesheet: "minimal_walker.png",
+            manifest: "minimal_walker_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "still",
+            default_action_set: "walk_only",
+            playable_kit: Authored,
+            tags: ["player"],
+        ),
+    },
+)"#;
+
+/// A room to stand in, so the module below is a GAME rather than a fragment.
+///
+/// The composition refuses a mounted experience with no gameplay route, and it
+/// is right to — but that refusal is what the rollback test used to trip over,
+/// leaving it asserting on a rejected app.
+fn a_room_to_stand_in() -> ambition::world::rooms::RoomSpec {
+    use ambition::world::prelude::*;
+    let size = Vec2::new(640.0, 360.0);
+    let floor_top = 320.0;
+    let world = AuthoredWorld::new(
+        "Pulse Room",
+        size,
+        Vec2::new(64.0, floor_top - 64.0),
+        // ⚠ `Block::solid(name, MIN, size)` takes a MIN CORNER, not a centre —
+        // the reference fixture shipped a centre here for months and its walker
+        // fell through the floor forever while the host reported Running.
+        vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, floor_top),
+            Vec2::new(size.x, 40.0),
+        )],
+    );
+    RoomSpec::new("pulse_room", world)
+}
 
 /// A game that wants the pulse. This is the whole integration an author writes.
 struct GameWithPulse;
@@ -26,29 +83,61 @@ impl GameModule for GameWithPulse {
         module
             .experience("game_with_pulse")
             .launcher_route("home")
-            .gameplay_route("game_with_pulse/play");
+            .gameplay_route("game_with_pulse/play")
+            .characters(ROSTER)
+            .no_audio()
+            .playable(
+                "Game With Pulse",
+                "A room and a shockwave",
+                "pulse_walker",
+                "pulse_room",
+                vec![a_room_to_stand_in()],
+            );
         module
             // behaviour
             .capability(ambition_pulse::PulsePlugin::default())
             // + the semantic action it contributes
             .actions(&[ambition_pulse::PULSE_ACTION])
             // + what it needs rewound
-            .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
+            .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK)
+            // + AND the registration that satisfies it. Without this half the
+            //   module could say what must rewind and had no supported way to
+            //   supply it, so a rollback game mounting this capability could not
+            //   be composed at all (GPT 5.6, 2026-08-01, finding 3).
+            .provides_rollback::<ambition_pulse::PulseCooldown>(
+                ambition_pulse::PULSE_CAPABILITY,
+                ambition_pulse::ROLLBACK_STATE,
+                |cooldown| u64::from(cooldown.remaining_ticks),
+            );
     }
 }
 
-/// **All three contributions arrive from one declaration.**
+/// **All FOUR contributions arrive from one declaration, and the composition
+/// SUCCEEDS.**
+///
+/// ⛔ this test used to assert on a REJECTED app. It mounted the module,
+/// expected `install_into` to fail for missing rollback registration, and then
+/// read the resources that the failed installation had already written —
+/// treating those as proof the capability composed. That proves two things
+/// neither of which is the claim: that composition detects the omission, and
+/// that installation mutates before it refuses (GPT 5.6, 2026-08-01, finding 3).
+///
+/// It could not do better, because there was no supported way for a module to
+/// PROVIDE the registration it declared as required. `provides_rollback` is that
+/// way, and this is now a game that composes.
 #[test]
 fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
     let mut app = App::new();
-    // ⚠ the composition refuses LATER (nothing registers the gameplay route,
-    // which is a separate and correct refusal). What this test is about is
-    // whether the contributions arrived before that, so the result is not
-    // asserted — the resources are.
     let outcome = PlatformerApp::headless()
         .rollback(2)
         .mount(GameWithPulse)
         .install_into(&mut app);
+
+    assert!(
+        outcome.is_ok(),
+        "a rollback-enabled game that mounts the capability AND provides its \
+         rewind registration must compose: {outcome:?}"
+    );
 
     // The ACTION reached the composition's vocabulary, beside the engine's.
     let actions = app
@@ -75,11 +164,64 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
         "the mechanic's tuning resource is present, so `capability(..)` ran"
     );
 
-    // ⚠ and the ROLLBACK requirement was CHECKED. The composition declared
-    // `rollback(2)` and nothing registered `pulse.cooldown`, so it must refuse
-    // with that reason — a capability whose rewind state is skipped desyncs, and
-    // this is the composition catching it rather than a player discovering it.
+    // And the ROLLBACK state is really registered — not merely required.
+    let registry = app
+        .world()
+        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .expect("a rollback composition builds a registry");
+    assert!(
+        registry
+            .missing_required_state(ambition_pulse::REQUIRED_ROLLBACK)
+            .is_empty(),
+        "the capability's rewind state is registered, so a rewind restores the \
+         cooldown rather than letting the action fire twice from one charge"
+    );
+}
+
+/// **And the refusal still works** — the useful half of the old test, kept as
+/// its own negative case rather than doing duty as the positive one.
+///
+/// A module that declares what must rewind and does NOT provide it is refused
+/// at assembly, naming the state and the capability's own reason. That is the
+/// composition catching a desync instead of a player discovering it.
+#[test]
+fn declaring_required_rollback_without_providing_it_is_refused() {
+    struct ForgetfulGame;
+
+    impl GameModule for ForgetfulGame {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new("forgetful_game")
+        }
+
+        fn define(&self, module: &mut ModuleDraft) {
+            module
+                .experience("forgetful_game")
+                .launcher_route("home")
+                .gameplay_route("forgetful_game/play")
+                .characters(ROSTER)
+                .no_audio()
+                .playable(
+                    "Forgetful Game",
+                    "Declares a rewind requirement and never supplies it",
+                    "pulse_walker",
+                    "pulse_room",
+                    vec![a_room_to_stand_in()],
+                );
+            // requires, and deliberately does not provide.
+            module
+                .capability(ambition_pulse::PulsePlugin::default())
+                .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
+        }
+    }
+
+    let mut app = App::new();
+    let outcome = PlatformerApp::headless()
+        .rollback(2)
+        .mount(ForgetfulGame)
+        .install_into(&mut app);
+
     let message = format!("{outcome:?}");
+    assert!(outcome.is_err(), "the omission must refuse: {message}");
     assert!(
         message.contains(ambition_pulse::ROLLBACK_STATE),
         "the missing rewind state is named by the refusal: {message}"

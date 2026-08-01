@@ -49,6 +49,7 @@ composition may hold several, keyed by id.
 | `capability(plugin)` | optional — a Bevy plugin the engine installs in its own order |
 | `actions(&[..])` | optional — semantic actions the capability contributes; the composition REFUSES if two claim the same id |
 | `requires_rollback(&[..])` | optional — rollback state the capability must have restored; refused at assembly if nothing registered it |
+| `provides_rollback(owner, name, probe)` | the other half — the typed registration that SATISFIES a requirement |
 
 ### What a capability CONTRIBUTES, beside its systems
 
@@ -74,6 +75,29 @@ path around it.
 
 **`requires_rollback(&[RequiredRollbackState])`** declares what a rewind must
 restore, and the composition refuses at assembly if nothing registered it.
+
+**`provides_rollback(owner, name, probe)`** — turbofished with the component
+type — is the half that satisfies it:
+
+```rust
+module
+    .capability(my_mechanic::MyPlugin::default())
+    .requires_rollback(my_mechanic::REQUIRED_ROLLBACK)
+    .provides_rollback::<my_mechanic::MyCooldown>(
+        my_mechanic::MY_CAPABILITY,
+        my_mechanic::ROLLBACK_STATE,
+        |c| u64::from(c.remaining_ticks),
+    );
+```
+
+⚠ **the owner and name must MATCH the requirement.** A registration under
+another owner satisfies nothing — that is what makes the pair a contract instead
+of two lists. Contributions are applied before the requirement check, and only
+when the composition declared `rollback(n)`.
+
+⛔ **without this the API could only refuse.** A module could say what must
+rewind and had no supported way to supply it, so a rollback-enabled game
+mounting such a capability could not be composed at all.
 
 ⚠ **do not register rollback state from your own crate.** The registration trait
 lives in `ambition_runtime`, and reaching for it drags the whole simulation into

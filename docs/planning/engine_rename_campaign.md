@@ -280,7 +280,7 @@ rename commits as unrelated. `scripts/modules_md.py` has a check mode and
 **`scripts/run_tests.py` never calls it**, so the D-B navigability standard is
 maintained by whoever remembers. Regenerate once, then add the check.
 
-### 6. `run_game.sh` validates LDtk worlds at a path that does not exist
+### 6. `run_game.sh` validated LDtk worlds at a path that does not exist — ✔ FIXED 2026-08-01
 
 Pre-existing — confirmed against `HEAD` before the rename, which faithfully
 carried the stale path forward:
@@ -290,12 +290,23 @@ local worlds_dir="$repo_root/crates/…_actor_monolith/assets/ambition/worlds"  
 ```
 
 The worlds live in `game/ambition_content/assets/worlds/` (the content split).
-⚠ the failure is not loud: `sandbox`/`intro` are passed unconditionally, but the
-Hall and cut-the-rope worlds are guarded by `[[ -f … ]]` and are therefore
-**silently dropped** — and the comment directly above says every secondary world
-must be passed "so the validator resolves cross-file LoadingZone targets (the hub
-door into the Hall, etc.)." So cross-file door validation has been quietly
-degraded, which is the exact silent-skip shape this repo keeps finding.
+⚠ the failure was not loud: `sandbox`/`intro` were passed unconditionally, but
+the Hall and cut-the-rope worlds sat behind `[[ -f … ]]` guards and were
+therefore **silently dropped** — while the comment directly above said every
+secondary world must be passed "so the validator resolves cross-file LoadingZone
+targets (the hub door into the Hall, etc.)." Cross-file door validation had been
+quietly degraded to nothing, which is the exact silent-skip shape this repo keeps
+finding.
+
+✔ **Fixed (Jon, 2026-08-01).** `run_ldtk_validation` now DISCOVERS every `.ldtk`
+under the content worlds directory rather than naming four files, so a newly
+authored world cannot be dropped by omission; it prints the entry world and the
+secondaries it found, so a short list is visible instead of silent; and it fails
+loudly — exit 2, through `fail` — when the directory or the entry world is
+missing, instead of degrading to a single-world check. Both failure branches were
+probed by moving the real files aside, and the happy path now validates all four
+worlds with no cross-file errors, which is the first time that check has actually
+run.
 
 ### 7. The two blunt names, and when to retire them
 

@@ -145,28 +145,53 @@ require_positive_integer() {
     [[ "$value" =~ ^[1-9][0-9]*$ ]] || fail "$opt requires a positive integer"
 }
 
+# Where the authored worlds live, and which one the validator starts from.
+#
+# ⛔ until 2026-08-01 this pointed at a directory that does not exist, under the
+# former `crates/ambition_actors/assets/` — and it had already stopped existing
+# before that crate was renamed, because the content split moved the worlds
+# under `game/ambition_content`. The failure was NOT loud: the two
+# named secondary worlds were guarded by `[[ -f … ]]`, so a missing directory
+# silently reduced the run to a single-world check, and cross-file LoadingZone
+# resolution — the hub door into the Hall, the cut-rope vault — was validated
+# by nothing at all.
+ldtk_worlds_dir="$repo_root/game/ambition_content/assets/worlds"
+ldtk_primary_world="sandbox.ldtk"
+
 run_ldtk_validation() {
-    local worlds_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds"
-    local sandbox_world="$worlds_dir/sandbox.ldtk"
-    local intro_world="$worlds_dir/intro.ldtk"
-    local cut_rope_world="$worlds_dir/you_have_to_cut_the_rope.ldtk"
-    local hall_world="$worlds_dir/hall_of_characters.ldtk"
+    [[ -d "$ldtk_worlds_dir" ]] ||
+        fail "no LDtk world directory at ${ldtk_worlds_dir#"$repo_root"/} — content moved again?"
 
-    local cmd=(
-        "$python_bin" -m ambition_ldtk_tools validate
-        "$sandbox_world"
-        --secondary-world "$intro_world"
-    )
-    # Every secondary world must be passed so the validator resolves cross-file
-    # LoadingZone targets (the hub door into the Hall, etc.).
-    if [[ -f "$cut_rope_world" ]]; then
-        cmd+=(--secondary-world "$cut_rope_world")
-    fi
-    if [[ -f "$hall_world" ]]; then
-        cmd+=(--secondary-world "$hall_world")
-    fi
+    local primary="$ldtk_worlds_dir/$ldtk_primary_world"
+    [[ -f "$primary" ]] ||
+        fail "the entry world ${ldtk_primary_world} is not in ${ldtk_worlds_dir#"$repo_root"/}"
 
-    echo "Validating LDtk worlds..."
+    # DISCOVERED, not listed. Every secondary must reach the validator or
+    # cross-file LoadingZone targets resolve against nothing — and a hard-coded
+    # list drops a newly authored world silently, which is the defect above.
+    local worlds=()
+    while IFS= read -r -d '' world; do
+        worlds+=("$world")
+    done < <(find "$ldtk_worlds_dir" -maxdepth 1 -type f -name '*.ldtk' -print0 | sort -z)
+
+    local cmd=("$python_bin" -m ambition_ldtk_tools validate "$primary")
+    local secondaries=()
+    local world
+    for world in "${worlds[@]}"; do
+        [[ "$world" == "$primary" ]] && continue
+        cmd+=(--secondary-world "$world")
+        secondaries+=("$(basename "$world")")
+    done
+
+    echo "Validating LDtk worlds in ${ldtk_worlds_dir#"$repo_root"/}:"
+    echo "  entry:     $ldtk_primary_world"
+    if ((${#secondaries[@]} == 0)); then
+        # Not fatal — a single-world repository is legal — but it is stated,
+        # because it is indistinguishable from the bug this replaced.
+        echo "  secondary: (none found)"
+    else
+        echo "  secondary: ${secondaries[*]}"
+    fi
     print_cmd env "PYTHONPATH=$repo_root/tools/ambition_ldtk_tools" "${cmd[@]}"
     PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "${cmd[@]}"
 }

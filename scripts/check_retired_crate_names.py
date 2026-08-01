@@ -83,7 +83,15 @@ HISTORICAL_PREFIXES = (
     "docs/planning/queue-72h-",
 )
 
-SKIP_NAMES = ("Cargo.lock", "check_retired_crate_names.py")
+# ⚠ the guard's own test file is skipped because its FIXTURES are retired names —
+# that is what it tests. It went unnoticed at first because `git ls-files` did not
+# yet list the file: the live-tree ratchet passed while its own counter-example was
+# untracked, which is the "green at minute zero" trap one level in.
+SKIP_NAMES = (
+    "Cargo.lock",
+    "check_retired_crate_names.py",
+    "test_retired_crate_names.py",
+)
 
 # Whole files whose CONTENT is a quotation of old source. Listed individually,
 # with the reason, rather than pattern-matched.

@@ -350,3 +350,40 @@ reachable lines are the ones still being used.
 being read, but so does one that is raised whenever it is inconvenient. It should
 move because somebody decided what belongs in `docs/planning`, not to silence a
 warning.
+
+---
+
+## Does `apple_rain`'s damageable box follow the head row when no sprite sample exists? (2026-08-01)
+
+One line of content blocks the `BossAnim`→`CharacterAnim` fold's first slice.
+Pinned by `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`
+(`ambition_content`), which fails on either answer so neither happens silently.
+
+`apple_rain` is a `Special`, so its animation rows come from
+`ambition_content`'s `special_animation_keys()` map — and it is not in it. Its
+profile therefore claims **no rows**, while the sample writer emits `"head_down"`
+for it, with a comment saying that is deliberate: *"GNU-ton's apple rain reads the
+head row for its damageable hurtbox."*
+
+So the intent is written down and the catalog does not carry it. Today the row is
+found anyway, through a circular path: `runtime_animation_keys` pushes the
+sample's OWN key into the list whenever the sample's profile matched. `apple_rain`
+works *because of* the check the fold wants to remove.
+
+**The decision:**
+
+* **add `("apple_rain", vec!["head_down"])` to `special_animation_keys()`** — the
+  catalog then says what the code already believes, every identity agrees as a
+  set, and the fold becomes a rename.
+  ⚠ **it is not purely cosmetic**: with no sprite sample (headless tests, and the
+  frames before sprites upgrade) `apple_rain` currently falls back to the body
+  bbox and would instead sample the authored `head_down` hurtbox. That is a live
+  boss's damageable shape changing on that path.
+* **keep the profile identity** — accept that `BossAnimationFrameSample` carries
+  two facts that legitimately differ (which attack drives, which row renders),
+  and fold only the row VOCABULARY (slice 2), leaving `BossAttackProfile` in the
+  gameplay geometry path.
+
+⊘ **not proposed: adding the row and calling it a no-op.** The fallback path is
+where headless tests live, and "it only changes the case with no sprites" is the
+same sentence as "it only changes what every test sees".

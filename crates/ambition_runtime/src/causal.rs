@@ -93,6 +93,19 @@ pub fn stamp_causal_frame(
     // `ambition_demo_smash_app` the day that crate gained the feature:
     // "Resource does not exist", from a system nobody asked to run.
     log: Option<ResMut<CausalRecording>>,
+    // **The ROLLBACK EPOCH**, kept here because only the host can see it.
+    //
+    // ⛔ rollback can execute one tick more than once inside a generation, and
+    // two attempts can produce DIFFERENT facts — which is precisely when
+    // somebody opens an inspector. Grouped by `(generation, execution)` alone
+    // they merged into one explanation and no query could say which attempt
+    // produced a result (GPT 5.6, 2026-08-01, finding 6).
+    //
+    // Bumped on the RISING EDGE of `replaying_history`: one rollback request
+    // batch is one attempt, however many ticks it replays. A per-tick counter
+    // would number ticks rather than attempts, which is the same information
+    // the tick already carries.
+    mut epoch: Local<RollbackEpoch>,
 ) {
     let Some(mut log) = log else {
         return;
@@ -100,13 +113,30 @@ pub fn stamp_causal_frame(
     if let Some(tick) = time {
         log.set_tick(tick.get());
     }
-    let execution = if replay.is_some_and(|replay| replay.replaying_history) {
+    let replaying = replay.is_some_and(|replay| replay.replaying_history);
+    if replaying && !epoch.was_replaying {
+        epoch.attempt = epoch.attempt.saturating_add(1);
+    }
+    epoch.was_replaying = replaying;
+    let execution = if replaying {
         Execution::Resimulated
     } else {
         Execution::Original
     };
     let generation = boundary.map(|boundary| boundary.session).unwrap_or(0) as u32;
-    log.set_frame(execution, generation);
+    // An ORIGINAL execution is always attempt 0: it happened once, and
+    // numbering it by how many rollbacks preceded it would make the same
+    // original tick answer to a different key depending on unrelated history.
+    let attempt = if replaying { epoch.attempt } else { 0 };
+    log.set_frame_attempt(execution, generation, attempt);
+}
+
+/// How many rollback batches this host has serviced. See
+/// [`stamp_causal_frame`]'s `epoch` parameter.
+#[derive(Default)]
+pub struct RollbackEpoch {
+    attempt: u32,
+    was_replaying: bool,
 }
 
 /// **Was this tick original execution or rollback resimulation?**

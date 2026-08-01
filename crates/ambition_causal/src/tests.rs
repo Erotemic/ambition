@@ -412,3 +412,66 @@ fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
     assert_eq!(latest.execution(), Some(Execution::Resimulated));
     assert_eq!(latest.facts().len(), 1);
 }
+
+/// **Two resimulations of the same tick are two explanations, not one.**
+///
+/// ⛔ the key was `(generation, execution)`, so every replay of tick 120 inside
+/// one session generation collapsed together. Rollback executes a tick more than
+/// once routinely, those attempts can produce DIFFERENT facts, and that
+/// disagreement is exactly when somebody opens an inspector — at which point it
+/// could not say which attempt produced a result (GPT 5.6, 2026-08-01,
+/// finding 6).
+///
+/// ⚠ an ORIGINAL execution is always attempt 0. Numbering it by how many
+/// rollbacks happened to precede it would make one unchanged original tick
+/// answer to a different key depending on unrelated history.
+#[test]
+fn two_resimulations_of_one_tick_are_two_explanations() {
+    let mut log = recording_log();
+    log.set_tick(120);
+
+    // The original pass.
+    log.set_frame_attempt(Execution::Original, 1, 0);
+    log.record(fact("chose", 120, domains::BRAIN).about(body()));
+
+    // Two separate rollback batches replay the same tick, disagreeing.
+    log.set_frame_attempt(Execution::Resimulated, 1, 1);
+    log.record(fact("chose_again", 120, domains::BRAIN).about(body()));
+    log.set_frame_attempt(Execution::Resimulated, 1, 2);
+    log.record(fact("chose_differently", 120, domains::BRAIN).about(body()));
+
+    let explanations = log.explanations(120, &body());
+    assert_eq!(
+        explanations.len(),
+        3,
+        "one original and TWO resimulations are three answers; keys: {:?}",
+        explanations.iter().map(|e| e.key).collect::<Vec<_>>()
+    );
+
+    let attempts: Vec<u32> = explanations.iter().map(|e| e.key.attempt).collect();
+    assert_eq!(
+        attempts,
+        vec![0, 1, 2],
+        "each attempt is separately addressable, so a query can name the one it \
+         means"
+    );
+    assert!(
+        explanations
+            .iter()
+            .any(|e| e.key.execution == Execution::Original && e.key.attempt == 0),
+        "the original execution is attempt 0: {:?}",
+        explanations.iter().map(|e| e.key).collect::<Vec<_>>()
+    );
+    // And the facts did not merge: each attempt carries its own.
+    for (explanation, kind) in
+        explanations
+            .iter()
+            .zip(["chose", "chose_again", "chose_differently"])
+    {
+        assert!(
+            explanation.first(kind).is_some(),
+            "attempt {} should carry `{kind}`",
+            explanation.key.attempt
+        );
+    }
+}

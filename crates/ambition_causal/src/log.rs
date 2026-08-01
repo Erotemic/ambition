@@ -68,6 +68,8 @@ pub struct CausalLog {
     /// guessed `Original` would make a resimulated tick indistinguishable from
     /// its original — the exact thing `Execution` exists to prevent.
     frame: Option<(Execution, u32)>,
+    /// Which attempt at the current tick. See [`ExecutionKey::attempt`].
+    attempt: u32,
     /// Facts refused because the ring was full. Reported rather than silent —
     /// an explanation missing its first link because the buffer wrapped must
     /// not look like an explanation whose first link never happened.
@@ -93,6 +95,7 @@ impl CausalLog {
             policy: RecordingPolicy::default(),
             tick: None,
             frame: None,
+            attempt: 0,
             dropped: 0,
         }
     }
@@ -120,12 +123,29 @@ impl CausalLog {
     /// Stamp the execution identity every subsequent fact belongs to. Called by
     /// the host, once per frame, BEFORE any publisher runs.
     pub fn set_frame(&mut self, execution: Execution, generation: u32) -> &mut Self {
+        self.set_frame_attempt(execution, generation, 0)
+    }
+
+    /// The frame, including WHICH ATTEMPT at this tick. See
+    /// [`ExecutionKey::attempt`].
+    pub fn set_frame_attempt(
+        &mut self,
+        execution: Execution,
+        generation: u32,
+        attempt: u32,
+    ) -> &mut Self {
         self.frame = Some((execution, generation));
+        self.attempt = attempt;
         self
     }
 
     pub fn frame(&self) -> Option<(Execution, u32)> {
         self.frame
+    }
+
+    /// Which attempt at the current tick facts will be stamped with.
+    pub fn attempt(&self) -> u32 {
+        self.attempt
     }
 
     pub fn is_recording(&self) -> bool {
@@ -147,6 +167,11 @@ impl CausalLog {
             if fact.execution == Execution::default() && fact.generation == 0 {
                 fact.execution = execution;
                 fact.generation = generation;
+                // The attempt rides with the execution it belongs to: a
+                // publisher that stamped its own execution has said which frame
+                // it means, and overwriting half of that would produce a key
+                // neither side chose.
+                fact.attempt = self.attempt;
             }
         }
         fact.id = FactId(self.next_id);
@@ -238,6 +263,7 @@ impl CausalLog {
                 .entry(ExecutionKey {
                     generation: fact.generation,
                     execution: fact.execution,
+                    attempt: fact.attempt,
                 })
                 .or_default()
                 .push(fact.clone());
@@ -302,6 +328,14 @@ impl CausalLog {
 pub struct ExecutionKey {
     pub generation: u32,
     pub execution: Execution,
+    /// **Which attempt at this tick.** Rollback can execute one tick several
+    /// times inside a generation, and those attempts can produce different
+    /// facts — which is exactly when somebody looks. Without this they grouped
+    /// into one explanation and the inspector could not say which attempt
+    /// produced a result (GPT 5.6, 2026-08-01, finding 6).
+    ///
+    /// `0` is the original execution; the host bumps it per rollback.
+    pub attempt: u32,
 }
 
 /// The answer to one question: this subject, this tick, ONE execution of it.

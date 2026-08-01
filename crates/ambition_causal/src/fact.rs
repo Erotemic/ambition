@@ -212,6 +212,15 @@ pub struct CausalFact {
     /// the same reason `RollbackHealth` had to start carrying one.
     pub generation: u32,
     pub execution: Execution,
+    /// **Which ATTEMPT at this tick.** Rollback can execute one tick more than
+    /// once within a generation, and two attempts can produce different facts —
+    /// that is the whole reason to look. Without this the inspector groups them
+    /// into one explanation and cannot say which attempt produced a result
+    /// (GPT 5.6, 2026-08-01, finding 6).
+    ///
+    /// `0` is the original execution. The HOST bumps it, for the same reason it
+    /// stamps the tick: a domain five hops down cannot know a rewind happened.
+    pub attempt: u32,
     /// The authored content that supplied the active value, when there is one.
     pub content: Option<String>,
     pub detail: FactDetail,
@@ -229,6 +238,7 @@ impl CausalFact {
             cause: None,
             generation: 0,
             execution: Execution::Original,
+            attempt: 0,
             content: None,
             detail,
         }
@@ -256,6 +266,12 @@ impl CausalFact {
 
     pub fn executed(mut self, execution: Execution) -> Self {
         self.execution = execution;
+        self
+    }
+
+    /// Which attempt at this tick produced the fact. Stamped by the host.
+    pub fn on_attempt(mut self, attempt: u32) -> Self {
+        self.attempt = attempt;
         self
     }
 
@@ -292,12 +308,7 @@ impl CausalFact {
             .collect();
         let mut line = format!(
             "t{} g{} {} [{}] {} {}",
-            self.tick,
-            self.generation,
-            self.execution,
-            self.domain,
-            subject,
-            self.detail.summary
+            self.tick, self.generation, self.execution, self.domain, subject, self.detail.summary
         );
         if !fields.is_empty() {
             line.push_str(&format!("  ({})", fields.join(" ")));

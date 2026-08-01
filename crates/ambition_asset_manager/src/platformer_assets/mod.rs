@@ -1,6 +1,6 @@
 //! Sandbox-side aggregator for the [`ambition_asset_manager`] catalog.
 //!
-//! This module builds the single [`AmbitionGameAssetCatalog`] resource used by visible
+//! This module builds the single [`Platformer2dAssetCatalog`] resource used by visible
 //! sandbox systems to resolve Bevy asset paths: sprites, parallax, character and
 //! boss sheets, fonts, LDtk world/data, SFX bank, and music tracks.
 //!
@@ -32,7 +32,7 @@ pub use embedded::{AmbitionAssetSourcePlugin, EmbeddedWorldAsset};
 
 /// Runtime asset-profile/config values needed by the sandbox catalog builder.
 #[derive(Clone, Debug)]
-pub struct SandboxAssetConfig {
+pub struct Platformer2dAssetCatalogConfig {
     pub sprite_folder: String,
     pub asset_profile: AssetProfile,
 }
@@ -139,7 +139,7 @@ pub struct WorldCatalogRow {
 /// Caller-provided catalog rows that would otherwise force this foundational
 /// crate to import gameplay/session/content modules.
 #[derive(Clone, Debug, Default)]
-pub struct AmbitionGameAssetCatalogInputs {
+pub struct Platformer2dAssetCatalogInputs {
     pub scale_variants: Vec<AssetScaleVariant>,
     pub character_sprites: Vec<CharacterSpriteCatalogRow>,
     pub boss_sprites: Vec<BossSpriteCatalogRow>,
@@ -156,14 +156,14 @@ pub struct AmbitionGameAssetCatalogInputs {
 /// Cheap to clone (the underlying manifest is wrapped in an `Arc`-like
 /// shared shape inside [`AmbitionAssetCatalog`]'s `Clone` impl).
 #[derive(Resource, Clone, Debug)]
-pub struct AmbitionGameAssetCatalog {
+pub struct Platformer2dAssetCatalog {
     catalog: AmbitionAssetCatalog,
     profile: AssetProfile,
 }
 
-impl AmbitionGameAssetCatalog {
+impl Platformer2dAssetCatalog {
     /// Construct from a fully-built [`AmbitionAssetCatalog`] + the
-    /// active profile. Prefer [`build_sandbox_catalog`] from
+    /// active profile. Prefer [`build_platformer2d_asset_catalog`] from
     /// production code; this is the seam for unit tests that author
     /// a partial manifest.
     pub fn new(catalog: AmbitionAssetCatalog, profile: AssetProfile) -> Self {
@@ -369,7 +369,7 @@ pub fn scaled_asset_id(id: &AssetId, scale_asset_id_suffix: Option<&str>) -> Opt
 
 /// Build the ordered candidate roots for `rel_path` on desktop / Steam
 /// Deck profiles. The only candidate-roots walker in the sandbox;
-/// [`AmbitionGameAssetCatalog::resolve_local_file_path`] (and through it
+/// [`Platformer2dAssetCatalog::resolve_local_file_path`] (and through it
 /// `should_attempt_optional_load` / `try_path_for_load`) are the sole
 /// callers.
 fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
@@ -457,23 +457,23 @@ mod asset_root_tests {
 /// `inputs.music_tracks` carries the already-loaded music registry rows so
 /// music-track ids land in the catalog at startup; the catalog doesn't depend
 /// on disk-resident files for bootstrap.
-pub fn build_sandbox_catalog(
-    config: &SandboxAssetConfig,
+pub fn build_platformer2d_asset_catalog(
+    config: &Platformer2dAssetCatalogConfig,
     image_manifest: AssetManifest,
-    inputs: &AmbitionGameAssetCatalogInputs,
-) -> AmbitionGameAssetCatalog {
+    inputs: &Platformer2dAssetCatalogInputs,
+) -> Platformer2dAssetCatalog {
     build_sandbox_catalog_with(config, image_manifest, inputs, |_| {})
 }
 
-/// [`build_sandbox_catalog`] with a content-extension hook: the app
+/// [`build_platformer2d_asset_catalog`] with a content-extension hook: the app
 /// assembly passes the content layer's extra manifest entries (e.g.
 /// the intro sprite rows) so this machinery module names no content.
 pub fn build_sandbox_catalog_with(
-    config: &SandboxAssetConfig,
+    config: &Platformer2dAssetCatalogConfig,
     image_manifest: AssetManifest,
-    inputs: &AmbitionGameAssetCatalogInputs,
+    inputs: &Platformer2dAssetCatalogInputs,
     extend: impl FnOnce(&mut AssetManifest),
-) -> AmbitionGameAssetCatalog {
+) -> Platformer2dAssetCatalog {
     let mut manifest = image_manifest;
     extend_with_world_entries(&mut manifest, &inputs.worlds);
     extend_with_data_entries(&mut manifest);
@@ -494,7 +494,7 @@ pub fn build_sandbox_catalog_with(
     );
     extend_with_music_entries(&mut manifest, &inputs.music_tracks);
     extend(&mut manifest);
-    AmbitionGameAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
+    Platformer2dAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }
 
 #[cfg(test)]

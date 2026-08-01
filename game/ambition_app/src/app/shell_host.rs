@@ -296,7 +296,7 @@ fn ambition_activate_session_visuals(
     asset_server: Res<AssetServer>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<
-        Res<ambition_platformer2d::actors::assets::loading::SandboxAssetCollection>,
+        Res<ambition_platformer2d::actors::assets::loading::Platformer2dStartupAssets>,
     >,
     // Present iff the LDtk plugin stack is composed (absent in the no-window
     // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).

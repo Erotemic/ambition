@@ -10,7 +10,7 @@
 //!
 //! ## Derived, never parallel
 //!
-//! [`SeatBindings`] is PROJECTED from the very `InputMap<SandboxAction>` the
+//! [`SeatBindings`] is PROJECTED from the very `InputMap<Platformer2dInputActionMonolith>` the
 //! router reads. It is not a second table that has to be kept in step — there is
 //! nothing to keep in step, because a rebind changes the map and the projection
 //! follows on the next frame.
@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
-use crate::{InputParticipant, SandboxAction};
+use crate::{InputParticipant, Platformer2dInputActionMonolith};
 
 /// A physical control, named well enough to draw.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -73,7 +73,7 @@ impl ActionBindings {
     /// Project one live `InputMap`. The system below is a thin loop over this,
     /// so a pure caller (a test, a rebind preview, a docs generator) gets the
     /// same answer the running game gets without standing up a `World`.
-    pub fn from_map(map: &InputMap<SandboxAction>) -> Self {
+    pub fn from_map(map: &InputMap<Platformer2dInputActionMonolith>) -> Self {
         let mut actions: Vec<(String, Vec<PhysicalControl>)> = map
             .iter_buttonlike()
             .map(|(action, inputs)| {
@@ -88,7 +88,7 @@ impl ActionBindings {
     }
 
     /// Every physical control bound to this action, in insertion-stable order.
-    pub fn controls(&self, action: &SandboxAction) -> &[PhysicalControl] {
+    pub fn controls(&self, action: &Platformer2dInputActionMonolith) -> &[PhysicalControl] {
         let name = action_name(action);
         self.actions
             .iter()
@@ -99,7 +99,7 @@ impl ActionBindings {
 
     /// The label a prompt should show — the FIRST binding, which is the one a
     /// preset lists first and therefore the one the author considered primary.
-    pub fn label(&self, action: &SandboxAction) -> Option<String> {
+    pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
         self.controls(action).first().map(PhysicalControl::label)
     }
 
@@ -120,31 +120,31 @@ impl ActionBindings {
 ///
 /// ⛔ **this did not exist, and two hand-maintained maps stood in for it.**
 /// `ambition_touch_input` carried `TouchActionButton → ControlSlot` and
-/// `TouchActionButton → SandboxAction` fifteen lines apart, agreeing only
+/// `TouchActionButton → Platformer2dInputActionMonolith` fifteen lines apart, agreeing only
 /// because somebody kept them agreeing — the same shape as the gamepad glyph
 /// table this module replaced. Anything else that wanted to ask "what is the
 /// Attack SLOT bound to" would have needed a third.
 ///
 /// `ControlSlot` is the ability vocabulary (`ambition_entity_catalog`, a pure
-/// leaf) and `SandboxAction` is the input vocabulary; the correspondence is an
+/// leaf) and `Platformer2dInputActionMonolith` is the input vocabulary; the correspondence is an
 /// INPUT-layer fact, so it lives here, where both the prompt and the overlay can
 /// reach it.
 ///
 /// `None` for a slot with no single action behind it — today none, and the
 /// `Option` is what will say so honestly when a slot becomes a chord.
-pub fn action_for_slot(slot: ambition_entity_catalog::action_scheme::ControlSlot) -> Option<SandboxAction> {
+pub fn action_for_slot(slot: ambition_entity_catalog::action_scheme::ControlSlot) -> Option<Platformer2dInputActionMonolith> {
     use ambition_entity_catalog::action_scheme::ControlSlot;
     Some(match slot {
-        ControlSlot::Jump => SandboxAction::Jump,
-        ControlSlot::Attack => SandboxAction::Attack,
-        ControlSlot::Special => SandboxAction::Special,
-        ControlSlot::Projectile => SandboxAction::Projectile,
-        ControlSlot::Dash => SandboxAction::Dash,
-        ControlSlot::Blink => SandboxAction::Blink,
-        ControlSlot::Interact => SandboxAction::Interact,
-        ControlSlot::Utility => SandboxAction::Utility,
-        ControlSlot::QuickAction => SandboxAction::QuickAction,
-        ControlSlot::Modifier => SandboxAction::Modifier,
+        ControlSlot::Jump => Platformer2dInputActionMonolith::Jump,
+        ControlSlot::Attack => Platformer2dInputActionMonolith::Attack,
+        ControlSlot::Special => Platformer2dInputActionMonolith::Special,
+        ControlSlot::Projectile => Platformer2dInputActionMonolith::Projectile,
+        ControlSlot::Dash => Platformer2dInputActionMonolith::Dash,
+        ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
+        ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
+        ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,
+        ControlSlot::QuickAction => Platformer2dInputActionMonolith::QuickAction,
+        ControlSlot::Modifier => Platformer2dInputActionMonolith::Modifier,
     })
 }
 
@@ -164,7 +164,7 @@ impl SeatBindings {
     }
 
     /// The label this seat's prompt should show for this action.
-    pub fn label(&self, slot: u8, action: &SandboxAction) -> Option<String> {
+    pub fn label(&self, slot: u8, action: &Platformer2dInputActionMonolith) -> Option<String> {
         self.for_seat(slot).label(action)
     }
 
@@ -189,7 +189,7 @@ impl SeatBindings {
 /// draws a prompt. Change-detected: a quiet frame does not touch the resource,
 /// so a prompt rebuilding on `is_changed()` rebuilds only on a real rebind.
 pub fn publish_seat_bindings(
-    participants: Query<(&InputParticipant, &InputMap<SandboxAction>)>,
+    participants: Query<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>,
     mut bindings: ResMut<SeatBindings>,
 ) {
     let mut next: BTreeMap<u8, ActionBindings> = BTreeMap::new();
@@ -204,7 +204,7 @@ pub fn publish_seat_bindings(
 /// The action's stable name. `Debug` is what leafwing's derive gives us and it
 /// is the same string the trace and the settings file already use, so a rebind
 /// UI keyed on it lines up with everything else.
-fn action_name(action: &SandboxAction) -> String {
+fn action_name(action: &Platformer2dInputActionMonolith) -> String {
     format!("{action:?}")
 }
 
@@ -288,7 +288,7 @@ mod tests {
             .expect("projection runs");
     }
 
-    fn app_with_seats(seats: &[(u8, InputMap<SandboxAction>)]) -> App {
+    fn app_with_seats(seats: &[(u8, InputMap<Platformer2dInputActionMonolith>)]) -> App {
         let mut app = App::new();
         app.init_resource::<SeatBindings>();
         for (slot, map) in seats {
@@ -310,8 +310,8 @@ mod tests {
         publish(&mut app);
 
         let bindings = app.world().resource::<SeatBindings>();
-        let seat0 = bindings.label(0, &SandboxAction::Jump);
-        let seat1 = bindings.label(1, &SandboxAction::Jump);
+        let seat0 = bindings.label(0, &Platformer2dInputActionMonolith::Jump);
+        let seat1 = bindings.label(1, &Platformer2dInputActionMonolith::Jump);
         assert!(seat0.is_some() && seat1.is_some(), "both seats bind Jump");
         assert_ne!(
             seat0, seat1,
@@ -331,17 +331,17 @@ mod tests {
         let before = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &SandboxAction::Jump);
+            .label(0, &Platformer2dInputActionMonolith::Jump);
 
         // Rebind Jump to a key nothing else uses, the way a remap screen would.
-        map.clear_action(&SandboxAction::Jump);
-        map.insert(SandboxAction::Jump, KeyCode::F13);
+        map.clear_action(&Platformer2dInputActionMonolith::Jump);
+        map.insert(Platformer2dInputActionMonolith::Jump, KeyCode::F13);
         let mut app = app_with_seats(&[(0, map)]);
         publish(&mut app);
         let after = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &SandboxAction::Jump);
+            .label(0, &Platformer2dInputActionMonolith::Jump);
 
         assert_ne!(before, after, "the projection followed the rebind");
         assert_eq!(
@@ -356,13 +356,13 @@ mod tests {
         let mut app = app_with_seats(&[(3, crate::presets::KeyboardPreset::gamepad_only_map())]);
         publish(&mut app);
         let bindings = app.world().resource::<SeatBindings>();
-        let jump = bindings.for_seat(3).controls(&SandboxAction::Jump);
+        let jump = bindings.for_seat(3).controls(&Platformer2dInputActionMonolith::Jump);
         assert!(
             jump.iter().any(|control| matches!(control, PhysicalControl::Button(_))),
             "the gamepad map binds Jump to a button: {jump:?}"
         );
         assert_eq!(
-            bindings.label(3, &SandboxAction::Jump).as_deref(),
+            bindings.label(3, &Platformer2dInputActionMonolith::Jump).as_deref(),
             Some("A"),
             "and it prints as a face button, which is what goes on a glyph"
         );
@@ -373,7 +373,7 @@ mod tests {
         let app = app_with_seats(&[]);
         let bindings = app.world().resource::<SeatBindings>();
         assert!(bindings.for_seat(2).is_empty());
-        assert_eq!(bindings.label(2, &SandboxAction::Jump), None);
+        assert_eq!(bindings.label(2, &Platformer2dInputActionMonolith::Jump), None);
     }
 
     #[test]

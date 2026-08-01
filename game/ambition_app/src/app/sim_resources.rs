@@ -10,7 +10,7 @@
 //!   `setup_simulation_system` — the host's world construction),
 //! - the startup-profiler phase marks + PostStartup report.
 //!
-//! [`AmbitionGameSimulationResourcesPlugin`] is mounted by
+//! [`AmbitionGameSimulationSetupPlugin`] is mounted by
 //! [`super::add_simulation_plugins`] before the engine group.
 
 use bevy::prelude::*;
@@ -19,9 +19,9 @@ use super::setup_systems::setup_simulation_system;
 use ambition_platformer2d::actors::session::data;
 use ambition_platformer2d::platformer::schedule::SimulationSetupSet;
 
-pub struct AmbitionGameSimulationResourcesPlugin;
+pub struct AmbitionGameSimulationSetupPlugin;
 
-impl Plugin for AmbitionGameSimulationResourcesPlugin {
+impl Plugin for AmbitionGameSimulationSetupPlugin {
     fn build(&self, app: &mut App) {
         // Registration is App-local and idempotent, so direct users of this
         // plugin receive the same catalog as the full AmbitionGameSimulationPlugin.

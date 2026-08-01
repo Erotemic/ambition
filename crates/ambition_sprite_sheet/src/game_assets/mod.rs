@@ -304,7 +304,7 @@ impl ParallaxLayerSet {
     /// to the room renderer's clear color / grid visuals.
     pub fn ensure_theme_loaded(
         &mut self,
-        catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+        catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
         asset_server: &AssetServer,
         theme: ParallaxTheme,
         quality: Option<&VisualQualityBudget>,
@@ -385,7 +385,7 @@ impl GameAssets {
 // data/resource types and static image loaders live here.
 
 pub fn load_entity_sprites(
-    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     quality: Option<&VisualQualityBudget>,
 ) -> EntitySpriteSet {
@@ -410,7 +410,7 @@ pub fn load_entity_sprites(
 }
 
 pub fn load_parallax_layers_for_theme(
-    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     theme: ParallaxTheme,
     quality: Option<&VisualQualityBudget>,
@@ -433,7 +433,7 @@ pub fn load_parallax_layers_for_theme(
 /// their authored background the first time the player visits them.
 pub fn ensure_parallax_layers_for_room(
     assets: &mut GameAssets,
-    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     metadata: &RoomMetadata,
     quality: Option<&VisualQualityBudget>,
@@ -452,7 +452,7 @@ pub fn ensure_parallax_layers_for_room(
     }
 }
 
-// Optional-image load policy lives in `AmbitionGameAssetCatalog`:
+// Optional-image load policy lives in `Platformer2dAssetCatalog`:
 // desktop profiles pre-check loose files, bundled/mobile profiles trust
 // packaging, web/static profiles skip optional PNGs, and headless/no-assets have
 // already returned `None` upstream.

@@ -46,7 +46,7 @@ pub fn populate_encounter_registry(
     // Optional: a RON-only app (demo shell, generated rooms) installs no
     // LDtk project — that's an empty encounter set, not an error. (W4 will
     // route encounter loading through RoomEmission instead of the project.)
-    project: Option<Res<crate::ldtk_world::AmbitionGameLdtkProject>>,
+    project: Option<Res<crate::ldtk_world::ActiveLdtkProject>>,
 ) {
     if registry.specs_loaded {
         return;

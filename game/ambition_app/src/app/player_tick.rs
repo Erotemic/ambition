@@ -19,12 +19,12 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 
-use super::feedback::AmbitionGameEventWriters;
+use super::feedback::GameplayFeedbackWriters;
 use super::phases::sync_player_presentation as sync_player_presentation_phase;
 use ambition_platformer2d::runtime::reset_sandbox;
 
@@ -40,8 +40,8 @@ use ambition_platformer2d::runtime::room_transition::RoomClock;
 pub(crate) fn apply_home_reset_policy(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    mut event_writers: AmbitionGameEventWriters,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    mut event_writers: GameplayFeedbackWriters,
     mut room_clock: RoomClock,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut player_q: Query<
@@ -109,7 +109,7 @@ pub(crate) fn apply_home_reset_policy(
 /// body, resolves no physics. A frame the movement phase flagged a reset is skipped
 /// (the reset-policy phase already reset the presentation state).
 pub fn sync_player_presentation(
-    mut event_writers: AmbitionGameEventWriters,
+    mut event_writers: GameplayFeedbackWriters,
     mut shake: ResMut<ambition_platformer2d::platformer::camera_ease::CameraShakeState>,
     // The active route's shake ceiling (D14), published from its presentation
     // profile. Read once per system rather than per body: it is a fact about the

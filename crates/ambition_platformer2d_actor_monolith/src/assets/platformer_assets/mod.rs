@@ -1,12 +1,12 @@
 //! Gameplay adapter for the reusable sandbox asset catalog.
 //!
-//! `ambition_asset_manager::sandbox_assets` owns catalog/resource/profile
+//! `ambition_asset_manager::platformer_assets` owns catalog/resource/profile
 //! behavior. This module only gathers Ambition-game rows from gameplay/content
 //! registries and delegates to that crate, preserving the historical
-//! `ambition_platformer2d_actor_monolith::assets::sandbox_assets` import path while the
+//! `ambition_platformer2d_actor_monolith::assets::platformer_assets` import path while the
 //! surrounding asset presentation code is still being carved.
 
-use ambition_asset_manager::sandbox_assets as core;
+use ambition_asset_manager::platformer_assets as core;
 use ambition_asset_manager::{AssetManifest, AssetProfile};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 
@@ -16,7 +16,7 @@ pub use core::embedded_core;
 pub use core::ids;
 pub use core::{
     AssetScaleVariant, BossSpriteCatalogRow, CharacterSpriteCatalogRow, EmbeddedWorldAsset,
-    MusicCatalogRow, AmbitionGameAssetCatalog, SandboxAssetConfig, AmbitionGameAssetCatalogInputs,
+    MusicCatalogRow, Platformer2dAssetCatalog, Platformer2dAssetCatalogConfig, Platformer2dAssetCatalogInputs,
     WorldCatalogRow,
 };
 
@@ -61,12 +61,12 @@ pub fn desktop_dev_default_catalog(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> AmbitionGameAssetCatalog {
+) -> Platformer2dAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
     };
-    build_sandbox_catalog(&config, character_catalog, boss_catalog, music, worlds)
+    build_platformer2d_asset_catalog(&config, character_catalog, boss_catalog, music, worlds)
 }
 
 /// Build the shared sprite/parallax/audio/world catalog.
@@ -78,13 +78,13 @@ pub fn desktop_dev_default_catalog(
 /// entry still lands. That replaces the old `_without_worlds` twin — with the
 /// manifest an explicit argument, "no worlds" is just a value, not a second
 /// function.
-pub fn build_sandbox_catalog(
+pub fn build_platformer2d_asset_catalog(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> AmbitionGameAssetCatalog {
+) -> Platformer2dAssetCatalog {
     build_sandbox_catalog_with(
         config,
         character_catalog,
@@ -109,8 +109,8 @@ pub fn build_sandbox_catalog_with(
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
-) -> AmbitionGameAssetCatalog {
-    let core_config = SandboxAssetConfig {
+) -> Platformer2dAssetCatalog {
+    let core_config = Platformer2dAssetCatalogConfig {
         sprite_folder: config.sprite_folder.clone(),
         asset_profile: config.asset_profile,
     };
@@ -124,7 +124,7 @@ pub fn sandbox_catalog_inputs(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> AmbitionGameAssetCatalogInputs {
+) -> Platformer2dAssetCatalogInputs {
     let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     inputs.worlds = worlds
         .worlds
@@ -144,8 +144,8 @@ fn sandbox_catalog_inputs_without_worlds(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-) -> AmbitionGameAssetCatalogInputs {
-    AmbitionGameAssetCatalogInputs {
+) -> Platformer2dAssetCatalogInputs {
+    Platformer2dAssetCatalogInputs {
         scale_variants: texture_scale_variants(),
         character_sprites: crate::character_sprites::all_character_sprite_filenames_in(
             character_catalog,

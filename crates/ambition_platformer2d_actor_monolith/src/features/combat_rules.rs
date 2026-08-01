@@ -17,14 +17,14 @@ use bevy::prelude::{Commands, Res};
 
 /// Rebuild [`ResolvedCombatTuning`] from the declaration and the baseline.
 ///
-/// Runs in `Platformer2dSimulationPhase::WorldPrep`, which is before every reader: the damage
+/// Runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`, which is before every reader: the damage
 /// paths are in `PlayerSimulation`/`Combat`, and a resolution landing after them
 /// would give the hit kernel last tick's rules on the tick a match opens — the
 /// one tick where they differ.
 pub fn project_combat_rules(
     mut commands: Commands,
     declared: Option<Res<ambition_combat::rules::DeclaredCombatRules>>,
-    baseline_feel: Option<Res<crate::time::feel::SandboxFeelTuning>>,
+    baseline_feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
 ) {
     // `Option` on both baselines for the same reason every other reader has it:

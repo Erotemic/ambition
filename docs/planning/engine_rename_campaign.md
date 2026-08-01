@@ -120,7 +120,7 @@ SandboxFeelTuning → AmbitionGameFeelTuningMonolith
 
 SandboxAction → AmbitionGameInputActionMonolith
 
-ambition/sandbox.ron → ambition/platformer_defaults.ron
+ambition/platformer_defaults.ron → ambition/platformer_defaults.ron
 ```
 
 

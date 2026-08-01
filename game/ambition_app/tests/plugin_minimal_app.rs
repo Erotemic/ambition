@@ -9,7 +9,7 @@
 //!   ([`PlayerEntity`], [`PlayerMovementAuthority`], [`PlayerBody`],
 //!   [`BodyHealth`], [`BodyCombat`], [`BodyAnimFacts`],
 //!   [`PlayerInteractionState`], [`PlayerBlinkCameraState`]);
-//! - the canonical sim resources ([`AmbitionGameSessionState`], [`ControlFrame`],
+//! - the canonical sim resources ([`RoomTransitionCooldown`], [`ControlFrame`],
 //!   [`RoomGeometry`], [`RoomSet`], [`MovingPlatformSet`]) are present;
 //! - no deleted god-object resource (`SandboxRuntime`, `FeatureRuntime`)
 //!   is silently re-introduced — this is the runtime companion to the
@@ -26,7 +26,7 @@ use ambition_platformer2d::actors::avatar::{PlayerBlinkCameraState, PlayerIdenti
 use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
 use ambition_platformer2d::actors::control::{LocalPlayer, PlayerSlot};
 use ambition_platformer2d::actors::rooms::RoomSet;
-use ambition_platformer2d::actors::AmbitionGameSessionState;
+use ambition_platformer2d::actors::RoomTransitionCooldown;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::ControlFrame;
@@ -66,8 +66,8 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
     let world = app.world();
 
     assert!(
-        world.get_resource::<AmbitionGameSessionState>().is_some(),
-        "AmbitionGameSessionState resource missing after add_simulation_plugins"
+        world.get_resource::<RoomTransitionCooldown>().is_some(),
+        "RoomTransitionCooldown resource missing after add_simulation_plugins"
     );
     assert!(
         world.get_resource::<ControlFrame>().is_some(),

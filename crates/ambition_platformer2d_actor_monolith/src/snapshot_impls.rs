@@ -310,7 +310,7 @@ impl SnapshotState for crate::control::SlotInteractionState {
     }
 }
 
-impl SnapshotState for crate::session::reset::SandboxResetRequested {
+impl SnapshotState for crate::session::reset::NewGameResetRequested {
     fn encode(&self, out: &mut Vec<u8>) {
         put_bool(out, self.request);
     }
@@ -320,14 +320,14 @@ impl SnapshotState for crate::session::reset::SandboxResetRequested {
     }
 }
 
-impl SnapshotState for crate::AmbitionGameSessionState {
+impl SnapshotState for crate::RoomTransitionCooldown {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.room_transition_cooldown);
+        put_f32(out, self.remaining);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
-            room_transition_cooldown: r.f32()?,
+            remaining: r.f32()?,
         })
     }
 }

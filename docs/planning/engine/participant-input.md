@@ -19,9 +19,9 @@
 physical and virtual devices
 → persistent participant            (InputParticipant — exists at boot, owns
                                      ActionState/InputMap; never on actors)
-→ bindings                          (InputMap<SandboxAction>; virtual devices
+→ bindings                          (InputMap<Platformer2dInputActionMonolith>; virtual devices
                                      register leafwing input kinds)
-→ logical actions                   (SandboxAction — slots, per ADR 0025)
+→ logical actions                   (Platformer2dInputActionMonolith — slots, per ADR 0025)
 → active contexts                   (ContextClaim / ActiveInputContext —
                                      declared by owning surfaces, never
                                      inferred from GameMode)
@@ -45,7 +45,7 @@ state.
   `ContextClaim` (priority + capture), `ParticipantContexts` (declare /
   retract / sync), `ActiveInputContext` + `resolve_active_input_context`.
 - The host input plugin spawns the primary participant ONCE at Startup with
-  `ActionState<SandboxAction>` + the preset `InputMap`;
+  `ActionState<Platformer2dInputActionMonolith>` + the preset `InputMap`;
   `attach_player_input_components` is DELETED — device state never attaches
   to `PlayerVisual`/actor entities again. Every reader re-targeted
   (populate systems, touch button visuals, dev overlay, preset re-sync).
@@ -148,7 +148,7 @@ axes transformed. Any change there is a regression unless authorized.
 ## Author-facing endpoint (direction, not built)
 
 `PlatformerInputPlugin::standard()`-shaped setup; games contribute action
-schemas without editing `SandboxAction` (the enum is retained internally for
+schemas without editing `Platformer2dInputActionMonolith` (the enum is retained internally for
 this slice, explicitly NOT the permanent extension mechanism); acknowledge
 surfaces / standard menus as spawnable components. Do not build ahead of
 consumers.

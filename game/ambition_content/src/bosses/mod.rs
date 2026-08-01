@@ -198,7 +198,7 @@ impl Plugin for AmbitionBossContentPlugin {
         app.init_resource::<CutRopeHeavyObjectCycle>();
         app.init_resource::<PendingCutRopeRoomReplay>();
         // The cycle advances on room reset, and a reset can be sim-triggered
-        // (`SandboxResetRequested` is rollback state) — so a rewound reset that
+        // (`NewGameResetRequested` is rollback state) — so a rewound reset that
         // replays must not advance the choice twice. Copy-cheap; registered
         // through the same content seam the specials use.
         {
@@ -294,7 +294,7 @@ impl Plugin for AmbitionBossContentPlugin {
             gate_gnu_ton_arena_ladder
                 .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
                 .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

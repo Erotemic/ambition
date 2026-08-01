@@ -35,7 +35,7 @@ rebuilding a substrate that is already here under a different name. Surveyed
 | B | `ParticipantId`, `InputParticipant`, `InputContextId`, `ContextClaim`, `ParticipantContexts`, `resolve_active_input_context` | `crates/ambition_input/src/participant.rs` |
 | B | `SeatMenuFrames` — seat-keyed menu input with per-seat repeat state | `crates/ambition_input/src/menu.rs` |
 | B | `UiCue`/`ActiveUiCues` — context-keyed prompt projection | `crates/ambition_input/src/cues.rs` |
-| B | `KeyboardPreset::input_map()` → `InputMap<SandboxAction>`, `action_label()` | `crates/ambition_input/src/presets.rs` |
+| B | `KeyboardPreset::input_map()` → `InputMap<Platformer2dInputActionMonolith>`, `action_label()` | `crates/ambition_input/src/presets.rs` |
 | C | a rolling flight recorder: frames + discrete events + markdown/JSON dump | `crates/ambition_gameplay_trace/` |
 | C | `AMBITION_FIGHTER_TRACE=1`, `ladder_probe`, the rollback observatory | fighter brain, `app_it` |
 
@@ -109,7 +109,7 @@ it is global. Both ship.
 
 ### ⛔ B-gap 2 / C-gap — the action vocabulary is closed, and causality is TEXT
 
-`SandboxAction` (`crates/ambition_input/src/actions.rs`) is a closed
+`Platformer2dInputActionMonolith` (`crates/ambition_input/src/actions.rs`) is a closed
 `#[derive(Actionlike)]` enum behind the `input` feature. A capability cannot add
 a semantic action; gameplay and menu actions share the enum, split by
 convention and by which system reads them.
@@ -229,7 +229,7 @@ no-input-stealing case probed red.
 ### ▢ P3-blocker. The semantic action layer — designed, not started
 
 P3 asks a capability to contribute a semantic ACTION. It cannot today, and the
-reason is precise: `SandboxAction` is a closed `#[derive(Actionlike)]` enum in
+reason is precise: `Platformer2dInputActionMonolith` is a closed `#[derive(Actionlike)]` enum in
 `ambition_input`, behind the `input` feature. leafwing needs a concrete
 `Actionlike` type, so a capability cannot add a variant without editing the
 engine — the exact "one central closed enum" the content compiler was built to
@@ -237,7 +237,7 @@ avoid, one layer over.
 
 **Two shapes, and the cheap one is not enough.**
 
-* *Bind a capability action to an existing `SandboxAction` slot.* Works today
+* *Bind a capability action to an existing `Platformer2dInputActionMonolith` slot.* Works today
   with no engine change, and is genuinely useful (a `Grapple` bound to
   `Utility`). But it cannot express an action the device vocabulary lacks, so it
   does not close the row — it just makes the row's absence tolerable.
@@ -247,16 +247,16 @@ avoid, one layer over.
   `InputMap<SemanticAction>` is possible and a capability registers actions
   freely. `input_control_kind` comes from the registration rather than a `match`.
 
-**The migration is the risk, not the design.** `SandboxAction` has hundreds of
+**The migration is the risk, not the design.** `Platformer2dInputActionMonolith` has hundreds of
 call sites; a half-migration would leave two action vocabularies, which is worse
 than one closed one. So the order matters:
 
 1. `SemanticActionId` + a registry (id, owning capability, control kind, doc,
    default binding) — additive, nothing migrates.
-2. `SandboxAction`'s variants become REGISTERED entries in that registry rather
+2. `Platformer2dInputActionMonolith`'s variants become REGISTERED entries in that registry rather
    than the vocabulary itself, with the enum kept as the engine's own constants
    so existing call sites read unchanged.
-3. `InputMap<SemanticAction>` replaces `InputMap<SandboxAction>` at the seam;
+3. `InputMap<SemanticAction>` replaces `InputMap<Platformer2dInputActionMonolith>` at the seam;
    `SeatBindings` already projects from whatever map the router reads, so it
    follows for free.
 4. Only then can a capability add one — and P3's test is that it does so

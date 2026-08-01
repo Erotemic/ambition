@@ -91,7 +91,7 @@ impl DirectStartupLoadingState {
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
     game_assets: ResMut<'w, GameAssets>,
-    asset_catalog: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog>,
+    asset_catalog: Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
     character_catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,

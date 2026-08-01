@@ -35,7 +35,7 @@ fn session_app() -> App {
 /// Two updates, not one. The shipped composition orders the projection, the
 /// persona derive, the equipment overlay and the marker reconcile inside one tick
 /// of `PlayerInputSet`; this fixture installs the plugins WITHOUT
-/// `configure_sandbox_sets`, so those sets carry no ordering and the reconcile
+/// `configure_platformer2d_simulation_phases`, so those sets carry no ordering and the reconcile
 /// can run before the projection's commands have applied. Settling is the honest
 /// fixture-shaped answer — asserting after one update would be asserting on
 /// Bevy's arbitrary intra-set order.

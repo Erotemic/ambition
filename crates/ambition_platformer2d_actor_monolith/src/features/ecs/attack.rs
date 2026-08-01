@@ -24,7 +24,7 @@ use crate::combat::{AttackIntent, AttackView};
 use crate::world::overlay::FeatureEcsWorldOverlay;
 
 use crate::physics;
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
@@ -49,7 +49,7 @@ use ambition_platformer2d_world::collision::MovingPlatformSet;
 ///   even while still inside a boss and flashing (Hollow-Knight feel).
 pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
     control_dt: f32,
@@ -116,7 +116,7 @@ pub fn engine_input_from_actor_control(
 /// bridge and the actor's `integrate_body` both call this.
 pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
 ) {
@@ -339,7 +339,7 @@ mod tests {
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
-        use crate::time::feel::SandboxFeelTuning;
+        use crate::time::feel::Platformer2dFeelTuningMonolith;
         use ambition_characters::actor::control::ActorControlFrame;
         let dt = 1.0 / 60.0;
 
@@ -350,7 +350,7 @@ mod tests {
         frame.dash_pressed = true;
         frame.blink_released = true;
         let input =
-            engine_input_from_actor_control(frame, SandboxFeelTuning::default(), 0.0, 0.0, dt);
+            engine_input_from_actor_control(frame, Platformer2dFeelTuningMonolith::default(), 0.0, 0.0, dt);
         assert!(input.jump_pressed() && input.jump_held());
         assert!(input.dash_pressed());
         assert!(input.blink_released() && !input.blink_pressed());
@@ -360,7 +360,7 @@ mod tests {
         recoiled.jump_pressed = true;
         recoiled.dash_pressed = true;
         let input =
-            engine_input_from_actor_control(recoiled, SandboxFeelTuning::default(), 0.0, 1.0, dt);
+            engine_input_from_actor_control(recoiled, Platformer2dFeelTuningMonolith::default(), 0.0, 1.0, dt);
         assert!(!input.jump_pressed() && !input.dash_pressed());
 
         // Hitstun: eats only the jump PRESS; an in-progress jump keeps held.
@@ -368,7 +368,7 @@ mod tests {
         stunned.jump_pressed = true;
         stunned.jump_held = true;
         let input =
-            engine_input_from_actor_control(stunned, SandboxFeelTuning::default(), 1.0, 0.0, dt);
+            engine_input_from_actor_control(stunned, Platformer2dFeelTuningMonolith::default(), 1.0, 0.0, dt);
         assert!(!input.jump_pressed(), "hitstun eats the jump press");
         assert!(input.jump_held(), "but an in-progress jump keeps held");
     }

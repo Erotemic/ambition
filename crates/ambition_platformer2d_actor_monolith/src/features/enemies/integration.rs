@@ -117,7 +117,7 @@ impl<'a> ActorMut<'a> {
         // recoil-lock timers (from its `BodyCombat`) + the feel tuning, applied
         // to the FINAL InputState by the SAME gate the player's input bridge
         // uses. (hitstun_timer, recoil_lock_timer).
-        feel: crate::time::feel::SandboxFeelTuning,
+        feel: crate::time::feel::Platformer2dFeelTuningMonolith,
         // **The body's OWN feel, when its character authored one.**
         //
         // ⚠ without this the line below overwrote the axis params from the
@@ -235,7 +235,7 @@ impl<'a> ActorMut<'a> {
         motion_model: &mut crate::features::MotionModel,
         dt: f32,
         motion_frame: ae::MotionFrame,
-        feel: crate::time::feel::SandboxFeelTuning,
+        feel: crate::time::feel::Platformer2dFeelTuningMonolith,
         // **The body's OWN feel, when its character authored one.**
         //
         // ⚠ without this the line below overwrote the axis params from the

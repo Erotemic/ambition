@@ -63,7 +63,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 
     let mut app = App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(app.world_mut(), set);
-    app.insert_resource(crate::AmbitionGameSessionState::default());
+    app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
@@ -158,7 +158,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 
     let mut app = App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(app.world_mut(), set);
-    app.insert_resource(crate::AmbitionGameSessionState::default());
+    app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();

@@ -44,7 +44,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
             ),
         );
     let world_manifest = ambition_content::worlds::world_manifest();
-    let catalog = ambition_platformer2d::actors::assets::sandbox_assets::desktop_dev_default_catalog(
+    let catalog = ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
         &character_catalog,
         &boss_catalog,
         &ambition_content::audio_registries::load_music_registry(),
@@ -53,7 +53,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
 
     let mut missing = Vec::new();
     for (key, _filename) in boss_catalog.sprite_filenames() {
-        let id = ambition_platformer2d::asset_manager::sandbox_assets::ids::boss_sprite(key);
+        let id = ambition_platformer2d::asset_manager::platformer_assets::ids::boss_sprite(key);
         if catalog.try_path_for_load(&id).is_none() {
             missing.push(key);
         }

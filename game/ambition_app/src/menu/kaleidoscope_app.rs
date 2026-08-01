@@ -87,7 +87,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 ///
 /// `publish_menu_confirm_prompt` WRITES the inventory's `UiCue` and
 /// `rebuild_control_prompt` READS the cues — and the reader lives in the sim
-/// schedule's [`Platformer2dSimulationPhase::FeatureViewSync`]. Registering the writer in `Update`
+/// schedule's [`Platformer2dSimulationPhaseMonolith::FeatureViewSync`]. Registering the writer in `Update`
 /// (a different schedule) made the read one frame stale under a `FixedUpdate`
 /// sim, and non-deterministic about WHICH frame's label it saw (Update and
 /// FixedUpdate interleave by wall-clock). Co-locating the writer in the same
@@ -95,7 +95,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 /// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
 /// producer→consumer edge is explicit, not incidental.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
-    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
     // Idempotent: the shell presentation and host input plugin init it too;
@@ -104,7 +104,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     app.add_systems(
         sim,
         publish_menu_confirm_prompt
-            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
+            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync)
             .before(ambition_platformer2d::sim_view::rebuild_control_prompt),
     );
 }
@@ -415,7 +415,7 @@ pub(crate) struct KaleidoscopeScroll {
 /// All the live resources the broadened SYSTEM screens need to READ a snapshot
 /// and APPLY a selection, bundled into one [`SystemParam`] so the cube nav system
 /// / pointer observer stay within Bevy's 16-param ceiling. The radio resources are
-/// `audio`-gated; `DeveloperTools` + `SandboxResetRequested` are always present
+/// `audio`-gated; `DeveloperTools` + `NewGameResetRequested` are always present
 /// (inserted at startup), so accessing them never panics. Held mutably here; the
 /// two consumers (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) are separate systems so
 /// there is no B0002 conflict, and `republish_kaleidoscope_pages` reads its own `Res`
@@ -425,7 +425,7 @@ pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>,
+    dev_state: ResMut<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
     ldtk_reload: ResMut<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
@@ -441,7 +441,7 @@ pub(crate) struct SystemMenuParams<'w> {
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
-    reset: ResMut<'w, ambition_platformer2d::actors::session::reset::SandboxResetRequested>,
+    reset: ResMut<'w, ambition_platformer2d::actors::session::reset::NewGameResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
@@ -646,7 +646,7 @@ pub(crate) struct GameModeIo<'w> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>,
+    dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
     ldtk_reload: Res<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]

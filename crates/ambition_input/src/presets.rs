@@ -1,6 +1,6 @@
 //! Default binding presets: the selectable keyboard layouts (`PresetId` /
 //! `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad map
-//! (`GAMEPAD_MAP`) that seed leafwing's input map for `SandboxAction`.
+//! (`GAMEPAD_MAP`) that seed leafwing's input map for `Platformer2dInputActionMonolith`.
 
 use super::*;
 
@@ -250,7 +250,7 @@ impl KeyboardPreset {
     /// into the same shape instead of rewriting gameplay systems. Gated
     /// behind `input` because the return type is leafwing-owned.
     #[cfg(feature = "input")]
-    pub fn input_map(&self) -> InputMap<SandboxAction> {
+    pub fn input_map(&self) -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = InputMap::default();
         self.insert_keyboard_bindings(&mut map);
         insert_gamepad_bindings(&mut map);
@@ -273,7 +273,7 @@ impl KeyboardPreset {
     /// would fire two actions at once. It is left to the remap UX, as
     /// `special_is_a_dedicated_slot_...` pins.)
     #[cfg(feature = "input")]
-    pub fn gamepad_only_map() -> InputMap<SandboxAction> {
+    pub fn gamepad_only_map() -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = InputMap::default();
         insert_gamepad_bindings(&mut map);
         map
@@ -282,24 +282,24 @@ impl KeyboardPreset {
     /// The keyboard half of a preset: everything whose binding is a key this
     /// preset chose.
     #[cfg(feature = "input")]
-    fn insert_keyboard_bindings(&self, map: &mut InputMap<SandboxAction>) {
+    fn insert_keyboard_bindings(&self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
         let keyboard_move = match self.id {
             PresetId::ArrowsZxc | PresetId::ArrowsQwer => VirtualDPad::arrow_keys(),
             PresetId::WasdJkl | PresetId::WasdUipo => VirtualDPad::wasd(),
         };
-        map.insert_dual_axis(SandboxAction::Move, keyboard_move);
-        map.insert(SandboxAction::MoveLeft, self.movement.left);
-        map.insert(SandboxAction::MoveRight, self.movement.right);
-        map.insert(SandboxAction::MoveUp, self.movement.up);
-        map.insert(SandboxAction::MoveDown, self.movement.down);
-        map.insert(SandboxAction::Jump, self.actions.jump);
-        map.insert(SandboxAction::Attack, self.actions.attack);
-        map.insert(SandboxAction::Dash, self.actions.dash);
-        map.insert(SandboxAction::Reset, self.actions.select_reset);
-        map.insert(SandboxAction::Reset, KeyCode::Delete);
-        map.insert(SandboxAction::Start, self.actions.pause);
+        map.insert_dual_axis(Platformer2dInputActionMonolith::Move, keyboard_move);
+        map.insert(Platformer2dInputActionMonolith::MoveLeft, self.movement.left);
+        map.insert(Platformer2dInputActionMonolith::MoveRight, self.movement.right);
+        map.insert(Platformer2dInputActionMonolith::MoveUp, self.movement.up);
+        map.insert(Platformer2dInputActionMonolith::MoveDown, self.movement.down);
+        map.insert(Platformer2dInputActionMonolith::Jump, self.actions.jump);
+        map.insert(Platformer2dInputActionMonolith::Attack, self.actions.attack);
+        map.insert(Platformer2dInputActionMonolith::Dash, self.actions.dash);
+        map.insert(Platformer2dInputActionMonolith::Reset, self.actions.select_reset);
+        map.insert(Platformer2dInputActionMonolith::Reset, KeyCode::Delete);
+        map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
 
-        map.insert(SandboxAction::Blink, self.actions.secondary);
+        map.insert(Platformer2dInputActionMonolith::Blink, self.actions.secondary);
         // Special is a FIRST-CLASS slot with its OWN dedicated key on every
         // preset — no longer aliasing Blink. Dynamic-slot policy for the gamepad:
         // every face/shoulder/trigger/stick button is already assigned (see
@@ -308,45 +308,45 @@ impl KeyboardPreset {
         // to the remap UX (P5). Keyboard (this key) and the touch overlay's
         // dedicated Special button cover it meanwhile.
         // `special_is_a_dedicated_slot_...` pins this policy.
-        map.insert(SandboxAction::Special, self.actions.special);
-        map.insert(SandboxAction::QuickAction, self.actions.quick_action);
-        map.insert(SandboxAction::Interact, self.actions.interact);
-        map.insert(SandboxAction::Modifier, self.actions.modifier);
-        map.insert(SandboxAction::Utility, self.actions.utility);
-        map.insert(SandboxAction::Map, self.actions.map);
-        map.insert(SandboxAction::Inventory, self.actions.inventory);
-        map.insert(SandboxAction::Projectile, self.actions.projectile);
-        map.insert(SandboxAction::TrailToggle, self.actions.trail_toggle);
-        insert_optional(map, SandboxAction::Pogo, self.actions.dedicated_pogo);
+        map.insert(Platformer2dInputActionMonolith::Special, self.actions.special);
+        map.insert(Platformer2dInputActionMonolith::QuickAction, self.actions.quick_action);
+        map.insert(Platformer2dInputActionMonolith::Interact, self.actions.interact);
+        map.insert(Platformer2dInputActionMonolith::Modifier, self.actions.modifier);
+        map.insert(Platformer2dInputActionMonolith::Utility, self.actions.utility);
+        map.insert(Platformer2dInputActionMonolith::Map, self.actions.map);
+        map.insert(Platformer2dInputActionMonolith::Inventory, self.actions.inventory);
+        map.insert(Platformer2dInputActionMonolith::Projectile, self.actions.projectile);
+        map.insert(Platformer2dInputActionMonolith::TrailToggle, self.actions.trail_toggle);
+        insert_optional(map, Platformer2dInputActionMonolith::Pogo, self.actions.dedicated_pogo);
 
         // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
         // same MenuNavigate* actions; the analog stick provides MenuStick
         // for repeat handling, and Enter/Space/South map to MenuSelect.
-        map.insert(SandboxAction::MenuNavigateUp, KeyCode::ArrowUp);
-        map.insert(SandboxAction::MenuNavigateUp, KeyCode::KeyW);
-        map.insert(SandboxAction::MenuNavigateDown, KeyCode::ArrowDown);
-        map.insert(SandboxAction::MenuNavigateDown, KeyCode::KeyS);
-        map.insert(SandboxAction::MenuNavigateLeft, KeyCode::ArrowLeft);
-        map.insert(SandboxAction::MenuNavigateLeft, KeyCode::KeyA);
-        map.insert(SandboxAction::MenuNavigateRight, KeyCode::ArrowRight);
-        map.insert(SandboxAction::MenuNavigateRight, KeyCode::KeyD);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, KeyCode::ArrowUp);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, KeyCode::KeyW);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, KeyCode::ArrowDown);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, KeyCode::KeyS);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, KeyCode::ArrowLeft);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, KeyCode::KeyA);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, KeyCode::ArrowRight);
+        map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, KeyCode::KeyD);
 
-        map.insert(SandboxAction::MenuSelect, KeyCode::Enter);
-        map.insert(SandboxAction::MenuSelect, KeyCode::NumpadEnter);
-        map.insert(SandboxAction::MenuSelect, KeyCode::Space);
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Enter);
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::NumpadEnter);
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);
         // Also accept the player's configured Jump and Interact keys as
         // confirm so existing dialogue/cutscene muscle memory survives the
         // participant migration. Enter remains the canonical menu confirmation.
-        map.insert(SandboxAction::MenuSelect, self.actions.jump);
-        map.insert(SandboxAction::MenuSelect, self.actions.interact);
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, self.actions.jump);
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, self.actions.interact);
 
-        map.insert(SandboxAction::MenuBack, KeyCode::Escape);
-        map.insert(SandboxAction::MenuBack, KeyCode::Backspace);
+        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
+        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Backspace);
 
         // Paged-menu page turn: `MoveLeft`/`MoveRight` already own A/D, so
         // paging uses Q/E.
-        map.insert(SandboxAction::MenuPageLeft, KeyCode::KeyQ);
-        map.insert(SandboxAction::MenuPageRight, KeyCode::KeyE);
+        map.insert(Platformer2dInputActionMonolith::MenuPageLeft, KeyCode::KeyQ);
+        map.insert(Platformer2dInputActionMonolith::MenuPageRight, KeyCode::KeyE);
     }
 }
 
@@ -371,12 +371,12 @@ impl KeyboardPreset {
 ///   Start        Start (pause)
 ///   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
 #[cfg(feature = "input")]
-fn insert_gamepad_bindings(map: &mut InputMap<SandboxAction>) {
-    map.insert_dual_axis(SandboxAction::Move, VirtualDPad::dpad());
-    map.insert_dual_axis(SandboxAction::Move, GamepadStick::LEFT);
+fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) {
+    map.insert_dual_axis(Platformer2dInputActionMonolith::Move, VirtualDPad::dpad());
+    map.insert_dual_axis(Platformer2dInputActionMonolith::Move, GamepadStick::LEFT);
 
     // Gamepad bindings for the discrete `MoveX` actions. Without
-    // these, `actions.just_pressed(&SandboxAction::MoveDown)`
+    // these, `actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown)`
     // never fires on a controller — the double-tap-down gesture
     // that enters MorphBall was keyboard-only as a result. Both
     // the DPad and a stick-direction cross past the deadzone
@@ -391,61 +391,61 @@ fn insert_gamepad_bindings(map: &mut InputMap<SandboxAction>) {
     // to `threshold = 0.0`) fires a `MoveUp` press edge, and
     // that edge exits MorphBall the same frame the player
     // entered it.
-    map.insert(SandboxAction::MoveLeft, GamepadButton::DPadLeft);
+    map.insert(Platformer2dInputActionMonolith::MoveLeft, GamepadButton::DPadLeft);
     map.insert(
-        SandboxAction::MoveLeft,
+        Platformer2dInputActionMonolith::MoveLeft,
         GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(SandboxAction::MoveRight, GamepadButton::DPadRight);
+    map.insert(Platformer2dInputActionMonolith::MoveRight, GamepadButton::DPadRight);
     map.insert(
-        SandboxAction::MoveRight,
+        Platformer2dInputActionMonolith::MoveRight,
         GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(SandboxAction::MoveUp, GamepadButton::DPadUp);
+    map.insert(Platformer2dInputActionMonolith::MoveUp, GamepadButton::DPadUp);
     map.insert(
-        SandboxAction::MoveUp,
+        Platformer2dInputActionMonolith::MoveUp,
         GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(SandboxAction::MoveDown, GamepadButton::DPadDown);
+    map.insert(Platformer2dInputActionMonolith::MoveDown, GamepadButton::DPadDown);
     map.insert(
-        SandboxAction::MoveDown,
+        Platformer2dInputActionMonolith::MoveDown,
         GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
     );
 
-    map.insert(SandboxAction::Jump, GamepadButton::South);
-    map.insert(SandboxAction::Attack, GamepadButton::West);
-    map.insert(SandboxAction::Dash, GamepadButton::RightTrigger2);
-    map.insert(SandboxAction::Reset, GamepadButton::Select);
-    map.insert(SandboxAction::Start, GamepadButton::Start);
+    map.insert(Platformer2dInputActionMonolith::Jump, GamepadButton::South);
+    map.insert(Platformer2dInputActionMonolith::Attack, GamepadButton::West);
+    map.insert(Platformer2dInputActionMonolith::Dash, GamepadButton::RightTrigger2);
+    map.insert(Platformer2dInputActionMonolith::Reset, GamepadButton::Select);
+    map.insert(Platformer2dInputActionMonolith::Start, GamepadButton::Start);
 
-    map.insert(SandboxAction::Blink, GamepadButton::East);
-    map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
-    map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
-    map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
-    map.insert(SandboxAction::Utility, GamepadButton::LeftTrigger);
-    map.insert(SandboxAction::Map, GamepadButton::LeftThumb);
-    map.insert(SandboxAction::Inventory, GamepadButton::RightThumb);
-    map.insert(SandboxAction::Projectile, GamepadButton::North);
+    map.insert(Platformer2dInputActionMonolith::Blink, GamepadButton::East);
+    map.insert(Platformer2dInputActionMonolith::QuickAction, GamepadButton::RightTrigger);
+    map.insert(Platformer2dInputActionMonolith::Interact, GamepadButton::RightTrigger);
+    map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::LeftTrigger2);
+    map.insert(Platformer2dInputActionMonolith::Utility, GamepadButton::LeftTrigger);
+    map.insert(Platformer2dInputActionMonolith::Map, GamepadButton::LeftThumb);
+    map.insert(Platformer2dInputActionMonolith::Inventory, GamepadButton::RightThumb);
+    map.insert(Platformer2dInputActionMonolith::Projectile, GamepadButton::North);
 
-    map.insert(SandboxAction::MenuNavigateUp, GamepadButton::DPadUp);
-    map.insert(SandboxAction::MenuNavigateDown, GamepadButton::DPadDown);
-    map.insert(SandboxAction::MenuNavigateLeft, GamepadButton::DPadLeft);
-    map.insert(SandboxAction::MenuNavigateRight, GamepadButton::DPadRight);
-    map.insert(SandboxAction::MenuSelect, GamepadButton::South);
-    map.insert(SandboxAction::MenuBack, GamepadButton::East);
+    map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, GamepadButton::DPadUp);
+    map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, GamepadButton::DPadDown);
+    map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, GamepadButton::DPadLeft);
+    map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, GamepadButton::DPadRight);
+    map.insert(Platformer2dInputActionMonolith::MenuSelect, GamepadButton::South);
+    map.insert(Platformer2dInputActionMonolith::MenuBack, GamepadButton::East);
 
     // The bumpers double as gameplay Utility/QuickAction, but menu page actions
     // are only read while a paged menu is open, so the physical button is shared
     // safely.
-    map.insert(SandboxAction::MenuPageLeft, GamepadButton::LeftTrigger);
-    map.insert(SandboxAction::MenuPageRight, GamepadButton::RightTrigger);
+    map.insert(Platformer2dInputActionMonolith::MenuPageLeft, GamepadButton::LeftTrigger);
+    map.insert(Platformer2dInputActionMonolith::MenuPageRight, GamepadButton::RightTrigger);
 
-    map.insert_dual_axis(SandboxAction::MenuStick, GamepadStick::LEFT);
-    map.insert_dual_axis(SandboxAction::AimStick, GamepadStick::RIGHT);
+    map.insert_dual_axis(Platformer2dInputActionMonolith::MenuStick, GamepadStick::LEFT);
+    map.insert_dual_axis(Platformer2dInputActionMonolith::AimStick, GamepadStick::RIGHT);
     // RIGHT_Z is the analog right-trigger axis on most pads.
     // Reading it as an axis lets us apply hysteresis ourselves
     // instead of relying on the binary just_pressed edge.
-    map.insert_axis(SandboxAction::DashAnalog, GamepadControlAxis::RIGHT_Z);
+    map.insert_axis(Platformer2dInputActionMonolith::DashAnalog, GamepadControlAxis::RIGHT_Z);
 }
 
 impl KeyboardPreset {
@@ -493,7 +493,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
 ];
 
 #[cfg(feature = "input")]
-fn insert_optional(map: &mut InputMap<SandboxAction>, action: SandboxAction, key: Option<KeyCode>) {
+fn insert_optional(map: &mut InputMap<Platformer2dInputActionMonolith>, action: Platformer2dInputActionMonolith, key: Option<KeyCode>) {
     if let Some(key) = key {
         map.insert(action, key);
     }
@@ -600,14 +600,14 @@ mod tests {
         // the same type, so the count is the only thing that distinguishes
         // them. The full preset binds Move three ways (keys, D-pad, stick).
         assert_eq!(
-            map.get_dual_axislike(&SandboxAction::Move).map(Vec::len),
+            map.get_dual_axislike(&Platformer2dInputActionMonolith::Move).map(Vec::len),
             Some(2),
             "the second seat's Move should be D-pad + left stick and nothing else"
         );
         assert_eq!(
             KeyboardPreset::by_index(0)
                 .input_map()
-                .get_dual_axislike(&SandboxAction::Move)
+                .get_dual_axislike(&Platformer2dInputActionMonolith::Move)
                 .map(Vec::len),
             Some(3),
             "player one's Move should still be keys + D-pad + left stick; if \

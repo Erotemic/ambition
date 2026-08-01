@@ -35,7 +35,7 @@ impl Plugin for DevToolsPlugin {
 /// `EguiPlugin` first, hence the shared gate.
 #[cfg(feature = "dev_tools")]
 fn install_egui_inspectors(app: &mut App) {
-    use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+    use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d::dev_tools::dev_tools::{
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
@@ -55,7 +55,7 @@ fn install_egui_inspectors(app: &mut App) {
             ResourceInspectorPlugin::<EditablePlayerStats>::default().run_if(inspector_visible),
         )
         .add_plugins(
-            ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(inspector_visible),
+            ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default().run_if(inspector_visible),
         )
         .add_plugins(portal_inspector::PortalInspectorPlugin);
 

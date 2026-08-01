@@ -13,11 +13,11 @@
 | [`kind`](src/kind.rs) | [`AssetKind`] — coarse Ambition-side classification of an asset. |
 | [`location`](src/location.rs) | [`AssetLocation`] — where the bytes for a logical [`crate::AssetId`] live for a given [`crate::profile::AssetProfile`]. |
 | [`manifest`](src/manifest.rs) | [`AssetManifest`] — the catalog of [`AssetEntry`] records. |
+| [`platformer_assets`](src/platformer_assets/mod.rs) | Sandbox-side aggregator for the [`ambition_asset_manager`] catalog. |
 | [`policy`](src/policy.rs) | Policy enums for handling missing assets and caching. |
 | [`preload`](src/preload.rs) | [`PreloadGroup`] — coarse "load-this-set-up-front" tag. |
 | [`profile`](src/profile.rs) | [`AssetProfile`] — the active platform/runtime persona that drives which [`crate::location::AssetLocation`] the resolver returns for a given [`crate::AssetId`]. |
 | [`resolver`](src/resolver.rs) | Resolve `(AssetId, AssetProfile) -> ResolvedAsset`. |
-| [`sandbox_assets`](src/sandbox_assets/mod.rs) | Sandbox-side aggregator for the [`ambition_asset_manager`] catalog. |
 
 _12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

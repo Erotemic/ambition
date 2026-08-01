@@ -5,7 +5,7 @@
 
 use super::*;
 
-/// Per-frame menu navigation snapshot. Decoded from `SandboxAction`'s
+/// Per-frame menu navigation snapshot. Decoded from `Platformer2dInputActionMonolith`'s
 /// `Menu*` actions plus the analog left-stick (with deadzone + repeat)
 /// so the pause-menu controller doesn't have to know about leafwing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -113,7 +113,7 @@ fn the_capabilitys_schema_refuses_its_own_nonsense() {
 
 /// **HALF 2 — a semantic action, beside the engine's own vocabulary.**
 ///
-/// `SandboxAction` is a closed enum and was not touched.
+/// `Platformer2dInputActionMonolith` is a closed enum and was not touched.
 #[test]
 fn the_capability_registers_its_own_semantic_action() {
     let mut registry = ambition_input::ActionRegistry::with_engine_actions();

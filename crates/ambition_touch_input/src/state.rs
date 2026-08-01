@@ -51,7 +51,7 @@ impl TouchButton {
 
 /// One frame of mobile-touch input: two analog sticks (Move + Aim) plus
 /// the gameplay-relevant action buttons. Mirrors the
-/// `SandboxAction` set on the desktop side. Cardinal direction EDGES are
+/// `Platformer2dInputActionMonolith` set on the desktop side. Cardinal direction EDGES are
 /// not stored here: the `TouchStickDirection` virtual buttons hold the
 /// threshold state and leafwing derives press edges from the held
 /// transition, exactly as it does for a gamepad stick direction.

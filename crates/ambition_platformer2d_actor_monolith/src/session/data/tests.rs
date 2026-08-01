@@ -7,7 +7,7 @@ use super::*;
 
 #[test]
 fn embedded_sandbox_data_parses() {
-    let _spec = AmbitionGameGameplaySpec::load_embedded();
+    let _spec = Platformer2dGameplayDefaults::load_embedded();
 }
 
 #[test]

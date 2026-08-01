@@ -272,10 +272,10 @@ a module that declares none still resolves the engine's own assets.
 rather than how it is drawn:
 
 ```rust
-use ambition_platformer2d::view::{GameAssets, RoomVisual, AmbitionGameAssetCatalog};
+use ambition_platformer2d::view::{GameAssets, RoomVisual, Platformer2dAssetCatalog};
 ```
 
-`GameAssets` holds the decoded sheets, `AmbitionGameAssetCatalog` every asset
+`GameAssets` holds the decoded sheets, `Platformer2dAssetCatalog` every asset
 path/source policy the presentation reads, and `RoomVisual` marks the entities a
 room contributed. A game reads these; it does not own the render path.
 

@@ -188,7 +188,6 @@ feature.pogo_target	component-clone	ambition_combat::on_hit::PogoTarget	bevy_ggr
 feature.pogo_target_contributor	component-clone	ambition_combat::components::features::PogoTargetContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.pogo_target_volumes	component-clone	ambition_combat::components::features::PogoTargetVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.respawn_timer	component-clone	ambition_combat::components::features::RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.sandbox_solid_contributor	component-clone	ambition_combat::components::features::PlatformerWorldSolidContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.stand_timer	component-clone	ambition_combat::components::features::StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.switch_on	component-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -268,7 +267,7 @@ message.respawn_room_visuals	message-clear	ambition_platformer2d_world::rooms::R
 message.room_loaded	message-clear	ambition_platformer2d_world::rooms::room_graph::RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_transition_requested	message-clear	ambition_platformer2d_world::rooms::room_graph::RoomTransitionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.sandbox_reset_committed	message-clear	ambition_platformer2d_actor_monolith::session::reset::SandboxResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
+message.sandbox_reset_committed	message-clear	ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.set_flag_requested	message-clear	ambition_combat::events::SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ambition_projectiles::spawn_message::SpawnProjectile	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -331,9 +330,9 @@ resource.possession_state	resource-clone	ambition_platformer2d_actor_monolith::a
 resource.projectile_seq_counter	resource-canonical	ambition_projectiles::entity::ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.quest_registry	resource-clone	ambition_persistence::quest::registry::QuestRegistry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.requested_clock_scale	resource-canonical	ambition_platformer2d_actor_monolith::time::time_control::RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_reset_requested	resource-canonical	ambition_platformer2d_actor_monolith::session::reset::SandboxResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sandbox_reset_requested	resource-canonical	ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sandbox_save	resource-clone	ambition_persistence::save::AmbitionGameSave	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.sandbox_sim_state	resource-canonical	ambition_platformer2d_actor_monolith::AmbitionGameSessionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sandbox_sim_state	resource-canonical	ambition_platformer2d_actor_monolith::RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sim_dt	resource-canonical	ambition_platformer2d_shared_tangle::time::SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sim_tick	resource-canonical	ambition_time::SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	ambition_platformer2d_actor_monolith::control::components::SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

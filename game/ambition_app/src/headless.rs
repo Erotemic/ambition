@@ -2,7 +2,7 @@
 //!
 //! `run_headless` drives the full gameplay loop by adding
 //! `AmbitionGameSimulationPlugin`. The visible binary uses `run_visible` which
-//! additionally adds `AmbitionGameLdtkPlugin` and `AmbitionGamePresentationPlugin`.
+//! additionally adds `AmbitionGameLdtkRuntimePlugin` and `AmbitionGamePresentationPlugin`.
 //! Headless skips the presentation half so audio, VFX, debris, HUD, and
 //! inspector plugins are absent — the sim emits messages into the queue
 //! and the queue drains harmlessly.

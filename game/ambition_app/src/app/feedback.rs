@@ -18,14 +18,14 @@ use ambition_platformer2d::vfx::VfxMessage;
 /// `RoomTransitionRequested`) are written directly from their own
 /// extracted systems' `MessageWriter` params.
 #[derive(SystemParam)]
-pub struct AmbitionGameEventWriters<'w> {
+pub struct GameplayFeedbackWriters<'w> {
     pub(super) sfx: SfxWriter<'w>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.
 ///
-/// Same `SystemParam`-packing trick as `AmbitionGameEventWriters` — the HUD reads
+/// Same `SystemParam`-packing trick as `GameplayFeedbackWriters` — the HUD reads
 /// from many independent registries (quests, cutscene state, bosses,
 /// encounters, world map) and would otherwise blow the 16-param budget
 /// when combined with windowing / camera / font handles. Grouping them

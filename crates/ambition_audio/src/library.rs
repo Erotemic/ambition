@@ -518,7 +518,7 @@ pub fn start_default_music_when_ready(
         if !*waiting_logged {
             warn!(
                 "default music: track '{}' not present in AudioLibrary; \
-                 nothing to start (check sandbox.ron music_tracks + catalog)",
+                 nothing to start (check platformer_defaults.ron music_tracks + catalog)",
                 track_id
             );
             *waiting_logged = true;

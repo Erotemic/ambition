@@ -51,7 +51,7 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
-use crate::{InputParticipant, SandboxAction};
+use crate::{InputParticipant, Platformer2dInputActionMonolith};
 
 /// Connected controllers, oldest connection first.
 ///
@@ -186,7 +186,7 @@ pub fn track_local_device_order(
 pub fn assign_local_seat_devices(
     order: Res<LocalDeviceOrder>,
     topology: Option<Res<LocalSeatTopology>>,
-    mut seats: Query<(&InputParticipant, &mut InputMap<SandboxAction>)>,
+    mut seats: Query<(&InputParticipant, &mut InputMap<Platformer2dInputActionMonolith>)>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
     // **HOW MANY PEOPLE ARE PLAYING comes from the session, not from how many
@@ -257,7 +257,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 InputParticipant::with_id(id),
-                InputMap::<SandboxAction>::default(),
+                InputMap::<Platformer2dInputActionMonolith>::default(),
             ))
             .id()
     }
@@ -265,7 +265,7 @@ mod tests {
     fn assigned(app: &App, seat: Entity) -> Option<Entity> {
         app.world()
             .entity(seat)
-            .get::<InputMap<SandboxAction>>()
+            .get::<InputMap<Platformer2dInputActionMonolith>>()
             .expect("the seat keeps its input map")
             .gamepad()
     }

@@ -1,6 +1,6 @@
 //! Device -> engine-owned `ControlFrame` input adapter layer for the sandbox.
 //!
-//! Physical inputs are bound to `SandboxAction` with Leafwing Input Manager.
+//! Physical inputs are bound to `Platformer2dInputActionMonolith` with Leafwing Input Manager.
 //! The engine-owned compact `ControlFrame` keeps movement physics independent
 //! from keyboards, gamepads, UI rebinding, or replay input.
 //!
@@ -43,7 +43,7 @@ pub use motion_input::{
 };
 
 #[cfg(feature = "input")]
-pub use actions::SandboxAction;
+pub use actions::Platformer2dInputActionMonolith;
 pub use active_input::{update_active_input_kind, ActiveInputKind};
 pub use ambition_platformer2d_core::ControlFrame;
 pub use control::PlayerDashTriggerState;

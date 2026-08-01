@@ -8,7 +8,7 @@ use bevy::window::WindowResolution;
 use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-use super::plugins::{AmbitionGameLdtkPlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin};
+use super::plugins::{AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin};
 
 /// Resolve the on-disk asset root for the desktop app.
 ///
@@ -191,8 +191,8 @@ mod headless_arg_tests {
         );
         assert!(root.ends_with("crates/ambition_platformer2d_actor_monolith/assets") || root.ends_with("assets"));
         assert!(
-            root.join("ambition/sandbox.ron").exists(),
-            "asset root {root:?} must contain ambition/sandbox.ron"
+            root.join("ambition/platformer_defaults.ron").exists(),
+            "asset root {root:?} must contain ambition/platformer_defaults.ron"
         );
         // (Dialogue no longer lives under the asset root — the yarn set is
         // CONTENT, embedded in-memory by ambition_content::dialogue::yarn.)
@@ -769,7 +769,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         VisibleRenderMode::Windowed => {
             app.add_plugins((
                 AmbitionGameSimulationPlugin,
-                AmbitionGameLdtkPlugin,
+                AmbitionGameLdtkRuntimePlugin,
                 AmbitionGamePresentationPlugin,
             ));
         }
@@ -788,7 +788,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
             // game than the one a player runs.
             app.add_plugins((
                 AmbitionGameSimulationPlugin,
-                AmbitionGameLdtkPlugin,
+                AmbitionGameLdtkRuntimePlugin,
                 AmbitionGamePresentationPlugin,
             ));
         }
@@ -803,7 +803,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_platformer2d::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),
@@ -906,7 +906,7 @@ pub fn run_web() {
     // "why is everything a colored rectangle?" — the answer is almost
     // always "the build does not have `static_core_assets`."
     bevy::log::info!(
-        target: "ambition_platformer2d::sandbox_assets",
+        target: "ambition_platformer2d::platformer_assets",
         "web start: AssetProfile = {} | static_map = {} | static_core_assets = {} | static_sfx_bank = {}",
         active_profile.label(),
         cfg!(feature = "static_map"),
@@ -922,13 +922,13 @@ pub fn run_web() {
     // from the native `build_visible_app` builder that never existed here.)
     app.add_plugins((
         AmbitionGameSimulationPlugin,
-        AmbitionGameLdtkPlugin,
+        AmbitionGameLdtkRuntimePlugin,
         AmbitionGamePresentationPlugin,
     ));
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_platformer2d::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),

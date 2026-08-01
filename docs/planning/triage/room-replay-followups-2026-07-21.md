@@ -86,7 +86,7 @@ open work is finding the existing instances.
 
 `ambition_demo_sanic/src/lib.rs:880` and `ambition_demo_mary_o/src/lib.rs:821`
 each call `add_message::<RoomReplayRequested>()`. The engine already registers it
-in `SandboxResetSchedulePlugin` (`ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:337`),
+in `NewGameResetPlugin` (`ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:337`),
 which both demos get through `PlatformerEnginePlugins`.
 
 Harmless today (Bevy's `add_message` is idempotent), but it reads as though the

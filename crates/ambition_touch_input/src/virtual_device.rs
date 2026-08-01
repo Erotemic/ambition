@@ -274,11 +274,11 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
-/// The declared touch binding table: which `SandboxAction`s each virtual
+/// The declared touch binding table: which `Platformer2dInputActionMonolith`s each virtual
 /// control feeds. Multi-action rows are the honest form of what used to be
 /// hidden branches (Jump/Interact confirm menus; Reset backs out).
-pub fn touch_bindings() -> Vec<(ambition_input::SandboxAction, TouchVirtualButton)> {
-    use ambition_input::SandboxAction as A;
+pub fn touch_bindings() -> Vec<(ambition_input::Platformer2dInputActionMonolith, TouchVirtualButton)> {
+    use ambition_input::Platformer2dInputActionMonolith as A;
     use TouchActionButton as B;
     vec![
         (A::Jump, TouchVirtualButton(B::Jump)),
@@ -308,14 +308,14 @@ pub fn touch_bindings() -> Vec<(ambition_input::SandboxAction, TouchVirtualButto
 /// the write does not re-trigger this system into duplicate bindings.
 pub fn bind_touch_virtual_inputs(
     mut maps: Query<
-        &mut leafwing_input_manager::prelude::InputMap<ambition_input::SandboxAction>,
+        &mut leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
         (
             With<ambition_input::InputParticipant>,
-            Changed<leafwing_input_manager::prelude::InputMap<ambition_input::SandboxAction>>,
+            Changed<leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>>,
         ),
     >,
 ) {
-    use ambition_input::SandboxAction as A;
+    use ambition_input::Platformer2dInputActionMonolith as A;
     for mut map in &mut maps {
         let map = map.bypass_change_detection();
         for (action, button) in touch_bindings() {

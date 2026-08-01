@@ -5,7 +5,7 @@ use bevy::window::PrimaryWindow;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
-use ambition_platformer2d::dev_tools::AmbitionGameDeveloperState;
+use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::KeyboardPreset;
@@ -60,7 +60,7 @@ pub(super) struct HudCameraParams<'w, 's> {
 /// player; per-`PlayerSlot` panels would be a separate UI surface
 /// rather than a generalization of this one.
 pub(super) fn update_hud(
-    dev_state: Res<AmbitionGameDeveloperState>,
+    dev_state: Res<DeveloperRuntimeState>,
     mode: Res<State<GameMode>>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,

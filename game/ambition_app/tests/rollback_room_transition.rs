@@ -7,7 +7,7 @@
 //! (`RoomTransitionLoadState` / `RoomTransitionContentEpoch` / `LoadCoordinator`,
 //! installed as plain resources in `app/plugins.rs`) is NOT rollback-registered.
 //! The entity/room state it drives (`RoomSet`, `RoomGeometry`, `FeatureSimEntity`,
-//! `room_transition_cooldown`) IS rollback state. So a GGRS rollback that
+//! `remaining`) IS rollback state. So a GGRS rollback that
 //! straddles the transaction's tick span rewinds the world but not the
 //! transaction phase/tick barrier — the commit can then fire at a different tick,
 //! twice, or fail to reproduce, diverging the sync-test checksum. That is the

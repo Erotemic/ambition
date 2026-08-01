@@ -18,11 +18,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::AmbitionGameSessionState;
+use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
-use ambition_platformer2d_actor_monolith::time::feel::SandboxFeelTuning;
+use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::world::rooms::RoomConstructionPlan;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
@@ -261,7 +261,7 @@ fn commit_transition(
         .map(|tuning| tuning.0.air_jumps)
         .unwrap_or(0);
     let (edge_cd, door_cd, edge_flash, door_flash) = world
-        .get_resource::<SandboxFeelTuning>()
+        .get_resource::<Platformer2dFeelTuningMonolith>()
         .map(|feel| {
             (
                 feel.edge_transition_cooldown,
@@ -357,11 +357,11 @@ fn commit_transition(
     if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
         dialogue.close();
     }
-    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::AmbitionGameDeveloperState>() {
+    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::DeveloperRuntimeState>() {
         dev_state.preset_flash = 1.0;
     }
-    if let Some(mut sim_state) = world.get_resource_mut::<AmbitionGameSessionState>() {
-        sim_state.room_transition_cooldown = if edge_exit { edge_cd } else { door_cd };
+    if let Some(mut sim_state) = world.get_resource_mut::<RoomTransitionCooldown>() {
+        sim_state.remaining = if edge_exit { edge_cd } else { door_cd };
     }
 
     // NOTE (bounded gap): the canonical path also emits the transition Reset

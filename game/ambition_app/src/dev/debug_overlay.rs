@@ -14,11 +14,11 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_platformer2d::actors::world::platforms;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
-use ambition_platformer2d::dev_tools::AmbitionGameDeveloperState;
+use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core::config::world_to_bevy;
 use ambition_platformer2d::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
-use ambition_platformer2d::input::SandboxAction;
+use ambition_platformer2d::input::Platformer2dInputActionMonolith;
 use ambition_platformer2d::input::{read_gameplay_control_frame, ControlFrame};
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::CameraViewState;
@@ -86,7 +86,7 @@ pub(crate) fn draw_debug_overlay() {}
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    dev_state: Res<AmbitionGameDeveloperState>,
+    dev_state: Res<DeveloperRuntimeState>,
     platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
@@ -97,7 +97,7 @@ pub(crate) fn draw_debug_overlay(
     // `render_debug_overlay_labels`. (In-flight projectile queries moved into
     // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
     mut overlay_labels: ResMut<DebugOverlayLabels>,
-    action_query: Query<&ActionState<SandboxAction>, With<ambition_platformer2d::input::InputParticipant>>,
+    action_query: Query<&ActionState<Platformer2dInputActionMonolith>, With<ambition_platformer2d::input::InputParticipant>>,
     mut player_q: Query<
         (
             Entity,

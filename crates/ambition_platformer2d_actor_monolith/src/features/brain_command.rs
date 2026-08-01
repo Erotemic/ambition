@@ -430,7 +430,7 @@ impl Plugin for BrainCommandPlugin {
                 apply_release_provocations.before(apply_brain_commands),
                 apply_brain_commands,
             )
-                .in_set(crate::schedule::Platformer2dSimulationPhase::GameplayEffects),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
     }
 }

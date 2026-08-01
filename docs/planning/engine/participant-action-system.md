@@ -106,7 +106,7 @@ Each action has a stable identity and a value kind:
 
 The engine should provide standard UI/platformer/startup/dialogue sets. A
 provider should be able to contribute genuinely new actions without editing a
-central Ambition enum, but **do not replace `SandboxAction` speculatively**.
+central Ambition enum, but **do not replace `Platformer2dInputActionMonolith` speculatively**.
 First inspect Leafwing 0.20's practical requirements for a dynamic/stable
 `InputActionId`. If a stable ID can implement the required action trait cleanly,
 migrate incrementally. If not, keep Leafwing as the standard-device adapter
@@ -115,7 +115,7 @@ per-game `ActionState` stacks.
 
 **Decision gate:** this extension work begins when a second external game needs
 an action not representable by the standard platformer/control-slot vocabulary.
-Until then, `SandboxAction` remains the finite adapter vocabulary.
+Until then, `Platformer2dInputActionMonolith` remains the finite adapter vocabulary.
 
 ### 2.3 Bindings are one authority
 
@@ -403,7 +403,7 @@ device adapters.
 - gamepad glyphs still use a parallel table and incomplete device detection;
 - `UiCue` is label-only;
 - touch layout still knows fixed `ControlSlot` positions;
-- `SandboxAction` remains a closed Ambition adapter enum.
+- `Platformer2dInputActionMonolith` remains a closed Ambition adapter enum.
 
 ### Context-transition gaps
 
@@ -508,7 +508,7 @@ Begin only after a real external provider requires a non-standard action.
 - Introduce stable provider action IDs and action-set registration.
 - Preserve the standard platformer/UI sets as the zero-config path.
 - Prove one external action through binding, context, consumer, cue, and touch
-  projection without editing `SandboxAction`.
+  projection without editing `Platformer2dInputActionMonolith`.
 - Delete any temporary adapter used for the proof; do not maintain two action
   systems.
 

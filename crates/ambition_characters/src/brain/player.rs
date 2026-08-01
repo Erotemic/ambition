@@ -153,7 +153,7 @@ pub fn tick_player_brain_from_control(
     out.interact_pressed = c.interact_pressed;
     out.shield_held = c.shield_held;
     // No dedicated "special" input today — `blink_pressed` is the
-    // Special now has its OWN dedicated input slot (`SandboxAction::Special` →
+    // Special now has its OWN dedicated input slot (`Platformer2dInputActionMonolith::Special` →
     // `ControlFrame.special_pressed`), retiring the old
     // `special_pressed = blink_pressed` alias. Blink and Special are separate
     // actions: pressing blink no longer fires a body's signature special.

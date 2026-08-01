@@ -45,7 +45,7 @@ pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
 /// place that touches `DeveloperTools`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DevToggleId {
-    // Global dev flags (sourced from `AmbitionGameDeveloperState`, not `DeveloperTools`).
+    // Global dev flags (sourced from `DeveloperRuntimeState`, not `DeveloperTools`).
     DebugOverlay,
     SlowMotion,
     // Inspectors.
@@ -93,7 +93,7 @@ impl DevToggleId {
     /// Every developer toggle/cycle, grouped Global Flags → Inspectors → Debug
     /// Visuals → Camera → Profiles → LDtk, in display order. The first two
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
-    /// `AmbitionGameDeveloperState` / `LdtkHotReloadState` (not `DeveloperTools`). Physical
+    /// `DeveloperRuntimeState` / `LdtkHotReloadState` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
     pub const ALL: [Self; 22] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into

@@ -7,7 +7,7 @@
 ## The cost
 
 `possible_clash` / `handle_clashes` burns **1–3.1% of frame CPU** in every
-gameplay chunk of `desktop-lifecycle-5` (single ~20-action `SandboxAction`
+gameplay chunk of `desktop-lifecycle-5` (single ~20-action `Platformer2dInputActionMonolith`
 map, zero chords). Upstream `handle_clashes` runs the full O(actions²)
 `possible_clashes()` pair scan — `decompose()` allocations per pair, rebuilt
 from scratch every frame, per `InputMap` — **before** consulting

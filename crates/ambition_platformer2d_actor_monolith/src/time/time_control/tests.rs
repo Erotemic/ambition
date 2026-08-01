@@ -92,7 +92,7 @@ fn cinematic_grants_scripted_denies_player() {
 /// End-to-end: build a minimal app, fire a request, run the
 /// system, observe the target change. This is the canonical
 /// regression check that the dispatch pipeline is wired.
-/// AmbitionGameSessionState::time_scale is touched by the SMOOTHER
+/// RoomTransitionCooldown::time_scale is touched by the SMOOTHER
 /// (smooth_sim_clock_toward_target_system), not by this system.
 #[test]
 fn solo_grant_writes_requested_clock_scale() {
@@ -241,7 +241,7 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
         .insert_resource(RegimePolicy::default())
         .insert_resource(RequestedClockScale::default())
         .insert_resource(ClockState::default())
-        .insert_resource(SandboxFeelTuning::default())
+        .insert_resource(Platformer2dFeelTuningMonolith::default())
         .insert_resource(Time::<()>::default())
         .add_systems(
             Update,
@@ -267,7 +267,7 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
     }
 
     let clock = app.world().resource::<ClockState>();
-    // SandboxFeelTuning::time_ramp_down_rate is 6.0 (units/s).
+    // Platformer2dFeelTuningMonolith::time_ramp_down_rate is 6.0 (units/s).
     // 30 frames * 16ms = 480ms => deltas of ~2.88 units, way
     // past the (1.0 -> 0.125) gap of 0.875.
     assert!(

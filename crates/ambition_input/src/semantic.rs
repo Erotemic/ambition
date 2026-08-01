@@ -4,7 +4,7 @@
 //! physical input → participant bindings → ordered contexts → SEMANTIC ACTIONS → consumers
 //! ```
 //!
-//! `SandboxAction` is leafwing's concrete `Actionlike` enum, and it has to be
+//! `Platformer2dInputActionMonolith` is leafwing's concrete `Actionlike` enum, and it has to be
 //! concrete — leafwing needs a real type to key an `InputMap`. That makes it a
 //! closed vocabulary: a capability cannot add a variant without editing the
 //! engine, which is the one central closed enum the content compiler exists to
@@ -16,7 +16,7 @@
 //!
 //! ## The registry is the VOCABULARY, not a description of it
 //!
-//! Every engine `SandboxAction` is registered here. That is what makes this
+//! Every engine `Platformer2dInputActionMonolith` is registered here. That is what makes this
 //! authoritative rather than a parallel list somebody has to remember to update
 //! — and `every_device_action_is_registered` fails if one is added without a
 //! semantic entry, so the two cannot drift.
@@ -26,7 +26,7 @@
 //! A capability-owned action can be DECLARED and looked up, and it can ride an
 //! existing device action. It cannot yet have a device binding of its own,
 //! because that needs `InputMap<SemanticAction>` in place of
-//! `InputMap<SandboxAction>` — a migration with hundreds of call sites, whose
+//! `InputMap<Platformer2dInputActionMonolith>` — a migration with hundreds of call sites, whose
 //! ordering is written down in the program doc. Declaring the vocabulary first
 //! is what makes that migration mechanical instead of a redesign.
 
@@ -207,7 +207,7 @@ const fn engine(
 
 /// **The engine's vocabulary, and the whole of it.**
 ///
-/// One entry per `SandboxAction`. `every_device_action_is_registered` fails when
+/// One entry per `Platformer2dInputActionMonolith`. `every_device_action_is_registered` fails when
 /// a variant is added without one, so this cannot quietly fall behind the enum —
 /// which is the difference between a registry and a description of a registry.
 pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
@@ -274,7 +274,7 @@ mod tests {
 
     /// **A capability adds an action without editing the engine.**
     ///
-    /// The whole point of the row: `SandboxAction` is a closed enum a capability
+    /// The whole point of the row: `Platformer2dInputActionMonolith` is a closed enum a capability
     /// cannot extend, and this is the half that is open.
     #[test]
     fn a_capability_registers_its_own_action_without_touching_the_engine_enum() {
@@ -327,20 +327,20 @@ mod tests {
     /// ⛔ **The registry must not fall behind the enum.**
     ///
     /// This is what makes it the vocabulary rather than a description of one. A
-    /// `SandboxAction` added without a semantic entry would be invisible to
+    /// `Platformer2dInputActionMonolith` added without a semantic entry would be invisible to
     /// every prompt, help screen and rebind UI that asks the registry — and
     /// invisible is exactly how a parallel list rots.
     #[cfg(feature = "input")]
     #[test]
     fn every_device_action_is_registered() {
-        use crate::SandboxAction;
+        use crate::Platformer2dInputActionMonolith;
         use bevy::reflect::{TypeInfo, Typed};
 
         // `Actionlike` has no `variants()` in leafwing 0.20, but it requires
         // `Reflect + Typed` — so the enum's own type info is the honest list,
         // and it cannot go stale the way a hand-written one would.
-        let TypeInfo::Enum(info) = SandboxAction::type_info() else {
-            panic!("SandboxAction is an enum");
+        let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
+            panic!("Platformer2dInputActionMonolith is an enum");
         };
         let registry = ActionRegistry::with_engine_actions();
         let missing: Vec<String> = (0..info.variant_len())
@@ -350,7 +350,7 @@ mod tests {
             .collect();
         assert!(
             missing.is_empty(),
-            "these `SandboxAction` variants have no semantic entry, so nothing that asks the \
+            "these `Platformer2dInputActionMonolith` variants have no semantic entry, so nothing that asks the \
              registry can see them: {missing:?}\nadd them to `ENGINE_ACTIONS`"
         );
     }

@@ -840,7 +840,7 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
 /// to the static `EntitySprite::BossCore` image, which in turn falls
 /// back to the colored rectangle.
 pub fn load_boss_sprite_in(
-    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,
@@ -907,14 +907,14 @@ pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> b
 }
 
 pub fn load_named_boss_sprite_via_catalog(
-    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,
     spec: BossSheetSpec,
     quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
-    let id = ambition_asset_manager::sandbox_assets::ids::boss_sprite(label);
+    let id = ambition_asset_manager::platformer_assets::ids::boss_sprite(label);
     // Prefer a scaled variant PNG, but only when its matching variant record was
     // also baked AND aligns with the const — so the atlas rects address the
     // resolution that actually loads. Otherwise use the base PNG + base record.
@@ -926,7 +926,7 @@ pub fn load_named_boss_sprite_via_catalog(
         .map(|q| q.sprites.resolution_scale)
         .filter(|scale| *scale != ambition_persistence::settings::TextureResolutionScale::Full)
         .and_then(|scale| {
-            let variant_id = ambition_asset_manager::sandbox_assets::scaled_asset_id(
+            let variant_id = ambition_asset_manager::platformer_assets::scaled_asset_id(
                 &id,
                 scale.asset_id_suffix(),
             )?;

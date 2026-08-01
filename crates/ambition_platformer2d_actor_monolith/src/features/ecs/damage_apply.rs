@@ -24,10 +24,10 @@ use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
-    ActorDiedMessage, SafePositionContext, AmbitionGameSessionState, remember_safe_player_position,
+    ActorDiedMessage, SafePositionContext, RoomTransitionCooldown, remember_safe_player_position,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -56,11 +56,11 @@ pub use ae::hit_response::di_adjust;
 /// cannot pick different rows for the same hit.
 /// ⚠ **`feel.di_max_angle` must already be the RESOLVED match value** (AE6).
 /// Directional influence is a rule of the match being played, not world tuning,
-/// so the system that reads `Res<SandboxFeelTuning>` folds the resolved rules
+/// so the system that reads `Res<Platformer2dFeelTuningMonolith>` folds the resolved rules
 /// into its LOCAL copy before the hit path sees it — see `resolved_feel`. The
 /// row travels as one struct so the launch and the hitstun cannot disagree.
 pub(crate) fn hit_response_tuning(
-    feel: &SandboxFeelTuning,
+    feel: &Platformer2dFeelTuningMonolith,
     boss_hit: bool,
 ) -> ae::hit_response::HitResponseTuning {
     ae::hit_response::HitResponseTuning {
@@ -313,13 +313,13 @@ pub(crate) fn death_respawn_player(
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut AmbitionGameSessionState,
+    sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     player_health: Option<&mut BodyHealth>,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     from: ae::Vec2,
     cause: crate::DeathCause,
     anim: &mut BodyAnimFacts,
@@ -339,7 +339,7 @@ pub(crate) fn death_respawn_player(
         ClockRequester::Engine,
         "death_respawn",
     ));
-    sim_state.room_transition_cooldown = 0.0;
+    sim_state.remaining = 0.0;
     anim.reset();
     combat.reset();
     if let Some(health) = player_health {
@@ -410,7 +410,7 @@ pub(crate) fn handle_player_damage_events(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut AmbitionGameSessionState,
+    sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
@@ -424,7 +424,7 @@ pub(crate) fn handle_player_damage_events(
     tuning: ae::MovementTuning,
     // The body's frame down direction, resolved by the environment.
     gravity_dir: ae::Vec2,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     difficulty_multiplier: f32,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
@@ -714,7 +714,7 @@ pub(crate) fn safe_respawn_player(
     safety: &PlayerSafetyState,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     from: ae::Vec2,
     motion_model: &mut ae::MotionModel,
 ) {
@@ -767,7 +767,7 @@ pub(crate) fn resolved_body_knockback_velocity(
     boss_hit: bool,
     knockback: Option<&crate::combat::HitKnockback>,
     di_input_local: ae::Vec2,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) -> ae::Vec2 {
     ae::hit_response::knockback_velocity(
         victim_pos,
@@ -836,7 +836,7 @@ pub(crate) fn apply_body_hit_reaction(
     knockback: Option<&crate::combat::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
@@ -929,7 +929,7 @@ pub(crate) fn apply_player_knockback(
     tuning: ae::MovementTuning,
     // The body's frame down direction, resolved by the environment.
     gravity_dir: ae::Vec2,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     damage: &FeatureHitEvent,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
@@ -1145,10 +1145,10 @@ pub fn apply_player_hit_events(
         Query<&ambition_sfx::BodyPresentationSource>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
-    mut sim_state: ResMut<AmbitionGameSessionState>,
+    mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     // The rollback-registered FIFO `stage_player_victim_hit_events` filled at
@@ -1241,7 +1241,7 @@ pub fn apply_player_hit_events(
     let tuning = active_tuning.0;
     // AE6: DIRECTIONAL INFLUENCE IS A MATCH RULE, folded into this system's
     // local copy of the world's feel. The versus stage used to get the same
-    // effect by WRITING `SandboxFeelTuning` on route entry and putting it back
+    // effect by WRITING `Platformer2dFeelTuningMonolith` on route entry and putting it back
     // on exit — correct by discipline, and one crash between the two away from
     // leaving the borrow outstanding. Nothing is written now, so there is
     // nothing to restore.
@@ -1364,7 +1364,7 @@ pub fn apply_player_hit_events(
             in_hitstun: combat.hitstun_timer > 0.0,
             feature_requested_reset: false,
             blink_grace_active: facts.blink_grace,
-            room_transitioning: sim_state.room_transition_cooldown > 0.0,
+            room_transitioning: sim_state.remaining > 0.0,
         };
         remember_safe_player_position(&mut safety, &clusters, &safe_world, ctx);
     }

@@ -87,7 +87,7 @@ pub fn tick_portal_phases_system(
 /// is a no-op when no transition transaction is active.
 pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    sim_state: Res<crate::AmbitionGameSessionState>,
+    sim_state: Res<crate::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     // The transition subject is the CONTROLLED body: if the driven body (home
@@ -110,7 +110,7 @@ pub fn detect_room_transition_system(
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
-    if sim_state.room_transition_cooldown > 0.0 {
+    if sim_state.remaining > 0.0 {
         return;
     }
     let Some(subject_entity) = controlled

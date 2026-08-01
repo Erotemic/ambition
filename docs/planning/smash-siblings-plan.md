@@ -30,7 +30,7 @@ it is why `DeathPolicy::Unbounded` stays uncalled there.
 |---|---|---|
 | smash PERCENT (meter never kills; the world does) | `DeathPolicy::Unbounded` | ⛔ **NOT lands** — see part 0 below |
 | blast zones / OOB death | queue F0 | ✔ |
-| DI | `SandboxFeelTuning::di_max_angle`, `VERSUS_DI_MAX_ANGLE` | ✔ on for the fighting stage |
+| DI | `Platformer2dFeelTuningMonolith::di_max_angle`, `VERSUS_DI_MAX_ANGLE` | ✔ on for the fighting stage |
 | 1–4 local players from device discovery | `LocalSeatTopology` | ✔ |
 | a roster of participants, human or CPU | `MatchParticipantRoster` / `MatchParticipant` | ✔ |
 | seating them as bodies | `seat_match_participants`, `MatchSeat` | ✔ |

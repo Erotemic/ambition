@@ -40,7 +40,7 @@ pub mod sand_grid;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::{
-    simulation_pass_is_authoritative, Platformer2dSimulationPhase, SimScheduleExt,
+    simulation_pass_is_authoritative, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
 };
 use bevy::prelude::*;
 
@@ -264,12 +264,12 @@ impl Plugin for FallingSandSimPlugin {
                     // overlay, which the rebuild clears each frame — run after
                     // it (the same WorldPrep contract the gates use).
                     .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
-                    .in_set(Platformer2dSimulationPhase::WorldPrep)
+                    .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
                     .in_set(FallingSandSimSet),
             )
             .add_systems(
                 sim,
-                capture_falling_sand_switch_interactions.in_set(Platformer2dSimulationPhase::GameplayEffects),
+                capture_falling_sand_switch_interactions.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
             );
     }
 }

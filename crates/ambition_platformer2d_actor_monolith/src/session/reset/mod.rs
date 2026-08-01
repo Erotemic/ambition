@@ -1,6 +1,6 @@
 //! Sandbox-wide gameplay reset.
 //!
-//! Setting [`SandboxResetRequested::request`] clears gameplay progress and rebuilds
+//! Setting [`NewGameResetRequested::request`] clears gameplay progress and rebuilds
 //! runtime state so the player returns to the world's start room with encounters,
 //! quests, switches, bosses, and flags reset.
 //!
@@ -57,7 +57,7 @@ pub struct RoomReplayRequested;
 /// **The reset's preflight passed and the wipe is happening.**
 ///
 /// Everything that tears down state for a reset keys off THIS, not off
-/// [`SandboxResetRequested`]. The difference is the whole of the transactional
+/// [`NewGameResetRequested`]. The difference is the whole of the transactional
 /// claim: a request is what somebody asked for, and this is what the preflight
 /// agreed to. `clear_transient_on_sandbox_reset` used to read the request and
 /// run FIRST, so a start room that failed its boundary check produced the worst
@@ -65,7 +65,7 @@ pub struct RoomReplayRequested;
 /// already gone, the reset was then declined, and the player stayed in the old
 /// room with half a session (GPT 5.6, 2026-07-27).
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SandboxResetCommitted;
+pub struct NewGameResetCommitted;
 
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
@@ -76,11 +76,11 @@ use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Bundles sim-state resources so `process_sandbox_reset_request`
+/// Bundles sim-state resources so `process_new_game_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
-    sim_state: ResMut<'w, crate::AmbitionGameSessionState>,
+    sim_state: ResMut<'w, crate::RoomTransitionCooldown>,
     clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -100,19 +100,19 @@ pub struct ResetPlayState<'w> {
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
     active_binding: Option<Res<'w, crate::world::rooms::transaction::ActiveContentBinding>>,
-    /// Announced once the preflight has agreed. See [`SandboxResetCommitted`].
-    committed: MessageWriter<'w, SandboxResetCommitted>,
+    /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
+    committed: MessageWriter<'w, NewGameResetCommitted>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
 /// Set `request = true` from anywhere; the next
-/// `process_sandbox_reset_request` tick consumes it.
+/// `process_new_game_reset_request` tick consumes it.
 #[derive(Resource, Clone, Default, Debug)]
-pub struct SandboxResetRequested {
+pub struct NewGameResetRequested {
     pub request: bool,
 }
 
-impl SandboxResetRequested {
+impl NewGameResetRequested {
     pub fn request(&mut self) {
         self.request = true;
     }
@@ -125,8 +125,8 @@ impl SandboxResetRequested {
 /// triggered mid-frame doesn't race with in-flight gameplay
 /// mutations, and BEFORE the populate systems so when they run on
 /// the next frame the cleared registries see fresh state.
-pub fn process_sandbox_reset_request(
-    mut request: ResMut<SandboxResetRequested>,
+pub fn process_new_game_reset_request(
+    mut request: ResMut<NewGameResetRequested>,
     mut save: ResMut<AmbitionGameSave>,
     mut encounter_registry: ResMut<EncounterRegistry>,
     mut boss_registry: ResMut<BossEncounterRegistry>,
@@ -229,7 +229,7 @@ pub fn process_sandbox_reset_request(
     // Past the point of refusal. Every OTHER teardown system waits for this
     // rather than for the request, so a declined reset costs nothing anywhere —
     // not just in this function.
-    play_state.committed.write(SandboxResetCommitted);
+    play_state.committed.write(NewGameResetCommitted);
 
     // 1. Wipe the persisted save. Change-detection will trigger the
     //    autosave system to write the empty save to disk this tick.
@@ -270,7 +270,7 @@ pub fn process_sandbox_reset_request(
             crate::time::time_control::ClockRequester::Engine,
             "sandbox_reset",
         ));
-    play_state.sim_state.room_transition_cooldown = 0.0;
+    play_state.sim_state.remaining = 0.0;
     // Reset the ECS authority directly so the next player tick frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
@@ -325,8 +325,8 @@ pub fn process_sandbox_reset_request(
 /// restoring its base `ActionSet` (Jon: "portals and held items don't reset on
 /// sandbox reset — they should").
 ///
-/// Runs AFTER [`process_sandbox_reset_request`] and on
-/// [`SandboxResetCommitted`], not on the request. It used to run first and read
+/// Runs AFTER [`process_new_game_reset_request`] and on
+/// [`NewGameResetCommitted`], not on the request. It used to run first and read
 /// the request, which meant a reset whose preflight REFUSED had already emptied
 /// the player's hands — the refusal path advertises "the running session is
 /// untouched" and this was the system making that false. Ordering costs nothing
@@ -335,7 +335,7 @@ pub fn process_sandbox_reset_request(
 /// restore) is exactly the one that must not happen speculatively.
 #[allow(clippy::type_complexity)]
 pub fn clear_transient_on_sandbox_reset(
-    mut committed: MessageReader<SandboxResetCommitted>,
+    mut committed: MessageReader<NewGameResetCommitted>,
     mut commands: Commands,
     #[cfg(feature = "portal")] transient: Query<
         Entity,
@@ -391,27 +391,27 @@ pub fn clear_transient_on_sandbox_reset(
     }
 }
 
-/// Schedules [`process_sandbox_reset_request`] into [`Platformer2dSimulationPhase::ResetProcessing`].
-pub struct SandboxResetSchedulePlugin;
+/// Schedules [`process_new_game_reset_request`] into [`Platformer2dSimulationPhaseMonolith::ResetProcessing`].
+pub struct NewGameResetPlugin;
 
-impl Plugin for SandboxResetSchedulePlugin {
+impl Plugin for NewGameResetPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_message::<crate::session::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
-        app.add_message::<SandboxResetCommitted>();
+        app.add_message::<NewGameResetCommitted>();
         app.add_systems(
             sim,
             // PREFLIGHT FIRST. The processor is the only system that may decline
             // a reset, so nothing may tear anything down ahead of it; the
-            // transient clear waits for `SandboxResetCommitted` and therefore
+            // transient clear waits for `NewGameResetCommitted` and therefore
             // never runs for a reset that was refused.
             (
-                process_sandbox_reset_request,
+                process_new_game_reset_request,
                 clear_transient_on_sandbox_reset,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::ResetProcessing),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::ResetProcessing),
         );
     }
 }

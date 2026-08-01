@@ -60,7 +60,7 @@ pub(in super::super) fn extend_with_data_entries(manifest: &mut AssetManifest) {
         AssetEntry::new(
             ids::sandbox_data(),
             AssetKind::RonData,
-            "ambition/sandbox.ron",
+            "ambition/platformer_defaults.ron",
         )
         .with_missing_policy(MissingAssetPolicy::Error)
         .with_preload_group(PreloadGroup::Bootstrap),

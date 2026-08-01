@@ -10,7 +10,7 @@
 //! (see `scripts/regen_music_registry.py` + `regen_music.sh`). Keeping
 //! them apart means the auto-generated music list never churns the
 //! hand-authored sound-design data, and neither lives inside the
-//! gameplay-tuning `sandbox.ron`.
+//! gameplay-tuning `platformer_defaults.ron`.
 
 use ambition_sfx::SfxId;
 use bevy::prelude::Resource;

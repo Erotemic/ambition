@@ -77,7 +77,7 @@ Ordinary Bevy systems — registered into the schedule **the host declares
 authoritative**, never into bare `Update`:
 
 ```rust
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
 
 impl Plugin for MyPlugin {
     fn build(&self, app: &mut App) {
@@ -86,7 +86,7 @@ impl Plugin for MyPlugin {
             sim,
             (tick_my_cooldowns, apply_my_effect)
                 .chain()
-                .in_set(Platformer2dSimulationPhase::GameplayEffects),   // one explicit phase
+                .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),   // one explicit phase
         );
     }
 }
@@ -158,7 +158,7 @@ pub const MY_ACTION: SemanticActionDef = SemanticActionDef {
 ```
 
 ⚠ **it can be declared and queried; it cannot yet carry a device binding of its
-own.** `InputMap` is still keyed by the engine's closed `SandboxAction`, so a
+own.** `InputMap` is still keyed by the engine's closed `Platformer2dInputActionMonolith`, so a
 consumer fires your mechanic by writing your own request message — which is also
 how a scripted sequence or an AI would. The migration that closes this is in
 `docs/planning/authoring-loop-program-2026-07-31.md`; do not invent a private

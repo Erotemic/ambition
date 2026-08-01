@@ -25,7 +25,7 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     let boss_catalog = ambition_content::bosses::authored_boss_catalog();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.
-    let catalog = ambition_platformer2d_actor_monolith::assets::sandbox_assets::build_sandbox_catalog_with(
+    let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_sandbox_catalog_with(
         &config,
         &character_catalog,
         &boss_catalog,

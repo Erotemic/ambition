@@ -1219,7 +1219,7 @@ re-export). Three genuine inversions:
    `rooms/systems.rs` mutates `SlotInteractionState` — room transitions reach into
    player state. Elegant fix: emit `RoomTransitioned { spawn, reason }`; player/
    session systems react. (Also fixes the shared-scalar cooldown smell in
-   `SandboxSimState.room_transition_cooldown`.)
+   `SandboxSimState.remaining`.)
 3. `world/physics.rs` debris messages move to the sim-view crate (D3).
 **Payoff:** −10k from the god crate; the LDtk machinery (+ `bevy_ecs_ldtk` dep)
 becomes a leaf; the "second game" oracle needs exactly this crate to exist.

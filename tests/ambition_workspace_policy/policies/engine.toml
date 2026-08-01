@@ -312,7 +312,7 @@ rationale = "the platformer_runtime facade in ambition_platformer2d_actor_monoli
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
-forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::sandbox_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
+forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::platformer_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
 
 
 # was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
@@ -1161,7 +1161,7 @@ rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platf
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhase", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
+forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhaseMonolith", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
 
 
 # was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates
@@ -1175,7 +1175,7 @@ rationale = "F2 assets pass: pure asset vocabulary owned by ambition_sprite_shee
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
-forbid = ["ambition_platformer2d_actor_monolith::assets::game_assets::GameAssetConfig", "ambition_platformer2d_actor_monolith::assets::game_assets::GameAssets", "ambition_platformer2d_actor_monolith::assets::game_assets::EntitySprite", "ambition_platformer2d_actor_monolith::assets::sandbox_assets::AmbitionGameAssetCatalog", "ambition_platformer2d_actor_monolith::assets::sandbox_assets::ids"]
+forbid = ["ambition_platformer2d_actor_monolith::assets::game_assets::GameAssetConfig", "ambition_platformer2d_actor_monolith::assets::game_assets::GameAssets", "ambition_platformer2d_actor_monolith::assets::game_assets::EntitySprite", "ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog", "ambition_platformer2d_actor_monolith::assets::platformer_assets::ids"]
 
 
 # was: architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet
@@ -1784,7 +1784,7 @@ watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
 rationale = "actor crate root keeps no F1 compatibility facades"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["pub use session::game_mode", "pub use game_mode", "CameraEaseState", "CameraEaseTuning", "AmbitionGameDeveloperState"]
+forbid = ["pub use session::game_mode", "pub use game_mode", "CameraEaseState", "CameraEaseTuning", "DeveloperRuntimeState"]
 file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
 
 [[policy]]
@@ -1809,7 +1809,7 @@ rationale = "F2.1 consumers use canonical lower crates, not actor facades"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_platformer2d_actor_monolith::AmbitionGameDeveloperState", "ambition_platformer2d_actor_monolith::CameraEaseState", "ambition_platformer2d_actor_monolith::CameraEaseTuning", "ambition_platformer2d_actor_monolith::time::camera_ease", "ambition_platformer2d_actor_monolith::session::camera_layers", "ambition_platformer2d_actor_monolith::abilities::traversal::possession::ControlledSubject", "ambition_platformer2d_actor_monolith::features::FeatureEcsWorldOverlay"]
+forbid = ["ambition_platformer2d_actor_monolith::DeveloperRuntimeState", "ambition_platformer2d_actor_monolith::CameraEaseState", "ambition_platformer2d_actor_monolith::CameraEaseTuning", "ambition_platformer2d_actor_monolith::time::camera_ease", "ambition_platformer2d_actor_monolith::session::camera_layers", "ambition_platformer2d_actor_monolith::abilities::traversal::possession::ControlledSubject", "ambition_platformer2d_actor_monolith::features::FeatureEcsWorldOverlay"]
 
 
 # was: architecture_boundaries_actor_dialog_keeps_only_game_bindings

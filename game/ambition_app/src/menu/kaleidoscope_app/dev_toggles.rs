@@ -8,13 +8,13 @@ use super::*;
 
 /// The set of resources the Developer screen reads/writes. The dev-toggle path
 /// spans THREE resources: most toggles live on `DeveloperTools`, but the global
-/// debug flags live on [`AmbitionGameDeveloperState`] and the LDtk hot-reload toggle
+/// debug flags live on [`DeveloperRuntimeState`] and the LDtk hot-reload toggle
 /// lives on [`LdtkHotReloadState`] — mirroring the pause-menu Developer page,
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
 pub(crate) struct DevToggleRead<'a> {
     pub(crate) dev: &'a ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
-    pub(crate) dev_state: &'a ambition_platformer2d::dev_tools::AmbitionGameDeveloperState,
+    pub(crate) dev_state: &'a ambition_platformer2d::dev_tools::DeveloperRuntimeState,
     pub(crate) ldtk_reload: &'a ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState,
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
     // frontend (Grid / Cube), read from `InventoryUiBackend`.
@@ -35,7 +35,7 @@ pub(crate) struct DevToggleRead<'a> {
 
 pub(crate) struct DevToggleWrite<'a> {
     pub(crate) dev: &'a mut ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
-    pub(crate) dev_state: &'a mut ambition_platformer2d::dev_tools::AmbitionGameDeveloperState,
+    pub(crate) dev_state: &'a mut ambition_platformer2d::dev_tools::DeveloperRuntimeState,
     pub(crate) ldtk_reload: &'a mut ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState,
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
@@ -52,7 +52,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     use DevToggleId as D;
     let dev = ctx.dev;
     let mut values = Vec::with_capacity(DevToggleId::ALL.len());
-    // Global dev flags (AmbitionGameDeveloperState) — resource-backed debug rows.
+    // Global dev flags (DeveloperRuntimeState) — resource-backed debug rows.
     values.push(DevSnapshot::toggle(
         D::DebugOverlay,
         ctx.dev_state.debug_enabled(),
@@ -137,7 +137,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
     use DevToggleId as D;
     let dev = ctx.dev;
     match id {
-        // Global dev flags on `AmbitionGameDeveloperState` (mirrors the pause menu's
+        // Global dev flags on `DeveloperRuntimeState` (mirrors the pause menu's
         // `SettingsItem::DebugOverlay` / `SlowMotion` arms).
         D::DebugOverlay => ctx.dev_state.debug = !ctx.dev_state.debug,
         D::SlowMotion => ctx.dev_state.slowmo = !ctx.dev_state.slowmo,

@@ -22,13 +22,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::AmbitionGameSessionState;
-use ambition_platformer2d_actor_monolith::time::feel::SandboxFeelTuning;
+use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
+use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::{ClockRequester, ClockResetRequest};
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::VfxMessage;
@@ -52,7 +52,7 @@ pub fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut AmbitionGameSessionState,
+    sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
     attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
@@ -61,7 +61,7 @@ pub fn reset_sandbox(
     interaction: &mut ambition_platformer2d_actor_monolith::control::SlotGestures,
     blink_cam: &mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) {
     let reset_from = clusters.kinematics.pos;
     ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
@@ -71,7 +71,7 @@ pub fn reset_sandbox(
         ClockRequester::Engine,
         "sandbox_reset",
     ));
-    sim_state.room_transition_cooldown = 0.0;
+    sim_state.remaining = 0.0;
     *attack = None;
     anim.reset();
     combat.reset();
@@ -110,8 +110,8 @@ pub fn apply_room_replay_request_system(
     mut replay_requests: MessageReader<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    mut sim_state: ResMut<AmbitionGameSessionState>,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,
@@ -180,7 +180,7 @@ pub fn apply_room_replay_request_system(
 /// request through the same system.
 ///
 /// The consumer holds the position the app's copy held: in
-/// [`Platformer2dSimulationPhase::PlayerInput`], after the dev-edit sync and before the input
+/// [`Platformer2dSimulationPhaseMonolith::PlayerInput`], after the dev-edit sync and before the input
 /// timer. A host with its own reset-input system pins itself relative to this
 /// one (the Ambition app does).
 pub struct RoomReplaySchedulePlugin;
@@ -191,7 +191,7 @@ impl Plugin for RoomReplaySchedulePlugin {
         app.add_systems(
             sim,
             apply_room_replay_request_system
-                .in_set(Platformer2dSimulationPhase::PlayerInput)
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
                 .before(ambition_platformer2d_actor_monolith::control::input_timer_system),
         );

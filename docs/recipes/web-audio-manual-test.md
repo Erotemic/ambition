@@ -58,7 +58,7 @@ so the served URLs resolve.
 
 ### First sanity check after page load
 
-The very first log line under target `ambition_platformer2d::sandbox_assets` is:
+The very first log line under target `ambition_platformer2d::platformer_assets` is:
 
 ```text
 web start: AssetProfile = <PROFILE> | static_map = ... | static_core_assets = ... | static_sfx_bank = ...

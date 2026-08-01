@@ -64,7 +64,7 @@ pub fn input_stream_recording(recorder: Option<Res<InputStreamRecorder>>) -> boo
 
 /// Append this tick's finalized slot input to the armed recording.
 ///
-/// Registered in `Platformer2dSimulationPhase::PlayerInput` immediately after
+/// Registered in `Platformer2dSimulationPhaseMonolith::PlayerInput` immediately after
 /// `populate_slot_controls`, which is the moment `SlotControls` becomes the
 /// input this tick will be simulated with.
 pub fn record_input_stream(

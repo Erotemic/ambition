@@ -24,7 +24,7 @@ use super::layout::{
 };
 use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
-use ambition_input::{ControlFrame, KeyboardPreset, SandboxAction};
+use ambition_input::{ControlFrame, KeyboardPreset, Platformer2dInputActionMonolith};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -1200,12 +1200,12 @@ pub fn render_touch_button_text(
 pub struct ButtonGlyph(pub Cow<'static, str>);
 
 /// Pressed-state flag (Phase 3). Set true while the underlying
-/// `SandboxAction` is held this frame; consumed by
+/// `Platformer2dInputActionMonolith` is held this frame; consumed by
 /// [`sync_button_pressed_visual`] to brighten the button background.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
-/// Map a touch button to its canonical gameplay [`SandboxAction`].
+/// Map a touch button to its canonical gameplay [`Platformer2dInputActionMonolith`].
 ///
 /// ⛔ **this used to be a second table.** It sat fifteen lines below
 /// `touch_button_slot` (`TouchActionButton → ControlSlot`) and listed the same
@@ -1221,15 +1221,15 @@ pub struct ButtonPressed(pub bool);
 /// `touch_button_slot` already returns `None` for.
 ///
 /// ⚠ **`Option`, not a fallback.** The first version of this returned
-/// `SandboxAction::Jump` behind a `debug_assert!(false, ..)` for a button with
+/// `Platformer2dInputActionMonolith::Jump` behind a `debug_assert!(false, ..)` for a button with
 /// no slot — which is the pattern this repo swept a day earlier: the release
 /// path drove JUMP from an unclassifiable button and the assert WAS the
 /// handling. A button nobody can classify gets no glyph and no press, which is
 /// the truthful answer and needs no alarm.
-fn touch_action_to_sandbox_action(action: TouchActionButton) -> Option<SandboxAction> {
+fn touch_action_to_sandbox_action(action: TouchActionButton) -> Option<Platformer2dInputActionMonolith> {
     match action {
-        TouchActionButton::Start => Some(SandboxAction::Start),
-        TouchActionButton::Reset => Some(SandboxAction::Reset),
+        TouchActionButton::Start => Some(Platformer2dInputActionMonolith::Start),
+        TouchActionButton::Reset => Some(Platformer2dInputActionMonolith::Reset),
         gameplay => touch_button_slot(gameplay).and_then(ambition_input::action_for_slot),
     }
 }
@@ -1270,7 +1270,7 @@ pub fn update_button_glyph_from_active_input(
 }
 
 /// Per-frame: write each button's pressed flag from the persistent
-/// participant's `ActionState<SandboxAction>`. Touch is a bound virtual
+/// participant's `ActionState<Platformer2dInputActionMonolith>`. Touch is a bound virtual
 /// device now, so the same `ActionState` covers a finger on the overlay, a
 /// mouse click on it, AND the keyboard/gamepad — one source lights the
 /// button for every device. Skips writing when the value is unchanged so
@@ -1279,7 +1279,7 @@ pub fn update_button_glyph_from_active_input(
 /// `ButtonPressed`), so no parent walk is needed.
 pub fn update_button_pressed_from_actions(
     actions_q: Query<
-        &leafwing_input_manager::prelude::ActionState<SandboxAction>,
+        &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
         With<ambition_input::InputParticipant>,
     >,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,

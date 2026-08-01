@@ -1,6 +1,6 @@
 //! Participant → frame populate systems: the schedule-anchored input vocabulary.
 //!
-//! Bridges the persistent participant's leafwing `ActionState<SandboxAction>`
+//! Bridges the persistent participant's leafwing `ActionState<Platformer2dInputActionMonolith>`
 //! into the sim-side `ControlFrame` ([`populate_control_frame_from_actions`])
 //! and the menu-side [`MenuControlFrame`]
 //! ([`populate_menu_control_frame_from_actions`]), the device-agnostic seam
@@ -24,7 +24,7 @@ use ambition_input::{
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
+    read_gameplay_control_frame_with_settings, read_menu_control_frame, Platformer2dInputActionMonolith,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -93,7 +93,7 @@ pub fn spawn_primary_input_participant(
     commands.spawn((
         InputParticipant::primary(),
         ParticipantContexts::default(),
-        ActionState::<SandboxAction>::default(),
+        ActionState::<Platformer2dInputActionMonolith>::default(),
         preset.input_map(),
     ));
 }
@@ -166,7 +166,7 @@ pub fn seat_input_participants_for_roster(
         commands.spawn((
             InputParticipant::with_id(id),
             ParticipantContexts::default(),
-            ActionState::<SandboxAction>::default(),
+            ActionState::<Platformer2dInputActionMonolith>::default(),
             KeyboardPreset::gamepad_only_map(),
             SeatDashTriggerState::default(),
         ));
@@ -256,13 +256,13 @@ pub fn declare_in_session_input_contexts(
 /// Toggle player-trail emission from the logical input action.
 ///
 /// The physical key or button belongs to `KeyboardPreset::input_map`; this bridge
-/// only consumes the semantic `SandboxAction` and flips the simulation resource
+/// only consumes the semantic `Platformer2dInputActionMonolith` and flips the simulation resource
 /// that the trail system reads.
 #[cfg(feature = "input")]
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
-    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
+    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
     enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
@@ -282,7 +282,7 @@ pub fn toggle_player_trail_emission_from_actions(
     else {
         return;
     };
-    if actions.just_pressed(&SandboxAction::TrailToggle) {
+    if actions.just_pressed(&Platformer2dInputActionMonolith::TrailToggle) {
         enabled.enabled = !enabled.enabled;
     }
 }
@@ -302,7 +302,7 @@ pub fn toggle_player_trail_emission_from_actions(
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
-    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
+    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
@@ -427,7 +427,7 @@ pub fn populate_secondary_slot_controls(
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut seats: Query<(
         &InputParticipant,
-        &ActionState<SandboxAction>,
+        &ActionState<Platformer2dInputActionMonolith>,
         &mut SeatDashTriggerState,
     )>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
@@ -517,13 +517,13 @@ pub fn publish_latched_slot_controls(
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
 ///
 /// Menu systems should read this resource instead of reading raw
-/// `ActionState<SandboxAction>`. Keyboard, gamepad, and virtual touch controls
+/// `ActionState<Platformer2dInputActionMonolith>`. Keyboard, gamepad, and virtual touch controls
 /// are already unified in the participant's action state; mouse-wheel and
 /// pointer-drag gestures add their scroll contribution before consumers run.
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
+    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -577,17 +577,17 @@ pub fn populate_menu_control_frame_from_actions(
 /// screen where the shoulder buttons work and another where they do not.
 #[cfg(feature = "input")]
 pub fn decode_menu_frame(
-    actions: &ActionState<SandboxAction>,
+    actions: &ActionState<Platformer2dInputActionMonolith>,
     menu_input_state: &mut MenuInputState,
     user_settings: &ambition_persistence::settings::UserSettings,
     wall_dt: f32,
 ) -> MenuControlFrame {
-    let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
-    let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
-    let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
-    let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
+    let edge_up = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateUp);
+    let edge_down = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateDown);
+    let edge_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateLeft);
+    let edge_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateRight);
 
-    let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
+    let raw = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::MenuStick);
     let (sx, sy) = ambition_persistence::settings::ControlSettings::apply_deadzone(
         raw.x,
         raw.y,
@@ -601,25 +601,25 @@ pub fn decode_menu_frame(
         edge_left,
         edge_right,
         analog_dir,
-        actions.just_pressed(&SandboxAction::MenuSelect),
-        actions.just_pressed(&SandboxAction::MenuBack),
-        actions.just_pressed(&SandboxAction::Start),
+        actions.just_pressed(&Platformer2dInputActionMonolith::MenuSelect),
+        actions.just_pressed(&Platformer2dInputActionMonolith::MenuBack),
+        actions.just_pressed(&Platformer2dInputActionMonolith::Start),
         wall_dt,
         user_settings.controls.menu_repeat_initial_delay,
         user_settings.controls.menu_repeat_interval,
     );
     let mut next = MenuControlFrame::from_menu_input(input);
-    next.select_held = actions.pressed(&SandboxAction::MenuSelect)
-        || actions.pressed(&SandboxAction::Jump)
-        || actions.pressed(&SandboxAction::Interact);
+    next.select_held = actions.pressed(&Platformer2dInputActionMonolith::MenuSelect)
+        || actions.pressed(&Platformer2dInputActionMonolith::Jump)
+        || actions.pressed(&Platformer2dInputActionMonolith::Interact);
     next.back_held =
-        actions.pressed(&SandboxAction::MenuBack) || actions.pressed(&SandboxAction::Reset);
-    next.inventory = actions.just_pressed(&SandboxAction::Inventory);
-    next.map = actions.just_pressed(&SandboxAction::Map);
+        actions.pressed(&Platformer2dInputActionMonolith::MenuBack) || actions.pressed(&Platformer2dInputActionMonolith::Reset);
+    next.inventory = actions.just_pressed(&Platformer2dInputActionMonolith::Inventory);
+    next.map = actions.just_pressed(&Platformer2dInputActionMonolith::Map);
     // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
     // turns exactly one page, independent of the arrow/d-pad item cursor.
-    next.page_left = actions.just_pressed(&SandboxAction::MenuPageLeft);
-    next.page_right = actions.just_pressed(&SandboxAction::MenuPageRight);
+    next.page_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageLeft);
+    next.page_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageRight);
     next
 }
 
@@ -636,7 +636,7 @@ pub fn decode_menu_frame(
 #[cfg(feature = "input")]
 pub fn populate_seat_menu_frames(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    participants: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
+    participants: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
     mut frames: ResMut<ambition_input::SeatMenuFrames>,
     mut states: Local<std::collections::BTreeMap<u8, MenuInputState>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -650,7 +650,7 @@ pub fn populate_seat_menu_frames(
     // Sorted by slot so the order this writes in is the order it reads in — a
     // menu whose seats resolve in query order is a menu that resolves
     // differently between runs (ADR 0023).
-    let mut rows: Vec<(u8, &ActionState<SandboxAction>)> = participants
+    let mut rows: Vec<(u8, &ActionState<Platformer2dInputActionMonolith>)> = participants
         .iter()
         .map(|(participant, actions)| (participant.id.slot(), actions))
         .collect();
@@ -719,7 +719,7 @@ mod focus_gate_tests {
     };
     use ambition_input::{
         resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
-        ParticipantId, SandboxAction, SeatInputContexts,
+        ParticipantId, Platformer2dInputActionMonolith, SeatInputContexts,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
@@ -743,13 +743,13 @@ mod focus_gate_tests {
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<ActionState<SandboxAction>>(),
+                .contains::<ActionState<Platformer2dInputActionMonolith>>(),
             "the participant owns the leafwing action state"
         );
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<InputMap<SandboxAction>>(),
+                .contains::<InputMap<Platformer2dInputActionMonolith>>(),
             "the participant owns the active input map"
         );
     }
@@ -870,7 +870,7 @@ mod focus_gate_tests {
         app.update();
 
         let world = app.world_mut();
-        let mut seats = world.query::<(&InputParticipant, &InputMap<SandboxAction>)>();
+        let mut seats = world.query::<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>();
         let (_, map) = seats
             .iter(world)
             .find(|(seat, _)| seat.id == ParticipantId::SECONDARY)
@@ -906,12 +906,12 @@ mod focus_gate_tests {
         fn seat(slot: u8, context: ambition_input::InputContextId, priority: i32) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
             contexts.declare(ContextClaim::capturing(context, priority));
-            let mut actions = ActionState::<SandboxAction>::default();
+            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
             // Hold JUMP on every seat, so the only thing that can differ
             // downstream is the context — not what the player is doing. (Held
             // rather than an edge: `just_pressed` needs a tick this bare
             // `ActionState` never gets, and the question here is routing.)
-            actions.press(&SandboxAction::Jump);
+            actions.press(&Platformer2dInputActionMonolith::Jump);
             (
                 InputParticipant {
                     id: ParticipantId(slot),
@@ -993,8 +993,8 @@ mod focus_gate_tests {
                 GAMEPLAY_CONTEXT,
                 context_priority::GAMEPLAY,
             ));
-            let mut actions = ActionState::<SandboxAction>::default();
-            actions.press(&SandboxAction::Jump);
+            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+            actions.press(&Platformer2dInputActionMonolith::Jump);
             (
                 InputParticipant {
                     id: ParticipantId(slot),
@@ -1123,8 +1123,8 @@ mod focus_gate_tests {
             GAMEPLAY_CONTEXT,
             context_priority::GAMEPLAY,
         ));
-        let mut actions = ActionState::<SandboxAction>::default();
-        actions.press(&SandboxAction::Jump);
+        let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+        actions.press(&Platformer2dInputActionMonolith::Jump);
 
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
@@ -1173,8 +1173,8 @@ mod focus_gate_tests {
     /// controls. A per-seat surface reads `SeatMenuFrames` instead.
     #[test]
     fn a_second_participant_does_not_silence_the_global_menu_frame() {
-        fn seat(slot: u8, press: SandboxAction) -> impl Bundle {
-            let mut actions = ActionState::<SandboxAction>::default();
+        fn seat(slot: u8, press: Platformer2dInputActionMonolith) -> impl Bundle {
+            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
             actions.press(&press);
             (
                 InputParticipant {
@@ -1191,11 +1191,11 @@ mod focus_gate_tests {
             app.init_resource::<ambition_input::MenuInputState>();
             app.init_resource::<ambition_persistence::settings::UserSettings>();
             app.add_message::<bevy::input::mouse::MouseWheel>();
-            app.world_mut().spawn(seat(0, SandboxAction::MenuSelect));
+            app.world_mut().spawn(seat(0, Platformer2dInputActionMonolith::MenuSelect));
             // Every other seat holds something DIFFERENT, so a fold that mixed
             // them would be visible rather than accidentally agreeing.
             for slot in 1..seats as u8 {
-                app.world_mut().spawn(seat(slot, SandboxAction::MenuBack));
+                app.world_mut().spawn(seat(slot, Platformer2dInputActionMonolith::MenuBack));
             }
             app.add_systems(Update, super::populate_menu_control_frame_from_actions);
             app.update();
@@ -1334,7 +1334,7 @@ mod focus_gate_tests {
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<ActionState<SandboxAction>>(),
+                .contains::<ActionState<Platformer2dInputActionMonolith>>(),
             "participant device state survives session teardown"
         );
     }

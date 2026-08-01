@@ -108,7 +108,7 @@ pub use components::{
     BreakableFeature, CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes,
     EncounterMob, EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened,
     PersistKey, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
-    RespawnTimer, RuntimeStagedActor, PlatformerWorldSolidContributor, StandTimer,
+    RespawnTimer, RuntimeStagedActor, StandTimer,
 };
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
@@ -181,7 +181,7 @@ pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 use util::*;
 
 /// Schedules the gameplay-effect bus chain into
-/// [`crate::schedule::Platformer2dSimulationPhase::GameplayEffects`].
+/// [`crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
 pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
@@ -203,7 +203,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 bus::apply_gameplay_sfx_effects,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::GameplayEffects),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
     }
 }
@@ -246,7 +246,7 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     app.add_systems(
         sim,
         refresh_body_damageable_volumes
-            .in_set(crate::schedule::Platformer2dSimulationPhase::Combat)
+            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
             // Victim geometry is published between the move clock and the damage
             // pass: AFTER `Playback`, because a move's first active frame must not
             // publish the previous frame's volumes, and BEFORE `Resolve`, because
@@ -281,7 +281,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::features::combat_rules::project_combat_rules
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // S4: spend a stock per KO. `CombatSet::Settle` is the phase for
         // "everything that reads this tick's damage outcome rather than
@@ -441,7 +441,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // "This body starts again", announced to whoever authored it.
         //
@@ -455,7 +455,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ae::announce_body_restarts
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep)
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
                 .before(rebuild_feature_ecs_world_overlay),
         );
         // Advance the accumulating sim clock before any actor brain reads its
@@ -466,7 +466,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             advance_gameplay_elapsed
                 .before(select_actor_targets)
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
@@ -574,7 +574,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .after(select_actor_targets)
                 .before(tick_npc_idle_barks)
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // A body whose SHEET authors its geometry adopts the box for the pose it
         // is showing, BEFORE the movement phase sweeps that box. Host-owned so
@@ -612,7 +612,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             dissolve_settled_grudges
                 .before(select_actor_targets)
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // Q18 (G3): translate a rider-boss's live strike into per-limb intents on
         // its linked mount, then fan those out onto each limb body. `route_...`
@@ -647,7 +647,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             crate::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .before(update_ecs_bosses)
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // The cut-rope steer system itself is registered by the content
         // plugin (`crate::content::bosses`), in `BossSteerSlot`.
@@ -670,7 +670,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 crate::avatar::apply_player_heal_requests,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::FeatureCollection),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection),
         );
     }
 }
@@ -694,7 +694,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 crate::encounter::rebuild_encounter_switch_index,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::FeatureInteraction),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
         );
     }
 }

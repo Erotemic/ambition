@@ -14,7 +14,7 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_platformer2d_actor_monolith::rooms;
-use ambition_platformer2d_actor_monolith::time::feel::SandboxFeelTuning;
+use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest;
 use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt, RoomGeometry};
@@ -40,7 +40,7 @@ pub struct RoomTransitionEffects<'w> {
 /// consumed by the time-control owner — no system here mutates `time_scale`.
 #[derive(SystemParam)]
 pub struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_platformer2d_actor_monolith::AmbitionGameSessionState>,
+    pub sim_state: ResMut<'w, ambition_platformer2d_actor_monolith::RoomTransitionCooldown>,
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
@@ -138,7 +138,7 @@ fn apply_room_transition_resets(
     blink_cam: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
     arrival_pos: ae::Vec2,
     edge_exit: bool,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) {
     if let Some(blink_cam) = blink_cam {
         blink_cam.blink_in_timer = 0.0;
@@ -172,8 +172,8 @@ pub fn load_room(
     respawn_visuals: &mut MessageWriter<rooms::RespawnRoomVisualsRequested>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut ambition_dev_tools::AmbitionGameDeveloperState,
-    sim_state: &mut ambition_platformer2d_actor_monolith::AmbitionGameSessionState,
+    dev_state: &mut ambition_dev_tools::DeveloperRuntimeState,
+    sim_state: &mut ambition_platformer2d_actor_monolith::RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
@@ -189,7 +189,7 @@ pub fn load_room(
     carry_body: Option<Entity>,
     transition: rooms::RoomTransition,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) {
     // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
     // feature entities. Lives in the world runtime (`ambition_platformer2d_actor_monolith`) so
@@ -307,13 +307,13 @@ pub fn commit_ready_room_transition_system(
     mut transit: TransitBodies,
     mut world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<rooms::RoomSet>,
-    mut dev_state: ResMut<ambition_dev_tools::AmbitionGameDeveloperState>,
+    mut dev_state: ResMut<ambition_dev_tools::DeveloperRuntimeState>,
     mut room_clock: RoomClock,
     mut moving_platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
     mut dialogue: ResMut<ambition_dialog::DialogState>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,

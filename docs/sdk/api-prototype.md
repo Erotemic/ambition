@@ -281,7 +281,7 @@ composition. Measured, not assumed — and measuring it moved two rows:
 | `presentation` | `PlatformerPresentationPlugin` ×1 | **yes** — composition only |
 | `engine` | `PlatformerEnginePlugins::fixed_tick` ×4, `add_headless_foundation` ×3, `init_engine_states` ×2, `PlatformerEnginePlugins::rollback` ×1 | **conditional** — composition only, but the last one retires only if §4's resolution is accepted |
 | `provider` | `ShellComposition` ×1, **`PlatformerAuthoredCatalogRegistry` ×1** | **no** — the second is content (slice B) |
-| `asset_manager` | `actors_desktop_asset_root` ×5, `consumer_source::layered_asset_source` ×1, **`sandbox_assets::AmbitionGameAssetCatalog` ×1, `sandbox_assets::ids::sfx_bank` ×1** | **no** — composition closes six of eight uses; the asset *catalog* is slice B |
+| `asset_manager` | `actors_desktop_asset_root` ×5, `consumer_source::layered_asset_source` ×1, **`platformer_assets::Platformer2dAssetCatalog` ×1, `platformer_assets::ids::sfx_bank` ×1** | **no** — composition closes six of eight uses; the asset *catalog* is slice B |
 | `runtime` | `SIM_TICK_HZ`, `rollback::*` | no — rollback, deferred (§4) |
 | `actors`, `characters`, `world`, `entity_catalog`, `sprite_sheet`, `input`, `time`, `audio`, `engine_core`, `platformer`, `game_shell` | content, gameplay, vocabulary | no — slices B+ |
 

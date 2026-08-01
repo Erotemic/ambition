@@ -446,7 +446,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
             )),
         );
     let boss_catalog = crate::boss_encounter::BossCatalog::default();
-    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(
+    let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
         &config,
         &character_catalog,
         &boss_catalog,
@@ -456,7 +456,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
 
     let mut missing: Vec<String> = Vec::new();
     for track in &music.tracks {
-        let id = crate::assets::sandbox_assets::ids::music_track(&track.id);
+        let id = crate::assets::platformer_assets::ids::music_track(&track.id);
         let path = catalog.path_for(&id);
         if path.is_none() {
             missing.push(track.id.clone());

@@ -32,7 +32,7 @@ use bevy::MinimalPlugins;
 
 use ambition_platformer2d::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
 use ambition_platformer2d::input::{
-    ControlFrame, InputParticipant, SandboxAction, SeatInputContexts, LAUNCHER_CONTEXT,
+    ControlFrame, InputParticipant, Platformer2dInputActionMonolith, SeatInputContexts, LAUNCHER_CONTEXT,
     STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition_platformer2d::platformer::lifecycle::PlayerVisual;
@@ -170,7 +170,7 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
     assert!(app
         .world()
         .entity(participant)
-        .contains::<ActionState<SandboxAction>>());
+        .contains::<ActionState<Platformer2dInputActionMonolith>>());
     assert_eq!(owner(&app), Some(STARTUP_ACKNOWLEDGE_CONTEXT));
     assert_eq!(
         app.world()
@@ -352,7 +352,7 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         "session activation did not recreate the participant"
     );
     let mut stray = app.world_mut().query_filtered::<Entity, (
-        With<ActionState<SandboxAction>>,
+        With<ActionState<Platformer2dInputActionMonolith>>,
         Or<(
             With<PlayerVisual>,
             With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
@@ -425,7 +425,7 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
     assert!(
         app.world()
             .entity(participant)
-            .contains::<ActionState<SandboxAction>>(),
+            .contains::<ActionState<Platformer2dInputActionMonolith>>(),
         "participant device state survives session teardown"
     );
 

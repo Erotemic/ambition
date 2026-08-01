@@ -31,7 +31,7 @@ use super::*;
 ///
 /// * in `WorldPrep`, so [`derive_pogo_target_volumes`] and the feature-world
 ///   collision overlay (rebuilt in the same set) see this frame's targets;
-/// * again after `PlayerSimulation`, before `Platformer2dSimulationPhase::Combat`, so damage
+/// * again after `PlayerSimulation`, before `Platformer2dSimulationPhaseMonolith::Combat`, so damage
 ///   resolves against **post-movement** positions. A body's `CenteredAabb` is
 ///   written by its integrator — the player's in `PlayerSimulation`, an actor's
 ///   in `WorldPrep` — so publishing only in `WorldPrep` would hand the damage

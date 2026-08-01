@@ -6,7 +6,7 @@
 //!
 //! * [`AmbitionGameSimulationPlugin`] — all sim resources + systems; safe for
 //!   headless and visible builds.
-//! * [`AmbitionGameLdtkPlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
+//! * [`AmbitionGameLdtkRuntimePlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
 //! * [`AmbitionGamePresentationPlugin`] — input, audio, VFX, HUD, debug; visible only.
 //!
 //! ## Function API (lower-level)
@@ -45,7 +45,7 @@ pub use ambition_platformer2d::actors::schedule::{
     populate_menu_control_frame_from_actions, MenuNavConsume,
 };
 pub use ambition_platformer2d::actors::schedule::{
-    configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, Platformer2dSimulationPhase,
+    configure_platformer2d_simulation_phases, BossSteerSlot, PresentationSetupSet, Platformer2dSimulationPhaseMonolith,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::run_visible;
@@ -57,7 +57,7 @@ pub use cli::{
     shared_host_startup_ticks, SharedHostAcceptanceReport, SharedHostHeadlessReport,
     VisibleRenderMode, SHARED_HOST_HEADLESS_TICK_HZ,
 };
-pub use feedback::{ProgressionResources, AmbitionGameEventWriters};
+pub use feedback::{ProgressionResources, GameplayFeedbackWriters};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 // `PlayerBodyFrameOutput` moved to `ambition_platformer2d::actors::avatar` (the movement
@@ -66,7 +66,7 @@ pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
-    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, AmbitionGameLdtkPlugin,
+    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, AmbitionGameLdtkRuntimePlugin,
     AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
 };
 pub use resources::{

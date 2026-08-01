@@ -27,12 +27,12 @@ use ambition_input::ControlFrame;
 /// `GameMode::Playing`. Writes `fast_fall_pressed` back to `Res<ControlFrame>`.
 pub fn input_timer_system(
     time: Res<Time>,
-    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut sim_state: ResMut<crate::AmbitionGameSessionState>,
+    mut sim_state: ResMut<crate::RoomTransitionCooldown>,
     mut control_frame: ResMut<ControlFrame>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
@@ -44,7 +44,7 @@ pub fn input_timer_system(
 ) {
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
-    sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
+    sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
     for mut combat in &mut home_feel_q {
         combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
         combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
@@ -102,7 +102,7 @@ pub fn input_timer_system(
 /// the buffered signal post-player-tick).
 pub fn interaction_input_system(
     time: Res<Time>,
-    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
     control_frame: Res<ControlFrame>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -172,7 +172,7 @@ pub fn interaction_input_system(
 /// `input_timer_system`.
 pub fn cleanup_timers_system(
     time: Res<Time>,
-    mut dev_state: ResMut<ambition_dev_tools::AmbitionGameDeveloperState>,
+    mut dev_state: ResMut<ambition_dev_tools::DeveloperRuntimeState>,
     mut player_q: Query<
         (
             &ae::BodyMotionFacts,
@@ -202,7 +202,7 @@ mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::control::SlotInteractionState;
-    use crate::time::feel::SandboxFeelTuning;
+    use crate::time::feel::Platformer2dFeelTuningMonolith;
     use ambition_characters::actor::BodyCombat;
 
     /// Build a minimal app with `interaction_input_system` and one primary
@@ -211,7 +211,7 @@ mod interaction_suppression_tests {
     fn buffered_after(interact: bool, axis_y: f32) -> bool {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(SandboxFeelTuning::default());
+        app.insert_resource(Platformer2dFeelTuningMonolith::default());
         app.init_resource::<SlotInteractionState>();
         app.insert_resource(ControlFrame {
             interact_pressed: interact,

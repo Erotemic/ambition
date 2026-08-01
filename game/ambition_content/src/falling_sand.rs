@@ -113,7 +113,7 @@ impl Plugin for FallingSandRoomPlugin {
                     // the settled ledger is current for the tile exclusion.
                     .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
                     .after(FallingSandSimSet)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
             .add_systems(
                 sim,
@@ -124,7 +124,7 @@ impl Plugin for FallingSandRoomPlugin {
                 // back off, which inverts the player's mental model.
                 sync_falling_sand_switch_visuals
                     .after(crate::falling_sand_sim::capture_falling_sand_switch_interactions)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
             )
             // `bevy_falling_sand` inits `ParticleSimulationRun` unconditionally,
             // so its chunk scan (`par_handle_movement_by_chunks` over the full

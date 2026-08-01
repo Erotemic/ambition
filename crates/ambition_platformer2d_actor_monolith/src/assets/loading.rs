@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::AssetCollection;
 
-use crate::session::data::AmbitionGameGameplaySpec;
+use crate::session::data::Platformer2dGameplayDefaults;
 
 /// First asset collection for the sandbox.
 ///
@@ -16,9 +16,9 @@ use crate::session::data::AmbitionGameGameplaySpec;
 /// it into a real `BootState::Loading -> Ready` loading state once startup has
 /// enough assets to justify the state transition.
 #[derive(AssetCollection, Resource, Clone)]
-pub struct SandboxAssetCollection {
-    #[asset(path = "ambition/sandbox.ron")]
-    pub sandbox_data: Handle<AmbitionGameGameplaySpec>,
+pub struct Platformer2dStartupAssets {
+    #[asset(path = "ambition/platformer_defaults.ron")]
+    pub sandbox_data: Handle<Platformer2dGameplayDefaults>,
 
     // Worlds moved to the content crate's `assets/` tree (R3.2), served via the
     // `game://` asset source the app registers — NOT the default (actor-sim)

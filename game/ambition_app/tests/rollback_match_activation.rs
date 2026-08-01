@@ -284,7 +284,7 @@ fn the_activation_count_still_matches_the_bodies_after_resimulation() {
 // is exactly "activation lands mid-window"; this reproduces that timing without
 // needing the route.
 
-use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
 use ambition_platformer2d::time::SimTick;
 use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
@@ -319,7 +319,7 @@ fn the_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
     }
 }
 
-/// Runs in `Platformer2dSimulationPhase::Trace`, after everything: `ActiveMatch` is published
+/// Runs in `Platformer2dSimulationPhaseMonolith::Trace`, after everything: `ActiveMatch` is published
 /// through `Commands` during `PlayerInputSet::CharacterProjection`, so a reader
 /// in that same set would record the tick before the one it activated on.
 fn trace_the_activation(
@@ -344,7 +344,7 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
                 (
                     the_roster_arrives_on_a_tick
                         .before(ambition_platformer2d::actors::character_runtime::seat_match_participants),
-                    trace_the_activation.in_set(Platformer2dSimulationPhase::Trace),
+                    trace_the_activation.in_set(Platformer2dSimulationPhaseMonolith::Trace),
                 ),
             );
             Ok(())

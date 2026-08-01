@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Device -> engine-owned ControlFrame input adapter for ambition: SandboxAction (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
+description = "Device -> engine-owned ControlFrame input adapter for ambition: Platformer2dInputActionMonolith (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
 # rlib only: a library consumed by ambition_platformer2d_actor_monolith. Packaging is the
@@ -13,7 +13,7 @@ crate-type = ["rlib"]
 
 [features]
 # Mirrors the sandbox `input` feature: gates the leafwing `Actionlike`
-# surface (SandboxAction + the device->ControlFrame builders). Sim-only
+# surface (Platformer2dInputActionMonolith + the device->ControlFrame builders). Sim-only
 # builds use `ControlFrame` (always-available) on the seam instead.
 default = []
 input = ["dep:leafwing-input-manager"]

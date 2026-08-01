@@ -3,17 +3,17 @@
 //! Boss-encounter advance, save→ECS actor/boss mirrors, quest event
 //! pumping, room-metadata/music/portal sync, map-menu visit tracking,
 //! and the populate-from-LDtk-and-save registry refreshers all run in
-//! `Platformer2dSimulationPhase::Progression`.
+//! `Platformer2dSimulationPhaseMonolith::Progression`.
 //!
 //! Extracted from `app/plugins.rs` (ecs-cleanup-plan #8) so the top-level
 //! simulation orchestration reads as a list of named domain plugins.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Schedules the `Platformer2dSimulationPhase::Progression` system chain plus the
+/// Schedules the `Platformer2dSimulationPhaseMonolith::Progression` system chain plus the
 /// registry-populate systems that share the same set.
 pub struct ProgressionSchedulePlugin;
 
@@ -80,7 +80,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save,
             )
                 .chain()
-                .in_set(Platformer2dSimulationPhase::Progression),
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
         // The dev-tools inspector mirror (a DOMAIN set — its system lives in
         // `DevToolsSimPlugin`) keeps its former chain-tail slot.
@@ -88,7 +88,7 @@ impl Plugin for ProgressionSchedulePlugin {
             sim,
             ambition_dev_tools::DevInspectorMirrorSet
                 .after(ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save)
-                .in_set(Platformer2dSimulationPhase::Progression),
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
         // The generic encounter lifecycle reducer (E8 — a DOMAIN set, its
         // system lives in `EncounterRegistryPlugin`): runs after the boss wrap
@@ -98,7 +98,7 @@ impl Plugin for ProgressionSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_encounter::EncounterLifecycleSet
-                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
                 .after(ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress),
         );
 
@@ -112,21 +112,21 @@ impl Plugin for ProgressionSchedulePlugin {
         app.configure_sets(
             sim,
             ContentEncounterScriptSet
-                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
                 .after(ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress)
                 .before(ambition_platformer2d_actor_monolith::boss_encounter::tick_falling_hazards),
         );
         app.configure_sets(
             sim,
             ContentEncounterVictorySet
-                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
                 .after(ambition_platformer2d_actor_monolith::boss_encounter::boss_phase_transition_feedback)
                 .before(ambition_platformer2d_actor_monolith::features::sync_ecs_actors_with_save),
         );
         app.configure_sets(
             sim,
             ContentQuestRewardSet
-                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
                 .after(ambition_persistence::quest::apply_quest_advance_events)
                 .before(ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata),
         );
@@ -143,7 +143,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_platformer2d_actor_monolith::boss_encounter::populate_boss_encounter_registry,
                 ambition_platformer2d_actor_monolith::encounter::populate_encounter_registry,
             )
-                .in_set(Platformer2dSimulationPhase::Progression),
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
     }
 }

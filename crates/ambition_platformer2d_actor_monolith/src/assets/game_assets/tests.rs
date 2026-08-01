@@ -249,10 +249,10 @@ fn no_assets_profile_disables_every_image_in_the_manifest() {
 /// `static_core_assets` packages ChestClosed but not BreakableIntact.
 #[test]
 fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
-    use crate::assets::sandbox_assets::AmbitionGameAssetCatalog;
+    use crate::assets::platformer_assets::Platformer2dAssetCatalog;
 
     let inner = build_sandbox_image_catalog("sprites");
-    let catalog = AmbitionGameAssetCatalog::new(inner, AssetProfile::WebStatic);
+    let catalog = Platformer2dAssetCatalog::new(inner, AssetProfile::WebStatic);
 
     let chest_id = entity_sprite_asset_id(EntitySprite::ChestClosed);
     // ChestClosed IS in the embedded core set IFF the build
@@ -265,7 +265,7 @@ fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
             path,
             format!(
                 "embedded://{}",
-                crate::assets::sandbox_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
+                crate::assets::platformer_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
             ),
         );
     } else {

@@ -3,7 +3,7 @@
 //! EFFECTS-stage brain-action consumers (enemy melee/ranged spawns, boss
 //! special-attack spawns), projectile + hitbox + feature-hit resolution,
 //! the cut-rope boss-arena tick, and mount/rider link bookkeeping all run
-//! here in `Platformer2dSimulationPhase::Combat`.
+//! here in `Platformer2dSimulationPhaseMonolith::Combat`.
 //!
 //! Extracted from `app/plugins.rs` (ecs-cleanup-plan #8) so the top-level
 //! simulation orchestration reads as a list of named domain plugins rather
@@ -12,9 +12,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{CombatSet, Platformer2dSimulationPhase, gameplay_allowed};
+use ambition_platformer2d_shared_tangle::schedule::{CombatSet, Platformer2dSimulationPhaseMonolith, gameplay_allowed};
 
-/// Schedules the `Platformer2dSimulationPhase::Combat` system chain.
+/// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
 pub struct CombatSchedulePlugin;
 
 impl Plugin for CombatSchedulePlugin {
@@ -320,17 +320,17 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             ambition_platformer2d_actor_monolith::features::ecs::damage_apply::void_pending_player_hits_at_lifecycle_boundaries
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(Platformer2dSimulationPhase::ResetProcessing)
-                .before(Platformer2dSimulationPhase::FeatureViewSync),
+                .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
+                .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );
 
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the
         // global phase); the content plugins own the systems that hang on
-        // each slot. Both slots live in `Platformer2dSimulationPhase::Combat`.
+        // each slot. Both slots live in `Platformer2dSimulationPhaseMonolith::Combat`.
         //
         // `ContentSpecials` slots in where the inline boss-special block
-        // Both slots' PLACEMENT is `configure_sandbox_sets`' job now — the phase
+        // Both slots' PLACEMENT is `configure_platformer2d_simulation_phases`' job now — the phase
         // chain puts `ContentSpecials` inside `Materialize` and `ContentFlavor`
         // between `Resolve` and `Settle`, which is exactly where the two
         // leaf-named edges used to put them. What remains here is the one edge
@@ -360,13 +360,13 @@ mod tests {
     /// `CombatSchedulePlugin` alone, because that plugin used to configure both
     /// slots itself with leaf-named edges (`.after(spawn_enemy_projectiles…)`,
     /// `.before(enforce_mount_rider_link)`). Placement now belongs to
-    /// `configure_sandbox_sets`, which owns the phase chain — so a test that adds
+    /// `configure_platformer2d_simulation_phases`, which owns the phase chain — so a test that adds
     /// only the combat plugin is asserting about a composition no app ships.
     /// Both authorities participate here for the same reason production has both.
     #[test]
     fn content_combat_slots_are_registered_in_the_combat_chain() {
         let mut app = App::new();
-        ambition_platformer2d_actor_monolith::schedule::configure_sandbox_sets(&mut app);
+        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(&mut app);
         app.add_plugins(CombatSchedulePlugin);
 
         let schedules = app.world().resource::<Schedules>();

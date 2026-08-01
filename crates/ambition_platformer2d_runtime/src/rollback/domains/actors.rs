@@ -76,7 +76,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "resource.slot_interaction_state",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::session::reset::SandboxResetRequested>(
+    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested>(
         OWNER,
         "resource.sandbox_reset_requested",
     );
@@ -84,7 +84,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "resource.pending_lifecycle_commit",
         );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::AmbitionGameSessionState>(
+    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::RoomTransitionCooldown>(
         OWNER,
         "resource.sandbox_sim_state",
     );
@@ -379,7 +379,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "message.spawn_actor_request",
     );
     app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::ActorDiedMessage>(OWNER, "message.actor_died");
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::SandboxResetCommitted>(
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted>(
         OWNER,
         "message.sandbox_reset_committed",
     );

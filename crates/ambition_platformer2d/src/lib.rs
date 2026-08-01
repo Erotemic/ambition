@@ -297,7 +297,7 @@ pub mod character {
 /// to reach it was `ambition_platformer2d::platformer::schedule` — the crate mirror.
 pub mod sim {
     pub use ambition_platformer2d_shared_tangle::schedule::{
-        GameMode, Platformer2dSimulationPhase, SimSchedule, SimScheduleExt,
+        GameMode, Platformer2dSimulationPhaseMonolith, SimSchedule, SimScheduleExt,
     };
 
     /// Simulation time. Not wall time — a game reads the clock the sim advances.
@@ -351,7 +351,7 @@ pub mod view {
 
     /// Where the art comes from: every asset path/source policy the
     /// presentation reads.
-    pub use ambition_asset_manager::sandbox_assets::{ids, AmbitionGameAssetCatalog};
+    pub use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 
     /// The marker on a generated background layer.
     ///
@@ -405,7 +405,7 @@ pub use bevy;
 /// Engine assembly helpers most games need first.
 pub mod engine {
     pub use ambition_platformer2d_runtime::{
-        add_headless_foundation, init_engine_states, PlatformerEnginePlugins, Platformer2dSimulationSchedulePlugin,
+        add_headless_foundation, init_engine_states, PlatformerEnginePlugins, Platformer2dSimulationFoundationPlugin,
         SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
     };
 }

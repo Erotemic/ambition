@@ -9,13 +9,13 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 use super::{
     LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition, validated_spawn,
 };
-use crate::AmbitionGameSessionState;
+use crate::RoomTransitionCooldown;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
 use crate::world::platforms::MovingPlatformState;
-use ambition_dev_tools::AmbitionGameDeveloperState;
+use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -38,8 +38,8 @@ pub fn commit_room_transition_geometry(
     sfx: &mut SfxWriter,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut AmbitionGameDeveloperState,
-    sim_state: &mut AmbitionGameSessionState,
+    dev_state: &mut DeveloperRuntimeState,
+    sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     plan: &RoomConstructionPlan,
@@ -49,7 +49,7 @@ pub fn commit_room_transition_geometry(
     carry_body: Option<Entity>,
     transition: RoomTransition,
     tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
 ) -> RoomLoadResult {
     debug_assert_eq!(plan.target_index(), transition.target_room);
     let old_velocity = clusters.kinematics.vel;
@@ -81,7 +81,7 @@ pub fn commit_room_transition_geometry(
         ClockRequester::Engine,
         "room_transition",
     ));
-    sim_state.room_transition_cooldown = if edge_exit {
+    sim_state.remaining = if edge_exit {
         feel.edge_transition_cooldown
     } else {
         feel.door_transition_cooldown

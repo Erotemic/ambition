@@ -216,10 +216,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "feature.collected",
     );
-    app.rollback_component_clone::<ambition_combat::components::PlatformerWorldSolidContributor>(
-        OWNER,
-        "feature.sandbox_solid_contributor",
-    );
     app.rollback_component_clone::<ambition_combat::components::RuntimeStagedActor>(
         OWNER,
         "marker.runtime_staged_actor",

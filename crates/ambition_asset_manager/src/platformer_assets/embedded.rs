@@ -35,7 +35,7 @@ use crate::AssetProfile;
 /// (the third pairing, on the catalog-entry side).
 ///
 /// `<include_bytes_path>` is interpreted relative to *this* source
-/// file (`assets/sandbox_assets/embedded.rs`), so
+/// file (`assets/platformer_assets/embedded.rs`), so
 /// `"../../../ambition_platformer2d_actor_monolith/assets/foo.png"` resolves to
 /// `crates/ambition_platformer2d_actor_monolith/assets/foo.png`.
 macro_rules! embed_core_assets {
@@ -145,7 +145,7 @@ embed_core_assets! {
 }
 
 /// Bevy plugin that backs every URL the
-/// [`super::AmbitionGameAssetCatalog`] hands out with a real `AssetSource`.
+/// [`super::Platformer2dAssetCatalog`] hands out with a real `AssetSource`.
 ///
 /// Today this is the embedded source only: the plugin inserts every
 /// installed `WorldManifest` row's LDtk JSON bytes (when the game built

@@ -36,9 +36,9 @@
 //! A remap is a rare event (a portal crossing, a door, a death). The ledger is a
 //! `Vec` push on those frames and a `clear()` on all the others. Every writer
 //! takes it as `Option<ResMut<ClassBRemapLog>>`, so a minimal test app that
-//! never added [`Platformer2dSimulationSchedulePlugin`] still runs its systems.
+//! never added [`Platformer2dSimulationFoundationPlugin`] still runs its systems.
 //!
-//! [`Platformer2dSimulationSchedulePlugin`]: https://docs.rs/ambition_platformer2d_runtime
+//! [`Platformer2dSimulationFoundationPlugin`]: https://docs.rs/ambition_platformer2d_runtime
 
 use bevy::prelude::*;
 
@@ -177,7 +177,7 @@ impl ClassBRemapLog {
 }
 
 /// Clear the ledger at the head of the sim frame. Registered by the engine's
-/// `Platformer2dSimulationSchedulePlugin` `.before(Platformer2dSimulationPhase::CoreSimulation)`, which is upstream
+/// `Platformer2dSimulationFoundationPlugin` `.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)`, which is upstream
 /// of every Class-B writer including `ResetProcessing` (a tail set, but still
 /// inside the same frame).
 pub fn clear_class_b_remap_log(mut log: ResMut<ClassBRemapLog>) {

@@ -626,9 +626,6 @@ pub(crate) fn spawn_breakable_into(
             StandTimer(0.0),
         ),
     );
-    if breakable.collision.blocks_movement() {
-        entity.insert(PlatformerWorldSolidContributor);
-    }
     if breakable.pogo_refresh
         || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
     {

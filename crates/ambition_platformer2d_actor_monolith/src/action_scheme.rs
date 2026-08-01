@@ -27,7 +27,7 @@ use ambition_characters::action_scheme::{
     derive_action_scheme, ActorActionScheme, ActorTechniques,
 };
 use ambition_characters::brain::action_set::ActionSet;
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
 use bevy::prelude::*;
 
 use crate::actor::BodyAbilities;
@@ -112,7 +112,7 @@ impl Plugin for ActionSchemePlugin {
                     .after(crate::equipment::reconcile_equipment_grants),
                 reconcile_action_schemes.after(crate::equipment::reconcile_equipment_grants),
             )
-                .in_set(Platformer2dSimulationPhase::PlayerInput),
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
     }
 }

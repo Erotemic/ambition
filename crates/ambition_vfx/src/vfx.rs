@@ -36,7 +36,7 @@ pub enum PhysicsDebrisCue {
 }
 
 /// Typed physics-debris message (the debris twin of [`VfxMessage`]).
-/// Bundled into the same `AmbitionGameEventWriters` SystemParam as `SfxMessage`
+/// Bundled into the same `GameplayFeedbackWriters` SystemParam as `SfxMessage`
 /// and `VfxMessage` to stay within Bevy's 16-system-param budget.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct DebrisBurstMessage {

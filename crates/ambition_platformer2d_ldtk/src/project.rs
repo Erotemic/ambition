@@ -23,7 +23,7 @@ pub struct LdtkProject {
 /// the parsed LDtk project without re-parsing the file. Inserted in
 /// `init_sandbox_resources`; refreshed by hot reload.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
-pub struct AmbitionGameLdtkProject(pub LdtkProject);
+pub struct ActiveLdtkProject(pub LdtkProject);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct LdtkLevel {

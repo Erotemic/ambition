@@ -428,10 +428,10 @@ mod tests {
         {
             let world = app.world_mut();
             let mut maps =
-                world.query::<&mut InputMap<ambition_input::SandboxAction>>();
+                world.query::<&mut InputMap<ambition_input::Platformer2dInputActionMonolith>>();
             for mut map in maps.iter_mut(world) {
-                map.clear_action(&ambition_input::SandboxAction::Jump);
-                map.insert(ambition_input::SandboxAction::Jump, KeyCode::F13);
+                map.clear_action(&ambition_input::Platformer2dInputActionMonolith::Jump);
+                map.insert(ambition_input::Platformer2dInputActionMonolith::Jump, KeyCode::F13);
             }
         }
         app.update();

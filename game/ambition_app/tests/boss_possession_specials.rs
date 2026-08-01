@@ -215,7 +215,7 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // requires now that a possessed geometry strike actually occupies the body (R1.4).
     wait_out_strike(&mut sim, boss);
 
-    // Special (the DEDICATED `SandboxAction::Special` slot — the
+    // Special (the DEDICATED `Platformer2dInputActionMonolith::Special` slot — the
     // `special_pressed = blink_pressed` alias is retired, so blink no longer
     // fires it) → the boss's SIGNATURE content special fires (emitting an
     // `ActorActionMessage::Special` its content technique consumes).

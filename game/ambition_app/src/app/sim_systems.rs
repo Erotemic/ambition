@@ -21,16 +21,16 @@
 //! `ambition_platformer2d` but never on `ambition_app`, had no consumer at all.
 //!
 //! This system is a narrow query/resource system registered in the
-//! [`Platformer2dSimulationPhase::CoreSimulation`] chain configured by
-//! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
+//! [`Platformer2dSimulationPhaseMonolith::CoreSimulation`] chain configured by
+//! [`super::schedule::configure_platformer2d_simulation_phases`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::actors::time::time_control::ClockResetRequest;
-use ambition_platformer2d::actors::AmbitionGameSessionState;
+use ambition_platformer2d::actors::RoomTransitionCooldown;
 use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::ControlFrame;
@@ -57,8 +57,8 @@ pub fn apply_player_reset_input_system(
     mut control_frame: ResMut<ControlFrame>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<SandboxFeelTuning>,
-    mut sim_state: ResMut<AmbitionGameSessionState>,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,

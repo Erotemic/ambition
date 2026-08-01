@@ -618,7 +618,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             GgrsSchedule,
             (publish_ggrs_input, count_advance_run)
                 .chain()
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         )
         .add_systems(
             LoadWorld,

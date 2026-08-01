@@ -3,7 +3,7 @@
 //! Settings are user-global (not per-save) so they live alongside the
 //! sandbox save file under the OS data dir, not inside any particular
 //! save slot. The wire format is RON to match the rest of the
-//! `assets/ambition/sandbox.ron` family — easy to read, easy to
+//! `assets/ambition/platformer_defaults.ron` family — easy to read, easy to
 //! hand-edit if a knob ends up out of range.
 //!
 //! All I/O failures are non-fatal: a missing file is "use defaults",

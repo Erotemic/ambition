@@ -37,7 +37,7 @@ pub mod bevy_integration;
 pub mod consumer_source;
 
 #[cfg(feature = "bevy")]
-pub mod sandbox_assets;
+pub mod platformer_assets;
 
 pub use id::AssetId;
 pub use kind::AssetKind;
@@ -54,4 +54,4 @@ pub use bevy_integration::{
 };
 
 #[cfg(feature = "bevy")]
-pub use sandbox_assets::actors_desktop_asset_root;
+pub use platformer_assets::actors_desktop_asset_root;

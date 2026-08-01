@@ -1,4 +1,4 @@
-//! The `SandboxAction` leafwing action enum — the logical-input vocabulary the
+//! The `Platformer2dInputActionMonolith` leafwing action enum — the logical-input vocabulary the
 //! device-binding layer maps physical keys/sticks onto, before it is folded into
 //! the device-agnostic `ControlFrame`/`MenuInputFrame`. Gated behind the `input`
 //! feature (pulls in leafwing's `Actionlike`).
@@ -17,13 +17,13 @@ use super::*;
 /// `MenuBack` axis so confirming in a menu does not require pressing
 /// "Jump", and so D-pad / arrow keys / Enter all flow through one
 /// semantic seam. The renderer reads `MenuAxisFrame` (drained from
-/// these actions) instead of touching `SandboxAction` directly.
+/// these actions) instead of touching `Platformer2dInputActionMonolith` directly.
 ///
 /// Gated behind `input`: this type pulls in leafwing's `Actionlike` trait.
 /// Sim-only builds use engine-core `ControlFrame` (re-exported here) on the seam instead.
 #[cfg(feature = "input")]
 #[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
-pub enum SandboxAction {
+pub enum Platformer2dInputActionMonolith {
     #[actionlike(DualAxis)]
     Move,
     MoveLeft,

@@ -698,7 +698,7 @@ fn a_launched_body_keeps_its_launch_for_the_window_it_cannot_act() {
     // The smash: 420px/s sideways, rising. Written the way the damage path
     // writes it — velocity, floor, and the window the floor is owed for.
     const LAUNCH: f32 = 420.0;
-    const HITSTUN_S: f32 = 0.24; // `SandboxFeelTuning::enemy_hitstun_time`
+    const HITSTUN_S: f32 = 0.24; // `Platformer2dFeelTuningMonolith::enemy_hitstun_time`
     scratch.kinematics.vel = Vec2::new(LAUNCH, -260.0);
     scratch.flight.carried_run = LAUNCH;
     scratch.flight.carried_hold = HITSTUN_S;

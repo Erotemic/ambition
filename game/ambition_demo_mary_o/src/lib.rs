@@ -1378,7 +1378,7 @@ impl Plugin for MaryORulesPlugin {
         // not, and `init_resource` is idempotent — a no-op when already present.
         app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
         // The cycle emitter writes this; the host's replay consumer drains it. The
-        // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
+        // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
         // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
@@ -1429,7 +1429,7 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
@@ -1438,7 +1438,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_systems(
             sim,
             powerups::ensure_transform_beat_policy
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
         );
         // Mary-O's half of a body reset, answered wherever a body is restarted.
@@ -1447,12 +1447,12 @@ impl Plugin for MaryORulesPlugin {
         // no-op in any stage that seats her outside her own level.
         app.add_observer(movement::clear_spark_cooldown_on_restart);
         let pipe_input = pipe::ensure_pipe_entry_latch
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::tick_player_brains)
             .before(warp_through_secret_pipe);
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerSimulation)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
             .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
@@ -1500,7 +1500,7 @@ impl Plugin for MaryORulesPlugin {
             powerups::tag_mary_o_sparks,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
         // so they sit after the brain tick and before the shared movement phase
@@ -1514,7 +1514,7 @@ impl Plugin for MaryORulesPlugin {
             movement::sync_run_action_scheme,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::tick_player_brains);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
@@ -1524,9 +1524,9 @@ impl Plugin for MaryORulesPlugin {
         // takes — so the removals survive the per-frame clean slate.
         let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks)
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
         let brick_overlay = bricks::contribute_broken_bricks_to_overlay
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));

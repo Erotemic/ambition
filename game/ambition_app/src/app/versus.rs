@@ -428,7 +428,7 @@ fn reconcile_roster_with_frozen_topology(
 /// **The fighting stage's directional-influence budget, in radians.**
 ///
 /// Jon, asked whether DI was worth turning on: *"In smash DI is critical!"* —
-/// and `SandboxFeelTuning::di_max_angle`'s own doc has named this mode as the
+/// and `Platformer2dFeelTuningMonolith::di_max_angle`'s own doc has named this mode as the
 /// caller since the field was written: *"a fighter mode (Super Smash Siblings)
 /// authors a smash-like ≈ 0.31 (18°) to turn it on."*
 ///
@@ -709,8 +709,8 @@ pub fn compose_versus_experience(app: &mut App) {
 
     // `Update`, NOT the sim schedule.
     //
-    // The first draft put this in `Platformer2dSimulationPhase::PlayerInput`, and its own test
-    // caught the consequence: every `Platformer2dSimulationPhase` is nested inside
+    // The first draft put this in `Platformer2dSimulationPhaseMonolith::PlayerInput`, and its own test
+    // caught the consequence: every `Platformer2dSimulationPhaseMonolith` is nested inside
     // `GameplaySimulationRoot`, which carries the session gate, so leaving
     // gameplay switches OFF the system whose job is to clean up after leaving
     // gameplay. The roster survived, and the next game the player picked would
@@ -735,17 +735,17 @@ pub fn compose_versus_experience(app: &mut App) {
 #[cfg(test)]
 mod stage_rule_tests {
     use super::*;
-    use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+    use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 
     fn stage_rule_app() -> App {
         let mut app = App::new();
-        app.init_resource::<SandboxFeelTuning>();
+        app.init_resource::<Platformer2dFeelTuningMonolith>();
         app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
         app.init_resource::<super::super::versus_rules::VersusMatch>();
         app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
-        // The projection normally runs in `Platformer2dSimulationPhase::WorldPrep`; here it runs
+        // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it runs
         // straight after the declarer, which is the same ORDER and all these
         // tests need. Asserting on the resolved value rather than on a global is
         // the whole point of AE6 — a test that read the baseline would be
@@ -802,7 +802,7 @@ mod stage_rule_tests {
     /// would say why.
     ///
     /// ⚠ **asserted on the RESOLVED tuning, and on the baseline NOT MOVING**
-    /// (AE6). The stage used to reach this by writing `SandboxFeelTuning`; it
+    /// (AE6). The stage used to reach this by writing `Platformer2dFeelTuningMonolith`; it
     /// declares now, so the second assertion in each pair — that the world's own
     /// tuning is exactly where it was — is the one that would catch a relapse.
     #[test]
@@ -823,7 +823,7 @@ mod stage_rule_tests {
             "the fighting stage must author its DI budget"
         );
         assert_eq!(
-            app.world().resource::<SandboxFeelTuning>().di_max_angle,
+            app.world().resource::<Platformer2dFeelTuningMonolith>().di_max_angle,
             0.0,
             "the stage reached its DI budget by WRITING the world's tuning \
              again — the borrow AE6 removed"
@@ -840,7 +840,7 @@ mod stage_rule_tests {
 
     /// **The half the default-start test could not see, and what replaced it.**
     ///
-    /// Exit used to write `SandboxFeelTuning::default()` and `FriendlyFire =
+    /// Exit used to write `Platformer2dFeelTuningMonolith::default()` and `FriendlyFire =
     /// false`, and the test above starts from exactly those, so reset and
     /// restore were indistinguishable in it. Starting from values NOBODY ships
     /// made the difference visible: an experience that authored its own DI budget
@@ -861,14 +861,14 @@ mod stage_rule_tests {
         // Some other experience's authored tuning. Neither value is a default.
         const PRIOR_DI: f32 = 0.12;
         app.world_mut()
-            .resource_mut::<SandboxFeelTuning>()
+            .resource_mut::<Platformer2dFeelTuningMonolith>()
             .di_max_angle = PRIOR_DI;
         app.world_mut()
             .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
             .enabled = true;
         assert_ne!(
             PRIOR_DI,
-            SandboxFeelTuning::default().di_max_angle,
+            Platformer2dFeelTuningMonolith::default().di_max_angle,
             "the premise: this test is only meaningful while the prior value \
              differs from the value a reset would write"
         );
@@ -876,7 +876,7 @@ mod stage_rule_tests {
 
         let authored_is_intact = |app: &App, when: &str| {
             assert_eq!(
-                app.world().resource::<SandboxFeelTuning>().di_max_angle,
+                app.world().resource::<Platformer2dFeelTuningMonolith>().di_max_angle,
                 PRIOR_DI,
                 "{when}: the versus route wrote another experience's authored DI \
                  budget. It must DECLARE its rules, never borrow the world's."

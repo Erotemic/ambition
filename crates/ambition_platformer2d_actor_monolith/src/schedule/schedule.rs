@@ -3,7 +3,7 @@
 //! Single source of truth for the concrete sandbox app schedule.
 //!
 //! `crate::platformer_runtime::schedule::PlatformerRuntimeSet` names the
-//! reusable runtime vocabulary that future crates should depend on. `Platformer2dSimulationPhase`
+//! reusable runtime vocabulary that future crates should depend on. `Platformer2dSimulationPhaseMonolith`
 //! is the app-level realization of that vocabulary, plus Ambition-specific tail
 //! phases. Add new systems through module-owned plugins and stable sets rather
 //! than pinning a fragile cross-system `.after(other_system)` in this file or in
@@ -18,10 +18,10 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized;
 use ambition_platformer2d_shared_tangle::schedule::{
     CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
-    Platformer2dSimulationPhase, SimScheduleExt, WorldPrepSet,
+    Platformer2dSimulationPhaseMonolith, SimScheduleExt, WorldPrepSet,
 };
 
-/// Configure the chained ordering between [`Platformer2dSimulationPhase`] variants.
+/// Configure the chained ordering between [`Platformer2dSimulationPhaseMonolith`] variants.
 ///
 /// Within `CoreSimulation`:
 /// `WorldPrep → PlayerInput → PlayerSimulation → RoomTransition →
@@ -46,10 +46,10 @@ use ambition_platformer2d_shared_tangle::schedule::{
 /// such edge — the read-model they consume was published by the last tick.
 ///
 /// [`SimSchedule`]: ambition_platformer2d_shared_tangle::schedule::SimSchedule
-pub fn configure_sandbox_sets(app: &mut App) {
+pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     let sim = app.sim_schedule();
 
-    // THE session gate. Every Platformer2dSimulationPhase variant is nested inside
+    // THE session gate. Every Platformer2dSimulationPhaseMonolith variant is nested inside
     // `GameplaySimulationRoot` below, so this ONE condition puts the whole
     // gameplay simulation (tick timeline included) to sleep at frontend routes
     // in session-gated hosts, and is inert everywhere else
@@ -58,18 +58,18 @@ pub fn configure_sandbox_sets(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhase::CoreSimulation,
-            Platformer2dSimulationPhase::FeatureCollection,
-            Platformer2dSimulationPhase::FeatureInteraction,
-            Platformer2dSimulationPhase::LdtkRuntimeSpine,
-            Platformer2dSimulationPhase::EncounterSimulation,
-            Platformer2dSimulationPhase::Cutscene,
-            Platformer2dSimulationPhase::GameplayEffects,
-            Platformer2dSimulationPhase::Progression,
-            Platformer2dSimulationPhase::ResetProcessing,
-            Platformer2dSimulationPhase::FeatureViewSync,
-            Platformer2dSimulationPhase::PresentationVisualSync,
-            Platformer2dSimulationPhase::Trace,
+            Platformer2dSimulationPhaseMonolith::CoreSimulation,
+            Platformer2dSimulationPhaseMonolith::FeatureCollection,
+            Platformer2dSimulationPhaseMonolith::FeatureInteraction,
+            Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine,
+            Platformer2dSimulationPhaseMonolith::EncounterSimulation,
+            Platformer2dSimulationPhaseMonolith::Cutscene,
+            Platformer2dSimulationPhaseMonolith::GameplayEffects,
+            Platformer2dSimulationPhaseMonolith::Progression,
+            Platformer2dSimulationPhaseMonolith::ResetProcessing,
+            Platformer2dSimulationPhaseMonolith::FeatureViewSync,
+            Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+            Platformer2dSimulationPhaseMonolith::Trace,
         )
             .in_set(GameplaySimulationRoot),
     );
@@ -88,15 +88,15 @@ pub fn configure_sandbox_sets(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhase::PlayerInput,
-            Platformer2dSimulationPhase::WorldPrep,
-            Platformer2dSimulationPhase::PlayerSimulation,
-            Platformer2dSimulationPhase::RoomTransition,
-            Platformer2dSimulationPhase::Combat,
-            Platformer2dSimulationPhase::PresentationSync,
+            Platformer2dSimulationPhaseMonolith::PlayerInput,
+            Platformer2dSimulationPhaseMonolith::WorldPrep,
+            Platformer2dSimulationPhaseMonolith::PlayerSimulation,
+            Platformer2dSimulationPhaseMonolith::RoomTransition,
+            Platformer2dSimulationPhaseMonolith::Combat,
+            Platformer2dSimulationPhaseMonolith::PresentationSync,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::CoreSimulation),
+            .in_set(Platformer2dSimulationPhaseMonolith::CoreSimulation),
     );
 
     // The phases INSIDE PlayerInput. Naming them changed no order — this is the
@@ -114,7 +114,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
             PlayerInputSet::BodyMode,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::PlayerInput),
+            .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
     );
 
     // The phases INSIDE RoomTransition. `Apply` is the transaction slot the
@@ -127,7 +127,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
             RoomTransitionSet::Reset,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::RoomTransition),
+            .in_set(Platformer2dSimulationPhaseMonolith::RoomTransition),
     );
 
     // The movement anchor inside WorldPrep. Three placement sets around the one
@@ -141,13 +141,13 @@ pub fn configure_sandbox_sets(app: &mut App) {
             WorldPrepSet::AfterIntegrate,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::WorldPrep),
+            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
     // A LABEL, not a chain position: see `WorldPrepSet::ContactDamage` for why
     // chaining it would add edges nobody chose.
     app.configure_sets(
         sim,
-        WorldPrepSet::ContactDamage.in_set(Platformer2dSimulationPhase::WorldPrep),
+        WorldPrepSet::ContactDamage.in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
 
     // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the
@@ -161,7 +161,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
             PlayerSimulationSet::Outcome,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::PlayerSimulation),
+            .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
     );
 
     // The phases INSIDE Combat, plus the two content slots between them. Same
@@ -179,7 +179,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
             CombatSet::Settle,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhase::Combat),
+            .in_set(Platformer2dSimulationPhaseMonolith::Combat),
     );
     // `ContentSpecials` sits INSIDE `Materialize` rather than between phases: a
     // boss special dispatched this frame must reach its content technique this
@@ -202,23 +202,23 @@ pub fn configure_sandbox_sets(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhase::CoreSimulation,
-            Platformer2dSimulationPhase::FeatureCollection,
-            Platformer2dSimulationPhase::FeatureInteraction,
-            Platformer2dSimulationPhase::LdtkRuntimeSpine,
-            Platformer2dSimulationPhase::EncounterSimulation,
-            Platformer2dSimulationPhase::Cutscene,
-            Platformer2dSimulationPhase::GameplayEffects,
-            Platformer2dSimulationPhase::Progression,
-            Platformer2dSimulationPhase::ResetProcessing,
+            Platformer2dSimulationPhaseMonolith::CoreSimulation,
+            Platformer2dSimulationPhaseMonolith::FeatureCollection,
+            Platformer2dSimulationPhaseMonolith::FeatureInteraction,
+            Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine,
+            Platformer2dSimulationPhaseMonolith::EncounterSimulation,
+            Platformer2dSimulationPhaseMonolith::Cutscene,
+            Platformer2dSimulationPhaseMonolith::GameplayEffects,
+            Platformer2dSimulationPhaseMonolith::Progression,
+            Platformer2dSimulationPhaseMonolith::ResetProcessing,
             // FeatureViewSync is the final sim-side tail; everything
             // that mutates ECS feature state — including
             // ResetProcessing — has already run.
-            Platformer2dSimulationPhase::FeatureViewSync,
+            Platformer2dSimulationPhaseMonolith::FeatureViewSync,
         )
             .chain(),
     )
-    .configure_sets(sim, Platformer2dSimulationPhase::Trace.after(Platformer2dSimulationPhase::CoreSimulation))
+    .configure_sets(sim, Platformer2dSimulationPhaseMonolith::Trace.after(Platformer2dSimulationPhaseMonolith::CoreSimulation))
     // Presentation visual chain: must observe this frame's
     // FeatureViewIndex rebuild. Owning the ordering at the set level
     // means every system added to `PresentationVisualSync` inherits
@@ -227,7 +227,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // ordering survives.
     .configure_sets(
         sim,
-        Platformer2dSimulationPhase::PresentationVisualSync.after(Platformer2dSimulationPhase::FeatureViewSync),
+        Platformer2dSimulationPhaseMonolith::PresentationVisualSync.after(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
     );
 
     // Input populate contract (ambition_input::InputSet): every system that

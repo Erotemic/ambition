@@ -323,7 +323,7 @@ pub struct MovementTuning {
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
     ///
     /// `#[serde(default)]` so any tuning files serialized before this
-    /// field existed (e.g. `assets/ambition/sandbox.ron` baked at
+    /// field existed (e.g. `assets/ambition/platformer_defaults.ron` baked at
     /// boot) deserialize with `LedgeMomentumTuning::DEFAULT` instead
     /// of panicking on `MissingStructField`.
     #[serde(default)]

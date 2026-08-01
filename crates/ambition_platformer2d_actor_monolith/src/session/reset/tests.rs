@@ -11,14 +11,14 @@ use ambition_platformer2d_core::RoomGeometry;
 /// be a no-op when nothing has been requested.
 #[test]
 fn request_default_is_idle() {
-    let req = SandboxResetRequested::default();
+    let req = NewGameResetRequested::default();
     assert!(!req.request);
 }
 
 /// `request()` sets the flag; the processor consumes it.
 #[test]
 fn request_helper_sets_the_flag() {
-    let mut req = SandboxResetRequested::default();
+    let mut req = NewGameResetRequested::default();
     req.request();
     assert!(req.request);
 }
@@ -27,14 +27,14 @@ fn request_helper_sets_the_flag() {
 /// what a reset whose preflight refuses leaves behind — clears nothing.
 ///
 /// That second half is the point. This system used to run first and read
-/// `SandboxResetRequested`, so a start room that failed its boundary check
+/// `NewGameResetRequested`, so a start room that failed its boundary check
 /// produced the one outcome the decline path exists to prevent: the player's
 /// hands emptied, the portals gone, the reset declined, and the old room still
 /// on screen (GPT 5.6, 2026-07-27).
 #[test]
 fn sandbox_reset_clears_portals_held_items_and_summons() {
     let mut app = App::new();
-    app.add_message::<SandboxResetCommitted>();
+    app.add_message::<NewGameResetCommitted>();
     app.add_systems(Update, clear_transient_on_sandbox_reset);
 
     let ground = app
@@ -81,7 +81,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 
     // A reset that was ASKED FOR but refused: the request resource is set and
     // no commitment was announced. Nothing may be taken away.
-    app.insert_resource(SandboxResetRequested { request: true });
+    app.insert_resource(NewGameResetRequested { request: true });
     app.update();
     assert!(
         app.world()
@@ -99,7 +99,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
 
     // Committed → transient entities despawn + player held-state stripped.
-    app.world_mut().write_message(SandboxResetCommitted);
+    app.world_mut().write_message(NewGameResetCommitted);
     app.update();
     assert!(
         app.world()
@@ -156,7 +156,7 @@ fn dummy_world() -> ae::World {
 fn min_app() -> App {
     let mut app = App::new();
     let world = dummy_world();
-    app.insert_resource(SandboxResetRequested::default());
+    app.insert_resource(NewGameResetRequested::default());
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(EncounterRegistry::default());
     app.insert_resource(BossEncounterRegistry::default());
@@ -172,7 +172,7 @@ fn min_app() -> App {
     // Explicit content-free boss authority: the reset processor reads
     // `Res<BossCatalog>` (required, not optional) to rebuild encounter state.
     app.insert_resource(crate::boss_encounter::BossCatalog::default());
-    // Spawn the player entity so process_sandbox_reset_request can query it.
+    // Spawn the player entity so process_new_game_reset_request can query it.
     // Uses the full simulation bundle so every cluster component lands
     // — the reset path queries `BodyClusterQueryData` which needs all
     // of them present.
@@ -199,9 +199,9 @@ fn min_app() -> App {
     app.insert_resource(crate::construction::engine_construction_registry());
     app.insert_resource(crate::features::RoomContentStagingRegistry::default());
     app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet::default());
-    app.insert_resource(crate::AmbitionGameSessionState::default());
+    app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(ambition_time::ClockState::default());
-    app.insert_resource(ambition_dev_tools::AmbitionGameDeveloperState::default());
+    app.insert_resource(ambition_dev_tools::DeveloperRuntimeState::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
         RoomGeometry(world.clone()),
@@ -240,8 +240,8 @@ fn min_app() -> App {
     app.add_message::<crate::session::RespawnRoomVisualsRequested>();
     app.add_message::<crate::rooms::RoomLoaded>();
     app.add_message::<crate::time::time_control::ClockResetRequest>();
-    app.add_message::<SandboxResetCommitted>();
-    app.add_systems(Update, process_sandbox_reset_request);
+    app.add_message::<NewGameResetCommitted>();
+    app.add_systems(Update, process_new_game_reset_request);
     app
 }
 
@@ -294,7 +294,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
     }
     // Queue the reset.
     {
-        let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+        let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();
         req.request();
     }
     app.update();
@@ -327,7 +327,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
         "SANDBOX RESET"
     );
     // Request consumed.
-    let req = app.world().resource::<SandboxResetRequested>();
+    let req = app.world().resource::<NewGameResetRequested>();
     assert!(!req.request);
 }
 
@@ -347,7 +347,7 @@ fn processor_warps_player_to_start_spawn() {
         }
     }
     {
-        let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+        let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();
         req.request();
     }
     app.update();
@@ -394,7 +394,7 @@ fn processor_restores_authored_start_room_platform() {
         )];
     }
     {
-        let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+        let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();
         req.request();
     }
     app.update();
@@ -440,7 +440,7 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
         rooms.start = 999;
     }
     {
-        let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+        let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();
         req.request();
     }
     app.update();
@@ -457,7 +457,7 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
         app.world().resource::<EncounterRegistry>().specs_loaded,
         "a declined reset cleared the registries anyway"
     );
-    let committed = app.world().resource::<Messages<SandboxResetCommitted>>();
+    let committed = app.world().resource::<Messages<NewGameResetCommitted>>();
     assert!(
         committed.is_empty(),
         "a declined reset announced a COMMIT, so every teardown system keyed on \

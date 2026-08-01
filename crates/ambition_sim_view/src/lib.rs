@@ -2,7 +2,7 @@
 //!
 //! Everything here is a plain-data snapshot of sim state, rebuilt once per
 //! sim tick by extraction systems that run LAST in the sim tail
-//! (`Platformer2dSimulationPhase::FeatureViewSync`). Builders are pure functions of sim state —
+//! (`Platformer2dSimulationPhaseMonolith::FeatureViewSync`). Builders are pure functions of sim state —
 //! no caching across ticks, no `Entity`/`Handle` borrows in the rows — so every
 //! observer (render, RL observation, netcode confirmation, the fighter brain,
 //! slower-light shaders) consumes the SAME facts.
@@ -117,7 +117,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt,
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );
     }
 }

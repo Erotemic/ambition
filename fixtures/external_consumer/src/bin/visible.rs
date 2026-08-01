@@ -16,7 +16,7 @@
 //!
 //! The SECOND recorded finding is CLOSED (2026-07-27). It read: "the in-repo
 //! demo shells each hand-roll a standalone asset-resource install
-//! (`AmbitionGameAssetCatalog` + `GameAssets`) that no umbrella helper offers, so
+//! (`Platformer2dAssetCatalog` + `GameAssets`) that no umbrella helper offers, so
 //! this binary ships WITHOUT it and draws the world as colored primitives — a
 //! faithful record of what a third party gets today". The helper exists now
 //! (`ambition_platformer2d::game_assets::PlatformerAssetsPlugin`) and this binary is its

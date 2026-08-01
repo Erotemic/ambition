@@ -62,7 +62,7 @@ device (kbd / pad / touch)
   │
   ▼  ActiveBindings  — ONE remappable source: physical input → SLOT
   │                    (gameplay slots AND menu slots; feeds InputMap + glyphs)
-  ▼  SandboxAction   — the SLOT vocabulary (already exists; finite, like thumbs)
+  ▼  Platformer2dInputActionMonolith   — the SLOT vocabulary (already exists; finite, like thumbs)
   ▼  ControlFrame    — POD per-tick slot edges; the netcode wire format (latch/stream)
   │
   │            ═══ sim-side, deterministic ═══
@@ -110,14 +110,14 @@ Two remap layers fall out naturally:
    this; this design is that migration.
 3. **One bindings source.** The live `InputMap` build and every glyph render
    read the same `ActiveBindings` (kills the real
-   `AmbitionGameDeveloperState.preset_index` vs
+   `DeveloperRuntimeState.preset_index` vs
    `UserSettings.controls.keyboard_preset_index` split — today the settings
    toggle changes glyphs but not bindings, and nothing re-applies to a live
    player).
 4. **Menu nav is an axis, never an action.** Directional navigation
    (stick/dpad/drag-scroll) keeps its `MenuControlFrame` nav-axis semantics.
    Menu *commands* (confirm/back/page) are slots — `MenuSelect`, `MenuBack`,
-   `MenuPage*` already are `SandboxAction`s — and join `ActiveBindings` +
+   `MenuPage*` already are `Platformer2dInputActionMonolith`s — and join `ActiveBindings` +
    the presentation contract, but their **consumption path is unchanged**
    (`MenuControlFrame` consumers, `MenuNavConsume` ordering web, touch fold
    pins all stay as-is).
@@ -197,7 +197,7 @@ Landed:
   melee-only), with a parity test built from the real default-player bundle.
   Plus: `ActionSchemeContract::new` normalizes one-action-per-slot; corrected the
   reconcile-ordering comment (`PlayerInput` is chained before `WorldPrep`).
-- **P3 groundwork:** dedicated `SandboxAction::Special` + per-preset key + glyph
+- **P3 groundwork:** dedicated `Platformer2dInputActionMonolith::Special` + per-preset key + glyph
   (blink is no longer Special's source); `MovementAction` enum + enum-indexed
   `ActionEdges` + typed accessors in `engine_core`.
 - **`InputState` re-key (P3 step 6) — LANDED with full parity** (`8c6c802f9`).
@@ -217,7 +217,7 @@ Landed:
   hand-fix one shorthand init — landed cleanly. Steps 7-8 folded in here.)
 - **Step 10 — LANDED** (`57e529123`): the `special_pressed = blink_pressed` alias
   is retired. `ControlFrame` gained a `special_pressed` field (serde-default-safe
-  for the stream; per-field OR merge), sourced from `SandboxAction::Special`; the
+  for the stream; per-field OR merge), sourced from `Platformer2dInputActionMonolith::Special`; the
   brain reads it instead of blink. Surgical + positive test: Special fires
   special not blink, Blink fires blink not special. Validated netcode-clean —
   the `desync_canary` suite (incl. the snapshot-coverage ledger) is 19/19 green.
@@ -347,7 +347,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   rollback claim mechanical: the scheme never needs its own snapshot or
   stream entry.
 - **Every derived action gets a slot, and Special gets a DEDICATED slot**:
-  new `SandboxAction::Special` variant (default bindings authored in P1).
+  new `Platformer2dInputActionMonolith::Special` variant (default bindings authored in P1).
   Today the protagonist's blink button double-fires blink AND the bubble
   special (`special_pressed = blink_pressed`), while the touch Shot button
   wears the special's labels but fires ranged — two existing HUD lies.
@@ -366,7 +366,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   defaults from the 4 presets (`ambition_input/src/presets.rs:216
   input_map()`); **menu slots included** (`MenuSelect`/`MenuBack`/
   `MenuPage*` bindings move into the same table).
-- Collapse the split: `AmbitionGameDeveloperState.preset_index`
+- Collapse the split: `DeveloperRuntimeState.preset_index`
   (`ambition_dev_tools/src/lib.rs:111` — written by nothing) vs
   `settings.controls.keyboard_preset_index` — both replaced by
   `ActiveBindings` seeded from settings.
@@ -539,7 +539,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
    change; nothing scheme-shaped enters the stream or the ledger
    (invariant 1 + P0).
 2. **Special-slot sequencing hole closed** — dedicated
-   `SandboxAction::Special` slot in P0/P1 so the P3 alias retirement
+   `Platformer2dInputActionMonolith::Special` slot in P0/P1 so the P3 alias retirement
    cannot strand specials before P6. The blink/special double-fire split
    is an authored behavior change in the parity harness, and it fixes two
    pre-existing HUD lies (Shot button wearing special labels; blink button

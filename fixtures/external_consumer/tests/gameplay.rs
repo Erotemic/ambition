@@ -123,9 +123,9 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 
     let catalog = app
         .world()
-        .get_resource::<ambition_platformer2d::view::AmbitionGameAssetCatalog>()
+        .get_resource::<ambition_platformer2d::view::Platformer2dAssetCatalog>()
         .expect(
-            "the plugin did not install a AmbitionGameAssetCatalog, so every asset path \
+            "the plugin did not install a Platformer2dAssetCatalog, so every asset path \
              policy the presentation reads is missing",
         );
     assert!(

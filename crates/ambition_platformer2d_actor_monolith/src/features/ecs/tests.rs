@@ -357,8 +357,8 @@ fn interact_buffered_starts_npc_dialogue() {
 
 /// Regression for the presentation-reader ordering contract:
 /// every system added to
-/// [`crate::schedule::Platformer2dSimulationPhase::PresentationVisualSync`] must run
-/// after [`crate::schedule::Platformer2dSimulationPhase::FeatureViewSync`].
+/// [`crate::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`] must run
+/// after [`crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
 ///
 /// Structural check: inspect the actual Bevy schedule graph
 /// rather than depend on the executor's behavior with two
@@ -368,16 +368,16 @@ fn interact_buffered_starts_npc_dialogue() {
 /// we don't have to run the schedule or rely on any
 /// declaration-order fallback. The test FAILS the moment
 /// `PresentationVisualSync.after(FeatureViewSync)` is removed
-/// from `configure_sandbox_sets`, regardless of what executor
+/// from `configure_platformer2d_simulation_phases`, regardless of what executor
 /// Bevy ships or how it tie-breaks unordered systems.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::{configure_sandbox_sets, Platformer2dSimulationPhase};
+    use crate::schedule::{configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith};
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 
     let mut app = App::new();
-    configure_sandbox_sets(&mut app);
+    configure_platformer2d_simulation_phases(&mut app);
     // Touch both sets with an empty system each so they're
     // actually registered as nodes (configure_sets alone is
     // enough to register the relationship, but a no-op .in_set
@@ -385,23 +385,23 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
     app.add_systems(
         Update,
         (
-            (|| {}).in_set(Platformer2dSimulationPhase::FeatureViewSync),
-            (|| {}).in_set(Platformer2dSimulationPhase::PresentationVisualSync),
+            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::PresentationVisualSync),
         ),
     );
 
     let schedules = app.world().resource::<Schedules>();
     let schedule = schedules
         .get(Update)
-        .expect("Update schedule must exist after configure_sandbox_sets");
+        .expect("Update schedule must exist after configure_platformer2d_simulation_phases");
     let graph = schedule.graph();
     let fvs_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhase::FeatureViewSync.intern())
+        .get_key(Platformer2dSimulationPhaseMonolith::FeatureViewSync.intern())
         .expect("FeatureViewSync must be a registered SystemSet");
     let pvs_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhase::PresentationVisualSync.intern())
+        .get_key(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
         .expect("PresentationVisualSync must be a registered SystemSet");
     let edge_present = graph
         .dependency()
@@ -411,7 +411,7 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
         edge_present,
         "schedule dependency graph must carry an edge \
          FeatureViewSync -> PresentationVisualSync (set in \
-         configure_sandbox_sets). Without it, presentation \
+         configure_platformer2d_simulation_phases). Without it, presentation \
          systems can read a stale FeatureViewIndex on any frame \
          that mutates feature state (pickups, switches, encounter \
          spawns, save sync, sandbox reset)."

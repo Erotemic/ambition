@@ -746,7 +746,7 @@ pub(crate) fn integrate_actor_body(
     // (autonomous brain, possession, replay).
     move_motion_scale: f32,
     dt: f32,
-    feel: crate::time::feel::SandboxFeelTuning,
+    feel: crate::time::feel::Platformer2dFeelTuningMonolith,
     // **This body's own movement feel, when its character authored one.**
     //
     // The actor twin of the player loop's `authored_tuning`. Threaded rather
@@ -960,7 +960,7 @@ pub fn integrate_sim_bodies(
         ambition_platformer2d_core::RoomGeometry,
     >,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
     overlay: Res<FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,

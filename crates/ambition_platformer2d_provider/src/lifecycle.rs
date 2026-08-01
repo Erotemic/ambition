@@ -1115,9 +1115,9 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     placement_lowering: Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes: Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
-    sandbox_data_asset: Option<Res<'w, ambition_platformer2d_actor_monolith::session::data::SandboxDataAsset>>,
+    sandbox_data_asset: Option<Res<'w, ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaultsHandle>>,
     sandbox_asset_collection:
-        Option<Res<'w, ambition_platformer2d_actor_monolith::assets::loading::SandboxAssetCollection>>,
+        Option<Res<'w, ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
 }

@@ -106,7 +106,7 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 /// buffer and the room graph agree, and it cannot see the two things the host
 /// puts between a finger and that buffer — the input CONTEXT (a live gameplay
 /// session has to own the participant's actions before `ControlFrame` carries
-/// anything) and the participant's own binding of `SandboxAction::Interact`.
+/// anything) and the participant's own binding of `Platformer2dInputActionMonolith::Interact`.
 /// Jon plays the host, so the host is where "I can't enter doors" is answered.
 ///
 /// The key is READ from the live input map rather than hardcoded: the interact
@@ -117,7 +117,7 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 #[test]
 fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     use ambition_platformer2d::game_shell::ShellCommand;
-    use ambition_platformer2d::input::{InputParticipant, SandboxAction};
+    use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
     use ambition_app::app::shell_host;
     use bevy::MinimalPlugins;
     use bevy::asset::AssetPlugin;
@@ -156,12 +156,12 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     // The interact key THIS build binds, from the participant's own map.
     let interact_key = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<&InputMap<SandboxAction>, With<InputParticipant>>();
+        let mut q = world.query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>();
         let map = q
             .iter(world)
             .next()
             .expect("the host spawns a primary input participant at boot");
-        map.get_buttonlike(&SandboxAction::Interact)
+        map.get_buttonlike(&Platformer2dInputActionMonolith::Interact)
             .and_then(|bindings| bindings.first().cloned())
             .expect("Interact has a binding, or no key opens a door at all")
     };

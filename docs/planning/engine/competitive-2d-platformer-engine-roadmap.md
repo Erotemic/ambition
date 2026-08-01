@@ -430,7 +430,7 @@ checksums, simulation authorization, lifecycle cleanup, or reconstruction.
 **Current code to refactor**
 
 - `crates/ambition_platformer2d_runtime/src/rollback/mod.rs::register_engine_rollback_state`
-- `crates/ambition_platformer2d_shared_tangle/src/schedule.rs::Platformer2dSimulationPhase`
+- `crates/ambition_platformer2d_shared_tangle/src/schedule.rs::Platformer2dSimulationPhaseMonolith`
 - runtime plugin assembly in `crates/ambition_platformer2d_runtime/src/lib.rs`
 - demo scheduling in `game/ambition_demo_mary_o/` and
   `game/ambition_demo_sanic/`
@@ -466,7 +466,7 @@ The criterion is answered, and deliberately from outside the workspace, in
 declares `BeaconCharge`, writes its own snapshot codec, registers it with
 `app.rollback_component_canonical::<BeaconCharge>(..)` through the public
 `ambition_platformer2d::runtime::rollback` vocabulary, and installs its systems into
-`Platformer2dSimulationPhase::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
+`Platformer2dSimulationPhaseMonolith::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
 component; nothing in `ambition_platformer2d` could, because nothing in `ambition_platformer2d` has heard
 of it. The rewind is real — a GGRS sync-test session, ~900 loads and ~4500
 resimulated advances in the test's own run — and the ridge gate is GATED on the
@@ -814,7 +814,7 @@ PREVENT here.
 `session/reset/mod.rs` both did
 `.unwrap_or_else(|error| panic!("… failed: {error}"))` — a preflight that
 correctly refused killed the process on two paths instead of declining.
-`process_sandbox_reset_request` declines now; `session/setup.rs` still panics
+`process_new_game_reset_request` declines now; `session/setup.rs` still panics
 DELIBERATELY, because no game exists yet and a silent partial start is worse
 than a loud stop.
 
@@ -823,7 +823,7 @@ costing nothing: `clear_transient_on_sandbox_reset` was chained BEFORE the
 processor and keyed on the REQUEST, so a refused reset had already emptied the
 player's hands, despawned the portals and stripped the portal gun (GPT 5.6,
 2026-07-27). `despawn_player_clones_on_reset` in the app crate did the same.
-Both now wait for a `SandboxResetCommitted` message the processor writes only
+Both now wait for a `NewGameResetCommitted` message the processor writes only
 once the preflight has agreed — a request is what somebody asked for, a
 commitment is what the preflight allowed, and only the second may authorise a
 teardown. `sandbox_reset_clears_portals_held_items_and_summons` drives the
@@ -888,7 +888,7 @@ composition plus documented Ambition contracts.
 plainly false.**
 
 Providers use ordinary Bevy composition: Outlander is a `Plugin` that calls
-`app.sim_schedule()` and `.in_set(Platformer2dSimulationPhase::PlayerSimulation)`, never a literal
+`app.sim_schedule()` and `.in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)`, never a literal
 schedule, and it assembles a whole game from outside the workspace through the
 `ambition_platformer2d` umbrella. Four recorded API leaks is the honest cost, and they are
 listed rather than hidden. Domain plugins largely own their installation — the

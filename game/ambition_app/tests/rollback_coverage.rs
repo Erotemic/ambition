@@ -932,15 +932,15 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ("::gate_portal::GatePortalRegistry", "authored gate portals"),
     ("::manifest::WorldManifest", "authored world manifest"),
     (
-        "::project::AmbitionGameLdtkProject",
+        "::project::ActiveLdtkProject",
         "authored LDtk project; hot reload restarts the session",
     ),
     (
-        "::session::data::AmbitionGameGameplaySpec",
+        "::session::data::Platformer2dGameplayDefaults",
         "authored data-spec value",
     ),
     (
-        "::session::data::SandboxDataAsset",
+        "::session::data::Platformer2dGameplayDefaultsHandle",
         "authored data asset handle",
     ),
     (
@@ -966,7 +966,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "movement tuning, forward-only",
     ),
     (
-        "::time::feel::SandboxFeelTuning",
+        "::time::feel::Platformer2dFeelTuningMonolith",
         "feel tuning, forward-only",
     ),
     (

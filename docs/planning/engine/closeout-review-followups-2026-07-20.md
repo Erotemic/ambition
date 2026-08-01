@@ -95,7 +95,7 @@ There is deliberately no CI initiative.
 ### Work
 
 1. Continue the K1 authority removals until developer editing/inspection is an
-   optional adapter rather than runtime setup authority (`AmbitionGameDeveloperState`,
+   optional adapter rather than runtime setup authority (`DeveloperRuntimeState`,
    `EditableAbilitySet`, dev-owned schedule sets, and profiling hooks remain).
 2. Only then define explicit supported app configurations:
    - desktop development;

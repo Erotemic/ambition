@@ -97,7 +97,7 @@ fn confirm(app: &mut App) {
 }
 
 /// Add a CPU to the lowest empty seat. DOWN, not Start: on a keyboard
-/// `SandboxAction::Start` is Escape, which belongs to the pause menu — Jon,
+/// `Platformer2dInputActionMonolith::Start` is Escape, which belongs to the pause menu — Jon,
 /// 2026-07-31: *"there is no start on a keyboard."*
 fn add_cpu(app: &mut App) {
     tap(app, KeyCode::ArrowDown);
@@ -297,7 +297,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
         "nothing is paused before anybody presses anything"
     );
 
-    // Escape is `SandboxAction::Start` on a keyboard: the pause press.
+    // Escape is `Platformer2dInputActionMonolith::Start` on a keyboard: the pause press.
     tap(&mut app, KeyCode::Escape);
     settle(&mut app);
 

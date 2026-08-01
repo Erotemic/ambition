@@ -56,7 +56,7 @@ fn step(r: &mut Rig, frame: ActorControlFrame) -> Option<ae::Vec2> {
         &mut r.model,
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         ae::DEFAULT_TUNING,
-        SandboxFeelTuning::default(),
+        Platformer2dFeelTuningMonolith::default(),
         DT,
         DT,
         &r.overlay,

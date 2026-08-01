@@ -2,10 +2,10 @@
 //!
 //! The goal of this module is to keep tuning/audio iteration data in RON while
 //! still letting the current code synthesize assets at startup. `bevy_common_assets` registers
-//! `AmbitionGameGameplaySpec` as a real Bevy asset type; `load_embedded` gives us a
+//! `Platformer2dGameplayDefaults` as a real Bevy asset type; `load_embedded` gives us a
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
-//! Bevy resolves `ambition/sandbox.ron` relative to the sandbox crate asset
+//! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset
 //! root (`crates/ambition_platformer2d_actor_monolith/assets`) when this package is run through
 //! Cargo, so the embedded copy intentionally lives there too. World/room
 //! authoring has moved to LDtk; this RON asset intentionally owns only
@@ -22,18 +22,18 @@ use serde::Deserialize;
 #[cfg(test)]
 use std::collections::HashSet;
 
-pub const SANDBOX_DATA_ASSET: &str = "ambition/sandbox.ron";
+pub const PLATFORMER_DEFAULTS_ASSET: &str = "ambition/platformer_defaults.ron";
 
 #[derive(Clone, Debug, Deserialize, Asset, TypePath, Resource)]
-pub struct AmbitionGameGameplaySpec {
+pub struct Platformer2dGameplayDefaults {
     pub abilities: ae::AbilitySet,
     pub tuning: ae::MovementTuning,
 }
 
-impl AmbitionGameGameplaySpec {
+impl Platformer2dGameplayDefaults {
     pub fn load_embedded() -> Self {
-        ron::from_str(include_str!("../../assets/ambition/sandbox.ron"))
-            .expect("embedded assets/ambition/sandbox.ron should parse")
+        ron::from_str(include_str!("../../assets/ambition/platformer_defaults.ron"))
+            .expect("embedded assets/ambition/platformer_defaults.ron should parse")
     }
 }
 
@@ -80,29 +80,29 @@ static TEST_FIXTURE_SFX_REGISTRY: std::sync::LazyLock<SfxRegistry> =
     });
 
 #[derive(Resource, Clone, Debug)]
-pub struct SandboxDataAsset(pub Handle<AmbitionGameGameplaySpec>);
+pub struct Platformer2dGameplayDefaultsHandle(pub Handle<Platformer2dGameplayDefaults>);
 
-/// Bevy startup system: register a `Handle<AmbitionGameGameplaySpec>` so the
+/// Bevy startup system: register a `Handle<Platformer2dGameplayDefaults>` so the
 /// asset server keeps the underlying `.ron` alive (and emits hot
 /// reload events under `bevy_dev_hot_reload`).
 ///
 /// Resolves the path through the active
-/// [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`] when one is
+/// [`crate::assets::platformer_assets::Platformer2dAssetCatalog`] when one is
 /// installed. The catalog entry
-/// [`crate::assets::sandbox_assets::ids::sandbox_data`] is required, so the
+/// [`crate::assets::platformer_assets::ids::sandbox_data`] is required, so the
 /// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
 /// Falls back to the raw asset-path constant when no catalog resource
 /// is present (visible-only init order / tests).
 pub fn load_data_asset_handle(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    catalog: Option<Res<crate::assets::sandbox_assets::AmbitionGameAssetCatalog>>,
+    catalog: Option<Res<crate::assets::platformer_assets::Platformer2dAssetCatalog>>,
 ) {
     let path = catalog
         .as_ref()
-        .and_then(|c| c.path_for(&crate::assets::sandbox_assets::ids::sandbox_data()))
-        .unwrap_or_else(|| SANDBOX_DATA_ASSET.to_string());
-    commands.insert_resource(SandboxDataAsset(asset_server.load(path)));
+        .and_then(|c| c.path_for(&crate::assets::platformer_assets::ids::sandbox_data()))
+        .unwrap_or_else(|| PLATFORMER_DEFAULTS_ASSET.to_string());
+    commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
 }
 
 // Spatial/world authoring moved to LDtk. This module intentionally contains

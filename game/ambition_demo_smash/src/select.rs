@@ -157,7 +157,7 @@ impl SmashSelect {
     ///
     /// ⚠ **bound to DOWN, and the binding is the feature.** The first cut used
     /// `start`, which reads well in a prompt and does not exist: on a keyboard
-    /// `SandboxAction::Start` is Escape, which opens the pause menu, so the one
+    /// `Platformer2dInputActionMonolith::Start` is Escape, which opens the pause menu, so the one
     /// press that made the demo playable alone was the one press a keyboard
     /// could not make. Jon, 2026-07-31: *"Start does not add a CPU. And there is
     /// no start on a keyboard."* Down/Up are the two directions this screen does

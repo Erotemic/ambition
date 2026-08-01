@@ -10,7 +10,7 @@ use bevy::prelude::*;
 /// Live-tunable time/input/combat feel values consumed by sandbox gameplay.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
-pub struct SandboxFeelTuning {
+pub struct Platformer2dFeelTuningMonolith {
     pub bullet_time_scale: f32,
     pub blink_hold_slow_scale: f32,
     pub debug_slowmo_scale: f32,
@@ -70,7 +70,7 @@ pub struct SandboxFeelTuning {
     pub di_max_angle: f32,
 }
 
-impl Default for SandboxFeelTuning {
+impl Default for Platformer2dFeelTuningMonolith {
     fn default() -> Self {
         Self {
             bullet_time_scale: 0.125,
@@ -109,7 +109,7 @@ impl Default for SandboxFeelTuning {
     }
 }
 
-impl SandboxFeelTuning {
+impl Platformer2dFeelTuningMonolith {
     pub fn feature_combat_tuning(self) -> crate::features::FeatureCombatTuning {
         crate::features::FeatureCombatTuning {
             enemy_attack_windup: self.enemy_attack_windup,
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn defaults_are_finite_and_positive_where_expected() {
-        let f = SandboxFeelTuning::default();
+        let f = Platformer2dFeelTuningMonolith::default();
         // Time-domain scales between (0, 1] (slow-mo etc.).
         assert!(f.bullet_time_scale > 0.0 && f.bullet_time_scale <= 1.0);
         assert!(f.blink_hold_slow_scale > 0.0 && f.blink_hold_slow_scale <= 1.0);
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn feature_combat_tuning_extracts_attack_windows() {
-        let f = SandboxFeelTuning::default();
+        let f = Platformer2dFeelTuningMonolith::default();
         let combat = f.feature_combat_tuning();
         assert_eq!(combat.enemy_attack_windup, f.enemy_attack_windup);
         assert_eq!(combat.enemy_attack_active, f.enemy_attack_active);
@@ -172,7 +172,7 @@ mod tests {
         // the player feel it kick in); recovering to normal speed
         // should be snappy. This invariant guards against accidentally
         // swapping the two in defaults.
-        let f = SandboxFeelTuning::default();
+        let f = Platformer2dFeelTuningMonolith::default();
         assert!(
             f.time_ramp_up_rate > f.time_ramp_down_rate,
             "time_ramp_up_rate should be faster than time_ramp_down_rate \
@@ -185,7 +185,7 @@ mod tests {
         // A cooldown shorter than the flash means the player could
         // re-enter a transition while the flash from the previous one
         // is still on screen — visible double-trigger.
-        let f = SandboxFeelTuning::default();
+        let f = Platformer2dFeelTuningMonolith::default();
         assert!(f.edge_transition_flash >= f.edge_transition_cooldown);
         assert!(f.door_transition_flash >= f.door_transition_cooldown);
     }
@@ -194,7 +194,7 @@ mod tests {
     fn attack_active_window_is_at_least_one_frame() {
         // 60fps frame is ~16.6ms = 0.017s. Any active hitbox window
         // shorter than a frame would be unhittable; not a useful state.
-        let f = SandboxFeelTuning::default();
+        let f = Platformer2dFeelTuningMonolith::default();
         assert!(f.enemy_attack_active >= 0.017);
         assert!(f.boss_attack_active >= 0.017);
     }

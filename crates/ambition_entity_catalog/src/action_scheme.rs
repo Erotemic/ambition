@@ -16,7 +16,7 @@
 //!   the engine dep. This crate never references the kernel.
 //! - **Slots are device-free.** [`ControlSlot`] is the abstract button
 //!   position (Jump / Attack / …), not a physical key or a leafwing
-//!   `SandboxAction`. The physical-input → slot binding is owned by the input
+//!   `Platformer2dInputActionMonolith`. The physical-input → slot binding is owned by the input
 //!   layer; this crate only says which slot an action lives on.
 //!
 //! The runtime scheme is a DERIVED cache of already-snapshotted authorities

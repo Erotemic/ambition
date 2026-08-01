@@ -241,13 +241,13 @@ pub fn tick_player_clone_brains(
 /// sandbox's own `clear_transient_on_sandbox_reset` clears — but `PlayerClone`
 /// lives in this app crate, so the despawn is app-side.
 ///
-/// Keyed on `SandboxResetCommitted`, the same signal that engine-side clear
+/// Keyed on `NewGameResetCommitted`, the same signal that engine-side clear
 /// uses, and for the same reason: a reset whose room preflight refuses must
 /// leave the running session exactly as it found it. Reading the REQUEST meant
 /// a refused reset still deleted the player's clones — a teardown for a reset
 /// that never happened.
 pub fn despawn_player_clones_on_reset(
-    mut committed: MessageReader<ambition_platformer2d::actors::session::reset::SandboxResetCommitted>,
+    mut committed: MessageReader<ambition_platformer2d::actors::session::reset::NewGameResetCommitted>,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {

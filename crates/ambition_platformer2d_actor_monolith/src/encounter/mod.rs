@@ -75,7 +75,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::EncounterSimulation),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation),
         );
         // The wave EFFECT adapter + the ownership-driven cleanup adapter (E10)
         // react to this frame's lifecycle events, so they run after the
@@ -86,7 +86,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhase::Progression)
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Progression)
                 .after(EncounterLifecycleSet),
         );
         // The lock-wall contribution runs a phase EARLIER, in WorldPrep: it
@@ -100,7 +100,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             contribute_encounter_lock_walls
                 .after(crate::features::rebuild_feature_ecs_world_overlay)
                 .before(crate::features::update_ecs_hazards)
-                .in_set(crate::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
     }
 }

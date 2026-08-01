@@ -1,6 +1,6 @@
 //! Runtime schedule vocabulary that is independent of Ambition content.
 //!
-//! `Platformer2dSimulationPhase` remains the concrete app schedule for now. These labels document
+//! `Platformer2dSimulationPhaseMonolith` remains the concrete app schedule for now. These labels document
 //! the future crate-level concepts and give new runtime modules names that do
 //! not depend on app assembly details.
 
@@ -38,7 +38,7 @@ use bevy::prelude::*;
 /// impl Plugin for MySimPlugin {
 ///     fn build(&self, app: &mut App) {
 ///         let sim = app.sim_schedule();
-///         app.add_systems(sim, my_system.in_set(Platformer2dSimulationPhase::WorldPrep));
+///         app.add_systems(sim, my_system.in_set(Platformer2dSimulationPhaseMonolith::WorldPrep));
 ///     }
 /// }
 /// ```
@@ -212,7 +212,7 @@ pub struct SimulationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
-/// **The phases inside [`Platformer2dSimulationPhase::Combat`], and the content slots between
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::Combat`], and the content slots between
 /// them.**
 ///
 /// The engine owns the combat spine — trigger, playback, materialize, resolve,
@@ -259,7 +259,7 @@ pub enum CombatSet {
 }
 
 /// The one umbrella set containing EVERY gameplay-simulation phase in the sim
-/// schedule: all of [`Platformer2dSimulationPhase`], the portal/projectile/combat sub-chains
+/// schedule: all of [`Platformer2dSimulationPhaseMonolith`], the portal/projectile/combat sub-chains
 /// nested inside them, and the pre-`CoreSimulation` strays (sim-id minting,
 /// class-B log clear, portal carves).
 ///
@@ -281,9 +281,9 @@ pub struct GameplaySimulationRoot;
 /// order against the same labels without depending on the actor-domain crate.
 ///
 /// Every variant is nested inside [`GameplaySimulationRoot`]
-/// (`configure_sandbox_sets`), which carries the session-gate run condition.
+/// (`configure_platformer2d_simulation_phases`), which carries the session-gate run condition.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum Platformer2dSimulationPhase {
+pub enum Platformer2dSimulationPhaseMonolith {
     /// Top-level set that contains the six sub-sets below. Kept as a
     /// distinct label so existing `.before/.after(CoreSimulation)`
     /// constraints from presentation/audio/HUD systems continue to
@@ -336,13 +336,13 @@ pub enum Platformer2dSimulationPhase {
     /// same-frame mutation to feature state.
     FeatureViewSync,
     /// Presentation-side container set for visual systems that read
-    /// the feature view cache. Configured after [`Platformer2dSimulationPhase::FeatureViewSync`].
+    /// the feature view cache. Configured after [`Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
     PresentationVisualSync,
     /// Trace recording + dump flush. Runs after CoreSimulation.
     Trace,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhase::PlayerInput`], as an orderable vocabulary.**
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`], as an orderable vocabulary.**
 ///
 /// `PlayerInput` is one set containing a single long `.chain()`, and for a while
 /// that meant anything needing to run at a particular point in it had to name a
@@ -359,7 +359,7 @@ pub enum Platformer2dSimulationPhase {
 ///   is free to rename or split. Ordering against a phase is not.
 ///
 /// The variants are the phases the chain already had; naming them changed no
-/// order. They are chained in [`Platformer2dSimulationPhase::PlayerInput`], so
+/// order. They are chained in [`Platformer2dSimulationPhaseMonolith::PlayerInput`], so
 /// `.in_set(PlayerInputSet::Persona)` is a complete statement of intent.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerInputSet {
@@ -388,7 +388,7 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhase::RoomTransition`].**
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::RoomTransition`].**
 ///
 /// Same shape, and same reason, as [`PlayerSimulationSet`]: this set carried an
 /// ordering slot described in prose — *"the host's transition APPLY slots in
@@ -412,7 +412,7 @@ pub enum RoomTransitionSet {
     Reset,
 }
 
-/// **The movement anchor inside [`Platformer2dSimulationPhase::WorldPrep`].**
+/// **The movement anchor inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].**
 ///
 /// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full
 /// decomposition of its set. `WorldPrep` is the biggest chain in the engine, its
@@ -459,9 +459,9 @@ pub enum WorldPrepSet {
     ContactDamage,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhase::PlayerSimulation`].**
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].**
 ///
-/// Third of the six `Platformer2dSimulationPhase` phases to get named sub-sets (after
+/// Third of the six `Platformer2dSimulationPhaseMonolith` phases to get named sub-sets (after
 /// [`PlayerInputSet`] and [`CombatSet`]), for the same reason and with the same
 /// rule: naming them changed no order.
 ///

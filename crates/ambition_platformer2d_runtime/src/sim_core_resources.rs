@@ -1,10 +1,10 @@
 //! The engine-generic simulation messages + resource defaults (E5 step 6).
 //!
-//! Moved from the app's `AmbitionGameSimulationResourcesPlugin` so a demo app gets
+//! Moved from the app's `AmbitionGameSimulationSetupPlugin` so a demo app gets
 //! a bootable sim from the engine group alone (THE DEMO GATE). Everything here
 //! is `init_resource`/default semantics — a host overrides any of these by
 //! `insert_resource` BEFORE adding the group (init never clobbers), which is
-//! the documented host-override convention (`Platformer2dSimulationSchedulePlugin` docs).
+//! the documented host-override convention (`Platformer2dSimulationFoundationPlugin` docs).
 //!
 //! What the engine group deliberately does NOT provide (the game/fixture
 //! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
@@ -69,7 +69,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .init_resource::<ambition_platformer2d_actor_monolith::AmbitionGameSessionState>()
+            .init_resource::<ambition_platformer2d_actor_monolith::RoomTransitionCooldown>()
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector
@@ -96,7 +96,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_sim_view::BossRenderIndex>()
             // Session data-spec RON loader (the engine's own asset format).
             .add_plugins(bevy_common_assets::ron::RonAssetPlugin::<
-                data::AmbitionGameGameplaySpec,
+                data::Platformer2dGameplayDefaults,
             >::new(&["ron"]))
             // In-flight player projectiles are ECS entities; their monotonic
             // spawn-id source is this global counter.
@@ -136,7 +136,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>()
-            .init_resource::<ambition_platformer2d_actor_monolith::session::reset::SandboxResetRequested>()
+            .init_resource::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested>()
             // Track B: the rollback-registered slot a lifecycle op records into
             // under a rollback host, committed on a confirmed frame.
             .init_resource::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>()
@@ -146,7 +146,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_input::ControlFrame>()
             // Feel + physics tuning defaults; the game's assembly pre-inserts
             // its authored values (init never clobbers).
-            .init_resource::<ambition_platformer2d_actor_monolith::time::feel::SandboxFeelTuning>()
+            .init_resource::<ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith>()
             .init_resource::<ambition_platformer2d_actor_monolith::world::physics::PhysicsSandboxSettings>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.

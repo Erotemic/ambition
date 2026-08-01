@@ -1196,7 +1196,7 @@ fn a_raised_shield_does_not_guard_the_back() {
 fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
-    let feel = crate::time::feel::SandboxFeelTuning::default();
+    let feel = crate::time::feel::Platformer2dFeelTuningMonolith::default();
     // Attacker to the LEFT of the victim (victim at origin): expect a launch
     // toward +x with the feel-tuned enemy knockback, rising (world -y).
     app.world_mut().write_message(HitEvent {
@@ -1242,7 +1242,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
 fn a_slash_knock_x_folds_into_the_shared_knockback_resolution() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
-    let feel = crate::time::feel::SandboxFeelTuning::default();
+    let feel = crate::time::feel::Platformer2dFeelTuningMonolith::default();
     // Slash volume centered on the victim (side derivation degenerates) with a
     // -x impulse: the stored dir carries the launch side.
     app.world_mut()

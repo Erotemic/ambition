@@ -25,7 +25,7 @@ pub fn load_game_assets(
     // whose sheet came from one needs the other to size its body.
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: &crate::boss_encounter::BossCatalog,
-    catalog: &crate::assets::sandbox_assets::AmbitionGameAssetCatalog,
+    catalog: &crate::assets::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     active_room_metadata: &RoomMetadata,

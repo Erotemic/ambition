@@ -7,7 +7,7 @@ use bevy_material_ui::MaterialUiPlugin;
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
-use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
 #[cfg(feature = "physics_debris")]
@@ -18,7 +18,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
 };
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::platformer::schedule::{
-    gameplay_allowed, PresentationSetupSet, Platformer2dSimulationPhase, SimScheduleExt,
+    gameplay_allowed, PresentationSetupSet, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
 };
 use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
@@ -67,7 +67,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // now — `RoomTransitionComposerPlugin` owns them.
 
     // The canonical simulation-phase sets + engine resources now live in
-    // `ambition_platformer2d::runtime::Platformer2dSimulationSchedulePlugin` (first in the engine group below).
+    // `ambition_platformer2d::runtime::Platformer2dSimulationFoundationPlugin` (first in the engine group below).
     // Host configuration overrides are consumed before simulation plugins
     // build. Live gameplay-world values are already components on the exact
     // direct/session root; no canonical world value is initialized as a resource.
@@ -80,7 +80,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .copied()
         .unwrap_or_default();
 
-    app.add_plugins(super::sim_resources::AmbitionGameSimulationResourcesPlugin);
+    app.add_plugins(super::sim_resources::AmbitionGameSimulationSetupPlugin);
 
     // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
     // hooks, and portal adapters. Installed after simulation resources so content
@@ -147,7 +147,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         sim,
         apply_player_reset_input_system
             .run_if(gameplay_allowed)
-            .in_set(Platformer2dSimulationPhase::PlayerInput)
+            .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::dev_tools::DevEditApplySet)
             .before(ambition_platformer2d::actors::control::input_timer_system)
             .before(ambition_platformer2d::runtime::apply_room_replay_request_system),
@@ -171,26 +171,26 @@ fn register_app_local_sim_systems(app: &mut App) {
                 crate::app::player_clone::spawn_requested_player_clone,
             )
                 .chain()
-                .in_set(Platformer2dSimulationPhase::WorldPrep),
+                .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
         )
         .add_systems(
             sim,
             crate::app::player_clone::tick_player_clone_brains
                 .run_if(gameplay_allowed)
-                .in_set(Platformer2dSimulationPhase::PlayerInput),
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         )
         .add_systems(
             sim,
             crate::app::player_clone::sync_player_clone_transform
-                .in_set(Platformer2dSimulationPhase::PresentationSync),
+                .in_set(Platformer2dSimulationPhaseMonolith::PresentationSync),
         )
         .add_systems(
             sim,
             crate::app::player_clone::despawn_player_clones_on_reset
-                .in_set(Platformer2dSimulationPhase::ResetProcessing)
+                .in_set(Platformer2dSimulationPhaseMonolith::ResetProcessing)
                 // AFTER, not before: the processor is the only system that may
                 // decline a reset, and this one waits for its commitment.
-                .after(ambition_platformer2d::actors::session::reset::process_sandbox_reset_request),
+                .after(ambition_platformer2d::actors::session::reset::process_new_game_reset_request),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───
@@ -244,11 +244,11 @@ fn register_app_local_sim_systems(app: &mut App) {
 /// headless can spawn the same entity set without bevy_ecs_ldtk's
 /// rendering machinery.
 pub fn add_ldtk_runtime_plugin(app: &mut App) {
-    // `SandboxAssetCollection` includes a typed LDtk handle, so the LDtk
+    // `Platformer2dStartupAssets` includes a typed LDtk handle, so the LDtk
     // asset type and loader must be initialized before bevy_asset_loader
     // allocates collection handles. Keep this before `init_collection`.
     app.add_plugins(LdtkPlugin)
-        .init_collection::<loading::SandboxAssetCollection>()
+        .init_collection::<loading::Platformer2dStartupAssets>()
         .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_systems(
             Startup,
@@ -284,7 +284,7 @@ pub(super) fn spawn_ldtk_world_root(
     ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
-    sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
+    sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
     world_manifest: Res<ldtk_world::WorldManifest>,
 ) {
     spawn_ldtk_world_roots_scoped(
@@ -309,7 +309,7 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     ldtk_index: &ldtk_world::LdtkRuntimeIndex,
     room_set: &rooms::RoomSet,
     world_assets: Option<&ldtk_world::LdtkWorldAssets>,
-    sandbox_asset_collection: Option<&loading::SandboxAssetCollection>,
+    sandbox_asset_collection: Option<&loading::Platformer2dStartupAssets>,
     manifest: &ldtk_world::WorldManifest,
 ) {
     // One LdtkWorldBundle per prepared WorldManifest row. bevy_ecs_ldtk's
@@ -393,7 +393,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
-        .register_type::<SandboxFeelTuning>()
+        .register_type::<Platformer2dFeelTuningMonolith>()
         .register_type::<ambition_platformer2d::portal::PortalConvention>()
         .register_type::<ambition_platformer2d::portal::PortalTuning>();
 
@@ -418,7 +418,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
-        sync_preset_input_map.before(Platformer2dSimulationPhase::CoreSimulation),
+        sync_preset_input_map.before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
     );
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
@@ -476,7 +476,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (ambition_platformer2d::actors::menu::map::sync_map_menu,)
-                .after(Platformer2dSimulationPhase::CoreSimulation)
+                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
@@ -517,7 +517,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 ambition_platformer2d::actors::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
-                .after(Platformer2dSimulationPhase::CoreSimulation)
+                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
@@ -745,7 +745,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
                 fx::process_explosion_requests,
             )
                 .chain()
-                .after(Platformer2dSimulationPhase::CoreSimulation)
+                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                 .before(vfx_spawn_messages)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
@@ -762,7 +762,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     app.add_systems(
         Update,
         fx::update_blink_preview
-            .after(Platformer2dSimulationPhase::CoreSimulation)
+            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
@@ -777,7 +777,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
         physics_spawn_debris_messages
-            .after(Platformer2dSimulationPhase::CoreSimulation)
+            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
@@ -832,7 +832,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition_platformer2d::actors::audio::AmbitionGameAudioPlugin);
+    app.add_plugins(ambition_platformer2d::actors::audio::Platformer2dAudioPlugin);
     // Once the resident SFX bank lands, publish its ids as Ambition's
     // provider-relative SFX authority (bank = storage, selection = permission).
     app.add_systems(
@@ -870,9 +870,9 @@ impl Plugin for AmbitionGameSimulationPlugin {
 
 /// Installs LDtk runtime spine registrations and `LdtkPlugin`. Visible
 /// binary only — `LdtkPlugin` panics in headless (no `RenderApp`).
-pub struct AmbitionGameLdtkPlugin;
+pub struct AmbitionGameLdtkRuntimePlugin;
 
-impl Plugin for AmbitionGameLdtkPlugin {
+impl Plugin for AmbitionGameLdtkRuntimePlugin {
     fn build(&self, app: &mut App) {
         add_ldtk_runtime_plugin(app);
     }

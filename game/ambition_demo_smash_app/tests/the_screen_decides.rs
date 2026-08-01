@@ -108,7 +108,7 @@ fn back() -> MenuControlFrame {
     }
 }
 
-/// Add a CPU. DOWN rather than Start: `SandboxAction::Start` is Escape on a
+/// Add a CPU. DOWN rather than Start: `Platformer2dInputActionMonolith::Start` is Escape on a
 /// keyboard, which opens the pause menu — the press that made the demo playable
 /// alone was the one press a keyboard could not make.
 fn down() -> MenuControlFrame {

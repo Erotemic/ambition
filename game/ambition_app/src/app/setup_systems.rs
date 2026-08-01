@@ -29,7 +29,7 @@ pub(crate) struct PresentationCatalogs<'w> {
     /// art instead of identity.
     sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
     bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    assets: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog>,
+    assets: Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
 }
 
 /// The three App-installed authorities room construction reads: how authored
@@ -69,8 +69,8 @@ pub(super) fn setup_simulation_system(
     mut commands: Commands,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
-    sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
+    sandbox_data_asset: Option<Res<data::Platformer2dGameplayDefaultsHandle>>,
+    sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
     asset_server: Res<AssetServer>,
     ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
@@ -257,7 +257,7 @@ pub(crate) fn setup_host_presentation_system(
     // host code. Direct-entry apps register only Ambition, so their frozen
     // catalog is already complete and no rebuild happens.
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
@@ -273,7 +273,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
 
@@ -367,7 +367,7 @@ pub(crate) fn setup_host_presentation_system(
         .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
         .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
@@ -383,7 +383,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
     let game_assets = actor_game_assets::load_game_assets(

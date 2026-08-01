@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use crate::enemy_projectile::EnemyProjectileSpawn;
 #[cfg(test)]
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::brain::{
     action_set::{ActionRequest, ProjectileFlight},
     ActorActionMessage,
@@ -235,10 +235,10 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
 
 /// Helper: combat-tuning lookup. Lives on the test side to make
 /// the helper available to the unit tests below without leaking
-/// `SandboxFeelTuning` through the public API.
+/// `Platformer2dFeelTuningMonolith` through the public API.
 #[cfg(test)]
 fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
-    SandboxFeelTuning::default().feature_combat_tuning()
+    Platformer2dFeelTuningMonolith::default().feature_combat_tuning()
 }
 
 #[cfg(test)]

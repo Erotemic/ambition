@@ -1,7 +1,7 @@
 //! **The combat rules a match plays under — resolved, not borrowed.** (AE6)
 //!
 //! The versus stage used to switch its rules on by WRITING the world's globals
-//! (`SandboxFeelTuning::di_max_angle`, `FriendlyFire::enabled`) on route entry
+//! (`Platformer2dFeelTuningMonolith::di_max_angle`, `FriendlyFire::enabled`) on route entry
 //! and putting them back on exit. Saving and restoring made that correct, but
 //! correct *by discipline*: any other writer during the match wins silently, a
 //! crash between entry and exit leaves the borrow outstanding, and "restore"
@@ -88,7 +88,7 @@ impl ResolvedCombatTuning {
 
 impl Default for ResolvedCombatTuning {
     /// The engine baseline: no directional influence, no friendly fire. Matches
-    /// `SandboxFeelTuning::default().di_max_angle` and
+    /// `Platformer2dFeelTuningMonolith::default().di_max_angle` and
     /// `FriendlyFire::default().enabled`, and exists so a composition that never
     /// installs the projection still resolves rather than reading `None` as
     /// "zero rules".

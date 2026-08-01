@@ -8,7 +8,7 @@ all of them so the slice has a unified sonic identity instead of
 falling back to the lofi default. Each level's `fieldInstances`
 already has a `music_track` field def (uid 4173); some levels
 explicitly set the value, most omit it and fall back to the
-AmbitionGameGameplaySpec default.
+Platformer2dGameplayDefaults default.
 
 This script:
 

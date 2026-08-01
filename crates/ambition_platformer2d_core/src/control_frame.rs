@@ -57,7 +57,7 @@ pub struct ControlFrame {
     pub blink_pressed: bool,
     pub blink_held: bool,
     pub blink_released: bool,
-    /// Dedicated signature-SPECIAL slot (`SandboxAction::Special`). Distinct from
+    /// Dedicated signature-SPECIAL slot (`Platformer2dInputActionMonolith::Special`). Distinct from
     /// blink: the player brain sources `special_pressed` from THIS, retiring the
     /// historical `special_pressed = blink_pressed` alias.
     pub special_pressed: bool,

@@ -2,7 +2,7 @@
 //!
 //! The pure, brain-facing [`ControlFrame`] vocabulary lives in
 //! `ambition_platformer2d_core`; this module is the input adapter that translates
-//! Leafwing `SandboxAction`s, control settings, and trigger hysteresis into that
+//! Leafwing `Platformer2dInputActionMonolith`s, control settings, and trigger hysteresis into that
 //! frame. Headless/replay/netcode callers can construct `ControlFrame` directly
 //! without depending on this crate.
 
@@ -14,7 +14,7 @@ use leafwing_input_manager::prelude::ActionState;
 use ambition_platformer2d_core::ControlFrame;
 
 #[cfg(feature = "input")]
-use crate::actions::SandboxAction;
+use crate::actions::Platformer2dInputActionMonolith;
 
 /// Build a gameplay control frame, applying configurable deadzones,
 /// trigger hysteresis, and the dash-input mode from
@@ -26,11 +26,11 @@ use crate::actions::SandboxAction;
 /// resource.
 #[cfg(feature = "input")]
 pub fn read_gameplay_control_frame_with_settings(
-    actions: &ActionState<SandboxAction>,
+    actions: &ActionState<Platformer2dInputActionMonolith>,
     controls: &crate::settings::ControlSettings,
     dash_state: crate::settings::TriggerEdgeState,
 ) -> (ControlFrame, crate::settings::TriggerEdgeState) {
-    let raw_move = actions.clamped_axis_pair(&SandboxAction::Move);
+    let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
     // Apply the left-stick deadzone before any walk-modifier logic so analog
     // drift doesn't pollute the magnitude check.
     let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
@@ -47,18 +47,18 @@ pub fn read_gameplay_control_frame_with_settings(
     // down" from "0.45 because the stick is half-deflected", and no content
     // could give the slot a different meaning. Now the state travels intact to
     // the simulation and a body's own rules decide what sustaining it does.
-    let modifier_held = actions.pressed(&SandboxAction::Modifier);
-    let modifier_pressed = actions.just_pressed(&SandboxAction::Modifier);
-    let left_pressed = actions.just_pressed(&SandboxAction::MoveLeft);
-    let right_pressed = actions.just_pressed(&SandboxAction::MoveRight);
-    let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
-    let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
+    let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
+    let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
+    let left_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveLeft);
+    let right_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveRight);
+    let up_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveUp);
+    let down_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown);
 
     // Dash hysteresis: read the analog right trigger value plus the binary RT2
     // button as the "press level". The settings-defined press / release
     // thresholds collapse trigger jitter into a single edge.
-    let raw_trigger = actions.value(&SandboxAction::DashAnalog).clamp(0.0, 1.0);
-    let dash_button_value = if actions.pressed(&SandboxAction::Dash) {
+    let raw_trigger = actions.value(&Platformer2dInputActionMonolith::DashAnalog).clamp(0.0, 1.0);
+    let dash_button_value = if actions.pressed(&Platformer2dInputActionMonolith::Dash) {
         1.0
     } else {
         0.0
@@ -74,15 +74,15 @@ pub fn read_gameplay_control_frame_with_settings(
         crate::settings::DashInputMode::Trigger => trigger_edge_pressed,
         // Button mode: ignore trigger hysteresis, only the configured Dash
         // button counts (e.g. RB on a 360 pad).
-        crate::settings::DashInputMode::Button => actions.just_pressed(&SandboxAction::Dash),
+        crate::settings::DashInputMode::Button => actions.just_pressed(&Platformer2dInputActionMonolith::Dash),
         crate::settings::DashInputMode::Both => {
-            trigger_edge_pressed || actions.just_pressed(&SandboxAction::Dash)
+            trigger_edge_pressed || actions.just_pressed(&Platformer2dInputActionMonolith::Dash)
         }
     };
 
     // Aim deadzone — applied to the right stick before blink aim consumes it.
     // This is the fix for old-controller drift pushing the blink target upward.
-    let raw_aim = actions.clamped_axis_pair(&SandboxAction::AimStick);
+    let raw_aim = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::AimStick);
     let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
         raw_aim.x,
         raw_aim.y,
@@ -99,33 +99,33 @@ pub fn read_gameplay_control_frame_with_settings(
         // Ambition's simulation uses screen-space world coordinates: +Y is
         // downward. Leafwing's virtual D-pads use the usual +Y-up convention.
         axis_y: -axis.y,
-        jump_pressed: actions.just_pressed(&SandboxAction::Jump),
-        jump_held: actions.pressed(&SandboxAction::Jump),
-        jump_released: actions.just_released(&SandboxAction::Jump),
+        jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump),
+        jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump),
+        jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump),
         dash_pressed,
         left_pressed,
         right_pressed,
         up_pressed,
         down_pressed,
         fast_fall_pressed: false,
-        blink_pressed: actions.just_pressed(&SandboxAction::Blink),
-        blink_held: actions.pressed(&SandboxAction::Blink),
-        blink_released: actions.just_released(&SandboxAction::Blink),
-        special_pressed: actions.just_pressed(&SandboxAction::Special),
-        attack_pressed: actions.just_pressed(&SandboxAction::Attack),
-        attack_held: actions.pressed(&SandboxAction::Attack),
-        attack_released: actions.just_released(&SandboxAction::Attack),
-        attack_strong_hint: actions.pressed(&SandboxAction::StrongAttack),
-        pogo_pressed: actions.just_pressed(&SandboxAction::Pogo),
-        fly_toggle_pressed: actions.just_pressed(&SandboxAction::Utility),
-        interact_pressed: actions.just_pressed(&SandboxAction::Interact),
-        interact_held: actions.pressed(&SandboxAction::Interact),
-        reset_pressed: actions.just_pressed(&SandboxAction::Reset),
-        start_pressed: actions.just_pressed(&SandboxAction::Start),
-        projectile_pressed: actions.just_pressed(&SandboxAction::Projectile),
-        projectile_held: actions.pressed(&SandboxAction::Projectile),
-        projectile_released: actions.just_released(&SandboxAction::Projectile),
-        shield_held: actions.pressed(&SandboxAction::QuickAction),
+        blink_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Blink),
+        blink_held: actions.pressed(&Platformer2dInputActionMonolith::Blink),
+        blink_released: actions.just_released(&Platformer2dInputActionMonolith::Blink),
+        special_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Special),
+        attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack),
+        attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
+        attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
+        attack_strong_hint: actions.pressed(&Platformer2dInputActionMonolith::StrongAttack),
+        pogo_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Pogo),
+        fly_toggle_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Utility),
+        interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),
+        interact_held: actions.pressed(&Platformer2dInputActionMonolith::Interact),
+        reset_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Reset),
+        start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
+        projectile_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Projectile),
+        projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
+        projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
+        shield_held: actions.pressed(&Platformer2dInputActionMonolith::QuickAction),
         modifier_held,
         modifier_pressed,
         aim_x: aim_x_raw,
@@ -138,7 +138,7 @@ pub fn read_gameplay_control_frame_with_settings(
 /// Convenience for tests/headless-visible paths: gameplay frame with default
 /// control settings and a fresh trigger state.
 #[cfg(feature = "input")]
-pub fn read_gameplay_control_frame(actions: &ActionState<SandboxAction>) -> ControlFrame {
+pub fn read_gameplay_control_frame(actions: &ActionState<Platformer2dInputActionMonolith>) -> ControlFrame {
     let (frame, _) = read_gameplay_control_frame_with_settings(
         actions,
         &crate::settings::ControlSettings::default(),
@@ -151,9 +151,9 @@ pub fn read_gameplay_control_frame(actions: &ActionState<SandboxAction>) -> Cont
 /// mode. Today that's just `start_pressed` (which the pause toggle reads) —
 /// every other gameplay action is suppressed.
 #[cfg(feature = "input")]
-pub fn read_menu_control_frame(actions: &ActionState<SandboxAction>) -> ControlFrame {
+pub fn read_menu_control_frame(actions: &ActionState<Platformer2dInputActionMonolith>) -> ControlFrame {
     ControlFrame {
-        start_pressed: actions.just_pressed(&SandboxAction::Start),
+        start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
         ..ControlFrame::default()
     }
 }

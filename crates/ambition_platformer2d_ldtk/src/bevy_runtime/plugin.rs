@@ -34,7 +34,7 @@ impl Plugin for AmbitionLdtkRegistrationPlugin {
 /// area solid / one-way / hazard runtime indexes, and pins parity with
 /// the JSON adapter via the spine parity check.
 ///
-/// Runs in [`Platformer2dSimulationPhase::LdtkRuntimeSpine`] (configured by
+/// Runs in [`Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine`] (configured by
 /// `app/schedule.rs`). Carved out of `app/plugins.rs::register_ldtk_runtime_spine_systems`
 /// per OVERNIGHT-TODO #6 — every system in this chain lives under
 /// `ldtk_world::bevy_runtime`, so it's the right domain to own the

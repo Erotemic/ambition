@@ -281,7 +281,7 @@ pub(crate) fn insert_scaled_image_entry(
     preload_group: PreloadGroup,
 ) {
     let Some(id) =
-        ambition_asset_manager::sandbox_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
+        ambition_asset_manager::platformer_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
     else {
         return;
     };
@@ -296,7 +296,7 @@ pub(crate) fn insert_scaled_image_entry(
 /// sprite is part of the bounded "core visual" set the
 /// `static_core_assets` feature packages. The URL pairs with the
 /// `EmbeddedAssetRegistry::insert_asset` call inside
-/// `crate::assets::sandbox_assets::register_embedded_core_assets`.
+/// `crate::assets::platformer_assets::register_embedded_core_assets`.
 ///
 /// Out-of-set sprites (parallax layers, breakables, boss variants,
 /// LDtk debug tiles) return `None` — they keep the colored-rectangle
@@ -304,7 +304,7 @@ pub(crate) fn insert_scaled_image_entry(
 /// packages them.
 #[cfg_attr(not(feature = "static_core_assets"), allow(dead_code))]
 pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
-    use ambition_asset_manager::sandbox_assets::embedded_core;
+    use ambition_asset_manager::platformer_assets::embedded_core;
     match sprite {
         EntitySprite::ChestClosed => Some(embedded_core::SPRITE_CHEST_CLOSED_URL),
         EntitySprite::ChestOpen => Some(embedded_core::SPRITE_CHEST_OPEN_URL),
@@ -327,7 +327,7 @@ pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static 
 /// `--sprite-folder` toggle re-resolves cleanly.
 ///
 /// Only the tests in this file build the catalog this way today;
-/// production startup uses `build_sandbox_catalog` instead. Kept
+/// production startup uses `build_platformer2d_asset_catalog` instead. Kept
 /// pub so future `--sprite-folder` toggles can adopt it without a
 /// visibility change.
 #[cfg_attr(not(test), allow(dead_code))]

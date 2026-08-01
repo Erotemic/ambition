@@ -692,7 +692,7 @@ fn drive_the_select_screen(
         // the press cannot come from them; it comes from whoever is here. Up and
         // down are the two directions this screen has no other use for
         // (left/right browse), which is what makes them free — and unlike
-        // `start`, they exist on a keyboard. `SandboxAction::Start` is ESCAPE
+        // `start`, they exist on a keyboard. `Platformer2dInputActionMonolith::Start` is ESCAPE
         // there, and Escape opens the pause menu: the one press that made the
         // demo playable alone was the one press a keyboard could not make.
         if frame.down {

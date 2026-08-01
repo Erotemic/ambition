@@ -115,7 +115,7 @@ pub(crate) fn apply_actor_hit(
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
-    feel: crate::time::feel::SandboxFeelTuning,
+    feel: crate::time::feel::Platformer2dFeelTuningMonolith,
     // The struck actor's held locomotion (local frame) for DI (CM2) — the SAME
     // `ActorControl` the brain writes, so a brain/RL victim DIs like a human.
     di_input_local: ae::Vec2,

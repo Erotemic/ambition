@@ -120,7 +120,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   snapshotted, read nowhere; stale `AttackSpec.damage_override` comment) —
   logged in `dev/journals/code_smells.md`, not wired.
 - ✅ Keyboard-preset authority (`b10e45fbb`): `UserSettings.controls
-  .keyboard_preset_index` is the one source; `AmbitionGameDeveloperState.preset_index`
+  .keyboard_preset_index` is the one source; `DeveloperRuntimeState.preset_index`
   DELETED (it had no writer — the picker was a no-op).
 - ✅ Portal composition + gate (`e4edd4acb`): host `portal` forwards
   `ambition_platformer2d_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
@@ -219,7 +219,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   caught (Bevy counts insertion as a change, so the mirror's defaults
   stomped authored tuning on frame one) is fixed and poison-tested.
   **LATER K1 completion** (unchanged, NOT done): deleting the
-  `ambition_dev_tools` dep from actors/runtime still needs `AmbitionGameDeveloperState`,
+  `ambition_dev_tools` dep from actors/runtime still needs `DeveloperRuntimeState`,
   `EditableAbilitySet`, the schedule sets, and profiling hooks evicted.
 - ✅ **K2a world-manifest parameterization** (opus, 2026-07-21). The
   `OnceLock`, `install_world_manifest`, the free `world_manifest()` accessor,
@@ -230,7 +230,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     plugin-build time, or as pure functions — `load_default`,
     `load_default_for_dev`, `merge_secondary_worlds`, `load_from_disk_at`,
     `to_room_set`, `LdtkHotReloadState::from_catalog`, the whole
-    `build_sandbox_catalog*` family, and `AmbitionAssetSourcePlugin::for_profile`
+    `build_platformer2d_asset_catalog*` family, and `AmbitionAssetSourcePlugin::for_profile`
     (a plugin VALUE built before `add_plugins`, so a `Res` genuinely cannot
     reach it).
   - **`Res<WorldManifest>`** (it derives `Resource`) for the in-schedule

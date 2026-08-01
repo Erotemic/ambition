@@ -20,7 +20,7 @@ use ambition_encounter::{
     EncounterLifecycle, EncounterObjective, EncounterParticipants, EncounterPhase, Objective,
 };
 use ambition_persistence::save_data::PersistedEncounterState;
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
 
 /// The puzzle's stable encounter id (and save-flag namespace).
 pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
@@ -150,12 +150,12 @@ impl Plugin for AmbitionEncounterContentPlugin {
             sim,
             (spawn_symmetry_attunement, drive_symmetry_attunement)
                 .chain()
-                .in_set(Platformer2dSimulationPhase::GameplayEffects),
+                .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
         app.add_systems(
             sim,
             celebrate_symmetry_attunement
-                .in_set(Platformer2dSimulationPhase::Progression)
+                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
                 .after(ambition_encounter::EncounterLifecycleSet),
         );
     }

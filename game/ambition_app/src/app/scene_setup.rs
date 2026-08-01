@@ -18,7 +18,7 @@ use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
 use ambition_platformer2d::actors::world::physics::PhysicsSandboxSettings;
 use ambition_platformer2d::actors::world::platforms;
 #[cfg(feature = "audio")]
-use ambition_platformer2d::asset_manager::sandbox_assets::{ids, AmbitionGameAssetCatalog};
+use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
@@ -60,7 +60,7 @@ pub fn presentation_world(
     commands: &mut Commands,
     audio_sources: &mut Assets<KiraAudioSource>,
     asset_server: &AssetServer,
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     params: PresentationSetup<'_>,
 ) {
     let music_registry = params.music_registry;
@@ -85,7 +85,7 @@ pub fn install_audio_library(
     commands: &mut Commands,
     audio_sources: &mut Assets<KiraAudioSource>,
     asset_server: &AssetServer,
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     music_registry: &MusicRegistry,
     sfx_registry: &SfxRegistry,
 ) {
@@ -94,7 +94,7 @@ pub fn install_audio_library(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition_platformer2d::asset_manager::sandbox_assets::ids::music_track(
+        catalog.path_for(&ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(
             id,
         ))
     };
@@ -175,7 +175,7 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 }
 
 /// Resolve the SFX bank through the
-/// [`ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog`] and synchronously
+/// [`ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog`] and synchronously
 /// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),
@@ -183,14 +183,14 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 ///    explicit `AMBITION_SFX_BANK_PATH` dev override or platform
 ///    bundle path),
 /// 3. the catalog's `LooseFilesystem` synthesized default located via
-///    [`AmbitionGameAssetCatalog::resolve_local_file_path`],
+///    [`Platformer2dAssetCatalog::resolve_local_file_path`],
 /// 4. `None` + a single info log → the [`AudioLibrary`] uses a short
 ///    silent stub for any missing cue (procedural fallback retired).
 ///
 /// **All host-filesystem probing for the SFX bank happens through the
 /// catalog.** This function owns no candidate-roots walk.
 #[cfg(feature = "audio")]
-fn try_load_sfx_bank_via_catalog(catalog: &AmbitionGameAssetCatalog) -> Option<BankProvider> {
+fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<BankProvider> {
     #[cfg(feature = "static_sfx_bank")]
     if let Some(provider) = try_load_static_sfx_bank() {
         return Some(provider);

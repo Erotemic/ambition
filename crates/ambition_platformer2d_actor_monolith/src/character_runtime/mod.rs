@@ -83,7 +83,7 @@ use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
-use crate::assets::sandbox_assets::AmbitionGameAssetCatalog;
+use crate::assets::platformer_assets::Platformer2dAssetCatalog;
 
 /// Character tokens a session has staged and therefore needs art for.
 ///
@@ -460,7 +460,7 @@ pub fn materialize_character_demand(
     // else — that is the point of the single seam — so this is a real source of
     // sheets, not decoration.
     registry: &PreparedCharacterRegistry,
-    asset_catalog: &AmbitionGameAssetCatalog,
+    asset_catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -675,7 +675,7 @@ pub fn materialize_demanded_character_sheets(
     // `sheet_for_declared_character`). `Option` because a composition may have no
     // registered characters at all, which is not an error.
     registry: Option<Res<PreparedCharacterRegistry>>,
-    asset_catalog: Option<Res<AmbitionGameAssetCatalog>>,
+    asset_catalog: Option<Res<Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -794,7 +794,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // position is already post-movement here (`PlayerSimulation`
                     // and `WorldPrep` both precede `Combat`), so this is the one
                     // slot where clocks and positions are simultaneously current.
-                    .in_set(crate::schedule::Platformer2dSimulationPhase::Combat)
+                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
                     .after(crate::schedule::CombatSet::Playback)
                     .before(crate::schedule::CombatSet::Resolve),
             )
@@ -814,7 +814,7 @@ impl Plugin for CharacterRuntimePlugin {
                     presentation::inherit_projectile_presentation_sources,
                 )
                     .chain()
-                    .in_set(crate::schedule::Platformer2dSimulationPhase::Combat)
+                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
                     .before(crate::schedule::CombatSet::Playback),
             )
             .add_systems(

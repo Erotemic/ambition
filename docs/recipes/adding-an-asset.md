@@ -24,7 +24,7 @@ resolves nothing.
 
 The default root is the `AssetPlugin { file_path }` the app sets from
 `desktop_asset_root()` → `actors_desktop_asset_root()`
-(`crates/ambition_asset_manager/src/sandbox_assets/mod.rs:337`). The `game://`
+(`crates/ambition_asset_manager/src/platformer_assets/mod.rs:337`). The `game://`
 source is registered before `DefaultPlugins` in
 `game/ambition_app/src/app/cli.rs`, built by `game_asset_source_builder()`.
 

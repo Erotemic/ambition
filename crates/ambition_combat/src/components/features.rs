@@ -136,11 +136,6 @@ pub struct RespawnTimer(pub f32);
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct StandTimer(pub f32);
 
-/// Marker for ECS features that should contribute collision to the sandbox
-/// world overlay while active.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlatformerWorldSolidContributor;
-
 /// Volumes that can currently receive player-side attack damage.
 ///
 /// This is intentionally a per-frame ECS read model rather than a type-specific

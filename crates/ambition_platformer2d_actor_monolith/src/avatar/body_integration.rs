@@ -25,7 +25,7 @@ use ambition_platformer2d_core as ae;
 
 use crate::features::FeatureEcsWorldOverlay;
 use crate::features::ecs::attack::engine_input_from_actor_control;
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_world::collision::world_with_sandbox_solids;
@@ -133,7 +133,7 @@ pub fn integrate_home_body(
     motion_model: &mut crate::features::MotionModel,
     motion_frame: ae::MotionFrame,
     axis_tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
+    feel: Platformer2dFeelTuningMonolith,
     frame_dt: f32,
     scaled_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,

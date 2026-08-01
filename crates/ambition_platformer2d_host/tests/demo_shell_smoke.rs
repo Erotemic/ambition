@@ -173,37 +173,37 @@ fn demo_shell_boots_and_ticks() {
 // schedule-shape suites pass with the label threaded BOTH ways.
 // ─────────────────────────────────────────────────────────────────────────────
 
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_runtime::SimTick;
 use bevy::ecs::schedule::Schedules;
 use bevy::time::{Fixed, Time, TimeUpdateStrategy};
 
 /// Every sim phase. `PresentationVisualSync` is deliberately absent: it is the
-/// one presentation-side label in `Platformer2dSimulationPhase`, and render joins it in `Update`.
-const SIM_PHASES: &[Platformer2dSimulationPhase] = &[
-    Platformer2dSimulationPhase::CoreSimulation,
-    Platformer2dSimulationPhase::WorldPrep,
-    Platformer2dSimulationPhase::PlayerInput,
-    Platformer2dSimulationPhase::PlayerSimulation,
-    Platformer2dSimulationPhase::RoomTransition,
-    Platformer2dSimulationPhase::Combat,
-    Platformer2dSimulationPhase::PresentationSync,
-    Platformer2dSimulationPhase::FeatureCollection,
-    Platformer2dSimulationPhase::FeatureInteraction,
-    Platformer2dSimulationPhase::LdtkRuntimeSpine,
-    Platformer2dSimulationPhase::EncounterSimulation,
-    Platformer2dSimulationPhase::Cutscene,
-    Platformer2dSimulationPhase::GameplayEffects,
-    Platformer2dSimulationPhase::Progression,
-    Platformer2dSimulationPhase::ResetProcessing,
-    Platformer2dSimulationPhase::FeatureViewSync,
-    Platformer2dSimulationPhase::Trace,
+/// one presentation-side label in `Platformer2dSimulationPhaseMonolith`, and render joins it in `Update`.
+const SIM_PHASES: &[Platformer2dSimulationPhaseMonolith] = &[
+    Platformer2dSimulationPhaseMonolith::CoreSimulation,
+    Platformer2dSimulationPhaseMonolith::WorldPrep,
+    Platformer2dSimulationPhaseMonolith::PlayerInput,
+    Platformer2dSimulationPhaseMonolith::PlayerSimulation,
+    Platformer2dSimulationPhaseMonolith::RoomTransition,
+    Platformer2dSimulationPhaseMonolith::Combat,
+    Platformer2dSimulationPhaseMonolith::PresentationSync,
+    Platformer2dSimulationPhaseMonolith::FeatureCollection,
+    Platformer2dSimulationPhaseMonolith::FeatureInteraction,
+    Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine,
+    Platformer2dSimulationPhaseMonolith::EncounterSimulation,
+    Platformer2dSimulationPhaseMonolith::Cutscene,
+    Platformer2dSimulationPhaseMonolith::GameplayEffects,
+    Platformer2dSimulationPhaseMonolith::Progression,
+    Platformer2dSimulationPhaseMonolith::ResetProcessing,
+    Platformer2dSimulationPhaseMonolith::FeatureViewSync,
+    Platformer2dSimulationPhaseMonolith::Trace,
 ];
 
 fn systems_in(
     app: &App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,
-    set: Platformer2dSimulationPhase,
+    set: Platformer2dSimulationPhaseMonolith,
 ) -> usize {
     let schedules = app.world().resource::<Schedules>();
     let Some(graph) = schedules.get(schedule).map(|s| s.graph()) else {
@@ -286,10 +286,10 @@ fn fixed_tick_puts_the_sim_phases_in_fixed_update() {
     app.update(); // one real tick, so the FixedUpdate graph is initialized
 
     for phase in [
-        Platformer2dSimulationPhase::PlayerInput,
-        Platformer2dSimulationPhase::WorldPrep,
-        Platformer2dSimulationPhase::Combat,
-        Platformer2dSimulationPhase::FeatureViewSync,
+        Platformer2dSimulationPhaseMonolith::PlayerInput,
+        Platformer2dSimulationPhaseMonolith::WorldPrep,
+        Platformer2dSimulationPhaseMonolith::Combat,
+        Platformer2dSimulationPhaseMonolith::FeatureViewSync,
     ] {
         assert!(
             systems_in(&app, FixedUpdate, phase) > 0,
@@ -309,8 +309,8 @@ fn frame_stepped_shell_keeps_the_sim_in_update() {
     app.add_plugins(FixtureContentPlugin);
     app.update();
 
-    assert!(systems_in(&app, Update, Platformer2dSimulationPhase::WorldPrep) > 0);
-    assert_eq!(systems_in(&app, FixedUpdate, Platformer2dSimulationPhase::WorldPrep), 0);
+    assert!(systems_in(&app, Update, Platformer2dSimulationPhaseMonolith::WorldPrep) > 0);
+    assert_eq!(systems_in(&app, FixedUpdate, Platformer2dSimulationPhaseMonolith::WorldPrep), 0);
     // The timeline advances in both modes.
     assert_eq!(app.world().resource::<SimTick>().get(), 0);
     app.update();

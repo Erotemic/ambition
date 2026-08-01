@@ -353,7 +353,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # recording systems stay in dev/trace next to the sim state they sample.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Authored-audio stack (Stage 20 / B1). The data schema half is
-# unconditional (AmbitionGameGameplaySpec embeds AudioSpec); the Kira playback
+# unconditional (Platformer2dGameplayDefaults embeds AudioSpec); the Kira playback
 # half lights up via the `audio` feature below.
 ambition_audio = { path = "../ambition_audio" }
 # Reusable, content-free platformer runtime primitives (lifecycle vocabulary +
@@ -397,7 +397,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
-# Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
+# Device -> ControlFrame input layer (Platformer2dInputActionMonolith / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
 # `crate::persistence::settings` re-exports its `settings` module so existing
 # `crate::persistence::settings::ControlSettings` paths resolve unchanged. The

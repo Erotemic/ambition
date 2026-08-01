@@ -285,7 +285,7 @@ pub(crate) fn draw_player_debug(
     motion_model: &ae::MotionModel,
     moving_platforms: &[ambition_platformer2d::actors::world::platforms::MovingPlatformState],
     attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
-    actions: Option<&ActionState<SandboxAction>>,
+    actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
     gravity_dir: ae::Vec2,

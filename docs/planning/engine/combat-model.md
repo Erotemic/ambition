@@ -252,7 +252,7 @@ re-derive them:
 3. **`hitbox/mod.rs:241`'s vulnerability suppression is player-only**
    (`!is_player || body_vulnerable(..)`), so an actor in i-frames still gets an
    `Impact`. Victim-side resolution makes this uniform for free.
-4. **There is no per-character feel profile.** `SandboxFeelTuning`
+4. **There is no per-character feel profile.** `Platformer2dFeelTuningMonolith`
    (`actors/src/time/feel.rs:13`) is one GLOBAL resource; `BodyHitFeel`
    (`damage_apply.rs:94`) is a plain argument with hardcoded call-site literals.
    `CombatTuning` (`combat/src/components/mod.rs:212`) is the per-body component
@@ -266,7 +266,7 @@ then deleted, not bridged. Watch determinism: effect ids are `String` today
 (`SfxId::new(cue)`), and a `String` on a sim component is GGRS-snapshot weight —
 prefer an interned/small id if the profile shows it.
 
-Free cleanup while in here: `SandboxFeelTuning::attack_hitstop_time` (declared,
+Free cleanup while in here: `Platformer2dFeelTuningMonolith::attack_hitstop_time` (declared,
 default `0.055`) has **no reader** — the attacker hitstop at `damage/mod.rs:364`
 hardcodes `0.06`, and that write is itself gated on the attacker being a
 `PlayerEntity`, so an actor landing a hit gets no hitstop.

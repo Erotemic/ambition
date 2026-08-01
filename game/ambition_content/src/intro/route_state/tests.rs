@@ -335,20 +335,20 @@ fn emit_chains_promotes_p5_to_route_memory() {
 }
 
 /// **The wall cache must observe the PROJECT, not just save + room.** A hot
-/// reload that swaps `AmbitionGameLdtkProject` under an unchanged room id and save
+/// reload that swaps `ActiveLdtkProject` under an unchanged room id and save
 /// state used to keep serving walls computed from the replaced project — the
 /// invalidation checked `save.is_changed()` and the room string only.
 #[test]
 fn lock_walls_recompute_when_the_project_resource_changes() {
     use ambition_platformer2d_actor_monolith::rooms::{RoomSet, RoomSpec};
-    use ambition_platformer2d_actor_monolith::world::ldtk_world::AmbitionGameLdtkProject;
+    use ambition_platformer2d_actor_monolith::world::ldtk_world::ActiveLdtkProject;
     use ambition_platformer2d_core as ae;
     use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
-    app.insert_resource(AmbitionGameLdtkProject(synthetic_alice_relay_project()));
+    app.insert_resource(ActiveLdtkProject(synthetic_alice_relay_project()));
     app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(FeatureEcsWorldOverlay::default());
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
@@ -403,7 +403,7 @@ fn lock_walls_recompute_when_the_project_resource_changes() {
     // Replace the project with one that has NO lock wall — same room id, same
     // save state. Only the project resource changes.
     {
-        let mut project = app.world_mut().resource_mut::<AmbitionGameLdtkProject>();
+        let mut project = app.world_mut().resource_mut::<ActiveLdtkProject>();
         project.0.levels[0].layer_instances[0]
             .entity_instances
             .clear();

@@ -8,7 +8,7 @@
 //! embedded fallbacks).
 //!
 //! Per row, the path is selected by
-//! [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`] under the active
+//! [`crate::assets::platformer_assets::Platformer2dAssetCatalog`] under the active
 //! [`ambition_asset_manager::AssetProfile`]:
 //! - `DesktopDevLoose` / `DesktopInstalled` / `SteamDeckInstalled` →
 //!   `LocalPath` resolved against the canonical assets root.
@@ -32,8 +32,8 @@
 use std::fs;
 use std::path::Path;
 
-use ambition_asset_manager::sandbox_assets::{
-    build_sandbox_catalog, AmbitionGameAssetCatalog, SandboxAssetConfig, AmbitionGameAssetCatalogInputs,
+use ambition_asset_manager::platformer_assets::{
+    build_platformer2d_asset_catalog, Platformer2dAssetCatalog, Platformer2dAssetCatalogConfig, Platformer2dAssetCatalogInputs,
     WorldCatalogRow,
 };
 use ambition_asset_manager::{AssetManifest, AssetProfile};
@@ -54,7 +54,7 @@ impl LdtkProject {
     /// - `NoAssets` / `Headless`: returns the required-asset error
     ///   (matches [`ambition_asset_manager::MissingAssetPolicy::Error`]).
     pub fn load_default(
-        catalog: &AmbitionGameAssetCatalog,
+        catalog: &Platformer2dAssetCatalog,
         manifest: &WorldManifest,
     ) -> Result<Self, String> {
         let primary = manifest.primary();
@@ -127,11 +127,11 @@ impl LdtkProject {
     /// in via [`Self::load_default`]; this helper is the equivalent
     /// for entry points that don't have a Bevy `World` yet.
     pub fn load_default_for_dev(manifest: &WorldManifest) -> Result<Self, String> {
-        let config = SandboxAssetConfig {
+        let config = Platformer2dAssetCatalogConfig {
             sprite_folder: "sprites".to_string(),
             asset_profile: AssetProfile::DesktopDevLoose,
         };
-        let inputs = AmbitionGameAssetCatalogInputs {
+        let inputs = Platformer2dAssetCatalogInputs {
             worlds: manifest
                 .worlds
                 .iter()
@@ -145,7 +145,7 @@ impl LdtkProject {
                 .collect(),
             ..Default::default()
         };
-        let catalog = build_sandbox_catalog(&config, AssetManifest::new(), &inputs);
+        let catalog = build_platformer2d_asset_catalog(&config, AssetManifest::new(), &inputs);
         Self::load_default(&catalog, manifest)
     }
 
@@ -155,7 +155,7 @@ impl LdtkProject {
     /// the hot-reload system has both in hand.
     pub fn load_from_disk_at(
         path: &Path,
-        catalog: &AmbitionGameAssetCatalog,
+        catalog: &Platformer2dAssetCatalog,
         manifest: &WorldManifest,
     ) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
@@ -198,7 +198,7 @@ fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, Str
 /// primary keeps booting.
 fn merge_secondary_worlds(
     project: &mut LdtkProject,
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     manifest: &WorldManifest,
 ) {
     for source in manifest.secondaries() {

@@ -82,7 +82,7 @@ pub use systems::{
 
 // ── Progression-phase content slots (E-track de-weave) ──────────────────────
 //
-// The `Platformer2dSimulationPhase::Progression` chain is ENGINE-generic (boss-encounter tick,
+// The `Platformer2dSimulationPhaseMonolith::Progression` chain is ENGINE-generic (boss-encounter tick,
 // save mirrors, room metadata/music, portal phase, map visits). Named-game
 // CONTENT that must interleave with it hangs on these labeled slots; the host
 // anchors each slot into the engine chain via `configure_sets`, and content

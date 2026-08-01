@@ -3,7 +3,7 @@ use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::session::data;
-use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::actors::world::physics;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
@@ -74,7 +74,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let world_manifest = ambition_content::worlds::world_manifest();
     app.insert_resource(world_manifest.clone());
 
-    let sandbox_data = data::AmbitionGameGameplaySpec::load_embedded();
+    let sandbox_data = data::Platformer2dGameplayDefaults::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
     let (music_registry, sfx_registry) = {
@@ -136,7 +136,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .cloned()
         .unwrap_or_default();
 
-    // Build the singleton AmbitionGameAssetCatalog before anything else asks
+    // Build the singleton Platformer2dAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
     // sandbox flows through this — LDtk, SFX bank, fonts, sprites,
     // music. Consumes the music registry so music-track ids land in the
@@ -146,7 +146,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog = ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+    let sandbox_catalog = ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
         &asset_config,
         &character_catalog,
         &boss_catalog,
@@ -163,7 +163,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
-        .path_for(&ambition_platformer2d::asset_manager::sandbox_assets::ids::sfx_bank())
+        .path_for(&ambition_platformer2d::asset_manager::platformer_assets::ids::sfx_bank())
         .map(|path| {
             ambition_platformer2d::audio::SfxBankAssetPath::new(
                 ambition_content::AMBITION_CONTENT_PROVIDER,
@@ -295,7 +295,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         starting_character: starting_character.clone(),
     });
 
-    app.insert_resource(ldtk_world::AmbitionGameLdtkProject(ldtk_project.clone()))
+    app.insert_resource(ldtk_world::ActiveLdtkProject(ldtk_project.clone()))
         .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
             &sandbox_catalog,
             &world_manifest,
@@ -338,7 +338,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(sandbox_catalog)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
-        .insert_resource(SandboxFeelTuning::default())
+        .insert_resource(Platformer2dFeelTuningMonolith::default())
         // The OwnedItems catalog is simulation state, not only presentation UI
         // state. Headless Platformer2dSimHarness runs quest reward systems (which grant into
         // OwnedItems) without loading `add_presentation_plugins`, so the resource

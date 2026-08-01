@@ -18,9 +18,9 @@
 use bevy::prelude::*;
 
 use crate::avatar::components::{PlayerSlot, PrimaryPlayer};
-use crate::time::feel::SandboxFeelTuning;
+use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
-use ambition_dev_tools::AmbitionGameDeveloperState;
+use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_time::ClockDomain;
 use ambition_time::ClockState;
 
@@ -308,8 +308,8 @@ pub fn emit_player_time_intent_system(
     // 0010/0011). Slot 0's blink slows slot 0's world; a second player would emit
     // its own intent against its own clock, not fight over this one.
     primary: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat), With<PrimaryPlayer>>,
-    dev_state: Res<AmbitionGameDeveloperState>,
-    feel: Res<SandboxFeelTuning>,
+    dev_state: Res<DeveloperRuntimeState>,
+    feel: Res<Platformer2dFeelTuningMonolith>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
     let Ok((facts, combat)) = primary.single() else {
@@ -358,7 +358,7 @@ pub fn emit_player_time_intent_system(
 /// shipped.
 pub fn smooth_sim_clock_toward_target_system(
     target: Res<RequestedClockScale>,
-    feel: Res<SandboxFeelTuning>,
+    feel: Res<Platformer2dFeelTuningMonolith>,
     time: Res<Time>,
     mut clock: ResMut<ClockState>,
 ) {

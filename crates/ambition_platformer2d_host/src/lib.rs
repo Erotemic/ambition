@@ -45,7 +45,7 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt as _};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt as _};
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;
@@ -75,7 +75,7 @@ pub struct HostInputBindingsPlugin;
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{
-            MenuControlFrame, MenuInputState, PlayerDashTriggerState, SandboxAction,
+            MenuControlFrame, MenuInputState, PlayerDashTriggerState, Platformer2dInputActionMonolith,
         };
         use ambition_platformer2d_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
@@ -196,7 +196,7 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 sim,
                 ambition_platformer2d_core::publish_latched_control_frame
-                    .in_set(Platformer2dSimulationPhase::PlayerInput)
+                    .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );
             // The SECONDARY seats' half of the same bridge (queue Y2). A couch
@@ -206,7 +206,7 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 sim,
                 publish_latched_slot_controls
-                    .in_set(Platformer2dSimulationPhase::PlayerInput)
+                    .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );
         }
@@ -236,7 +236,7 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<PlayerDashTriggerState>()
             .init_resource::<ambition_input::ActiveInputKind>()
-            .add_plugins(InputManagerPlugin::<SandboxAction>::default())
+            .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
             .add_systems(
                 bevy::app::PreUpdate,
                 tune_clash_strategy_to_bindings
@@ -334,7 +334,7 @@ impl Plugin for HostInputBindingsPlugin {
                     dialog_pointer_input,
                 )
                     .chain()
-                    .before(Platformer2dSimulationPhase::CoreSimulation),
+                    .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
     }
 }
@@ -349,7 +349,7 @@ impl Plugin for HostInputBindingsPlugin {
 fn tune_clash_strategy_to_bindings(
     maps: Query<
         bevy::ecs::change_detection::Ref<
-            leafwing_input_manager::prelude::InputMap<ambition_input::SandboxAction>,
+            leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
         >,
     >,
     mut strategy: ResMut<leafwing_input_manager::prelude::ClashStrategy>,
@@ -484,7 +484,7 @@ impl Plugin for HostCameraPlugin {
                 Update,
                 (
                     crate::portal::apply_portal_camera_continuity
-                        .after(Platformer2dSimulationPhase::CoreSimulation)
+                        .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                         .after(crate::portal::sync_portal_camera_continuity_focus)
                         .before(camera_follow),
                     // Same-frame pad into the sim resolve (E4-17): after the
@@ -508,11 +508,11 @@ impl Plugin for HostCameraPlugin {
 #[cfg(all(test, feature = "input"))]
 mod clash_strategy_tests {
     use super::tune_clash_strategy_to_bindings;
-    use ambition_input::SandboxAction;
+    use ambition_input::Platformer2dInputActionMonolith;
     use bevy::prelude::*;
     use leafwing_input_manager::prelude::{ButtonlikeChord, ClashStrategy, InputMap};
 
-    fn app_with_map(map: InputMap<SandboxAction>) -> App {
+    fn app_with_map(map: InputMap<Platformer2dInputActionMonolith>) -> App {
         let mut app = App::new();
         app.init_resource::<ClashStrategy>()
             .add_systems(Update, tune_clash_strategy_to_bindings);
@@ -522,7 +522,7 @@ mod clash_strategy_tests {
 
     #[test]
     fn chord_free_bindings_relax_to_press_all() {
-        let map = InputMap::new([(SandboxAction::Jump, KeyCode::Space)]);
+        let map = InputMap::new([(Platformer2dInputActionMonolith::Jump, KeyCode::Space)]);
         let mut app = app_with_map(map);
         app.update();
         assert_eq!(
@@ -533,7 +533,7 @@ mod clash_strategy_tests {
 
     #[test]
     fn authoring_a_chord_reenables_clash_resolution_same_frame() {
-        let map = InputMap::new([(SandboxAction::Jump, KeyCode::Space)]);
+        let map = InputMap::new([(Platformer2dInputActionMonolith::Jump, KeyCode::Space)]);
         let mut app = app_with_map(map);
         app.update();
         assert_eq!(
@@ -542,14 +542,14 @@ mod clash_strategy_tests {
         );
         let entity = app
             .world_mut()
-            .query_filtered::<Entity, With<InputMap<SandboxAction>>>()
+            .query_filtered::<Entity, With<InputMap<Platformer2dInputActionMonolith>>>()
             .single(app.world())
             .unwrap();
         app.world_mut()
-            .get_mut::<InputMap<SandboxAction>>(entity)
+            .get_mut::<InputMap<Platformer2dInputActionMonolith>>(entity)
             .unwrap()
             .insert(
-                SandboxAction::Interact,
+                Platformer2dInputActionMonolith::Interact,
                 ButtonlikeChord::new([KeyCode::ControlLeft, KeyCode::KeyE]),
             );
         app.update();

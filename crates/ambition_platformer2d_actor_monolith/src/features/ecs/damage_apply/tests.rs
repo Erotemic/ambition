@@ -335,7 +335,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
 
 #[test]
 fn goblin_melee_knockback_is_an_absolute_launch_speed() {
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let knockback = crate::combat::HitKnockback {
@@ -386,7 +386,7 @@ fn absolute_launch_speed_does_not_scale_hitstun_as_a_bare_number() {
 
 #[test]
 fn knockback_impulse_is_frame_equivalent() {
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let local_expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     for gravity_dir in [
@@ -452,7 +452,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     // C4: a growth-scaled authored speed under rotated gravity produces the
     // conjugated trajectory. The speed remains an engine-unit magnitude; only
     // the local launch direction rotates with gravity.
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let launch_speed = scaled_knockback(100.0, 2.0, 30, 2.0); // == 130 px/s
     let default_dir = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y).normalize();
     let local_expected = default_dir * launch_speed;
@@ -493,7 +493,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
 
 #[test]
 fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
@@ -572,7 +572,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     // C4: the authored angle is a LOCAL-frame fact, so the resolved
     // velocity is identical in the victim's side/down frame under every
     // gravity — the same conjugation invariant the flat + growth paths pin.
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
     let n = ae::Vec2::new(0.6, 0.8); // already unit-length
@@ -613,7 +613,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
 fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     // A degenerate authored vector (bad data) must not NaN the launch —
     // it reads as un-authored.
-    let feel = SandboxFeelTuning::default();
+    let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);

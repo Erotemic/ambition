@@ -14,7 +14,7 @@
 //! `EmbeddedBinary` candidate when the `static_core_assets` feature
 //! is on.
 //!
-//! `build_sandbox_catalog` (in `sandbox_assets/mod.rs`) calls each
+//! `build_platformer2d_asset_catalog` (in `platformer_assets/mod.rs`) calls each
 //! `extend_with_*` helper in turn; adding a new asset slice is an
 //! edit to the matching submodule rather than scrolling through one
 //! 300-line `builders.rs`.

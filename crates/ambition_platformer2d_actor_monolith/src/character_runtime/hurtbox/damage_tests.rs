@@ -401,7 +401,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     };
 
     let mut app = App::new();
-    crate::schedule::configure_sandbox_sets(&mut app);
+    crate::schedule::configure_platformer2d_simulation_phases(&mut app);
     // The session gate (`simulation_authorized`) requires EXACTLY ONE
     // `SessionRoot`, and every gameplay set is nested inside it. Without this
     // entity the whole simulation is structurally dormant and a test like this

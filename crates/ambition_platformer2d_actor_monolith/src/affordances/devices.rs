@@ -19,7 +19,7 @@
 //!   "Cross/Circle/Square/Triangle" vs Switch glyphs. Detection runs
 //!   on `GamepadConnected` events (today returning [`GamepadKind::Generic`]
 //!   until we add name-based vendor inference).
-//! - [`glyph_for`] — pure adapter `(SandboxAction, &KeyboardPreset,
+//! - [`glyph_for`] — pure adapter `(Platformer2dInputActionMonolith, &KeyboardPreset,
 //!   InputMethod) -> Cow<'static, str>`. Keyboard glyphs come from
 //!   the active [`KeyboardPreset`]; gamepad glyphs are hardcoded per
 //!   `GamepadKind`; touch returns an empty string (the on-screen
@@ -31,7 +31,7 @@ use bevy::input::touch::Touches;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use ambition_input::{KeyboardPreset, PresetId, SandboxAction};
+use ambition_input::{KeyboardPreset, PresetId, Platformer2dInputActionMonolith};
 
 /// Which input modality the player is currently using. Updated each
 /// frame by [`detect_active_input_method`] — last device that
@@ -140,7 +140,7 @@ pub fn detect_active_input_method(
 /// - **Touch:** empty string — the on-screen button itself is the
 ///   glyph, no subtitle needed.
 pub fn glyph_for(
-    action: SandboxAction,
+    action: Platformer2dInputActionMonolith,
     preset: &KeyboardPreset,
     bindings: &ambition_input::ActionBindings,
     method: InputMethod,
@@ -161,7 +161,7 @@ pub fn glyph_for(
 /// table to remember to edit.
 fn bound_control(
     bindings: &ambition_input::ActionBindings,
-    action: SandboxAction,
+    action: Platformer2dInputActionMonolith,
     want_key: bool,
 ) -> Option<&ambition_input::PhysicalControl> {
     bindings.controls(&action).iter().find(|control| {
@@ -179,7 +179,7 @@ fn bound_control(
 /// single binding can produce — it names four keys at once. Every other verb
 /// comes from the seat's live binding.
 fn keyboard_glyph(
-    action: SandboxAction,
+    action: Platformer2dInputActionMonolith,
     preset: &KeyboardPreset,
     bindings: &ambition_input::ActionBindings,
 ) -> Cow<'static, str> {
@@ -188,19 +188,19 @@ fn keyboard_glyph(
         PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
     };
     match action {
-        SandboxAction::Move
-        | SandboxAction::MoveLeft
-        | SandboxAction::MoveRight
-        | SandboxAction::MoveUp
-        | SandboxAction::MoveDown
-        | SandboxAction::MenuStick => Cow::Borrowed(movement_label),
-        SandboxAction::MenuNavigateUp
-        | SandboxAction::MenuNavigateDown
-        | SandboxAction::MenuNavigateLeft
-        | SandboxAction::MenuNavigateRight => Cow::Borrowed(movement_label),
+        Platformer2dInputActionMonolith::Move
+        | Platformer2dInputActionMonolith::MoveLeft
+        | Platformer2dInputActionMonolith::MoveRight
+        | Platformer2dInputActionMonolith::MoveUp
+        | Platformer2dInputActionMonolith::MoveDown
+        | Platformer2dInputActionMonolith::MenuStick => Cow::Borrowed(movement_label),
+        Platformer2dInputActionMonolith::MenuNavigateUp
+        | Platformer2dInputActionMonolith::MenuNavigateDown
+        | Platformer2dInputActionMonolith::MenuNavigateLeft
+        | Platformer2dInputActionMonolith::MenuNavigateRight => Cow::Borrowed(movement_label),
         // Pogo has no dedicated key on every preset; the chord is the fallback
         // and it is a CHORD, which no single binding can name.
-        SandboxAction::Pogo if bound_control(bindings, action, true).is_none() => {
+        Platformer2dInputActionMonolith::Pogo if bound_control(bindings, action, true).is_none() => {
             Cow::Borrowed("D+X")
         }
         _ => match bound_control(bindings, action, true) {
@@ -229,7 +229,7 @@ fn keyboard_glyph(
 ///   pad, "Cross" on a DualShock and "B" on a Switch pad, because Nintendo
 ///   mirrors the positions.
 fn gamepad_glyph(
-    action: SandboxAction,
+    action: Platformer2dInputActionMonolith,
     kind: GamepadKind,
     bindings: &ambition_input::ActionBindings,
 ) -> Cow<'static, str> {
@@ -237,20 +237,20 @@ fn gamepad_glyph(
     // them and no binding projection can name one.
     if matches!(
         action,
-        SandboxAction::Move
-            | SandboxAction::MoveLeft
-            | SandboxAction::MoveRight
-            | SandboxAction::MoveUp
-            | SandboxAction::MoveDown
-            | SandboxAction::MenuStick
-            | SandboxAction::MenuNavigateUp
-            | SandboxAction::MenuNavigateDown
-            | SandboxAction::MenuNavigateLeft
-            | SandboxAction::MenuNavigateRight
+        Platformer2dInputActionMonolith::Move
+            | Platformer2dInputActionMonolith::MoveLeft
+            | Platformer2dInputActionMonolith::MoveRight
+            | Platformer2dInputActionMonolith::MoveUp
+            | Platformer2dInputActionMonolith::MoveDown
+            | Platformer2dInputActionMonolith::MenuStick
+            | Platformer2dInputActionMonolith::MenuNavigateUp
+            | Platformer2dInputActionMonolith::MenuNavigateDown
+            | Platformer2dInputActionMonolith::MenuNavigateLeft
+            | Platformer2dInputActionMonolith::MenuNavigateRight
     ) {
         return Cow::Borrowed("L-Stick");
     }
-    if matches!(action, SandboxAction::DashAnalog | SandboxAction::AimStick) {
+    if matches!(action, Platformer2dInputActionMonolith::DashAnalog | Platformer2dInputActionMonolith::AimStick) {
         return Cow::Borrowed("R-Stick");
     }
     match bound_control(bindings, action, false) {
@@ -345,30 +345,30 @@ mod tests {
         let arrows_zxc = KeyboardPreset::arrows_zxc();
         // Arrows+ZXC: Jump = Z, Attack = X, Dash = C.
         assert_eq!(
-            glyph_for(SandboxAction::Jump, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Jump, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
             "Z"
         );
         assert_eq!(
-            glyph_for(SandboxAction::Attack, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Attack, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
             "X"
         );
         assert_eq!(
-            glyph_for(SandboxAction::Dash, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Dash, &arrows_zxc, &bindings(&arrows_zxc), InputMethod::Keyboard),
             "C"
         );
 
         let wasd = KeyboardPreset::wasd_jkl();
         // WASD: Jump = Space, Attack = J, Dash = K.
         assert_eq!(
-            glyph_for(SandboxAction::Jump, &wasd, &bindings(&wasd), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Jump, &wasd, &bindings(&wasd), InputMethod::Keyboard),
             "Space"
         );
         assert_eq!(
-            glyph_for(SandboxAction::Attack, &wasd, &bindings(&wasd), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Attack, &wasd, &bindings(&wasd), InputMethod::Keyboard),
             "J"
         );
         assert_eq!(
-            glyph_for(SandboxAction::Dash, &wasd, &bindings(&wasd), InputMethod::Keyboard),
+            glyph_for(Platformer2dInputActionMonolith::Dash, &wasd, &bindings(&wasd), InputMethod::Keyboard),
             "K"
         );
     }
@@ -378,7 +378,7 @@ mod tests {
         let preset = KeyboardPreset::arrows_zxc(); // keyboard preset unused for gamepad path
         assert_eq!(
             glyph_for(
-                SandboxAction::Jump,
+                Platformer2dInputActionMonolith::Jump,
                 &preset,
                 &bindings(&preset),
                 InputMethod::Gamepad(GamepadKind::XboxLike)
@@ -387,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             glyph_for(
-                SandboxAction::Jump,
+                Platformer2dInputActionMonolith::Jump,
                 &preset,
                 &bindings(&preset),
                 InputMethod::Gamepad(GamepadKind::PlayStation)
@@ -396,7 +396,7 @@ mod tests {
         );
         assert_eq!(
             glyph_for(
-                SandboxAction::Attack,
+                Platformer2dInputActionMonolith::Attack,
                 &preset,
                 &bindings(&preset),
                 InputMethod::Gamepad(GamepadKind::XboxLike)
@@ -405,7 +405,7 @@ mod tests {
         );
         assert_eq!(
             glyph_for(
-                SandboxAction::Attack,
+                Platformer2dInputActionMonolith::Attack,
                 &preset,
                 &bindings(&preset),
                 InputMethod::Gamepad(GamepadKind::PlayStation)
@@ -418,11 +418,11 @@ mod tests {
     fn touch_glyph_is_empty() {
         let preset = KeyboardPreset::arrows_zxc();
         assert_eq!(
-            glyph_for(SandboxAction::Jump, &preset, &bindings(&preset), InputMethod::Touch),
+            glyph_for(Platformer2dInputActionMonolith::Jump, &preset, &bindings(&preset), InputMethod::Touch),
             ""
         );
         assert_eq!(
-            glyph_for(SandboxAction::Attack, &preset, &bindings(&preset), InputMethod::Touch),
+            glyph_for(Platformer2dInputActionMonolith::Attack, &preset, &bindings(&preset), InputMethod::Touch),
             ""
         );
     }

@@ -892,7 +892,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     let boss_anim_frame = crate::boss_encounter::sprites::BossAnimFrame::new(
         boss_catalog.sheet_for_key(&boss_sheet_key),
     );
-    let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
+    let combat_tuning = crate::time::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .config
         .behavior

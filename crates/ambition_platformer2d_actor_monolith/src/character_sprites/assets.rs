@@ -11,7 +11,7 @@
 //! Missing files are not errors — callers fall back to colored
 //! rectangles (the game must always run regardless of asset state).
 //! All path/existence policy goes through
-//! [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`]; this module
+//! [`crate::assets::platformer_assets::Platformer2dAssetCatalog`]; this module
 //! no longer owns any `target_os = "android"` cfg branches or
 //! `BEVY_ASSET_ROOT` probes.
 //!
@@ -29,7 +29,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use crate::assets::sandbox_assets::{ids, AmbitionGameAssetCatalog};
+use crate::assets::platformer_assets::{ids, Platformer2dAssetCatalog};
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
 use ambition_platformer2d_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
@@ -304,7 +304,7 @@ fn all_character_sprite_filenames_from_data(
         Vec::with_capacity(catalog.characters.len());
     for (cid, entry) in &catalog.characters {
         let sheet = entry.spritesheet.as_str();
-        if ambition_asset_manager::sandbox_assets::is_source_qualified(sheet) {
+        if ambition_asset_manager::platformer_assets::is_source_qualified(sheet) {
             out.push((cid.clone(), sheet.to_string(), Some(sheet.to_string())));
             continue;
         }
@@ -345,7 +345,7 @@ fn sprite_texture_scale(
 /// Iterates the caller's App-local character catalog and, for each entry,
 /// looks up its [`CharacterSheetSpec`] via [`sheet_for_character_id_in`]. Asset
 /// availability gates through
-/// [`AmbitionGameAssetCatalog::should_attempt_optional_load`]; missing
+/// [`Platformer2dAssetCatalog::should_attempt_optional_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
 
@@ -384,7 +384,7 @@ pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
-    asset_catalog: &AmbitionGameAssetCatalog,
+    asset_catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -450,7 +450,7 @@ pub fn materialize_declared_character_sprite(
 pub fn load_character_sprites_in(
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
-    _asset_catalog: &AmbitionGameAssetCatalog,
+    _asset_catalog: &Platformer2dAssetCatalog,
     _asset_server: &AssetServer,
     _layouts: &mut Assets<TextureAtlasLayout>,
     _quality: Option<&VisualQualityBudget>,
@@ -499,7 +499,7 @@ pub fn load_character_sprites_in(
 /// pair otherwise (and always for props / `variant: None`). Gameplay collision
 /// is untouched; it reads the base record separately.
 fn resolve_variant_pair(
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
     variant: Option<(&str, &sheets::SheetTuning)>,
@@ -510,7 +510,7 @@ fn resolve_variant_pair(
             let scale = q.sprites.resolution_scale;
             if scale != crate::persistence::settings::TextureResolutionScale::Full {
                 if let Some(variant_id) =
-                    crate::assets::sandbox_assets::scaled_asset_id(base_id, scale)
+                    crate::assets::platformer_assets::scaled_asset_id(base_id, scale)
                 {
                     if catalog.try_path_for_load(&variant_id).is_some() {
                         if let Some(spec) = sheets::try_load_spec_for_target_scaled(
@@ -529,7 +529,7 @@ fn resolve_variant_pair(
 }
 
 fn build_optional_via_catalog(
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     base_id: &AssetId,
@@ -635,7 +635,7 @@ fn load_sprite_pages(
 /// loadable under the active profile — callers fall back to colored
 /// rectangles.
 pub fn build_npc_sprite_asset(
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
@@ -662,7 +662,7 @@ pub fn build_npc_sprite_asset(
 /// or the pack pages are gated by the asset profile — the caller falls
 /// back to [`build_prop_sprite_asset`].
 pub fn build_prop_sprite_asset_packed(
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     target: &str,
@@ -679,13 +679,13 @@ pub fn build_prop_sprite_asset_packed(
     // Profile-gate page 0 through the sandbox catalog like every other
     // sprite; sibling pages resolve from the spec's page_images against
     // page 0's directory (the pack pages all share the tier dir).
-    let id = crate::assets::sandbox_assets::ids::sprite_pack_page0(tier);
+    let id = crate::assets::platformer_assets::ids::sprite_pack_page0(tier);
     let path = catalog.try_path_for_load(&id)?;
     Some(load_sprite_pages(asset_server, layouts, &path, &spec))
 }
 
 pub fn build_prop_sprite_asset(
-    catalog: &AmbitionGameAssetCatalog,
+    catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
@@ -695,7 +695,7 @@ pub fn build_prop_sprite_asset(
 }
 
 /// Load a prop sprite sheet straight from its generated manifest TARGET, without
-/// a `AmbitionGameAssetCatalog` — for a demo that registers one animated prop (a
+/// a `Platformer2dAssetCatalog` — for a demo that registers one animated prop (a
 /// collectible ring) and doesn't carry that prop in its lean asset catalog. The
 /// spec comes from the build-embedded manifest index (`try_load_spec_for_target`)
 /// and the page-0 image resolves to `<sprite_folder>/<target>_spritesheet.png`,

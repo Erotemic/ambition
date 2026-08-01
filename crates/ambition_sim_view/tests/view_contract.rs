@@ -189,7 +189,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 }
 
 /// Regression for the `ResetProcessing` ordering bug:
-/// `process_sandbox_reset_request` despawns every feature entity
+/// `process_new_game_reset_request` despawns every feature entity
 /// and spawns the start room's feature set. If `ResetProcessing`
 /// runs unordered relative to `FeatureViewSync`, the cache on the
 /// reset frame can either still hold the pre-reset id (stale) or
@@ -200,13 +200,13 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// The test stands in a minimal reset-shaped system that despawns
 /// the pre-reset pickup and spawns a new one, then asserts the
 /// FeatureViewIndex reflects the new id after `app.update()`. The
-/// real `process_sandbox_reset_request` runs in
-/// `Platformer2dSimulationPhase::ResetProcessing`; we use the same `.in_set` to
+/// real `process_new_game_reset_request` runs in
+/// `Platformer2dSimulationPhaseMonolith::ResetProcessing`; we use the same `.in_set` to
 /// pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
-    use ambition_platformer2d_actor_monolith::schedule::configure_sandbox_sets;
-    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+    use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {
@@ -238,7 +238,7 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
             ambition_interaction::PickupKind::Health { amount: 1 },
         )),
     ));
-    configure_sandbox_sets(&mut app);
+    configure_platformer2d_simulation_phases(&mut app);
     app.world_mut()
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
@@ -246,8 +246,8 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
     app.add_systems(
         Update,
         (
-            fake_reset_system.in_set(Platformer2dSimulationPhase::ResetProcessing),
-            rebuild_feature_view_index.in_set(Platformer2dSimulationPhase::FeatureViewSync),
+            fake_reset_system.in_set(Platformer2dSimulationPhaseMonolith::ResetProcessing),
+            rebuild_feature_view_index.in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         ),
     );
 

@@ -2,7 +2,7 @@
 //!
 //! [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin)
 //! draws a room from two resources it does not build:
-//! [`AmbitionGameAssetCatalog`](ambition_platformer2d_actor_monolith::assets::sandbox_assets::AmbitionGameAssetCatalog)
+//! [`Platformer2dAssetCatalog`](ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog)
 //! (every asset path/source policy) and
 //! [`GameAssets`](ambition_sprite_sheet::game_assets::GameAssets) (the decoded
 //! sheets). Building them was ~90 lines each demo shell hand-rolled, and the
@@ -46,7 +46,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::assets::sandbox_assets::AmbitionGameAssetCatalog;
+use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
 use ambition_platformer2d_actor_monolith::ldtk_world::WorldManifest;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -158,7 +158,7 @@ impl Plugin for PlatformerAssetsPlugin {
                 tracks: Vec::new(),
             });
 
-        let catalog = ambition_platformer2d_actor_monolith::assets::sandbox_assets::build_sandbox_catalog(
+        let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_platformer2d_asset_catalog(
             &config,
             &character_catalog,
             &boss_catalog,
@@ -169,7 +169,7 @@ impl Plugin for PlatformerAssetsPlugin {
         #[cfg(feature = "audio")]
         if self.publish_sfx_bank {
             if let Some(path) =
-                catalog.path_for(&ambition_asset_manager::sandbox_assets::ids::sfx_bank())
+                catalog.path_for(&ambition_asset_manager::platformer_assets::ids::sfx_bank())
             {
                 app.insert_resource(ambition_audio::SfxBankAssetPath::new(
                     self.experience.clone(),
@@ -202,7 +202,7 @@ fn bind_game_assets(
     character_catalog: Res<CharacterCatalog>,
     authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
     boss_catalog: Res<BossCatalog>,
-    catalog: Res<AmbitionGameAssetCatalog>,
+    catalog: Res<Platformer2dAssetCatalog>,
     room: Res<AssetBindRoom>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,

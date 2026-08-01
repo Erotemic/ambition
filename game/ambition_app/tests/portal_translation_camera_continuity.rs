@@ -15,7 +15,7 @@ use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityState, PortalWorldFrame,
 };
 use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
-use ambition_app::app::{Platformer2dSimulationPhase, AmbitionGameSimulationPlugin, StartRoomOverride};
+use ambition_app::app::{Platformer2dSimulationPhaseMonolith, AmbitionGameSimulationPlugin, StartRoomOverride};
 use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -77,7 +77,7 @@ impl HeadlessCameraHarness {
                 ambition_platformer2d::host::portal::sync_portal_camera_continuity_focus
                     .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::apply_portal_camera_continuity
-                    .after(Platformer2dSimulationPhase::CoreSimulation)
+                    .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                     .before(camera_follow),
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_platformer2d::render::rendering::publish_portal_camera_clamp

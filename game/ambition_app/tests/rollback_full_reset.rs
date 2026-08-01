@@ -2,14 +2,14 @@
 //!
 //! Unlike the room TRANSITION (which diverged via its not-rollback-registered
 //! MULTI-TICK load machinery, `RoomTransitionLoadState` et al.), a full sandbox
-//! reset (`process_sandbox_reset_request`) is SINGLE-TICK Commands reconstruction:
+//! reset (`process_new_game_reset_request`) is SINGLE-TICK Commands reconstruction:
 //! despawn the whole `RoomScopedEntity` set + respawn a start-room plan, plus the
-//! registry/save/player resets, all in one `Platformer2dSimulationPhase::ResetProcessing` pass.
+//! registry/save/player resets, all in one `Platformer2dSimulationPhaseMonolith::ResetProcessing` pass.
 //! The transition result does NOT answer whether that diverges — the in-place
 //! reset proved single-tick Commands resets can be perfectly rollback-safe — so
 //! this asks op 2b directly.
 //!
-//! `SandboxResetRequested` is rollback state, so folding a pending request into
+//! `NewGameResetRequested` is rollback state, so folding a pending request into
 //! the baseline makes the reconstruction run on the baseline frame AND on every
 //! re-simulation of it inside the sync-test window. If this is RED, op 2b needs
 //! the same confirmed-frame deferral the transition got; if GREEN, the single-tick
@@ -62,7 +62,7 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     {
         let world = sim.world_mut();
         world
-            .resource_mut::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>()
+            .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
             .request = true;
     }
     sim.rebase_rollback_history()

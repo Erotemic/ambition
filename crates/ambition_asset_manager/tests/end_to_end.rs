@@ -21,7 +21,7 @@ fn ambition_manifest() -> AssetManifest {
             .with_missing_policy(MissingAssetPolicy::Error)
             .with_preload_group(PreloadGroup::Bootstrap)
             // Mirror the real sandbox catalog (see
-            // `crate::sandbox_assets::extend_with_world_entries` in
+            // `crate::platformer_assets::extend_with_world_entries` in
             // the sandbox crate): both an authored LocalPath for
             // desktop hot reload AND an authored Embedded for
             // bundled / web profiles. The two-pass resolver picks

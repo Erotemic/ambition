@@ -17,11 +17,11 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::assets::loading::SandboxAssetCollection;
+use crate::assets::loading::Platformer2dStartupAssets;
 use crate::ldtk_world::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
-use crate::session::data::SandboxDataAsset;
+use crate::session::data::Platformer2dGameplayDefaultsHandle;
 use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;
@@ -84,8 +84,8 @@ pub struct SimulationSetup<'a> {
     pub boss_catalog: &'a crate::boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
     pub default_character_id: &'a str,
-    pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
-    pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
+    pub sandbox_data_asset: Option<&'a Platformer2dGameplayDefaultsHandle>,
+    pub sandbox_asset_collection: Option<&'a Platformer2dStartupAssets>,
     pub asset_server: &'a AssetServer,
 }
 

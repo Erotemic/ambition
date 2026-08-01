@@ -19,7 +19,7 @@ Landed:
 - **`MovementAction`** + enum-indexed **`ActionEdges`** in `ambition_platformer2d_core`,
   and the movement kernel consuming them through typed accessors
   (`InputState` re-keyed).
-- Dedicated **`SandboxAction::Special`** slot; the `special_pressed =
+- Dedicated **`Platformer2dInputActionMonolith::Special`** slot; the `special_pressed =
   blink_pressed` alias is retired.
 - The **shared resolver** (§Decision 6): the persona gate and `ControlPrompt`
   both call `derive_action_scheme` on the body's immediate authorities — the
@@ -64,7 +64,7 @@ could disagree with what actually fired.
    even when the scheme changed inside the rollback window (powerup, possession,
    form toggle). **Streaming resolved actions is forbidden.**
 
-2. **`SandboxAction` is the slot vocabulary** (device-free semantic buttons).
+2. **`Platformer2dInputActionMonolith` is the slot vocabulary** (device-free semantic buttons).
    The physical-input → slot binding (`ActiveBindings`, planned) is the input
    layer's concern; one binding source must feed both the live `InputMap` and
    the on-screen glyphs.

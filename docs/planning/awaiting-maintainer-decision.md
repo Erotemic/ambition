@@ -259,3 +259,49 @@ a look-and-feel proposal. If it is not wanted, discarding costs nothing.
 Jon's Feedback:
 
 A smash game would have a character portrait on the bottom for each character with an icon for each stock and their current percentage. There is no score, when you lose your stock you are dead. 
+---
+
+## Should DIALOGUE stop the world, or only the talker? (2026-08-01)
+
+**This is a product question, not a repair**, and it took a wrong turn to work
+that out — so the mechanism is written down here rather than re-derived.
+
+**What is true today.** `GameMode::{Paused, Dialogue, RoomTransition, Cutscene}`
+all suspend gameplay, and the mechanism is not the input gate everyone reaches
+for first: `apply_suspended_time_scale_system` runs under the
+`gameplay_suspended` run condition and sets `ClockState::time_scale = 0.0`. The
+world genuinely freezes — a suspended world still advances its TIMELINE (ticks
+still count, so hashes and recorded input frames stay aligned) but moves zero
+sim seconds.
+
+⚠ I first concluded the opposite, because `allows_gameplay()`'s nineteen call
+sites are almost all input routing and prompts, and the two run conditions built
+on it look unused. They are not: `player_schedule.rs` uses `gameplay_suspended`,
+and that one line is the whole pause.
+
+**Why it is now a question.** Per-seat input contexts landed
+(`SeatInputContexts`), so a surface CAN own one participant's input while
+another keeps playing — and the test that proves the seam also pins that
+`GameMode` overrides it (`dialogue_still_stops_the_world_as_well_as_claiming_
+the_input`). On a couch, one player talking to an NPC currently freezes the
+other player mid-jump.
+
+**The decision:**
+
+* **keep it** — dialogue is a world-stopping beat, and couch multiplayer
+  tolerates the freeze because conversations are short. Costs nothing; the
+  per-seat seam simply waits for a surface that is not world-stopping
+  (inventory, a select screen).
+* **split it** — `Dialogue` stops claiming to stop the world, and the talker's
+  input is claimed by `DIALOGUE_CONTEXT` instead. Then NPCs keep patrolling and
+  hazards keep ticking during a conversation, which is a real change to how
+  every existing scene plays, not just a multiplayer fix.
+
+⚠ **it is not a small mechanical change either way**, and the branch that looks
+harmless is the wrong one: leaving `Dialogue` in the suspend set while adding
+per-seat contexts gives a seam that silently does nothing, which is worse than
+either answer.
+
+⚠ **`RoomTransition` and `Cutscene` are NOT the same question.** Both are
+genuinely global — a room is loading, or a scripted beat owns the screen — and
+nothing about per-seat input makes them per-seat.

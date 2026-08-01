@@ -23,6 +23,9 @@ When a command changes, update or delete the recipe in the same patch.
 - [`adding-an-asset.md`](adding-an-asset.md) — which asset root, what path
   string loads it, and why git-ignored does not mean missing.
 - [`adding-a-character.md`](adding-a-character.md)
+- [`validating-a-content-pack.md`](validating-a-content-pack.md) — the ~5 ms
+  edit/validate loop, every refusal code and what it means, and how a capability
+  registers its own authored schema.
 - [`dialogue-authoring.md`](dialogue-authoring.md)
 - [`extending-brains-and-action-sets.md`](extending-brains-and-action-sets.md)
 - [`add-showcase-room.md`](add-showcase-room.md)
@@ -36,6 +39,9 @@ When a command changes, update or delete the recipe in the same patch.
 - [`web-audio-manual-test.md`](web-audio-manual-test.md)
 - [`profiling.md`](profiling.md)
 - [`rollback-proof-mode.md`](rollback-proof-mode.md)
+- [`explaining-a-tick.md`](explaining-a-tick.md) — "why did this actor change on
+  this tick": turning causal recording on, what can be asked today, and how a
+  capability publishes its own facts.
 
 ## Recipe quality rule
 

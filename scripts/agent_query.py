@@ -247,6 +247,29 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
     crate_rows: list[dict[str, Any]] = []
     crate_dir = INDEX_DIR / "crates"
     crate_dir.mkdir(parents=True, exist_ok=True)
+
+    # **Prune packets for crates that no longer exist.**
+    #
+    # This loop only ever WROTE, so a renamed or deleted crate left its packet
+    # behind forever and an agent looking one up found a confident description of
+    # something that is gone. The platformer2d rename left nine such packets —
+    # named for crates that no longer exist, `ambition_actors` and its eight
+    # siblings — sitting beside the eleven new ones, indistinguishable to a
+    # reader from the live ones.
+    #
+    # ⚠ this is the regen invariant, not tidiness: regenerating in a FRESH CLONE
+    # would not produce these files, so their presence made the index depend on
+    # the history of the machine it was built on. `index.json` is the catalog
+    # itself and is written below, not by this loop.
+    # `index.json` is the catalog and `_repository.json` is the packet for files
+    # no crate owns. Both are written further down in this same pass, so pruning
+    # them would "work" — and would break the moment somebody splits this
+    # function. Naming them is the difference between correct and lucky.
+    live = {f"{crate.name}.json" for crate in crates} | {"index.json", "_repository.json"}
+    for stale in sorted(crate_dir.glob("*.json")):
+        if stale.name not in live:
+            stale.unlink()
+
     for crate in crates:
         ecs_summary = ecs_by_name.get(crate.name, {})
         ecs_json = None

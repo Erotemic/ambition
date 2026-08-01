@@ -605,8 +605,28 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         "a keyboard player and a pad player have to seat two fighters; got {}",
         bodies.len()
     );
-    let (_, body_one) = bodies[0];
-    let (_, body_two) = bodies[1];
+    let (seat_one, body_one) = bodies[0];
+    let (seat_two, body_two) = bodies[1];
+
+    // **Milestone 3: stable session seats.** Two seats, and they are 0 and 1 —
+    // not two entities that both think they are player one.
+    assert_eq!(
+        (seat_one, seat_two),
+        (0, 1),
+        "two players have to hold two DIFFERENT seats"
+    );
+    // **Milestone 4: distinct controlled ACTORS** — two bodies, one per player.
+    //
+    // ⚠ NOT distinct characters. The first draft asserted that too and failed:
+    // both players joined with the cursor at slot 0 and picked
+    // `smash_duelist_a`. That is a MIRROR MATCH, which every platform fighter
+    // allows and this one should — "distinct actors" is about who each person is
+    // driving, not about the roster forbidding a rematch as the same fighter.
+    assert_ne!(
+        body_one, body_two,
+        "both seats are driving the same body, so one player is a spectator with \
+         a cursor"
+    );
 
     let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
     let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));

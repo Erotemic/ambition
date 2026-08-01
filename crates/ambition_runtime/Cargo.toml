@@ -62,7 +62,7 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # Structured causal facts. Optional and default-OFF for the same §2e reason the
 # character capability's is: a game that never opens an inspector must not link
 # one. `ambition_causal` has zero dependencies of its own.
-causal = ["dep:ambition_causal", "ambition_actors/causal"]
+causal = ["dep:ambition_causal", "ambition_actors/causal", "ambition_combat/causal"]
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.

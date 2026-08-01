@@ -284,6 +284,110 @@ mod tests {
         assert_no_offthread_loss();
     }
 
+    /// **THE COMPOSITION CLAIM: several domains, ONE explanation.**
+    ///
+    /// Every publisher has its own test proving it publishes. None of them
+    /// proved they COMPOSE — that a movement fact, a damage fact and a
+    /// lifecycle fact about the same body on the same tick arrive as one
+    /// coherent answer rather than three unrelated logs. That is the whole
+    /// premise of the inspector, and it is the one thing per-domain tests
+    /// cannot show.
+    ///
+    /// It runs the real publishers, in the real order the sim schedule uses:
+    /// stamp first, then everything else.
+    #[test]
+    fn three_domains_answer_one_question_about_one_body_on_one_tick() {
+        use ambition_actors::features::ecs::damage_apply::{
+            BodyHitResolution, BodyHitResolved,
+        };
+        use ambition_causal::SubjectKey;
+        use ambition_characters::brain::{Brain, PlayerSlot};
+        use ambition_combat::stocks::FighterStockSpent;
+
+        let mut app = app();
+        record_domains(&mut app, RecordingPolicy::All);
+        app.add_message::<BodyHitResolved>();
+        app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
+        app.add_message::<FighterStockSpent>();
+        app.add_message::<ambition_combat::stocks::StocksMatchDecided>();
+        app.add_systems(
+            Update,
+            (
+                // The host's own fact, and the three domains', in the set the
+                // sim schedule puts them in — after the stamp.
+                record_execution_identity,
+                ambition_actors::causal::record_hit_resolutions,
+                ambition_combat::causal::record_stock_lifecycle,
+                ambition_actors::causal::record_player_movement_intent,
+            )
+                .in_set(RecordingSet::Publish),
+        );
+
+        // ONE body, seated. Every domain will key on the same seat.
+        let body = app
+            .world_mut()
+            .spawn((
+                ambition_actors::avatar::movement_components::BodyKinematics::default(),
+                ambition_actors::avatar::movement_components::BodyGroundState::default(),
+                Brain::Player(PlayerSlot(1)),
+                ambition_characters::brain::ActorControl::default(),
+            ))
+            .id();
+
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 60;
+        app.world_mut().write_message(BodyHitResolved {
+            body,
+            resolution: BodyHitResolution::Damaged {
+                damage: 40,
+                died: true,
+            },
+            source: ambition_combat::HitSource::LeftTheWorld,
+            raw_damage: 40,
+        });
+        app.world_mut().write_message(FighterStockSpent {
+            body,
+            remaining: 0,
+            eliminated: true,
+        });
+        app.update();
+
+        let why = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(60, &SubjectKey::Seat(1));
+
+        // The three answers, in one explanation.
+        assert!(
+            why.first("movement_intent").is_some(),
+            "movement: what the body was asking for"
+        );
+        assert!(
+            why.first("hit_resolved").is_some(),
+            "damage: what the hit did"
+        );
+        assert!(
+            why.first("stock_spent").is_some(),
+            "lifecycle: what it cost"
+        );
+        assert!(
+            why.first("tick_execution").is_some(),
+            "and the world's own answer about whether this tick was a replay"
+        );
+
+        // ⚠ ONE tick and ONE execution across all of them. Domains that stamped
+        // their own clock would produce four explanations of four moments, which
+        // is the failure that makes a multi-domain log unreadable.
+        assert!(
+            why.facts().iter().all(|fact| fact.tick == 60),
+            "every domain used the tick the HOST stamped: {:?}",
+            why.facts().iter().map(|f| (f.kind(), f.tick)).collect::<Vec<_>>()
+        );
+        assert_eq!(why.execution(), Some(Execution::Original));
+        assert_no_offthread_loss();
+
+        println!("{}", why.render());
+    }
+
     #[test]
     fn recording_off_is_the_default_and_costs_nothing() {
         let mut app = app();

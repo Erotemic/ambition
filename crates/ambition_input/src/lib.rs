@@ -28,6 +28,7 @@ mod motion_input;
 pub mod participant;
 mod presets;
 pub mod semantic;
+pub mod sources;
 pub mod settings;
 
 #[cfg(test)]

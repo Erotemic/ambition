@@ -18,8 +18,9 @@
 | [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad map (`GAMEPAD_MAP`) that seed leafwing's input map for `Platformer2dInputActionMonolith`. |
 | [`semantic`](src/semantic.rs) | **Semantic actions: the open vocabulary between a device and a consumer.** |
 | [`settings`](src/settings.rs) | Controls / input settings. |
+| [`sources`](src/sources.rs) | **Which physical input SOURCE a participant owns.** |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

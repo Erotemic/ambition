@@ -186,6 +186,8 @@ pub fn track_local_device_order(
 pub fn assign_local_seat_devices(
     order: Res<LocalDeviceOrder>,
     topology: Option<Res<LocalSeatTopology>>,
+    policy: Option<Res<crate::sources::InputAssignmentPolicy>>,
+    keyboard: Option<Res<crate::sources::KeyboardOwner>>,
     mut seats: Query<(&InputParticipant, &mut InputMap<Platformer2dInputActionMonolith>)>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
@@ -214,11 +216,42 @@ pub fn assign_local_seat_devices(
         return;
     }
 
+    // **A seat that already holds the keyboard does not also take a pad.**
+    //
+    // Positional assignment (seat `n` → pad `n`) is right when every seat is a
+    // pad seat, and wrong the moment one of them is playing on the keyboard: with
+    // one keyboard player and one pad player it hands the ONLY pad to the person
+    // already typing and leaves the pad player with nothing. That is Jon's
+    // milestone 2 failing, and it is what `a_single_pad_beside_a_keyboard_player`
+    // pins.
+    //
+    // ⚠ under the default `UnifiedPrimary` this is `None` and the arithmetic
+    // below is `pad_index == slot` — today's behaviour, byte for byte. Couch
+    // partitioning is something a session opts into, not something a second
+    // controller imposes on a solo player.
+    let keyboard_owner = crate::sources::keyboard_owner_for(
+        policy.map(|policy| *policy).unwrap_or_default(),
+        keyboard.map(|keyboard| *keyboard).unwrap_or_default(),
+        players,
+    );
+
     for (participant, mut map) in &mut seats {
         let slot = participant.id.slot();
-        let wanted = match frozen.as_ref() {
-            Some(topology) => topology.device_for_handle(slot as usize),
-            None => order.device_for_slot(slot),
+        let wanted = if keyboard_owner == Some(participant.id) {
+            // Their source is the keyboard. Leaving a stale association here
+            // would let an unplugged pad keep a seat that is being played.
+            None
+        } else {
+            // Pads go to the seats that need one, in slot order, skipping the
+            // keyboard seat rather than leaving a hole where it sits.
+            let pad_index = match keyboard_owner {
+                Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
+                _ => slot,
+            };
+            match frozen.as_ref() {
+                Some(topology) => topology.device_for_handle(pad_index as usize),
+                None => order.device_for_slot(pad_index),
+            }
         };
         // Change detection is not cosmetic here: `InputMap` is a component, and
         // touching it every frame marks it changed for every observer of the
@@ -268,6 +301,40 @@ mod tests {
             .get::<InputMap<Platformer2dInputActionMonolith>>()
             .expect("the seat keeps its input map")
             .gamepad()
+    }
+
+
+    /// PROBE (2026-08-01): the couch case Jon's milestone 2 names — one keyboard
+    /// player and one pad player. Expected: the pad drives seat TWO.
+    #[test]
+    fn a_single_pad_beside_a_keyboard_player_drives_the_second_seat() {
+        let mut app = seat_app();
+        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, two), Some(pad), "the pad player is seat two");
+        assert_eq!(assigned(&app, one), None, "seat one is playing on the keyboard");
+    }
+
+
+    /// **The default policy leaves solo behaviour exactly where it was.**
+    ///
+    /// Same world as the couch test above and no policy resource at all. Seat
+    /// one keeps the pad, because a session that never asked for couch
+    /// partitioning must not get it — a single player with a controller and a
+    /// keyboard is the common case, and the couch work is not allowed to charge
+    /// them for it.
+    #[test]
+    fn without_a_declared_policy_the_pad_still_goes_to_seat_one() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad));
+        assert_eq!(assigned(&app, two), None);
     }
 
     /// **A frozen session's device mapping does not follow live discovery.**

@@ -545,3 +545,114 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
          body's pool and it can die by HP in a ruleset where only the world kills"
     );
 }
+
+/// **Two LOCAL SEATS under a rollback host, driven independently.** (queue S35)
+///
+/// ⚠ Every couch test lives on the shell host with real time. This is the one
+/// that puts the pieces together: a sync-test session sized for two players, a
+/// roster with two HUMAN seats, seat one driven through `step` and seat two
+/// through `drive_seat` — the seam that has existed since queue Y1 and that no
+/// test had ever used alongside a second seated body.
+///
+/// ⛔ under a sync test EVERY frame is saved, rewound and resimulated, so this is
+/// not "two seats moved": it is two seats whose inputs survive being replayed.
+/// A seat whose frame is authored outside the rollback's input path diverges on
+/// the first rewind, and `rollback_health` says so on the tick it happens.
+#[test]
+fn two_local_seats_drive_independently_under_a_rollback_host() {
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::input::ControlFrame;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10)
+            // The session must actually CARRY seat two, or its authored frames
+            // are written and never asked for — inert rather than wrong, and a
+            // test that did not say this would pass while proving nothing.
+            .with_rollback_players(2),
+    )
+    .expect("a two-player sync-test harness builds");
+
+    for _ in 0..FRAMES_BEFORE_THE_ROSTER {
+        sim.step(AgentAction::default());
+    }
+    let human = |character: &str, slot: u8, team: &str| {
+        MatchParticipant::new(character)
+            .driven_by(ControllerBinding::Human { device_slot: slot })
+            .on_team(team)
+    };
+    sim.world_mut().insert_resource(MatchParticipantRoster {
+        participants: vec![
+            human("player_robot_v3", 0, "blue"),
+            human("player_robot_v2", 1, "red"),
+        ],
+        // Not suspended: this test is about INPUT reaching a body, and an
+        // opening hold would keep both fighters still and pass for the wrong
+        // reason.
+        opens_suspended: false,
+        seat_topology: None,
+        fighter_abilities: None,
+        fighter_stocks: None,
+        published_by: None,
+    });
+    sim.rebase_rollback_history()
+        .expect("the roster insert becomes the rollback baseline");
+
+    let mut seated = Vec::new();
+    for tick in 0..120 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("tick {tick}: {error}"));
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        seated = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        seated.sort_by_key(|(slot, _)| *slot);
+        if seated.len() >= 2 {
+            break;
+        }
+    }
+    assert_eq!(
+        seated.len(),
+        2,
+        "a two-human roster seated {} bodies under a rollback host",
+        seated.len()
+    );
+    let (_, body_one) = seated[0];
+    let (_, body_two) = seated[1];
+
+    let x = |sim: &mut Platformer2dSimHarness, body| {
+        sim.world_mut()
+            .get::<BodyKinematics>(body)
+            .expect("a seated body has kinematics")
+            .pos
+            .x
+    };
+    let (start_one, start_two) = (x(&mut sim, body_one), x(&mut sim, body_two));
+
+    // Seat TWO walks right, through the seat-frame seam. Seat one is untouched.
+    for tick in 0..40 {
+        sim.drive_seat(
+            1,
+            ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("driving seat two, tick {tick}: {error}"));
+    }
+    let moved_two = x(&mut sim, body_two) - start_two;
+    let moved_one = x(&mut sim, body_one) - start_one;
+    assert!(
+        moved_two.abs() > 1.0,
+        "seat two authored 40 frames of right and its fighter moved {moved_two:.2}px \
+         — the seat-frame seam does not reach a seated body under this host"
+    );
+    assert!(
+        moved_one.abs() < moved_two.abs() * 0.25,
+        "seat two's input moved seat ONE's fighter ({moved_one:.2}px against \
+         {moved_two:.2}px): the two seats share an input path"
+    );
+}

@@ -441,6 +441,9 @@ fn render_shell_pause_menu(
     session: Res<ActiveGameplaySession>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     asset_server: Option<Res<AssetServer>>,
+    // The font menus draw with. `None` keeps Bevy's default, which is an
+    // ASCII-only subset — see `ambition_menu::render::bevy_ui::MenuFont`.
+    menu_font: Option<Res<ambition_menu::render::bevy_ui::MenuFont>>,
     roots: Query<Entity, (With<BevyUiMenuRoot>, With<ShellPauseMenuRoot>)>,
     mut prior: Local<Option<(bool, usize, bool, u64)>>,
 ) {
@@ -538,7 +541,12 @@ fn render_shell_pause_menu(
         focused: None,
         focused_tab: None,
     };
-    let root = spawn_bevy_ui_menu_with_assets(&mut commands, &view, asset_server.as_deref());
+    let root = ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_font(
+        &mut commands,
+        &view,
+        asset_server.as_deref(),
+        menu_font.as_deref().and_then(|font| font.0.as_ref()),
+    );
     commands.entity(root).insert(ShellPauseMenuRoot);
 }
 

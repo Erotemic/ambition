@@ -278,6 +278,9 @@ impl Plugin for HostInputBindingsPlugin {
             // participant a later gameplay session does; possession, session
             // relaunch, and actor death never touch its device state.
             .add_systems(Startup, spawn_primary_input_participant)
+            // The menu crate cannot know an asset path and the render crate must
+            // not own the menu IR, so the host is where the font handle crosses.
+            .add_systems(Update, publish_menu_font)
             // Extra local seats come and go with the match roster, so unlike
             // the primary they are a per-frame reconciliation rather than a
             // boot-time spawn. `Collect` because a seat is a device source: it
@@ -571,4 +574,35 @@ mod clash_strategy_tests {
             ClashStrategy::PrioritizeLongest,
         );
     }
+}
+
+/// **Hand the menu crate the font the render side resolved.**
+///
+/// ⛔ `ambition_menu` sets a font SIZE and no handle, so Bevy resolved
+/// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`, **95 glyphs,
+/// ASCII only**. Every menu in every game drew a hollow box for `·` (U+00B7) or
+/// `—` (U+2014), invisibly, until a launcher footer was photographed. Ten
+/// hypotheses died on that bug: they checked the fonts the REPOSITORY ships —
+/// `JetBrainsMono-Regular.ttf` and `InterDisplay-Regular.otf`, both of which
+/// carry the glyphs — and none of them asked what `Handle::default()` points at.
+///
+/// ⚠ **this is the composition root because it is the only place the two crates
+/// can meet.** `ambition_render` must not depend on `ambition_menu`
+/// (presentation does not own the menu IR) and `ambition_menu` must not know an
+/// asset path (it is renderer-agnostic). A host is exactly the thing that knows
+/// both.
+///
+/// Idempotent and cheap: it writes only when the resolved handle changes, which
+/// is once.
+fn publish_menu_font(
+    mut commands: bevy::prelude::Commands,
+    fonts: Option<bevy::prelude::Res<ambition_render::ui_fonts::UiFonts>>,
+    current: Option<bevy::prelude::Res<ambition_menu::render::bevy_ui::MenuFont>>,
+) {
+    let Some(fonts) = fonts else { return };
+    let wanted = fonts.regular.clone();
+    if current.map(|current| current.0.clone()) == Some(wanted.clone()) {
+        return;
+    }
+    commands.insert_resource(ambition_menu::render::bevy_ui::MenuFont(wanted));
 }

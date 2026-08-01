@@ -13,6 +13,11 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
 ambition_render = { path = "../ambition_render" }
+# Named directly so the host can hand the menu crate the font the render side
+# resolved. `ambition_render` must NOT depend on `ambition_menu` — presentation
+# does not own the menu IR — and the menu crate must not know an asset path, so
+# the composition root is the only place the two can meet.
+ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"] }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_sim_view = { path = "../ambition_sim_view" }
 # Sprite metadata for the projectile visual passes this crate registers:

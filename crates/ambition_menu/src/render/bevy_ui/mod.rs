@@ -229,6 +229,28 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
 /// the model's authored layout, while the tab bar uses flex so tabs share the
 /// panel width evenly. A high [`GlobalZIndex`] keeps the menu on top so its
 /// `bevy_ui` buttons receive `Interaction`/picking before anything underneath.
+/// **The font every menu surface draws with.**
+///
+/// ⛔ Bevy's `TextFont::default()` resolves `Handle::<Font>::default()`, which is
+/// the engine's built-in `FiraMono-subset.ttf` — **95 glyphs, ASCII only**. This
+/// crate set a font size and nothing else, so every menu in every game rendered
+/// through that subset and drew a hollow box for anything outside ASCII: `·`
+/// (U+00B7) and `—` (U+2014) in a launcher footer, invisibly, until somebody
+/// photographed it.
+///
+/// ⚠ **ten hypotheses died before this one**, and they died because everyone
+/// checked the fonts the REPOSITORY ships — `JetBrainsMono-Regular.ttf` and
+/// `InterDisplay-Regular.otf` both carry the glyphs — and nobody asked what
+/// `Handle::default()` actually points at. The elimination list is the Z1 row of
+/// `queue-24h-2026-07-26.md`.
+///
+/// ⚠ this is a HANDLE, not a path. `ambition_menu` is renderer-agnostic and must
+/// not know where a font lives; the host fills this from whatever its asset
+/// authority resolved. `None` keeps Bevy's default, which is the correct
+/// behaviour for a composition that never loaded a font at all.
+#[derive(bevy::prelude::Resource, Default, Clone, Debug)]
+pub struct MenuFont(pub Option<bevy::prelude::Handle<bevy::text::Font>>);
+
 pub fn spawn_bevy_ui_menu<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
@@ -249,6 +271,21 @@ pub fn spawn_bevy_ui_menu_with_assets<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
     assets: Option<&AssetServer>,
+) -> Entity
+where
+    PageId: Clone + Send + Sync + 'static,
+    Action: Clone + Send + Sync + 'static,
+{
+    spawn_bevy_ui_menu_with_font(commands, view, assets, None)
+}
+
+/// [`spawn_bevy_ui_menu_with_assets`], plus the font the host wants menus drawn
+/// in. See [`MenuFont`] for why passing `None` is a decision and not a default.
+pub fn spawn_bevy_ui_menu_with_font<PageId, Action>(
+    commands: &mut Commands,
+    view: &BevyUiMenuView<PageId, Action>,
+    assets: Option<&AssetServer>,
+    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
 ) -> Entity
 where
     PageId: Clone + Send + Sync + 'static,
@@ -381,7 +418,7 @@ where
                 ))
                 .with_children(|body| {
                     for node in &view.page.nodes {
-                        spawn_node(body, node, view.focused, assets);
+                        spawn_node(body, node, view.focused, assets, font);
                     }
                 });
         });

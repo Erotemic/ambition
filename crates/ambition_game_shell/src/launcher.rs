@@ -56,33 +56,25 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            // ⚠ **ASCII only, and the REASON is still open.** This read
-            // `select · Enter` and drew a hollow TOFU BOX on the title screen.
-            // Every `ambition_menu` surface in every game is affected,
-            // invisibly, until a string steps outside ASCII.
+            // ✔ **non-ASCII is safe here again** (2026-08-01). This read
+            // `select · Enter` and drew a hollow TOFU BOX for a week, in every
+            // `ambition_menu` surface in every game.
             //
-            // ⛔ Do NOT re-derive it from this crate. NINE hypotheses are dead,
-            // including the two that read as obvious: the bundled
-            // `JetBrainsMono-Regular.ttf` HAS U+00B7 (fontTools), and the string
-            // arrives intact (`footer.clone()` → `MenuNode::Text` →
-            // `Text::new`, no byte slicing anywhere). Removing all four spawn
-            // components at once still tofus.
+            // ⛔ the cause was Bevy's DEFAULT FONT. `ambition_menu` set a font
+            // SIZE and no handle, so `TextFont::default()` resolved
+            // `Handle::<Font>::default()` — the engine's built-in
+            // `FiraMono-subset.ttf`, **95 glyphs, ASCII only**. Ten hypotheses
+            // died first because every one of them checked the fonts the
+            // REPOSITORY ships (`JetBrainsMono-Regular.ttf`,
+            // `InterDisplay-Regular.otf` — both carry U+00B7 and U+2014) and
+            // none asked what `Handle::default()` points at.
             //
-            // ⚠ and the live clue says the cause is NOT source-level in
-            // `ambition_menu` at all: adding an unrelated SIBLING `Text` to the
-            // same parent makes this title render CORRECTLY (the inserted child
-            // still tofus). An extra entity changing another entity's glyph
-            // resolution points at Bevy's text pipeline — atlas keying, font-face
-            // resolution, `ComputedTextBlock` sharing.
-            //
-            // Full elimination list and the one-command repro live in the Z1 row
-            // of `docs/planning/queue-24h-2026-07-26.md` (grep `TOFU BOX`).
-            //
-            // Found by photographing the route (`capture_scene --route
-            // ambition_launcher`) while checking an unrelated change — the
-            // argument for drawing blind work: every test here was green and
-            // none of them can assert what a missing glyph looks like.
-            footer: "Arrow keys select | Enter launches".to_owned(),
+            // The host now hands the menu crate the font the render side
+            // resolved (`MenuFont`). ⚠ if a composition loads no font at all,
+            // menus fall back to that subset and this string tofus again — which
+            // is the honest outcome, and why the fallback is `None` rather than
+            // a guess.
+            footer: "Arrow keys select · Enter launches".to_owned(),
             exit_label: Some("Exit".to_owned()),
         }
     }

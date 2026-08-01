@@ -21,6 +21,7 @@ pub(super) fn spawn_node<Action>(
     node: &MenuNode<Action>,
     focused: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
+    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
@@ -47,6 +48,10 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    // ⛔ Bevy's default handle is `FiraMono-subset.ttf`, 95 glyphs,
+                    // ASCII only — see `MenuFont`. Leaving this at `..default()`
+                    // is what drew a hollow box for `·` and `—` in every menu.
+                    font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
@@ -71,6 +76,10 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
+                    // ⛔ Bevy's default handle is `FiraMono-subset.ttf`, 95 glyphs,
+                    // ASCII only — see `MenuFont`. Leaving this at `..default()`
+                    // is what drew a hollow box for `·` and `—` in every menu.
+                    font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
                 crate::MenuTextHeightFraction(*size),
@@ -104,6 +113,7 @@ pub(super) fn spawn_node<Action>(
                 *thumb,
                 focused,
                 assets,
+                font,
             );
         }
     }
@@ -157,6 +167,7 @@ fn spawn_control<Action>(
     thumb: Option<ScrollThumb>,
     focused_key: Option<crate::MenuFocusKey>,
     assets: Option<&AssetServer>,
+    font: Option<&bevy::prelude::Handle<bevy::text::Font>>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {

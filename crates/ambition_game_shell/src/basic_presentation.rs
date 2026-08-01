@@ -310,6 +310,8 @@ fn render_basic_shell(
     sequence: Res<ActiveShellSequence>,
     router: Res<ShellRouter>,
     asset_server: Option<Res<AssetServer>>,
+    // The font menus draw with; `None` keeps Bevy's ASCII-only default.
+    menu_font: Option<Res<ambition_menu::render::bevy_ui::MenuFont>>,
     sequence_roots: Query<Entity, With<BasicSequenceRoot>>,
     // Identity, not species: only THIS presentation's launcher tree. Other
     // `BevyUiMenuRoot` producers (a game's pause menu) coexist in the host.
@@ -344,6 +346,7 @@ fn render_basic_shell(
             &catalog,
             &launcher_presentation,
             asset_server.as_deref(),
+            menu_font.as_deref(),
             activation_id,
         );
         return;
@@ -463,6 +466,7 @@ fn spawn_launcher_menu(
     catalog: &ShellLaunchCatalog,
     presentation: &ShellLauncherPresentation,
     asset_server: Option<&AssetServer>,
+    menu_font: Option<&ambition_menu::render::bevy_ui::MenuFont>,
     activation_id: crate::ShellActivationId,
 ) {
     let mut page = MenuPageModel::new(
@@ -603,7 +607,12 @@ fn spawn_launcher_menu(
         focused: None,
         focused_tab: None,
     };
-    let root = spawn_bevy_ui_menu_with_assets(commands, &view, asset_server);
+    let root = ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_font(
+        commands,
+        &view,
+        asset_server,
+        menu_font.and_then(|font| font.0.as_ref()),
+    );
     commands.entity(root).insert((
         BasicShellUiRoot,
         FrontendOwnedEntity::shell(activation_id, FrontendPresentationKind::LauncherRoot),

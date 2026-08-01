@@ -70,6 +70,39 @@ STATUS_NAME = "run_tests_status.json"
 # floor with a little room, not a precise budget -- the point is to refuse
 # BEFORE a job dies of ENOSPC and reports it as a compile error.
 MIN_FREE_GB = 40.0
+
+
+def target_dir() -> Path:
+    """Where cargo actually writes — which is NOT always under the repo.
+
+    ⚠ **this function exists because the first version of the disk guard read
+    the wrong filesystem.** It measured the REPO's volume, and this checkout has
+    the repo on a 1.8 TB disk while `.cargo/config.toml` points `target-dir` at
+    `/home/joncrall/ambition-target` on a 387 GB one. The guard would have
+    reported 380 GB free while the volume that actually fills had two — a green
+    instrument answering a question nobody asked.
+    """
+    if env := os.environ.get("CARGO_TARGET_DIR"):
+        return Path(env)
+    config = REPO / ".cargo" / "config.toml"
+    if config.is_file():
+        for line in config.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("target-dir"):
+                _, _, value = line.partition("=")
+                value = value.strip().strip('"').strip("'")
+                if value:
+                    return Path(value)
+    return REPO / "target"
+
+
+def free_gb_on_target() -> float:
+    """Free space on the volume cargo writes to. Falls back to the repo's own
+    volume only when the target directory's parent does not exist yet."""
+    path = target_dir()
+    while not path.exists() and path != path.parent:
+        path = path.parent
+    return shutil.disk_usage(path).free / 1024**3
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -485,10 +518,11 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # errors from whichever job was unlucky, and the actual cause (ENOSPC) is
     # nowhere in the output. One refusal up front, naming the remedy, is worth
     # more than any amount of diagnosing that.
-    free_gb = shutil.disk_usage(REPO).free / 1024**3
+    free_gb = free_gb_on_target()
     if free_gb < MIN_FREE_GB:
         print(
-            f"REFUSING: {free_gb:.1f} GB free, and a full suite needs about "
+            f"REFUSING: {free_gb:.1f} GB free on {target_dir()}, and a full suite "
+            f"needs about "
             f"{MIN_FREE_GB:.0f}.\n"
             f"  Every feature job builds its own variant of the graph and cargo "
             f"never prunes the last one.\n"
@@ -543,9 +577,28 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             json.dumps(timings_payload(results), indent=2) + "\n")
         print(f"  timings written to {timings_json}")
 
+    # **What this run COST in disk**, as a number rather than as a surprise.
+    #
+    # The suite is the repo's largest disk consumer and its cost is invisible
+    # until it is fatal: every feature job builds its own variant of the graph,
+    # cargo never prunes the previous one, and the failure mode is a mid-run
+    # ENOSPC that surfaces as unrelated compile errors. A figure printed every
+    # run is what lets somebody notice the trend BEFORE the volume is full — and
+    # it is a measurement that moves when the job plan changes, which is the only
+    # kind worth having.
+    free_after = free_gb_on_target()
+    spent = free_gb - free_after
+    print(f"  disk: {free_after:.0f} GB free "
+          f"({spent:+.0f} GB this run, {free_gb:.0f} GB before)")
+    if free_after < MIN_FREE_GB:
+        print(f"  ⚠ below the {MIN_FREE_GB:.0f} GB floor — the NEXT suite run will "
+              f"refuse. `cargo clean` frees it, at the cost of one full rebuild.")
+
     write_status(status, {**base, "state": "done", "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
+                          "free_gb_at_end": round(free_after, 1),
+                          "disk_gb_spent": round(spent, 1),
                           "exit_code": 1 if failed else 0})
     print(f"  status written to {status}")
     return 1 if failed else 0

@@ -689,6 +689,10 @@ fn present_the_select_screen(
     mut assignment: bevy::prelude::ResMut<
         ambition_platformer2d::input::sources::InputAssignmentPolicy,
     >,
+    // Whether THIS demo is the one holding the couch policy, so leaving its
+    // routes restores the default exactly once and never stamps over a policy
+    // some other experience set.
+    mut claimed_policy: bevy::prelude::Local<bool>,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -724,14 +728,30 @@ fn present_the_select_screen(
     let on_smash_route = router.active.as_ref().is_some_and(|active| {
         matches!(active.route_id.as_str(), SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE)
     });
-    let policy = if on_smash_route {
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim
-    } else {
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary
-    };
-    if *assignment != policy {
-        *assignment = policy;
+    // ⛔ **write only what THIS demo claimed** (GPT 5.6, 2026-08-01). The first
+    // version set `JoinToClaim` on smash routes and `UnifiedPrimary` on every
+    // other one — so a demo plugin was stamping a global host resource while
+    // another game owned the screen, and no other experience could hold its own
+    // assignment policy. The comment said "route-scoped"; the code was global.
+    //
+    // A claim is released by whoever made it: this restores the default only on
+    // the frame it leaves its own routes, and is silent everywhere else.
+    let couch = ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim;
+    if on_smash_route {
+        if *assignment != couch {
+            *assignment = couch;
+        }
+        *claimed_policy = true;
+    } else if *claimed_policy {
+        *claimed_policy = false;
+        // Only undo OUR value. If something else has since set a policy, that is
+        // its business and this demo has no opinion about it.
+        if *assignment == couch {
+            *assignment =
+                ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary;
+        }
     }
+    let policy = *assignment;
     let offered = devices
         .as_deref()
         .map(|devices| select::seats_offered_under(devices, policy))

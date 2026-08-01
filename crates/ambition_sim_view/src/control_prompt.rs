@@ -54,6 +54,17 @@ pub struct PromptEntry {
     pub slot: ControlSlot,
     pub label: String,
     pub visual: Option<VisualId>,
+    /// The physical control this slot is bound to for the local primary seat —
+    /// "Z", "A", "Cross" — or `None` when nothing bound it (or when no
+    /// projection is installed, as in a headless sim).
+    ///
+    /// ⚠ **read from `SeatBindings`, never written by hand.** The verb and the
+    /// key are two different facts with two different owners: the verb is what
+    /// this slot DOES (the action scheme's answer) and the binding is which
+    /// control presses it (the input map's). A prompt that hardcoded the second
+    /// would go stale on the first rebind, and the player would be told to press
+    /// a key that does nothing.
+    pub binding: Option<String>,
 }
 
 /// The published prompt the on-screen buttons render. A plain-data snapshot
@@ -137,6 +148,10 @@ pub fn publish_frontend_context_prompt(
 pub fn rebuild_control_prompt(
     mode: Res<State<GameMode>>,
     active_context: Option<Res<SeatInputContexts>>,
+    // The physical bindings, projected from the live `InputMap`. Optional
+    // because a headless sim installs no input stack; absent, entries carry no
+    // glyph rather than a stale one.
+    bindings: Option<Res<ambition_input::SeatBindings>>,
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     authorities: Query<(
@@ -153,9 +168,9 @@ pub fn rebuild_control_prompt(
     // `is_changed()` on an `Option<Res<T>>` can only speak while the resource
     // is `Some`: a removal contributes nothing to `inputs_changed`, so without
     // the bits a quiet-frame removal of `SeatInputContexts` / `ActiveUiCues` /
-    // `ControlledSubject` would be skipped and the prompt would keep describing
-    // a context that no longer exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 3])>>,
+    // `ControlledSubject` / `SeatBindings` would be skipped and the prompt would
+    // keep describing a context that no longer exists.
+    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 4])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -184,13 +199,19 @@ pub fn rebuild_control_prompt(
     let inputs_changed = mode.is_changed()
         || active_context.as_ref().is_some_and(|r| r.is_changed())
         || controlled.as_ref().is_some_and(|r| r.is_changed())
-        || cues.as_ref().is_some_and(|r| r.is_changed());
+        || cues.as_ref().is_some_and(|r| r.is_changed())
+        // ⚠ A REBIND MUST INVALIDATE THE PROMPT. Without this line the entries
+        // keep the glyph they were built with and the player is told to press
+        // the old key — which is the precise staleness the binding projection
+        // exists to make impossible, reintroduced one layer up by a cache.
+        || bindings.as_ref().is_some_and(|r| r.is_changed());
     // Presence is tracked separately from change: an `Option<Res<T>>` that went
     // `Some -> None` reports no change at all (see `last`'s doc).
     let resources = [
         active_context.is_some(),
         controlled.is_some(),
         cues.is_some(),
+        bindings.is_some(),
     ];
 
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
@@ -255,6 +276,11 @@ pub fn rebuild_control_prompt(
             slot: action.slot,
             label: action.display(),
             visual: action.visual.clone(),
+            binding: bindings
+                .as_deref()
+                .and_then(|seats| {
+                    seats.label_for_slot(ambition_input::ParticipantId::PRIMARY.slot(), action.slot)
+                }),
         })
         .collect();
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
@@ -342,6 +368,79 @@ mod tests {
         // The attack label comes from the bound move id (title-cased).
         assert_eq!(prompt.label_for(ControlSlot::Attack), Some("Swat"));
         assert_eq!(prompt.label_for(ControlSlot::Special), None);
+    }
+
+    /// **The prompt shows the key, and the key is the one the router reads.**
+    ///
+    /// The verb and the binding are two facts with two owners — what the slot
+    /// DOES (the action scheme) and which control presses it (the input map).
+    /// This asserts the second is read rather than written, and that a REBIND
+    /// moves it: a prompt cached past a remap tells the player to press a key
+    /// that does nothing, which is exactly the staleness the projection exists
+    /// to prevent, reintroduced one layer up by a cache.
+    #[test]
+    fn the_prompt_carries_the_binding_and_a_rebind_moves_it() {
+        use ambition_input::{KeyboardPreset, SeatBindings};
+        use leafwing_input_manager::prelude::InputMap;
+
+        let mut app = app();
+        app.init_resource::<SeatBindings>();
+        app.add_systems(
+            Update,
+            ambition_input::publish_seat_bindings.before(rebuild_control_prompt),
+        );
+        // Drive the REAL projection the way the host does — spawn the
+        // participant holding the map — rather than hand-writing a
+        // `SeatBindings`. A hand-written one would prove the prompt reads a
+        // resource, not that it reads the router's binding.
+        let arrows = KeyboardPreset::arrows_zxc();
+        app.world_mut()
+            .spawn((ambition_input::InputParticipant::primary(), arrows.input_map()));
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+
+        let binding_for = |app: &App, slot: ControlSlot| -> Option<String> {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .find(|entry| entry.slot == slot)
+                .and_then(|entry| entry.binding.clone())
+        };
+        assert_eq!(
+            binding_for(&app, ControlSlot::Jump).as_deref(),
+            Some("Z"),
+            "Arrows+ZXC puts Jump on Z, and the prompt says so without a table of its own"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Jump),
+            Some("Jump"),
+            "the VERB is unchanged — the binding is a second field, not a replacement"
+        );
+
+        // Rebind, the way a remap screen would.
+        {
+            let world = app.world_mut();
+            let mut maps =
+                world.query::<&mut InputMap<ambition_input::SandboxAction>>();
+            for mut map in maps.iter_mut(world) {
+                map.clear_action(&ambition_input::SandboxAction::Jump);
+                map.insert(ambition_input::SandboxAction::Jump, KeyCode::F13);
+            }
+        }
+        app.update();
+        assert_eq!(
+            binding_for(&app, ControlSlot::Jump).as_deref(),
+            Some("F13"),
+            "the prompt followed the rebind — a cache that skipped this would tell the player \
+             to press a key that does nothing"
+        );
     }
 
     #[test]

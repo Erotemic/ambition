@@ -1205,23 +1205,32 @@ pub struct ButtonGlyph(pub Cow<'static, str>);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
-/// Map a touch button to its canonical gameplay [`SandboxAction`]. Keeps
-/// the glyph + pressed-state systems honest against the same logical action
-/// that the virtual-device binding contributes.
-fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
+/// Map a touch button to its canonical gameplay [`SandboxAction`].
+///
+/// ⛔ **this used to be a second table.** It sat fifteen lines below
+/// `touch_button_slot` (`TouchActionButton → ControlSlot`) and listed the same
+/// twelve buttons again, agreeing with it only because somebody kept them
+/// agreeing. Two maps over one enum is the shape that produced the gamepad
+/// glyph table's "if those bindings change the table here needs to follow", and
+/// a third reader — the on-screen prompt, asking what the Attack SLOT is bound
+/// to — would have needed a third table.
+///
+/// It COMPOSES now: button → slot → action, through
+/// `ambition_input::action_for_slot`. Start and Reset are the honest residue —
+/// they are shell verbs with no ability slot at all, which is exactly what
+/// `touch_button_slot` already returns `None` for.
+///
+/// ⚠ **`Option`, not a fallback.** The first version of this returned
+/// `SandboxAction::Jump` behind a `debug_assert!(false, ..)` for a button with
+/// no slot — which is the pattern this repo swept a day earlier: the release
+/// path drove JUMP from an unclassifiable button and the assert WAS the
+/// handling. A button nobody can classify gets no glyph and no press, which is
+/// the truthful answer and needs no alarm.
+fn touch_action_to_sandbox_action(action: TouchActionButton) -> Option<SandboxAction> {
     match action {
-        TouchActionButton::Jump => SandboxAction::Jump,
-        TouchActionButton::Attack => SandboxAction::Attack,
-        TouchActionButton::Special => SandboxAction::Special,
-        TouchActionButton::Dash => SandboxAction::Dash,
-        TouchActionButton::Blink => SandboxAction::Blink,
-        TouchActionButton::Interact => SandboxAction::Interact,
-        TouchActionButton::Projectile => SandboxAction::Projectile,
-        TouchActionButton::FlyToggle => SandboxAction::Utility,
-        TouchActionButton::Shield => SandboxAction::QuickAction,
-        TouchActionButton::Modifier => SandboxAction::Modifier,
-        TouchActionButton::Start => SandboxAction::Start,
-        TouchActionButton::Reset => SandboxAction::Reset,
+        TouchActionButton::Start => Some(SandboxAction::Start),
+        TouchActionButton::Reset => Some(SandboxAction::Reset),
+        gameplay => touch_button_slot(gameplay).and_then(ambition_input::action_for_slot),
     }
 }
 
@@ -1250,7 +1259,9 @@ pub fn update_button_glyph_from_active_input(
         .as_deref()
         .map_or(&empty, |seats| seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot()));
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
-        let sa = touch_action_to_sandbox_action(*touch_action);
+        let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
+            continue;
+        };
         let next = ambition_actors::affordances::glyph_for(sa, &preset, bound, active.0);
         if glyph.0 != next {
             glyph.0 = next;
@@ -1275,8 +1286,11 @@ pub fn update_button_pressed_from_actions(
 ) {
     let actions = actions_q.single().ok();
     for (touch_action, mut pressed) in &mut buttons {
-        let sa = touch_action_to_sandbox_action(*touch_action);
-        let held = actions.map(|a| a.pressed(&sa)).unwrap_or(false);
+        // An unclassifiable button reads as NOT held, which is the truthful
+        // answer: nothing is driving it.
+        let held = touch_action_to_sandbox_action(*touch_action)
+            .zip(actions)
+            .is_some_and(|(sa, a)| a.pressed(&sa));
         if pressed.0 != held {
             pressed.0 = held;
         }

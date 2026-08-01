@@ -42,6 +42,11 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # already-built `bevy_window` crate directly keeps this layer thin while giving
 # the active-input detector the `CursorMoved` message it needs.
 bevy_window = { version = "0.18.1", default-features = false }
+# The content-free ability vocabulary, for `ControlSlot`. A DOWNWARD edge to a
+# pure-data leaf (serde + ron, no Bevy): the input layer owns which ACTION a
+# slot is driven by, and that correspondence has to live somewhere both the
+# prompt and the touch overlay can reach.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 leafwing-input-manager = { version = "0.20", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side

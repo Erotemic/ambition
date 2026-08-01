@@ -116,6 +116,38 @@ impl ActionBindings {
     }
 }
 
+/// **Which action drives an ability slot.**
+///
+/// ⛔ **this did not exist, and two hand-maintained maps stood in for it.**
+/// `ambition_touch_input` carried `TouchActionButton → ControlSlot` and
+/// `TouchActionButton → SandboxAction` fifteen lines apart, agreeing only
+/// because somebody kept them agreeing — the same shape as the gamepad glyph
+/// table this module replaced. Anything else that wanted to ask "what is the
+/// Attack SLOT bound to" would have needed a third.
+///
+/// `ControlSlot` is the ability vocabulary (`ambition_entity_catalog`, a pure
+/// leaf) and `SandboxAction` is the input vocabulary; the correspondence is an
+/// INPUT-layer fact, so it lives here, where both the prompt and the overlay can
+/// reach it.
+///
+/// `None` for a slot with no single action behind it — today none, and the
+/// `Option` is what will say so honestly when a slot becomes a chord.
+pub fn action_for_slot(slot: ambition_entity_catalog::action_scheme::ControlSlot) -> Option<SandboxAction> {
+    use ambition_entity_catalog::action_scheme::ControlSlot;
+    Some(match slot {
+        ControlSlot::Jump => SandboxAction::Jump,
+        ControlSlot::Attack => SandboxAction::Attack,
+        ControlSlot::Special => SandboxAction::Special,
+        ControlSlot::Projectile => SandboxAction::Projectile,
+        ControlSlot::Dash => SandboxAction::Dash,
+        ControlSlot::Blink => SandboxAction::Blink,
+        ControlSlot::Interact => SandboxAction::Interact,
+        ControlSlot::Utility => SandboxAction::Utility,
+        ControlSlot::QuickAction => SandboxAction::QuickAction,
+        ControlSlot::Modifier => SandboxAction::Modifier,
+    })
+}
+
 /// Every seat's bindings, keyed by participant slot.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeatBindings {
@@ -134,6 +166,16 @@ impl SeatBindings {
     /// The label this seat's prompt should show for this action.
     pub fn label(&self, slot: u8, action: &SandboxAction) -> Option<String> {
         self.for_seat(slot).label(action)
+    }
+
+    /// The label for an ability SLOT — what a prompt actually wants to ask.
+    /// Composes [`action_for_slot`] rather than carrying its own table.
+    pub fn label_for_slot(
+        &self,
+        seat: u8,
+        slot: ambition_entity_catalog::action_scheme::ControlSlot,
+    ) -> Option<String> {
+        self.label(seat, &action_for_slot(slot)?)
     }
 
     pub fn seats(&self) -> impl Iterator<Item = (u8, &ActionBindings)> {

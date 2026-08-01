@@ -101,7 +101,9 @@ pub enum InputSet {
     Consume,
 }
 #[cfg(feature = "input")]
-pub use bindings::{publish_seat_bindings, ActionBindings, PhysicalControl, SeatBindings};
+pub use bindings::{
+    action_for_slot, publish_seat_bindings, ActionBindings, PhysicalControl, SeatBindings,
+};
 pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{
     analog_to_dir, DeclaredInputSeats, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState,

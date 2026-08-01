@@ -95,6 +95,44 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "the-seat-topology-has-one-engine-side-creator",
+        "paths": [
+            "crates/",
+            "game/",
+            # The engine system that freezes it from the roster. This is the one
+            # place a shipped build gets a topology.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+            # The rollback observatory legitimately creates one for a proof
+            # session that has no roster (Ambition's own rooms). It is behind
+            # `dev_tools`, which is exactly the problem below — it may HAVE one,
+            # it may not be the only one that does.
+            ":(exclude)game/ambition_app/src/dev/rollback_observatory.rs",
+        ],
+        # ⚠ `commands.` is the SYSTEM spelling. The checker excludes test PATHS
+        # and cannot see an inline `#[cfg(test)]` module, and `versus.rs` has one
+        # that inserts a topology by hand to drive the reconciler. Keying on
+        # `commands.` separates a system from a fixture's `app.insert_resource`
+        # without excluding a production file wholesale — the same discriminator
+        # the roster contract uses, and for the same reason.
+        "patterns": [
+            r"commands *\. *(insert_resource *\([^;]*LocalSeatTopology|remove_resource::< *[A-Za-z0-9_: ]*LocalSeatTopology)",
+        ],
+        "reason": (
+            "`LocalSeatTopology` is what makes a session stop re-sampling devices "
+            "- it freezes the roster's seat count and the handle->device mapping, "
+            "and every consumer takes `Option<Res<..>>` and returns early without "
+            "it. For months the ONLY thing that created one was the rollback "
+            "observatory, behind `#[cfg(feature = \"dev_tools\")]`, which the "
+            "android persona omits: so `reconcile_roster_with_frozen_topology` "
+            "returned on its first line every frame in every build a player runs, "
+            "and `assign_local_seat_devices` always used live discovery - the "
+            "behaviour its own doc calls the bug. Every test passed because tests "
+            "construct the resource by hand. A second creator makes 'is it frozen' "
+            "depend on which one ran, which is the same question with two answers "
+            "that this resource exists to prevent."
+        ),
+    },
+    {
         "id": "the-global-roster-is-retired-only-by-its-owner",
         "paths": [
             "crates/",

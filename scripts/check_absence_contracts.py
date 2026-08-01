@@ -95,6 +95,53 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "the-global-roster-is-retired-only-by-its-owner",
+        "paths": [
+            "crates/",
+            "game/",
+            # The two experiences that publish a roster are the two that may
+            # retire one, and BOTH ask `is_published_by` first. They are named
+            # here rather than trusted: the point is that a THIRD site cannot
+            # appear without this list changing.
+            ":(exclude)game/ambition_app/src/app/versus.rs",
+            ":(exclude)game/ambition_demo_smash/src/lib.rs",
+        ],
+        # `commands.remove_resource` is the SYSTEM spelling; the checker excludes
+        # test PATHS but cannot see an inline `#[cfg(test)]` module, and
+        # `input_systems.rs` has one that retires a roster to prove a seat is
+        # retired with it. Keying on `commands.` separates a system from a test's
+        # `app.world_mut()` without excluding a production file wholesale.
+        # ⚠ an exclusive system using `world.remove_resource` would slip; if one
+        # ever appears, this pattern grows rather than the exclusion list.
+        # ⚠ ERE, not PCRE — `git grep -E`. A `(?:…)` group makes git exit 2 with
+        # "Invalid preceding regular expression", which the harness turns into a
+        # crash whose exit code 1 looks EXACTLY like the contract firing. Both
+        # probes "passed" against a broken pattern before that was noticed.
+        #
+        # ⚠ the module path is OPTIONAL. The first draft matched only the bare
+        # type name, and a probe using
+        # `remove_resource::<crate::character_runtime::MatchParticipantRoster>`
+        # sailed straight through — a contract that only sees one spelling of the
+        # thing it forbids is a contract the next person writes around by accident.
+        "patterns": [
+            r"commands *\. *remove_resource::< *([A-Za-z0-9_]+ *:: *)*MatchParticipantRoster"
+        ],
+        "reason": (
+            "`MatchParticipantRoster` is a GLOBAL resource shared by every "
+            "experience in the host, and clearing 'the roster' is how one game "
+            "deletes another's match. The rule has been learned three times: "
+            "Versus's teardown got an `is_published_by` guard after it deleted "
+            "Smash's match every frame, Smash's select-arrival reset got one, and "
+            "on 2026-08-01 the reconciler - which had none - rebuilt Smash's "
+            "roster with a builder that stamps VERSUS ownership, so Versus then "
+            "deleted it as its own and Smash's match opened with one fighter "
+            "instead of two. Nothing named the rule in one place, so each site "
+            "learned it separately and the third had not. A new removal site "
+            "belongs beside an ownership question; if this list has to grow, the "
+            "growth is the review."
+        ),
+    },
+    {
         "id": "central-rollback-does-not-enumerate-domains",
         "paths": ["crates/ambition_platformer2d_runtime/src/rollback/mod.rs"],
         "patterns": [

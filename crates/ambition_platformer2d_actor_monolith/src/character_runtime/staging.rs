@@ -290,6 +290,27 @@ impl MatchParticipantRoster {
     pub fn is_published_by(&self, experience_id: &str) -> bool {
         self.published_by.as_deref() == Some(experience_id)
     }
+
+    /// **Whether `experience_id` may write over this roster.**
+    ///
+    /// ⛔ The rule this answers has been learned three times and stated in three
+    /// different places, and the third site did not have it: Versus's
+    /// reconciler rebuilt Smash's roster with a builder that stamps VERSUS
+    /// ownership, so the rebuild transferred the roster; Versus's own teardown
+    /// then deleted it, correctly, on a route that was not Versus; and Smash's
+    /// match opened with one fighter instead of two (2026-08-01).
+    ///
+    /// ⚠ **an UNOWNED roster is writable.** A roster stamped `None` predates the
+    /// ownership rule or came from a fixture, and refusing to touch it would
+    /// strand it forever with no way to clear it. "Nobody claimed this" and
+    /// "somebody else claimed this" are different answers and only the second is
+    /// a refusal.
+    pub fn is_writable_by(&self, experience_id: &str) -> bool {
+        match self.published_by.as_deref() {
+            None => true,
+            Some(owner) => owner == experience_id,
+        }
+    }
 }
 
 /// **What a roster asked for that its composition cannot provide.**

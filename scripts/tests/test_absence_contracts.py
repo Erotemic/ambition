@@ -34,6 +34,8 @@ VIOLATING_LINE = {
     # where all the others used to be. Campaign 2 R5.
     "central-rollback-does-not-enumerate-domains":
         '    app.rollback_component_clone::<ambition_portal2d::PortalBody>(ENGINE, "portal.body");',
+    "the-global-roster-is-retired-only-by-its-owner":
+        "            commands.remove_resource::<MatchParticipantRoster>();",
     "registration-does-not-demand-art": "    CharacterLoadDemand::request(&mut demand, id);",
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",

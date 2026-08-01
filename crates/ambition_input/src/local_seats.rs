@@ -285,9 +285,20 @@ pub fn assign_local_seat_devices(
     for (participant, mut map) in &mut seats {
         let slot = participant.id.slot();
         let wanted = if keyboard_owner == Some(participant.id) {
-            // Their source is the keyboard. Leaving a stale association here
-            // would let an unplugged pad keep a seat that is being played.
-            None
+            // ⛔ **Their source is the keyboard, which is NOT the same as "no
+            // gamepad".** Clearing the association is what the first version of
+            // this did, and in leafwing an unset gamepad means *whichever pad
+            // this finds first* — the exact behaviour the top of this module
+            // calls the couch bug. Measured: with the keyboard on seat 0 and one
+            // pad on seat 1, a single South press arrived on BOTH seats'
+            // `ActionState`, so the pad player's confirm was also the keyboard
+            // player's.
+            //
+            // `Entity::PLACEHOLDER` is what leafwing's own fallback resolves to
+            // when no gamepad exists, so associating it means no REAL pad ever
+            // matches: a seat playing on keys is deaf to every controller in the
+            // room, which is what owning the keyboard has to mean.
+            Some(Entity::PLACEHOLDER)
         } else {
             // Pads go to the seats that need one, in slot order, skipping the
             // keyboard seat rather than leaving a hole where it sits.
@@ -362,7 +373,15 @@ mod tests {
         let pad = app.world_mut().spawn(Gamepad::default()).id();
         app.update();
         assert_eq!(assigned(&app, two), Some(pad), "the pad player is seat two");
-        assert_eq!(assigned(&app, one), None, "seat one is playing on the keyboard");
+        // ⛔ NOT `None`. An unset gamepad means "whichever pad this finds first"
+        // — measured, a single South press landed on BOTH seats' `ActionState`,
+        // so the pad player's confirm was also the keyboard player's. The
+        // placeholder is what makes a keyboard seat deaf to every real pad.
+        assert_eq!(
+            assigned(&app, one),
+            Some(Entity::PLACEHOLDER),
+            "seat one plays on the keyboard and must not answer any pad"
+        );
     }
 
 

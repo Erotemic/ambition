@@ -291,7 +291,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.
+        // The HUD publisher is PRESENTATION, not a rule: it reads seats and
+        // publishes readouts and decides nothing. It runs in the same gated set
+        // so a hosted build stops drawing a fighter HUD the moment the stage is
+        // not the active mode.
         let rules = (
+            publish_smash_hud,
             release_the_opening_hold,
             place_respawning_fighters,
             take_eliminated_fighters_out_of_play,
@@ -304,6 +309,88 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SMASH_MODE)));
         } else {
             app.add_systems(sim, rules);
+        }
+    }
+}
+
+/// The stage's own readouts: one per fighter, plus the match card.
+///
+/// ⛔ Until 2026-08-01 this demo declared NO HUD, so it inherited Ambition's
+/// adventure one and a platform-fighter match was drawn with `HP 100/100`,
+/// `MP 100` and `$0` — a health bar, a mana bar and a money counter, none of
+/// which describe this game. Photographed, not reasoned about.
+///
+/// ⚠ the data was already shaped for these readouts and nothing consumed it:
+/// `BodyHealth::damage_percent()` is deliberately UNCLAMPED with a test named
+/// `damage_percent_is_unclamped_so_a_hud_can_print_188`, and `FighterStocks`
+/// keeps `started_with` with the comment *"so a HUD can draw '2 of 3' rather
+/// than inferring a maximum it was never told"*. Two APIs built for a consumer
+/// that did not exist.
+pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
+    "smash_fighter_0",
+    "smash_fighter_1",
+    "smash_fighter_2",
+    "smash_fighter_3",
+];
+/// The winner card. One slot, because the stage says one thing at a time.
+pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
+
+/// Publish percent and stocks for every seated fighter.
+///
+/// ⚠ percent is NOT health and the gauge fill says so: it fills as damage
+/// ACCUMULATES, and the number keeps counting past 100% because a platform
+/// fighter's does. Clamping the fill is a rendering decision; clamping the
+/// number would be a lie about the game.
+pub fn publish_smash_hud(
+    fighters: bevy::prelude::Query<(
+        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        Option<&ambition_platformer2d::actor::FighterStocks>,
+        &bevy::prelude::Name,
+    )>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+) {
+    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>)> = fighters
+        .iter()
+        .map(|(seat, health, stocks, name)| {
+            (
+                seat.0,
+                name.as_str().to_string(),
+                health.damage_percent(),
+                stocks.map(|s| (s.remaining, s.started_with)),
+            )
+        })
+        .collect();
+    // Sorted by SEAT. Query order is not an order, and a scoreboard whose sides
+    // swap mid-match is worse than none — the same reason the versus stage sorts.
+    rows.sort_by_key(|(seat, ..)| *seat);
+
+    let mut written = [false; FIGHTER_HUD_SLOTS.len()];
+    for (seat, name, percent, stocks) in &rows {
+        let Some(slot) = FIGHTER_HUD_SLOTS.get(*seat) else {
+            continue;
+        };
+        written[*seat] = true;
+        let value = match stocks {
+            Some((remaining, started)) => {
+                format!("{:.0}%  ·  {remaining}/{started}", percent * 100.0)
+            }
+            None => format!("{:.0}%", percent * 100.0),
+        };
+        readouts.set(
+            *slot,
+            ambition_platformer2d::presentation::HudReadout::gauge(
+                name.clone(),
+                value,
+                *percent,
+            ),
+        );
+    }
+    // A 1v1 declares four slots and fills two. An unwritten slot must be
+    // CLEARED, not left holding the previous match's fourth fighter.
+    for (index, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
+        if !written[index] {
+            readouts.clear_slot(*slot);
         }
     }
 }
@@ -800,6 +887,35 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // multi-game host can, because its home lists games. Selecting "Smash"
         // in the Ambition title screen would have dropped a lone duelist onto
         // the platform with nobody to fight.
+        // **THE STAGE'S OWN READOUTS.** Without this the route inherited
+        // Ambition's adventure HUD and drew a health bar, a mana bar and a money
+        // counter over a platform fighter (photographed 2026-08-01). Four slots
+        // because the stage seats four; a 1v1 fills two and the publisher clears
+        // the rest, the same rule the versus stage states.
+        .with_hud({
+            let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
+            for (seat, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
+                hud = hud.slot(
+                    ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                        .with_font_size(22.0)
+                        .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
+                        // Coloured by seat parity, so a partner's meter reads as
+                        // a partner's at a glance.
+                        .with_color(if seat % 2 == 0 {
+                            [0.55, 0.85, 1.0, 1.0]
+                        } else {
+                            [1.0, 0.6, 0.55, 1.0]
+                        }),
+                );
+            }
+            hud.slot(
+                ambition_platformer2d::presentation::HudSlotSpec::new(SMASH_ANNOUNCE_HUD_SLOT)
+                    .centered()
+                    .with_font_size(34.0)
+                    .with_color([1.0, 0.85, 0.3, 1.0]),
+            )
+        })
         .entered_at(SMASH_SELECT_ROUTE)
         .with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);

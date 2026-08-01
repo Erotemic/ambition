@@ -841,7 +841,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.long_tests and not args.quick:
         if cargo_bloat_available(repo, logs_dir):
             run(
-                "cargo_bloat_release_ambition_actors_top50",
+                "cargo_bloat_release_ambition_platformer2d_actor_monolith_top50",
                 [
                     "cargo",
                     "bloat",
@@ -856,14 +856,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             (
-                logs_dir / "cargo_bloat_release_ambition_actors_top50.skipped.txt"
+                logs_dir / "cargo_bloat_release_ambition_platformer2d_actor_monolith_top50.skipped.txt"
             ).write_text(
                 "Skipped: cargo-bloat is not installed. Install with `cargo install cargo-bloat`.\n",
                 encoding="utf-8",
             )
         if llvm_lines_available(repo, logs_dir):
             run(
-                "cargo_llvm_lines_release_ambition_actors_top50",
+                "cargo_llvm_lines_release_ambition_platformer2d_actor_monolith_top50",
                 [
                     "cargo",
                     "llvm-lines",
@@ -878,7 +878,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             (
-                logs_dir / "cargo_llvm_lines_release_ambition_actors_top50.skipped.txt"
+                logs_dir / "cargo_llvm_lines_release_ambition_platformer2d_actor_monolith_top50.skipped.txt"
             ).write_text(
                 "Skipped: cargo-llvm-lines is not installed. Install with `cargo install cargo-llvm-lines`.\n",
                 encoding="utf-8",

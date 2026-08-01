@@ -579,7 +579,7 @@ fi
 RUST_TARGET=$(rust_target_for_abi "$TARGET_ABI")
 rustup target add "$RUST_TARGET" >/dev/null
 
-PROJECT_DIR="$ROOT/target/android/ambition_actors_android"
+PROJECT_DIR="$ROOT/target/android/ambition_platformer2d_actor_monolith_android"
 APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"

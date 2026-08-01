@@ -307,7 +307,7 @@ heap-profile mappings back to the local `libambition_app.so` symbols.
 To verify the latest profile APK:
 
 ```bash
-readelf -n target/android/ambition_actors_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
+readelf -n target/android/ambition_platformer2d_actor_monolith_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
 ```
 
 If the capture reports heapprofd buffer overruns, rerun with a coarser

@@ -315,7 +315,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
 /// before scanning so the existing "fundsp was retired" prose
 /// blocks pass.
 #[test]
-fn ambition_actors_cargo_toml_has_no_fundsp_dep() {
+fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest)
         .unwrap_or_else(|e| panic!("read {}: {e}", manifest.display()));
@@ -398,7 +398,7 @@ fn web_audio_feature_implies_audio_feature() {
 /// telemetry all live on the Kira side), so the only audio backend
 /// the sandbox is allowed to pull is `bevy_kira_audio`.
 #[test]
-fn ambition_actors_uses_only_bevy_kira_audio() {
+fn ambition_platformer2d_actor_monolith_uses_only_bevy_kira_audio() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
     // Other Bevy audio integrations we want to refuse silently

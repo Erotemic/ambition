@@ -37,9 +37,9 @@ use bevy::prelude::*;
 use bevy::ui::UiGlobalTransform;
 
 use crate::{
-    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
-    MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb, scrollbar_fraction_from_rect,
-    scrollbar_thumb_layout,
+    scrollbar_fraction_from_rect, scrollbar_thumb_layout, AmbitionMenuControl, AmbitionMenuRoot,
+    MenuColor, MenuControlKind, MenuNode, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
+    ScrollThumb,
 };
 
 /// Root marker for a spawned flat `bevy_ui` menu tree.
@@ -232,11 +232,22 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
 /// **The font every menu surface draws with.**
 ///
 /// ⛔ Bevy's `TextFont::default()` resolves `Handle::<Font>::default()`, which is
-/// the engine's built-in `FiraMono-subset.ttf` — **95 glyphs, ASCII only**. This
-/// crate set a font size and nothing else, so every menu in every game rendered
-/// through that subset and drew a hollow box for anything outside ASCII: `·`
-/// (U+00B7) and `—` (U+2014) in a launcher footer, invisibly, until somebody
-/// photographed it.
+/// the engine's built-in `FiraMono-subset.ttf`. This crate set a font size and
+/// nothing else, so every menu in every game rendered through that handle and
+/// drew a hollow box for `·` (U+00B7) and `—` (U+2014) in a launcher footer,
+/// invisibly, until somebody photographed it.
+///
+/// **Probed 2026-08-01**: forcing the default handle back at every menu text
+/// spawn and re-capturing `--route ambition_launcher` reproduces the hollow box
+/// exactly; restoring the resolved handle removes it. The fix is the handle.
+///
+/// ⚠ **the mechanism is only half known.** "That subset has no U+00B7" is the
+/// obvious explanation and it is WRONG on its own: `ambition_demo_smash`'s
+/// select screen spawns `Text` with no `TextFont` at all — the same default
+/// handle — and renders `·`, `—` and `…` correctly at 1280x720. Same codepoint,
+/// same font asset, different outcome, so something about the menu's text path
+/// (its `MenuTextHeightFraction` resize, its node layout) is the other half.
+/// Do not repeat the glyph-coverage claim as if it were established.
 ///
 /// ⚠ **ten hypotheses died before this one**, and they died because everyone
 /// checked the fonts the REPOSITORY ships — `JetBrainsMono-Regular.ttf` and
@@ -392,7 +403,18 @@ where
                             Name::new(format!("tab[{i}]")),
                         ))
                         .with_children(|btn| {
-                            btn.spawn((Text::new(tab.label.clone()), TextColor(label_color)));
+                            btn.spawn((
+                                Text::new(tab.label.clone()),
+                                // Tab labels are game-authored strings too — see
+                                // the row-label note in `spawn.rs`. A `Text` with
+                                // no `TextFont` still GETS one (required
+                                // component), and that one is the ASCII subset.
+                                TextFont {
+                                    font: font.cloned().unwrap_or_default(),
+                                    ..default()
+                                },
+                                TextColor(label_color),
+                            ));
                         });
                     }
                 });

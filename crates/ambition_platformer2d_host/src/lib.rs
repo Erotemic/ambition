@@ -45,7 +45,9 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt as _};
+use ambition_platformer2d_shared_tangle::schedule::{
+    Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+};
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;
@@ -75,16 +77,16 @@ pub struct HostInputBindingsPlugin;
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{
-            MenuControlFrame, MenuInputState, PlayerDashTriggerState, Platformer2dInputActionMonolith,
+            MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith,
+            PlayerDashTriggerState,
         };
         use ambition_platformer2d_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
-            declare_in_session_input_contexts,
-            dialog_pointer_input, populate_control_frame_from_actions,
+            declare_in_session_input_contexts, dialog_pointer_input,
+            freeze_local_seating_for_the_decided_match, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
             populate_secondary_slot_controls, publish_latched_slot_controls,
-            freeze_local_seating_for_the_decided_match, seat_input_participants_for_roster,
-            spawn_primary_input_participant,
+            seat_input_participants_for_roster, spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -365,7 +367,9 @@ impl Plugin for HostInputBindingsPlugin {
 fn tune_clash_strategy_to_bindings(
     maps: Query<
         bevy::ecs::change_detection::Ref<
-            leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
+            leafwing_input_manager::prelude::InputMap<
+                ambition_input::Platformer2dInputActionMonolith,
+            >,
         >,
     >,
     mut strategy: ResMut<leafwing_input_manager::prelude::ClashStrategy>,
@@ -578,13 +582,15 @@ mod clash_strategy_tests {
 
 /// **Hand the menu crate the font the render side resolved.**
 ///
-/// ⛔ `ambition_menu` sets a font SIZE and no handle, so Bevy resolved
-/// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`, **95 glyphs,
-/// ASCII only**. Every menu in every game drew a hollow box for `·` (U+00B7) or
-/// `—` (U+2014), invisibly, until a launcher footer was photographed. Ten
-/// hypotheses died on that bug: they checked the fonts the REPOSITORY ships —
-/// `JetBrainsMono-Regular.ttf` and `InterDisplay-Regular.otf`, both of which
-/// carry the glyphs — and none of them asked what `Handle::default()` points at.
+/// ⛔ `ambition_menu` set a font SIZE and no handle, so Bevy resolved
+/// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`. Every menu
+/// in every game drew a hollow box for `·` (U+00B7) or `—` (U+2014), invisibly,
+/// until a launcher footer was photographed. Ten hypotheses died on that bug:
+/// they checked the fonts the REPOSITORY ships — `JetBrainsMono-Regular.ttf` and
+/// `InterDisplay-Regular.otf`, both of which carry the glyphs — and none of them
+/// asked what `Handle::default()` points at. Forcing the default handle back
+/// reproduces the box; see `MenuFont`, which also records what about this is
+/// still UNEXPLAINED (the same handle renders those glyphs elsewhere).
 ///
 /// ⚠ **this is the composition root because it is the only place the two crates
 /// can meet.** `ambition_render` must not depend on `ambition_menu`
@@ -594,6 +600,11 @@ mod clash_strategy_tests {
 ///
 /// Idempotent and cheap: it writes only when the resolved handle changes, which
 /// is once.
+///
+/// Gated with its only caller (`HostInputBindingsPlugin`, which is
+/// `feature = "input"`); without this a feature-stripped build warns
+/// `never used`, and CI compiles with `-D warnings` across configs.
+#[cfg(feature = "input")]
 fn publish_menu_font(
     mut commands: bevy::prelude::Commands,
     fonts: Option<bevy::prelude::Res<ambition_render::ui_fonts::UiFonts>>,

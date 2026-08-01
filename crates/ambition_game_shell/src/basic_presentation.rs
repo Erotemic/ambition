@@ -7,23 +7,23 @@
 
 use ambition_input::participant::context_priority;
 use ambition_input::{
-    ActiveUiCues, InputSet, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT, UiCue,
+    ActiveUiCues, InputSet, UiCue, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition_menu::render::bevy_ui::{
-    BevyUiMenuInteractionSet, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
-    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets,
+    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
+    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{
     AmbitionMenuControl, MenuActionActivated, MenuActionPreviewed, MenuColor, MenuControlKind,
     MenuFocusKey, MenuPageModel, MenuRect, MenuTextAlign,
 };
-use ambition_sfx::{OwnedSfxMessage, SfxMessage, SfxWriter, ids};
+use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::prelude::*;
 
 use crate::{
-    ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind, ShellLaunchCatalog,
-    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouter,
-    ShellSegmentPresentation, ShellSequenceCommand, image_sequence_frame_at, shell_action_edges,
+    image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
+    FrontendPresentationKind, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
+    ShellLauncherState, ShellRouter, ShellSegmentPresentation, ShellSequenceCommand,
 };
 
 #[derive(Component)]
@@ -356,6 +356,16 @@ fn render_basic_shell(
     if frame.text.is_empty() && frame.image_path.is_none() {
         return;
     }
+    // Startup cards render AUTHORED prose, so they need the same font the
+    // launcher below gets. Left at `TextFont::default()` they resolved Bevy's
+    // built-in `FiraMono-subset.ttf`, the handle that drew hollow boxes for
+    // `·` and `—` in every menu until `MenuFont` existed. `None` still means
+    // that handle; see `ambition_menu::render::bevy_ui::MenuFont`, which
+    // records what about it is proven and what is not.
+    let card_font = menu_font
+        .as_deref()
+        .and_then(|font| font.0.clone())
+        .unwrap_or_default();
     commands
         .spawn((
             BasicSequenceRoot,
@@ -435,6 +445,7 @@ fn render_basic_shell(
                 root.spawn((
                     Text::default(),
                     TextFont {
+                        font: card_font.clone(),
                         font_size: 24.0,
                         ..default()
                     },
@@ -449,6 +460,7 @@ fn render_basic_shell(
                 root.spawn((
                     Text::new(frame.text),
                     TextFont {
+                        font: card_font.clone(),
                         font_size: 28.0,
                         ..default()
                     },

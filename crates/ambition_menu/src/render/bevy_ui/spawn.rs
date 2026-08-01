@@ -48,9 +48,10 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    // ⛔ Bevy's default handle is `FiraMono-subset.ttf`, 95 glyphs,
-                    // ASCII only — see `MenuFont`. Leaving this at `..default()`
-                    // is what drew a hollow box for `·` and `—` in every menu.
+                    // ⛔ leaving this at `..default()` resolves Bevy's built-in
+                    // `FiraMono-subset.ttf`, which is what drew a hollow box for
+                    // `·` and `—` in every menu — probed by forcing it back.
+                    // See `MenuFont` for what is measured and what is not.
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
@@ -76,9 +77,10 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    // ⛔ Bevy's default handle is `FiraMono-subset.ttf`, 95 glyphs,
-                    // ASCII only — see `MenuFont`. Leaving this at `..default()`
-                    // is what drew a hollow box for `·` and `—` in every menu.
+                    // ⛔ leaving this at `..default()` resolves Bevy's built-in
+                    // `FiraMono-subset.ttf`, which is what drew a hollow box for
+                    // `·` and `—` in every menu — probed by forcing it back.
+                    // See `MenuFont` for what is measured and what is not.
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
@@ -240,7 +242,20 @@ fn spawn_control<Action>(
         });
     } else if !label.is_empty() {
         control.with_children(|c| {
-            c.spawn((Text::new(label.to_string()), TextColor(label_color)));
+            c.spawn((
+                Text::new(label.to_string()),
+                // ⚠ a `Text` with no `TextFont` is not "unstyled" — Bevy inserts
+                // the default one as a required component, and that resolves the
+                // built-in ASCII-only `FiraMono-subset.ttf`. This is the ROW
+                // LABEL, so it carries whatever a game named its entries; the
+                // title and footer above were fixed first and these were missed
+                // because they had no `TextFont` literal to notice.
+                TextFont {
+                    font: font.cloned().unwrap_or_default(),
+                    ..default()
+                },
+                TextColor(label_color),
+            ));
         });
     }
 

@@ -264,6 +264,10 @@ pub fn vfx_spawn_messages(
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
+    // Speech bubbles quote their text with real typographic quotes, so they
+    // need a real face. `None` falls back to Bevy's ASCII-only subset, which is
+    // the honest outcome when a composition loads no fonts at all.
+    ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let world = &world.0;
@@ -331,6 +335,10 @@ pub fn vfx_spawn_messages(
             }
         }
     }
+    let bubble_font = ui_fonts
+        .as_deref()
+        .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
+        .unwrap_or_default();
     for bubble in pending_speech_bubbles {
         spawn_speech_bubble(
             &mut commands,
@@ -341,6 +349,7 @@ pub fn vfx_spawn_messages(
             bubble.age,
             bubble.stack_offset,
             bubble.target_stack_offset,
+            &bubble_font,
         );
     }
 }
@@ -654,7 +663,19 @@ pub fn spawn_speech_bubble(
     age: f32,
     stack_offset: f32,
     target_stack_offset: f32,
+    // The face the bubble draws in. Threaded rather than repaired a frame later
+    // (the way `label_layout` patches world labels) because a bubble lives about
+    // a second and fades the whole time — one frame in the wrong font is a
+    // meaningful fraction of the thing.
+    font: &TextFont,
 ) {
+    // ⚠ this line is why the font MATTERS here more than anywhere else: the
+    // bubble supplies its own non-ASCII. Left at `TextFont::default()` the
+    // curly quotes resolved Bevy's built-in `FiraMono-subset.ttf` — the same
+    // handle the menu tofu came down to. ⚠ NOT yet photographed here: the
+    // menu's box does not reproduce everywhere that handle is used, so treat
+    // this as the same defect SHAPE rather than a confirmed sighting. See
+    // `ambition_menu::render::bevy_ui::MenuFont`.
     let bubble_text = format!("\u{201c}{text}\u{201d}");
     let Some(session_scope) = session_scope else {
         return;
@@ -684,7 +705,7 @@ pub fn spawn_speech_bubble(
                 Text2d::new(bubble_text.clone()),
                 TextFont {
                     font_size: 18.0,
-                    ..default()
+                    ..font.clone()
                 },
                 color,
                 transform,
@@ -709,7 +730,7 @@ pub fn spawn_speech_bubble(
                     Text2d::new(bubble_text.clone()),
                     TextFont {
                         font_size: 18.0,
-                        ..default()
+                        ..font.clone()
                     },
                     outline_color,
                     Transform::from_xyz(offset.x, offset.y, -0.1),

@@ -38,6 +38,8 @@ VIOLATING_LINE = {
         "            commands.remove_resource::<MatchParticipantRoster>();",
     "the-seat-topology-has-one-engine-side-creator":
         "        commands.insert_resource(ambition_input::LocalSeatTopology::default());",
+    "a-second-writer-of-a-match-global-must-answer-ownership":
+        "            commands.remove_resource::<ActiveMatch>();",
     "registration-does-not-demand-art": "    CharacterLoadDemand::request(&mut demand, id);",
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",

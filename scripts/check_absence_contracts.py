@@ -95,6 +95,35 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "a-second-writer-of-a-match-global-must-answer-ownership",
+        "paths": [
+            "crates/",
+            "game/",
+            # ActiveMatch is PUBLISHED by seating, the one place a match becomes
+            # active, and RETIRED by the versus stage's ownership-gated teardown.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/seating.rs",
+            ":(exclude)game/ambition_app/src/app/versus.rs",
+        ],
+        "patterns": [
+            r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch|DeclaredCombatRules)",
+        ],
+        "reason": (
+            "`ActiveMatch` and `DeclaredCombatRules` are GLOBAL resources shared by "
+            "every experience in the host, and unlike `MatchParticipantRoster` they "
+            "carry no `published_by` - so there is no ownership question to ask and "
+            "no way to ask it. They are safe TODAY because exactly one writer "
+            "touches each. The roster was safe the same way until Smash's character "
+            "select published one from a different route, and Versus deleted "
+            "another game's match every frame; the fix was an owner field, learned "
+            "three separate times, the third one only after a stage opened with one "
+            "fighter instead of two. This contract does not add an owner - it makes "
+            "the SECOND writer visible at the moment it appears, which is when the "
+            "ownership question actually has to be answered rather than months "
+            "later from a photograph. If this list has to grow, growing it IS the "
+            "review."
+        ),
+    },
+    {
         "id": "the-seat-topology-has-one-engine-side-creator",
         "paths": [
             "crates/",

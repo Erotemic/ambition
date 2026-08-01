@@ -47,6 +47,46 @@ composition may hold several, keyed by id.
 | `playable(label, description, starting_character, starting_room, rooms)` | this is what registers the gameplay route |
 | `room(metadata)` | optional — picks block/biome art at `Startup` |
 | `capability(plugin)` | optional — a Bevy plugin the engine installs in its own order |
+| `actions(&[..])` | optional — semantic actions the capability contributes; the composition REFUSES if two claim the same id |
+| `requires_rollback(&[..])` | optional — rollback state the capability must have restored; refused at assembly if nothing registered it |
+
+### What a capability CONTRIBUTES, beside its systems
+
+A capability offers up to three things past its plugin, and the composition
+installs each one:
+
+```rust
+module
+    .capability(my_mechanic::MyPlugin)                  // behaviour
+    .actions(&[my_mechanic::MY_ACTION])                 // the verbs it adds
+    .requires_rollback(my_mechanic::REQUIRED_ROLLBACK); // what a rewind must restore
+```
+
+**`actions(&[SemanticActionDef])`** registers verbs into the shared vocabulary.
+Two capabilities claiming the same id is a REFUSAL, not a last-one-wins — that
+is the point of declaring them.
+
+⚠ **an action can be declared and queried; it cannot yet carry a device binding
+of its own.** `InputMap` is still keyed by the engine's closed `SandboxAction`,
+so a consumer fires your mechanic by writing your own request message — which is
+also how a scripted sequence or an AI would. Do not invent a private binding
+path around it.
+
+**`requires_rollback(&[RequiredRollbackState])`** declares what a rewind must
+restore, and the composition refuses at assembly if nothing registered it.
+
+⚠ **do not register rollback state from your own crate.** The registration trait
+lives in `ambition_runtime`, and reaching for it drags the whole simulation into
+a mechanic that uses none of it — `ambition_pulse` linked 133 crates that way and
+links 7 now. Declare it; let whoever composes install it.
+
+Each `RequiredRollbackState` carries a `why`. It is not decoration: a host that
+hits the refusal needs to know whether it is looking at a desync or an optional
+extra, and only the capability knows which.
+
+`crates/ambition_pulse` is the worked example, and
+[`../recipes/adding-a-capability.md`](../recipes/adding-a-capability.md) is the
+recipe.
 
 ## `GameModule` — the trait
 

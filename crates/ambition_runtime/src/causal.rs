@@ -86,8 +86,17 @@ pub fn stamp_causal_frame(
     time: Option<Res<ambition_time::SimTick>>,
     replay: Option<Res<ambition_platformer_primitives::schedule::SimulationReplayState>>,
     boundary: Option<Res<ambition_engine_core::confirmed_frame::ConfirmedFrameBoundary>>,
-    mut log: ResMut<CausalRecording>,
+    // ⛔ `Option`, because the FEATURE and the PLUGIN are two switches. Turning
+    // `causal` on registers these systems; only `CausalPlugin` creates the
+    // resource — and a host may legitimately compile the publishers without
+    // installing an inspector. This was `ResMut` and killed six tests in
+    // `ambition_demo_smash_app` the day that crate gained the feature:
+    // "Resource does not exist", from a system nobody asked to run.
+    log: Option<ResMut<CausalRecording>>,
 ) {
+    let Some(mut log) = log else {
+        return;
+    };
     if let Some(tick) = time {
         log.set_tick(tick.get());
     }
@@ -112,7 +121,12 @@ pub fn stamp_causal_frame(
 /// ⚠ **the fact records the generation as well as the flag.** Frames restart at
 /// zero on every session, so a tick number alone cannot tell a restart from a
 /// rewind — the same reason `RollbackHealth` had to start carrying one.
-pub fn record_execution_identity(mut log: ResMut<CausalRecording>) {
+pub fn record_execution_identity(log: Option<ResMut<CausalRecording>>) {
+    // Same reason as `stamp_causal_frame`: the feature registers this, the
+    // plugin creates the resource, and they are not the same switch.
+    let Some(mut log) = log else {
+        return;
+    };
     if !log.is_recording() {
         return;
     }

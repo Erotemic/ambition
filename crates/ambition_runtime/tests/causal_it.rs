@@ -13,6 +13,14 @@
 //! executable per top-level `tests/*.rs`, and four crates in this workspace
 //! were paying that per file until earlier today.
 
+// ⚠ **gated on the feature these tests are ABOUT.** They were inline in a
+// module that carried `#[cfg(feature = "causal")]`, and moving them to `tests/`
+// left the gate behind — so this file compiled only when something else in the
+// workspace happened to unify the feature on, and broke the default-features
+// job the moment that stopped being true. An integration test's `cfg(feature)`
+// reads the features of the crate under test, which is exactly what is wanted.
+#![cfg(feature = "causal")]
+
 use ambition_causal::{
     CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, SubjectKey, domains,
 };

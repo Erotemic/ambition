@@ -239,3 +239,71 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
         "a second match could not be decided"
     );
 }
+
+/// **THE TWO-PARTICIPANT FLOW, to its end: select → lock in → match → PAUSE.**
+///
+/// The select half is covered above. This is the tail, and it exists because
+/// the tail was BROKEN: `populate_menu_control_frame_from_actions` folded
+/// participants with `single()`, which returns `Err` the moment a second one
+/// exists, so the global `MenuControlFrame` went neutral for everybody and
+/// pressing Start opened nothing. Two people could start a match together and
+/// then not pause it. (GPT 5.6 review, finding 4.)
+///
+/// ⚠ **it presses a KEY, not `MenuControlFrame`.** Setting the frame by hand is
+/// what the select screen's tests originally did, and it is exactly how that
+/// screen came to be fully tested and completely inert — an injected value skips
+/// the system that was broken. The press has to enter where a real one enters.
+#[test]
+fn two_participants_start_a_match_and_can_still_pause_it() {
+    use ambition::input::InputParticipant;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+
+    // A SECOND participant, which is the condition that used to silence the
+    // global menu frame.
+    //
+    // ⚠ SPAWN A PAD, do not spawn the participant. The host derives its seats
+    // from live `Gamepad` entities every frame and despawns any it did not
+    // declare, so a hand-spawned `InputParticipant` is gone by the next update —
+    // the same "the resource is derived, the pads are the fact" trap the select
+    // screen's own tests hit.
+    // A pad alone is not a seat: the host seats participants from the DECLARED
+    // seat count, so a lobby that never opened has one seat however many pads
+    // are plugged in. Both facts are needed.
+    // ⚠ SPAWN PADS. The select screen declares its seat count FROM the live
+    // pads and the host derives participants from that declaration, so an
+    // inserted `DeclaredInputSeats` is clobbered on the next frame — the pads
+    // are the fact, the same trap the select screen's own tests carry a note
+    // about.
+    for _ in 0..2 {
+        app.world_mut().spawn(bevy::input::gamepad::Gamepad::default());
+    }
+    settle(&mut app);
+    settle(&mut app);
+    let seated = {
+        let world = app.world_mut();
+        let mut q = world.query::<&InputParticipant>();
+        q.iter(world).count()
+    };
+    assert!(
+        seated >= 2,
+        "two participants have to actually exist or this proves nothing: {seated}"
+    );
+
+    assert!(
+        !app.world().resource::<ambition::game_shell::ShellPauseMenu>().open,
+        "nothing is paused before anybody presses anything"
+    );
+
+    // Escape is `SandboxAction::Start` on a keyboard: the pause press.
+    tap(&mut app, KeyCode::Escape);
+    settle(&mut app);
+
+    assert!(
+        app.world().resource::<ambition::game_shell::ShellPauseMenu>().open,
+        "with two participants seated, Escape must still reach the pause menu — a couch \
+         game you can start together and cannot pause is the regression this pins"
+    );
+}

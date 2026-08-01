@@ -95,10 +95,18 @@ Ownership lives in `.goal/owner`, which `--arm` and `--clear` remove, so every
 fresh run starts unclaimed.
 
 ⚠ **`/clear` gives the session a new id**, which orphans the goal: the old owner
-no longer exists, so every session is released and the guard is silently doing
-nothing. It fails OPEN rather than locking anybody out, which is the right
-direction, but `--status` prints the owner so the state is visible — check it if
-a run stops being held.
+will never stop again, so every session is released and the guard is silently
+doing nothing. It fails OPEN rather than locking anybody out, which is the right
+direction, but nothing announces it — the new session is not the owner, so
+SessionStart stays silent and the agent never learns a goal exists.
+
+The way back is one command, and it is what to tell an agent after a `/clear`:
+
+    python3 scripts/goal_guard.py --resume
+
+That releases ownership AND prints the goal with its open items, so the agent
+knows what it is resuming; this session claims it at the end of the turn.
+`--status` prints the current owner if you need to check.
 
 ## The goal file
 
@@ -618,6 +626,53 @@ def mode_inject(root: Path, hook_input: dict) -> int:
     return 0
 
 
+def mode_resume(root: Path) -> int:
+    """Hand an orphaned goal to the session running this command.
+
+    `/clear` gives a session a new id, so a goal stays bound to an id that will
+    never stop again: the run is silently unguarded, and SessionStart says
+    nothing because the new session is not the owner. That silence is the reason
+    this prints the goal rather than only re-pointing it — an agent told to
+    "resume the goal" otherwise has no idea what the goal IS.
+
+    Ownership is RELEASED rather than reassigned, because a command line has no
+    session id to assign. The next Stop hook claims it, which in practice is this
+    session at the end of this turn. The gap is real but small: another session
+    stopping in between would take it instead, and `--status` shows who did.
+    """
+    goal = load_json(active_path(root))
+    if not goal:
+        print("no goal armed — nothing to resume")
+        return 0
+
+    previous = owner_session(root)
+    set_owner(root, "")
+
+    print(f"GOAL: {goal.get('goal', '(unnamed goal)')}")
+    deadline = parse_deadline(goal.get("deadline_utc"))
+    if deadline:
+        hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
+        print(f"deadline: {deadline.isoformat()} ({hours:.1f}h remain)")
+
+    state = load_json(state_path(root)) or {}
+    last_open = state.get("last_open")
+    if isinstance(last_open, list) and last_open:
+        print(f"open as of the last Stop check ({state.get('last_block_at', '?')}):")
+        for name in last_open:
+            print(f"  ▢ {name}")
+    else:
+        print("checks that will run at the end of every turn:")
+        for raw in goal.get("checks", []):
+            print(f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}")
+
+    print(
+        f"\nreleased from session {previous or '(unclaimed)'}; THIS session claims "
+        f"it when the turn ends. The goal is enforced by this script reading the "
+        f"repository, not by a judge reading a summary — keep working it."
+    )
+    return 0
+
+
 def mode_status(root: Path) -> int:
     goal = load_json(active_path(root))
     if not goal:
@@ -739,6 +794,11 @@ def main() -> int:
         action="store_true",
         help="unbind the goal; the next session to stop claims it",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="take over an orphaned goal (after /clear) and print what it is",
+    )
     args = parser.parse_args()
 
     root = repo_root()
@@ -751,6 +811,8 @@ def main() -> int:
         set_owner(root, "")
         print("goal unbound — the next session to stop will claim it")
         return 0
+    if args.resume:
+        return mode_resume(root)
     if args.arm:
         return mode_arm(root, args.arm)
     if args.clear:

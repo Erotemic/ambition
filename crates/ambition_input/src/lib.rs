@@ -17,6 +17,8 @@ use leafwing_input_manager::prelude::*;
 
 mod actions;
 mod active_input;
+#[cfg(feature = "input")]
+mod bindings;
 mod control;
 pub mod cues;
 #[cfg(feature = "input")]
@@ -98,6 +100,8 @@ pub enum InputSet {
     /// Shell/menu consumers of the routed semantics.
     Consume,
 }
+#[cfg(feature = "input")]
+pub use bindings::{publish_seat_bindings, ActionBindings, PhysicalControl, SeatBindings};
 pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{
     analog_to_dir, DeclaredInputSeats, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState,

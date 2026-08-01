@@ -1232,6 +1232,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
 pub fn update_button_glyph_from_active_input(
     active: Res<ambition_actors::affordances::ActiveInputMethod>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    seat_bindings: Option<Res<ambition_input::SeatBindings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
 ) {
     // Resolve the player's chosen keyboard preset from settings; fall
@@ -1240,9 +1241,17 @@ pub fn update_button_glyph_from_active_input(
     let preset = settings
         .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
         .unwrap_or_else(KeyboardPreset::arrows_zxc);
+    // The overlay is one device on one screen: the local primary seat's
+    // bindings. An absent resource means nothing projected them yet (a headless
+    // host, or a frame before the first projection), and an empty binding set
+    // renders empty glyphs rather than stale ones.
+    let empty = ambition_input::ActionBindings::default();
+    let bound = seat_bindings
+        .as_deref()
+        .map_or(&empty, |seats| seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot()));
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
         let sa = touch_action_to_sandbox_action(*touch_action);
-        let next = ambition_actors::affordances::glyph_for(sa, &preset, active.0);
+        let next = ambition_actors::affordances::glyph_for(sa, &preset, bound, active.0);
         if glyph.0 != next {
             glyph.0 = next;
         }

@@ -123,6 +123,7 @@ impl Plugin for HostInputBindingsPlugin {
                 .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
         );
         app.init_resource::<ambition_input::SeatInputContexts>();
+        app.init_resource::<ambition_input::SeatBindings>();
         app.init_resource::<ambition_input::ActiveUiCues>();
 
         // ── The frame→tick input latch (netcode N0.1) ─────────────────────
@@ -287,6 +288,11 @@ impl Plugin for HostInputBindingsPlugin {
             .add_systems(
                 Update,
                 (
+                    // ONE authority for "which physical control is this
+                    // action on", projected from the live `InputMap` every
+                    // frame so a rebind cannot leave a prompt behind.
+                    ambition_input::publish_seat_bindings
+                        .in_set(ambition_input::InputSet::ResolveActions),
                     declare_gameplay_input_context.in_set(ambition_input::InputSet::ResolveContext),
                     // The in-session surfaces (dialogue, cutscene) declare in the
                     // same set as the session itself, so one resolver sees every

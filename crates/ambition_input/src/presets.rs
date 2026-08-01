@@ -499,7 +499,7 @@ fn insert_optional(map: &mut InputMap<SandboxAction>, action: SandboxAction, key
     }
 }
 
-fn key_name(key: KeyCode) -> &'static str {
+pub(crate) fn key_name(key: KeyCode) -> &'static str {
     match key {
         KeyCode::KeyA => "A",
         KeyCode::KeyB => "B",

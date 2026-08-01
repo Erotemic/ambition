@@ -307,3 +307,107 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
          game you can start together and cannot pause is the regression this pins"
     );
 }
+
+/// **PROBE (2026-08-01, Jon): "even when we add a CPU player in smash there is
+/// only ever one player that shows up in game."**
+///
+/// ⛔ every existing test in this file stops at the ROUTE and the SESSION. None
+/// of them counts the bodies that were seated, so a roster of two that puts one
+/// fighter on the stage passes the whole suite — which is exactly the state Jon
+/// is describing, and exactly why couch multiplayer cannot be checked: the thing
+/// you would verify is the thing nothing asserts.
+#[test]
+fn a_two_participant_roster_actually_seats_two_bodies() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+
+    add_cpu(&mut app);
+    confirm(&mut app);
+    confirm(&mut app);
+    settle(&mut app);
+
+    let declared = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("the screen decided a match")
+        .participants
+        .len();
+    assert_eq!(declared, 2, "the roster is the premise of this test");
+
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    // Give activation room to seat everybody.
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let seated = {
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        let mut seats: Vec<usize> = q.iter(world).map(|seat| seat.0).collect();
+        seats.sort_unstable();
+        seats
+    };
+    assert_eq!(
+        seated.len(),
+        declared,
+        "the roster declared {declared} participants and {} bodies were seated: {seated:?}",
+        seated.len()
+    );
+
+    // ⚠ SEATED IS NOT VISIBLE. Jon reports one player on screen; the seating is
+    // fine, so the difference has to be downstream. Report what each seated body
+    // carries rather than guessing which component the renderer wants.
+    let report: Vec<String> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let rows: Vec<(Entity, usize)> = q.iter(world).map(|(e, s)| (e, s.0)).collect();
+        rows.into_iter()
+            .map(|(entity, seat)| {
+                let mut names: Vec<String> = world
+                    .inspect_entity(entity)
+                    .expect("seated body exists")
+                    .map(|info| info.name().shortname().to_string())
+                    .collect();
+                names.sort();
+                format!("seat {seat}: {} components [{}]", names.len(), names.join(", "))
+            })
+            .collect()
+    };
+    for row in &report {
+        eprintln!("[seat-census] {row}");
+    }
+
+    // ⚠ **THE TWO FIGHTERS ARE BUILT BY DIFFERENT PATHS**, and the census above
+    // is how you see it: both carry 84 components and the SETS DIFFER. Seat 0 is
+    // player-bodied (`PlayerVisual`, `BodyPoseView`, `PresentedPose`,
+    // `Transform`, `GlobalTransform`); seat 1 is actor-bodied (`ActorIdentity`,
+    // `Perception`, `RoomVisual`, `RuntimeStagedActor`) with no transform and no
+    // pose view at all.
+    //
+    // ⛔ **this test deliberately does NOT assert that seat 1 has a
+    // `BodyPoseView`.** That was the first draft and it is the WRONG PORT:
+    // `BodyPoseView` is the player-bodied read model, and an actor-bodied
+    // fighter is drawn through the id-keyed `ActorAnimIndex` instead — a
+    // RESOURCE rebuilt in the render presentation plugin, explicitly "NOT the
+    // sim schedule … so a headless / RL build never pays for poses it won't
+    // draw". So a headless test CANNOT tell whether seat 1 reaches the screen,
+    // and an assertion here would have been a confident measurement of the wrong
+    // thing.
+    //
+    // That is also the answer to why Jon's report ("add a CPU and only one
+    // player shows up") survived a green suite: the split is invisible to every
+    // headless test by construction, and the only instrument that can settle it
+    // is a photograph of the stage route.
+    assert!(
+        seated.len() == 2,
+        "the census above is the useful output; this pins the premise"
+    );
+}

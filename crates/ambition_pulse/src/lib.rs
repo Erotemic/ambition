@@ -259,13 +259,35 @@ pub const ROLLBACK_STATE: &str = "pulse.cooldown";
 /// — and gets the `why` back rather than a bare name, because a host hitting
 /// this needs to know whether it is looking at a desync or an optional extra,
 /// and only the capability knows which.
-pub const REQUIRED_ROLLBACK: &[ambition_engine_core::snapshot::RequiredRollbackState] =
-    &[ambition_engine_core::snapshot::RequiredRollbackState {
+pub const REQUIRED_ROLLBACK: &[ambition_engine_core::snapshot::RequiredRollbackState] = &[
+    ambition_engine_core::snapshot::RequiredRollbackState {
         owner: PULSE_CAPABILITY,
         name: ROLLBACK_STATE,
         why: "a pulse cooldown that is not rewound lets the action fire twice from one charge \
               on a resimulated frame",
-    }];
+    },
+    // ⛔ **the BODY was missing from this list, and the declaration was the
+    // point of the list** (GPT 5.6, 2026-08-01, finding 4). `fire_pulses`
+    // mutates `PulseBody::vel` — that is the mechanic's entire observable
+    // effect — so a rewind that restored the cooldown and not the push would
+    // resimulate from a body that is still moving from a pulse it is about to
+    // fire again. A contract that names only the cheap half is worse than none:
+    // the check passes and the desync remains.
+    ambition_engine_core::snapshot::RequiredRollbackState {
+        owner: PULSE_CAPABILITY,
+        name: BODY_ROLLBACK_STATE,
+        why: "a pulse pushes bodies by changing their velocity; a rewind that does not restore \
+              that velocity resimulates from a body still carrying the old push",
+    },
+];
+
+/// **The pushed body's state** — the other half of what a rewind must restore.
+///
+/// ⚠ a composition that adapts its own bodies to [`PulseBody`] should register
+/// whichever component is AUTHORITATIVE for that motion, under this name. What
+/// must not happen is registering neither because the sentinel only mentioned
+/// the cooldown.
+pub const BODY_ROLLBACK_STATE: &str = "pulse.body";
 
 /// Age every cooldown by one tick.
 pub fn tick_pulse_cooldowns(mut cooldowns: Query<&mut PulseCooldown>) {

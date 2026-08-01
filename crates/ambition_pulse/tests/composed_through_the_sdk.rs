@@ -108,6 +108,14 @@ impl GameModule for GameWithPulse {
                 ambition_pulse::PULSE_CAPABILITY,
                 ambition_pulse::ROLLBACK_STATE,
                 |cooldown| u64::from(cooldown.remaining_ticks),
+            )
+            // ⚠ and the BODY. The mechanic's whole observable effect is a
+            // velocity change, so a rewind that restored only the cooldown
+            // would resimulate from a body still carrying the old push.
+            .provides_rollback::<ambition_pulse::PulseBody>(
+                ambition_pulse::PULSE_CAPABILITY,
+                ambition_pulse::BODY_ROLLBACK_STATE,
+                |body| body.vel.x.to_bits() as u64,
             );
     }
 }

@@ -354,22 +354,39 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
         .world()
         .resource::<RollbackRegistry>()
         .missing_required_state(REQUIRED_ROLLBACK);
-    assert_eq!(missing.len(), 1, "the cooldown is unregistered");
-    assert_eq!(missing[0].name, ROLLBACK_STATE);
+    // BOTH halves of the contract are outstanding: the cooldown AND the body.
+    let names: Vec<&str> = missing.iter().map(|m| m.name).collect();
+    assert_eq!(
+        names,
+        vec![ROLLBACK_STATE, BODY_ROLLBACK_STATE],
+        "the contract must name every piece of authoritative state the mechanic \
+         introduces — a list with only the cheap half passes while the desync \
+         remains"
+    );
     assert!(
         missing[0].why.contains("twice from one charge"),
         "and it says what BREAKS, so a host knows this is a desync rather than an optional \
          extra: {:?}",
         missing[0].why
     );
+    assert!(
+        missing[1].why.contains("still carrying the old push"),
+        "the body's reason names its own failure, not the cooldown's: {:?}",
+        missing[1].why
+    );
 
-    // A host that accepted the offer.
+    // A host that accepted the WHOLE offer.
     let mut complete = App::new();
     complete.add_plugins(PulsePlugin::default());
     complete.rollback_component_clone_probed::<PulseCooldown>(
         PULSE_CAPABILITY,
         ROLLBACK_STATE,
         |cooldown| u64::from(cooldown.remaining_ticks),
+    );
+    complete.rollback_component_clone_probed::<PulseBody>(
+        PULSE_CAPABILITY,
+        BODY_ROLLBACK_STATE,
+        |body| body.vel.x.to_bits() as u64,
     );
     assert!(
         complete
@@ -390,10 +407,16 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
 
     let mut app = App::new();
     app.add_plugins(PulsePlugin::default());
+    // Register BOTH of this capability's names — under the wrong owner.
     app.rollback_component_clone_probed::<PulseCooldown>(
         "some_other_capability",
         ROLLBACK_STATE,
         |cooldown| u64::from(cooldown.remaining_ticks),
+    );
+    app.rollback_component_clone_probed::<PulseBody>(
+        "some_other_capability",
+        BODY_ROLLBACK_STATE,
+        |body| body.vel.x.to_bits() as u64,
     );
     let missing = app
         .world()
@@ -401,8 +424,9 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
         .missing_required_state(REQUIRED_ROLLBACK);
     assert_eq!(
         missing.len(),
-        1,
-        "the same NAME under another owner is a different registration"
+        REQUIRED_ROLLBACK.len(),
+        "the same NAMES under another owner are different registrations, so \
+         every requirement is still outstanding"
     );
 }
 
@@ -655,4 +679,88 @@ fn a_pack_without_pulse_profiles_refuses_rather_than_defaulting() {
         rendered.contains("demo") && rendered.contains("PulsePlugin::default()"),
         "the refusal must name the pack and the deliberate alternative, got: {rendered}"
     );
+}
+
+/// **The active profile is FROZEN at composition, so a rewind cannot disagree
+/// about which one was live.**
+///
+/// ⛔ `PulseProfiles::select(&mut self, ..)` used to exist on the live resource.
+/// That made the active selection MUTABLE SIMULATION STATE which nothing
+/// rewound and which the rollback contract never mentioned — so the radius,
+/// force and cooldown a pulse used could differ between an original tick and its
+/// resimulation, while every declared requirement was satisfied
+/// (GPT 5.6, 2026-08-01, finding 4).
+///
+/// Freezing is the cheaper of the two honest answers — the other being to make
+/// the selection rollback-owned — and nothing called `select`, so nothing was
+/// lost. A game that wants to switch profiles mid-match must now decide to make
+/// that rollback-owned rather than inherit it by accident.
+///
+/// ⚠ what this test can assert is the TYPE-LEVEL fact: choosing happens on an
+/// owned value before the resource exists. `with_active` consumes `self`, so
+/// there is no `&mut` path to the live resource at all — which is why the
+/// property needs no runtime guard.
+#[test]
+fn the_active_profile_is_chosen_before_the_resource_exists_not_during_the_sim() {
+    let profiles =
+        PulseProfiles::from_prepared(compile_profiles("frozen", PROFILES).expect("compiles"));
+    assert_eq!(profiles.active().name, "gentle", "the first is active");
+
+    // Choosing is a COMPOSITION-time move on an owned value…
+    let cannon = profiles
+        .clone()
+        .with_active("cannon")
+        .expect("the authored name resolves");
+    assert_eq!(cannon.active().name, "cannon");
+    assert_eq!(cannon.active().radius, 200.0);
+
+    // …and an unknown name is answerable rather than silently ignored.
+    assert!(
+        PulseProfiles::from_prepared(compile_profiles("frozen2", PROFILES).expect("compiles"))
+            .with_active("no_such_profile")
+            .is_none(),
+        "an unknown profile name must be a `None` the composition can act on, \
+         not a silent fallback to whatever was already active"
+    );
+}
+
+/// **The rollback contract names every piece of authoritative state the
+/// mechanic introduces**, which is the property the contract exists to have.
+///
+/// A checkable restatement of finding 4: enumerate what `fire_pulses` reads or
+/// writes that can differ between an original tick and its resimulation, and
+/// require each to appear in `REQUIRED_ROLLBACK` or to have no mutable path.
+#[test]
+fn every_piece_of_authoritative_pulse_state_is_in_the_contract() {
+    let names: Vec<&str> = REQUIRED_ROLLBACK.iter().map(|r| r.name).collect();
+    assert!(
+        names.contains(&ROLLBACK_STATE),
+        "the cooldown gates the action: {names:?}"
+    );
+    assert!(
+        names.contains(&BODY_ROLLBACK_STATE),
+        "the pushed velocity IS the mechanic's observable effect: {names:?}"
+    );
+    // The third piece — the active profile — is covered by construction rather
+    // than by registration: there is no `&mut` path to it after composition.
+    // `the_active_profile_is_chosen_before_the_resource_exists_not_during_the_sim`
+    // is that argument, and this assertion is here so the three are counted
+    // together in one place.
+    assert_eq!(
+        names.len(),
+        2,
+        "a new piece of authoritative state was added without deciding whether \
+         it is rewound or frozen: {names:?}"
+    );
+    for req in REQUIRED_ROLLBACK {
+        assert_eq!(
+            req.owner, PULSE_CAPABILITY,
+            "every requirement is this capability's own"
+        );
+        assert!(
+            req.why.len() > 40,
+            "each names what BREAKS, not just what is missing: {:?}",
+            req.why
+        );
+    }
 }

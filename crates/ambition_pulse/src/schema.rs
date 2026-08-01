@@ -81,23 +81,29 @@ impl PulseProfiles {
     }
 
     pub fn active(&self) -> PulseProfile {
-        self.profiles
-            .get(self.active)
-            .cloned()
-            .unwrap_or_default()
+        self.profiles.get(self.active).cloned().unwrap_or_default()
     }
 
-    /// Select by authored name. `false` when no such profile — the caller
-    /// decides whether that is a refusal or a fallback, because a capability
-    /// cannot know which.
-    pub fn select(&mut self, name: &str) -> bool {
-        match self.profiles.iter().position(|p| p.name == name) {
-            Some(index) => {
-                self.active = index;
-                true
-            }
-            None => false,
-        }
+    /// Choose the active profile by authored name, **at COMPOSITION time**.
+    ///
+    /// ⛔ this used to be `select(&mut self)` on the live resource, which made
+    /// the active selection MUTABLE SIMULATION STATE that nothing rewound: two
+    /// rewinds could disagree about which profile was live, and the declared
+    /// rollback contract said nothing about it (GPT 5.6, 2026-08-01, finding 4).
+    ///
+    /// Freezing it is the cheaper of the two honest answers — the other being to
+    /// make the selection rollback-owned — and nothing called `select`, so no
+    /// behaviour was lost. A game that needs to switch profiles mid-match should
+    /// make that a rollback-owned choice deliberately, not inherit one by
+    /// accident.
+    ///
+    /// `None` when no profile carries that name; the caller decides whether that
+    /// is a refusal or a fallback, because a capability cannot know which.
+    #[must_use]
+    pub fn with_active(mut self, name: &str) -> Option<Self> {
+        let index = self.profiles.iter().position(|p| p.name == name)?;
+        self.active = index;
+        Some(self)
     }
 
     pub fn names(&self) -> impl Iterator<Item = &str> {
@@ -138,7 +144,10 @@ impl ContentSchemaHandler for PulseSchema {
                     facet
                         .diagnostic(
                             DiagnosticCode::MalformedProviderBinding,
-                            format!("pulse `{}` has a radius of {}", profile.name, profile.radius),
+                            format!(
+                                "pulse `{}` has a radius of {}",
+                                profile.name, profile.radius
+                            ),
                         )
                         .about(id.clone())
                         .at_field("radius")

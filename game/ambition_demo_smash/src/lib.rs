@@ -702,12 +702,29 @@ fn present_the_select_screen(
     // **WHILE THIS SCREEN IS UP, THE PADS ARE SEATS.** Declared here and dropped
     // on the way out, so the participants it asks for live exactly as long as
     // the question does — the same lifetime rule the match's own seats have.
-    // **THIS SCREEN IS A COUCH LOBBY**, so its sources CLAIM seats rather than
-    // all driving player one. Declared while the screen is up and dropped on the
-    // way out, exactly like the seat count itself — Ambition's own routes keep
-    // the unified default, where a spare controller is another way to move the
-    // same character.
-    let policy = if on_select {
+    // **THIS DEMO IS A COUCH GAME**, so its sources CLAIM seats rather than all
+    // driving player one — for the SELECT SCREEN *and the match it starts*.
+    //
+    // ⛔ this said `if on_select` and reverted to unified everywhere else, which
+    // meant the assignment a lobby made was undone the instant the stage loaded.
+    // Measured: the pad's DPadRight arrived on BOTH seats' `ActionState` during
+    // the match (`move_right=true` on slot 0 and slot 1) while `MenuSelect` on
+    // the select screen had correctly reached slot 1 alone. Menu input looked
+    // isolated and gameplay input was not, and the reason was not two input
+    // paths — it was the same path under two different policies, because the
+    // policy was keyed on the ROUTE and the route had changed.
+    //
+    // Jon's brief says it directly: *"Before the match starts, freeze:
+    // participant, session seat, control channel, input sources."* A source
+    // assignment that expires when the lobby closes is the opposite of frozen.
+    //
+    // ⚠ still scoped to this demo's own routes. Ambition's rooms keep the
+    // unified default, where a spare controller is another way to move the same
+    // character (milestone 8).
+    let on_smash_route = router.active.as_ref().is_some_and(|active| {
+        matches!(active.route_id.as_str(), SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE)
+    });
+    let policy = if on_smash_route {
         ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim
     } else {
         ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary

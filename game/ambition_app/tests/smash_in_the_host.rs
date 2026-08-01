@@ -529,3 +529,106 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
 }
 
 
+
+/// **Jon's couch milestones 1, 2 and 5**: a keyboard player and a gamepad player
+/// take different seats and drive different fighters.
+///
+/// ⚠ This is the check the whole couch slice exists to pass, and nothing weaker
+/// substitutes for it. A lobby that can OFFER two seats is not evidence that two
+/// people's inputs stay apart — the versus stage has the same test for two PADS
+/// and it is what caught two seats reading one device.
+///
+/// Five things had to be built or repaired to reach it, and four were bugs found
+/// by measuring the previous fix rather than by reading it: the keyboard counting
+/// as a source, the pad going to the seat that needs one, the keyboard seat being
+/// deaf to every real pad (`Entity::PLACEHOLDER`, not `None`), the select screen
+/// iterating the same seat count its lobby declares, and the couch policy
+/// surviving the route change into the match.
+#[test]
+fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use bevy::input::gamepad::GamepadButton;
+
+    fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
+        app.world_mut()
+            .write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+                bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, button, value),
+            ));
+    }
+
+    let mut app = shell_host_app();
+    // ONE pad. Under the couch policy that is two seats — the keyboard's and
+    // this one's. Under the old pad-only count it was one, and this test could
+    // not have been written.
+    let pad = app
+        .world_mut()
+        .spawn(bevy::input::gamepad::Gamepad::default())
+        .id();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    // Player one joins and locks in on the KEYBOARD.
+    confirm(&mut app);
+    confirm(&mut app);
+    // Player two joins and locks in on the PAD. Confirm at an empty seat IS the
+    // join, so the same press twice sits down and then commits.
+    for _ in 0..2 {
+        pad_set(&mut app, pad, GamepadButton::South, 1.0);
+        app.update();
+        pad_set(&mut app, pad, GamepadButton::South, 0.0);
+        app.update();
+        settle(&mut app);
+    }
+    settle(&mut app);
+
+    for _ in 0..60 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..90 {
+        app.update();
+    }
+
+    let bodies: Vec<(usize, Entity)> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows
+    };
+    assert!(
+        bodies.len() >= 2,
+        "a keyboard player and a pad player have to seat two fighters; got {}",
+        bodies.len()
+    );
+    let (_, body_one) = bodies[0];
+    let (_, body_two) = bodies[1];
+
+    let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+    let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));
+
+    // Player two walks right on the PAD. Nothing is touched on the keyboard.
+    pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
+    for _ in 0..40 {
+        app.update();
+    }
+    let moved_two = x(&app, body_two) - start_two;
+    let moved_one = x(&app, body_one) - start_one;
+    assert!(
+        moved_two.abs() > 1.0,
+        "the pad player pressed right and their fighter did not move \
+         ({moved_two:.2}px): the second seat is a spectator"
+    );
+    // A RATIO, not an absolute: a fighter driven by a source it does not own
+    // would travel a comparable distance, so the two failures are orders of
+    // magnitude apart and the threshold does not have to guess where "still" is.
+    assert!(
+        moved_one.abs() < moved_two.abs() * 0.25,
+        "the pad moved the KEYBOARD player's fighter ({moved_one:.2}px against the \
+         pad player's {moved_two:.2}px) - the two seats are reading the same source"
+    );
+}

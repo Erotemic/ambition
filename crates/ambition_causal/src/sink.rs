@@ -61,6 +61,25 @@ pub fn facts_lost_offthread() -> u64 {
     LOST_OFFTHREAD.load(Ordering::Relaxed)
 }
 
+/// **Serialise tests that touch the global sink state.**
+///
+/// ⛔ `OPEN_SINKS` and `LOST_OFFTHREAD` are PROCESS globals, and Rust runs tests
+/// in parallel. A test that opens a sink makes every other test's "is anybody
+/// listening" answer true for as long as it holds one, which is exactly what
+/// `a_fact_published_off_thread_is_counted_rather_than_vanishing` asserts on —
+/// so it went red (`left: 2, right: 1`) the day a second test opened a sink,
+/// having been quietly vulnerable to it since it was written.
+///
+/// Any test that opens a sink or reads either counter takes this first.
+/// Poisoning is ignored: a test that panicked while holding it has already
+/// reported its own failure, and cascading that into every sibling reports the
+/// same bug N times.
+#[cfg(test)]
+pub(crate) fn global_sink_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// Reset the off-thread counter. For a test that deliberately provokes one.
 pub fn reset_lost_offthread() {
     LOST_OFFTHREAD.store(0, Ordering::Relaxed);
@@ -96,11 +115,7 @@ pub fn with_sink<T>(mut log: CausalLog, body: impl FnOnce() -> T) -> (CausalLog,
 /// fact should ask first; a domain whose fact is a few moves should just call
 /// [`record`] and let the policy drop it.
 pub fn recording() -> bool {
-    SINK.with(|sink| {
-        sink.borrow()
-            .as_ref()
-            .is_some_and(CausalLog::is_recording)
-    })
+    SINK.with(|sink| sink.borrow().as_ref().is_some_and(CausalLog::is_recording))
 }
 
 /// Publish a fact.

@@ -71,6 +71,9 @@ mod tests {
     /// so it goes nowhere and [`crate::facts_lost_offthread`] counts it.
     #[test]
     fn a_lent_log_collects_what_a_plain_record_call_publishes() {
+        // Opening a sink is global state; see the lock's docs. This test does
+        // not read the counters, but it MAKES them wrong for anything that does.
+        let _serialised = crate::sink::global_sink_test_lock();
         let mut recording = CausalRecording::default();
         recording.set_policy(RecordingPolicy::only([domains::BRAIN]));
         recording.set_tick(9);

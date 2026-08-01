@@ -56,7 +56,10 @@ fn explaining_a_tick_gathers_this_subject_and_the_world_but_not_another_body() {
     let kinds: Vec<&str> = explanation.facts().iter().map(CausalFact::kind).collect();
     assert_eq!(kinds, vec!["chose", "moved", "rebased"]);
     assert!(
-        !explanation.facts().iter().any(|f| f.subject == Some(other())),
+        !explanation
+            .facts()
+            .iter()
+            .any(|f| f.subject == Some(other())),
         "another body's decision is not this body's explanation"
     );
 }
@@ -92,7 +95,9 @@ fn an_empty_explanation_says_which_of_the_two_reasons_it_is() {
     let explanation = log.explain(3, &body());
     assert!(explanation.is_empty());
     assert!(
-        explanation.render().contains("no domain that would know is recording"),
+        explanation
+            .render()
+            .contains("no domain that would know is recording"),
         "«nothing happened» and «nobody was watching» are different answers and must not \
          render identically:\n{}",
         explanation.render()
@@ -143,7 +148,9 @@ fn a_cause_cycle_is_bounded_rather_than_hanging_the_debugger() {
     // A malformed publisher is exactly when somebody is debugging, so the
     // debugger must survive it.
     let mut log = recording_log();
-    let first = log.record(fact("a", 1, domains::BRAIN).about(body())).unwrap();
+    let first = log
+        .record(fact("a", 1, domains::BRAIN).about(body()))
+        .unwrap();
     let second = log
         .record(fact("b", 1, domains::BRAIN).about(body()).caused_by(first))
         .unwrap();
@@ -287,6 +294,10 @@ fn a_nested_scope_does_not_leak_into_the_outer_dump() {
 /// domain did not act" rather than "nobody was listening on that thread".
 #[test]
 fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
+    // ⛔ the globals this reads are PROCESS-wide and tests run in parallel: any
+    // other test holding a sink open makes the last assertion below see a
+    // "somebody is listening" that is not this test's. See the lock's docs.
+    let _serialised = crate::sink::global_sink_test_lock();
     reset_lost_offthread();
     let before = facts_lost_offthread();
 
@@ -342,7 +353,11 @@ fn one_tick_in_two_generations_is_two_explanations() {
     assert_eq!(all.len(), 2, "one per generation");
     assert_eq!(all[0].generation(), Some(1));
     assert_eq!(all[1].generation(), Some(2));
-    assert_eq!(all[0].facts().len(), 1, "and neither borrows the other's fact");
+    assert_eq!(
+        all[0].facts().len(),
+        1,
+        "and neither borrows the other's fact"
+    );
 
     // The single-answer call takes the LATEST, and says which it took.
     let latest = log.explain(20, &body());

@@ -296,14 +296,6 @@ fn main() {
 ///
 /// The names are the ones a person says out loud, not `ArrowDown`: this is typed
 /// by hand at a terminal while looking at a screenshot.
-/// Frames to run after the last `--press` before the shutter.
-///
-/// A confirmation usually starts a ROUTE CHANGE, and the route it starts has its
-/// own load and its own cameras. 150 is generous on purpose: this tool is run by
-/// hand to look at something, and a photograph taken one beat early is worse than
-/// one taken two seconds late.
-const POST_PRESS_SETTLE_FRAMES: u32 = 150;
-
 fn parse_press_sequence(text: &str) -> Result<Vec<KeyCode>, String> {
     text.split(',')
         .map(str::trim)
@@ -987,7 +979,28 @@ fn request_capture(
         if let Some(key) = runtime.press_held.take() {
             keys.release(key);
             if runtime.press_cursor >= config.press.len() {
-                runtime.press_done_frame = Some(runtime.frames);
+                // **RESTART THE CAPTURE CLOCK instead of budgeting a settle.**
+                //
+                // A confirmation starts a ROUTE CHANGE, and the route it starts
+                // has its own load, its own cameras and its own readiness. A
+                // fixed post-press count cannot express that: raising it to 600
+                // made the tool time out on texture readback after 691 frames,
+                // because the readback deadline is computed from the same budget
+                // the settle spends.
+                //
+                // So the presses end one capture and begin another. Zeroing the
+                // frame count and un-setting readiness re-runs the machinery
+                // that already knows how to wait for a route — the same
+                // "warmup is a duration, readiness is a FACT" rule this file
+                // applies at the other end — and the deadline is recomputed with
+                // it rather than eaten by it.
+                runtime.press_done_frame = Some(0);
+                runtime.frames = 0;
+                runtime.world_ready = false;
+                runtime.cameras_adopted = 0;
+                eprintln!(
+                    "capture_scene: press sequence complete; waiting for the state it asked for"
+                );
             }
         } else {
             let key = config.press[runtime.press_cursor];
@@ -1001,12 +1014,6 @@ fn request_capture(
             );
         }
         return;
-    }
-    // Let the state the presses asked for actually arrive.
-    if let Some(done) = runtime.press_done_frame {
-        if runtime.frames < done + POST_PRESS_SETTLE_FRAMES {
-            return;
-        }
     }
     // **WHERE THE SUBJECT ACTUALLY IS**, printed once, at the tick the image is
     // taken. A capture tool that reports the room and not the pose can tell you

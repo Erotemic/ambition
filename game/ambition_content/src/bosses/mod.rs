@@ -316,3 +316,50 @@ impl Plugin for AmbitionBossContentPlugin {
         }
     }
 }
+
+#[cfg(test)]
+mod apple_rain_animation_key_tests {
+    use ambition_characters::brain::BossAttackProfile;
+
+    /// **`apple_rain`'s hurtbox row is reachable ONLY through the profile
+    /// identity, and that is what blocks the boss-animator fold.**
+    ///
+    /// The fold's first slice wants to replace four
+    /// `sample.profile == Some(profile)` checks with a key comparison, so
+    /// `BossAnimationFrameSample` can drop `BossAttackProfile` and become
+    /// character-generic. For every profile the ENGINE names, the sample writer's
+    /// key still lands inside the profile's own key list, so the swap would be
+    /// safe (`every_hardcoded_sample_key_names_a_row_its_profile_claims`).
+    ///
+    /// ⛔ **`apple_rain` is the exception, and it is CONTENT, which is why the
+    /// engine could not answer it.** It is a `Special`, so its key list comes
+    /// from this crate's `special_animation_keys()` — and it is not in that map.
+    /// The profile therefore claims NOTHING, while
+    /// `boss_animation_key_for_sample` emits `"head_down"` for it.
+    ///
+    /// So today the hurtbox row is found only because the profile matched:
+    /// `runtime_animation_keys` pushes the sample's own key into the list when
+    /// `sample.profile == Some(profile)`. A key-based rule would look for
+    /// `"head_down"` in an EMPTY list, miss, and fall back to elapsed-time
+    /// sampling — a different hurtbox on a live boss.
+    ///
+    /// Two ways out, and this test fails on either so nobody does it silently:
+    /// give `apple_rain` its rows in `special_animation_keys()`, or keep the
+    /// profile identity. It is deliberately not asserting which.
+    #[test]
+    fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
+        let catalog = super::authored_boss_catalog();
+        let profile = BossAttackProfile::Special("apple_rain".to_string());
+        let claimed = ambition_actors::boss_encounter::behavior::boss_animation_keys_for_profile(
+            &catalog, &profile,
+        );
+        assert!(
+            claimed.is_empty(),
+            "`apple_rain` now claims {claimed:?}. If that list contains \
+             \"head_down\" — the key `boss_animation_key_for_sample` emits for it \
+             — then the last blocker on the boss-animator fold's first slice is \
+             gone and the profile identity can be replaced by a key comparison. \
+             Update the fold's row in the 72h queue rather than just this test"
+        );
+    }
+}

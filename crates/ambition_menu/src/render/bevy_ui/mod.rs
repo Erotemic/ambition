@@ -37,9 +37,9 @@ use bevy::prelude::*;
 use bevy::ui::UiGlobalTransform;
 
 use crate::{
-    scrollbar_fraction_from_rect, scrollbar_thumb_layout, AmbitionMenuControl, AmbitionMenuRoot,
-    MenuColor, MenuControlKind, MenuNode, MenuPageModel, MenuRect, MenuTextAlign, MenuVisualState,
-    ScrollThumb,
+    AmbitionMenuControl, AmbitionMenuRoot, MenuColor, MenuControlKind, MenuNode, MenuPageModel,
+    MenuRect, MenuTextAlign, MenuVisualState, ScrollThumb, scrollbar_fraction_from_rect,
+    scrollbar_thumb_layout,
 };
 
 /// Root marker for a spawned flat `bevy_ui` menu tree.
@@ -641,6 +641,7 @@ where
     Action: Clone + std::fmt::Debug + Send + Sync + 'static,
 {
     install_bevy_ui_menu_text_scaling(app);
+    install_bevy_ui_menu_restyle(app);
     app.add_message::<crate::MenuActionActivated<Action>>()
         .add_message::<crate::MenuActionPreviewed<Action>>()
         .add_systems(
@@ -651,6 +652,75 @@ where
             )
                 .in_set(BevyUiMenuInteractionSet),
         );
+}
+
+/// **Recolour a control when its runtime state changes, WITHOUT respawning it.**
+///
+/// ⛔ the defect this exists for: the shell launcher's frame key included the
+/// cursor position, so an arrow press despawned and respawned every node in the
+/// tree. It threw away hover state and any per-frame animation a menu might
+/// want, and it is why a one-frame text defect was visible at all — a whole UI
+/// blinking is a much bigger event than a value changing.
+///
+/// The colour was baked at spawn by `control_bg`, so the only way to change it
+/// WAS to spawn again. Now [`MenuVisualState`] carries everything that function
+/// needs — including the authored `important`, which is not runtime state and is
+/// there precisely so a restyle never has to reach back into the page data.
+///
+/// ⚠ `Changed<MenuVisualState>` — a quiet menu costs one empty query. Bevy sets
+/// the change tick on any `&mut` deref, so a host that writes the same value
+/// every frame pays for a colour write; write only on change, as the launcher's
+/// own declarer does.
+pub fn restyle_bevy_ui_menu_controls(
+    mut controls: Query<
+        (
+            &MenuVisualState,
+            &mut BackgroundColor,
+            &AmbitionMenuControlKind,
+        ),
+        Changed<MenuVisualState>,
+    >,
+) {
+    for (state, mut background, kind) in &mut controls {
+        let color = if state.disabled {
+            to_color(MenuColor::DISABLED)
+        } else {
+            control_bg(kind.0, state.focused, state.selected, state.important)
+        };
+        if background.0 != color {
+            background.0 = color;
+        }
+    }
+}
+
+/// The control's KIND, on the entity.
+///
+/// `AmbitionMenuControl<Action>` already carries it, but that type is generic
+/// over the host's action and a restyle system must not be — one restyle for
+/// every menu in the app, whatever each one's actions are.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AmbitionMenuControlKind(pub MenuControlKind);
+
+/// Install the restyle system. Action-agnostic, so repeated installs from
+/// several `install_bevy_ui_menu_actions::<A>` calls must not stack it.
+pub fn install_bevy_ui_menu_restyle(app: &mut bevy::prelude::App) {
+    if app.is_plugin_added::<BevyUiMenuRestylePlugin>() {
+        return;
+    }
+    app.add_plugins(BevyUiMenuRestylePlugin);
+}
+
+/// Carries the once-only registration for [`restyle_bevy_ui_menu_controls`].
+#[derive(Default)]
+pub struct BevyUiMenuRestylePlugin;
+
+impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_systems(
+            bevy::prelude::Update,
+            restyle_bevy_ui_menu_controls.in_set(BevyUiMenuInteractionSet),
+        );
+    }
 }
 
 /// Convert every menu text node's height fraction into a pixel font size.

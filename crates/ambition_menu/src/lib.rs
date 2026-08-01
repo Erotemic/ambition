@@ -602,6 +602,15 @@ pub struct MenuVisualState {
     pub selected: bool,
     pub pressed: bool,
     pub disabled: bool,
+    /// The control's authored emphasis, carried here so the RUNTIME state is
+    /// sufficient to recompute the control's colour.
+    ///
+    /// ⚠ it is not runtime state and it is here anyway, on purpose. Without it
+    /// a restyle has to reach back into the page data that spawned the node,
+    /// which is exactly the coupling that forced a full rebuild for a cursor
+    /// move. One component holding everything `control_bg` needs is what makes
+    /// an in-place update possible.
+    pub important: bool,
 }
 
 /// Marks a text node whose CONTENT is filled in place by the host every frame
@@ -1157,9 +1166,11 @@ mod tests {
         assert_eq!(page.actionable_nodes().count(), 0);
         match &page.nodes[2] {
             MenuNode::Control { detail, .. } => {
-                assert!(detail
-                    .as_ref()
-                    .is_some_and(|text| text.contains("not owned")));
+                assert!(
+                    detail
+                        .as_ref()
+                        .is_some_and(|text| text.contains("not owned"))
+                );
             }
             node => panic!("expected item control, got {node:?}"),
         }

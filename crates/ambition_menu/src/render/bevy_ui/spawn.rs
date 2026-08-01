@@ -187,10 +187,14 @@ fn spawn_control<Action>(
             action: action.clone(),
             focus,
         },
+        // The same kind, NON-generically, so one restyle system serves every
+        // menu in the app regardless of each one's action type.
+        super::AmbitionMenuControlKind(kind),
         MenuVisualState {
             focused: focused || selected,
             selected,
             disabled,
+            important,
             ..default()
         },
         Name::new(if is_scrollbar { "scrollbar" } else { "control" }),

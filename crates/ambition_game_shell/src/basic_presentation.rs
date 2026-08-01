@@ -7,24 +7,23 @@
 
 use ambition_input::participant::context_priority;
 use ambition_input::{
-    ActiveUiCues, InputSet, UiCue, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+    ActiveUiCues, InputSet, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT, UiCue,
 };
 use ambition_menu::render::bevy_ui::{
-    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
-    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    BevyUiMenuInteractionSet, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets,
 };
 use ambition_menu::{
     AmbitionMenuControl, MenuActionActivated, MenuActionPreviewed, MenuColor, MenuControlKind,
-    MenuFocusKey,
-    MenuPageModel, MenuRect, MenuTextAlign,
+    MenuFocusKey, MenuPageModel, MenuRect, MenuTextAlign,
 };
-use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
+use ambition_sfx::{OwnedSfxMessage, SfxMessage, SfxWriter, ids};
 use bevy::prelude::*;
 
 use crate::{
-    image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
-    FrontendPresentationKind, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
-    ShellLauncherState, ShellRouter, ShellSegmentPresentation, ShellSequenceCommand,
+    ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind, ShellLaunchCatalog,
+    ShellLauncherCommand, ShellLauncherPresentation, ShellLauncherState, ShellRouter,
+    ShellSegmentPresentation, ShellSequenceCommand, image_sequence_frame_at, shell_action_edges,
 };
 
 #[derive(Component)]
@@ -117,6 +116,10 @@ impl Plugin for BasicShellPresentationPlugin {
                     basic_shell_pointer.after(BevyUiMenuInteractionSet),
                     basic_shell_card_tap.after(BevyUiMenuInteractionSet),
                     render_basic_shell,
+                    // AFTER the render: on a rebuild frame the tree spawns with
+                    // the cursor already correct, and on every other frame this
+                    // is the only thing that moves it.
+                    follow_the_launcher_cursor,
                     drive_basic_sequence_card,
                 )
                     .chain()
@@ -682,6 +685,62 @@ fn drive_basic_sequence_card(
     }
 }
 
+/// **Move the launcher highlight in place.**
+///
+/// ⛔ the cursor used to be part of the frame key, so an arrow press respawned
+/// the entire launcher tree. That threw away hover state and any per-frame
+/// animation, and it is why a one-frame text defect read as a whole-UI blink.
+///
+/// The rows already carry their selection index — `BasicLauncherAction(i)`, put
+/// there so pointer activation lands in the same command the cursor produces —
+/// so nothing new has to be tracked. This writes `MenuVisualState`, and the
+/// menu crate's `restyle_bevy_ui_menu_controls` recolours what changed.
+///
+/// ⚠ **writes only on a real change.** Bevy stamps the change tick on any `&mut`
+/// deref, so touching every row every frame would defeat the `Changed<..>` query
+/// this is paired with and restore the churn in a quieter form.
+fn follow_the_launcher_cursor(
+    mut commands: Commands,
+    launcher: Res<ShellLauncherState>,
+    // No extra marker: `AmbitionMenuControl<BasicLauncherAction>` is already
+    // this presentation's own action type, so the query cannot reach another
+    // menu's rows.
+    mut rows: Query<(
+        Entity,
+        &ambition_menu::AmbitionMenuControl<BasicLauncherAction>,
+        &mut ambition_menu::MenuVisualState,
+    )>,
+) {
+    if !launcher.active {
+        return;
+    }
+    for (entity, control, mut visual) in &mut rows {
+        let Some(BasicLauncherAction(index)) = control.action else {
+            continue;
+        };
+        let selected = index == launcher.selected;
+        if visual.selected == selected && visual.focused == selected {
+            continue;
+        }
+        visual.selected = selected;
+        visual.focused = selected;
+        // ⚠ **the MARKER moves with the state.** `BevyUiMenuFocused` says "this
+        // is the cursor" and is set at spawn; a rebuild used to be the only way
+        // it changed. Nothing outside the menu crate reads it today, which is
+        // exactly why leaving it pointing at the wrong row would be a trap
+        // rather than a bug — the first reader to trust it would be wrong.
+        if selected {
+            commands
+                .entity(entity)
+                .insert(ambition_menu::render::bevy_ui::BevyUiMenuFocused);
+        } else {
+            commands
+                .entity(entity)
+                .remove::<ambition_menu::render::bevy_ui::BevyUiMenuFocused>();
+        }
+    }
+}
+
 fn shell_frame_key(
     launcher: &ShellLauncherState,
     catalog: &ShellLaunchCatalog,
@@ -689,10 +748,17 @@ fn shell_frame_key(
     sequence: &ActiveShellSequence,
 ) -> String {
     if launcher.active {
-        return format!(
-            "launcher:{}:{}:{:?}",
-            launcher.selected, presentation.title, catalog.entries
-        );
+        // ⛔ **`launcher.selected` is DELIBERATELY not here.** It was, and an
+        // arrow press therefore despawned and respawned every node in the
+        // launcher — throwing away hover state and any per-frame animation, and
+        // making a one-frame text defect visible as a whole-UI blink.
+        //
+        // The cursor is runtime state, not structure. `follow_the_launcher_cursor`
+        // moves the highlight in place through `MenuVisualState`, and
+        // `restyle_bevy_ui_menu_controls` recolours what changed. This key names
+        // only what a REBUILD is actually needed for: which rows exist and what
+        // they say.
+        return format!("launcher:{}:{:?}", presentation.title, catalog.entries);
     }
     sequence_frame(sequence).key
 }
@@ -1033,8 +1099,9 @@ mod pointer_hover_tests {
     #[test]
     fn hovering_a_launcher_row_moves_the_cursor_to_it() {
         let mut app = app_with_pointer(true);
-        app.world_mut()
-            .write_message(MenuActionPreviewed { action: BasicLauncherAction(2) });
+        app.world_mut().write_message(MenuActionPreviewed {
+            action: BasicLauncherAction(2),
+        });
         app.update();
         assert_eq!(
             drained(&mut app),
@@ -1050,8 +1117,9 @@ mod pointer_hover_tests {
     #[test]
     fn hovering_a_launcher_row_does_not_launch_it() {
         let mut app = app_with_pointer(true);
-        app.world_mut()
-            .write_message(MenuActionPreviewed { action: BasicLauncherAction(1) });
+        app.world_mut().write_message(MenuActionPreviewed {
+            action: BasicLauncherAction(1),
+        });
         app.update();
         let commands = drained(&mut app);
         assert!(
@@ -1067,8 +1135,9 @@ mod pointer_hover_tests {
     #[test]
     fn pressing_a_launcher_row_still_activates_it() {
         let mut app = app_with_pointer(true);
-        app.world_mut()
-            .write_message(MenuActionActivated { action: BasicLauncherAction(1) });
+        app.world_mut().write_message(MenuActionActivated {
+            action: BasicLauncherAction(1),
+        });
         app.update();
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(1)]);
     }
@@ -1078,11 +1147,175 @@ mod pointer_hover_tests {
     #[test]
     fn a_hover_while_the_launcher_is_inactive_is_ignored() {
         let mut app = app_with_pointer(false);
-        app.world_mut()
-            .write_message(MenuActionPreviewed { action: BasicLauncherAction(2) });
-        app.world_mut()
-            .write_message(MenuActionActivated { action: BasicLauncherAction(2) });
+        app.world_mut().write_message(MenuActionPreviewed {
+            action: BasicLauncherAction(2),
+        });
+        app.world_mut().write_message(MenuActionActivated {
+            action: BasicLauncherAction(2),
+        });
         app.update();
         assert!(drained(&mut app).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod cursor_moves_without_a_rebuild_tests {
+    use super::*;
+    use crate::ShellLauncherState;
+    use ambition_menu::{AmbitionMenuControl, MenuControlKind, MenuFocusKey, MenuVisualState};
+    use bevy::prelude::{App, Entity, Update};
+
+    /// Two launcher rows, as `render_basic_shell` spawns them: each carrying its
+    /// SELECTION index in its action, which is what lets the cursor be applied
+    /// without knowing anything about the page that built them.
+    fn app_with_two_rows() -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.init_resource::<ShellLauncherState>();
+        app.add_systems(Update, follow_the_launcher_cursor);
+        app.world_mut().resource_mut::<ShellLauncherState>().active = true;
+
+        let row = |app: &mut App, index: usize, selected: bool| {
+            app.world_mut()
+                .spawn((
+                    AmbitionMenuControl {
+                        kind: MenuControlKind::Action,
+                        action: Some(BasicLauncherAction(index)),
+                        focus: MenuFocusKey::default(),
+                    },
+                    MenuVisualState {
+                        selected,
+                        focused: selected,
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        };
+        let first = row(&mut app, 0, true);
+        let second = row(&mut app, 1, false);
+        (app, first, second)
+    }
+
+    fn selected(app: &App, entity: Entity) -> bool {
+        app.world()
+            .get::<MenuVisualState>(entity)
+            .expect("the row still exists")
+            .selected
+    }
+
+    /// **The cursor moves and the rows are the SAME entities.**
+    ///
+    /// ⛔ this is the whole row. `shell_frame_key` included `launcher.selected`,
+    /// so an arrow press despawned and respawned every node in the tree — which
+    /// throws away hover state and any per-frame animation a menu might want,
+    /// and is why a one-frame text defect was visible as a whole-UI blink.
+    ///
+    /// Asserting the ENTITY IDS is the point. A test that only checked which row
+    /// reads selected would pass just as well on a tree that had been rebuilt,
+    /// which is the thing being removed.
+    #[test]
+    fn moving_the_cursor_restyles_the_existing_rows_instead_of_respawning_them() {
+        let (mut app, first, second) = app_with_two_rows();
+        app.update();
+        assert!(selected(&app, first), "the cursor starts on row 0");
+        assert!(!selected(&app, second));
+
+        app.world_mut()
+            .resource_mut::<ShellLauncherState>()
+            .selected = 1;
+        app.update();
+
+        assert!(!selected(&app, first), "the cursor left row 0");
+        assert!(selected(&app, second), "and arrived at row 1");
+        // The same two entities answered before and after. Bevy recycles indices,
+        // so this is `get` on the original ids rather than a count.
+        assert!(app.world().get::<MenuVisualState>(first).is_some());
+        assert!(app.world().get::<MenuVisualState>(second).is_some());
+    }
+
+    /// **And the REBUILD is what actually went away.**
+    ///
+    /// The two tests above prove the highlight can move in place; this proves it
+    /// has to. `shell_frame_key` is the only thing that decides whether
+    /// `render_basic_shell` despawns the tree, and `launcher.selected` used to
+    /// be part of it. If it comes back, the in-place path still works and the
+    /// churn returns silently — so the key itself is the assertion.
+    #[test]
+    fn the_frame_key_does_not_change_when_only_the_cursor_moves() {
+        use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
+
+        let catalog = ShellLaunchCatalog::default();
+        let presentation = ShellLauncherPresentation::default();
+        let sequence = ActiveShellSequence::default();
+        let mut launcher = ShellLauncherState {
+            active: true,
+            ..Default::default()
+        };
+
+        let at_row_0 = shell_frame_key(&launcher, &catalog, &presentation, &sequence);
+        launcher.selected = 3;
+        let at_row_3 = shell_frame_key(&launcher, &catalog, &presentation, &sequence);
+
+        assert_eq!(
+            at_row_0, at_row_3,
+            "the cursor is runtime state, not structure — a frame key that moves \
+             with it despawns and respawns every node in the launcher on every \
+             arrow press"
+        );
+    }
+
+    /// The control: the key DOES move when the rows themselves change, so the
+    /// test above is not passing on a key that never changes at all.
+    #[test]
+    fn the_frame_key_still_changes_when_the_rows_do() {
+        use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
+
+        let catalog = ShellLaunchCatalog::default();
+        let sequence = ActiveShellSequence::default();
+        let launcher = ShellLauncherState {
+            active: true,
+            ..Default::default()
+        };
+        let before = shell_frame_key(
+            &launcher,
+            &catalog,
+            &ShellLauncherPresentation::default(),
+            &sequence,
+        );
+        let after = shell_frame_key(
+            &launcher,
+            &catalog,
+            &ShellLauncherPresentation {
+                title: "A different title".to_owned(),
+                ..Default::default()
+            },
+            &sequence,
+        );
+        assert_ne!(before, after, "a real structural change still rebuilds");
+    }
+
+    /// The marker that says "this is the cursor" moves with the state.
+    ///
+    /// ⚠ nothing outside the menu crate reads `BevyUiMenuFocused` today, which
+    /// is exactly why a stale one would be a trap rather than a bug: the first
+    /// reader to trust it would be wrong, and nothing would have told them.
+    #[test]
+    fn the_cursor_marker_moves_with_the_highlight() {
+        let (mut app, first, second) = app_with_two_rows();
+        app.world_mut()
+            .resource_mut::<ShellLauncherState>()
+            .selected = 1;
+        app.update();
+        assert!(
+            app.world()
+                .get::<ambition_menu::render::bevy_ui::BevyUiMenuFocused>(second)
+                .is_some(),
+            "the marker followed the cursor to row 1"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_menu::render::bevy_ui::BevyUiMenuFocused>(first)
+                .is_none(),
+            "and left row 0"
+        );
     }
 }

@@ -745,6 +745,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_pulse"
+version = "0.1.0"
+dependencies = [
+ "ambition_causal",
+ "ambition_content_pack",
+ "ambition_engine_core",
+ "ambition_input",
+ "ambition_runtime",
+ "bevy",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_render"
 version = "0.1.0"
 dependencies = [

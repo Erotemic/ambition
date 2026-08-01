@@ -37,6 +37,7 @@ members = [
     "crates/ambition_platformer_primitives",
     "crates/ambition_platformer_provider",
     "crates/ambition_portal",
+    "crates/ambition_pulse",
     "crates/ambition_projectiles",
     "crates/ambition_render",
     "crates/ambition_sim_harness",

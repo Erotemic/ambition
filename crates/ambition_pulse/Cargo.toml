@@ -1,0 +1,25 @@
+[package]
+name = "ambition_pulse"
+version = "0.1.0"
+edition = "2024"
+description = "A SENTINEL capability: one self-contained mechanic that contributes an authored schema, a semantic action, rollback state and causal facts without editing any central enum or the actor crate."
+
+# ⚠ THE DEPENDENCY LIST IS THE PROOF.
+#
+# No `ambition_actors`, no `ambition_content`, no game. A capability that had to
+# reach into the actor crate to exist would tell us the seams are not seams —
+# so this one deliberately cannot, and the compiler enforces it.
+#
+# It sits ABOVE `ambition_runtime` on purpose: R1's recorded decision is that a
+# domain BELOW the runtime has its rollback schema registered on its behalf
+# (see `rollback/domains/vfx.rs`), and only a crate above it owns one directly.
+# "A capability registers its own rollback state" is only testable up here.
+[dependencies]
+ambition_runtime = { path = "../ambition_runtime" }
+ambition_content_pack = { path = "../ambition_content_pack" }
+ambition_causal = { path = "../ambition_causal", features = ["bevy"] }
+ambition_input = { path = "../ambition_input" }
+ambition_engine_core = { path = "../ambition_engine_core" }
+bevy = { version = "0.18.1", default-features = false }
+ron = { workspace = true }
+serde = { workspace = true }

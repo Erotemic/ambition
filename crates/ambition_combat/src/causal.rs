@@ -36,6 +36,39 @@ fn seat_of(bodies: &Query<&Brain>, body: Entity) -> Option<u8> {
     bodies.get(body).ok()?.player_slot().map(|slot| slot.0)
 }
 
+/// **The strongest stable subject this body has** — and never `None`.
+///
+/// ⛔ a body-specific fact with no subject is treated by `explain` as a WORLD
+/// fact and returned for EVERY subject. So a CPU fighter losing a stock on tick
+/// 400 appeared in seat 0's causal chain, and the inspector answered the wrong
+/// question precisely where it is needed most: a Smash match or a boss fight,
+/// where several bodies act on the same tick (GPT 5.6, 2026-08-01, finding 5).
+///
+/// The old code returned no subject for an unseated body and its test said the
+/// fact "explains the WORLD on that tick". A knockout does not explain the
+/// world; it explains a body.
+///
+/// Order is strongest-first:
+/// 1. the SEAT, which survives death and respawn;
+/// 2. the actor's stable id, for a CPU / boss / NPC;
+/// 3. an explicitly UNSTABLE entity key, which the variant exists to mark as a
+///    recorded API leak. ⚠ that is still better than global: a recycled index
+///    can mislead one later query, while a world fact misleads every query
+///    forever.
+fn subject_of(
+    bodies: &Query<&Brain>,
+    identities: &Query<&crate::components::ActorIdentity>,
+    body: Entity,
+) -> (SubjectKey, Option<u8>) {
+    if let Some(seat) = seat_of(bodies, body) {
+        return (SubjectKey::Seat(seat), Some(seat));
+    }
+    if let Ok(identity) = identities.get(body) {
+        return (SubjectKey::Sim(identity.id.clone()), None);
+    }
+    (SubjectKey::Unstable(body.to_bits()), None)
+}
+
 /// Publish the stock lifecycle: knockouts, spends, eliminations, the decision.
 ///
 /// Takes `Brain` immutably and the messages by read — an observer by signature,
@@ -47,6 +80,7 @@ pub fn record_stock_lifecycle(
     mut spends: MessageReader<FighterStockSpent>,
     mut decided: MessageReader<StocksMatchDecided>,
     bodies: Query<&Brain>,
+    identities: Query<&crate::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
         // ⚠ still DRAIN the readers. A reader that only advances while
@@ -75,8 +109,10 @@ pub fn record_stock_lifecycle(
             ),
         )
         .field("cause", format!("{:?}", knockout.cause));
-        if let Some(seat) = seat_of(&bodies, knockout.body) {
-            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        let (subject, seat) = subject_of(&bodies, &identities, knockout.body);
+        fact = fact.about(subject);
+        if let Some(seat) = seat {
+            fact = fact.by_participant(seat);
         }
         log.record(fact);
     }
@@ -96,8 +132,10 @@ pub fn record_stock_lifecycle(
         )
         .field("remaining", i64::from(spend.remaining))
         .field("eliminated", spend.eliminated);
-        if let Some(seat) = seat_of(&bodies, spend.body) {
-            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        let (subject, seat) = subject_of(&bodies, &identities, spend.body);
+        fact = fact.about(subject);
+        if let Some(seat) = seat {
+            fact = fact.by_participant(seat);
         }
         log.record(fact);
     }
@@ -204,12 +242,23 @@ mod tests {
         }
     }
 
+    /// ⛔ **an unseated body's knockout is NOT a world fact**, and this test used
+    /// to assert that it was.
+    ///
+    /// The old reasoning, written here: *"no seat, so no `SubjectKey`. The fact
+    /// is still worth keeping — it explains the WORLD on that tick."* A knockout
+    /// does not explain the world; it explains a body. And a fact with no
+    /// subject is returned by `explain` for EVERY subject, so a CPU fighter
+    /// losing a stock landed in seat 0's causal chain — the inspector answering
+    /// the wrong question exactly where it is needed most (GPT 5.6, 2026-08-01,
+    /// finding 5).
+    ///
+    /// A body with no seat and no stable id now gets an explicitly UNSTABLE
+    /// key. That variant exists to mark a recorded API leak, and it is still
+    /// strictly better than global: a recycled index can mislead one later
+    /// query, while a world fact misleads every query forever.
     #[test]
-    fn a_knockout_of_an_unseated_body_is_recorded_without_a_borrowed_identity() {
-        // A boss, an NPC, a training dummy: no seat, so no `SubjectKey`. The
-        // fact is still worth keeping — it explains the WORLD on that tick —
-        // but publishing it under a recycled entity index would let a later
-        // body inherit it.
+    fn a_knockout_of_an_unseated_body_is_about_that_body_not_about_the_world() {
         let mut app = app();
         app.world_mut()
             .resource_mut::<CausalRecording>()
@@ -225,7 +274,12 @@ mod tests {
         let log = app.world().resource::<CausalRecording>();
         let fact = log.facts().next().expect("the knockout was recorded");
         assert_eq!(fact.kind(), "body_knocked_out");
-        assert!(fact.subject.is_none());
+        assert!(
+            matches!(fact.subject, Some(SubjectKey::Unstable(_))),
+            "an unseated, unidentified body gets an explicitly UNSTABLE subject \
+             rather than none: {:?}",
+            fact.subject
+        );
         assert_eq!(
             fact.get("cause"),
             Some(&FactValue::Text("PlayerProjectile".into())),
@@ -256,6 +310,89 @@ mod tests {
         assert!(
             app.world().resource::<CausalRecording>().is_empty(),
             "a message from before the instrument was on must not surface as this tick's"
+        );
+    }
+
+    /// **A CPU's stock loss must not appear in a PARTICIPANT's explanation.**
+    ///
+    /// The concrete failure the review names, reproduced: a CPU fighter loses a
+    /// stock on the same tick a seated player is doing something, and the
+    /// inspector is asked why seat 0 is where it is. Before the fix the CPU's
+    /// fact had no subject, so `explain` returned it for seat 0 — and for every
+    /// other seat, and for the world.
+    ///
+    /// ⚠ the second half matters as much: a genuinely GLOBAL fact must still
+    /// reach every participant. `match_decided` is one — the match ending really
+    /// does explain every seat — and a fix that made everything body-specific
+    /// would break it.
+    #[test]
+    fn a_cpus_stock_loss_stays_out_of_a_participants_explanation() {
+        let mut app = app();
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_policy(RecordingPolicy::All)
+            .set_tick(400);
+
+        // A seated player and a CPU, acting on the same tick.
+        let seated = seated(&mut app, 0);
+        let cpu = app
+            .world_mut()
+            .spawn((
+                Brain::stand_still(),
+                crate::components::ActorIdentity::new("cpu_duelist", "CPU"),
+            ))
+            .id();
+
+        app.world_mut().write_message(FighterStockSpent {
+            body: cpu,
+            remaining: 1,
+            eliminated: false,
+        });
+        app.world_mut().write_message(FighterStockSpent {
+            body: seated,
+            remaining: 2,
+            eliminated: false,
+        });
+        app.world_mut().write_message(StocksMatchDecided {
+            winner: Some("seat_0".to_string()),
+        });
+        app.update();
+
+        let log = app.world().resource::<CausalRecording>();
+
+        // Seat 0's explanation carries ITS OWN stock loss…
+        let seat_view = log.explain(400, &SubjectKey::Seat(0));
+        let spends: Vec<_> = seat_view.all("stock_spent").collect();
+        assert_eq!(
+            spends.len(),
+            1,
+            "seat 0 spent one stock; the other belongs to the CPU. Got {:?}",
+            spends
+                .iter()
+                .map(|f| (f.subject.clone(), f.get("remaining")))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            spends[0].get("remaining"),
+            Some(&FactValue::Int(2)),
+            "and it is seat 0's own count, not the CPU's"
+        );
+
+        // …and the CPU's is filed under the CPU.
+        let cpu_view = log.explain(400, &SubjectKey::Sim("cpu_duelist".into()));
+        assert_eq!(
+            cpu_view
+                .first("stock_spent")
+                .and_then(|f| f.get("remaining")),
+            Some(&FactValue::Int(1)),
+            "the CPU's stock loss is filed under the CPU's stable id"
+        );
+
+        // ⚠ and the genuinely global fact still reaches the seat.
+        assert!(
+            seat_view.first("match_decided").is_some(),
+            "the match ending explains every seat — a fix that filed EVERYTHING \
+             under a body would have broken the case the old behaviour got right"
         );
     }
 }

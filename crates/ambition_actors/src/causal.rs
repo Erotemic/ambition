@@ -189,6 +189,37 @@ pub fn record_body_control_frame(
     }
 }
 
+/// **The strongest stable subject a body has** — and never `None`.
+///
+/// ⛔ a body-specific fact with no subject is a WORLD fact to `explain`, so it
+/// is returned for EVERY subject. A boss's hit reaction on tick 400 landed in
+/// seat 0's causal chain, and the inspector answered the wrong question exactly
+/// where it is needed most — a fight where several bodies act on one tick
+/// (GPT 5.6, 2026-08-01, finding 5).
+///
+/// Strongest first: the SEAT (survives death and respawn), then the actor's
+/// stable id, then an explicitly UNSTABLE entity key. ⚠ the unstable variant is
+/// a recorded API leak and still beats global: a recycled index can mislead one
+/// later query; a world fact misleads every query forever.
+fn body_subject(
+    brains: &Query<&Brain>,
+    identities: &Query<&crate::combat::components::ActorIdentity>,
+    body: Entity,
+) -> (SubjectKey, Option<u8>) {
+    if let Some(seat) = brains
+        .get(body)
+        .ok()
+        .and_then(|brain| brain.player_slot())
+        .map(|slot| slot.0)
+    {
+        return (SubjectKey::Seat(seat), Some(seat));
+    }
+    if let Ok(identity) = identities.get(body) {
+        return (SubjectKey::Sim(identity.id.clone()), None);
+    }
+    (SubjectKey::Unstable(body.to_bits()), None)
+}
+
 /// **Why was this hit accepted or rejected?** — the inspector's damage question.
 ///
 /// Reads `BodyHitResolved`, which both hit paths announce from the value the
@@ -204,6 +235,7 @@ pub fn record_hit_resolutions(
     log: Option<ResMut<CausalRecording>>,
     mut hits: MessageReader<BodyHitResolved>,
     bodies: Query<&Brain>,
+    identities: Query<&crate::combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
         // Drain regardless — a backlog surfacing on the frame somebody enables
@@ -252,13 +284,10 @@ pub fn record_hit_resolutions(
         .field("raw_damage", i64::from(hit.raw_damage))
         .field("died", died)
         .field("source", format!("{:?}", hit.source));
-        if let Some(seat) = bodies
-            .get(hit.body)
-            .ok()
-            .and_then(|brain| brain.player_slot())
-            .map(|slot| slot.0)
-        {
-            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        let (subject, seat) = body_subject(&bodies, &identities, hit.body);
+        fact = fact.about(subject);
+        if let Some(seat) = seat {
+            fact = fact.by_participant(seat);
         }
         log.record(fact);
     }
@@ -274,6 +303,7 @@ pub fn record_hit_reactions(
     log: Option<ResMut<CausalRecording>>,
     mut reactions: MessageReader<BodyReactionApplied>,
     bodies: Query<&Brain>,
+    identities: Query<&crate::combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
         reactions.clear();
@@ -311,13 +341,10 @@ pub fn record_hit_reactions(
         .field("di_x", r.di_input_local.x)
         .field("di_y", r.di_input_local.y)
         .field("steered", r.di_input_local.length() > 0.0);
-        if let Some(seat) = bodies
-            .get(applied.body)
-            .ok()
-            .and_then(|brain| brain.player_slot())
-            .map(|slot| slot.0)
-        {
-            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        let (subject, seat) = body_subject(&bodies, &identities, applied.body);
+        fact = fact.about(subject);
+        if let Some(seat) = seat {
+            fact = fact.by_participant(seat);
         }
         log.record(fact);
     }

@@ -5,10 +5,16 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 description = "The Sanic demo's thin SHELL: foundation + PlatformerEnginePlugins + PlatformerHostPlugins + the demo's content and rules crates. Playbook exit 3, executable."
+autotests = false
 
+# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
+# test harness for each of these against the full engine graph. Nothing was in
+# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "sanic_demo"
 path = "src/main.rs"
+test = false
+bench = false
 
 [features]
 default = []
@@ -34,3 +40,8 @@ ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 # manifest). The shell needs none, but `App`/`Update` come from here.
 bevy = { version = "0.18.1", default-features = false }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg"], optional = true }
+
+# ONE aggregated integration-test binary instead of 11. See tests/sanic_it.rs.
+[[test]]
+name = "sanic_it"
+path = "tests/sanic_it.rs"

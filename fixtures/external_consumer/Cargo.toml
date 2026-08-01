@@ -16,13 +16,20 @@ publish = false
 [lib]
 crate-type = ["rlib"]
 
+# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
+# test harness for each of these against the full engine graph. Nothing was in
+# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "outlander_headless"
 path = "src/bin/headless.rs"
+test = false
+bench = false
 
 [[bin]]
 name = "outlander_dump"
 path = "src/bin/dump.rs"
+test = false
+bench = false
 
 # The windowed face. Feature-gated exactly like the in-repo demo shells: the
 # default build stays headless-lean, and `--features visible` adds the render
@@ -31,6 +38,8 @@ path = "src/bin/dump.rs"
 name = "outlander_visible"
 path = "src/bin/visible.rs"
 required-features = ["visible"]
+test = false
+bench = false
 
 [features]
 default = []

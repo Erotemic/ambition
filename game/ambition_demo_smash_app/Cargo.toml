@@ -5,10 +5,16 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
+autotests = false
 
+# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
+# test harness for each of these against the full engine graph. Nothing was in
+# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "smash_demo"
 path = "src/main.rs"
+test = false
+bench = false
 
 [features]
 default = []
@@ -21,3 +27,8 @@ input = ["ambition/input"]
 ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 bevy = { version = "0.18.1", default-features = false }
+
+# ONE aggregated integration-test binary instead of 2. See tests/smash_it.rs.
+[[test]]
+name = "smash_it"
+path = "tests/smash_it.rs"

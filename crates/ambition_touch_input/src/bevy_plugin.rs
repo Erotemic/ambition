@@ -1659,6 +1659,10 @@ mod prompt_tests {
                     slot,
                     label: label.to_owned(),
                     visual: None,
+                    // These fixtures are about the touch overlay's LABELS; the
+                    // physical binding is `SeatBindings`' answer and a separate
+                    // test covers it.
+                    binding: None,
                 })
                 .collect(),
             menu_confirm: None,

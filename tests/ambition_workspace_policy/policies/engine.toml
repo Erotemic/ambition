@@ -1332,6 +1332,13 @@ rationale = "ambition_characters must stay content-free with no upward imports"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_characters/src"]
+# ⚠ WHOLE IDENTIFIERS, not substrings. `ambition_content_pack` is a foundation
+# crate — no Bevy, no domain types, no content — and a bare `contains` match on
+# `ambition_content` flagged it as an upward import into the game content crate.
+# The policy was right about the rule and wrong about the test; a substring match
+# on crate names produces a fresh false positive every time somebody adds a crate
+# whose name extends an existing one. (2026-07-31)
+whole_ident = true
 forbid = ["ambition_actors", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
 
 
@@ -1661,7 +1668,12 @@ severity = "error"
 # app/content/host/render, so it fits the rationale above; the list simply
 # lagged the decision, and this gate only caught it once an earlier failure
 # stopped masking the whole job.
-allow = ["ambition_actors", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_engine_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer_primitives", "ambition_dev_tools", "ambition_world", "ambition_load"]
+allow = ["ambition_actors", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_engine_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer_primitives", "ambition_dev_tools", "ambition_world", "ambition_load",
+    # Structured causal facts: a FOUNDATION crate with no Bevy beyond `bevy_ecs`,
+    # no domain types and no content. The runtime owns the host-side half of
+    # causal recording (the frame stamp, the execution-identity fact), so the
+    # edge is downward and in the same direction as `ambition_engine_core`.
+    "ambition_causal"]
 manifest = "crates/ambition_runtime/Cargo.toml"
 
 [[policy]]

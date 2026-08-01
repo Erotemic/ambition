@@ -155,6 +155,12 @@ allow = [
     "ambition_demo_sanic",
     "ambition_demo_pocket",
     "ambition_demo_mary_o",
+    # The smash demo, on the same footing as the other hosted games. It joined
+    # the app when Smash reached the title screen (`14de494d1`) and this list was
+    # not updated, so `cargo test --workspace` has been RED since — a launcher
+    # row leading to a game is the intended shape, not the violation this policy
+    # exists to catch. (2026-07-31)
+    "ambition_demo_smash",
     "ambition_sim_harness",
 ]
 manifest = "game/ambition_app/Cargo.toml"

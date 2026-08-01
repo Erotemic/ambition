@@ -18,6 +18,11 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 # validates against, and it is why "uninstalled capability" is a real refusal.
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
 
+# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
+# test harness for each of these against the full engine graph. Nothing was in
+# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "ambition_content"
 path = "src/main.rs"
+test = false
+bench = false

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 description = "Ambition's named game content: quests, bosses, items, dialogue, intro, banter."
+autotests = false
 
 [features]
 default = []
@@ -99,3 +100,8 @@ insta = { version = "1", features = ["ron"] }
 # `yarn_compile` guard test — compiles the authored sources the way the
 # game's asset loader would at startup.
 yarnspinner = "0.8"
+
+# ONE aggregated integration-test binary instead of 6. See tests/content_it.rs.
+[[test]]
+name = "content_it"
+path = "tests/content_it.rs"

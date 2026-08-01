@@ -171,31 +171,46 @@ getrandom_02 = { package = "getrandom", version = "=0.2.17", features = ["js"] }
 getrandom_03 = { package = "getrandom", version = "=0.3.4", features = ["wasm_js"] }
 getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js"] }
 
+# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
+# test harness for each of these against the full engine graph. Nothing was in
+# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "ambition_game_bin"
 path = "src/bin/ambition_game_bin.rs"
+test = false
+bench = false
 
 
 [[bin]]
 name = "capture_scene"
 path = "src/bin/capture_scene.rs"
 required-features = ["visible"]
+test = false
+bench = false
 
 [[bin]]
 name = "headless"
 required-features = ["rl_sim"]
+test = false
+bench = false
 
 [[bin]]
 name = "rl_random_walker"
 required-features = ["rl_sim"]
+test = false
+bench = false
 
 [[bin]]
 name = "rl_smoke"
 required-features = ["rl_sim"]
+test = false
+bench = false
 
 [[bin]]
 name = "trace_replay"
 required-features = ["rl_sim"]
+test = false
+bench = false
 
 # Single aggregated integration-test binary. Every former tests/<name>.rs is a
 # `mod <name>;` submodule of tests/app_it.rs. Filter one with:

@@ -303,6 +303,9 @@ dependencies = [
 [[package]]
 name = "ambition_causal"
 version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+]
 
 [[package]]
 name = "ambition_characters"

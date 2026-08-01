@@ -3,8 +3,13 @@
 //! `ambition_causal` is Bevy-free on purpose — every domain can depend on it
 //! without depending on any other domain, which is what lets an explanation
 //! survive a composition that has movement and no combat. This module is the
-//! adapter: the log as a resource, the tick stamp, and the one fact only a host
-//! can publish.
+//! HOST adapter: the plugin, the tick stamp, and the one fact only a host can
+//! publish.
+//!
+//! ⚠ **the resource itself lives in `ambition_causal`** (behind its `bevy`
+//! feature, which is `bevy_ecs` alone), not here. A movement fact published from
+//! `ambition_actors` must not require the runtime crate, and a `CausalRecording`
+//! owned by a host would have forced exactly that.
 //!
 //! ## Why a resource and not the sink
 //!
@@ -16,16 +21,13 @@
 //!
 //! `ambition_causal::facts_lost_offthread()` counts exactly that, and
 //! [`assert_no_offthread_loss`] is how a host turns the count into a failure
-//! rather than a mystery. **A system publishes through `ResMut<CausalLog>`**,
-//! which is sound and — because Bevy's schedule order is deterministic — also
-//! ordered.
+//! rather than a mystery. **A system publishes through
+//! `ResMut<CausalRecording>`**, which is sound and — because Bevy's schedule
+//! order is deterministic — also ordered.
 
-use ambition_causal::{CausalFact, CausalLog, Execution, FactDetail, RecordingPolicy, domains};
+use ambition_causal::{CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, domains};
 use bevy::prelude::*;
 
-/// The log, as a resource. One per app.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct CausalRecording(pub CausalLog);
 
 /// Install causal recording.
 ///

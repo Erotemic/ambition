@@ -46,6 +46,8 @@
 //! publishes its own kinds without editing a central enum — the same rule the
 //! content compiler follows for schemas, for the same reason.
 
+#[cfg(feature = "bevy")]
+mod ecs;
 mod fact;
 mod log;
 mod sink;
@@ -53,6 +55,8 @@ mod sink;
 pub use fact::{
     CausalDomain, CausalFact, Execution, FactDetail, FactId, FactValue, SubjectKey, domains,
 };
+#[cfg(feature = "bevy")]
+pub use ecs::CausalRecording;
 pub use log::{CausalLog, Explanation, RecordingPolicy};
 pub use sink::{
     CausalSink, facts_lost_offthread, record, recording, reset_lost_offthread, with_sink,

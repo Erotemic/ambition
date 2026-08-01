@@ -113,6 +113,10 @@ impl Plugin for HostInputBindingsPlugin {
         // it, a seat that joins reads its controller a frame late, and the
         // join press itself lands on nobody.
         app.init_resource::<ambition_input::LocalDeviceOrder>();
+        // Which pad each seat is HOLDING, remembered across disconnects. Without
+        // it `assign_local_seat_devices` panics on a missing resource; with it, a
+        // seat keeps its controller when somebody else unplugs theirs.
+        app.init_resource::<ambition_input::LocalSeatDeviceOwnership>();
         app.add_systems(
             PreUpdate,
             (

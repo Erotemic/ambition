@@ -216,6 +216,48 @@ pub fn track_local_device_order(
     }
 }
 
+
+/// **Which pad each seat is HOLDING**, remembered across disconnects.
+///
+/// ⛔ Positional assignment (seat `n` → the `n`-th connected pad) transfers
+/// ownership the moment a pad leaves, because [`LocalDeviceOrder`] forgets
+/// disconnections and every later seat shifts down one. Measured: two seats, two
+/// pads, unplug player ONE's — and player one's seat took player TWO's
+/// controller while player two was holding it. That is Jon's couch milestone 6
+/// failing (*"A disconnect must not reorder participants or transfer
+/// ownership"*), and it is invisible with one pad.
+///
+/// So the assignment is a FACT that is remembered, not a position that is
+/// recomputed. A seat keeps its pad while that pad exists; a pad that leaves
+/// frees exactly its own seat; and a free pad is only taken by a seat that has
+/// none — which is also what makes reconnecting restore the same assignment
+/// (milestone 7) rather than reshuffling everybody.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct SeatDeviceOwnership {
+    held: std::collections::BTreeMap<u8, Entity>,
+}
+
+impl SeatDeviceOwnership {
+    /// The pad this seat holds, if it still has one.
+    pub fn pad_for(&self, slot: u8) -> Option<Entity> {
+        self.held.get(&slot).copied()
+    }
+
+    /// Whether any seat holds this pad.
+    pub fn is_held(&self, pad: Entity) -> bool {
+        self.held.values().any(|held| *held == pad)
+    }
+
+    fn claim(&mut self, slot: u8, pad: Entity) {
+        self.held.insert(slot, pad);
+    }
+
+    /// Forget every seat whose pad is no longer connected.
+    fn retire_missing(&mut self, live: &[Entity]) {
+        self.held.retain(|_, pad| live.contains(pad));
+    }
+}
+
 /// Give each local seat its own controller.
 ///
 /// Runs in `PreUpdate` before leafwing resolves actions, so an association made
@@ -235,6 +277,7 @@ pub fn assign_local_seat_devices(
     topology: Option<Res<LocalSeatTopology>>,
     policy: Option<Res<crate::sources::InputAssignmentPolicy>>,
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
+    mut ownership: ResMut<SeatDeviceOwnership>,
     mut seats: Query<(&InputParticipant, &mut InputMap<Platformer2dInputActionMonolith>)>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
@@ -282,6 +325,38 @@ pub fn assign_local_seat_devices(
         players,
     );
 
+    // Pads that still exist. A seat's claim survives only while its pad does.
+    let live: Vec<Entity> = order.devices().to_vec();
+    ownership.retire_missing(&live);
+
+    // **CLAIMED IN SLOT ORDER**, not in query order. A free pad goes to the
+    // lowest seat that needs one, and archetype iteration is not an order — two
+    // runs of the same world could hand the same controller to different people
+    // (ADR 0023).
+    let mut order_of_seats: Vec<(u8, Entity)> = seats
+        .iter()
+        .map(|(participant, _)| (participant.id.slot(), participant.id))
+        .map(|(slot, _)| (slot, Entity::PLACEHOLDER))
+        .collect();
+    order_of_seats.sort_by_key(|(slot, _)| *slot);
+    let seat_slots: Vec<u8> = order_of_seats.into_iter().map(|(slot, _)| slot).collect();
+    // Claim first, in slot order, so the write pass below only reads decisions.
+    for slot in &seat_slots {
+        let slot = *slot;
+        if keyboard_owner.map(|owner| owner.slot()) == Some(slot) {
+            continue;
+        }
+        if frozen.is_some() {
+            continue;
+        }
+        if ownership.pad_for(slot).is_some_and(|pad| live.contains(&pad)) {
+            continue;
+        }
+        if let Some(free) = live.iter().copied().find(|pad| !ownership.is_held(*pad)) {
+            ownership.claim(slot, free);
+        }
+    }
+
     for (participant, mut map) in &mut seats {
         let slot = participant.id.slot();
         let wanted = if keyboard_owner == Some(participant.id) {
@@ -299,17 +374,21 @@ pub fn assign_local_seat_devices(
             // matches: a seat playing on keys is deaf to every controller in the
             // room, which is what owning the keyboard has to mean.
             Some(Entity::PLACEHOLDER)
-        } else {
-            // Pads go to the seats that need one, in slot order, skipping the
-            // keyboard seat rather than leaving a hole where it sits.
+        } else if let Some(topology) = frozen.as_ref() {
+            // A frozen session's mapping is the session's own answer and does
+            // not move — that is the whole point of freezing it.
             let pad_index = match keyboard_owner {
                 Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
                 _ => slot,
             };
-            match frozen.as_ref() {
-                Some(topology) => topology.device_for_handle(pad_index as usize),
-                None => order.device_for_slot(pad_index),
-            }
+            topology.device_for_handle(pad_index as usize)
+        } else {
+            // **THE PAD IN THEIR HANDS**, decided above. A seat keeps its
+            // controller while that controller exists, so somebody else
+            // unplugging theirs cannot reshuffle this one — which is what
+            // positional assignment did, because `LocalDeviceOrder` forgets the
+            // pad that left and every later seat shifts down one.
+            ownership.pad_for(slot).filter(|pad| live.contains(pad))
         };
         // Change detection is not cosmetic here: `InputMap` is a component, and
         // touching it every frame marks it changed for every observer of the
@@ -337,6 +416,7 @@ mod tests {
     fn seat_app() -> App {
         let mut app = App::new();
         app.init_resource::<LocalDeviceOrder>();
+        app.init_resource::<SeatDeviceOwnership>();
         app.add_systems(
             Update,
             (track_local_device_order, assign_local_seat_devices).chain(),
@@ -403,6 +483,36 @@ mod tests {
         assert_eq!(assigned(&app, two), None);
     }
 
+
+    /// PROBE (2026-08-01): milestone 6 — *"Disconnecting the gamepad does not
+    /// transfer ownership."* Two seats, two pads, unplug player ONE's.
+    #[test]
+    fn unplugging_one_pad_does_not_hand_its_seat_the_other_players_pad() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        app.world_mut().despawn(pad_a);
+        app.update();
+
+        assert_ne!(
+            assigned(&app, one),
+            Some(pad_b),
+            "player one's pad was unplugged and their seat took player TWO's \
+             controller — a disconnect must not transfer ownership"
+        );
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b),
+            "player two kept playing on the pad in their hands"
+        );
+    }
+
     /// **A frozen session's device mapping does not follow live discovery.**
     ///
     /// The topology froze the COUNT and, for a day, nothing else: the GGRS handle
@@ -456,25 +566,51 @@ mod tests {
         );
     }
 
-    /// Without a frozen topology, live discovery is still the answer — that is
-    /// what the next session freezes.
+    /// Without a frozen topology, live discovery still DISCOVERS — a seat that
+    /// has no pad takes a free one — but it does not REDISTRIBUTE.
+    ///
+    /// ⛔ this asserted the opposite until 2026-08-01: *"with no session owning
+    /// the seating, the live order is the authority"*, i.e. unplugging pad A
+    /// promoted pad B into seat one. That is the exact hazard the frozen test
+    /// directly above forbids in its own words — *"silently hand seat one's
+    /// confirmed GGRS inputs to seat two's physical controller"* — and the two
+    /// tests differed only in whether a topology happened to be frozen.
+    ///
+    /// ⚠ **and the unfrozen case is the SHIPPED case**: the only thing that
+    /// freezes a `LocalSeatTopology` is the rollback observatory, behind
+    /// `#[cfg(feature = "dev_tools")]` (queue S35). So the branch this test
+    /// blessed was the one every player runs, and it is Jon's couch milestone 6
+    /// — *"A disconnect must not reorder participants or transfer ownership."*
     #[test]
-    fn an_unfrozen_session_still_follows_live_discovery() {
+    fn an_unfrozen_seat_keeps_its_pad_and_a_free_one_still_finds_an_empty_seat() {
         let mut app = seat_app();
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
         let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        // Discovery still works: the first seat takes the only pad.
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), None);
+
+        // A second pad arrives and finds the seat that has none.
         let pad_b = app.world_mut().spawn(Gamepad::default()).id();
         app.update();
-        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, one), Some(pad_a), "seat one did not change hands");
         assert_eq!(assigned(&app, two), Some(pad_b));
 
+        // Player one unplugs. Their seat empties; player two keeps playing.
         app.world_mut().entity_mut(pad_a).despawn();
         app.update();
         assert_eq!(
             assigned(&app, one),
+            None,
+            "player one's seat reads nothing, which is the truth"
+        );
+        assert_eq!(
+            assigned(&app, two),
             Some(pad_b),
-            "with no session owning the seating, the live order is the authority"
+            "player two was holding this controller and a disconnect elsewhere \
+             must not take it away"
         );
     }
 

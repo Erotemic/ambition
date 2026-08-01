@@ -55,6 +55,7 @@ pub use control::{
 #[cfg(feature = "input")]
 pub use local_seats::{
     assign_local_seat_devices, track_local_device_order, LocalDeviceOrder, LocalSeatTopology,
+    SeatDeviceOwnership as LocalSeatDeviceOwnership,
 };
 
 /// Schedule contract for the participant input pipeline (one frame, in

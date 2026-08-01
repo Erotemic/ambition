@@ -517,6 +517,19 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ambition::input::InputSet::Consume,
             ),
         );
+        // **THE SCREEN CLAIMS ITS SEATS' INPUT while it is up.**
+        //
+        // Declared in `ResolveContext`, ahead of every router — so a HIGHER
+        // capturing claim (the universal pause menu, at `context_priority::PAUSE`)
+        // simply outranks it and this screen stops driving, with neither side
+        // naming the other. See `drive_the_select_screen`.
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::in_set(
+                declare_the_select_input_context,
+                ambition::input::InputSet::ResolveContext,
+            ),
+        );
         app.add_systems(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
@@ -557,10 +570,7 @@ fn present_the_select_screen(
     // **WHILE THIS SCREEN IS UP, THE PADS ARE SEATS.** Declared here and dropped
     // on the way out, so the participants it asks for live exactly as long as
     // the question does — the same lifetime rule the match's own seats have.
-    let offered = devices
-        .as_deref()
-        .map(select::seats_offered)
-        .unwrap_or(1) as u8;
+    let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1) as u8;
     let want_seats = ambition::input::DeclaredInputSeats(if on_select { offered } else { 0 });
     if *lobby_seats != want_seats {
         *lobby_seats = want_seats;
@@ -600,11 +610,50 @@ fn present_the_select_screen(
 ///
 /// Reads [`SeatMenuFrames`] rather than the global `MenuControlFrame`, because
 /// on this screen "who pressed it" is the entire question.
+/// **Claim input for the seats this screen drives, while it is up.**
+///
+/// ⛔ without this the screen was a surface nothing arbitrated. With the
+/// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
+/// and the CPU count — because the two read different channels
+/// (`MenuControlFrame` and `SeatMenuFrames`) and neither could consume the
+/// other's edge.
+///
+/// ⚠ **the fix is not a feature edge to the shell.** This demo cannot name
+/// `ShellPauseMenu`: `basic_shell_presentation` is not in `all_capabilities`,
+/// which is the oracle rule working as intended. It names an input CONTEXT —
+/// vocabulary the facade already exposes — and the pause menu's higher-priority
+/// capturing claim does the rest. Neither side knows the other exists.
+fn declare_the_select_input_context(
+    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    mut participants: bevy::prelude::Query<
+        &mut ambition::input::participant::ParticipantContexts,
+        bevy::prelude::With<ambition::input::InputParticipant>,
+    >,
+) {
+    let on_select = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    for mut contexts in &mut participants {
+        // Touch the component only when the claim actually moves.
+        if contexts.is_declared(ambition::input::SELECT_CONTEXT) != on_select {
+            contexts.sync(
+                ambition::input::participant::ContextClaim::capturing(
+                    ambition::input::SELECT_CONTEXT,
+                    ambition::input::participant::context_priority::SELECT,
+                ),
+                on_select,
+            );
+        }
+    }
+}
+
 fn drive_the_select_screen(
     mut select: bevy::prelude::ResMut<select::SmashSelect>,
     router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
     frames: Option<bevy::prelude::Res<ambition::input::SeatMenuFrames>>,
     devices: Option<bevy::prelude::Res<ambition::input::LocalDeviceOrder>>,
+    contexts: Option<bevy::prelude::Res<ambition::input::SeatInputContexts>>,
 ) {
     let on_select = router
         .active
@@ -618,6 +667,20 @@ fn drive_the_select_screen(
     // offered seats never fall below one (`seats_offered` clamps).
     let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1);
     for seat in 0..offered {
+        // **DOES THIS SEAT STILL OWN THE SCREEN?**
+        //
+        // A capturing claim above `SELECT` — the pause menu — closes this
+        // context and the screen stops driving, so one press moves the menu
+        // cursor and nothing else. `None` (no resolver installed, as in a bare
+        // unit fixture) reads as owned: a test that wires no contexts is testing
+        // the screen, not the arbitration.
+        let owned = contexts.as_deref().is_none_or(|c| {
+            c.for_seat(seat as u8)
+                .allows(ambition::input::SELECT_CONTEXT)
+        });
+        if !owned {
+            continue;
+        }
         let frame = frames.for_seat(seat as u8);
         if frame.back {
             select.cancel(seat);
@@ -1390,7 +1453,7 @@ mod tests {
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
-        use ambition::characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+        use ambition::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
         assert!(
@@ -1420,5 +1483,111 @@ mod tests {
     fn a_draw_is_announced_as_a_draw_rather_than_as_a_winner() {
         assert_eq!(victory_banner(Some("seat 1")), "seat 1 wins");
         assert!(victory_banner(None).contains("Draw"));
+    }
+}
+
+#[cfg(test)]
+mod pause_arbitration_tests {
+    use super::*;
+    use ambition::input::participant::{
+        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
+    };
+    use ambition::input::{
+        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
+    };
+    use bevy::prelude::*;
+
+    /// A seat that is browsing this screen, plus whatever else is claiming.
+    fn app_with(pause_open: bool) -> App {
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<SeatMenuFrames>();
+        app.init_resource::<select::SmashSelect>();
+        app.init_resource::<ambition::game_shell::ShellRouter>();
+        app.add_systems(
+            Update,
+            (resolve_active_input_context, drive_the_select_screen).chain(),
+        );
+
+        // On the select route, with this screen's own claim declared — the same
+        // claim `declare_the_select_input_context` writes in production.
+        let mut contexts = ParticipantContexts::default();
+        contexts.declare(ContextClaim::capturing(
+            ambition::input::SELECT_CONTEXT,
+            context_priority::SELECT,
+        ));
+        // The pause menu's claim, at its real priority. ⚠ this test names it
+        // only because it is standing in for the host; neither the screen nor
+        // the pause menu names the other.
+        if pause_open {
+            contexts.declare(ContextClaim::capturing(
+                PAUSE_CONTEXT,
+                context_priority::PAUSE,
+            ));
+        }
+        app.world_mut().spawn((
+            InputParticipant {
+                id: ambition::input::ParticipantId(0),
+            },
+            contexts,
+        ));
+
+        app.world_mut()
+            .resource_mut::<ambition::game_shell::ShellRouter>()
+            .active = Some(ambition::game_shell::ActiveShellExperience {
+            activation_id: ambition::game_shell::ShellActivationId(1),
+            route_id: ambition::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
+            experience_id: ambition::game_shell::ShellExperienceId::new(SMASH_SELECT_EXPERIENCE),
+            parameters: Default::default(),
+            load_authorization: None,
+            prepared_session: None,
+        });
+
+        // Seat 0 holds DOWN, which on this screen adds a CPU.
+        app.world_mut().resource_mut::<SeatMenuFrames>().set(
+            0,
+            MenuControlFrame {
+                down: true,
+                ..Default::default()
+            },
+        );
+        app
+    }
+
+    /// **The screen drives when it owns its seat.** The control: without this,
+    /// the test below passes on a screen that never worked.
+    #[test]
+    fn the_select_screen_reads_its_seat_when_nothing_is_over_it() {
+        let mut app = app_with(false);
+        app.update();
+        assert_eq!(
+            app.world().resource::<select::SmashSelect>().cpus(),
+            1,
+            "down adds a CPU when this screen owns the seat"
+        );
+    }
+
+    /// **One press moves ONE thing.**
+    ///
+    /// With the universal pause menu open OVER this screen the arrows drove
+    /// BOTH — the menu's cursor and the CPU count. They read different channels
+    /// (`MenuControlFrame` and `SeatMenuFrames`), so neither could consume the
+    /// other's edge, and this demo cannot name `ShellPauseMenu` at all:
+    /// `basic_shell_presentation` is not in `all_capabilities`, which is the
+    /// oracle rule working as intended.
+    ///
+    /// So the arbitration is the CLAIM system. A capturing claim above `SELECT`
+    /// closes this screen's context, and the screen asks whether it still owns
+    /// the seat. Neither side names the other.
+    #[test]
+    fn a_pause_claim_takes_the_arrows_away_from_the_select_screen() {
+        let mut app = app_with(true);
+        app.update();
+        assert_eq!(
+            app.world().resource::<select::SmashSelect>().cpus(),
+            0,
+            "the pause menu owns the arrows; the screen underneath must not \
+             also act on them"
+        );
     }
 }

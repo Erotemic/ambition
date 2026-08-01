@@ -188,7 +188,53 @@ impl Plugin for ShellPauseMenuPlugin {
                 )
                     .chain()
                     .in_set(ambition_input::InputSet::Consume),
+            )
+            // The pause menu OWNS input while it is open — the same shape the
+            // launcher surface already uses, and for the same reason: a surface
+            // underneath must not act on the presses driving the menu.
+            .add_systems(
+                Update,
+                declare_pause_context.in_set(ambition_input::InputSet::ResolveContext),
             );
+    }
+}
+
+/// **Claim input while the pause menu is open.**
+///
+/// ⛔ the gap this closes was visible: with the pause menu open over the
+/// character-select screen, the arrows drove BOTH — the menu's cursor and the
+/// CPU count. Neither could consume the other's edge, because they read
+/// different channels (`MenuControlFrame` here, `SeatMenuFrames` there).
+///
+/// ⚠ **the fix is NOT a feature edge from the demo to the shell.** A demo cannot
+/// name `ShellPauseMenu` at all — `basic_shell_presentation` is not in
+/// `all_capabilities`, which is the oracle rule working as intended. The claim
+/// system is the seam that was already built for this: this side declares, the
+/// surface underneath asks whether it still owns its seat, and neither names the
+/// other.
+///
+/// The claim goes to every participant because the pause menu is global — one
+/// menu, opened by whoever pressed Start. A per-seat surface is a separate
+/// question and is recorded as one.
+fn declare_pause_context(
+    menu: Res<ShellPauseMenu>,
+    mut participants: Query<
+        &mut ambition_input::participant::ParticipantContexts,
+        With<ambition_input::InputParticipant>,
+    >,
+) {
+    for mut contexts in &mut participants {
+        // Touch the component only when the claim actually moves, so a quiet
+        // frame is not a change-detection event for every reader downstream.
+        if contexts.is_declared(ambition_input::PAUSE_CONTEXT) != menu.open {
+            contexts.sync(
+                ambition_input::participant::ContextClaim::capturing(
+                    ambition_input::PAUSE_CONTEXT,
+                    ambition_input::participant::context_priority::PAUSE,
+                ),
+                menu.open,
+            );
+        }
     }
 }
 

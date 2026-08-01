@@ -98,6 +98,22 @@ pub const INVENTORY_CONTEXT: InputContextId = InputContextId("inventory");
 /// reached FROM a launcher row and is a question, not a game.
 pub const SELECT_CONTEXT: InputContextId = InputContextId("select");
 
+/// **The universal pause menu owns input while it is open.**
+///
+/// ⛔ it did not exist until 2026-08-01, and the gap was VISIBLE: with the pause
+/// menu open over the character-select screen, the arrows drove BOTH — the
+/// menu's cursor and the CPU count. Neither could consume the other's edge
+/// because they read different channels (`MenuControlFrame` and
+/// `SeatMenuFrames`), and a demo cannot even NAME `ShellPauseMenu`
+/// (`basic_shell_presentation` is not in `all_capabilities`, which is the oracle
+/// rule working as intended).
+///
+/// So the answer is not a feature edge from a demo to the shell — it is the
+/// claim system that was already built for exactly this: the pause menu
+/// DECLARES a capturing context, and any surface underneath asks whether it
+/// still owns its seat. Neither side names the other.
+pub const PAUSE_CONTEXT: InputContextId = InputContextId("pause");
+
 /// Recommended claim priorities for the engine's own contexts. Higher wins.
 /// Shell overlays outrank gameplay so a transient session/launcher overlap
 /// (teardown, quit-to-title) resolves to the visible surface.
@@ -109,6 +125,12 @@ pub mod context_priority {
     pub const DEBUG: i32 = 195;
     /// Above dialogue: a cutscene that starts mid-conversation is the thing on
     /// screen.
+    /// **A pause menu opens OVER everything an experience is doing.**
+    ///
+    /// Above cutscene, dialogue, select and gameplay — all four are things a
+    /// player pauses out of — and below `DEBUG`, because an inspector that a
+    /// pause could hide would be useless exactly when it is wanted.
+    pub const PAUSE: i32 = 190;
     pub const CUTSCENE: i32 = 180;
     pub const DIALOGUE: i32 = 150;
     pub const INVENTORY: i32 = 140;

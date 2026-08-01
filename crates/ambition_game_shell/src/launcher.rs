@@ -60,15 +60,20 @@ impl Default for ShellLauncherPresentation {
             // this line.** It read `select · Enter` and drew a TOFU BOX on the
             // title screen — confirmed at 2560×1440, a hollow rectangle.
             //
-            // ⛔ but the cause is NOT "the shipped font lacks the glyph".
-            // `JetBrainsMono-Regular.ttf` is bundled and HAS U+00B7 (checked with
-            // fontTools), and the smash select screen renders `·` and `—` fine
-            // through a bare `Text::new`. So the launcher's menu text is
-            // resolving to a DIFFERENT font than the rest of the UI — most
-            // likely Bevy's minimal embedded default rather than the project's
-            // bundled mono. That would mean every `ambition_menu` surface is in
-            // the fallback font, which is a much bigger finding than one
-            // separator, and it is recorded rather than guessed at.
+            // ⛔ the cause is NOT "the shipped font lacks the glyph", and it is
+            // narrowed to one crate. `JetBrainsMono-Regular.ttf` is bundled and
+            // HAS U+00B7 (fontTools). Decisive experiment: the SAME string on
+            // both text paths, on this route, in ONE frame —
+            //
+            //     bare `Text::new`   →  "A · B — C"   renders correctly
+            //     `ambition_menu`    →  "A ▯ B ▯ C"   both tofu
+            //
+            // So it is the MENU RENDER PATH, not the font asset, not the string
+            // and not the capture. `spawn.rs` sets no font handle
+            // (`TextFont { font_size, ..default() }`), so the difference is
+            // somewhere else in that crate — and it means every `ambition_menu`
+            // surface in every game is affected, invisibly, until a string steps
+            // outside ASCII.
             //
             // Found by photographing the route (`capture_scene --route
             // ambition_launcher`) while checking an unrelated change — which is

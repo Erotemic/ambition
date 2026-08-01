@@ -1088,3 +1088,201 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
         volumes[0].center()
     );
 }
+
+/// **The same pin for the HITBOX path**, which the hurtbox test above cannot
+/// reach — that is how the third identity check was found.
+///
+/// `active_attack_volumes` → `sprite_authored_volumes` →
+/// `authored_animation_frame_index` (`frame.rs`) is a SEPARATE
+/// `sample.profile.as_ref() == Some(profile)`. Probing it left the hurtbox test
+/// green, which is only possible if they are different code paths, and they are.
+///
+/// PROBED: swapping `frame.rs`'s check to a key comparison fails THIS one.
+#[test]
+fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
+    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
+    use std::collections::HashMap;
+
+    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    animations.insert(
+        "gnu_head_descent".to_string(),
+        AnimationMetrics {
+            frame_duration_secs: Some(0.1),
+            hurtbox: None,
+            // The HITBOX, not the hurtbox: this is what routes through
+            // `sprite_authored_volumes`.
+            hitbox: Some(AnimationBox {
+                parts: Vec::new(),
+                bbox: None,
+                poly: Vec::new(),
+                frames: vec![
+                    AnimationBoxFrame {
+                        parts: vec![NamedPixelRect {
+                            name: "strike".to_string(),
+                            x: 45,
+                            y: 10,
+                            w: 10,
+                            h: 10,
+                        }],
+                        bbox: None,
+                    },
+                    AnimationBoxFrame {
+                        parts: vec![NamedPixelRect {
+                            name: "strike".to_string(),
+                            x: 45,
+                            y: 70,
+                            w: 10,
+                            h: 10,
+                        }],
+                        bbox: None,
+                    },
+                ],
+            }),
+        },
+    );
+    let metrics = ActorSpriteMetrics {
+        frame_width: 100,
+        frame_height: 100,
+        body_pixel_bbox: None,
+        body_pixel_parts: Vec::new(),
+        sprite_render_size: ae::Vec2::new(100.0, 100.0),
+        combat_offset: ae::Vec2::ZERO,
+        animations,
+    };
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
+    let mut attack_state = BossAttackState::default();
+    attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
+    attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1
+
+    let aliased = BossAnimationFrameSample {
+        profile: Some(BossAttackProfile::Strike("head_descent".to_string())),
+        frame_index: 0,
+        animation_key: Some("a_row_that_is_not_this_one".into()),
+    };
+
+    let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(100.0, 100.0),
+        combat_size: ae::Vec2::new(100.0, 100.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: Some(&metrics),
+        animation_frame: Some(&aliased),
+        facing: 1.0,
+    };
+
+    let volumes = active_attack_volumes(&ctx);
+    assert_eq!(volumes.len(), 1, "the active strike authors one hit volume");
+    assert!(
+        (volumes[0].center().y - -35.0).abs() < 1e-3,
+        "the sample's PROFILE matched, so frame 0 (strike high, y=-35) must win \
+         over elapsed-time sampling on the HITBOX path too. Got {:?}",
+        volumes[0].center()
+    );
+}
+
+/// **The IDLE arm — and it is the one no `animation_key` can express.**
+///
+/// `AnimationSelection::live_frame_index`'s `None` arm reads
+/// `sample.profile.is_none().then_some(sample.frame_index)`: "the rendered row
+/// is the REST POSE", said as an ABSENT profile. That is what makes an idle
+/// hurtbox bob with the breathing animation instead of locking to frame 0 — the
+/// sample's own doc says so.
+///
+/// ⛔ **an absent `animation_key` is a different fact**: it means the renderer
+/// could not resolve one. So a key-only sample cannot distinguish "this is the
+/// rest pose" from "I don't know what row this is", and the fold's clean design
+/// (`animation_key: Option<String>`) silently loses the idle case. Slice 1 needs
+/// a three-state identity — `Idle | Row(key) | Unresolved`.
+///
+/// This pins the behaviour that would be lost.
+#[test]
+fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
+    use crate::features::{ActorSpriteMetrics, BossBehaviorProfile};
+    use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
+    use std::collections::HashMap;
+
+    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    // The REST row. `hurtbox_selection` passes `&["rest"]` as its rest keys when
+    // no profile is active, so that — not "idle" — is the name to author.
+    for key in ["rest"] {
+        animations.insert(
+            key.to_string(),
+            AnimationMetrics {
+                frame_duration_secs: Some(0.1),
+                hurtbox: Some(AnimationBox {
+                    parts: Vec::new(),
+                    bbox: None,
+                    poly: Vec::new(),
+                    frames: vec![
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "torso".to_string(),
+                                x: 45,
+                                y: 10,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                        AnimationBoxFrame {
+                            parts: vec![NamedPixelRect {
+                                name: "torso".to_string(),
+                                x: 45,
+                                y: 70,
+                                w: 10,
+                                h: 10,
+                            }],
+                            bbox: None,
+                        },
+                    ],
+                }),
+                hitbox: None,
+            },
+        );
+    }
+    let metrics = ActorSpriteMetrics {
+        frame_width: 100,
+        frame_height: 100,
+        body_pixel_bbox: None,
+        body_pixel_parts: Vec::new(),
+        sprite_render_size: ae::Vec2::new(100.0, 100.0),
+        combat_offset: ae::Vec2::ZERO,
+        animations,
+    };
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
+    // NO active profile: the boss is at rest.
+    let attack_state = BossAttackState::default();
+
+    // An IDLE sample: `profile: None` is how it says "the rest pose", and it
+    // still carries a live frame so the hurtbox breathes.
+    let idle = BossAnimationFrameSample {
+        profile: None,
+        frame_index: 1,
+        animation_key: Some("rest".into()),
+    };
+
+    let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(100.0, 100.0),
+        combat_size: ae::Vec2::new(100.0, 100.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: Some(&metrics),
+        animation_frame: Some(&idle),
+        facing: 1.0,
+    };
+
+    let volumes = damageable_volumes(&ctx);
+    assert_eq!(volumes.len(), 1, "the rest pose authors one hurtbox");
+    assert!(
+        (volumes[0].center().y - 25.0).abs() < 1e-3,
+        "the idle sample's frame_index 1 (torso low) must be honoured — that is \
+         what makes a rest-pose hurtbox bob with the breathing animation rather \
+         than lock to frame 0 (y=-35). Got {:?}",
+        volumes[0].center()
+    );
+}

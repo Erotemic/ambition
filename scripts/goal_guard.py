@@ -67,6 +67,39 @@ not change ordinary interactive sessions. Arming is an explicit act:
     python3 scripts/goal_guard.py --status
     python3 scripts/goal_guard.py --clear
 
+## A goal belongs to ONE session
+
+The goal is armed in the REPOSITORY, but a run belongs to one session. Without
+scoping, every other session sharing the working directory — a quick question in
+a second window, another agent, a fresh terminal — is held by a goal it was
+never given, and the only way out is to disarm the run that IS working.
+
+So the guard records an owner. `session_id` arrives in the hook payload the
+runtime already sends, and:
+
+* an UNCLAIMED goal is claimed by the first Stop hook that sees it, so `--arm`
+  still needs no session id and the arming run keeps the goal by default;
+* any other session's Stop hook returns immediately and has NO side effects on
+  the run — it does not run the checks, count a block, or touch the stall
+  counter;
+* `--inject` stays silent in non-owner sessions, so a second window does not get
+  told to work somebody else's queue;
+* a payload with NO session id at all (a manual run, an older client) is treated
+  as the owner. "I cannot tell whose this is" must fail toward blocking — the
+  one thing this must never do by accident is RELEASE a run.
+
+    python3 scripts/goal_guard.py --own <session-id>   # bind it explicitly
+    python3 scripts/goal_guard.py --disown             # next session claims it
+
+Ownership lives in `.goal/owner`, which `--arm` and `--clear` remove, so every
+fresh run starts unclaimed.
+
+⚠ **`/clear` gives the session a new id**, which orphans the goal: the old owner
+no longer exists, so every session is released and the guard is silently doing
+nothing. It fails OPEN rather than locking anybody out, which is the right
+direction, but `--status` prints the owner so the state is visible — check it if
+a run stops being held.
+
 ## The goal file
 
     {
@@ -184,6 +217,73 @@ def load_json(path: Path):
         return None
 
 
+def session_id_of(hook_input: dict) -> str:
+    """The calling session's id, from either field the runtime provides.
+
+    `session_id` is the documented one. `transcript_path` is read as a fallback
+    because its stem IS the session id, and a guard that decides who owns a run
+    should not hinge on one key surviving a schema change.
+    """
+    session = hook_input.get("session_id")
+    if isinstance(session, str) and session.strip():
+        return session.strip()
+    transcript = hook_input.get("transcript_path")
+    if isinstance(transcript, str) and transcript.strip():
+        return Path(transcript.strip()).stem
+    return ""
+
+
+def owner_path(root: Path) -> Path:
+    """Ownership gets its OWN file, deliberately, not a key in `state.json`.
+
+    `mode_stop` loads `state.json`, spends minutes in `run_checks`, then writes
+    the whole dict back. A second session claiming ownership during that window
+    would have its key silently dropped by the owning session's write — and the
+    symptom is the goal quietly reverting to unclaimed, which is the failure that
+    releases runs. A separate file has no writer to lose a race with.
+    """
+    return goal_dir(root) / "owner"
+
+
+def owner_session(root: Path) -> str:
+    try:
+        return owner_path(root).read_text().strip()
+    except OSError:
+        return ""
+
+
+def set_owner(root: Path, session: str) -> None:
+    goal_dir(root).mkdir(parents=True, exist_ok=True)
+    try:
+        if session:
+            owner_path(root).write_text(session + "\n")
+        else:
+            owner_path(root).unlink(missing_ok=True)
+    except OSError:
+        # Not fatal: an unrecorded owner reads as unclaimed, which blocks. The
+        # failure direction is "holds the run", never "releases it".
+        pass
+
+
+def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
+    """Does the armed goal belong to the session calling this hook?
+
+    `claim` is True only for the Stop hook: an unclaimed goal binds to the first
+    session that finishes a turn under it, which is the arming run. SessionStart
+    must NOT claim — it fires for every new session, so the first window opened
+    after arming would steal a run it is not doing.
+    """
+    session = session_id_of(hook_input)
+    if not session:
+        return True  # Cannot tell. Fail toward blocking, never toward release.
+    owner = owner_session(root)
+    if not owner:
+        if claim:
+            set_owner(root, session)
+        return True
+    return session == owner
+
+
 def head_sha(root: Path) -> str:
     try:
         out = subprocess.run(
@@ -274,6 +374,7 @@ def clear_goal(root: Path, reason: str) -> None:
         archive.write_text(json.dumps(payload, indent=2) + "\n")
         active.unlink()
         state_path(root).unlink(missing_ok=True)
+        owner_path(root).unlink(missing_ok=True)
     except OSError:
         pass
 
@@ -325,6 +426,13 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     goal = load_json(active_path(root))
     if not goal:
         return 0  # Not armed: ordinary sessions are untouched.
+
+    # Whose run is this? Checked FIRST, so a session that does not own the goal
+    # has no effect on it at all — it does not run the checks (which can take
+    # minutes), count a block, or advance the stall counter toward a release
+    # somebody else's work would be judged by.
+    if not session_owns_goal(root, hook_input, claim=True):
+        return 0
 
     deadline = parse_deadline(goal.get("deadline_utc"))
     if deadline and now_utc() >= deadline:
@@ -455,6 +563,12 @@ def mode_inject(root: Path, hook_input: dict) -> int:
     if not goal:
         return 0
 
+    # Someone else's run: say nothing. `claim=False` because SessionStart fires
+    # for every new session, and the first window opened after arming would
+    # otherwise take ownership of a run it is not doing.
+    if not session_owns_goal(root, hook_input, claim=False):
+        return 0
+
     deadline = parse_deadline(goal.get("deadline_utc"))
     if deadline and now_utc() >= deadline:
         clear_goal(root, "deadline passed before this session started")
@@ -510,6 +624,12 @@ def mode_status(root: Path) -> int:
         print("no goal armed")
         return 0
     print(f"goal: {goal.get('goal', '')}")
+    owner = owner_session(root)
+    print(
+        f"owner session: {owner}"
+        if owner
+        else "owner session: (unclaimed — the next session to stop claims it)"
+    )
     deadline = parse_deadline(goal.get("deadline_utc"))
     if deadline:
         print(f"deadline: {deadline.isoformat()} ({deadline - now_utc()} remaining)")
@@ -598,6 +718,7 @@ def mode_arm(root: Path, source: str) -> int:
     if src.resolve() != active_path(root).resolve():
         shutil.copyfile(src, active_path(root))
     state_path(root).unlink(missing_ok=True)
+    set_owner(root, "")  # A fresh run is unclaimed; its first Stop takes it.
     print(f"armed: {goal.get('goal', '')}")
     return mode_status(root)
 
@@ -608,10 +729,28 @@ def main() -> int:
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--arm", metavar="GOAL_JSON")
     parser.add_argument("--clear", action="store_true")
+    parser.add_argument(
+        "--own",
+        metavar="SESSION_ID",
+        help="bind the armed goal to one session id (transcript basename)",
+    )
+    parser.add_argument(
+        "--disown",
+        action="store_true",
+        help="unbind the goal; the next session to stop claims it",
+    )
     args = parser.parse_args()
 
     root = repo_root()
 
+    if args.own:
+        set_owner(root, args.own.strip())
+        print(f"goal bound to session {args.own.strip()}")
+        return 0
+    if args.disown:
+        set_owner(root, "")
+        print("goal unbound — the next session to stop will claim it")
+        return 0
     if args.arm:
         return mode_arm(root, args.arm)
     if args.clear:

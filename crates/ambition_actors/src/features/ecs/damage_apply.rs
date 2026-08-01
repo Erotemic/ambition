@@ -384,6 +384,9 @@ pub struct BodyDeathWriters<'w> {
     /// instrument that can take down a composition is worse than no instrument.
     #[cfg(feature = "causal")]
     pub resolutions: Option<MessageWriter<'w, BodyHitResolved>>,
+    /// The LAUNCH the reaction produced. Same `Option` rule as above.
+    #[cfg(feature = "causal")]
+    pub reactions: Option<MessageWriter<'w, BodyReactionApplied>>,
 }
 
 /// Resolve this frame's hits against one body. Returns **true when the body was
@@ -571,7 +574,7 @@ pub(crate) fn handle_player_damage_events(
                 }
                 crate::combat::HitMode::Knockback => {
                     ae::movement::knock_off_ledge(motion_model, clusters.ledge);
-                    apply_player_knockback(
+                    let reaction = apply_player_knockback(
                         sfx,
                         vfx,
                         debris,
@@ -585,6 +588,7 @@ pub(crate) fn handle_player_damage_events(
                         attacker_source,
                         victim_source,
                     );
+                    publish_reaction(death_writers, player_entity, reaction);
                     false
                 }
             }
@@ -678,7 +682,7 @@ pub(crate) fn handle_player_damage_events(
                 // knockback instead of hanging there immune. The hang state is
                 // policy-private, so the typed op goes through the model.
                 ae::movement::knock_off_ledge(motion_model, clusters.ledge);
-                apply_player_knockback(
+                let reaction = apply_player_knockback(
                     sfx,
                     vfx,
                     debris,
@@ -692,6 +696,7 @@ pub(crate) fn handle_player_damage_events(
                     attacker_source,
                     victim_source,
                 );
+                publish_reaction(death_writers, player_entity, reaction);
                 false
             }
         },
@@ -885,6 +890,36 @@ pub(crate) type BodyReactionOutcome = BodyReaction;
 #[cfg(not(feature = "causal"))]
 pub(crate) type BodyReactionOutcome = ();
 
+/// Announce a player-side launch, if anybody is listening.
+///
+/// A free function rather than repeated at both call sites, because the two
+/// knockback arms are already near-identical and a third near-identical block
+/// is how they drift.
+///
+/// ⚠ **it exists in BOTH feature configurations** — a no-op without `causal` —
+/// so the call sites carry no `cfg` and the returned reaction is never an
+/// unused binding. Gating the function instead meant two conditional blocks at
+/// the call sites and a warning in the build that has no inspector, which is
+/// exactly the kind of noise that gets a warning ignored.
+#[cfg(feature = "causal")]
+fn publish_reaction(
+    writers: &mut BodyDeathWriters<'_>,
+    body: bevy::prelude::Entity,
+    reaction: BodyReaction,
+) {
+    if let Some(reactions) = writers.reactions.as_mut() {
+        reactions.write(BodyReactionApplied { body, reaction });
+    }
+}
+
+#[cfg(not(feature = "causal"))]
+fn publish_reaction(
+    _writers: &mut BodyDeathWriters<'_>,
+    _body: bevy::prelude::Entity,
+    _reaction: BodyReactionOutcome,
+) {
+}
+
 pub(crate) fn apply_player_knockback(
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -902,7 +937,7 @@ pub(crate) fn apply_player_knockback(
     // strike authored a cue, the struck body's otherwise.
     attacker_source: Option<&ambition_sfx::PresentationSourceId>,
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
-) {
+) -> BodyReactionOutcome {
     let boss_hit = matches!(
         damage.source,
         crate::combat::HitSource::BossBody | crate::combat::HitSource::BossAttack
@@ -913,7 +948,7 @@ pub(crate) fn apply_player_knockback(
         .unwrap_or_else(|| damage.volume.center());
     let pos = clusters.kinematics.pos;
     let facing = clusters.kinematics.facing;
-    apply_body_hit_reaction(
+    let reaction = apply_body_hit_reaction(
         &mut clusters.kinematics.vel,
         &mut clusters.flight,
         combat,
@@ -946,6 +981,7 @@ pub(crate) fn apply_player_knockback(
         attacker_source,
         victim_source,
     );
+    reaction
 }
 
 /// Resolve this tick's victim-side `HitEvent`s and remember the last safe-spawn

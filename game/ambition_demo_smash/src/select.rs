@@ -362,7 +362,37 @@ fn default_character_for(seat: usize) -> usize {
 /// MATCH cannot; the two answers are different on purpose, and the seam between
 /// them is the moment the roster is published.
 pub fn seats_offered(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> usize {
-    devices.devices().len().clamp(1, MAX_SMASH_SEATS)
+    seats_offered_under(devices, ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary)
+}
+
+/// **How many seats the sources present can claim, under a stated policy.**
+///
+/// ⛔ The pad-only count above is Jon's couch milestone 2 failing:
+/// *"Keyboard joins one participant. A gamepad joins a second participant."*
+/// With one keyboard and one pad it offers ONE seat, so both sources drive
+/// player one and the pad player has nowhere to sit. The keyboard was never a
+/// row in `LocalDeviceOrder` — it holds gamepad entities — so it could not be
+/// counted, only assumed.
+///
+/// Under [`InputAssignmentPolicy::JoinToClaim`] the keyboard is a SOURCE like any
+/// other and brings its own seat: keyboard + one pad is two players, which is
+/// the whole couch flow.
+///
+/// ⚠ [`InputAssignmentPolicy::UnifiedPrimary`] keeps the old arithmetic exactly.
+/// Solo play drives one character with either hand and must not discover that
+/// plugging a controller in created a second empty chair — Jon's milestone 8,
+/// and the reason this takes a policy rather than just adding one.
+pub fn seats_offered_under(
+    devices: &ambition_platformer2d::input::LocalDeviceOrder,
+    policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+) -> usize {
+    let pads = devices.devices().len();
+    let seats = match policy {
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => pads,
+        // The keyboard is player one and each pad brings its own seat.
+        _ => pads + 1,
+    };
+    seats.clamp(1, MAX_SMASH_SEATS)
 }
 
 /// Which seats a player may join, given the pads present.

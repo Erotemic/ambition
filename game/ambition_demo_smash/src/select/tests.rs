@@ -202,3 +202,61 @@ fn a_seat_past_the_ceiling_is_ignored_rather_than_a_crash() {
     select.cancel(MAX_SMASH_SEATS);
     assert_eq!(select.joined(), 0);
 }
+
+/// **Jon's couch milestones 1 and 2: a keyboard player and a pad player.**
+///
+/// ⛔ Pad-only counting made this impossible to express. One keyboard and one pad
+/// offered ONE seat, so both sources drove player one and the pad player had
+/// nowhere to sit. The keyboard is not a row in `LocalDeviceOrder` — that holds
+/// gamepad entities — so it could never be counted, only assumed.
+#[test]
+fn a_keyboard_and_one_pad_offer_two_seats_under_the_couch_policy() {
+    use ambition_platformer2d::input::sources::InputAssignmentPolicy;
+
+    let mut world = bevy::prelude::World::new();
+    let pad = world.spawn_empty().id();
+    let one_pad = ambition_platformer2d::input::LocalDeviceOrder::from_devices(vec![pad]);
+
+    assert_eq!(
+        super::seats_offered_under(&one_pad, InputAssignmentPolicy::JoinToClaim),
+        2,
+        "the keyboard is player one and the pad brings its own seat"
+    );
+}
+
+/// ⚠ **Milestone 8: solo play must not change.** A single player with a spare
+/// controller must not discover that plugging it in created an empty chair.
+#[test]
+fn the_unified_policy_keeps_the_pad_only_count() {
+    use ambition_platformer2d::input::sources::InputAssignmentPolicy;
+
+    let mut world = bevy::prelude::World::new();
+    let a = world.spawn_empty().id();
+    let b = world.spawn_empty().id();
+    let none = ambition_platformer2d::input::LocalDeviceOrder::from_devices(vec![]);
+    let one = ambition_platformer2d::input::LocalDeviceOrder::from_devices(vec![a]);
+    let two = ambition_platformer2d::input::LocalDeviceOrder::from_devices(vec![a, b]);
+
+    for (devices, expected) in [(&none, 1), (&one, 1), (&two, 2)] {
+        assert_eq!(
+            super::seats_offered_under(devices, InputAssignmentPolicy::UnifiedPrimary),
+            expected
+        );
+        // And the un-suffixed helper is the unified one, byte for byte.
+        assert_eq!(super::seats_offered(devices), expected);
+    }
+}
+
+/// The ceiling still holds: four sources is four seats, five is still four.
+#[test]
+fn the_couch_policy_still_respects_the_seat_ceiling() {
+    use ambition_platformer2d::input::sources::InputAssignmentPolicy;
+
+    let mut world = bevy::prelude::World::new();
+    let pads: Vec<_> = (0..5).map(|_| world.spawn_empty().id()).collect();
+    let many = ambition_platformer2d::input::LocalDeviceOrder::from_devices(pads);
+    assert_eq!(
+        super::seats_offered_under(&many, InputAssignmentPolicy::JoinToClaim),
+        super::MAX_SMASH_SEATS
+    );
+}

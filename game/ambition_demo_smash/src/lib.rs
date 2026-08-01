@@ -624,6 +624,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // it declares them, only player one exists and the other panels are
         // chairs no controller can reach. See `DeclaredInputSeats`.
         app.init_resource::<ambition_platformer2d::input::DeclaredInputSeats>();
+        // The couch policy this demo drives. Defaults to `UnifiedPrimary`, so
+        // installing it changes nothing until the select screen says otherwise.
+        app.init_resource::<ambition_platformer2d::input::sources::InputAssignmentPolicy>();
         // **ONE CHAIN, IN `InputSet::Consume`.** Two things were ambiguous and
         // both are the same mistake — a reader with no stated order.
         //
@@ -683,6 +686,9 @@ fn present_the_select_screen(
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     mut lobby_seats: bevy::prelude::ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
+    mut assignment: bevy::prelude::ResMut<
+        ambition_platformer2d::input::sources::InputAssignmentPolicy,
+    >,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -696,7 +702,23 @@ fn present_the_select_screen(
     // **WHILE THIS SCREEN IS UP, THE PADS ARE SEATS.** Declared here and dropped
     // on the way out, so the participants it asks for live exactly as long as
     // the question does — the same lifetime rule the match's own seats have.
-    let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1) as u8;
+    // **THIS SCREEN IS A COUCH LOBBY**, so its sources CLAIM seats rather than
+    // all driving player one. Declared while the screen is up and dropped on the
+    // way out, exactly like the seat count itself — Ambition's own routes keep
+    // the unified default, where a spare controller is another way to move the
+    // same character.
+    let policy = if on_select {
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim
+    } else {
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary
+    };
+    if *assignment != policy {
+        *assignment = policy;
+    }
+    let offered = devices
+        .as_deref()
+        .map(|devices| select::seats_offered_under(devices, policy))
+        .unwrap_or(1) as u8;
     let want_seats = ambition_platformer2d::input::DeclaredInputSeats(if on_select { offered } else { 0 });
     if *lobby_seats != want_seats {
         *lobby_seats = want_seats;

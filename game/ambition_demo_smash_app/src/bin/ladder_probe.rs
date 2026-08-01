@@ -182,10 +182,17 @@ fn trace_seam(app: &mut App, tick: usize) {
                 .unwrap_or_else(|| "-".to_string())
         };
         eprintln!(
-            "[seam] t={tick} {subject} asked={} holding={} vx={} dash_charges={} chose={}",
+            "[seam] t={tick} {subject} asked={} holding={} facing={} vx={} ground={} \
+             dash_charges={} chose={}",
             field(decided, "emit_locomotion_x"),
             field(received, "locomotion_x"),
+            // ⚠ FACING is not decoration. `locomotion.x` is in the body's LOCAL
+            // frame, so "holds -1 and travels +270" is a defect only if facing
+            // does not explain the sign. Reading the pair without it is how a
+            // convention gets reported as a bug.
+            field(received, "facing"),
             field(received, "vel_x"),
+            field(received, "on_ground"),
             field(received, "dash_charges"),
             field(decided, "chose"),
         );

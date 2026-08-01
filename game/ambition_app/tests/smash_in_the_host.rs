@@ -457,16 +457,27 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
 ///   blink-through-walls; player two had jump and attack.
 ///
 /// The shape never changes: *an adopted body keeps what the session gave it*. A
-/// fifth field is a matter of time, so this asserts the RULE rather than the
-/// four instances.
+/// fifth field is a matter of time, so this asserts the RULE for the fields a
+/// MATCH declares. ⚠ health, box and mass are levelled by the seating
+/// transaction against each body's OWN character and are therefore not
+/// comparable across seats — see the note below.
 ///
 /// ⚠ scoped to what the ROSTER declares, deliberately. Per-CHARACTER differences
 /// are the point of a fighting game — the versus duelists author 60 and 52 health
 /// as a deliberate trade — so "both seats are identical" would be the wrong
 /// assertion. What a match DECLARES applies to every seat in it; what a character
 /// authors does not.
+///
+/// ⛔ **and the roster declares exactly three per-body things**, all checked here:
+/// `fighter_abilities`, `fighter_stocks`, and `opens_suspended` (which stamps
+/// `ScriptedControl`). An earlier version of this test named health, body box and
+/// mass in its rationale and compared NONE of them (GPT 5.6, 2026-08-01) — those
+/// three come from the character's `PhysicalBaseline`, not from the match, so
+/// comparing them ACROSS seats would fail the moment somebody authored an
+/// asymmetric pair. They are the seating transaction's job, not this test's, and
+/// naming them here made a two-field check read as a five-field one.
 #[test]
-fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
+fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
 
     let mut app = shell_host_app();
@@ -486,20 +497,22 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
         app.update();
     }
 
-    let rows: Vec<(usize, String, Option<u32>)> = {
+    let rows: Vec<(usize, String, Option<u32>, bool)> = {
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
             &ambition_platformer2d::engine_core::BodyAbilities,
             Option<&ambition_platformer2d::actor::FighterStocks>,
+            Option<&ambition_platformer2d::characters::brain::ScriptedControl>,
         )>();
-        let mut rows: Vec<(usize, String, Option<u32>)> = q
+        let mut rows: Vec<(usize, String, Option<u32>, bool)> = q
             .iter(world)
-            .map(|(seat, abilities, stocks)| {
+            .map(|(seat, abilities, stocks, held)| {
                 (
                     seat.0,
                     format!("{:?}", abilities.abilities),
                     stocks.map(|s| s.started_with),
+                    held.is_some(),
                 )
             })
             .collect();
@@ -512,8 +525,8 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
         rows.len()
     );
 
-    let (first_seat, first_abilities, first_stocks) = &rows[0];
-    for (seat, abilities, stocks) in &rows[1..] {
+    let (first_seat, first_abilities, first_stocks, first_held) = &rows[0];
+    for (seat, abilities, stocks, held) in &rows[1..] {
         assert_eq!(
             abilities, first_abilities,
             "seat {seat} and seat {first_seat} do not have the same verbs, and the \
@@ -524,6 +537,12 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
         assert_eq!(
             stocks, first_stocks,
             "seat {seat} and seat {first_seat} started with different stocks"
+        );
+        assert_eq!(
+            held, first_held,
+            "seat {seat} and seat {first_seat} disagree about the opening hold — \
+             one fighter could act before the other, which `opens_suspended` \
+             declares for the whole match"
         );
     }
 }
@@ -631,6 +650,13 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
     let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));
 
+    // **BOTH DIRECTIONS, because one proves half of it.** (GPT 5.6, 2026-08-01)
+    //
+    // ⛔ the first version of this drove ONLY the pad and asserted the other body
+    // stayed still. That shows the pad does not leak — and says nothing about
+    // whether the KEYBOARD player has any control authority at all. A seat wired
+    // to nothing passes it perfectly.
+
     // Player two walks right on the PAD. Nothing is touched on the keyboard.
     pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
     for _ in 0..40 {
@@ -650,5 +676,32 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         moved_one.abs() < moved_two.abs() * 0.25,
         "the pad moved the KEYBOARD player's fighter ({moved_one:.2}px against the \
          pad player's {moved_two:.2}px) - the two seats are reading the same source"
+    );
+
+    // Let the pad player settle, then do it the other way round.
+    pad_set(&mut app, pad, GamepadButton::DPadRight, 0.0);
+    for _ in 0..120 {
+        app.update();
+    }
+    let (before_one, before_two) = (x(&app, body_one), x(&app, body_two));
+
+    // Player ONE walks right on the KEYBOARD. The pad is released.
+    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+    for _ in 0..40 {
+        app.update();
+    }
+    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+    let keyboard_moved_one = x(&app, body_one) - before_one;
+    let keyboard_moved_two = x(&app, body_two) - before_two;
+    assert!(
+        keyboard_moved_one.abs() > 1.0,
+        "the KEYBOARD player pressed right and their fighter did not move \
+         ({keyboard_moved_one:.2}px): seat one has no control authority, which \
+         the pad-only half of this test could never have caught"
+    );
+    assert!(
+        keyboard_moved_two.abs() < keyboard_moved_one.abs() * 0.25,
+        "the keyboard moved the PAD player's fighter ({keyboard_moved_two:.2}px \
+         against the keyboard player's {keyboard_moved_one:.2}px)"
     );
 }

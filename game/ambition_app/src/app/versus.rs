@@ -351,6 +351,26 @@ fn reconcile_roster_with_frozen_topology(
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
     };
+    // ⛔ **MINE, not "a roster exists" — the same rule `maintain_versus_stage`
+    // learned and this function did not.**
+    //
+    // `versus_roster_from` stamps `published_by: ambition_versus`, so rebuilding
+    // somebody else's roster here does not just resize it: it TRANSFERS
+    // OWNERSHIP. Smash's select screen publishes a two-fighter roster, this
+    // replaced it with a versus-stamped one built from the frozen topology, and
+    // `maintain_versus_stage` then correctly deleted it as its own on a route
+    // that was not versus. Smash never seated anybody and the stage opened with
+    // one fighter — Jon, 2026-08-01: *"even when we add a CPU player in smash
+    // there is only ever one player that shows up in game."*
+    //
+    // ⚠ it only bites where a topology is actually FROZEN, which today is a
+    // `dev_tools` build (the rollback observatory is the only thing that freezes
+    // one — queue S35). That is why the headless host test passes: `MinimalPlugins`
+    // never freezes one, so this returned early and Smash's roster survived. The
+    // test proves the composition no player runs.
+    if !roster.is_published_by(VERSUS_EXPERIENCE) {
+        return;
+    }
     if !topology.is_frozen() || roster.seat_topology == Some(topology.generation()) {
         return;
     }

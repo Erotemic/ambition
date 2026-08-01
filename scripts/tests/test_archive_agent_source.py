@@ -369,3 +369,114 @@ def test_manifests_honor_redaction(tmp_path: Path):
     assert str(tmp_path) not in txt_text
     assert "redacted by --redact-local-paths" in yaml_text
     assert "redacted by --redact-local-paths" in txt_text
+
+
+def test_slim_manifest_omits_skipped_payload_outputs(monkeypatch, tmp_path: Path):
+    context = _fake_context(tmp_path)
+    for key in (
+        "run_agent_index",
+        "run_ecs_inventory",
+        "run_agent_navigation",
+        "run_dirstats",
+        "run_live_disk_inventory",
+    ):
+        monkeypatch.setitem(archiver.CONFIG, key, False)
+
+    archiver.write_manifests(
+        context=context,
+        generated_at="2026-08-01T18:25:20Z",
+        dirty_status="",
+        full_reports=False,
+    )
+
+    yaml_text = (
+        context.archive_root / ".agent" / "source_archive_manifest.yaml"
+    ).read_text()
+    txt_text = (context.archive_root / "SOURCE_ARCHIVE_MANIFEST.txt").read_text()
+
+    assert "schema_version: 3" in yaml_text
+    for key in (
+        "agent_index_enabled",
+        "ecs_inventory_enabled",
+        "agent_navigation_enabled",
+        "full_reports_enabled",
+        "dirstats_enabled",
+        "live_disk_inventory_enabled",
+    ):
+        assert f"  {key}: false" in yaml_text
+
+    for skipped_output in (
+        ".agent/index/generation_stamp.json",
+        ".agent/ecs_inventory/project.md",
+        ".agent/index/catalog.json",
+        ".agent/reports/cargo-check-warnings.md",
+        ".agent/dirstats-repo-summary.txt",
+        ".agent/live-disk-inventory-summary.txt",
+        ".agent/live-git-status-ignored.txt",
+    ):
+        assert skipped_output not in yaml_text
+
+    for label in (
+        "Agent index",
+        "ECS inventory",
+        "Agent navigation",
+        "Full reports",
+        "Dirstats",
+        "Live disk inventory",
+    ):
+        assert f"- {label}: skipped" in txt_text
+
+
+def test_manifest_lists_outputs_for_enabled_payloads(monkeypatch, tmp_path: Path):
+    context = _fake_context(tmp_path)
+    for key in (
+        "run_agent_index",
+        "run_ecs_inventory",
+        "run_agent_navigation",
+        "run_dirstats",
+        "run_live_disk_inventory",
+    ):
+        monkeypatch.setitem(archiver.CONFIG, key, True)
+
+    archiver.write_manifests(
+        context=context,
+        generated_at="2026-08-01T18:25:20Z",
+        dirty_status="",
+        full_reports=True,
+    )
+
+    yaml_text = (
+        context.archive_root / ".agent" / "source_archive_manifest.yaml"
+    ).read_text()
+    txt_text = (context.archive_root / "SOURCE_ARCHIVE_MANIFEST.txt").read_text()
+
+    for key in (
+        "agent_index_enabled",
+        "ecs_inventory_enabled",
+        "agent_navigation_enabled",
+        "full_reports_enabled",
+        "dirstats_enabled",
+        "live_disk_inventory_enabled",
+    ):
+        assert f"  {key}: true" in yaml_text
+
+    for generated_output in (
+        ".agent/index/generation_stamp.json",
+        ".agent/ecs_inventory/project.md",
+        ".agent/index/catalog.json",
+        ".agent/reports/cargo-check-warnings.md",
+        ".agent/dirstats-repo-summary.txt",
+        ".agent/live-disk-inventory-summary.txt",
+        ".agent/live-git-status-ignored.txt",
+    ):
+        assert generated_output in yaml_text
+
+    for label in (
+        "Agent index",
+        "ECS inventory",
+        "Agent navigation",
+        "Full reports",
+        "Dirstats",
+        "Live disk inventory",
+    ):
+        assert f"- {label}: generated" in txt_text

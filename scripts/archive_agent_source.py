@@ -887,9 +887,14 @@ def write_manifests(
     manifest_yaml = agent_dir / 'source_archive_manifest.yaml'
     manifest_txt = archive_root / 'SOURCE_ARCHIVE_MANIFEST.txt'
     source_display_path = context.source_display_path()
+    run_agent_index = bool(CONFIG['run_agent_index'])
+    run_ecs_inventory = bool(CONFIG['run_ecs_inventory'])
+    run_agent_navigation = bool(CONFIG['run_agent_navigation'])
+    run_dirstats = bool(CONFIG['run_dirstats'])
+    run_live_disk_inventory = bool(CONFIG['run_live_disk_inventory'])
 
     yaml_lines = [
-        'schema_version: 2',
+        'schema_version: 3',
         f'generated_at_utc: {yaml_scalar(generated_at)}',
         f'generator: {yaml_scalar("scripts/archive_agent_source.py")}',
         f'repo_name: {yaml_scalar(CONFIG["repo_name"])}',
@@ -944,49 +949,74 @@ def write_manifests(
         [
             'generated_payloads:',
             '  agent_manifest: .agent/manifest.yaml',
-            '  generation_stamp: .agent/index/generation_stamp.json',
             '  source_archive_manifest: .agent/source_archive_manifest.yaml',
             '  git_well_manifest: GIT_WELL_ARCHIVE_INFO.txt',
-            '  agent_index_command:',
+            f'  agent_index_enabled: {str(run_agent_index).lower()}',
+            f'  ecs_inventory_enabled: {str(run_ecs_inventory).lower()}',
+            f'  agent_navigation_enabled: {str(run_agent_navigation).lower()}',
+            f'  full_reports_enabled: {str(bool(full_reports)).lower()}',
+            f'  dirstats_enabled: {str(run_dirstats).lower()}',
+            f'  live_disk_inventory_enabled: {str(run_live_disk_inventory).lower()}',
         ]
     )
-    for item in CONFIG['agent_index_command']:
-        yaml_lines.append(f'    - {yaml_scalar(item)}')
-    yaml_lines.append('  ecs_inventory_command:')
-    for item in CONFIG['ecs_inventory_command']:
-        yaml_lines.append(f'    - {yaml_scalar(item)}')
-    yaml_lines.append('  agent_navigation_command:')
-    for item in CONFIG['agent_navigation_command']:
-        yaml_lines.append(f'    - {yaml_scalar(item)}')
-    yaml_lines.append(f'  agent_readme: {yaml_scalar(".agent/README.md")}')
-    yaml_lines.append(f'  agent_catalog: {yaml_scalar(".agent/index/catalog.json")}')
-    yaml_lines.append(f'  agent_crate_index: {yaml_scalar(".agent/index/crates/index.json")}')
-    yaml_lines.append(f'  ecs_inventory_project: {yaml_scalar(".agent/ecs_inventory/project.md")}')
-    yaml_lines.append(f'  full_reports_enabled: {str(bool(full_reports)).lower()}')
-    yaml_lines.append('  full_report_outputs:')
-    yaml_lines.append(f'    cargo_check_warnings: {yaml_scalar(CONFIG["cargo_check_warnings_output"])}')
-    yaml_lines.append('    cargo_modules:')
-    for spec in CONFIG['cargo_modules_reports']:
-        yaml_lines.append(f'      - {yaml_scalar(spec["output"])}')
-    yaml_lines.append('  dirstats:')
-    for spec in CONFIG['dirstats']:
-        yaml_lines.extend(
-            [
-                f'    - output: {yaml_scalar(spec["output"])}',
-                f'      path: {yaml_scalar(spec["path"])}',
-                f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
-            ]
+    if run_agent_index:
+        yaml_lines.append('  generation_stamp: .agent/index/generation_stamp.json')
+        yaml_lines.append('  agent_index_command:')
+        for item in CONFIG['agent_index_command']:
+            yaml_lines.append(f'    - {yaml_scalar(item)}')
+    if run_ecs_inventory:
+        yaml_lines.append('  ecs_inventory_command:')
+        for item in CONFIG['ecs_inventory_command']:
+            yaml_lines.append(f'    - {yaml_scalar(item)}')
+        yaml_lines.append(
+            f'  ecs_inventory_project: '
+            f'{yaml_scalar(".agent/ecs_inventory/project.md")}'
         )
-    yaml_lines.append('  live_disk_inventory:')
-    for spec in CONFIG['live_disk_inventory']:
-        yaml_lines.extend(
-            [
-                f'    - output: {yaml_scalar(spec["output"])}',
-                f'      path: {yaml_scalar(spec["path"])}',
-                f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
-            ]
+    if run_agent_navigation:
+        yaml_lines.append('  agent_navigation_command:')
+        for item in CONFIG['agent_navigation_command']:
+            yaml_lines.append(f'    - {yaml_scalar(item)}')
+        yaml_lines.append(f'  agent_readme: {yaml_scalar(".agent/README.md")}')
+        yaml_lines.append(
+            f'  agent_catalog: {yaml_scalar(".agent/index/catalog.json")}'
         )
-    yaml_lines.append(f'  live_git_status_output: {yaml_scalar(CONFIG["live_git_status_output"])}')
+        yaml_lines.append(
+            f'  agent_crate_index: '
+            f'{yaml_scalar(".agent/index/crates/index.json")}'
+        )
+    if full_reports:
+        yaml_lines.append('  full_report_outputs:')
+        yaml_lines.append(
+            f'    cargo_check_warnings: '
+            f'{yaml_scalar(CONFIG["cargo_check_warnings_output"])}'
+        )
+        yaml_lines.append('    cargo_modules:')
+        for spec in CONFIG['cargo_modules_reports']:
+            yaml_lines.append(f'      - {yaml_scalar(spec["output"])}')
+    if run_dirstats:
+        yaml_lines.append('  dirstats:')
+        for spec in CONFIG['dirstats']:
+            yaml_lines.extend(
+                [
+                    f'    - output: {yaml_scalar(spec["output"])}',
+                    f'      path: {yaml_scalar(spec["path"])}',
+                    f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
+                ]
+            )
+    if run_live_disk_inventory:
+        yaml_lines.append('  live_disk_inventory:')
+        for spec in CONFIG['live_disk_inventory']:
+            yaml_lines.extend(
+                [
+                    f'    - output: {yaml_scalar(spec["output"])}',
+                    f'      path: {yaml_scalar(spec["path"])}',
+                    f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
+                ]
+            )
+        yaml_lines.append(
+            f'  live_git_status_output: '
+            f'{yaml_scalar(CONFIG["live_git_status_output"])}'
+        )
     if dirty_status.strip():
         yaml_lines.append('dirty_status: |')
         for line in dirty_status.splitlines():
@@ -1013,12 +1043,16 @@ def write_manifests(
         'Policy:',
         '- Git-well stages committed source, history, branch refs, and recursive submodules.',
         '- Ambition enriches the staged checkout through a programmatic prepare hook.',
-        '- The tracked .agent/manifest.yaml remains byte-stable; volatile provenance lives in generation_stamp.json.',
-        '- Generates ECS inventory shards and progressive-disclosure navigation metadata.',
-        '- Generates optional full reports when --full is used.',
-        '- Generates dirstats inside the staged archive tree so paths match what agents unpack.',
-        '- Writes metadata-only live disk inventory so agents can see where ignored/generated assets live.',
-        '- Excludes local untracked files, ignored build products, and dirty worktree changes from source contents.',
+        '- The tracked .agent/manifest.yaml remains byte-stable; volatile provenance lives in generation_stamp.json when the agent index is generated.',
+        '- Local untracked files, ignored build products, and dirty worktree changes are excluded from source contents.',
+        '',
+        'Payload generation:',
+        f'- Agent index: {"generated" if run_agent_index else "skipped"}',
+        f'- ECS inventory: {"generated" if run_ecs_inventory else "skipped"}',
+        f'- Agent navigation: {"generated" if run_agent_navigation else "skipped"}',
+        f'- Full reports: {"generated" if full_reports else "skipped"}',
+        f'- Dirstats: {"generated" if run_dirstats else "skipped"}',
+        f'- Live disk inventory: {"generated" if run_live_disk_inventory else "skipped"}',
         '',
         'Submodules:',
     ]

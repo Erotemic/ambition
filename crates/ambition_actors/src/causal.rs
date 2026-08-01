@@ -27,9 +27,7 @@ use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domai
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
-use crate::features::ecs::damage_apply::{
-    BodyHitResolution, BodyHitResolved, BodyReactionApplied,
-};
+use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
 use ambition_characters::brain::{ActorControl, Brain};
 
 /// Publish one movement-intent fact per seated body per tick.
@@ -67,7 +65,11 @@ pub fn record_player_movement_intent(
                         "seat {} asked for lateral {:+.2}{}",
                         slot.0,
                         frame.locomotion.x,
-                        if frame.jump_pressed { " and a jump" } else { "" }
+                        if frame.jump_pressed {
+                            " and a jump"
+                        } else {
+                            ""
+                        }
                     ),
                 ),
             )
@@ -83,6 +85,98 @@ pub fn record_player_movement_intent(
             .field("vel_y", kin.vel.y)
             .field("on_ground", ground.on_ground)
             .field("facing", kin.facing),
+        );
+    }
+}
+
+/// **What frame did the BODY actually receive?** — the kernel-side half.
+///
+/// ⛔ **this exists because a brain trace could not answer a brain question.**
+/// The fighter's recovery thread reached a state where the decision trace read
+///
+/// ```text
+///   x=549 vx=478 ... chose=Some(Recover) emit_x=-1.0
+///   x=598 vx=588 ... chose=Some(Recover) emit_x=-1.0
+/// ```
+///
+/// — full left for three consecutive decisions while the body accelerated
+/// RIGHT. At that point the question is no longer scoring, vetoes or situation
+/// classification: it is somewhere between the emitted frame and the body, and
+/// every instrument pointed at the brain. Three of the last four fixes on that
+/// thread edited the brain and the number got worse.
+///
+/// So this publishes the frame as it sits ON the body, keyed by the SAME
+/// subject the brain's own fact uses (`SubjectKey::Sim` of the actor id), which
+/// is what makes the two joinable: one `explain(tick, subject)` returns what the
+/// brain asked for and what the body was holding, side by side.
+///
+/// ⚠ **it covers the bodies `record_player_movement_intent` cannot.** That one
+/// is keyed by SEAT and skips anything without a player slot, which is every AI
+/// fighter — precisely the bodies this thread is about.
+///
+/// Observer by construction, like its sibling: every component immutable, the
+/// log the only thing held mutably.
+pub fn record_body_control_frame(
+    log: Option<ResMut<CausalRecording>>,
+    bodies: Query<(
+        // The READ-MODEL, not `ActorConfig`. `sync_actor_read_model` copies
+        // `config.id` into it verbatim, so the join with the brain's fact holds
+        // — and an observer reading the read-model instead of the authored
+        // cluster is the same discipline the render side follows.
+        &crate::combat::components::ActorIdentity,
+        &BodyKinematics,
+        &BodyGroundState,
+        &ActorControl,
+        &ambition_engine_core::BodyDashState,
+        &Brain,
+    )>,
+) {
+    let Some(mut log) = log else {
+        return;
+    };
+    if !log.is_recording() {
+        return;
+    }
+    for (identity, kin, ground, control, dash, brain) in &bodies {
+        // A seated body is already covered by `record_player_movement_intent`,
+        // under its SEAT — which is the better key there, because a seat
+        // survives death and respawn and an actor id does not.
+        if brain.player_slot().is_some() {
+            continue;
+        }
+        let frame = &control.0;
+        log.record(
+            CausalFact::new(
+                domains::MOVEMENT,
+                0,
+                FactDetail::new(
+                    "control_frame_received",
+                    format!(
+                        "body holds lateral {:+.2} while moving {:+.0}/s",
+                        frame.locomotion.x, kin.vel.x
+                    ),
+                ),
+            )
+            .about(SubjectKey::Sim(identity.id.clone()))
+            // The pair the whole instrument exists for: what was asked, and
+            // which way the body is actually going. A sign disagreement between
+            // these two is the finding, and nothing else in the log shows it.
+            .field("locomotion_x", frame.locomotion.x)
+            .field("vel_x", kin.vel.x)
+            .field("locomotion_y", frame.locomotion.y)
+            .field("vel_y", kin.vel.y)
+            .field("pos_x", kin.pos.x)
+            .field("pos_y", kin.pos.y)
+            .field("on_ground", ground.on_ground)
+            .field("facing", kin.facing)
+            .field("dash_pressed", frame.dash_pressed)
+            // ⚠ the dash state is here for a NAMED suspicion: the trace showed
+            // the body reaching 750/s, which is dash speed (a run caps at 270),
+            // while `Dash` appeared zero times in the brain's decisions. A dash
+            // armed by something other than the decision shows up as a spent
+            // charge and a live cooldown with `dash_pressed` false.
+            .field("dash_charges", i64::from(dash.charges_available))
+            .field("dash_cooldown", dash.cooldown),
         );
     }
 }
@@ -256,7 +350,9 @@ mod tests {
         let mut app = app();
         seated_body(&mut app, 0, 1.0);
         seated_body(&mut app, 1, -1.0);
-        app.world_mut().resource_mut::<CausalRecording>().set_tick(30);
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_tick(30);
         app.update();
 
         let log = app.world().resource::<CausalRecording>();
@@ -354,8 +450,17 @@ mod damage_tests {
             (BodyHitResolution::Ignored, "ignored"),
             (BodyHitResolution::Blocked, "blocked"),
             (BodyHitResolution::Armored, "armored"),
-            (BodyHitResolution::WalletShielded { spent: 7 }, "wallet_shielded"),
-            (BodyHitResolution::Damaged { damage: 30, died: false }, "damaged"),
+            (
+                BodyHitResolution::WalletShielded { spent: 7 },
+                "wallet_shielded",
+            ),
+            (
+                BodyHitResolution::Damaged {
+                    damage: 30,
+                    died: false,
+                },
+                "damaged",
+            ),
         ] {
             announce(&mut app, body, resolution, 30);
             app.update();
@@ -412,7 +517,10 @@ mod damage_tests {
         announce(
             &mut app,
             body,
-            BodyHitResolution::Damaged { damage: 99, died: true },
+            BodyHitResolution::Damaged {
+                damage: 99,
+                died: true,
+            },
             99,
         );
         app.update();
@@ -430,9 +538,9 @@ mod damage_tests {
 #[cfg(test)]
 mod knockback_tests {
     use super::*;
+    use crate::features::ecs::damage_apply::BodyReaction;
     use ambition_causal::{FactValue, RecordingPolicy};
     use ambition_characters::brain::PlayerSlot;
-    use crate::features::ecs::damage_apply::BodyReaction;
 
     fn reaction_app() -> App {
         let mut app = App::new();
@@ -495,7 +603,10 @@ mod knockback_tests {
             .first("knockback_applied")
             .cloned()
             .expect("recorded");
-        assert_eq!(unlaunched.get("had_knockback"), Some(&FactValue::Bool(false)));
+        assert_eq!(
+            unlaunched.get("had_knockback"),
+            Some(&FactValue::Bool(false))
+        );
         assert_eq!(unlaunched.get("steered"), Some(&FactValue::Bool(false)));
         assert!(
             unlaunched.detail.summary.contains("no knockback"),

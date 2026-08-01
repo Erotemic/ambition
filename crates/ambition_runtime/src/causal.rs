@@ -25,9 +25,10 @@
 //! `ResMut<CausalRecording>`**, which is sound and — because Bevy's schedule
 //! order is deterministic — also ordered.
 
-use ambition_causal::{CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, domains};
+use ambition_causal::{
+    CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, domains,
+};
 use bevy::prelude::*;
-
 
 /// Where publishers run, relative to the frame stamp.
 ///
@@ -140,7 +141,7 @@ pub fn record_execution_identity(mut log: ResMut<CausalRecording>) {
 
 /// The movement-intent observer, re-exported so a host installs the plugin and
 /// the publishers through ONE path and cannot get half of them.
-pub use ambition_actors::causal::record_player_movement_intent;
+pub use ambition_actors::causal::{record_body_control_frame, record_player_movement_intent};
 
 /// Turn the off-thread loss counter into a failure.
 ///

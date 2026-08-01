@@ -22,7 +22,6 @@ use ambition_runtime::causal::{
 };
 use bevy::prelude::*;
 
-
 fn app() -> App {
     let mut app = App::new();
     app.add_plugins(CausalPlugin);
@@ -30,10 +29,7 @@ fn app() -> App {
     // The head-of-schedule stamp, exactly where `player_schedule` installs
     // it in a real host: BEFORE anything publishes. Putting it after was the
     // bug the parallel proof caught.
-    app.add_systems(
-        Update,
-        stamp_causal_frame.before(RecordingSet::Publish),
-    );
+    app.add_systems(Update, stamp_causal_frame.before(RecordingSet::Publish));
     app.configure_sets(Update, RecordingSet::Publish);
     app
 }
@@ -47,13 +43,19 @@ fn an_original_tick_and_a_resimulated_one_are_different_facts() {
     app.insert_resource(SimulationReplayState {
         replaying_history: false,
     });
-    app.add_systems(Update, record_execution_identity.in_set(RecordingSet::Publish));
+    app.add_systems(
+        Update,
+        record_execution_identity.in_set(RecordingSet::Publish),
+    );
     app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 7;
     app.update();
 
     // Any subject: the fact is about the world, so it explains every body.
     let anybody = SubjectKey::Sim("fighter_1".into());
-    let explanation = app.world().resource::<CausalRecording>().explain(7, &anybody);
+    let explanation = app
+        .world()
+        .resource::<CausalRecording>()
+        .explain(7, &anybody);
     assert_eq!(
         explanation.execution(),
         Some(Execution::Original),
@@ -65,7 +67,10 @@ fn an_original_tick_and_a_resimulated_one_are_different_facts() {
         .replaying_history = true;
     app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 8;
     app.update();
-    let explanation = app.world().resource::<CausalRecording>().explain(8, &anybody);
+    let explanation = app
+        .world()
+        .resource::<CausalRecording>()
+        .explain(8, &anybody);
     assert_eq!(
         explanation.execution(),
         Some(Execution::Resimulated),
@@ -109,12 +114,8 @@ fn facts_survive_a_parallel_schedule() {
             ) {
                 for _ in &q {
                     log.record(
-                        CausalFact::new(
-                            domains::MOVEMENT,
-                            0,
-                            FactDetail::new($kind, $kind),
-                        )
-                        .about(ambition_causal::SubjectKey::Seat($seat)),
+                        CausalFact::new(domains::MOVEMENT, 0, FactDetail::new($kind, $kind))
+                            .about(ambition_causal::SubjectKey::Seat($seat)),
                     );
                 }
             }
@@ -165,9 +166,7 @@ fn facts_survive_a_parallel_schedule() {
 /// stamp first, then everything else.
 #[test]
 fn three_domains_answer_one_question_about_one_body_on_one_tick() {
-    use ambition_actors::features::ecs::damage_apply::{
-        BodyHitResolution, BodyHitResolved,
-    };
+    use ambition_actors::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved};
     use ambition_characters::brain::{Brain, PlayerSlot};
     use ambition_combat::stocks::FighterStockSpent;
 
@@ -247,7 +246,10 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
     assert!(
         why.facts().iter().all(|fact| fact.tick == 60),
         "every domain used the tick the HOST stamped: {:?}",
-        why.facts().iter().map(|f| (f.kind(), f.tick)).collect::<Vec<_>>()
+        why.facts()
+            .iter()
+            .map(|f| (f.kind(), f.tick))
+            .collect::<Vec<_>>()
     );
     assert_eq!(why.execution(), Some(Execution::Original));
     assert_no_offthread_loss();
@@ -275,5 +277,87 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
     assert!(
         log.facts().all(|fact| fact.tick == 41),
         "one clock — a domain that guessed its own would be unjoinable"
+    );
+}
+
+/// **The brain's question and the body's answer land under ONE subject.**
+///
+/// The instrument this pins exists because the fighter recovery thread reached
+/// "the brain emits full left for three decisions and the body accelerates
+/// right" and had no observation of the second half. The join is the whole
+/// point: one `explain(tick, subject)` has to return both sides, or the
+/// discrepancy stays invisible and the next fix edits the brain again.
+///
+/// ⚠ **the seated body must NOT appear here.** `record_player_movement_intent`
+/// already publishes it under its SEAT — the better key there, since a seat
+/// survives death and respawn and an actor id does not — and the same body
+/// under two subjects is two half-answers instead of one.
+#[test]
+fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses() {
+    use ambition_causal::SubjectKey;
+    use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+
+    let mut app = App::new();
+    app.add_plugins(CausalPlugin);
+    app.insert_resource(ambition_time::SimTick(0));
+    record_domains(&mut app, RecordingPolicy::All);
+    app.add_systems(
+        Update,
+        ambition_actors::causal::record_body_control_frame.in_set(RecordingSet::Publish),
+    );
+
+    // An AI fighter: no seat, so nothing else in the log covers it.
+    let mut asking_left = ActorControl::default();
+    asking_left.0.locomotion.x = -1.0;
+    app.world_mut().spawn((
+        ambition_combat::components::ActorIdentity::new("fighter_left", "Left"),
+        ambition_actors::avatar::movement_components::BodyKinematics {
+            // Moving RIGHT while asking left — the exact disagreement the
+            // instrument was built to make visible.
+            vel: ambition_engine_core::Vec2::new(588.0, 0.0),
+            ..Default::default()
+        },
+        ambition_actors::avatar::movement_components::BodyGroundState::default(),
+        ambition_engine_core::BodyDashState::default(),
+        Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill),
+        asking_left,
+    ));
+    // A seated body, which the other publisher owns.
+    app.world_mut().spawn((
+        ambition_combat::components::ActorIdentity::new("seated_body", "Seated"),
+        ambition_actors::avatar::movement_components::BodyKinematics::default(),
+        ambition_actors::avatar::movement_components::BodyGroundState::default(),
+        ambition_engine_core::BodyDashState::default(),
+        Brain::Player(PlayerSlot(1)),
+        ActorControl::default(),
+    ));
+
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 77;
+    app.update();
+
+    let log = app.world().resource::<ambition_causal::CausalRecording>();
+    let explanation = log.explain(77, &SubjectKey::Sim("fighter_left".into()));
+    let received = explanation
+        .first("control_frame_received")
+        .expect("the AI body's frame is published under its actor id");
+
+    // The pair, in one fact: what was asked, and where the body is going.
+    assert_eq!(
+        received.get("locomotion_x"),
+        Some(&ambition_causal::FactValue::Float(-1.0)),
+        "the frame the body was holding, not the one the brain meant to send"
+    );
+    assert_eq!(
+        received.get("vel_x"),
+        Some(&ambition_causal::FactValue::Float(588.0)),
+        "and the direction it was actually travelling — the disagreement is the finding"
+    );
+
+    assert!(
+        log.explain(77, &SubjectKey::Sim("seated_body".into()))
+            .first("control_frame_received")
+            .is_none(),
+        "a seated body is published under its SEAT by the other observer; \
+         publishing it here too would split one answer across two subjects"
     );
 }

@@ -265,6 +265,36 @@ impl RollbackRegistry {
         out
     }
 
+    /// **Which of these requirements is NOT installed.**
+    ///
+    /// A capability offers its rollback state and the composition installs it,
+    /// which keeps the capability's dependency closure to foundations. The hole
+    /// that leaves is that nothing forces the composition to accept the offer —
+    /// and a skipped registration is a DESYNC, not a missing feature.
+    ///
+    /// This closes it the way the content compiler closes the same shape: the
+    /// obligation is declared next to the thing that has it
+    /// ([`ambition_engine_core::snapshot::RequiredRollbackState`]) and the
+    /// assembler can refuse when it is unmet.
+    ///
+    /// ⚠ it checks the OWNER too. A name registered by somebody else is not
+    /// this capability's state — two capabilities may reasonably both want a
+    /// `cooldown`, and only the owner distinguishes them.
+    pub fn missing_required_state<'a>(
+        &self,
+        required: &'a [ambition_engine_core::snapshot::RequiredRollbackState],
+    ) -> Vec<&'a ambition_engine_core::snapshot::RequiredRollbackState> {
+        required
+            .iter()
+            .filter(|req| {
+                !self
+                    .entries
+                    .values()
+                    .any(|entry| entry.name == req.name && entry.owner == req.owner)
+            })
+            .collect()
+    }
+
     pub fn schema_fingerprint(&self) -> SnapshotSchemaFingerprint {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"ambition.ggrs-rollback-schema\0");

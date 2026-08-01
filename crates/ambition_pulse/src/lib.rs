@@ -153,8 +153,31 @@ impl Plugin for PulsePlugin {
 ///
 /// ⚠ **omitting it is a desync, not a missing feature.** A cooldown is a gate
 /// on an action: a rewind that restored the body and not the gate lets a pulse
-/// fire twice from one charge on the resimulated frame.
+/// fire twice from one charge on the resimulated frame. [`REQUIRED_ROLLBACK`]
+/// is how a host finds that out at assembly rather than at a desync.
 pub const ROLLBACK_STATE: &str = "pulse.cooldown";
+
+/// **What this capability requires rewound**, for a host to check against its
+/// registry.
+///
+/// The offer alone left a hole: nothing made a composition accept it. A host
+/// closes it in one line —
+///
+/// ```ignore
+/// let missing = registry.missing_required_state(ambition_pulse::REQUIRED_ROLLBACK);
+/// assert!(missing.is_empty(), "{missing:?}");
+/// ```
+///
+/// — and gets the `why` back rather than a bare name, because a host hitting
+/// this needs to know whether it is looking at a desync or an optional extra,
+/// and only the capability knows which.
+pub const REQUIRED_ROLLBACK: &[ambition_engine_core::snapshot::RequiredRollbackState] =
+    &[ambition_engine_core::snapshot::RequiredRollbackState {
+        owner: PULSE_CAPABILITY,
+        name: ROLLBACK_STATE,
+        why: "a pulse cooldown that is not rewound lets the action fire twice from one charge \
+              on a resimulated frame",
+    }];
 
 /// Age every cooldown by one tick.
 pub fn tick_pulse_cooldowns(mut cooldowns: Query<&mut PulseCooldown>) {

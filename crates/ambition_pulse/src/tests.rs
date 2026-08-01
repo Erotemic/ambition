@@ -293,3 +293,73 @@ fn firing_arms_the_cooldown_and_it_ages() {
         1
     );
 }
+
+/// ⛔ **A composition that skips the offer is CAUGHT, not left to desync.**
+///
+/// The offer keeps this capability's closure to foundations, and the price was
+/// that nothing forced a host to accept it. `REQUIRED_ROLLBACK` is the
+/// obligation, declared next to the thing that has it — the same shape the
+/// content compiler uses for "a `Runtime` schema must lower an artifact".
+#[test]
+fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
+    use ambition_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+
+    // A host that installed the mechanic and nothing else.
+    let mut forgetful = App::new();
+    forgetful.add_plugins(PulsePlugin);
+    forgetful.init_resource::<RollbackRegistry>();
+    let missing = forgetful
+        .world()
+        .resource::<RollbackRegistry>()
+        .missing_required_state(REQUIRED_ROLLBACK);
+    assert_eq!(missing.len(), 1, "the cooldown is unregistered");
+    assert_eq!(missing[0].name, ROLLBACK_STATE);
+    assert!(
+        missing[0].why.contains("twice from one charge"),
+        "and it says what BREAKS, so a host knows this is a desync rather than an optional \
+         extra: {:?}",
+        missing[0].why
+    );
+
+    // A host that accepted the offer.
+    let mut complete = App::new();
+    complete.add_plugins(PulsePlugin);
+    complete.rollback_component_clone_probed::<PulseCooldown>(
+        PULSE_CAPABILITY,
+        ROLLBACK_STATE,
+        |cooldown| u64::from(cooldown.remaining_ticks),
+    );
+    assert!(
+        complete
+            .world()
+            .resource::<RollbackRegistry>()
+            .missing_required_state(REQUIRED_ROLLBACK)
+            .is_empty()
+    );
+}
+
+/// ⚠ **the OWNER is part of the requirement.** Two capabilities may both
+/// reasonably want a `cooldown`; a name registered by somebody else is not this
+/// capability's state, and treating it as satisfied would be the worst kind of
+/// pass — one that reports safety while the desync is still there.
+#[test]
+fn another_capabilitys_registration_does_not_satisfy_this_one() {
+    use ambition_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+
+    let mut app = App::new();
+    app.add_plugins(PulsePlugin);
+    app.rollback_component_clone_probed::<PulseCooldown>(
+        "some_other_capability",
+        ROLLBACK_STATE,
+        |cooldown| u64::from(cooldown.remaining_ticks),
+    );
+    let missing = app
+        .world()
+        .resource::<RollbackRegistry>()
+        .missing_required_state(REQUIRED_ROLLBACK);
+    assert_eq!(
+        missing.len(),
+        1,
+        "the same NAME under another owner is a different registration"
+    );
+}

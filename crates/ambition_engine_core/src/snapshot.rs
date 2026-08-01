@@ -314,3 +314,34 @@ macro_rules! snapshot_marker {
         }
     };
 }
+
+
+/// **What a capability REQUIRES rewound**, declared where it can be read without
+/// linking a rollback host.
+///
+/// A capability offers its rollback state and a composition installs it (see
+/// `ambition_pulse` for the worked example). That split keeps a mechanic's
+/// dependency closure to foundations — and leaves a hole: nothing makes the
+/// composition actually install the offer, and **omitting one is a DESYNC, not
+/// a missing feature**. A cooldown that is not rewound lets its action fire
+/// twice from one charge on a resimulated frame.
+///
+/// So a capability also declares what it needs, and a host can check.
+/// `ambition_runtime::rollback::missing_required_state` is the check; this is
+/// the vocabulary, and it lives here — a foundation with no Bevy app and no
+/// GGRS — precisely so the declaring end costs nothing.
+///
+/// It is the same shape the content compiler already uses for
+/// `RuntimeDisposition::Runtime`: declare the obligation next to the thing that
+/// has it, and let the assembler refuse when it is unmet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RequiredRollbackState {
+    /// The owner label the registration must carry — the capability's own name.
+    pub owner: &'static str,
+    /// The registration name, e.g. `"pulse.cooldown"`.
+    pub name: &'static str,
+    /// **What breaks if it is missing.** Not decoration: a host that hits this
+    /// needs to know whether it is looking at a desync or at an optional extra,
+    /// and only the capability knows.
+    pub why: &'static str,
+}

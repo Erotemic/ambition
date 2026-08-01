@@ -513,6 +513,46 @@ mod tests {
         );
     }
 
+
+    /// **Jon's couch milestone 7**: *"Reconnecting restores the same
+    /// participant."*
+    ///
+    /// ⚠ it cannot be by ENTITY — a reconnecting pad is a new one, and Bevy moves
+    /// the generation so a despawned id is never handed back. What restores the
+    /// participant is that the seat which lost its pad is the seat still holding
+    /// NONE, so the free pad finds it rather than displacing somebody.
+    #[test]
+    fn a_reconnecting_pad_comes_back_to_the_seat_that_lost_one() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // Player one's controller drops out.
+        app.world_mut().entity_mut(pad_a).despawn();
+        app.update();
+        assert_eq!(assigned(&app, one), None);
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // ...and comes back. A DIFFERENT entity, as a real reconnection is.
+        let pad_again = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_again),
+            "the seat that lost a pad is the seat that gets the returning one"
+        );
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b),
+            "and player two was never disturbed by any of it"
+        );
+    }
+
     /// **A frozen session's device mapping does not follow live discovery.**
     ///
     /// The topology froze the COUNT and, for a day, nothing else: the GGRS handle

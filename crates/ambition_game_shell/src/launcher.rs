@@ -56,28 +56,31 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            // ⚠ **ASCII only, and the REASON is an open question worth more than
-            // this line.** It read `select · Enter` and drew a TOFU BOX on the
-            // title screen — confirmed at 2560×1440, a hollow rectangle.
+            // ⚠ **ASCII only, and the REASON is still open.** This read
+            // `select · Enter` and drew a hollow TOFU BOX on the title screen.
+            // Every `ambition_menu` surface in every game is affected,
+            // invisibly, until a string steps outside ASCII.
             //
-            // ⛔ the cause is NOT "the shipped font lacks the glyph", and it is
-            // narrowed to one crate. `JetBrainsMono-Regular.ttf` is bundled and
-            // HAS U+00B7 (fontTools). Decisive experiment: the SAME string on
-            // both text paths, on this route, in ONE frame —
+            // ⛔ Do NOT re-derive it from this crate. NINE hypotheses are dead,
+            // including the two that read as obvious: the bundled
+            // `JetBrainsMono-Regular.ttf` HAS U+00B7 (fontTools), and the string
+            // arrives intact (`footer.clone()` → `MenuNode::Text` →
+            // `Text::new`, no byte slicing anywhere). Removing all four spawn
+            // components at once still tofus.
             //
-            //     bare `Text::new`   →  "A · B — C"   renders correctly
-            //     `ambition_menu`    →  "A ▯ B ▯ C"   both tofu
+            // ⚠ and the live clue says the cause is NOT source-level in
+            // `ambition_menu` at all: adding an unrelated SIBLING `Text` to the
+            // same parent makes this title render CORRECTLY (the inserted child
+            // still tofus). An extra entity changing another entity's glyph
+            // resolution points at Bevy's text pipeline — atlas keying, font-face
+            // resolution, `ComputedTextBlock` sharing.
             //
-            // So it is the MENU RENDER PATH, not the font asset, not the string
-            // and not the capture. `spawn.rs` sets no font handle
-            // (`TextFont { font_size, ..default() }`), so the difference is
-            // somewhere else in that crate — and it means every `ambition_menu`
-            // surface in every game is affected, invisibly, until a string steps
-            // outside ASCII.
+            // Full elimination list and the one-command repro live in the Z1 row
+            // of `docs/planning/queue-24h-2026-07-26.md` (grep `TOFU BOX`).
             //
             // Found by photographing the route (`capture_scene --route
-            // ambition_launcher`) while checking an unrelated change — which is
-            // the argument for drawing blind work: every test here was green and
+            // ambition_launcher`) while checking an unrelated change — the
+            // argument for drawing blind work: every test here was green and
             // none of them can assert what a missing glyph looks like.
             footer: "Arrow keys select | Enter launches".to_owned(),
             exit_label: Some("Exit".to_owned()),

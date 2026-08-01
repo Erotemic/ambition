@@ -768,6 +768,7 @@ name = "ambition_runtime"
 version = "0.1.0"
 dependencies = [
  "ambition_actors",
+ "ambition_causal",
  "ambition_characters",
  "ambition_combat",
  "ambition_dev_tools",

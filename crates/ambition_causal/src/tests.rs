@@ -278,3 +278,40 @@ fn a_nested_scope_does_not_leak_into_the_outer_dump() {
     assert_eq!(outer.facts().next().unwrap().kind(), "outer");
     assert_eq!(inner.facts().next().unwrap().kind(), "inner");
 }
+
+/// ⛔ **A fact published on another thread is LOST, and the loss is COUNTED.**
+///
+/// The sink is thread-local, which is sound for the pure call tree it was built
+/// for and unsound for Bevy's multithreaded scheduler. Silent loss would be the
+/// unacceptable part — an explanation missing a domain would read as "that
+/// domain did not act" rather than "nobody was listening on that thread".
+#[test]
+fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
+    reset_lost_offthread();
+    let before = facts_lost_offthread();
+
+    let (log, ()) = with_sink(recording_log(), || {
+        record(fact("here", 1, domains::BRAIN).about(body()));
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                // A worker thread with no sink of its own — exactly what a Bevy
+                // system running off the main thread would be.
+                record(fact("elsewhere", 1, domains::BRAIN).about(body()));
+            });
+        });
+    });
+
+    assert_eq!(log.len(), 1, "only the same-thread fact was collected");
+    assert_eq!(log.facts().next().unwrap().kind(), "here");
+    assert_eq!(
+        facts_lost_offthread(),
+        before + 1,
+        "and the one that got away is a NUMBER, not a silence"
+    );
+
+    // With no sink open anywhere, an unrecorded fact is instrumentation being
+    // off — the ordinary shipped path — and must not inflate the counter.
+    let after_scope = facts_lost_offthread();
+    record(fact("nobody_listening", 1, domains::BRAIN));
+    assert_eq!(facts_lost_offthread(), after_scope);
+}

@@ -16,6 +16,7 @@ ambition_actors = { path = "../ambition_actors", default-features = false, featu
     "input",
     "portal_ldtk",
 ] }
+ambition_causal = { path = "../ambition_causal", optional = true }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
@@ -58,6 +59,10 @@ bevy = { version = "0.18.1", default-features = false, features = [
 ] }
 
 [features]
+# Structured causal facts. Optional and default-OFF for the same §2e reason the
+# character capability's is: a game that never opens an inspector must not link
+# one. `ambition_causal` has zero dependencies of its own.
+causal = ["dep:ambition_causal"]
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.

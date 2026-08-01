@@ -28,6 +28,18 @@
 //! domain side and read-only from the tool side, and that split is the whole
 //! safety argument.
 //!
+//! ## ⛔ The sink is THREAD-LOCAL, and that is a contract, not an accident
+//!
+//! [`with_sink`] collects facts published on the SAME thread. That is sound for
+//! what it was built for — a pure call tree driven from one thread — and it is
+//! NOT sound for Bevy's multithreaded scheduler, where a system on a worker
+//! thread would publish into a sink the collector never sees.
+//!
+//! Silently losing them would be the unacceptable part, so it does not:
+//! [`facts_lost_offthread`] counts exactly that. A collector running over an
+//! ECS should assert it is zero; if it is not, that domain needs a
+//! `ResMut<CausalLog>` recorder rather than the sink.
+//!
 //! ## Open vocabulary
 //!
 //! [`FactDetail::kind`] is a `&'static str`, not an enum variant. A capability
@@ -42,7 +54,9 @@ pub use fact::{
     CausalDomain, CausalFact, Execution, FactDetail, FactId, FactValue, SubjectKey, domains,
 };
 pub use log::{CausalLog, Explanation, RecordingPolicy};
-pub use sink::{CausalSink, record, recording, with_sink};
+pub use sink::{
+    CausalSink, facts_lost_offthread, record, recording, reset_lost_offthread, with_sink,
+};
 
 #[cfg(test)]
 mod tests;

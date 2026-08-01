@@ -120,9 +120,14 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # Nothing in the repo gates a test on `profile`. If you remove this skip, expect
 # to deny `profile` (or set `TRACY_NO_INVARIANT_CHECK=1`) in the same commit —
 # and to pay a full-graph feature-variant rebuild, measured at 488s.
+# `ambition_runtime` LEFT this set 2026-07-31, under the rule stated above: it
+# gained `#[cfg(feature = "causal")]` tests (`runtime::causal`, the ECS side of
+# the causal recorder), so the entry stopped being "no added coverage" and
+# became "silently un-runs three tests". Removing it is what the rule requires;
+# the cost is a feature-variant build of the runtime graph, paid once per suite.
 SKIP_FEATURE_JOB = {
     "ambition", "ambition_app", "ambition_actors",
-    "ambition_menu", "ambition_runtime",
+    "ambition_menu",
 }
 
 

@@ -106,6 +106,9 @@ pub use input_stream::{input_stream_recording, record_input_stream, InputStreamR
 /// scheduled by a visible host. Keeping this tiny facade here lets
 /// `ambition_host` wire leafwing/device input without depending directly on
 /// `ambition_actors`.
+#[cfg(feature = "causal")]
+pub mod causal;
+
 pub mod host_input {
     pub use ambition_actors::schedule::{
         apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,

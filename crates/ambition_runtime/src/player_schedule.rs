@@ -211,6 +211,19 @@ impl Plugin for PlayerSchedulePlugin {
             // each controlled body's ActorControl frame.
             ambition_actors::avatar::tick_player_brains.in_set(PlayerInputSet::Brain),
         );
+        // The movement-intent OBSERVER, in the same set and strictly after the
+        // brain: it reads the frame the brain just wrote. It takes every
+        // component immutably, so it cannot be the thing that broke the tick —
+        // a property of its signature, not a promise, which matters because a
+        // rollback host resimulates and an instrument that nudged state would
+        // desync exactly when somebody was using it.
+        #[cfg(feature = "causal")]
+        app.add_systems(
+            sim,
+            crate::causal::record_player_movement_intent
+                .in_set(PlayerInputSet::Brain)
+                .after(ambition_actors::avatar::tick_player_brains),
+        );
         app.add_systems(
             sim,
             (

@@ -85,6 +85,16 @@ DENY_EXACT = {
     # already runs headlessly in tests, and enabling both double-registers
     # render setup. No test gates on `headless`, so denying it loses nothing.
     "headless",
+    # `profile` forwards `bevy/trace_tracy`, whose static initializer ABORTS the
+    # test binary on a CPU without an invariant TSC -- before libtest lists a
+    # single test, so `--list` and a filter matching nothing fail identically.
+    # Nothing in the repo gates a test on it, so denying it loses no coverage.
+    #
+    # Added 2026-07-31 when `ambition_actors` left SKIP_FEATURE_JOB (it gained
+    # `#[cfg(feature = "causal")]` tests). That set's own comment predicted this
+    # exact requirement: "if you remove this skip, expect to deny `profile` in
+    # the same commit."
+    "profile",
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
 
@@ -120,13 +130,18 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # Nothing in the repo gates a test on `profile`. If you remove this skip, expect
 # to deny `profile` (or set `TRACY_NO_INVARIANT_CHECK=1`) in the same commit —
 # and to pay a full-graph feature-variant rebuild, measured at 488s.
+# `ambition_actors` LEFT this set 2026-07-31 for the same reason and by the same
+# rule: it gained `#[cfg(feature = "causal")]` tests (`actors::causal`, the
+# movement-intent publisher). Its `profile` feature is denied above rather than
+# built, which is what the entry below always said would be needed.
+#
 # `ambition_runtime` LEFT this set 2026-07-31, under the rule stated above: it
 # gained `#[cfg(feature = "causal")]` tests (`runtime::causal`, the ECS side of
 # the causal recorder), so the entry stopped being "no added coverage" and
 # became "silently un-runs three tests". Removing it is what the rule requires;
 # the cost is a feature-variant build of the runtime graph, paid once per suite.
 SKIP_FEATURE_JOB = {
-    "ambition", "ambition_app", "ambition_actors",
+    "ambition", "ambition_app",
     "ambition_menu",
 }
 

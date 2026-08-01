@@ -187,6 +187,7 @@ version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_causal",
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",

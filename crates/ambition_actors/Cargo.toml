@@ -24,6 +24,8 @@ description = "Ambition gameplay core: content-free simulation systems, runtime 
 crate-type = ["rlib"]
 
 [features]
+# Publish this crate's causal facts (movement intent, for now).
+causal = ["dep:ambition_causal"]
 # Default preserves the full desktop sandbox / development posture. Android
 # builds use the `android` composite below with `--no-default-features` so the
 # phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only
@@ -376,6 +378,9 @@ ambition_time = { path = "../ambition_time" }
 # body component). The build-time foundation; re-exported as `crate::engine_core`
 # from lib.rs (ADR 0019). See docs/current/state.md.
 ambition_characters = { path = "../ambition_characters" }
+# Structured causal facts. Optional and default-off (§2e), and it brings only
+# `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_combat = { path = "../ambition_combat" }
 # Cutscene script format + runtime stepper + playback-state resources (pure
 # data + ECS resources). The playback systems that drive them live in

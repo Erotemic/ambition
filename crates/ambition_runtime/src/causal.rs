@@ -105,6 +105,10 @@ pub fn record_execution_identity(
     );
 }
 
+/// The movement-intent observer, re-exported so a host installs the plugin and
+/// the publishers through ONE path and cannot get half of them.
+pub use ambition_actors::causal::record_player_movement_intent;
+
 /// Turn the off-thread loss counter into a failure.
 ///
 /// Call it after driving an app with recording on. A non-zero count means some

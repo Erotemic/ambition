@@ -40,6 +40,8 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
+#[cfg(feature = "causal")]
+pub mod causal;
 pub mod audio;
 /// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is
 /// genuinely the local human's rather than any body's: its identity bundle, its

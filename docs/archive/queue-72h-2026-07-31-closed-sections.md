@@ -1046,3 +1046,58 @@ then hold right for 240 frames and require the layers to have moved. **Probed:**
 with `sync_parallax_layers` unregistered it fails on *"the sky is pinned to the
 world while the camera runs down the speedway"*. 10/10 in that file.
 
+---
+
+### ✔ S24. The GPT 5.6 review of `7fb5c9a..a1b8da9` — two closed, one open (2026-07-31)
+
+The review's verdict is that the interval's work landed; three current defects
+were called out, and it asks for playtesting after them rather than another
+audit.
+
+* ✔ **1 (critical) — `BodyHealth` rollback dropped the meter and the policy.**
+  Fixed; wire format v5 → v6. Both requested tests exist and both were PROBED
+  against the original codec — where `rollback_health()` stayed silent for
+  thirty ticks (both sides hashed the same incomplete encoding) and the VALUE
+  assertion reported *"went into the rewind at 3760% and came out at 0%"*. That
+  probe is the review's own point demonstrated: the checksum could not see it.
+* ✔ **3 (medium) — Blink stayed pressed across held fighter frames.** Fixed at
+  the seam rather than the site: `ActorControlFrame::clear_edges` said "all
+  rising-edge flags" and cleared eight of fifteen, which is why the fighter's
+  tick had open-coded three by hand and was right to. Probed: 5 of 5 ticks
+  re-pressed.
+* ✔ **2 (high) — the fighter scores a move and executes a generic attack.**
+  CLOSED in two commits: the emission (`3361f5cdf`) and the acceptance test
+  (`b8a133b3d`). The review's condition was specific and it is the one that is
+  asserted — `MovePlayback.spec.id` after a scored choice, reached through the
+  real kit builder, the real decision, the real emission, then
+  `resolve_attack_gestures` + `trigger_moveset_moves`.
+  ⚠ **the fixture's premise is REACH, not names.** A jab reaching 16 and an
+  up-tilt reaching 84, so a 70-unit gap has one clear answer; two
+  interchangeable moves would pass with the direction still discarded.
+  **PROBED** against the original bug — the emission's axis forced back to
+  `Vec2::ZERO` — which reports `left: "jab", right: "uptilt"`. And the
+  close-range test is the CONTROL: it stayed green under that probe, so the pair
+  pins that the direction is the scored one rather than a hard-coded `Up`.
+  What it WAS, for the record: `RefinedChoice::move_id` was discarded —
+  `pending_press` stored only a tick count, the emission set `melee_pressed`,
+  and `trigger_moveset_moves` resolved whatever the neutral gesture mapped to.
+  The reach / frame-advantage / rollout work decided WHETHER the brain attacked
+  and never WHICH scored attack it performed, and a zero-reach move (a buff, a
+  summon) selected by id still came out as a swing.
+  The repair, and the two places it differs from the review's sketch:
+  `AttackCandidate` carries the BINDING that invokes its move, the pending
+  action retains it across execution jitter, and maturing populates the matching
+  `ActorControlFrame` fields — one shared execution seam, not a fighter-only
+  bypass. The pending choice is authoritative state and joins the fighter
+  snapshot projection.
+  ⊘ **POSTURE is deliberately NOT in the binding**, though the sketch listed it:
+  the body's real grounded state decides that at press time, and a brain that
+  could claim a posture it does not have would be reaching past the no-cheat
+  contract to pick a move its body cannot perform.
+  ⚠ **the kit ENUMERATES PRESSES** rather than listing `moveset.moves`, which
+  the sketch did not ask for and which the same line required: a move no input
+  can invoke had nowhere for its identity to travel. Every candidate is now
+  executable by construction, and
+  `every_candidate_in_the_kit_carries_the_press_that_invokes_it` is the guard.
+
+---

@@ -8,6 +8,7 @@
 |---|---|
 | [`asset_publish`](src/asset_publish/mod.rs) | Publish/install boundary for generated sprite assets. |
 | [`bevy_integration`](src/bevy_integration.rs) | Bevy plugin / resource / helper layer. |
+| [`consumer_source`](src/consumer_source.rs) | **A game gets to own its own art.** (Phase 6, recorded SDK leak #3) |
 | [`id`](src/id.rs) | [`AssetId`] — stable logical identifier for an asset entry. |
 | [`kind`](src/kind.rs) | [`AssetKind`] — coarse Ambition-side classification of an asset. |
 | [`location`](src/location.rs) | [`AssetLocation`] — where the bytes for a logical [`crate::AssetId`] live for a given [`crate::profile::AssetProfile`]. |
@@ -18,7 +19,7 @@
 | [`resolver`](src/resolver.rs) | Resolve `(AssetId, AssetProfile) -> ResolvedAsset`. |
 | [`sandbox_assets`](src/sandbox_assets/mod.rs) | Sandbox-side aggregator for the [`ambition_asset_manager`] catalog. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

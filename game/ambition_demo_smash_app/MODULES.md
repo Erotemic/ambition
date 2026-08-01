@@ -1,31 +1,17 @@
-# ambition_demo_smash_app
+# `ambition_demo_smash_app` — module map
 
-The smash demo's thin shell. `ambition` + `ambition_demo_smash` + `bevy`, never
-`ambition_app` — that is the demo gate.
+<!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-| module | what it owns |
+**ambition_demo_smash_app** — The smash demo's shell, as a function — so the binary and the regression tests assemble the SAME app.
+
+| Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| `lib.rs` | `build_demo_app()` — foundation, engine group, host group, the smash experience |
-| `main.rs` | headless by default, windowed under `--features visible` |
-| `tests/the_stage_kills.rs` | the claims no unit test in the content crate can make |
+| [`stage_diagram`](src/stage_diagram.rs) | **Draw the stage, including the thing that kills you.** |
 
-## Why this crate exists
+_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
-Until something RAN the stage, every claim about the stocks loop was a unit
-test. Spend, respawn, eliminate and end were each covered and each correct; what
-nothing covered was whether a fighter knocked off THIS platform, with THIS blast
-margin, reaches the world's edge at all.
+<!-- END generated module map -->
 
-It earned that on its first boot, three times over — each a failure no compile
-and no content test could produce:
+## Notes
 
-1. **`frontend audio provider 'smash' registered no audio fragment`.** The
-   content installer was empty. Declaring SILENCE is a registration, not the
-   absence of one.
-2. **`character_catalog: Resource does not exist`.** The demo had declared a
-   starting character from Ambition's robot lineage — which lives in
-   `game/ambition_content`, ABOVE the facade, so naming it would have broken the
-   oracle rule outright. The demo authors its own two duelists; the crossover
-   claim moves to where Ambition hosts this experience alongside its own.
-3. **A malformed action-set preset.** `melee: Some(...)` takes an authored swipe
-   shape, not a damage/cooldown pair.
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._

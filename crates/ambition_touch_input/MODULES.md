@@ -7,9 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`bevy_plugin`](src/bevy_plugin.rs) | The Bevy wiring: the touch HUD's spawn/despawn lifecycle and the collect step that turns joystick + virtual-button UI state into the virtual device's `MobileTouchState`. |
-| [`exclusion`](src/exclusion.rs) | Touch-control exclusion zones for menu drag gestures. |
 | [`layout`](src/layout.rs) | Touch HUD layout: action button identity, fixed positions, and visible-circle hit testing. |
 | [`menu_bridge`](src/menu_bridge.rs) | The touch pointer-GESTURE lane and the touch active-input marker. |
+| [`placement`](src/placement.rs) | The touch HUD's resolved on-screen placement. |
 | [`state`](src/state.rs) | Pure touch input state types — the raw virtual-device state the Bevy collect systems fill and the leafwing input kinds (`crate::virtual_device`) publish through the participant's bindings. |
 | [`virtual_device`](src/virtual_device.rs) | The touch overlay as a VIRTUAL DEVICE: leafwing input kinds computed from [`MobileTouchState`], so touch resolves through the participant's `InputMap` bindings and the active input context exactly like a keyboard or gamepad — never as a second system writing gameplay/menu resources directly. |
 

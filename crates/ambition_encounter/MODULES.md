@@ -14,12 +14,13 @@
 | [`participants`](src/participants.rs) | Generic encounter PARTICIPANTS (§3): membership as relations, not boss-specific `Vec<Entity>`. |
 | [`registry`](src/registry.rs) | `EncounterRegistry` resource: the `id -> Entity` INDEX into the live encounter entities (E1 — the live state lives on the entity's [`EncounterState`](crate::EncounterState) component, not here). |
 | [`rewards`](src/rewards.rs) | Encounter reward-chest helpers: `encounter_reward_looted_flag` (the per-encounter save-flag id that remembers a chest was opened across save/load) and `encounter_reward_chest_pos` (where the `EncounterSpec`'s reward chest spawns — centered on the trigger, resting on its floor). |
+| [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`spec`](src/spec.rs) | Authored encounter data types (serde RON). |
 | [`staging`](src/staging.rs) | Authored STAGING policy (E12): the presentation effects an encounter wants while it is in flight, as components the generic consumers derive from the LIFECYCLE — never from what kind of encounter it is. |
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 | [`waves`](src/waves.rs) | Wave POLICY: the spawn-cadence director for wave/arena encounters. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

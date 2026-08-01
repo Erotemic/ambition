@@ -12,8 +12,9 @@
 | [`brain`](src/brain/mod.rs) | Universal brain interface. |
 | [`equipment`](src/equipment.rs) | A3 — equipment→params. |
 | [`perception`](src/perception.rs) | `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4). |
+| [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

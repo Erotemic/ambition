@@ -12,9 +12,10 @@
 | [`dialog_view`](src/dialog_view.rs) | `DialogView` — the dialogue overlay's per-frame read-model (recon C3). |
 | [`facts`](src/facts.rs) | The observation-boundary staging ground (E4): small sim-resolved view resources presentation consumes INSTEAD of querying live sim components. |
 | [`pose_view`](src/pose_view.rs) | Per-body presentation POSE read-model for player-bodied entities (E4). |
+| [`presented_pose`](src/presented_pose.rs) | **[the frame clock]** — presented poses sampled from tick read-models. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

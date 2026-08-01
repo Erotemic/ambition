@@ -104,28 +104,63 @@ fn the_capability_registers_its_own_semantic_action() {
     );
 }
 
-/// **HALF 3 — rollback state, registered by the capability itself.**
+/// **HALF 3 — rollback state the capability OFFERS and a composition installs.**
 ///
-/// Through the public `AmbitionRollbackApp` trait, under this capability's own
-/// owner label. `rollback/domains/` gained no file.
+/// ⛔ the capability does not register it itself, and that is deliberate: the
+/// registration trait lives in `ambition_runtime`, so self-registering would
+/// drag the whole simulation into a mechanic that uses none of it. Offering is
+/// also what the other two halves already do — a schema and an action are
+/// offered, and whoever composes installs them.
+///
+/// This test IS the composition. `ambition_runtime` is a dev-dependency, so it
+/// is in scope here and absent from the crate's real closure.
 #[test]
-fn the_capability_registers_its_own_rollback_state() {
+fn a_composition_installs_the_rollback_state_the_capability_offers() {
+    use ambition_runtime::rollback::AmbitionRollbackApp;
+
     let mut app = App::new();
     app.add_plugins(PulsePlugin);
+    // The one line a host writes. If a capability's offer needed more than
+    // this, "offer rather than register" would be a worse trade than the
+    // dependency it avoids.
+    app.rollback_component_clone_probed::<PulseCooldown>(
+        PULSE_CAPABILITY,
+        ROLLBACK_STATE,
+        |cooldown| u64::from(cooldown.remaining_ticks),
+    );
 
-    let registry = app
+    let dump = app
         .world()
         .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
-        .expect("the plugin registered something to rewind");
-    let dump = registry.schema_dump();
+        .expect("registered")
+        .schema_dump();
     assert!(
-        dump.contains("pulse.cooldown"),
+        dump.contains(ROLLBACK_STATE),
         "the cooldown has to be in the schema or a rewind would restore the body and not the \
          gate, and a pulse would fire twice from one charge on the resimulated frame:\n{dump}"
     );
     assert!(
         dump.contains(PULSE_CAPABILITY),
         "and under the CAPABILITY's own owner label, not the runtime's:\n{dump}"
+    );
+}
+
+/// ⚠ **and the plugin alone must NOT register it**, or the offer is a lie and
+/// the dependency it was meant to avoid comes back the first time somebody
+/// assumes the plugin is enough.
+#[test]
+fn the_plugin_alone_registers_no_rollback_state() {
+    let mut app = App::new();
+    app.add_plugins(PulsePlugin);
+    let registered = app
+        .world()
+        .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
+        .map(|r| r.schema_dump().contains(ROLLBACK_STATE))
+        .unwrap_or(false);
+    assert!(
+        !registered,
+        "installing the mechanic must not silently register rollback state — a composition \
+         that never asked for it would carry schema it did not choose"
     );
 }
 

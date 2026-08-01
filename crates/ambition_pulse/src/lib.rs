@@ -112,33 +112,49 @@ pub struct PulseBody {
     pub vel: ambition_engine_core::Vec2,
 }
 
-/// Install the mechanic.
+/// Install the mechanic's behaviour.
 ///
-/// ⚠ **rollback registration happens HERE**, in the capability, through the
-/// public `AmbitionRollbackApp` trait — not in a runtime-owned adapter. That is
-/// only possible for a crate ABOVE `ambition_runtime`, which is why this one is
-/// there: `rollback/domains/vfx.rs` records the rule that a domain below the
-/// runtime has its schema registered on its behalf.
+/// ⛔ **it does NOT register rollback state, and that is the fix rather than an
+/// omission.** The first version did, through `AmbitionRollbackApp`, and the
+/// cost was a dependency on `ambition_runtime` — the whole simulation, dragged
+/// into a mechanic that uses none of it, because the registration trait lives up
+/// there.
+///
+/// It also broke the pattern the other two contributions already follow. A
+/// capability OFFERS a content schema ([`pulse_schema`]) and OFFERS a semantic
+/// action ([`PULSE_ACTION`]); the composition installs them, because the
+/// registry belongs to whoever is composing. Rollback is the same kind of thing.
+/// [`ROLLBACK_STATE`] is the offer; a host with the trait in scope installs it,
+/// which is one line and is shown in this crate's tests.
 pub struct PulsePlugin;
 
 impl Plugin for PulsePlugin {
     fn build(&self, app: &mut App) {
-        use ambition_runtime::rollback::AmbitionRollbackApp;
-
         app.add_message::<PulseRequested>()
             .add_message::<PulseFired>()
             .init_resource::<PulseProfiles>();
-
-        // The capability's own rollback state, under its own owner label.
-        app.rollback_component_clone_probed::<PulseCooldown>(
-            PULSE_CAPABILITY,
-            "pulse.cooldown",
-            |cooldown| u64::from(cooldown.remaining_ticks),
-        );
-
         app.add_systems(Update, (tick_pulse_cooldowns, fire_pulses).chain());
     }
 }
+
+/// **What this capability needs rewound**, named for whoever installs it.
+///
+/// A capability cannot register rollback state without linking the simulation,
+/// so it says what it needs instead. A composition does:
+///
+/// ```ignore
+/// use ambition_runtime::rollback::AmbitionRollbackApp;
+/// app.rollback_component_clone_probed::<PulseCooldown>(
+///     ambition_pulse::PULSE_CAPABILITY,
+///     ambition_pulse::ROLLBACK_STATE,
+///     |cooldown| u64::from(cooldown.remaining_ticks),
+/// );
+/// ```
+///
+/// ⚠ **omitting it is a desync, not a missing feature.** A cooldown is a gate
+/// on an action: a rewind that restored the body and not the gate lets a pulse
+/// fire twice from one charge on the resimulated frame.
+pub const ROLLBACK_STATE: &str = "pulse.cooldown";
 
 /// Age every cooldown by one tick.
 pub fn tick_pulse_cooldowns(mut cooldowns: Query<&mut PulseCooldown>) {

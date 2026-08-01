@@ -15,7 +15,6 @@ description = "A SENTINEL capability: one self-contained mechanic that contribut
 # (see `rollback/domains/vfx.rs`), and only a crate above it owns one directly.
 # "A capability registers its own rollback state" is only testable up here.
 [dependencies]
-ambition_runtime = { path = "../ambition_runtime" }
 ambition_content_pack = { path = "../ambition_content_pack" }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"] }
 ambition_input = { path = "../ambition_input" }
@@ -23,3 +22,18 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 bevy = { version = "0.18.1", default-features = false }
 ron = { workspace = true }
 serde = { workspace = true }
+
+# ⚠ A DEV-DEPENDENCY, and that is the whole fix.
+#
+# The first version of this crate depended on `ambition_runtime` so its plugin
+# could register its own rollback state — which dragged the entire simulation
+# into a mechanic that uses none of it. It also broke the pattern the other two
+# contributions already follow: a capability OFFERS a content schema and OFFERS
+# a semantic action, and the composition installs them. Rollback is the same
+# kind of thing and now behaves the same way.
+#
+# As a dev-dependency it stays out of `cargo tree --edges normal`, so the
+# capability's real closure is foundations only — and the test that proves the
+# registration works still runs.
+[dev-dependencies]
+ambition_runtime = { path = "../ambition_runtime" }

@@ -287,6 +287,45 @@ impl SmashSelect {
             .collect();
         roster.opens_suspended = true;
         roster.fighter_stocks = Some(STARTING_STOCKS);
+        // **EVERY FIGHTER IN THIS MATCH HAS THE SAME VERBS.**
+        //
+        // ⛔ Measured 2026-08-01, both seats wearing the right duelist:
+        //
+        //     seat 0 (ADOPTED)     every ability true - fly, blink,
+        //                          blink_through_hard_walls, glide, swim, shield
+        //     seat 1 (SPAWNED)     move, jump, variable_jump, double_jump, attack
+        //
+        // Player one fought as the exploration protagonist and player two as a
+        // duelist, on the same stage. The touch bezel advertised it (Blink / Fly
+        // Toggle / Ranged / Bubble Shield) and was the only honest thing in the
+        // picture - it reports what the CONTROLLED SUBJECT can do, and it was right.
+        //
+        // Seating already levels this and says so in its own comment, found the same
+        // way on the VERSUS stage in July: "a SPAWNED seat's abilities come from
+        // `AncillaryMovementBundle`; the ADOPTED primary player brought whatever the
+        // session granted it". It is gated on the roster DECLARING a set, because
+        // "what a fighter may do is a rule of the match" - and this demo declared
+        // nothing, so the levelling never ran.
+        //
+        // ⚠ SPELLED OUT rather than a named set, and both named candidates were
+        // tried and measured first. `basic()` has no double jump and no attack, so
+        // it would REMOVE verbs both duelists already had. `sane_subset()` reads
+        // like a fighter's kit in its first ten lines and is not one - measured, it
+        // also grants fly, blink, precision_blink, wall climb and pogo, so declaring
+        // it made the two seats agree that they could both FLY. This is the actual
+        // floor of a platform fighter: run, jump, double jump, fast fall, dash,
+        // attack. WHICH verbs is a product call and this is the one place to change
+        // it; that the two seats agree is not.
+        roster.fighter_abilities = Some(ambition_platformer2d::engine_core::AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            dash: true,
+            attack: true,
+            ..ambition_platformer2d::engine_core::AbilitySet::NONE
+        });
         // WHOSE match this is. A host with a second stage in it removes "the
         // roster" on leaving its own route, and without an owner that teardown
         // reaches this one — which is how the stage stopped opening the day this

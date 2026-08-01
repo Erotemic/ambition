@@ -385,6 +385,35 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         eprintln!("[seat-census] {row}");
     }
 
+    // WHO each seat actually IS. The roster names them `Duelist A`/`Duelist B`;
+    // this says whether the BODY agrees, which is a different question and the
+    // one the touch bezel answers by showing the subject's verbs.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::engine_core::BodyAbilities>,
+            &Name,
+        )>();
+        let mut rows: Vec<String> = q
+            .iter(world)
+            .map(|(seat, worn, abilities, name)| {
+                format!(
+                    "seat {}: name={:?} worn={:?} abilities={:?}",
+                    seat.0,
+                    name.as_str(),
+                    worn.map(|w| w.0.as_str()),
+                    abilities.map(|a| format!("{:?}", a.abilities))
+                )
+            })
+            .collect();
+        rows.sort();
+        for row in rows {
+            eprintln!("[seat-identity] {row}");
+        }
+    }
+
     // ⚠ **THE TWO FIGHTERS ARE BUILT BY DIFFERENT PATHS**, and the census above
     // is how you see it: both carry 84 components and the SETS DIFFER. Seat 0 is
     // player-bodied (`PlayerVisual`, `BodyPoseView`, `PresentedPose`,

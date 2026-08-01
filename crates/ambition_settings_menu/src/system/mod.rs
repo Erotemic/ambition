@@ -268,7 +268,7 @@ pub enum SystemMenuEntryId {
     /// Dev-build only.
     Developer,
     /// Dev-build only.
-    ResetSandbox,
+    ResetNewGame,
 }
 
 impl SystemMenuEntryId {
@@ -284,7 +284,7 @@ impl SystemMenuEntryId {
             Self::QuitToHome => "Quit to Title",
             Self::Quit => "Quit to Desktop",
             Self::Developer => "Developer",
-            Self::ResetSandbox => "Reset Sandbox",
+            Self::ResetNewGame => "Reset Sandbox",
         }
     }
 
@@ -300,7 +300,7 @@ impl SystemMenuEntryId {
             Self::QuitToHome => "Leave this session and return to the title screen.",
             Self::Quit => "Exit the game and return to the desktop.",
             Self::Developer => "Developer inspectors, debug visuals, and feel profiles.",
-            Self::ResetSandbox => "Wipe the save and respawn at the start room.",
+            Self::ResetNewGame => "Wipe the save and respawn at the start room.",
         }
     }
 }
@@ -321,7 +321,7 @@ pub enum SystemOptionId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SystemMenuAction {
     /// Wipe the save and respawn at the start room, then close the menu.
-    ResetSandbox,
+    ResetNewGame,
     /// Reset every persisted settings/dev resource to defaults, then close the
     /// menu. Mirrors the pause menu's `SettingsItem::ResetAllSettings`.
     ResetAllSettings,
@@ -644,10 +644,10 @@ impl SystemMenuModel {
                 target: SystemMenuTarget::Developer(dev_rows),
             });
             entries.push(SystemMenuEntry {
-                id: SystemMenuEntryId::ResetSandbox,
-                label: SystemMenuEntryId::ResetSandbox.label().to_string(),
-                description: SystemMenuEntryId::ResetSandbox.description().to_string(),
-                target: SystemMenuTarget::Action(SystemMenuAction::ResetSandbox),
+                id: SystemMenuEntryId::ResetNewGame,
+                label: SystemMenuEntryId::ResetNewGame.label().to_string(),
+                description: SystemMenuEntryId::ResetNewGame.description().to_string(),
+                target: SystemMenuTarget::Action(SystemMenuAction::ResetNewGame),
             });
         }
 

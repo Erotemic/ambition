@@ -1547,8 +1547,8 @@ pub(crate) fn focus_for_action(
         MenuPageAction::SystemAction(_) => {
             // An Action entry sits at top level; find its entry row.
             let entry = match action {
-                MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox) => {
-                    SystemMenuEntryId::ResetSandbox
+                MenuPageAction::SystemAction(SystemMenuAction::ResetNewGame) => {
+                    SystemMenuEntryId::ResetNewGame
                 }
                 MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
                     SystemMenuEntryId::ResetAllSettings

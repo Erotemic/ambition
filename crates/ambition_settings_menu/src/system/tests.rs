@@ -36,7 +36,7 @@ fn top_level_order_and_dev_gating() {
             &ids[9..],
             &[
                 SystemMenuEntryId::Developer,
-                SystemMenuEntryId::ResetSandbox
+                SystemMenuEntryId::ResetNewGame
             ]
         );
     } else {

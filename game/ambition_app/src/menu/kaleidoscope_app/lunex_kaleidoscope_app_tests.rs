@@ -679,7 +679,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
     // Dispatch Reset Sandbox through the real pointer release/dispatch path.
     click_control(
         &mut app,
-        MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox),
+        MenuPageAction::SystemAction(SystemMenuAction::ResetNewGame),
     );
 
     assert!(

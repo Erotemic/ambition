@@ -176,7 +176,7 @@ const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::QuitToHome,
     SystemMenuEntryId::Quit,
     SystemMenuEntryId::Developer,
-    SystemMenuEntryId::ResetSandbox,
+    SystemMenuEntryId::ResetNewGame,
 ];
 
 #[allow(dead_code)]
@@ -192,7 +192,7 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
         | SystemMenuEntryId::QuitToHome
         | SystemMenuEntryId::Quit
         | SystemMenuEntryId::Developer
-        | SystemMenuEntryId::ResetSandbox => {}
+        | SystemMenuEntryId::ResetNewGame => {}
     }
 }
 
@@ -251,7 +251,7 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
             // DOCUMENTED EXCLUSION: Developer + Reset Sandbox are dev-build only
             // (`SystemMenuModel::build` gates them on `DEV_BUILD`). In a dev build
             // they MUST be surfaced; in a non-dev build they MUST be absent.
-            SystemMenuEntryId::Developer | SystemMenuEntryId::ResetSandbox => {
+            SystemMenuEntryId::Developer | SystemMenuEntryId::ResetNewGame => {
                 assert_eq!(
                     surfaced.contains(id),
                     dev_build,

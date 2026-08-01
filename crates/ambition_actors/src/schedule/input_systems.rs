@@ -262,7 +262,7 @@ pub fn declare_in_session_input_contexts(
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
-    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
+    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
     enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
@@ -273,7 +273,13 @@ pub fn toggle_player_trail_emission_from_actions(
     let Some(mut enabled) = enabled else {
         return;
     };
-    let Ok(actions) = player_input.single() else {
+    // The primary seat, by id — `single()` here had the same defect as the menu
+    // frame below: a second player joining silently disabled the toggle.
+    let Some(actions) = player_input
+        .iter()
+        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, actions)| actions)
+    else {
         return;
     };
     if actions.just_pressed(&SandboxAction::TrailToggle) {
@@ -517,7 +523,7 @@ pub fn publish_latched_slot_controls(
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    player_input: Query<&ActionState<SandboxAction>, With<InputParticipant>>,
+    player_input: Query<(&InputParticipant, &ActionState<SandboxAction>)>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -536,7 +542,23 @@ pub fn populate_menu_control_frame_from_actions(
         return;
     }
 
-    if let Ok(actions) = player_input.single() {
+    // ⛔ **THE PRIMARY SEAT, by id — this used to be `single()`.**
+    //
+    // `single()` returns `Err` the moment a SECOND participant exists, so the
+    // global menu frame went neutral for everybody: two people at a couch, one
+    // presses Start, and the pause menu does not open. The comment above claimed
+    // this folds every participant; it did not fold them, it discarded all of
+    // them whenever the count was not exactly one. (GPT 5.6 review, finding 4.)
+    //
+    // The policy is now stated rather than emergent: **the primary seat owns
+    // the global shell controls.** `SeatMenuFrames` is where a per-seat surface
+    // (a select screen, four cursors) reads instead, and this resource stays the
+    // one global answer a pause menu wants.
+    if let Some(actions) = player_input
+        .iter()
+        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, actions)| actions)
+    {
         next = decode_menu_frame(actions, &mut menu_input_state, &user_settings, wall_dt);
     }
 
@@ -1137,6 +1159,59 @@ mod focus_gate_tests {
             "and it is suppressed anyway, because `GameMode::Dialogue` still says the world is \
              stopped. That is the remaining half of the split, not a bug in the context seam."
         );
+    }
+
+    /// ⛔ **A SECOND PLAYER MUST NOT SILENCE THE PAUSE MENU.**
+    ///
+    /// `populate_menu_control_frame_from_actions` folded participants with
+    /// `single()`, which returns `Err` the moment there are two — so the global
+    /// `MenuControlFrame` went neutral for everybody and pressing Start opened
+    /// nothing. The comment claimed it folded every participant; it discarded
+    /// all of them. (GPT 5.6 review, finding 4.)
+    ///
+    /// The policy is explicit now: the primary seat owns the global shell
+    /// controls. A per-seat surface reads `SeatMenuFrames` instead.
+    #[test]
+    fn a_second_participant_does_not_silence_the_global_menu_frame() {
+        fn seat(slot: u8, press: SandboxAction) -> impl Bundle {
+            let mut actions = ActionState::<SandboxAction>::default();
+            actions.press(&press);
+            (
+                InputParticipant {
+                    id: ParticipantId(slot),
+                },
+                ParticipantContexts::default(),
+                actions,
+            )
+        }
+
+        for seats in [1usize, 2, 4] {
+            let mut app = App::new();
+            app.init_resource::<MenuControlFrame>();
+            app.init_resource::<ambition_input::MenuInputState>();
+            app.init_resource::<ambition_persistence::settings::UserSettings>();
+            app.add_message::<bevy::input::mouse::MouseWheel>();
+            app.world_mut().spawn(seat(0, SandboxAction::MenuSelect));
+            // Every other seat holds something DIFFERENT, so a fold that mixed
+            // them would be visible rather than accidentally agreeing.
+            for slot in 1..seats as u8 {
+                app.world_mut().spawn(seat(slot, SandboxAction::MenuBack));
+            }
+            app.add_systems(Update, super::populate_menu_control_frame_from_actions);
+            app.update();
+
+            let frame = *app.world().resource::<MenuControlFrame>();
+            assert!(
+                frame.select,
+                "with {seats} participant(s), the primary's Select must reach the global menu \
+                 frame — a couch game whose pause menu stops working when player two joins is \
+                 the defect this pins"
+            );
+            assert!(
+                !frame.back,
+                "and seat 1's Back must NOT: the primary OWNS this resource, it is not a fold"
+            );
+        }
     }
 
     fn seat_slots(app: &mut App) -> Vec<u8> {

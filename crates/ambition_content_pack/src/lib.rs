@@ -209,12 +209,36 @@ pub fn compile(
 
         diagnostics.extend(outcome.diagnostics);
         if let Some(artifact) = outcome.lowered {
-            // Last source of a schema wins. Deliberate and narrow: today every
-            // schema has one source per pack, and a schema with two would need
-            // to say how its artifacts MERGE — which is the handler's question,
-            // not the compiler's. When one does, it grows a merge and this line
-            // goes away.
-            lowered.insert(source.schema.clone(), artifact);
+            // ⛔ **NEVER last-wins.** Overwriting silently means the content
+            // INDEX knows about both sources while the runtime artifact holds
+            // only the last one — validation and the running game seeing
+            // different content, which is the exact split this compiler exists
+            // to close. (GPT 5.6 review, finding 3.)
+            //
+            // Refusal is the first contract, deliberately. A schema with two
+            // sources needs to say how its artifacts MERGE, and that is the
+            // HANDLER's question — only it knows whether two rosters union,
+            // override, or conflict. A generic merge here would be the compiler
+            // guessing.
+            if lowered.contains_key(&source.schema) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ConflictingModuleContribution,
+                        CompileStage::FacetValidation,
+                        format!(
+                            "schema `{}` is lowered by more than one source, and it has not                              defined how two of its artifacts combine",
+                            source.schema
+                        ),
+                    )
+                    .in_source(&source.declared_path)
+                    .fix("put this schema's content in ONE source for now")
+                    .fix(
+                        "or give the schema an explicit aggregation: parse each source, merge                          the schema's own fragments, validate the aggregate, lower once",
+                    ),
+                );
+            } else {
+                lowered.insert(source.schema.clone(), artifact);
+            }
         }
         pending_refs.extend(outcome.references);
         asset_needs.extend(outcome.assets);
@@ -263,6 +287,40 @@ pub fn compile(
             version: source.version,
             content_fingerprint: ContentFingerprint::of(source_canonical.as_bytes()).0,
         });
+    }
+
+    // ⛔ **A `Runtime` schema must PRODUCE a runtime artifact.**
+    //
+    // Otherwise a pack compiles while carrying authored runtime content that
+    // has no runtime representation — "validated and then ignored", which is the
+    // one thing a content compiler must not certify. `AuthoringOnly` is the way
+    // to say a schema deliberately reaches no runtime, and saying it explicitly
+    // is the point. (GPT 5.6 review, finding 2.)
+    for schema in schemas.keys() {
+        let Some(registration) = registry.get(schema) else {
+            continue;
+        };
+        if registration.disposition == RuntimeDisposition::Runtime
+            && !lowered.contains_key(schema)
+            // Only meaningful when the handler otherwise succeeded: a facet that
+            // failed validation is already refused, and demanding an artifact
+            // from it would bury the real diagnostic under a consequence.
+            && !diagnostics.iter().any(Diagnostic::is_error)
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::MalformedProviderBinding,
+                    CompileStage::FacetValidation,
+                    format!(
+                        "schema `{schema}` is registered `Runtime` but lowered no runtime                          artifact, so its authored content would validate and then be ignored"
+                    ),
+                )
+                .fix("call `FacetOutcome::lower` with the value the runtime will consume")
+                .fix(
+                    "or register the schema `AuthoringOnly`, if reaching no runtime is what it                      means",
+                ),
+            );
+        }
     }
 
     if diagnostics.iter().any(Diagnostic::is_error) {

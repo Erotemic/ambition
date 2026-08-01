@@ -83,13 +83,27 @@ pub fn register(app: &mut bevy::prelude::App) {
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
+    // ⛔ **THROUGH THE COMPILER, not beside it.** This used to call
+    // `from_ron(CHARACTER_CATALOG_RON)`, which reparsed and re-validated the
+    // same bytes through the legacy fragment path — so the CLI, the tests and
+    // `load_catalog` went through the compiler while the running game went
+    // through a different reader. Two authorities over one file is the precise
+    // split the compiler exists to close, and it had survived one layer above
+    // it. (GPT 5.6 review, finding 1.)
+    let pack = compile_pack().unwrap_or_else(|failure| {
+        panic!("Ambition's own content pack does not compile:\n{failure}")
+    });
+    let catalog = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
+        .expect("the character schema lowers its catalog for every pack that compiles")
+        .clone();
     app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
+        CharacterCatalogFragment::from_prepared(
+            CATALOG_SOURCE_PATH,
             crate::AMBITION_CONTENT_PROVIDER,
             Some(PLAYABLE_ROSTER[0]),
-            CHARACTER_CATALOG_RON,
+            catalog,
         )
-        .expect("Ambition character catalog should be valid"),
+        .expect("the prepared catalog carries this provider's default character"),
     );
 }
 
@@ -170,6 +184,41 @@ mod tests {
             );
             assert!(catalog.display_name(id).is_some());
         }
+    }
+
+    /// **Production registration and the compiler are ONE authority.**
+    ///
+    /// The app-local fragment must be the compiler's lowered artifact, entry for
+    /// entry — not a second parse of the same file. Two readers is how content
+    /// passes validation and the game loads something else.
+    #[test]
+    fn the_registered_app_catalog_is_the_compilers_artifact() {
+        let pack = compile_pack().expect("compiles");
+        let lowered = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
+            .expect("lowered");
+
+        let mut app = bevy::prelude::App::new();
+        register(&mut app);
+        let assembled = app
+            .world()
+            .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>();
+
+        for (id, entry) in &lowered.characters {
+            assert_eq!(
+                assembled.display_name(id),
+                Some(entry.display_name.as_str()),
+                "`{id}` reached the App through the compiler, not a re-parse"
+            );
+        }
+        assert_eq!(
+            lowered.characters.len(),
+            PLAYABLE_ROSTER
+                .iter()
+                .filter(|id| assembled.display_name(id).is_some())
+                .count()
+                .max(lowered.characters.len()),
+            "every prepared character is registered"
+        );
     }
 
     #[test]

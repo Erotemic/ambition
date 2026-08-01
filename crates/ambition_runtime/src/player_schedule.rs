@@ -211,18 +211,36 @@ impl Plugin for PlayerSchedulePlugin {
             // each controlled body's ActorControl frame.
             ambition_actors::avatar::tick_player_brains.in_set(PlayerInputSet::Brain),
         );
-        // The movement-intent OBSERVER, in the same set and strictly after the
-        // brain: it reads the frame the brain just wrote. It takes every
-        // component immutably, so it cannot be the thing that broke the tick —
-        // a property of its signature, not a promise, which matters because a
-        // rollback host resimulates and an instrument that nudged state would
-        // desync exactly when somebody was using it.
+        // Causal recording, in the SIM schedule because that is where its
+        // publishers live and where `SimulationReplayState` means anything.
+        //
+        // ⚠ the stamp runs FIRST and everything else is `.after` it. The first
+        // version of this plugin stamped in `Last`, and the parallel-schedule
+        // proof caught it immediately: every fact published during the frame
+        // carried the PREVIOUS frame's tick, and none of them knew the host was
+        // resimulating. A publisher cannot know either of those; the host is the
+        // only thing that does.
         #[cfg(feature = "causal")]
         app.add_systems(
             sim,
-            crate::causal::record_player_movement_intent
-                .in_set(PlayerInputSet::Brain)
-                .after(ambition_actors::avatar::tick_player_brains),
+            (
+                crate::causal::stamp_causal_frame,
+                (
+                    crate::causal::record_execution_identity,
+                    // The movement-intent OBSERVER, strictly after the brain: it
+                    // reads the frame the brain just wrote. It takes every
+                    // component immutably, so it cannot be the thing that broke
+                    // the tick — a property of its signature, not a promise,
+                    // which matters because a rollback host resimulates and an
+                    // instrument that nudged state would desync exactly when
+                    // somebody was using it to find out why.
+                    crate::causal::record_player_movement_intent
+                        .after(ambition_actors::avatar::tick_player_brains),
+                )
+                    .in_set(crate::causal::RecordingSet::Publish),
+            )
+                .chain()
+                .in_set(PlayerInputSet::Brain),
         );
         app.add_systems(
             sim,

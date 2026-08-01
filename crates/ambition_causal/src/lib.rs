@@ -57,7 +57,7 @@ pub use fact::{
 };
 #[cfg(feature = "bevy")]
 pub use ecs::CausalRecording;
-pub use log::{CausalLog, Explanation, RecordingPolicy};
+pub use log::{CausalLog, ExecutionKey, Explanation, RecordingPolicy};
 pub use sink::{
     CausalSink, facts_lost_offthread, record, recording, reset_lost_offthread, with_sink,
 };

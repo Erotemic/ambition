@@ -108,10 +108,13 @@ impl ContentSchemaHandler for HabitatSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
         match ron::from_str::<HabitatFile>(facet.text) {
             Ok(file) => {
-                for habitat in file.habitats {
-                    let id = facet.content_id(&habitat);
+                for habitat in &file.habitats {
+                    let id = facet.content_id(habitat);
                     out.define(id, "habitat");
                 }
+                // The toy pack's RUNTIME family: registered `Runtime`, so the
+                // compiler requires an artifact and this produces one.
+                out.lower(file.habitats.clone());
             }
             Err(error) => out.report(
                 facet.diagnostic(DiagnosticCode::MalformedSource, format!("{error}")),
@@ -120,12 +123,16 @@ impl ContentSchemaHandler for HabitatSchema {
     }
 }
 
-fn registration(id: &str, handler: Arc<dyn ContentSchemaHandler>) -> SchemaRegistration {
+fn registration(
+    id: &str,
+    disposition: RuntimeDisposition,
+    handler: Arc<dyn ContentSchemaHandler>,
+) -> SchemaRegistration {
     SchemaRegistration {
         id: SchemaId::new(id),
         version: SchemaVersion(1),
         capability: CapabilityId::new("critters"),
-        disposition: RuntimeDisposition::Runtime,
+        disposition,
         doc: "test schema",
         handler,
     }
@@ -133,11 +140,24 @@ fn registration(id: &str, handler: Arc<dyn ContentSchemaHandler>) -> SchemaRegis
 
 fn registry() -> SchemaRegistry {
     let mut registry = SchemaRegistry::new();
+    // `critter` is AUTHORING-ONLY here on purpose: it is the family these tests
+    // use to exercise references, assets and duplicate identities, and several
+    // of those need TWO sources of one schema — which a `Runtime` schema now
+    // refuses (it has not said how two artifacts combine). `habitat` is the
+    // runtime family, and it lowers.
     registry
-        .register(registration(CRITTER, Arc::new(CritterSchema)))
+        .register(registration(
+            CRITTER,
+            RuntimeDisposition::AuthoringOnly,
+            Arc::new(CritterSchema),
+        ))
         .expect("fresh registry");
     registry
-        .register(registration(HABITAT, Arc::new(HabitatSchema)))
+        .register(registration(
+            HABITAT,
+            RuntimeDisposition::Runtime,
+            Arc::new(HabitatSchema),
+        ))
         .expect("fresh registry");
     registry
 }
@@ -508,7 +528,11 @@ fn an_unknown_authored_field_is_an_error_and_not_a_shrug() {
 #[test]
 fn two_capabilities_claiming_one_schema_is_refused_at_registration() {
     let mut registry = registry();
-    let mut clashing = registration(CRITTER, Arc::new(CritterSchema));
+    let mut clashing = registration(
+        CRITTER,
+        RuntimeDisposition::AuthoringOnly,
+        Arc::new(CritterSchema),
+    );
     clashing.capability = CapabilityId::new("beasts");
     let diagnostic = registry
         .register(clashing)
@@ -623,5 +647,146 @@ fn an_unchecked_asset_source_says_so_instead_of_looking_verified() {
             .all(|provenance| provenance.root == "<unchecked>"),
         "provenance records that nothing verified these — a pack prepared this way is visibly \
          not making a claim about its assets"
+    );
+}
+
+/// ⛔ **A `Runtime` schema that lowers nothing is refused.**
+///
+/// Otherwise a pack compiles while carrying authored runtime content with no
+/// runtime representation — "validated and then ignored", which is the one thing
+/// a content compiler must never certify. `AuthoringOnly` is how a schema says
+/// it deliberately reaches no runtime, and saying it explicitly is the point.
+/// (GPT 5.6 review, finding 2.)
+#[test]
+fn a_runtime_schema_that_lowers_nothing_is_refused() {
+    struct Inert;
+    impl ContentSchemaHandler for Inert {
+        fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+            // Validates fine, defines content, and never lowers.
+            out.define(facet.content_id("something"), "inert");
+        }
+    }
+
+    let pack = Pack::empty("runtime_without_lowering");
+    pack.write("inert.ron", "()");
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [(path: "inert.ron", schema: "inert", version: 1)],
+        )"#,
+    );
+
+    let mut runtime = SchemaRegistry::new();
+    runtime
+        .register(registration(
+            "inert",
+            RuntimeDisposition::Runtime,
+            Arc::new(Inert),
+        ))
+        .expect("fresh registry");
+    let failure = pack
+        .compile_with(&runtime, &AssetsUnchecked)
+        .expect_err("a Runtime schema owes a runtime artifact");
+    assert_eq!(failure.stage, CompileStage::FacetValidation);
+    assert!(failure.render().contains("validate and then be ignored"));
+
+    // The SAME handler registered `AuthoringOnly` compiles, because reaching no
+    // runtime is then what it means rather than what it forgot.
+    let mut authoring = SchemaRegistry::new();
+    authoring
+        .register(registration(
+            "inert",
+            RuntimeDisposition::AuthoringOnly,
+            Arc::new(Inert),
+        ))
+        .expect("fresh registry");
+    assert!(
+        pack.compile_with(&authoring, &AssetsUnchecked).is_ok(),
+        "the disposition is the difference, not the handler"
+    );
+}
+
+/// ⛔ **Two sources lowering one schema is REFUSED, never last-wins.**
+///
+/// Silently overwriting means the content INDEX knows about both sources while
+/// the runtime artifact holds only the last — validation and the running game
+/// seeing different content. Refusal is the first contract on purpose: only the
+/// HANDLER knows whether two of its artifacts union, override or conflict, so a
+/// generic merge here would be the compiler guessing. (GPT 5.6 review,
+/// finding 3.)
+#[test]
+fn two_sources_lowering_one_schema_is_refused_rather_than_silently_last_wins() {
+    let pack = Pack::empty("two_runtime_sources");
+    pack.write("a.ron", "(habitats: [\"burrow\"])");
+    pack.write("b.ron", "(habitats: [\"canopy\"])");
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [
+                (path: "a.ron", schema: "habitat", version: 1),
+                (path: "b.ron", schema: "habitat", version: 1),
+            ],
+        )"#,
+    );
+    let failure = pack.refuse();
+    assert_eq!(failure.stage, CompileStage::FacetValidation);
+    assert!(
+        failure.has(DiagnosticCode::ConflictingModuleContribution),
+        "got {:?}",
+        failure.codes()
+    );
+    assert!(
+        failure.render().contains("how two of its artifacts combine"),
+        "and it names the missing contract rather than just refusing:\n{}",
+        failure.render()
+    );
+}
+
+/// ⛔ **The same logical pack fingerprints identically from two directories.**
+///
+/// The fingerprint is content identity: a cache key, a packaging input, a
+/// session-compatibility check, the thing that says whether two builds carry the
+/// same content. A value that moves with the checkout path answers none of
+/// those. Asset PROVENANCE (where a file resolved) stays available for
+/// diagnostics and stays out of identity. (GPT 5.6 review, finding 5.)
+#[test]
+fn the_fingerprint_does_not_move_with_the_checkout_path() {
+    fn pack_with_art(name: &str) -> Pack {
+        let pack = Pack::valid(name);
+        // Real files under THIS pack's own root, so each run resolves its assets
+        // somewhere different and provenance actually records two roots.
+        pack.write("mole.png", "");
+        pack.write("shrike.png", "");
+        pack
+    }
+
+    let here = pack_with_art("fingerprint_here");
+    let elsewhere = pack_with_art("some/deeper/fingerprint_elsewhere");
+
+    let compile_at = |pack: &Pack| {
+        compile_dir(
+            &pack.root,
+            &registry(),
+            &DirectoryAssets::new([pack.root.clone()]),
+        )
+        .expect("art is present under this pack's own root")
+    };
+    let first = compile_at(&here);
+    let second = compile_at(&elsewhere);
+
+    let root_of = |pack: &PreparedContentPack| {
+        pack.assets.values().next().map(|p| p.root.clone())
+    };
+    assert_ne!(
+        root_of(&first),
+        root_of(&second),
+        "the two runs really did resolve against different roots — without this the test \
+         would pass for the wrong reason"
+    );
+    assert_eq!(
+        first.fingerprint, second.fingerprint,
+        "identical content, different checkout: ONE identity. A fingerprint that moved with \
+         the path would answer none of the questions it exists for — caching, packaging, \
+         session compatibility, comparing two builds."
     );
 }

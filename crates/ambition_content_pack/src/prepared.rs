@@ -175,8 +175,19 @@ impl PreparedContentPack {
         for (id, entry) in &self.content {
             let _ = writeln!(out, "content {id}\n{}", entry.canonical);
         }
-        for (path, provenance) in &self.assets {
-            let _ = writeln!(out, "asset {path} <- {}", provenance.root);
+        // ⛔ **THE ASSET ROOT IS NOT PART OF IDENTITY.** It used to be, and it
+        // made the fingerprint machine-specific: the same logical pack got a
+        // different value from `/home/alice/code/ambition` than from
+        // `/build/agent/work`, and a relative invocation differed from an
+        // absolute one. That defeats every use the fingerprint has — caching,
+        // packaging, session compatibility, comparing two builds. (GPT 5.6
+        // review, finding 5.)
+        //
+        // The authored path IS identity: it is what the content says. WHERE it
+        // resolved is diagnostics, and stays on `AssetProvenance::root` for a
+        // packaging step and an inspector to read.
+        for path in self.assets.keys() {
+            let _ = writeln!(out, "asset {path}");
         }
         for reference in &self.resolved_references {
             let _ = writeln!(

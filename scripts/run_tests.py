@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import re
 import subprocess
 import sys
@@ -65,6 +66,10 @@ REPO = Path(__file__).resolve().parent.parent
 # still going. See the module docstring: process-scanning for the answer is
 # what hangs, because the scan matches the shell doing the scanning.
 STATUS_NAME = "run_tests_status.json"
+# Measured 2026-07-31: 28 jobs consumed ~295G of `target/debug/deps`. This is a
+# floor with a little room, not a precise budget -- the point is to refuse
+# BEFORE a job dies of ENOSPC and reports it as a compile error.
+MIN_FREE_GB = 40.0
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -467,9 +472,38 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # wants it back exports `CARGO_INCREMENTAL=1`.
     env.setdefault("CARGO_INCREMENTAL", "0")
 
+    # ⛔ **REFUSE ON A FULL DISK RATHER THAN DYING HALFWAY THROUGH IT.**
+    #
+    # `CARGO_INCREMENTAL=0` above fixed the 110G half of the 2026-07-31 disk
+    # fill. It did NOT fix the other half: every feature job is a full variant of
+    # the graph and cargo never garbage-collects the previous ones, so a suite
+    # run costs ~10G/job in `target/debug/deps` and 28 jobs refilled a 387G
+    # volume the same day the incremental fix landed.
+    #
+    # The failure mode is what makes this worth a check rather than a note: a
+    # suite that runs out of space mid-way reports a wall of unrelated compile
+    # errors from whichever job was unlucky, and the actual cause (ENOSPC) is
+    # nowhere in the output. One refusal up front, naming the remedy, is worth
+    # more than any amount of diagnosing that.
+    free_gb = shutil.disk_usage(REPO).free / 1024**3
+    if free_gb < MIN_FREE_GB:
+        print(
+            f"REFUSING: {free_gb:.1f} GB free, and a full suite needs about "
+            f"{MIN_FREE_GB:.0f}.\n"
+            f"  Every feature job builds its own variant of the graph and cargo "
+            f"never prunes the last one.\n"
+            f"  Free it:  cargo clean            (then expect one full rebuild)\n"
+            f"  Or run a subset:  ./run_tests.sh -p <crate>",
+            file=sys.stderr,
+        )
+        return 1
+
     status = Path(status_json) if status_json else REPO / "target" / STATUS_NAME
     results: list[JobResult] = []
-    base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs)}
+    # `free_gb` travels in the status file so a long autonomous run can WATCH
+    # the headroom fall instead of discovering it at zero.
+    base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs),
+            "free_gb_at_start": round(free_gb, 1)}
     write_status(status, {**base, "state": "running", "finished_jobs": 0})
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on

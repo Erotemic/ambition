@@ -68,6 +68,54 @@ impl CharacterCatalogFragment {
         )
     }
 
+    /// Build a fragment from a catalog the CONTENT COMPILER already prepared.
+    ///
+    /// ⛔ **this exists so production registration and the compiler are not two
+    /// authorities.** `from_ron` reparses and re-validates the same bytes
+    /// through the legacy path, so a pack could pass `compile()` and still be
+    /// assembled by a different reader with different defaults — the exact
+    /// "validated but the game loaded something else" split the compiler was
+    /// built to close, surviving one layer above it.
+    ///
+    /// No re-parse and no second validation: the compiler already refused
+    /// everything `validator::validate` would have, and running it again would
+    /// only create a second place for the two to disagree. `source` names the
+    /// pack so a diagnostic can still say where the content came from.
+    pub fn from_prepared(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        default_character_id: Option<impl Into<String>>,
+        catalog: CharacterCatalogData,
+    ) -> Result<Self, CharacterCatalogAssemblyError> {
+        let provider_id = provider_id.into();
+        if provider_id.trim().is_empty() {
+            return Err(CharacterCatalogAssemblyError::EmptyProviderId);
+        }
+        let source = Some(source.into());
+        let default_character_id = default_character_id.map(Into::into);
+        if let Some(default_id) = default_character_id.as_deref() {
+            // The ONE check the compiler cannot make: which row this PROVIDER
+            // treats as its default is a composition fact, not a content fact.
+            if !catalog.characters.contains_key(default_id) {
+                return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
+                    provider_id,
+                    source,
+                    character_id: default_id.to_string(),
+                });
+            }
+        }
+        Ok(Self {
+            provider_id,
+            default_character_id,
+            // The fragment keeps a RON rendering for diagnostics only. It is
+            // re-serialised from the PREPARED value rather than carried from the
+            // authored text, so it cannot drift from what was registered.
+            source_ron: ron::ser::to_string(&catalog).unwrap_or_default(),
+            catalog,
+            source,
+        })
+    }
+
     fn build(
         source: Option<String>,
         provider_id: impl Into<String>,

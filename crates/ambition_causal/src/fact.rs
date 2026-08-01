@@ -72,7 +72,7 @@ impl fmt::Display for SubjectKey {
 /// could not answer it: under a rollback host a resimulated frame decides again
 /// and logs again, and two identical lines are indistinguishable from one
 /// decision made twice.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Execution {
     #[default]
     Original,

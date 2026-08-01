@@ -1,6 +1,6 @@
 //! The bounded log and the tick explainer.
 
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use crate::fact::{CausalDomain, CausalFact, Execution, FactId, SubjectKey};
 
@@ -61,6 +61,13 @@ pub struct CausalLog {
     /// owner stamps it here and `record` applies it, which is the one place
     /// that genuinely has the answer.
     tick: Option<u64>,
+    /// The execution identity of the frame being stepped, when the host knows.
+    ///
+    /// Same reason as `tick`: a domain publishing a movement fact does not know
+    /// whether the host is replaying history over this frame, and a fact that
+    /// guessed `Original` would make a resimulated tick indistinguishable from
+    /// its original — the exact thing `Execution` exists to prevent.
+    frame: Option<(Execution, u32)>,
     /// Facts refused because the ring was full. Reported rather than silent —
     /// an explanation missing its first link because the buffer wrapped must
     /// not look like an explanation whose first link never happened.
@@ -85,6 +92,7 @@ impl CausalLog {
             next_id: 0,
             policy: RecordingPolicy::default(),
             tick: None,
+            frame: None,
             dropped: 0,
         }
     }
@@ -109,6 +117,17 @@ impl CausalLog {
         self.tick
     }
 
+    /// Stamp the execution identity every subsequent fact belongs to. Called by
+    /// the host, once per frame, BEFORE any publisher runs.
+    pub fn set_frame(&mut self, execution: Execution, generation: u32) -> &mut Self {
+        self.frame = Some((execution, generation));
+        self
+    }
+
+    pub fn frame(&self) -> Option<(Execution, u32)> {
+        self.frame
+    }
+
     pub fn is_recording(&self) -> bool {
         !self.policy.is_off()
     }
@@ -121,6 +140,14 @@ impl CausalLog {
         }
         if let Some(tick) = self.tick {
             fact.tick = tick;
+        }
+        // A publisher that set its own execution keeps it; everything else
+        // inherits the host's, which is the only place that knows.
+        if let Some((execution, generation)) = self.frame {
+            if fact.execution == Execution::default() && fact.generation == 0 {
+                fact.execution = execution;
+                fact.generation = generation;
+            }
         }
         fact.id = FactId(self.next_id);
         self.next_id += 1;
@@ -162,27 +189,69 @@ impl CausalLog {
     /// subject at all — a session rebase or a rules change is about the world
     /// and still explains a body.
     ///
-    /// ⚠ **a missing domain is not an error.** A movement-only composition
-    /// publishes no combat facts, and its explanation is simply shorter. An
-    /// explainer that required every domain would be unusable in exactly the
-    /// small games this engine is for.
+    /// ⛔ **ONE execution, never a merge of several.** A tick number is not
+    /// unique: frames restart at zero on every session, so generation 1 tick 20
+    /// and generation 2 tick 20 are different moments; and under a rollback host
+    /// the same tick runs ORIGINALLY and then again as resimulation. Merging
+    /// those into one chain would mislabel the explanation and make
+    /// "was this original or a replay?" — a required question — unanswerable.
+    /// (GPT 5.6 review, finding 6.)
+    ///
+    /// This returns the LATEST execution recorded for that tick, which is what
+    /// an investigation almost always wants. [`Self::explanations`] returns
+    /// every one, and it is the call to reach for when the question is about the
+    /// rewind itself.
+    ///
+    /// ⚠ two resimulations of one tick within one generation still group
+    /// together, because nothing publishes an ATTEMPT counter. Recorded rather
+    /// than hidden: when a domain needs to tell them apart, the counter is what
+    /// it must publish, and `ExecutionKey` is where it lands.
     pub fn explain(&self, tick: u64, subject: &SubjectKey) -> Explanation {
-        let facts: Vec<CausalFact> = self
-            .facts
-            .iter()
-            .filter(|fact| fact.tick == tick)
-            .filter(|fact| match &fact.subject {
-                Some(other) => other == subject,
-                None => true,
+        self.explanations(tick, subject)
+            .pop()
+            .unwrap_or_else(|| Explanation {
+                tick,
+                subject: subject.clone(),
+                key: ExecutionKey::default(),
+                truncated: self.dropped > 0,
+                facts: Vec::new(),
             })
-            .cloned()
-            .collect();
-        Explanation {
-            tick,
-            subject: subject.clone(),
-            truncated: self.dropped > 0,
-            facts,
+    }
+
+    /// Every execution of this tick, oldest first.
+    ///
+    /// A rewound tick appears twice — once original, once resimulated — and a
+    /// tick reached in two sessions appears once per generation. They are
+    /// separate answers because they are separate moments.
+    pub fn explanations(&self, tick: u64, subject: &SubjectKey) -> Vec<Explanation> {
+        let mut groups: BTreeMap<ExecutionKey, Vec<CausalFact>> = BTreeMap::new();
+        for fact in self.facts.iter().filter(|fact| fact.tick == tick) {
+            let mine = match &fact.subject {
+                Some(other) => other == subject,
+                // A fact about the WORLD explains every body on that tick.
+                None => true,
+            };
+            if !mine {
+                continue;
+            }
+            groups
+                .entry(ExecutionKey {
+                    generation: fact.generation,
+                    execution: fact.execution,
+                })
+                .or_default()
+                .push(fact.clone());
         }
+        groups
+            .into_iter()
+            .map(|(key, facts)| Explanation {
+                tick,
+                subject: subject.clone(),
+                key,
+                truncated: self.dropped > 0,
+                facts,
+            })
+            .collect()
     }
 
     /// Every subject that has a fact on this tick — for a tool offering a list
@@ -222,11 +291,26 @@ impl CausalLog {
     }
 }
 
-/// The answer to one question: this subject, this tick.
+/// Which EXECUTION of a tick an explanation is about.
+///
+/// A tick number alone does not identify a moment: frames restart at zero on
+/// every session, and a rollback host runs the same tick more than once.
+/// Ordering is `(generation, execution)`, so `Original` sorts before
+/// `Resimulated` within a generation and the latest generation sorts last —
+/// which is what makes `explain` return the most recent one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExecutionKey {
+    pub generation: u32,
+    pub execution: Execution,
+}
+
+/// The answer to one question: this subject, this tick, ONE execution of it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Explanation {
     pub tick: u64,
     pub subject: SubjectKey,
+    /// Which execution of `tick` these facts came from.
+    pub key: ExecutionKey,
     /// The ring wrapped, so an earlier link may be missing. **Reported**, so a
     /// gap caused by the buffer is distinguishable from a gap caused by the
     /// simulation.
@@ -260,16 +344,20 @@ impl Explanation {
 
     /// Was this tick original execution or rollback resimulation?
     ///
-    /// One of the program's required questions. `None` when no domain said —
-    /// which is honest: a composition with no rollback host has no answer,
-    /// and reporting `Original` would be a claim nobody made.
+    /// One of the program's required questions. `None` when NOTHING was
+    /// recorded — honest, because a composition with no rollback host has no
+    /// answer and reporting `Original` would be a claim nobody made.
+    ///
+    /// It reads the explanation's OWN key rather than its first fact: every
+    /// fact in one explanation shares an execution by construction, which is
+    /// what stops this being "whichever fact happened to sort first".
     pub fn execution(&self) -> Option<Execution> {
-        self.facts.first().map(|fact| fact.execution)
+        (!self.facts.is_empty()).then_some(self.key.execution)
     }
 
     /// The lifecycle generation these facts were recorded in.
     pub fn generation(&self) -> Option<u32> {
-        self.facts.first().map(|fact| fact.generation)
+        (!self.facts.is_empty()).then_some(self.key.generation)
     }
 
     /// The causal chain ending at `fact`, oldest first — each link is the
@@ -298,9 +386,11 @@ impl Explanation {
     /// One screen: every fact, in the order they were recorded.
     pub fn render(&self) -> String {
         let mut out = format!(
-            "why {} changed on tick {} — {} fact(s)\n",
+            "why {} changed on tick {} (generation {}, {}) — {} fact(s)\n",
             self.subject,
             self.tick,
+            self.key.generation,
+            self.key.execution,
             self.facts.len()
         );
         if self.truncated {

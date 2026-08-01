@@ -315,3 +315,85 @@ fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
     record(fact("nobody_listening", 1, domains::BRAIN));
     assert_eq!(facts_lost_offthread(), after_scope);
 }
+
+/// ⛔ **Two lifecycle generations at one tick are two answers, not one chain.**
+///
+/// Frames restart at zero on every session, so generation 1 tick 20 and
+/// generation 2 tick 20 are different moments. Merging them would put a fact
+/// from a session that no longer exists into an explanation of the current one.
+/// (GPT 5.6 review, finding 6.)
+#[test]
+fn one_tick_in_two_generations_is_two_explanations() {
+    let mut log = recording_log();
+    log.record(
+        fact("chose", 20, domains::BRAIN)
+            .about(body())
+            .in_generation(1)
+            .field("verb", "Approach"),
+    );
+    log.record(
+        fact("chose", 20, domains::BRAIN)
+            .about(body())
+            .in_generation(2)
+            .field("verb", "Retreat"),
+    );
+
+    let all = log.explanations(20, &body());
+    assert_eq!(all.len(), 2, "one per generation");
+    assert_eq!(all[0].generation(), Some(1));
+    assert_eq!(all[1].generation(), Some(2));
+    assert_eq!(all[0].facts().len(), 1, "and neither borrows the other's fact");
+
+    // The single-answer call takes the LATEST, and says which it took.
+    let latest = log.explain(20, &body());
+    assert_eq!(latest.generation(), Some(2));
+    assert_eq!(
+        latest.first("chose").and_then(|f| f.get("verb")),
+        Some(&FactValue::Text("Retreat".into())),
+        "a stale generation's decision must not be reported as this one's"
+    );
+    assert!(latest.render().contains("generation 2"));
+}
+
+/// ⛔ **An original tick and its resimulation are two answers.**
+///
+/// This is the one that would break a required question. Under a rollback host
+/// the same tick runs twice; if both land in one explanation, `execution()`
+/// returns whichever fact sorted first and "was this a replay?" becomes a coin
+/// flip. (GPT 5.6 review, finding 6.)
+#[test]
+fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
+    let mut log = recording_log();
+    log.record(
+        fact("moved", 20, domains::MOVEMENT)
+            .about(body())
+            .executed(Execution::Original)
+            .field("dx", 4.0_f32),
+    );
+    log.record(
+        fact("moved", 20, domains::MOVEMENT)
+            .about(body())
+            .executed(Execution::Resimulated)
+            .field("dx", 9.0_f32),
+    );
+
+    let all = log.explanations(20, &body());
+    assert_eq!(all.len(), 2);
+    assert_eq!(all[0].execution(), Some(Execution::Original));
+    assert_eq!(all[1].execution(), Some(Execution::Resimulated));
+    assert_eq!(
+        all[0].first("moved").and_then(|f| f.get("dx")),
+        Some(&FactValue::Float(4.0)),
+        "the original execution keeps its own numbers"
+    );
+    assert_eq!(
+        all[1].first("moved").and_then(|f| f.get("dx")),
+        Some(&FactValue::Float(9.0)),
+        "and the replay keeps its own — a merge would have reported one of them for both"
+    );
+
+    // And the single-answer call is UNAMBIGUOUS about which it describes.
+    let latest = log.explain(20, &body());
+    assert_eq!(latest.execution(), Some(Execution::Resimulated));
+    assert_eq!(latest.facts().len(), 1);
+}

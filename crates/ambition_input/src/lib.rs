@@ -27,6 +27,7 @@ mod menu;
 mod motion_input;
 pub mod participant;
 mod presets;
+pub mod semantic;
 pub mod settings;
 
 #[cfg(test)]
@@ -116,3 +117,7 @@ pub use participant::{
     SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};
+pub use semantic::{
+    ActionControlKind, ActionConflict, ActionRegistry, SemanticActionDef, SemanticActionId,
+    ENGINE_ACTIONS, ENGINE_CAPABILITY,
+};

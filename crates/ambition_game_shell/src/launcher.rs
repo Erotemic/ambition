@@ -56,7 +56,14 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            footer: "Arrow keys select · Enter launches".to_owned(),
+            // ⚠ **ASCII only.** This read `select · Enter` and the shipped font
+            // has no glyph for U+00B7, so the title screen — the first thing
+            // anyone sees — drew a TOFU BOX between the two halves. Found by
+            // photographing the route with `capture_scene --route
+            // ambition_launcher`, which is the whole argument for drawing blind
+            // work: no test asserts what a missing glyph looks like, and every
+            // test here was green.
+            footer: "Arrow keys select | Enter launches".to_owned(),
             exit_label: Some("Exit".to_owned()),
         }
     }

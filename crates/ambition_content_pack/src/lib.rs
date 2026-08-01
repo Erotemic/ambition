@@ -191,6 +191,8 @@ pub fn compile(
     let mut asset_needs: Vec<AssetRequirement> = Vec::new();
     let mut prepared_sources: Vec<Source> = Vec::new();
     let mut facet_requirements: BTreeSet<CapabilityId> = BTreeSet::new();
+    let mut lowered: BTreeMap<SchemaId, std::sync::Arc<dyn std::any::Any + Send + Sync>> =
+        BTreeMap::new();
 
     for source in &draft.sources {
         let registration = registry
@@ -206,6 +208,14 @@ pub fn compile(
         registration.handler.check(&facet, &mut outcome);
 
         diagnostics.extend(outcome.diagnostics);
+        if let Some(artifact) = outcome.lowered {
+            // Last source of a schema wins. Deliberate and narrow: today every
+            // schema has one source per pack, and a schema with two would need
+            // to say how its artifacts MERGE — which is the handler's question,
+            // not the compiler's. When one does, it grows a merge and this line
+            // goes away.
+            lowered.insert(source.schema.clone(), artifact);
+        }
         pending_refs.extend(outcome.references);
         asset_needs.extend(outcome.assets);
         facet_requirements.extend(outcome.requires);
@@ -393,6 +403,7 @@ pub fn compile(
         assets: prepared_assets,
         resolved_references,
         diagnostics,
+        lowered,
         fingerprint: ContentFingerprint(0),
     };
     pack.fingerprint = ContentFingerprint::of(pack.canonical_bytes().as_bytes());

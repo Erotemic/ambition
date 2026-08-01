@@ -33,7 +33,7 @@ pub use binding::{
 )]
 #[cfg(feature = "content_pack")]
 pub use content_schema::{
-    ActionSetPresetRef, BrainPresetRef, Character, character_catalog_schema,
+    ActionSetPresetRef, BrainPresetRef, Character, character_catalog_schema, lowered_catalog,
     ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY,
     CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
 };

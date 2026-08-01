@@ -95,6 +95,12 @@ impl ContentSchemaHandler for CharacterCatalogSchema {
             }
         };
         declare(facet, &catalog, out);
+        // LOWER: the runtime reads this instead of parsing the same bytes a
+        // second time. Only published when the facet is clean — a caller must
+        // never receive a runtime value out of a pack that was refused.
+        if !out.failed() {
+            out.lower(catalog);
+        }
     }
 }
 
@@ -253,6 +259,15 @@ fn canonical<T: serde::Serialize>(value: &T) -> String {
     ron::ser::to_string(value).unwrap_or_else(|error| format!("<uncanonicalizable: {error}>"))
 }
 
+/// The catalog a prepared pack lowered to, if it carries one.
+///
+/// This is the runtime's load path. `ambition_content` composes its cast from
+/// here rather than from its own `parse_catalog`, so the bytes the compiler
+/// validated and the bytes the game runs are the same read.
+pub fn lowered_catalog(pack: &ambition_content_pack::PreparedContentPack) -> Option<&CharacterCatalogData> {
+    pack.lowered::<CharacterCatalogData>(&SchemaId::new(CHARACTER_CATALOG_SCHEMA))
+}
+
 /// The character capability's registration, for a composition to install.
 pub fn character_catalog_schema() -> SchemaRegistration {
     SchemaRegistration {
@@ -320,6 +335,35 @@ mod tests {
             },
         )
         .expect("draft reads")
+    }
+
+    #[test]
+    fn a_compiled_pack_carries_the_catalog_the_runtime_will_load() {
+        // The row this closes: before it, the compiler proved the content
+        // correct and the game parsed the same file again through a different
+        // function. Two readers of one file, with nothing guaranteeing they
+        // agreed.
+        let draft = draft("lowering", SMALL_CATALOG);
+        let pack = compile(&draft, &registry(), &AssetsUnchecked).expect("compiles");
+        let catalog = lowered_catalog(&pack).expect("a Runtime schema lowers its artifact");
+        assert!(catalog.characters.contains_key("mole"));
+        assert!(catalog.brain_presets.contains_key("peaceful"));
+        assert_eq!(
+            catalog.characters["mole"].display_name, "Mole",
+            "the runtime value is the one the compiler validated, not a re-parse"
+        );
+    }
+
+    #[test]
+    fn a_refused_pack_hands_out_no_runtime_value() {
+        // ⚠ the direction that matters. A caller must never get a usable
+        // catalog out of a pack that failed — that is how invalid content
+        // reaches a running game while a validator says it refused.
+        let draft = draft(
+            "refused_lowering",
+            &SMALL_CATALOG.replace(r#"tags: [],"#, r#"tags: [], favourite_snack: "worms","#),
+        );
+        assert!(compile(&draft, &registry(), &AssetsUnchecked).is_err());
     }
 
     #[test]

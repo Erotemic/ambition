@@ -4,7 +4,9 @@
 //! a packager, an inspector or a mod loader needs to know about this pack is
 //! answerable from here without touching the filesystem again.
 
+use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 use std::fmt::Write as _;
 
 use crate::diagnostic::Diagnostic;
@@ -100,10 +102,27 @@ pub struct PreparedContentPack {
     pub resolved_references: Vec<ResolvedReference>,
     /// Findings that did not refuse the pack (warnings).
     pub diagnostics: Vec<Diagnostic>,
+    /// The LOWERED artifacts, keyed by the schema that produced them.
+    ///
+    /// The runtime reads these instead of re-parsing the authored bytes. Two
+    /// readers of one file is the shape this crate exists to remove, and
+    /// leaving the runtime on its own parser would have kept it — the compiler
+    /// would prove the content correct and the game would load it separately,
+    /// with nothing guaranteeing they read it the same way.
+    pub lowered: BTreeMap<SchemaId, Arc<dyn Any + Send + Sync>>,
     pub fingerprint: ContentFingerprint,
 }
 
 impl PreparedContentPack {
+    /// The runtime value a schema lowered to.
+    ///
+    /// `None` when the schema contributed nothing to this pack, or when the
+    /// caller asked for the wrong type — which is a programming error in the
+    /// OWNING capability, since nobody else should be asking.
+    pub fn lowered<T: Any + Send + Sync>(&self, schema: &SchemaId) -> Option<&T> {
+        self.lowered.get(schema)?.downcast_ref::<T>()
+    }
+
     /// Look up an identity this pack defines.
     pub fn get(&self, schema: &SchemaId, name: &str) -> Option<&PreparedContent> {
         self.content

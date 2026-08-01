@@ -9,6 +9,7 @@
 //! offering something nobody authored is the ordinary state of a library. An
 //! authored facet with no complete handler is not.
 
+use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
@@ -75,6 +76,18 @@ pub struct FacetOutcome {
     /// the character schema itself belongs to the character capability.)
     pub requires: Vec<CapabilityId>,
     pub diagnostics: Vec<Diagnostic>,
+    /// The LOWERED artifact: the runtime value this facet prepares to.
+    ///
+    /// This is what makes `RuntimeDisposition::Runtime` mean something. Without
+    /// it the compiler proves content correct and the runtime parses the same
+    /// bytes a second time — two readers of one file, which is the shape this
+    /// whole crate exists to remove.
+    ///
+    /// `Arc<dyn Any>` because the compiler cannot name a capability's runtime
+    /// type (it must not depend on any domain crate) and because a prepared
+    /// pack is cloned. The owning capability downcasts it back; nobody else has
+    /// any business looking.
+    pub lowered: Option<Arc<dyn Any + Send + Sync>>,
 }
 
 impl FacetOutcome {
@@ -99,6 +112,11 @@ impl FacetOutcome {
 
     pub fn report(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+
+    /// Publish the runtime value this facet prepares to.
+    pub fn lower<T: Any + Send + Sync>(&mut self, value: T) {
+        self.lowered = Some(Arc::new(value));
     }
 
     pub fn failed(&self) -> bool {

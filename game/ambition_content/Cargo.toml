@@ -64,7 +64,10 @@ ambition_portal_presentation = { path = "../../crates/ambition_portal_presentati
 ambition_input = { path = "../../crates/ambition_input" }
 ambition_engine_core = { path = "../../crates/ambition_engine_core" }
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
-ambition_characters = { path = "../../crates/ambition_characters" }
+ambition_characters = { path = "../../crates/ambition_characters", features = ["content_pack"] }
+# The content compiler. This provider LOADS through it: the bytes the
+# validator judged and the bytes the game runs are one read.
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_persistence = { path = "../../crates/ambition_persistence" }
 ambition_interaction = { path = "../../crates/ambition_interaction" }
 ambition_items = { path = "../../crates/ambition_items" }

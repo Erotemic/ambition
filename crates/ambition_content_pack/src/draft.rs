@@ -112,6 +112,61 @@ impl ContentPackDraft {
         Self::read_manifest(root, manifest)
     }
 
+    /// A draft from sources already in memory — a shipped binary's
+    /// `include_str!`s, an editor's unsaved buffers, a test's literals.
+    ///
+    /// ⚠ **this is what keeps ONE validator honest across two source origins.**
+    /// A shipped binary genuinely must embed its content (there is no asset
+    /// directory next to a wasm bundle), and a CLI genuinely must read a
+    /// directory. What must NOT differ is the pipeline that judges them — a
+    /// "quick check for the embedded case" is how a pack passes one gate and
+    /// fails the other.
+    ///
+    /// No canonicalisation happens here, so alias collapsing does not apply:
+    /// two embedded sources with one declared path are a caller bug, not a
+    /// filesystem accident, and the duplicate-identity check catches the
+    /// consequence.
+    pub fn from_sources(
+        manifest: ContentPackManifest,
+        sources: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<Self, CompileFailure> {
+        let texts: BTreeMap<String, String> = sources.into_iter().collect();
+        let mut diagnostics = Vec::new();
+        let mut read = Vec::new();
+        for declaration in &manifest.sources {
+            match texts.get(&declaration.path) {
+                Some(text) => read.push(SourceFile {
+                    declared_path: declaration.path.clone(),
+                    canonical_path: PathBuf::from(&declaration.path),
+                    schema: declaration.schema.clone(),
+                    version: declaration.version,
+                    text: text.clone(),
+                }),
+                None => diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::MalformedSource,
+                        CompileStage::Parse,
+                        format!(
+                            "the manifest declares `{}` but no source was supplied for it",
+                            declaration.path
+                        ),
+                    )
+                    .in_source(&declaration.path)
+                    .fix("embed it beside the others, or remove its line from the manifest"),
+                ),
+            }
+        }
+        if !diagnostics.is_empty() {
+            return Err(CompileFailure::new(CompileStage::Parse, diagnostics));
+        }
+        Ok(Self {
+            root: PathBuf::new(),
+            manifest,
+            sources: read,
+            collapsed_aliases: Vec::new(),
+        })
+    }
+
     /// The same reading, from a manifest already in hand. Used by tests and by
     /// a future editor that holds an unsaved manifest.
     pub fn read_manifest(

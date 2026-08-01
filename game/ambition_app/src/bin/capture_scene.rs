@@ -20,10 +20,10 @@ use ambition::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStat
 use ambition::engine_core as ae;
 use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition::platformer::schedule::GameMode;
-use ambition::render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
+use ambition::render::rendering::{CameraViewState, camera_follow, sync_parallax_layers};
 use ambition::sim_view::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
-    CameraSnapshotResolveMode,
+    CameraFocus2d, CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+    resolve_follow_camera_snapshot,
 };
 use ambition::sprite_sheet::game_assets::GameAssetConfig;
 use ambition_app::app::{
@@ -563,19 +563,47 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     app.run();
 }
 
-/// Drive the shell to the requested route once, on the first update.
+/// Drive the shell to the requested route — **unless it is already there.**
+///
+/// ⚠ this sent the `GoTo` unconditionally on the first update, and for the HOME
+/// route that photographed a surface a player never sees: the shell's own
+/// `initialize_shell` activates home, then this navigated to it AGAIN, so the
+/// launcher tree was torn down and rebuilt a second time
+/// (`ShellActivationId` 1 → 2) before the shutter. A capture tool that stages a
+/// state the game does not reach is the same defect class as one that
+/// photographs the wrong room silently — this row's whole subject.
+///
+/// Found while instrumenting rebuild counts for an unrelated question.
+///
+/// It WAITS for the router to settle rather than firing on frame one: before
+/// initialization there is no active route to compare against, and navigating
+/// then would race the shell's own boot. `fail_after_timeout` covers a shell
+/// that never activates anything.
 fn go_to_route(
     config: Res<SceneCaptureConfig>,
     mut runtime: ResMut<SceneCaptureRuntime>,
+    router: Res<ambition::game_shell::ShellRouter>,
     mut commands: Commands,
 ) {
     if runtime.route_requested {
         return;
     }
-    runtime.route_requested = true;
     let Some(route) = config.route.clone() else {
+        runtime.route_requested = true;
         return;
     };
+    let Some(active) = router.active.as_ref() else {
+        // The shell has not settled yet; do not race its boot.
+        return;
+    };
+    runtime.route_requested = true;
+    if active.route_id.as_str() == route {
+        eprintln!(
+            "capture_scene: the shell is already on '{route}'; photographing it \
+             as booted rather than re-activating it"
+        );
+        return;
+    }
     commands.write_message(ambition::game_shell::ShellCommand::GoTo(
         ambition::game_shell::ShellRouteId::new(route),
     ));

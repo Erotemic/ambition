@@ -450,6 +450,9 @@ pub struct ModuleDraft {
     /// What the mounted capabilities need REWOUND, declared by the module that
     /// mounts them. See [`ModuleDraft::requires_rollback`].
     required_rollback: Vec<&'static [ambition_engine_core::snapshot::RequiredRollbackState]>,
+    /// The SEMANTIC ACTIONS the mounted capabilities contribute. See
+    /// [`ModuleDraft::actions`].
+    actions: Vec<&'static [ambition_input::SemanticActionDef]>,
     conflicts: Vec<String>,
 }
 
@@ -644,6 +647,29 @@ impl ModuleDraft {
         required: &'static [ambition_engine_core::snapshot::RequiredRollbackState],
     ) -> &mut Self {
         self.required_rollback.push(required);
+        self
+    }
+
+    /// **Declare the semantic actions a mounted capability contributes.**
+    ///
+    /// `SandboxAction` is a closed leafwing enum a capability cannot extend, so
+    /// the OPEN half is `ambition::input::SemanticActionId` and the registry
+    /// that holds it. This is where a capability's actions reach a composition:
+    ///
+    /// ```ignore
+    /// module.capability(ambition_pulse::PulsePlugin)
+    ///       .actions(&[ambition_pulse::PULSE_ACTION]);
+    /// ```
+    ///
+    /// The engine's own vocabulary is installed automatically, so a prompt, a
+    /// help screen or a rebind UI can ask one `ActionRegistry` what may be
+    /// pressed in a context and get the game's actions beside the engine's.
+    ///
+    /// ⚠ **two owners for one action id is a composition REFUSAL**, for the same
+    /// reason an ambiguous content schema is: letting it through means the
+    /// winner is decided by iteration order.
+    pub fn actions(&mut self, actions: &'static [ambition_input::SemanticActionDef]) -> &mut Self {
+        self.actions.push(actions);
         self
     }
 
@@ -1224,6 +1250,31 @@ impl PlatformerApp {
             ));
         }
 
+        // ── The semantic action vocabulary this composition understands ──
+        //
+        // Engine actions plus whatever the modules declared, as ONE registry a
+        // prompt / help screen / rebind UI can ask. Built here rather than by a
+        // capability because a registry belongs to the composition — the same
+        // rule the content compiler's `SchemaRegistry` follows.
+        {
+            let mut registry = ambition_input::ActionRegistry::with_engine_actions();
+            let mut conflicts = Vec::new();
+            for declared in &draft.actions {
+                for action in declared.iter() {
+                    if let Err(conflict) = registry.register(action.clone()) {
+                        conflicts.push(conflict.to_string());
+                    }
+                }
+            }
+            if !conflicts.is_empty() {
+                return Err(CompositionError {
+                    stage: CompositionStage::Assembly,
+                    problems: conflicts,
+                });
+            }
+            app.insert_resource(ambition_input::InstalledActions(registry));
+        }
+
         // ── What the mounted capabilities need REWOUND ──
         //
         // ⚠ Checked AFTER the capabilities built, for the same reason the cast
@@ -1801,6 +1852,111 @@ mod tests {
             assembled.is_plugin_added::<bevy::asset::AssetPlugin>(),
             "an assembly-stage refusal is supposed to have built the App it \
              refused on — if it has not, the check above proves nothing"
+        );
+    }
+
+    /// **A capability's semantic action reaches the composition's registry**,
+    /// beside the engine's own vocabulary and without editing a closed enum.
+    ///
+    /// `SandboxAction` is leafwing's concrete `Actionlike` and cannot grow a
+    /// variant from outside. This is the open half arriving where a prompt, a
+    /// help screen or a rebind UI can ask ONE question.
+    #[test]
+    fn a_capabilitys_action_lands_in_the_compositions_registry() {
+        use ambition_input::{
+            ActionControlKind, InstalledActions, SemanticActionDef, SemanticActionId,
+            GAMEPLAY_CONTEXT,
+        };
+
+        const GRAPPLE: &[SemanticActionDef] = &[SemanticActionDef {
+            id: SemanticActionId("grapple"),
+            capability: "traversal",
+            kind: ActionControlKind::Button,
+            contexts: &[GAMEPLAY_CONTEXT],
+            doc: "Fire the grapple",
+        }];
+
+        struct TraversalModule;
+        impl GameModule for TraversalModule {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("traversal")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("traversal")
+                    .launcher_route("home")
+                    .gameplay_route("traversal/play");
+                module.actions(GRAPPLE);
+            }
+        }
+
+        let mut app = App::new();
+        // The composition refuses later (no capability registers the route),
+        // which is fine: the registry is built BEFORE that, and what this test
+        // is about is whether the action arrived.
+        let _ = PlatformerApp::headless()
+            .mount(TraversalModule)
+            .install_into(&mut app);
+
+        let installed = app
+            .world()
+            .get_resource::<InstalledActions>()
+            .expect("the composition builds an action registry");
+        assert_eq!(
+            installed.get(SemanticActionId("grapple")).map(|d| d.capability),
+            Some("traversal"),
+            "a capability's action is in the composition's vocabulary"
+        );
+        assert!(
+            installed.get(SemanticActionId("jump")).is_some(),
+            "and the engine's own vocabulary is there too, unasked"
+        );
+        assert!(
+            installed
+                .for_context(GAMEPLAY_CONTEXT)
+                .any(|d| d.id.0 == "grapple"),
+            "so ONE question answers what may be pressed here, for both"
+        );
+    }
+
+    /// ⚠ **two owners for one action id is a composition refusal**, for the same
+    /// reason an ambiguous content schema is: letting it through means the
+    /// winner is decided by iteration order.
+    #[test]
+    fn two_capabilities_claiming_one_action_refuse_the_composition() {
+        use ambition_input::{ActionControlKind, SemanticActionDef, SemanticActionId, GAMEPLAY_CONTEXT};
+
+        const STOLEN: &[SemanticActionDef] = &[SemanticActionDef {
+            id: SemanticActionId("jump"),
+            capability: "traversal",
+            kind: ActionControlKind::Button,
+            contexts: &[GAMEPLAY_CONTEXT],
+            doc: "a second jump",
+        }];
+
+        struct Thief;
+        impl GameModule for Thief {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("thief")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("thief")
+                    .launcher_route("home")
+                    .gameplay_route("thief/play");
+                module.actions(STOLEN);
+            }
+        }
+
+        let mut app = App::new();
+        let refused = PlatformerApp::headless()
+            .mount(Thief)
+            .install_into(&mut app)
+            .expect_err("`jump` is the engine's");
+        let message = refused.to_string();
+        assert!(
+            message.contains("jump") && message.contains("traversal") && message.contains("engine"),
+            "the refusal names the action and BOTH claimants: {message}"
         );
     }
 

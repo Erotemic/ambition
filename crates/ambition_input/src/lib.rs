@@ -118,6 +118,6 @@ pub use participant::{
 };
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};
 pub use semantic::{
-    ActionControlKind, ActionConflict, ActionRegistry, SemanticActionDef, SemanticActionId,
-    ENGINE_ACTIONS, ENGINE_CAPABILITY,
+    ActionControlKind, ActionConflict, ActionRegistry, InstalledActions, SemanticActionDef,
+    SemanticActionId, ENGINE_ACTIONS, ENGINE_CAPABILITY,
 };

@@ -163,6 +163,22 @@ impl ActionRegistry {
     }
 }
 
+/// **The composition's action vocabulary, as a resource.**
+///
+/// A registry is a value; this is where the running app keeps one. Built by the
+/// facade's assembly pass from the engine's actions plus whatever the mounted
+/// modules declared, so a prompt, a help screen or a rebind UI asks ONE
+/// question and gets the game's actions beside the engine's.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct InstalledActions(pub ActionRegistry);
+
+impl std::ops::Deref for InstalledActions {
+    type Target = ActionRegistry;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// The capability that owns the built-in vocabulary.
 pub const ENGINE_CAPABILITY: &str = "engine";
 

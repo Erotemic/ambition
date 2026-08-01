@@ -56,13 +56,24 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            // ⚠ **ASCII only.** This read `select · Enter` and the shipped font
-            // has no glyph for U+00B7, so the title screen — the first thing
-            // anyone sees — drew a TOFU BOX between the two halves. Found by
-            // photographing the route with `capture_scene --route
-            // ambition_launcher`, which is the whole argument for drawing blind
-            // work: no test asserts what a missing glyph looks like, and every
-            // test here was green.
+            // ⚠ **ASCII only, and the REASON is an open question worth more than
+            // this line.** It read `select · Enter` and drew a TOFU BOX on the
+            // title screen — confirmed at 2560×1440, a hollow rectangle.
+            //
+            // ⛔ but the cause is NOT "the shipped font lacks the glyph".
+            // `JetBrainsMono-Regular.ttf` is bundled and HAS U+00B7 (checked with
+            // fontTools), and the smash select screen renders `·` and `—` fine
+            // through a bare `Text::new`. So the launcher's menu text is
+            // resolving to a DIFFERENT font than the rest of the UI — most
+            // likely Bevy's minimal embedded default rather than the project's
+            // bundled mono. That would mean every `ambition_menu` surface is in
+            // the fallback font, which is a much bigger finding than one
+            // separator, and it is recorded rather than guessed at.
+            //
+            // Found by photographing the route (`capture_scene --route
+            // ambition_launcher`) while checking an unrelated change — which is
+            // the argument for drawing blind work: every test here was green and
+            // none of them can assert what a missing glyph looks like.
             footer: "Arrow keys select | Enter launches".to_owned(),
             exit_label: Some("Exit".to_owned()),
         }

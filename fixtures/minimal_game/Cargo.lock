@@ -400,6 +400,7 @@ name = "ambition_platformer2d_host"
 version = "0.1.0"
 dependencies = [
  "ambition_input",
+ "ambition_menu",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",

@@ -412,6 +412,7 @@ name = "ambition_platformer2d_host"
 version = "0.1.0"
 dependencies = [
  "ambition_input",
+ "ambition_menu",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
@@ -1940,6 +1941,7 @@ dependencies = [
  "bevy_input",
  "bevy_input_focus",
  "bevy_math",
+ "bevy_picking",
  "bevy_platform",
  "bevy_reflect",
  "bevy_sprite",
@@ -1953,6 +1955,7 @@ dependencies = [
  "taffy",
  "thiserror 2.0.19",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -177,7 +177,7 @@ impl std::fmt::Display for PulseContentMissing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "pack '{}' prepared no `{PULSE_SCHEMA}` profiles. Either register              `ambition_pulse::pulse_schema()` and author one, or mount              `PulsePlugin::default()` and say that the defaults are intended",
+            "pack '{}' prepared no `{PULSE_SCHEMA}` profiles. Either register              `capability_demo::pulse_schema()` and author one, or mount              `PulsePlugin::default()` and say that the defaults are intended",
             self.pack
         )
     }
@@ -233,8 +233,8 @@ impl Plugin for PulsePlugin {
 /// ```ignore
 /// use ambition_runtime::rollback::AmbitionRollbackApp;
 /// app.rollback_component_clone_probed::<PulseCooldown>(
-///     ambition_pulse::PULSE_CAPABILITY,
-///     ambition_pulse::ROLLBACK_STATE,
+///     capability_demo::PULSE_CAPABILITY,
+///     capability_demo::ROLLBACK_STATE,
 ///     |cooldown| u64::from(cooldown.remaining_ticks),
 /// );
 /// ```
@@ -252,7 +252,7 @@ pub const ROLLBACK_STATE: &str = "pulse.cooldown";
 /// closes it in one line —
 ///
 /// ```ignore
-/// let missing = registry.missing_required_state(ambition_pulse::REQUIRED_ROLLBACK);
+/// let missing = registry.missing_required_state(capability_demo::REQUIRED_ROLLBACK);
 /// assert!(missing.is_empty(), "{missing:?}");
 /// ```
 ///

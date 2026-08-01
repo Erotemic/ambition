@@ -95,26 +95,26 @@ impl GameModule for GameWithPulse {
             );
         module
             // behaviour
-            .capability(ambition_pulse::PulsePlugin::default())
+            .capability(capability_demo::PulsePlugin::default())
             // + the semantic action it contributes
-            .actions(&[ambition_pulse::PULSE_ACTION])
+            .actions(&[capability_demo::PULSE_ACTION])
             // + what it needs rewound
-            .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK)
+            .requires_rollback(capability_demo::REQUIRED_ROLLBACK)
             // + AND the registration that satisfies it. Without this half the
             //   module could say what must rewind and had no supported way to
             //   supply it, so a rollback game mounting this capability could not
             //   be composed at all (GPT 5.6, 2026-08-01, finding 3).
-            .provides_rollback::<ambition_pulse::PulseCooldown>(
-                ambition_pulse::PULSE_CAPABILITY,
-                ambition_pulse::ROLLBACK_STATE,
+            .provides_rollback::<capability_demo::PulseCooldown>(
+                capability_demo::PULSE_CAPABILITY,
+                capability_demo::ROLLBACK_STATE,
                 |cooldown| u64::from(cooldown.remaining_ticks),
             )
             // ⚠ and the BODY. The mechanic's whole observable effect is a
             // velocity change, so a rewind that restored only the cooldown
             // would resimulate from a body still carrying the old push.
-            .provides_rollback::<ambition_pulse::PulseBody>(
-                ambition_pulse::PULSE_CAPABILITY,
-                ambition_pulse::BODY_ROLLBACK_STATE,
+            .provides_rollback::<capability_demo::PulseBody>(
+                capability_demo::PULSE_CAPABILITY,
+                capability_demo::BODY_ROLLBACK_STATE,
                 |body| body.vel.x.to_bits() as u64,
             );
     }
@@ -154,7 +154,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
         .expect("the composition builds an action registry");
     assert_eq!(
         actions.get(SemanticActionId("pulse")).map(|d| d.capability),
-        Some(ambition_pulse::PULSE_CAPABILITY),
+        Some(capability_demo::PULSE_CAPABILITY),
         "the capability's action is in the game's vocabulary"
     );
     assert!(
@@ -167,7 +167,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
     // The BEHAVIOUR is installed: the plugin's own resources exist.
     assert!(
         app.world()
-            .get_resource::<ambition_pulse::PulseProfiles>()
+            .get_resource::<capability_demo::PulseProfiles>()
             .is_some(),
         "the mechanic's tuning resource is present, so `capability(..)` ran"
     );
@@ -179,7 +179,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
         .expect("a rollback composition builds a registry");
     assert!(
         registry
-            .missing_required_state(ambition_pulse::REQUIRED_ROLLBACK)
+            .missing_required_state(capability_demo::REQUIRED_ROLLBACK)
             .is_empty(),
         "the capability's rewind state is registered, so a rewind restores the \
          cooldown rather than letting the action fire twice from one charge"
@@ -217,8 +217,8 @@ fn declaring_required_rollback_without_providing_it_is_refused() {
                 );
             // requires, and deliberately does not provide.
             module
-                .capability(ambition_pulse::PulsePlugin::default())
-                .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
+                .capability(capability_demo::PulsePlugin::default())
+                .requires_rollback(capability_demo::REQUIRED_ROLLBACK);
         }
     }
 
@@ -231,7 +231,7 @@ fn declaring_required_rollback_without_providing_it_is_refused() {
     let message = format!("{outcome:?}");
     assert!(outcome.is_err(), "the omission must refuse: {message}");
     assert!(
-        message.contains(ambition_pulse::ROLLBACK_STATE),
+        message.contains(capability_demo::ROLLBACK_STATE),
         "the missing rewind state is named by the refusal: {message}"
     );
     assert!(
@@ -252,7 +252,7 @@ fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
         PackVersion, SchemaId, SchemaVersion, SourceDeclaration, compile, engine_schemas,
     };
 
-    let root = std::env::temp_dir().join("ambition_pulse_sdk/pack");
+    let root = std::env::temp_dir().join("capability_demo_sdk/pack");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("temp pack");
     std::fs::write(
@@ -263,7 +263,7 @@ fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
 
     let mut registry = engine_schemas();
     registry
-        .register(ambition_pulse::pulse_schema())
+        .register(capability_demo::pulse_schema())
         .expect("the capability's schema is new to the engine's registry");
 
     let draft = ContentPackDraft::read_manifest(
@@ -275,7 +275,7 @@ fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
             requires: Vec::new(),
             sources: vec![SourceDeclaration {
                 path: "pulse.ron".into(),
-                schema: SchemaId::new(ambition_pulse::PULSE_SCHEMA),
+                schema: SchemaId::new(capability_demo::PULSE_SCHEMA),
                 version: SchemaVersion(1),
             }],
         },
@@ -284,7 +284,7 @@ fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
 
     let pack = compile(&draft, &registry, &AssetsUnchecked).expect("the game's tuning compiles");
     let profiles = pack
-        .lowered::<Vec<ambition_pulse::PulseProfile>>(&SchemaId::new(ambition_pulse::PULSE_SCHEMA))
+        .lowered::<Vec<capability_demo::PulseProfile>>(&SchemaId::new(capability_demo::PULSE_SCHEMA))
         .expect("a Runtime schema lowers what the game will run");
     assert_eq!(profiles[0].name, "heavy");
     assert_eq!(profiles[0].radius, 180.0);

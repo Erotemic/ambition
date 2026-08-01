@@ -637,8 +637,8 @@ impl ModuleDraft {
     /// frame.
     ///
     /// ```ignore
-    /// module.capability(ambition_pulse::PulsePlugin::default())
-    ///       .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
+    /// module.capability(capability_demo::PulsePlugin::default())
+    ///       .requires_rollback(capability_demo::REQUIRED_ROLLBACK);
     /// ```
     ///
     /// ⚠ **declared by the MODULE, not carried by the capability**, because a
@@ -672,11 +672,11 @@ impl ModuleDraft {
     ///
     /// ```ignore
     /// module
-    ///     .capability(ambition_pulse::PulsePlugin::default())
-    ///     .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK)
-    ///     .provides_rollback::<ambition_pulse::PulseCooldown>(
-    ///         ambition_pulse::PULSE_CAPABILITY,
-    ///         ambition_pulse::ROLLBACK_STATE,
+    ///     .capability(capability_demo::PulsePlugin::default())
+    ///     .requires_rollback(capability_demo::REQUIRED_ROLLBACK)
+    ///     .provides_rollback::<capability_demo::PulseCooldown>(
+    ///         capability_demo::PULSE_CAPABILITY,
+    ///         capability_demo::ROLLBACK_STATE,
     ///         |cooldown| u64::from(cooldown.remaining_ticks),
     ///     );
     /// ```
@@ -688,7 +688,7 @@ impl ModuleDraft {
     ///
     /// ⚠ **it is the MODULE that provides this, not the capability.** A
     /// capability that registered its own rollback state would have to link the
-    /// simulation to reach the trait — `ambition_pulse` did, and cost 133
+    /// simulation to reach the trait — `capability_demo` did, and cost 133
     /// crates. Declaring here keeps that closure at 8.
     ///
     /// Contributions are applied only when the composition declared
@@ -716,8 +716,8 @@ impl ModuleDraft {
     /// that holds it. This is where a capability's actions reach a composition:
     ///
     /// ```ignore
-    /// module.capability(ambition_pulse::PulsePlugin::default())
-    ///       .actions(&[ambition_pulse::PULSE_ACTION]);
+    /// module.capability(capability_demo::PulsePlugin::default())
+    ///       .actions(&[capability_demo::PULSE_ACTION]);
     /// ```
     ///
     /// The engine's own vocabulary is installed automatically, so a prompt, a

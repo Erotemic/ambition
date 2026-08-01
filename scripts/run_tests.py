@@ -430,6 +430,21 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "minimal_game")))
 
+        # ⚠ ADDED 2026-08-01, in the SAME COMMIT that moved this crate out of
+        # `crates/` to `examples/capability_demo`. Leaving the workspace drops a
+        # crate from `cargo test --workspace` silently, and its 19 tests are the
+        # only proof that a capability can contribute a schema, an action,
+        # rollback state and causal facts without editing anything central.
+        #
+        # ⛔ moving it also broke it, which is the argument for the job: an
+        # outside workspace does not inherit the engine's `[patch.crates-io]`,
+        # so `ambition_runtime` compiled against the RELEASED `bevy_ggrs` and
+        # failed on a missing `GgrsFrameTiming`. Invisible for as long as the
+        # crate lived inside and inherited the patch for free.
+        jobs.append(Job("external consumer: capability demo",
+                        [CARGO, "test"],
+                        cwd=str(REPO / "examples" / "capability_demo")))
+
     # The WEB build, as a compile CHECK rather than a test run: there is no wasm
     # runner here, and a check is what the failure mode needs anyway. The web
     # target sat broken for at least four days (see docs/planning/repair_wasm.md)

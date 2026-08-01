@@ -25,7 +25,7 @@ When a command changes, update or delete the recipe in the same patch.
 - [`adding-a-character.md`](adding-a-character.md)
 - [`adding-a-capability.md`](adding-a-capability.md) — a custom mechanic that
   contributes behaviour, an authored schema, a semantic action, rollback state
-  and causal facts without editing a central enum. `crates/ambition_pulse` is
+  and causal facts without editing a central enum. `examples/capability_demo` is
   the worked example.
 - [`validating-a-content-pack.md`](validating-a-content-pack.md) — the ~5 ms
   edit/validate loop, every refusal code and what it means, and how a capability

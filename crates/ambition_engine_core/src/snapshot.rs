@@ -320,7 +320,7 @@ macro_rules! snapshot_marker {
 /// linking a rollback host.
 ///
 /// A capability offers its rollback state and a composition installs it (see
-/// `ambition_pulse` for the worked example). That split keeps a mechanic's
+/// `capability_demo` for the worked example). That split keeps a mechanic's
 /// dependency closure to foundations — and leaves a hole: nothing makes the
 /// composition actually install the offer, and **omitting one is a DESYNC, not
 /// a missing feature**. A cooldown that is not rewound lets its action fire

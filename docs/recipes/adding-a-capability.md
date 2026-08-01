@@ -1,8 +1,25 @@
 # Adding a capability (a custom mechanic)
 
-Operational recipe. `crates/ambition_pulse` is the **worked example** — a
+Operational recipe. `examples/capability_demo` is the **worked example** — a
 shockwave mechanic that does everything below and nothing else. Read it beside
 this page; it is deliberately small.
+
+⚠ **it lives OUTSIDE the engine's workspace, on purpose** (moved there
+2026-08-01). A capability that proves an outside author can write one has to be
+built the way an outsider builds it: its own lock, its own `[workspace]`, no
+feature unification from the engine. Two things broke the moment it moved, and
+both are costs an outside author really pays:
+
+* **`workspace = true` dependencies do not exist out there.** `ron` and `serde`
+  are declared with versions, like anyone else's manifest.
+* ⛔ **`[patch.crates-io]` is not inherited.** The engine pins a forked
+  `bevy_ggrs` rev; outside, `ambition_runtime` resolved the released crate and
+  failed on a missing `GgrsFrameTiming`. Any consumer that reaches
+  `ambition_runtime` must repeat the patch — invisible while the crate lived
+  inside and inherited it for free.
+
+`scripts/run_tests.py` runs it explicitly, because leaving the workspace drops a
+crate from `cargo test --workspace` silently.
 
 ## What a capability is
 
@@ -50,7 +67,7 @@ whoever is composing, so a mechanic never has to link the thing that owns them.
 
 ⚠ the one that catches people: **do not register your own rollback state.** The
 registration trait lives in `ambition_runtime`, and reaching for it drags the
-whole simulation into a mechanic that uses none of it. `ambition_pulse` linked
+whole simulation into a mechanic that uses none of it. `capability_demo` linked
 133 crates that way and links 8 now (the eighth is
 `ambition_platformer_primitives`, for the schedule seam in §1).
 
@@ -90,7 +107,7 @@ a bare-`App` test because `sim_schedule()` DEFAULTS to `Update`:
 interface; the host has already chosen.
 
 Define your own components rather than borrowing the actor crate's —
-`ambition_pulse` has `PulseBody` and `PulseAffected` instead of using
+`capability_demo` has `PulseBody` and `PulseAffected` instead of using
 `BodyKinematics`, and that is what keeps `ambition_actors` out of its manifest.
 A composition adapts its bodies to what you describe.
 
@@ -109,7 +126,7 @@ registry.register(my_mechanic::my_schema())?;
 ```
 
 ⛔ **and then it must reach the RUNNING capability, which is a separate step and
-the one that gets forgotten.** `ambition_pulse` registered its schema, compiled
+the one that gets forgotten.** `capability_demo` registered its schema, compiled
 and lowered packs correctly, and its plugin still called
 `init_resource::<PulseProfiles>()` — the built-in defaults. A game could author a
 radius, watch the compiler accept it, mount the capability, and pulse at the
@@ -207,7 +224,7 @@ and nothing happened"* is the question people bring to an inspector. See
 
 `cargo test -p my_mechanic` should cover the mechanic. Add one integration test
 that mounts it through the facade (`ambition` as a **dev**-dependency, so the
-capability's own closure is unaffected) — `ambition_pulse/tests/
+capability's own closure is unaffected) — `capability_demo/tests/
 composed_through_the_sdk.rs` is the template.
 
 **Headlessly, against the real sim**: `SandboxSim::new_with_options(..).step(..)`
@@ -216,7 +233,7 @@ systems intact. The doctrine — drive the real sim, assert invariants rather th
 tuned values, treat replay tests as canaries not cages — is
 [`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md).
 
-⚠ **a capability's own tests do not need any of that.** `ambition_pulse` builds a
+⚠ **a capability's own tests do not need any of that.** `capability_demo` builds a
 bare `App`, adds its plugin, and steps it; a mechanic that needed the whole
 sandbox to be testable would be telling you its seams are wrong.
 

@@ -19,7 +19,7 @@ const PROFILES: &str = r#"(
 )"#;
 
 fn compile_profiles(name: &str, text: &str) -> Result<Vec<PulseProfile>, String> {
-    let root = std::env::temp_dir().join(format!("ambition_pulse_test/{name}"));
+    let root = std::env::temp_dir().join(format!("capability_demo_test/{name}"));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("temp dir");
     std::fs::write(root.join("pulse.ron"), text).expect("write");
@@ -57,7 +57,7 @@ fn compile_pack(
     name: &str,
     text: &str,
 ) -> Result<ambition_content_pack::PreparedContentPack, String> {
-    let root = std::env::temp_dir().join(format!("ambition_pulse_test/{name}"));
+    let root = std::env::temp_dir().join(format!("capability_demo_test/{name}"));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("temp dir");
     std::fs::write(root.join("pulse.ron"), text).expect("write");
@@ -657,7 +657,7 @@ fn authored_profile_values_reach_a_fired_pulse_not_just_the_lowered_artifact() {
 #[test]
 fn a_pack_without_pulse_profiles_refuses_rather_than_defaulting() {
     // A pack whose schema registry has no pulse schema lowers no pulse artifact.
-    let root = std::env::temp_dir().join("ambition_pulse_test/empty_pack");
+    let root = std::env::temp_dir().join("capability_demo_test/empty_pack");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("temp dir");
     let draft = ContentPackDraft::read_manifest(

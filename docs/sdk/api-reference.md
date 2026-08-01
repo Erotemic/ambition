@@ -101,7 +101,7 @@ mounting such a capability could not be composed at all.
 
 ⚠ **do not register rollback state from your own crate.** The registration trait
 lives in `ambition_runtime`, and reaching for it drags the whole simulation into
-a mechanic that uses none of it — `ambition_pulse` linked 133 crates that way and
+a mechanic that uses none of it — `capability_demo` linked 133 crates that way and
 links 8 now. Declare it; let whoever composes install it.
 
 ⚠ **8, not 7**: the eighth is `ambition_platformer_primitives`, for
@@ -113,7 +113,7 @@ Each `RequiredRollbackState` carries a `why`. It is not decoration: a host that
 hits the refusal needs to know whether it is looking at a desync or an optional
 extra, and only the capability knows which.
 
-`crates/ambition_pulse` is the worked example, and
+`examples/capability_demo` is the worked example, and
 [`../recipes/adding-a-capability.md`](../recipes/adding-a-capability.md) is the
 recipe.
 

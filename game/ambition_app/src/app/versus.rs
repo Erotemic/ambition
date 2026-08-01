@@ -977,6 +977,60 @@ mod roster_topology_tests {
         app
     }
 
+    /// ⛔ **Another game's roster is not this one's to rebuild.**
+    ///
+    /// `versus_roster_from` stamps `published_by: ambition_versus`, so rebuilding
+    /// a roster somebody else published does not resize it — it TRANSFERS
+    /// OWNERSHIP, and `maintain_versus_stage` then deletes it, correctly, as its
+    /// own on a route that is not versus. Smash's select screen published two
+    /// fighters, this took them, versus threw them away, and the stage opened
+    /// with one fighter (Jon, 2026-08-01).
+    ///
+    /// ⚠ the fixture has to FREEZE a topology, because that is the only
+    /// condition under which the reconciler runs at all — and it is exactly why
+    /// the headless host test never saw this: `MinimalPlugins` freezes none, so
+    /// the function returned early and Smash's roster survived in a composition
+    /// no player runs.
+    #[test]
+    fn a_roster_published_by_another_experience_is_left_alone() {
+        let mut foreign = versus_roster_from(2, None);
+        foreign.published_by = Some("ambition_smash".to_owned());
+        let before = foreign.clone();
+
+        let mut app = app_with(foreign, 1, false);
+        app.update();
+
+        let after = app.world().resource::<MatchParticipantRoster>();
+        assert_eq!(
+            after.published_by.as_deref(),
+            Some("ambition_smash"),
+            "versus took ownership of another experience's roster"
+        );
+        assert_eq!(
+            after.participants, before.participants,
+            "versus reseated another experience's fighters"
+        );
+        assert_eq!(
+            after.seat_topology, before.seat_topology,
+            "versus restamped another experience's roster with its own topology"
+        );
+    }
+
+    /// The reconciler still does its job for a roster that IS versus's.
+    #[test]
+    fn its_own_roster_is_still_reconciled() {
+        let mut mine = versus_roster_from(2, None);
+        mine.published_by = Some(VERSUS_EXPERIENCE.to_owned());
+        let mut app = app_with(mine, 1, false);
+        app.update();
+        let after = app.world().resource::<MatchParticipantRoster>();
+        assert!(
+            after.seat_topology.is_some(),
+            "a versus roster meeting a frozen topology should be stamped with it"
+        );
+    }
+
+
     /// **A roster decided before the session froze its seating is rebuilt.**
     ///
     /// The real sequence, not a contrived one: a route is entered — and its

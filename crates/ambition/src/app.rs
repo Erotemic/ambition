@@ -447,6 +447,9 @@ pub struct ModuleDraft {
     /// Which experience subsequent calls apply to.
     current: Option<usize>,
     capabilities: Vec<CapabilityInstaller>,
+    /// What the mounted capabilities need REWOUND, declared by the module that
+    /// mounts them. See [`ModuleDraft::requires_rollback`].
+    required_rollback: Vec<&'static [ambition_engine_core::snapshot::RequiredRollbackState]>,
     conflicts: Vec<String>,
 }
 
@@ -609,6 +612,38 @@ impl ModuleDraft {
         self.capabilities.push(Box::new(move |app: &mut App| {
             app.add_plugins(plugin);
         }));
+        self
+    }
+
+    /// **Declare what a mounted capability needs REWOUND**, so the composition
+    /// refuses rather than desyncing.
+    ///
+    /// A capability offers its rollback state and the composition installs it —
+    /// which keeps a mechanic's dependency closure to foundations, and leaves a
+    /// hole: nothing made the composition accept the offer, and a skipped
+    /// registration is a DESYNC, not a missing feature. A cooldown that is not
+    /// rewound lets its action fire twice from one charge on a resimulated
+    /// frame.
+    ///
+    /// ```ignore
+    /// module.capability(ambition_pulse::PulsePlugin)
+    ///       .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
+    /// ```
+    ///
+    /// ⚠ **declared by the MODULE, not carried by the capability**, because a
+    /// capability is deliberately an opaque closure with no identity here (see
+    /// [`Self::capability`]). Giving capabilities metadata to carry this would
+    /// be inventing the identity model that method's own docs refuse to guess
+    /// at — so the module that knows it mounted the thing says what it needs.
+    ///
+    /// ⚠ **checked only when a rollback registry exists.** A composition with
+    /// no rollback host has nothing to desync, and demanding registrations from
+    /// it would refuse a headless game for a hazard it cannot have.
+    pub fn requires_rollback(
+        &mut self,
+        required: &'static [ambition_engine_core::snapshot::RequiredRollbackState],
+    ) -> &mut Self {
+        self.required_rollback.push(required);
         self
     }
 
@@ -1189,6 +1224,51 @@ impl PlatformerApp {
             ));
         }
 
+        // ── What the mounted capabilities need REWOUND ──
+        //
+        // ⚠ Checked AFTER the capabilities built, for the same reason the cast
+        // check below is: a capability registers its rollback state while it
+        // installs, so asking the draft would always report everything missing.
+        //
+        // ⚠ FIRST among the post-capability checks, and deliberately: it is the
+        // only one here whose failure is SILENT at runtime. An unregistered
+        // route refuses to activate immediately and loudly; missing rollback
+        // state produces a desync much later and far from its cause, so a
+        // composition carrying both should hear about this one.
+        //
+        // ⚠ Only when this composition ASKED FOR a rollback session.
+        //
+        // The first version gated on "a `RollbackRegistry` resource exists" and
+        // was wrong: the headless foundation installs one unconditionally, so
+        // every composition looked rollback-capable and a headless game with no
+        // session was refused for a hazard it cannot have. What distinguishes
+        // them is the DECLARATION — `rollback(n)` — not the presence of a
+        // registry the engine installs either way.
+        let rollback_registry = rollback_participants.is_some().then(|| {
+            app.world()
+                .get_resource::<crate::runtime::rollback::RollbackRegistry>()
+        });
+        if let Some(Some(registry)) = rollback_registry {
+            let missing: Vec<String> = draft
+                .required_rollback
+                .iter()
+                .flat_map(|required| registry.missing_required_state(required))
+                .map(|req| {
+                    format!(
+                        "capability `{}` requires rollback state `{}`, which nothing \
+                         registered — {}",
+                        req.owner, req.name, req.why
+                    )
+                })
+                .collect();
+            if !missing.is_empty() {
+                return Err(CompositionError {
+                    stage: CompositionStage::Assembly,
+                    problems: missing,
+                });
+            }
+        }
+
         // ── Rule 7, ACTUALLY enforced, for EVERY declared experience ──
         //
         // The capability plugins have built, so the routes they register exist.
@@ -1721,6 +1801,107 @@ mod tests {
             assembled.is_plugin_added::<bevy::asset::AssetPlugin>(),
             "an assembly-stage refusal is supposed to have built the App it \
              refused on — if it has not, the check above proves nothing"
+        );
+    }
+
+    /// **A capability whose required rollback state nobody installed is REFUSED
+    /// at assembly, not left to desync at the first rewind.**
+    ///
+    /// A capability offers its rollback state and the composition installs it —
+    /// which keeps the capability's dependency closure to foundations, and left
+    /// a hole: nothing made the composition accept the offer. This is the
+    /// refusal that closes it, and it is the same shape as the content
+    /// compiler's "a `Runtime` schema must lower an artifact".
+    #[test]
+    fn a_capability_whose_rollback_state_is_missing_is_refused_with_the_reason() {
+        use ambition_engine_core::snapshot::RequiredRollbackState;
+
+        const NEEDED: &[RequiredRollbackState] = &[RequiredRollbackState {
+            owner: "test_capability",
+            name: "test.cooldown",
+            why: "a cooldown that is not rewound fires twice from one charge",
+        }];
+
+        struct ForgetfulModule;
+        impl GameModule for ForgetfulModule {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("forgetful")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("forgetful")
+                    .launcher_route("home")
+                    .gameplay_route("forgetful/play");
+                // Declares the need and mounts nothing that registers it —
+                // exactly the mistake the check exists for.
+                module.requires_rollback(NEEDED);
+            }
+        }
+
+        let mut app = App::new();
+        app.init_resource::<crate::runtime::rollback::RollbackRegistry>();
+        let refused = PlatformerApp::headless()
+            // ⚠ the composition must ASK for rollback. A game that never
+            // rewinds cannot desync, so the check is gated on the declaration
+            // rather than on the registry — which the headless foundation
+            // installs either way.
+            .rollback(2)
+            .mount(ForgetfulModule)
+            .install_into(&mut app)
+            .expect_err("an unregistered requirement must refuse");
+        assert_eq!(refused.stage, CompositionStage::Assembly);
+        let message = refused.to_string();
+        assert!(
+            message.contains("test.cooldown") && message.contains("test_capability"),
+            "the refusal names the state and its owner: {message}"
+        );
+        assert!(
+            message.contains("fires twice from one charge"),
+            "and carries the capability's own WHY, so a host knows this is a desync rather \
+             than an optional extra: {message}"
+        );
+    }
+
+    /// ⚠ **and it does NOT refuse a composition with no rollback host.**
+    ///
+    /// A headless game with no session cannot desync, and a check that refused
+    /// it would be the thing that breaks compositions rather than the thing
+    /// that protects them.
+    #[test]
+    fn a_composition_with_no_rollback_host_is_not_asked_for_registrations() {
+        use ambition_engine_core::snapshot::RequiredRollbackState;
+
+        const NEEDED: &[RequiredRollbackState] = &[RequiredRollbackState {
+            owner: "test_capability",
+            name: "test.cooldown",
+            why: "would desync under a rewind, if there were rewinds",
+        }];
+
+        struct NeedyModule;
+        impl GameModule for NeedyModule {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("needy")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("needy")
+                    .launcher_route("home")
+                    .gameplay_route("needy/play");
+                module.requires_rollback(NEEDED);
+            }
+        }
+
+        // No `rollback(..)` declared: nothing rewinds here. ⚠ the registry
+        // still EXISTS — the headless foundation installs one unconditionally,
+        // which is exactly why gating on its presence was wrong.
+        let mut app = App::new();
+        let outcome = PlatformerApp::headless()
+            .mount(NeedyModule)
+            .install_into(&mut app);
+        assert!(
+            outcome.is_ok() || !format!("{outcome:?}").contains("test.cooldown"),
+            "a composition that cannot rewind must not be refused for a rewind hazard: \
+             {outcome:?}"
         );
     }
 

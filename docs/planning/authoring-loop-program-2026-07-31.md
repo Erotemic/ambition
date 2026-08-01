@@ -226,6 +226,47 @@ consumer and it already exists — this proves the seam on a real screen.
 **Guard:** a `participant_contexts` module in `app_it`; the two-seat
 no-input-stealing case probed red.
 
+### ▢ P3-blocker. The semantic action layer — designed, not started
+
+P3 asks a capability to contribute a semantic ACTION. It cannot today, and the
+reason is precise: `SandboxAction` is a closed `#[derive(Actionlike)]` enum in
+`ambition_input`, behind the `input` feature. leafwing needs a concrete
+`Actionlike` type, so a capability cannot add a variant without editing the
+engine — the exact "one central closed enum" the content compiler was built to
+avoid, one layer over.
+
+**Two shapes, and the cheap one is not enough.**
+
+* *Bind a capability action to an existing `SandboxAction` slot.* Works today
+  with no engine change, and is genuinely useful (a `Grapple` bound to
+  `Utility`). But it cannot express an action the device vocabulary lacks, so it
+  does not close the row — it just makes the row's absence tolerable.
+* *Make the action identity open.* `Actionlike` requires
+  `Debug + Clone + Eq + Hash + Send + Sync + Reflect + TypePath + 'static` plus
+  `input_control_kind()`. **An interned newtype can satisfy all of them**, so
+  `InputMap<SemanticAction>` is possible and a capability registers actions
+  freely. `input_control_kind` comes from the registration rather than a `match`.
+
+**The migration is the risk, not the design.** `SandboxAction` has hundreds of
+call sites; a half-migration would leave two action vocabularies, which is worse
+than one closed one. So the order matters:
+
+1. `SemanticActionId` + a registry (id, owning capability, control kind, doc,
+   default binding) — additive, nothing migrates.
+2. `SandboxAction`'s variants become REGISTERED entries in that registry rather
+   than the vocabulary itself, with the enum kept as the engine's own constants
+   so existing call sites read unchanged.
+3. `InputMap<SemanticAction>` replaces `InputMap<SandboxAction>` at the seam;
+   `SeatBindings` already projects from whatever map the router reads, so it
+   follows for free.
+4. Only then can a capability add one — and P3's test is that it does so
+   without editing `ambition_input`.
+
+⚠ **do not start this while the two-participant flow is unfinished.** The review
+was explicit about not expanding defensively, and an action vocabulary with one
+speculative consumer is exactly that. The row exists so that when a capability
+genuinely needs an action, the design is not re-derived from scratch.
+
 ### ▢ P3. Slice 3 — a capability-owned schema, action, and causal fact
 
 One capability contributes the full set: behavior + authored schema + semantic

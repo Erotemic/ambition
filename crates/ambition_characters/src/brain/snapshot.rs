@@ -75,6 +75,23 @@ pub struct BrainSnapshot {
     /// and for an inert test snapshot: `generate_options` then produces no
     /// attacks and the fighter plays movement only.
     pub attack_kit: Vec<crate::brain::fighter::options::AttackCandidate>,
+    /// **Which body this is**, as the integration layer names it.
+    ///
+    /// The brain genuinely cannot know: a snapshot is pure body state, and a
+    /// body's identity is the host's to assign. So it arrives through the
+    /// world-in port like [`Self::attack_kit`] and [`Self::actor_aerial`] — the
+    /// snapshot builder knows the id, the brain is merely told it.
+    ///
+    /// It exists so a published fact can name its SUBJECT. An explanation of
+    /// "why did this fighter walk off the stage" is worthless with two fighters
+    /// on the stage and no way to tell whose decision is whose.
+    ///
+    /// ⚠ **read by the instrument, never by a decision.** A brain that branched
+    /// on its own id would be a brain that behaves differently depending on
+    /// which body it woke up in, and every no-cheat property this crate argues
+    /// for would be void. `None` — the default, and the honest answer for a
+    /// test fixture — publishes an unattributed fact rather than inventing one.
+    pub subject: Option<String>,
     /// Whether the actor is alive. State-machine brain templates
     /// emit a neutral frame when `alive == false`; the player brain
     /// (`Brain::Player`) currently doesn't gate on this — dead
@@ -177,6 +194,7 @@ impl BrainSnapshot {
             actor_on_ground: true,
             actor_aerial: false,
             attack_kit: Vec::new(),
+            subject: None,
             alive: true,
             target_pos: ae::Vec2::ZERO,
             target_alive: true,

@@ -5,10 +5,10 @@
 //! APM ceiling, and a noise stream that does not reproduce.
 
 use super::*;
-use crate::actor::attack_gesture::AttackDir;
-use crate::brain::fighter::options::{AttackBinding, AttackVerb};
 use crate::actor::ActorFaction;
+use crate::actor::attack_gesture::AttackDir;
 use crate::brain::fighter::options::UtilityWeights;
+use crate::brain::fighter::options::{AttackBinding, AttackVerb};
 use crate::brain::fighter::profile::FighterBrainProfile;
 use crate::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_engine_core as ae;
@@ -629,7 +629,10 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
     use ambition_causal::{CausalLog, FactValue, RecordingPolicy, SubjectKey, domains, with_sink};
 
     let (cfg, mut state) = rig(immediate_profile());
-    let snapshot = BrainSnapshot::idle();
+    let mut snapshot = BrainSnapshot::idle();
+    // WHICH body, as the integration layer names it. See the sibling test below
+    // for why an unattributed fact was not good enough.
+    snapshot.subject = Some("fighter_1".to_string());
     let view = scene(300.0, 500.0);
     let mut out = ActorControlFrame::neutral();
 
@@ -644,17 +647,19 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
         }
     });
 
-    // The brain publishes nothing about a body — it has no stable sim id down
-    // here — so the facts are about the WORLD on that tick, which `explain`
-    // returns for any subject. That is a recorded API leak, not a design: the
-    // subject arrives when the integration layer publishes the fact.
+    // The fact is ABOUT this fighter. It used to be about nobody — the brain has
+    // no sim id of its own, so the fact was a world fact that `explain` returned
+    // for any subject you asked about. The id arrives through the snapshot's
+    // world-in port, filled by the integration layer that assigns it.
     let explanation = log.explain(41, &SubjectKey::Sim("fighter_1".into()));
     let decision = explanation
         .first("fighter_decision")
         .expect("the brain decided at least once in six ticks");
 
     // 1. WHICH verb, as a field.
-    let chose = decision.get("chose").expect("every decision records its verb");
+    let chose = decision
+        .get("chose")
+        .expect("every decision records its verb");
     assert!(
         !matches!(chose, FactValue::Text(text) if text == "None"),
         "a foe 200px away and open floor: the brain chose something — {chose}"
@@ -710,4 +715,61 @@ fn recording_changes_nothing_about_what_the_brain_does() {
         "the brain emitted a different frame while being watched — an observer that changes \
          what it observes is not an observer, and under a rollback host it would be a desync"
     );
+}
+
+/// **Two fighters, two explanations** — the reason the subject had to arrive.
+///
+/// An unattributed decision fact is returned by `explain` for whatever subject
+/// you ask about, so on a stage with two fighters the inspector answered "why
+/// did THIS one walk off the edge" with both of their reasoning interleaved and
+/// no way to separate it. For a fighting game that is every interesting tick.
+///
+/// PROBED: with `snapshot.subject` left `None` on both — the state before this
+/// row — asking about `fighter_left` returns **4** decisions belonging to the
+/// other fighter. Not two: an unattributed fact is returned for EVERY subject,
+/// so both fighters' whole streams merge into each query.
+#[cfg(feature = "causal")]
+#[test]
+fn two_fighters_facts_do_not_merge_into_one_explanation() {
+    use ambition_causal::{CausalLog, RecordingPolicy, SubjectKey, domains, with_sink};
+
+    let (cfg, mut left_state) = rig(immediate_profile());
+    let (_, mut right_state) = rig(immediate_profile());
+    let mut left = BrainSnapshot::idle();
+    left.subject = Some("fighter_left".to_string());
+    let mut right = BrainSnapshot::idle();
+    right.subject = Some("fighter_right".to_string());
+
+    // Deliberately different scenes, so the two streams are genuinely distinct
+    // and a test that merged them could not accidentally pass.
+    let left_view = scene(300.0, 500.0);
+    let right_view = scene(500.0, 300.0);
+    let mut out = ActorControlFrame::neutral();
+
+    let mut log = CausalLog::default();
+    log.set_policy(RecordingPolicy::only([domains::BRAIN]));
+    log.set_tick(7);
+    let (log, ()) = with_sink(log, || {
+        for _ in 0..6 {
+            tick_fighter(&cfg, &mut left_state, &left, Some(&left_view), &mut out);
+            tick_fighter(&cfg, &mut right_state, &right, Some(&right_view), &mut out);
+        }
+    });
+
+    for id in ["fighter_left", "fighter_right"] {
+        let explanation = log.explain(7, &SubjectKey::Sim(id.into()));
+        let decisions = explanation.all("fighter_decision").count();
+        assert!(
+            decisions > 0,
+            "{id} decided at least once in six ticks and the fact is about it"
+        );
+        let other = explanation
+            .all("fighter_decision")
+            .filter(|fact| fact.subject != Some(SubjectKey::Sim(id.into())))
+            .count();
+        assert_eq!(
+            other, 0,
+            "asking about {id} returned {other} decision(s) belonging to the other fighter"
+        );
+    }
 }

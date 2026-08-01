@@ -31,14 +31,14 @@
 use ambition_engine_core::Vec2;
 
 use crate::actor::control::ActorControlFrame;
+use crate::brain::BrainSnapshot;
 use crate::brain::fighter::habit::{Choice, HabitModel};
 use crate::brain::fighter::options::{
-    generate_options, AttackCandidate, MovementVerb, UtilityWeights,
+    AttackCandidate, MovementVerb, UtilityWeights, generate_options,
 };
 use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
-use crate::brain::fighter::situation::{classify, Situation};
-use crate::brain::BrainSnapshot;
+use crate::brain::fighter::rollout::{ShadowTuning, refine_by_rollout};
+use crate::brain::fighter::situation::{Situation, classify};
 use crate::perception::{DelayedPerception, WorldView};
 
 /// Sim rate the cadence and reaction conversions assume when nothing says
@@ -398,7 +398,14 @@ fn decide(
     if let Some(verb) = chosen {
         apply_movement(verb, view, frame);
     }
-    trace_decision(view, &options, vetoed, chosen, frame);
+    trace_decision(
+        view,
+        &options,
+        vetoed,
+        chosen,
+        frame,
+        snapshot.subject.as_deref(),
+    );
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
     // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
@@ -507,6 +514,10 @@ fn trace_decision(
     vetoed: &[crate::brain::fighter::options::MovementVerb],
     chosen: Option<crate::brain::fighter::options::MovementVerb>,
     frame: &ActorControlFrame,
+    // Which body this is, from the snapshot's world-in port. `None` publishes an
+    // unattributed fact — honest for a fixture, and useless on a stage with two
+    // fighters, which is why the integration layer fills it.
+    subject: Option<&str>,
 ) {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
@@ -522,13 +533,16 @@ fn trace_decision(
     }
 
     let me = view.self_view;
-    let offered: Vec<_> = options
-        .movement
-        .iter()
-        .map(|option| option.verb)
-        .collect();
+    let offered: Vec<_> = options.movement.iter().map(|option| option.verb).collect();
+    // ⚠ the subject leads the line for the same reason the fact carries one: two
+    // fighters on a stage produced two interleaved streams with nothing to tell
+    // them apart, and this trace exists because reasoning about that failed.
     let line = format!(
-        "[fighter] x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
+        "[fighter{}] x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} emit_x={:.1}",
+        match subject {
+            Some(id) => format!(" {id}"),
+            None => String::new(),
+        },
         me.pos.x,
         me.vel.x,
         me.on_ground,
@@ -545,36 +559,43 @@ fn trace_decision(
 
     #[cfg(feature = "causal")]
     if publishing {
-        use ambition_causal::{CausalFact, FactDetail, domains};
+        use ambition_causal::{CausalFact, FactDetail, SubjectKey, domains};
         // The summary is the same line a human reads; every value a TOOL would
         // want is a field beside it, so nothing has to be parsed back out.
-        ambition_causal::record(
-            CausalFact::new(
-                domains::BRAIN,
-                0,
-                FactDetail::new(
-                    "fighter_decision",
-                    match chosen {
-                        Some(verb) => format!("chose {verb:?}"),
-                        None => "chose nothing — every verb was vetoed".to_string(),
-                    },
-                ),
-            )
-            .field("chose", format!("{chosen:?}"))
-            .field("offered", format!("{offered:?}"))
-            .field("vetoed", format!("{vetoed:?}"))
-            .field("vetoed_count", vetoed.len() as i64)
-            .field("pos_x", me.pos.x)
-            .field("vel_x", me.vel.x)
-            .field("on_ground", me.on_ground)
-            .field("phase", format!("{:?}", me.phase))
-            .field("stage_known", view.stage.is_known())
-            .field(
-                "floor_edge_distance",
-                view.floor_edge_distance().unwrap_or(f32::INFINITY),
-            )
-            .field("emit_locomotion_x", frame.locomotion.x),
-        );
+        //
+        // The SUBJECT comes from the snapshot, because the brain cannot know
+        // which body it is and must not: an unattributed decision fact cannot
+        // answer "why did THIS fighter do that" the moment a second fighter is
+        // on the stage, which for a fighting game is every interesting tick.
+        let mut fact = CausalFact::new(
+            domains::BRAIN,
+            0,
+            FactDetail::new(
+                "fighter_decision",
+                match chosen {
+                    Some(verb) => format!("chose {verb:?}"),
+                    None => "chose nothing — every verb was vetoed".to_string(),
+                },
+            ),
+        )
+        .field("chose", format!("{chosen:?}"))
+        .field("offered", format!("{offered:?}"))
+        .field("vetoed", format!("{vetoed:?}"))
+        .field("vetoed_count", vetoed.len() as i64)
+        .field("pos_x", me.pos.x)
+        .field("vel_x", me.vel.x)
+        .field("on_ground", me.on_ground)
+        .field("phase", format!("{:?}", me.phase))
+        .field("stage_known", view.stage.is_known())
+        .field(
+            "floor_edge_distance",
+            view.floor_edge_distance().unwrap_or(f32::INFINITY),
+        )
+        .field("emit_locomotion_x", frame.locomotion.x);
+        if let Some(subject) = subject {
+            fact = fact.about(SubjectKey::Sim(subject.to_string()));
+        }
+        ambition_causal::record(fact);
     }
 
     if *ENABLED {

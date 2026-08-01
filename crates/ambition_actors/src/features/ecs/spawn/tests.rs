@@ -452,6 +452,8 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
     assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
 
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        // A fixture body: unattributed facts are the honest answer here.
+        subject: None,
         actor_pos: ae::Vec2::ZERO,
         actor_vel: ae::Vec2::ZERO,
         actor_facing: 1.0,

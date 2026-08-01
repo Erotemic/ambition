@@ -57,6 +57,45 @@ pub struct ActorSteering {
 ///
 /// Peaceful and hostile actors share the same entity identity and switch
 /// disposition in-place; dynamic encounter-spawned mobs use the same path.
+/// The causal log's slot in the brain-tick system's parameter bundle.
+///
+/// `ambition_causal` is an optional, default-off dependency (§2e), so the slot
+/// has to exist in both builds — a `#[cfg]` cannot be written on a tuple
+/// element. `PhantomData` is the shipped build's answer: a zero-sized
+/// `SystemParam` that costs the scheduler nothing.
+#[cfg(feature = "causal")]
+pub type CausalLend<'w> = Option<ResMut<'w, ambition_causal::CausalRecording>>;
+#[cfg(not(feature = "causal"))]
+pub type CausalLend<'w> = std::marker::PhantomData<&'w ()>;
+
+/// **Run the brain tick with the log lent to this thread**, when there is one.
+///
+/// A brain publishes through `ambition_causal::record`, which writes to a
+/// THREAD-LOCAL sink, and Bevy runs systems across worker threads — so those
+/// facts were landing in nothing and being counted by `facts_lost_offthread()`.
+///
+/// ⚠ **the alternative was threading a recorder into `tick_with_actions`**, and
+/// it is worse: it puts the log on the simulation's own signatures. This crate
+/// already refused that once — `record_player_movement_intent` runs AFTER the
+/// brain tick precisely so "a system that only reads cannot be the thing that
+/// broke the tick". The host opening the sink around the call keeps that
+/// property and fixes the loss.
+#[cfg(feature = "causal")]
+fn with_causal_sink<T>(causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -> T {
+    match causal.as_deref_mut() {
+        // Lent only when something is actually listening: with instrumentation
+        // off — the shipped default — this is one branch and the brain call is
+        // byte-for-byte the old one.
+        Some(log) if log.is_recording() => log.lend_to_thread(body),
+        _ => body(),
+    }
+}
+
+#[cfg(not(feature = "causal"))]
+fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -> T {
+    body()
+}
+
 pub fn tick_actor_brains(
     // Bundled into one SystemParam slot: this system is at Bevy's 16-param
     // ceiling, so the accumulating sim clock + the slot-based controller input
@@ -69,6 +108,7 @@ pub fn tick_actor_brains(
         faction_relations,
         perception_peers,
         perception_projectiles,
+        mut causal,
     ): (
         Res<WorldTime>,
         Res<crate::features::GameplayElapsed>,
@@ -84,6 +124,19 @@ pub fn tick_actor_brains(
         Option<Res<crate::features::ecs::perception::PerceptionPeers>>,
         // Pre-collected projectiles snapshot (§A7): the live shots this actor perceives.
         Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
+        // **The log, lent to whichever worker thread this tick lands on.**
+        //
+        // A brain publishes through `ambition_causal::record`, which writes to a
+        // THREAD-LOCAL sink — and Bevy runs systems across worker threads, so
+        // those facts were being counted by `facts_lost_offthread()` and dropped.
+        // Threading a recorder down into `tick_with_actions` was the alternative
+        // and is worse: it would put the log on the simulation's own signatures,
+        // and this crate has already refused that once (the movement observer
+        // runs AFTER the brain tick so "a system that only reads cannot be the
+        // thing that broke the tick").
+        //
+        // So the HOST opens the sink around the brain call instead.
+        CausalLend<'_>,
     ),
     world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
         ambition_engine_core::RoomGeometry,
@@ -608,7 +661,9 @@ pub fn tick_actor_brains(
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
-                    brain_ref.tick_with_actions(actions, &snapshot, Some(&world_view), &mut bf);
+                    with_causal_sink(&mut causal, || {
+                        brain_ref.tick_with_actions(actions, &snapshot, Some(&world_view), &mut bf)
+                    });
                     bf
                 } else {
                     ambition_characters::actor::control::ActorControlFrame::neutral()
@@ -1533,6 +1588,13 @@ fn build_enemy_brain_snapshot(
         // if profiling ever complains, the fix is to rebuild it on moveset
         // CHANGE, not to let it go stale.
         attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain),
+        // WHICH BODY THIS IS, so a published decision fact can name its
+        // subject. The brain cannot know — a snapshot is body state and identity
+        // is the host's to assign — so it arrives through the world-in port like
+        // the kit above. `config.id` is the id the rest of the actor system
+        // already names this body by (targets, crowding, slot requests), so an
+        // explanation joins against the same identity everything else uses.
+        subject: Some(em.config.id.clone()),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a

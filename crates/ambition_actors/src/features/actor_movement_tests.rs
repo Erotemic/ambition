@@ -86,6 +86,8 @@ fn tick_peaceful(
     gravity: ae::Vec2,
 ) {
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        // A fixture body: unattributed facts are the honest answer here.
+        subject: None,
         actor_pos: seed.kin.pos,
         actor_vel: seed.kin.vel,
         actor_facing: seed.kin.facing,
@@ -337,7 +339,7 @@ fn enemy_brain_keys_resolve_to_their_rows() {
 /// because they don't emit a melee windup.
 #[test]
 fn enemy_archetype_tunings_are_finite() {
-    use crate::features::enemies::{test_spec, COMBAT_BRAIN_KEYS};
+    use crate::features::enemies::{COMBAT_BRAIN_KEYS, test_spec};
     for key in COMBAT_BRAIN_KEYS {
         let spec = test_spec(key);
         assert!(spec.max_health > 0);
@@ -420,12 +422,20 @@ fn enemy_archetype_size_and_aggression_invariants() {
     // Patrol speed: lurker / colossus visibly slower than their
     // higher-aggression siblings.
     assert!(
-        crate::features::enemies::test_spec("small_lurker").tuning().patrol_speed
-            < crate::features::enemies::test_spec("small_skitter").tuning().patrol_speed
+        crate::features::enemies::test_spec("small_lurker")
+            .tuning()
+            .patrol_speed
+            < crate::features::enemies::test_spec("small_skitter")
+                .tuning()
+                .patrol_speed
     );
     assert!(
-        crate::features::enemies::test_spec("large_colossus").tuning().patrol_speed
-            < crate::features::enemies::test_spec("large_brute").tuning().patrol_speed
+        crate::features::enemies::test_spec("large_colossus")
+            .tuning()
+            .patrol_speed
+            < crate::features::enemies::test_spec("large_brute")
+                .tuning()
+                .patrol_speed
     );
 }
 

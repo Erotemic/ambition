@@ -121,6 +121,36 @@ pub enum BodyHitResolution {
     Damaged { damage: i32, died: bool },
 }
 
+/// **What the shared resolver DECIDED about one hit**, announced so an observer
+/// can explain it.
+///
+/// The resolution already exists — `Ignored` / `Blocked` / `Armored` /
+/// `WalletShielded` / `Damaged` is exactly the "why was this hit accepted or
+/// rejected" vocabulary — and it was reaching nobody but the caller. This is the
+/// smallest way to let it out.
+///
+/// ⚠ **written only under the `causal` feature.** A build with no inspector
+/// pays nothing: no message, no write, no registration. The alternative was
+/// instrumenting the resolver itself, which would have put an observer's
+/// concern inside the one function every body's damage goes through.
+///
+/// ⚠ **nothing in the simulation reads this.** It is a fact ABOUT a decision
+/// already made, so a reader cannot change the decision — the same property
+/// that makes the stock-lifecycle observer safe.
+#[cfg(feature = "causal")]
+// Not `Copy`: `HitSource` carries data. Cloned at the one write site, which
+// happens once per landed hit rather than per frame.
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
+pub struct BodyHitResolved {
+    pub body: bevy::prelude::Entity,
+    pub resolution: BodyHitResolution,
+    pub source: crate::combat::HitSource,
+    /// The raw damage the hit carried, BEFORE the multiplier and before any
+    /// defence. Kept beside the outcome because "asked for 30 and dealt 0" and
+    /// "asked for 0" are different findings.
+    pub raw_damage: i32,
+}
+
 /// Deterministic victim-side fact emitted when a [`BodyWalletShield`] spends a
 /// wallet balance. The generic resolver owns survival; game content owns how
 /// the spent currency is presented (for example, as scattered rings).
@@ -327,6 +357,19 @@ pub struct BodyDeathWriters<'w> {
     /// do not fire together: an `Unbounded` fighter is knocked out without dying
     /// in the world's sense at all.
     pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    /// The resolver's DECISION about each hit, for the causal inspector. Rides
+    /// this bundle rather than a new parameter because it is written from the
+    /// same two places, at the same moment, from the same value.
+    ///
+    /// ⚠ **`Option`, and that is the difference between this and
+    /// `BodyKnockedOut` above.** A knockout is a message the SIMULATION acts on,
+    /// so a composition that fails to register it is broken and should say so
+    /// loudly. This one is read by an INSTRUMENT and by nothing else, so a
+    /// composition that never registers it — a hand-built test fixture, a game
+    /// with no inspector — should publish nothing rather than panic. An
+    /// instrument that can take down a composition is worse than no instrument.
+    #[cfg(feature = "causal")]
+    pub resolutions: Option<MessageWriter<'w, BodyHitResolved>>,
 }
 
 /// Resolve this frame's hits against one body. Returns **true when the body was
@@ -423,6 +466,17 @@ pub(crate) fn handle_player_damage_events(
         // game, armed by the very launch that throws them off the stage.
         matches!(damage.source, crate::combat::HitSource::LeftTheWorld),
     );
+    // The resolver's decision, announced for the inspector. Gated: a build with
+    // no `causal` feature writes nothing here.
+    #[cfg(feature = "causal")]
+    if let Some(resolutions) = death_writers.resolutions.as_mut() {
+        resolutions.write(BodyHitResolved {
+            body: player_entity,
+            resolution,
+            source: damage.source.clone(),
+            raw_damage: damage.damage,
+        });
+    }
     // **THE KO, announced.** (S4) Two things count as one for a body whose death
     // a ruleset owns: the meter emptying its pool, and the world throwing it out.
     // An `Unbounded` fighter only ever reaches the second — its pool is full at

@@ -288,6 +288,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // producing it", which is exactly what this is — the KO was decided in
         // Resolve, and spending is bookkeeping over it.
         app.init_resource::<ambition_combat::stocks::StocksMatchSettled>();
+        // ⚠ REGISTERED WHERE THE WRITERS ARE SCHEDULED, not one crate up.
+        // `apply_feature_hit_events` and the player hit path both write
+        // `BodyHitResolved`, and registering it in `ambition_runtime` left every
+        // `ambition_actors` fixture panicking "Message not initialized" the
+        // moment a hit landed — the exact defect `BodyKnockedOut` already cost
+        // this repo once. A writer whose message is registered by a different
+        // plugin is a composition that works until somebody composes
+        // differently, and a test fixture IS somebody composing differently.
+        #[cfg(feature = "causal")]
+        app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
         app.add_systems(
             sim,
             (
@@ -302,6 +312,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // it can sit inside the ruleset's own chain safely.
                 #[cfg(feature = "causal")]
                 ambition_combat::causal::record_stock_lifecycle,
+                // The damage observer, in the same phase: `Settle` is "reads
+                // this tick's damage outcome rather than producing it", which
+                // is exactly what an explanation of that outcome is.
+                #[cfg(feature = "causal")]
+                crate::causal::record_hit_resolutions,
             )
                 .chain()
                 .in_set(crate::schedule::CombatSet::Settle),

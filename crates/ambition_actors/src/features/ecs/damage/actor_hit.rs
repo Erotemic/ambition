@@ -254,6 +254,20 @@ pub(crate) fn apply_actor_hit(
             },
             left_the_world,
         );
+        // The resolver's decision, announced for the inspector — BEFORE the
+        // early return, because `Ignored` ("i-framed, or already dead") is one
+        // of the answers somebody comes here looking for. A publisher placed
+        // after this line would explain every hit except the ones that did
+        // nothing, which are the puzzling ones.
+        #[cfg(feature = "causal")]
+        if let Some(resolutions) = writers.resolutions.as_mut() {
+            resolutions.write(crate::features::ecs::damage_apply::BodyHitResolved {
+                body: actor_entity,
+                resolution,
+                source: event.source.clone(),
+                raw_damage: event.damage,
+            });
+        }
         if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Ignored {
             return false;
         }

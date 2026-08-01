@@ -27,6 +27,7 @@ use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domai
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
+use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved};
 use ambition_characters::brain::{ActorControl, Brain};
 
 /// Publish one movement-intent fact per seated body per tick.
@@ -81,6 +82,81 @@ pub fn record_player_movement_intent(
             .field("on_ground", ground.on_ground)
             .field("facing", kin.facing),
         );
+    }
+}
+
+/// **Why was this hit accepted or rejected?** — the inspector's damage question.
+///
+/// Reads `BodyHitResolved`, which both hit paths announce from the value the
+/// SHARED resolver already produced. The outcome vocabulary is the answer:
+/// `Ignored` is an i-frame or a corpse, `Blocked` is a raised shield, `Armored`
+/// and `WalletShielded` are a spent defence, `Damaged` carries the amount and
+/// whether it killed.
+///
+/// ⚠ **the raw damage travels beside the outcome**, because "asked for 30 and
+/// dealt 0" and "asked for 0" are different findings and the outcome alone
+/// cannot tell them apart.
+pub fn record_hit_resolutions(
+    log: Option<ResMut<CausalRecording>>,
+    mut hits: MessageReader<BodyHitResolved>,
+    bodies: Query<&Brain>,
+) {
+    let Some(mut log) = log else {
+        // Drain regardless — a backlog surfacing on the frame somebody enables
+        // the instrument would be stamped with the WRONG tick.
+        hits.clear();
+        return;
+    };
+    if !log.is_recording() {
+        hits.clear();
+        return;
+    }
+    for hit in hits.read() {
+        let (outcome, damage, died) = match hit.resolution {
+            BodyHitResolution::Ignored => ("ignored", 0, false),
+            BodyHitResolution::Blocked => ("blocked", 0, false),
+            BodyHitResolution::Armored => ("armored", 0, false),
+            BodyHitResolution::WalletShielded { spent } => ("wallet_shielded", spent, false),
+            BodyHitResolution::Damaged { damage, died } => ("damaged", damage, died),
+        };
+        let mut fact = CausalFact::new(
+            domains::DAMAGE,
+            0,
+            FactDetail::new(
+                "hit_resolved",
+                match hit.resolution {
+                    BodyHitResolution::Ignored => {
+                        "hit ignored — invulnerable, or already dead".to_string()
+                    }
+                    BodyHitResolution::Blocked => "hit blocked by a raised shield".to_string(),
+                    BodyHitResolution::Armored => "hit absorbed by worn armor".to_string(),
+                    BodyHitResolution::WalletShielded { spent } => {
+                        format!("hit absorbed by a wallet shield, {spent} spent")
+                    }
+                    BodyHitResolution::Damaged { damage, died } => {
+                        if died {
+                            format!("took {damage} and died")
+                        } else {
+                            format!("took {damage}")
+                        }
+                    }
+                },
+            ),
+        )
+        .field("outcome", outcome)
+        .field("damage", i64::from(damage))
+        .field("raw_damage", i64::from(hit.raw_damage))
+        .field("died", died)
+        .field("source", format!("{:?}", hit.source));
+        if let Some(seat) = bodies
+            .get(hit.body)
+            .ok()
+            .and_then(|brain| brain.player_slot())
+            .map(|slot| slot.0)
+        {
+            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        }
+        log.record(fact);
     }
 }
 
@@ -173,5 +249,119 @@ mod tests {
             Some(&FactValue::Float(0.0)),
             "asked for nothing, moving at nothing — the pair is the finding"
         );
+    }
+}
+
+#[cfg(test)]
+mod damage_tests {
+    use super::*;
+    use ambition_causal::{FactValue, RecordingPolicy};
+    use ambition_characters::brain::PlayerSlot;
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.init_resource::<CausalRecording>();
+        app.add_message::<BodyHitResolved>();
+        app.add_systems(Update, record_hit_resolutions);
+        app
+    }
+
+    fn announce(app: &mut App, body: Entity, resolution: BodyHitResolution, raw: i32) {
+        app.world_mut().write_message(BodyHitResolved {
+            body,
+            resolution,
+            source: crate::combat::HitSource::PlayerProjectile,
+            raw_damage: raw,
+        });
+    }
+
+    /// **Every outcome the resolver can reach is a distinguishable answer.**
+    ///
+    /// "Why did nothing happen" is the question people actually bring here, and
+    /// an i-frame, a shield, spent armor and a real zero are four different
+    /// reasons for the same visible result.
+    #[test]
+    fn each_hit_outcome_explains_itself_differently() {
+        let mut app = app();
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_policy(RecordingPolicy::All)
+            .set_tick(12);
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(2))).id();
+
+        for (resolution, expected) in [
+            (BodyHitResolution::Ignored, "ignored"),
+            (BodyHitResolution::Blocked, "blocked"),
+            (BodyHitResolution::Armored, "armored"),
+            (BodyHitResolution::WalletShielded { spent: 7 }, "wallet_shielded"),
+            (BodyHitResolution::Damaged { damage: 30, died: false }, "damaged"),
+        ] {
+            announce(&mut app, body, resolution, 30);
+            app.update();
+            let why = app
+                .world()
+                .resource::<CausalRecording>()
+                .explain(12, &SubjectKey::Seat(2));
+            let last = why.all("hit_resolved").last().expect("recorded");
+            assert_eq!(
+                last.get("outcome"),
+                Some(&FactValue::Text(expected.into())),
+                "{resolution:?} must be its own answer, not merged into a neighbour"
+            );
+        }
+    }
+
+    /// ⚠ **asked for 30 and dealt 0 is not the same finding as asked for 0.**
+    /// The outcome alone cannot tell them apart, which is why the raw damage
+    /// travels beside it.
+    #[test]
+    fn a_blocked_hit_still_records_what_it_asked_for() {
+        let mut app = app();
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_policy(RecordingPolicy::All)
+            .set_tick(13);
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(0))).id();
+        announce(&mut app, body, BodyHitResolution::Blocked, 42);
+        app.update();
+
+        let why = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(13, &SubjectKey::Seat(0));
+        let hit = why.first("hit_resolved").expect("recorded");
+        assert_eq!(hit.get("damage"), Some(&FactValue::Int(0)));
+        assert_eq!(
+            hit.get("raw_damage"),
+            Some(&FactValue::Int(42)),
+            "the shield is only interesting next to what it stopped"
+        );
+    }
+
+    /// A lethal hit says so, so a death is explainable from the damage domain
+    /// alone even where no ruleset owns the consequence.
+    #[test]
+    fn a_lethal_hit_records_that_it_killed() {
+        let mut app = app();
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_policy(RecordingPolicy::All)
+            .set_tick(14);
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+        announce(
+            &mut app,
+            body,
+            BodyHitResolution::Damaged { damage: 99, died: true },
+            99,
+        );
+        app.update();
+        let hit = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(14, &SubjectKey::Seat(1))
+            .first("hit_resolved")
+            .cloned()
+            .expect("recorded");
+        assert_eq!(hit.get("died"), Some(&FactValue::Bool(true)));
     }
 }

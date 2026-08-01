@@ -48,6 +48,13 @@ pub struct FeatureHitWriters<'w, 's> {
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
     pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    /// The resolver's DECISION about each hit, for the causal inspector.
+    /// `Option` for the reason spelled out on the player-side twin: this is read
+    /// by an instrument and by nothing else, so a composition that never
+    /// registers it publishes nothing rather than panicking.
+    #[cfg(feature = "causal")]
+    pub resolutions:
+        Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyHitResolved>>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.

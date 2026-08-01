@@ -105,6 +105,26 @@ impl LocalDeviceOrder {
 pub struct LocalSeatTopology {
     generation: u64,
     seats: Vec<Entity>,
+    /// How many seats the ROSTER declared, when it said.
+    ///
+    /// ⛔ **Two authorities used to answer "how many people are playing" and they
+    /// contradicted each other** (queue S34). `seat_input_participants_for_roster`
+    /// says the roster decides, in as many words: *"Deriving seats from connected
+    /// HARDWARE instead would mean a controller left plugged into a machine
+    /// silently becomes a second player in every game on it."* And [`Self::players`]
+    /// was `seats.len()` — the connected PADS — which is exactly that, one layer
+    /// below the rule.
+    ///
+    /// Wrong in both directions, which is why neither symptom found it alone: a
+    /// spare controller inflated the roster, and a keyboard player beside one pad
+    /// player DEFLATED to a single player, because the keyboard is not a device
+    /// row. The second is Jon's couch milestones 1, 2 and 5, and no assignment
+    /// policy can repair it from above — the count is already wrong before any
+    /// policy is consulted.
+    ///
+    /// `None` means no roster spoke, and the device count still answers. That
+    /// keeps every existing caller and every existing test on the old path.
+    declared_seats: Option<usize>,
 }
 
 impl LocalSeatTopology {
@@ -117,13 +137,40 @@ impl LocalSeatTopology {
     pub fn capture(&mut self, order: &LocalDeviceOrder) {
         self.generation = self.generation.wrapping_add(1);
         self.seats = order.devices().to_vec();
+        // A recapture is a NEW decision, so a declaration from the previous one
+        // does not carry: leaving it would let a roster that has since gone away
+        // keep sizing the session.
+        self.declared_seats = None;
     }
 
     /// How many local players this session seats. At least one: a keyboard-only
     /// desktop has no device rows and still has a player, and a session with
     /// zero local handles accepts input from nobody.
+    ///
+    /// The ROSTER's declaration wins when there is one — see `declared_seats`.
+    /// The device count is the fallback for every caller that froze a topology
+    /// before rosters could speak.
     pub fn players(&self) -> usize {
-        self.seats.len().max(1)
+        match self.declared_seats {
+            Some(declared) => declared.max(1),
+            None => self.seats.len().max(1),
+        }
+    }
+
+    /// Freeze the device order AND the seat count the roster declared.
+    ///
+    /// The separate entry point is deliberate: [`Self::capture`] is called from
+    /// paths that legitimately have no roster (the rollback observatory, device
+    /// probes), and giving them a `None` to pass would make "nobody declared"
+    /// look like a decision somebody made.
+    pub fn capture_for_roster(&mut self, order: &LocalDeviceOrder, declared_seats: usize) {
+        self.capture(order);
+        self.declared_seats = Some(declared_seats);
+    }
+
+    /// What the roster declared, if it spoke.
+    pub fn declared_seats(&self) -> Option<usize> {
+        self.declared_seats
     }
 
     /// The controller a handle drives, if this seat has one. A handle past the
@@ -550,6 +597,62 @@ mod tests {
 
 #[cfg(test)]
 mod local_seat_topology_tests {
+    use super::*;
+
+    /// **S34: the roster's declaration beats the device count.**
+    ///
+    /// A keyboard player and one pad player is TWO people. The device list has
+    /// one row, because the keyboard is not a device row, so the old
+    /// `seats.len()` answered one — and the versus roster and the GGRS session
+    /// were both sized from that answer.
+    #[test]
+    fn a_declared_roster_seats_two_even_with_one_pad_connected() {
+        let mut topology = LocalSeatTopology::default();
+        let pad = Entity::from_bits(1 << 32 | 1);
+        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 2);
+        assert_eq!(topology.players(), 2);
+        assert_eq!(topology.declared_seats(), Some(2));
+        // The device mapping is unchanged: seat handles still resolve to pads.
+        assert_eq!(topology.device_for_handle(0), Some(pad));
+    }
+
+    /// **A spare controller does not add a player.**
+    ///
+    /// The failure `seat_input_participants_for_roster` names in its own doc —
+    /// "a controller left plugged into a machine silently becomes a second
+    /// player in every game on it" — was live one layer below that rule.
+    #[test]
+    fn a_spare_pad_does_not_inflate_a_declared_solo_session() {
+        let mut topology = LocalSeatTopology::default();
+        let a = Entity::from_bits(1 << 32 | 1);
+        let b = Entity::from_bits(1 << 32 | 2);
+        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![a, b]), 1);
+        assert_eq!(topology.players(), 1, "one declared seat is one player");
+    }
+
+    /// Callers that never declare anything keep the device count, byte for byte.
+    #[test]
+    fn an_undeclared_capture_still_counts_devices() {
+        let mut topology = LocalSeatTopology::default();
+        let a = Entity::from_bits(1 << 32 | 1);
+        let b = Entity::from_bits(1 << 32 | 2);
+        topology.capture(&LocalDeviceOrder::from_devices(vec![a, b]));
+        assert_eq!(topology.players(), 2);
+        assert_eq!(topology.declared_seats(), None);
+    }
+
+    /// ⚠ a recapture is a NEW decision and must not inherit the old declaration.
+    #[test]
+    fn recapturing_without_a_roster_drops_the_previous_declaration() {
+        let mut topology = LocalSeatTopology::default();
+        let pad = Entity::from_bits(1 << 32 | 1);
+        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 4);
+        assert_eq!(topology.players(), 4);
+        topology.capture(&LocalDeviceOrder::from_devices(vec![pad]));
+        assert_eq!(topology.declared_seats(), None, "a stale roster must not size a new session");
+        assert_eq!(topology.players(), 1);
+    }
+
     use super::*;
     use bevy::prelude::Entity;
 

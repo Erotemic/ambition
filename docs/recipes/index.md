@@ -46,6 +46,11 @@ When a command changes, update or delete the recipe in the same patch.
 - [`explaining-a-tick.md`](explaining-a-tick.md) — "why did this actor change on
   this tick": turning causal recording on, what can be asked today, and how a
   capability publishes its own facts.
+- **Testing headlessly** lives in
+  [`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md)
+  — `SandboxSim::step`, the headless binaries, and the doctrine about what to
+  assert. Linked rather than restated: a second page describing the same
+  substrate is a second authority, and the two drift.
 
 ## Recipe quality rule
 

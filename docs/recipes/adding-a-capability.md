@@ -140,6 +140,16 @@ that mounts it through the facade (`ambition` as a **dev**-dependency, so the
 capability's own closure is unaffected) — `ambition_pulse/tests/
 composed_through_the_sdk.rs` is the template.
 
+**Headlessly, against the real sim**: `SandboxSim::new_with_options(..).step(..)`
+builds the actual app with rendering, audio and windowing stripped and the
+systems intact. The doctrine — drive the real sim, assert invariants rather than
+tuned values, treat replay tests as canaries not cages — is
+[`../planning/engine/headless-verification.md`](../planning/engine/headless-verification.md).
+
+⚠ **a capability's own tests do not need any of that.** `ambition_pulse` builds a
+bare `App`, adds its plugin, and steps it; a mechanic that needed the whole
+sandbox to be testable would be telling you its seams are wrong.
+
 ## Checking your closure
 
 The measurement that tells you whether you built a capability or a plugin:

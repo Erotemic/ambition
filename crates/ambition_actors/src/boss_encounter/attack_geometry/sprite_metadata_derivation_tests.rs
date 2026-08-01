@@ -1286,3 +1286,93 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
         volumes[0].center()
     );
 }
+
+/// **A profile that claims NO rows still gets its hurtbox from the sample — and
+/// nothing tested that until now.**
+///
+/// This is `apple_rain`'s situation, reproduced without needing the app's
+/// catalog: an unregistered `Special` yields an empty key list, exactly as the
+/// shipped one does for `apple_rain`. Its damageable row is found only because
+/// `runtime_animation_keys` pushes the SAMPLE's own key into that list when the
+/// sample's profile matches.
+///
+/// ⛔ **that push is the circularity blocking the boss-animator fold**, and
+/// removing it left all 21 derivation tests green — which is how this gap was
+/// found. A behaviour a whole design decision turns on had no test at all.
+///
+/// PROBED: with the push deleted, this fails — the empty key list finds no
+/// authored row and the hurtbox falls back to the body box.
+#[test]
+fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
+    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
+    use std::collections::HashMap;
+
+    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    animations.insert(
+        "head_down".to_string(),
+        AnimationMetrics {
+            frame_duration_secs: Some(0.1),
+            hurtbox: Some(AnimationBox {
+                parts: Vec::new(),
+                bbox: None,
+                poly: Vec::new(),
+                frames: vec![AnimationBoxFrame {
+                    parts: vec![NamedPixelRect {
+                        name: "head".to_string(),
+                        x: 45,
+                        y: 10,
+                        w: 10,
+                        h: 10,
+                    }],
+                    bbox: None,
+                }],
+            }),
+            hitbox: None,
+        },
+    );
+    let metrics = ActorSpriteMetrics {
+        frame_width: 100,
+        frame_height: 100,
+        body_pixel_bbox: None,
+        body_pixel_parts: Vec::new(),
+        sprite_render_size: ae::Vec2::new(100.0, 100.0),
+        combat_offset: ae::Vec2::ZERO,
+        animations,
+    };
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
+    let mut attack_state = BossAttackState::default();
+    // An UNREGISTERED special: `boss_animation_keys_for_profile` returns `[]`,
+    // which is exactly what the shipped catalog gives for `apple_rain`.
+    attack_state.active_profile = Some(BossAttackProfile::Special("apple_rain".to_string()));
+    attack_state.active_elapsed = 0.0;
+
+    let sample = BossAnimationFrameSample {
+        profile: Some(BossAttackProfile::Special("apple_rain".to_string())),
+        frame_index: 0,
+        animation_key: Some("head_down".into()),
+    };
+
+    let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(100.0, 100.0),
+        combat_size: ae::Vec2::new(100.0, 100.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: Some(&metrics),
+        animation_frame: Some(&sample),
+        facing: 1.0,
+    };
+
+    let volumes = damageable_volumes(&ctx);
+    assert_eq!(volumes.len(), 1);
+    assert!(
+        (volumes[0].center().y - -35.0).abs() < 1e-3,
+        "the profile claims no rows, so the ONLY way `head_down`'s authored \
+         hurtbox (head high, y=-35) is reached is the sample's own key being \
+         pushed into the key list. Got {:?} — if this is the body box, that push \
+         is gone and this boss's damageable shape changed",
+        volumes[0].center()
+    );
+}

@@ -17,6 +17,8 @@ pub use ambition_platformer_primitives::schedule::{
 };
 pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]
+pub use input_systems::declare_in_session_input_contexts;
+#[cfg(feature = "input")]
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     decode_menu_frame, populate_menu_control_frame_from_actions, populate_seat_menu_frames,

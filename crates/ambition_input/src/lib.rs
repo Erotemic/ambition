@@ -105,7 +105,8 @@ pub use menu::{
 };
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
-    InputParticipant, ParticipantContexts, ParticipantId, SeatInputContexts, GAMEPLAY_CONTEXT,
-    LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+    InputParticipant, ParticipantContexts, ParticipantId, SeatInputContexts, CUTSCENE_CONTEXT,
+    DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
+    SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};

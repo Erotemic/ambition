@@ -109,6 +109,7 @@ pub use input_stream::{input_stream_recording, record_input_stream, InputStreamR
 pub mod host_input {
     pub use ambition_actors::schedule::{
         apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
+        declare_in_session_input_contexts,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
         populate_seat_menu_frames, populate_secondary_slot_controls, publish_latched_slot_controls,
         seat_input_participants_for_roster, spawn_primary_input_participant,

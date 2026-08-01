@@ -74,12 +74,45 @@ pub const LAUNCHER_CONTEXT: InputContextId = InputContextId("shell.launcher");
 /// A live gameplay session owns the participant's actions.
 pub const GAMEPLAY_CONTEXT: InputContextId = InputContextId("gameplay");
 
+// ── in-session surfaces ─────────────────────────────────────────────────────
+//
+// These sit BETWEEN the shell and gameplay: they appear while a session is
+// live, and a shell overlay still outranks them.
+//
+// ⚠ **an in-session surface is not the same fact as a stopped world.** Pausing
+// stops the world — global, `GameMode`, every seat. A surface owning a seat's
+// input does not: one player reading a dialogue box while another keeps
+// running is the ordinary state of a couch, and it is the thing this engine
+// could not express before these ids existed.
+
+/// A dev/tool overlay that has grabbed input. Above every in-session surface,
+/// because a developer reaching for the inspector means it.
+pub const DEBUG_CONTEXT: InputContextId = InputContextId("debug");
+/// A scripted cutscene owns advance/skip.
+pub const CUTSCENE_CONTEXT: InputContextId = InputContextId("cutscene");
+/// An NPC conversation.
+pub const DIALOGUE_CONTEXT: InputContextId = InputContextId("dialogue");
+/// An inventory / equipment screen.
+pub const INVENTORY_CONTEXT: InputContextId = InputContextId("inventory");
+/// A character-select surface. Distinct from the launcher: a select screen is
+/// reached FROM a launcher row and is a question, not a game.
+pub const SELECT_CONTEXT: InputContextId = InputContextId("select");
+
 /// Recommended claim priorities for the engine's own contexts. Higher wins.
 /// Shell overlays outrank gameplay so a transient session/launcher overlap
 /// (teardown, quit-to-title) resolves to the visible surface.
 pub mod context_priority {
     pub const STARTUP_ACKNOWLEDGE: i32 = 300;
     pub const LAUNCHER: i32 = 200;
+    /// Above the in-session surfaces: a developer opening a tool over a
+    /// dialogue box wants the tool.
+    pub const DEBUG: i32 = 195;
+    /// Above dialogue: a cutscene that starts mid-conversation is the thing on
+    /// screen.
+    pub const CUTSCENE: i32 = 180;
+    pub const DIALOGUE: i32 = 150;
+    pub const INVENTORY: i32 = 140;
+    pub const SELECT: i32 = 130;
     pub const GAMEPLAY: i32 = 100;
 }
 

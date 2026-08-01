@@ -20,7 +20,7 @@ use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
     analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
     MenuInputState, ParticipantContexts, PlayerDashTriggerState, SeatInputContexts,
-    GAMEPLAY_CONTEXT,
+    CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
@@ -204,6 +204,55 @@ pub fn declare_gameplay_input_context(
     }
 }
 
+/// **Declare the in-session UI surfaces as context claims.**
+///
+/// `participant.rs` has always stated the rule — *"nothing derives input
+/// ownership from `GameMode` or from the presence of a controlled body"* — and
+/// until now this crate derived exactly that: `populate_control_frame_from_
+/// actions` matched `GameMode::Dialogue` and asked `ActiveCutscene` directly,
+/// and every other router would have had to match them again. Two authorities
+/// for one question, and the doc was the one that lost.
+///
+/// So the surfaces DECLARE, and the routers read one resolved answer.
+///
+/// ⚠ **this is behaviour-identical today, on purpose.** It claims on every
+/// participant, exactly as the global gates did, so nothing observable moves in
+/// this commit. What changes is that the per-seat version — one player reading
+/// a dialogue box while another keeps running — becomes a change at THIS
+/// function instead of a rewrite at every router. That is the whole point of
+/// moving it.
+///
+/// ⚠ **pause is deliberately NOT here.** `GameMode::Paused` stops the world,
+/// which is not a per-seat fact, and the paused path does something a context
+/// claim cannot express: it writes a MENU frame into `ControlFrame` rather than
+/// a neutral one, so a paused seat can still navigate. Folding it in would
+/// silently delete that.
+#[cfg(feature = "input")]
+pub fn declare_in_session_input_contexts(
+    mode: Res<State<GameMode>>,
+    cutscene: Res<ambition_cutscene::ActiveCutscene>,
+    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+) {
+    let in_dialogue = matches!(mode.get(), GameMode::Dialogue);
+    let in_cutscene = cutscene.is_playing();
+    for mut contexts in &mut participants {
+        // Touch the component only when a claim actually moves, so a quiet
+        // frame is not a change-detection event for every reader downstream.
+        if contexts.is_declared(DIALOGUE_CONTEXT) != in_dialogue {
+            contexts.sync(
+                ContextClaim::capturing(DIALOGUE_CONTEXT, context_priority::DIALOGUE),
+                in_dialogue,
+            );
+        }
+        if contexts.is_declared(CUTSCENE_CONTEXT) != in_cutscene {
+            contexts.sync(
+                ContextClaim::capturing(CUTSCENE_CONTEXT, context_priority::CUTSCENE),
+                in_cutscene,
+            );
+        }
+    }
+}
+
 /// Toggle player-trail emission from the logical input action.
 ///
 /// The physical key or button belongs to `KeyboardPreset::input_map`; this bridge
@@ -251,7 +300,6 @@ pub fn populate_control_frame_from_actions(
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
-    cutscene: Res<ambition_cutscene::ActiveCutscene>,
     windows: Query<&Window>,
 ) {
     // The participant persists across the whole app lifetime, so "no player
@@ -277,25 +325,22 @@ pub fn populate_control_frame_from_actions(
         *frame = ControlFrame::default();
         return;
     }
-    if matches!(mode.get(), GameMode::Dialogue) {
-        // Dialogue is a UI state: gameplay input is suppressed, but the
-        // underlying `ActionState` must remain intact so a held arrow/D-pad
-        // key does not become `just_pressed` again on every frame.
-        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
-        *frame = ControlFrame::default();
-        return;
-    }
-    // Cutscene takes precedence over gameplay input. The semantic MENU frame
-    // is the sole producer of advance/skip requests (see
-    // `apply_menu_frame_to_cutscene_request`), so keyboard/gamepad/touch all
-    // share one edge/hold policy and this gameplay bridge only neutralizes the
-    // simulation packet. Processing the same ActionState here as well would
-    // double-count the skip hold and could advance multiple beats from one
-    // held confirm.
-    if cutscene.is_playing() {
-        *frame = ControlFrame::default();
-        return;
-    }
+    // ⚠ dialogue and cutscene used to be matched HERE, off `GameMode` and
+    // `ActiveCutscene`. They are `ContextClaim`s now
+    // (`declare_in_session_input_contexts`), so the `gameplay_owned()` check
+    // above already covers both and this router has one gate instead of three.
+    //
+    // Two things the move preserves and one it changes:
+    //
+    // * the underlying `ActionState` is still untouched, so a held arrow does
+    //   not become `just_pressed` again every frame when the surface closes;
+    // * the semantic MENU frame is still the sole producer of cutscene
+    //   advance/skip, so this bridge only neutralises the simulation packet and
+    //   cannot double-count a held confirm;
+    // * the dash edge is now reset on a CUTSCENE too, which it was not before.
+    //   That is the pause and dialogue rule applied to the third case rather
+    //   than a fourth policy — a trigger held across a cutscene needs a
+    //   re-press, like one held across a pause.
     // THE PRIMARY seat authors the global `ControlFrame`, by id.
     //
     // This used to take "the only participant" and go NEUTRAL when a second one
@@ -646,7 +691,8 @@ fn update_cutscene_request_from_menu(
 #[cfg(all(test, feature = "input"))]
 mod focus_gate_tests {
     use super::{
-        declare_gameplay_input_context, input_suppressed_by_unfocus,
+        declare_gameplay_input_context, declare_in_session_input_contexts,
+        input_suppressed_by_unfocus,
         spawn_primary_input_participant, update_cutscene_request_from_menu,
     };
     use ambition_input::{
@@ -902,6 +948,194 @@ mod focus_gate_tests {
                 .jump_held,
             false,
             "a paused world stops every seat, whatever context each one owns"
+        );
+    }
+
+    /// **A UI surface is a CLAIM now, not a `GameMode` match in every router.**
+    ///
+    /// `participant.rs` has always said *"nothing derives input ownership from
+    /// `GameMode`"*, and this crate derived exactly that in two places. The
+    /// first half of this test pins that moving them changed nothing; the
+    /// second pins what the move BUYS, which is the reason to make it.
+    #[test]
+    fn an_in_session_surface_claims_input_and_can_claim_it_for_one_seat() {
+        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
+        use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
+        use ambition_platformer_primitives::schedule::GameMode;
+        use bevy::ecs::system::RunSystemOnce;
+
+        fn seat(slot: u8) -> impl Bundle {
+            let mut contexts = ParticipantContexts::default();
+            contexts.declare(ContextClaim::capturing(
+                GAMEPLAY_CONTEXT,
+                context_priority::GAMEPLAY,
+            ));
+            let mut actions = ActionState::<SandboxAction>::default();
+            actions.press(&SandboxAction::Jump);
+            (
+                InputParticipant {
+                    id: ParticipantId(slot),
+                },
+                contexts,
+                actions,
+                super::SeatDashTriggerState::default(),
+            )
+        }
+
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
+        app.init_resource::<ambition_cutscene::ActiveCutscene>();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.insert_state(GameMode::Playing);
+        app.world_mut().spawn(seat(0));
+        app.world_mut().spawn(seat(1));
+        app.add_systems(
+            Update,
+            (
+                declare_in_session_input_contexts,
+                resolve_active_input_context,
+                super::populate_secondary_slot_controls,
+            )
+                .chain(),
+        );
+        app.update();
+        assert!(
+            app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            "baseline: a seat that owns gameplay drives its body"
+        );
+
+        // 1. Entering dialogue suppresses input — through a declared claim, and
+        //    with no router matching `GameMode` any more.
+        app.insert_state(GameMode::Dialogue);
+        app.update();
+        let seats = app.world().resource::<SeatInputContexts>();
+        assert_eq!(
+            seats.for_seat(1).owner(),
+            Some(DIALOGUE_CONTEXT),
+            "the surface OWNS the seat's input; it does not merely stop the world"
+        );
+        assert!(!seats.gameplay_owned(1));
+        assert!(
+            !app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            "and the router honours it without knowing what dialogue is"
+        );
+
+        // 2. **What the move buys, proved on a running world.** A surface can
+        //    now own ONE seat's input: seat 0 is in the conversation, seat 1 is
+        //    not, and seat 1 keeps driving its body. Under the old `GameMode`
+        //    match this was not a thing a surface could ask for at all.
+        //
+        //    ⚠ done by claiming directly, because nothing declares per-seat
+        //    YET: `declare_in_session_input_contexts` still claims on every
+        //    participant, exactly as the global gate did. This asserts the seam
+        //    supports it, which is what makes the per-seat declarer a change at
+        //    one function instead of a rewrite at every router.
+        app.insert_state(GameMode::Playing);
+        app.update();
+        {
+            let world = app.world_mut();
+            let mut seats = world.query::<(&InputParticipant, &mut ParticipantContexts)>();
+            let mut claims: Vec<_> = seats
+                .iter_mut(world)
+                .map(|(participant, contexts)| (participant.id, contexts))
+                .collect();
+            for (id, contexts) in &mut claims {
+                if *id == ParticipantId(0) {
+                    contexts.declare(ContextClaim::capturing(
+                        DIALOGUE_CONTEXT,
+                        context_priority::DIALOGUE,
+                    ));
+                }
+            }
+        }
+        // Re-run only the resolver and the router: re-running the declarer
+        // would retract what we just claimed, which is the point.
+        app.world_mut()
+            .run_system_once(resolve_active_input_context)
+            .expect("resolver runs");
+        app.world_mut()
+            .run_system_once(super::populate_secondary_slot_controls)
+            .expect("router runs");
+
+        let seats = app.world().resource::<SeatInputContexts>();
+        assert_eq!(
+            seats.for_seat(0).owner(),
+            Some(DIALOGUE_CONTEXT),
+            "seat 0 is in the conversation"
+        );
+        assert!(seats.gameplay_owned(1), "seat 1 is not");
+        assert!(
+            app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            "ONE PLAYER READS A DIALOGUE BOX WHILE THE OTHER KEEPS RUNNING — the thing the \
+             GameMode gate could not express, and the reason this moved"
+        );
+    }
+
+    /// ⛔ **The split is HALF done, and this is the half that is left.**
+    ///
+    /// `GameMode::Dialogue` still answers two questions with one switch: *the
+    /// world is stopped* and *this seat's input belongs to a surface*. The
+    /// context claim now carries the second. The first is still
+    /// `allows_gameplay()`, and it OVERRIDES — so a per-seat dialogue declarer,
+    /// which is the next step, would still find every seat suppressed.
+    ///
+    /// Pinned as a test rather than left as prose because the failure mode is
+    /// somebody building the per-seat declarer, seeing no effect, and concluding
+    /// the context seam does not work. It does; this does not, yet.
+    ///
+    /// ⚠ the repair is NOT "delete the `allows_gameplay` gate". Pausing must
+    /// keep stopping everybody. It is to stop `Dialogue` claiming to stop the
+    /// world when what it wants is one participant's attention.
+    #[test]
+    fn dialogue_still_stops_the_world_as_well_as_claiming_the_input() {
+        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
+        use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
+        use ambition_platformer_primitives::schedule::GameMode;
+
+        let mut contexts = ParticipantContexts::default();
+        contexts.declare(ContextClaim::capturing(
+            GAMEPLAY_CONTEXT,
+            context_priority::GAMEPLAY,
+        ));
+        let mut actions = ActionState::<SandboxAction>::default();
+        actions.press(&SandboxAction::Jump);
+
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.insert_state(GameMode::Dialogue);
+        app.world_mut().spawn((
+            InputParticipant {
+                id: ParticipantId(1),
+            },
+            contexts,
+            actions,
+            super::SeatDashTriggerState::default(),
+        ));
+        app.add_systems(
+            Update,
+            (
+                resolve_active_input_context,
+                super::populate_secondary_slot_controls,
+            )
+                .chain(),
+        );
+        app.update();
+
+        assert!(
+            app.world().resource::<SeatInputContexts>().gameplay_owned(1),
+            "this seat's CONTEXT is gameplay — no surface claimed it"
+        );
+        assert!(
+            !app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            "and it is suppressed anyway, because `GameMode::Dialogue` still says the world is \
+             stopped. That is the remaining half of the split, not a bug in the context seam."
         );
     }
 

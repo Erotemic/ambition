@@ -79,6 +79,7 @@ impl Plugin for HostInputBindingsPlugin {
         };
         use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
+            declare_in_session_input_contexts,
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
             populate_secondary_slot_controls, publish_latched_slot_controls,
@@ -287,6 +288,11 @@ impl Plugin for HostInputBindingsPlugin {
                 Update,
                 (
                     declare_gameplay_input_context.in_set(ambition_input::InputSet::ResolveContext),
+                    // The in-session surfaces (dialogue, cutscene) declare in the
+                    // same set as the session itself, so one resolver sees every
+                    // claim before any router reads the answer.
+                    declare_in_session_input_contexts
+                        .in_set(ambition_input::InputSet::ResolveContext),
                     ambition_input::resolve_active_input_context
                         .after(ambition_input::InputSet::ResolveContext)
                         .before(ambition_input::InputSet::Route),

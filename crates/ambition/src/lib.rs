@@ -54,6 +54,39 @@ pub mod causal {
     };
 }
 
+/// **The content compiler** — author, validate, prepare, without a Rust rebuild.
+///
+/// Behind the `content_pack` feature, default-OFF, because a game that ships its
+/// content embedded and never validates at runtime should not link a compiler.
+/// Turning it on gives a consumer the whole pipeline — draft, schema registry,
+/// diagnostics, prepared pack, fingerprint — plus [`engine_schemas`], WITHOUT
+/// naming an engine-private path.
+///
+/// ```ignore
+/// let mut registry = ambition::content::engine_schemas();
+/// registry.register(my_capability::my_schema())?;      // a capability's own
+/// let pack = ambition::content::compile_dir(path, &registry, &assets)?;
+/// ```
+#[cfg(feature = "content_pack")]
+pub mod content {
+    pub use ambition_content_pack::*;
+
+    /// The schemas the ENGINE itself owns, ready for a consumer to add to.
+    ///
+    /// ⚠ this is the piece a consumer cannot assemble for itself without
+    /// knowing which crates own which schemas — which is exactly the internal
+    /// topology the SDK is supposed to hide. A capability's own schema is added
+    /// on top; nobody has to know that the character catalog lives in
+    /// `ambition_characters`.
+    pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
+        let mut registry = ambition_content_pack::SchemaRegistry::new();
+        registry
+            .register(crate::characters::actor::character_catalog::character_catalog_schema())
+            .expect("the engine's own schemas are registered once");
+        registry
+    }
+}
+
 pub use ambition_actors as actors;
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
@@ -498,6 +531,98 @@ mod causal_sdk_tests {
         assert!(
             log.explain(42, &SubjectKey::Seat(0)).is_empty(),
             "and nothing lands on a tick that never ran"
+        );
+    }
+}
+
+/// **The SDK claim about authoring, tested.**
+///
+/// The program says an agent should *"add or modify a character and validate it
+/// without rebuilding Rust"* and do so *"without importing internal-shaped
+/// engine modules"*. This module uses ONLY `ambition::content::…` — no
+/// `ambition_content_pack`, no `ambition_characters`. A consumer forced past the
+/// facade shows up here as a compile error.
+#[cfg(all(test, feature = "content_pack"))]
+mod content_sdk_tests {
+    use crate::content::{
+        AssetsUnchecked, CompileStage, ContentPackDraft, ContentPackManifest, DiagnosticCode,
+        ModuleNamespace, PackId, PackVersion, SchemaId, SchemaVersion, SourceDeclaration, compile,
+        engine_schemas,
+    };
+
+    const CATALOG: &str = r#"(
+        brain_presets: { "stand_still": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "newcomer": (
+                display_name: "Newcomer",
+                spritesheet: "newcomer.png",
+                manifest: "newcomer.ron",
+                tier: MainHall,
+                body_kind: Standard,
+                composition: None,
+                default_brain: "stand_still",
+                default_action_set: "peaceful",
+                tags: [],
+            ),
+        },
+    )"#;
+
+    fn pack(name: &str, catalog: &str) -> ContentPackDraft {
+        let root = std::env::temp_dir().join(format!("ambition_content_sdk/{name}"));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("temp pack");
+        std::fs::write(root.join("cast.ron"), catalog).expect("write");
+        ContentPackDraft::read_manifest(
+            root,
+            ContentPackManifest {
+                id: PackId("my_game".into()),
+                version: PackVersion("1.0.0".into()),
+                namespace: ModuleNamespace("my_game".into()),
+                requires: Vec::new(),
+                sources: vec![SourceDeclaration {
+                    path: "cast.ron".into(),
+                    schema: SchemaId::new("character_catalog"),
+                    version: SchemaVersion(1),
+                }],
+            },
+        )
+        .expect("draft reads")
+    }
+
+    /// A consumer composes the engine's schemas and validates its own cast.
+    #[test]
+    fn a_consumer_validates_its_own_content_through_the_facade_alone() {
+        let compiled = compile(&pack("valid", CATALOG), &engine_schemas(), &AssetsUnchecked)
+            .expect("a well-formed cast compiles");
+        assert_eq!(compiled.namespace.0, "my_game");
+        assert!(
+            compiled
+                .get(&SchemaId::new("character"), "newcomer")
+                .is_some(),
+            "the consumer's own character is a prepared identity in its OWN namespace"
+        );
+    }
+
+    /// ⚠ and the refusals are the facade's too — a consumer does not have to
+    /// reach into the compiler crate to learn WHY its content was rejected.
+    #[test]
+    fn a_typo_is_refused_through_the_facade_with_a_code_a_tool_can_branch_on() {
+        let failure = compile(
+            &pack(
+                "typo",
+                &CATALOG.replace(r#"default_brain: "stand_still""#, r#"default_brain: "stand_stil""#),
+            ),
+            &engine_schemas(),
+            &AssetsUnchecked,
+        )
+        .expect_err("a preset typo must refuse");
+        assert_eq!(failure.stage, CompileStage::ReferenceResolution);
+        assert!(failure.has(DiagnosticCode::UnknownPreset));
+        assert!(
+            failure.render().contains("did you mean `stand_still`?"),
+            "and it answers the typo: {}",
+            failure.render()
         );
     }
 }

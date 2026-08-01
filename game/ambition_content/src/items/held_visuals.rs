@@ -3,11 +3,11 @@
 //! Every ground-pickup / in-hand sprite Ambition's held items use — the axe, the
 //! javelin, the gun-sword, and the wielded-gauntlet ability props — is declared
 //! here as pure `id → path + size` data and contributed to the reusable render
-//! layer's [`HeldItemArtManifest`](ambition_platformer_primitives::held_item_art::HeldItemArtManifest).
+//! layer's [`HeldItemArtManifest`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest).
 //! The renderer names none of these paths; it resolves the merged manifest into
 //! image handles at startup.
 
-use ambition_platformer_primitives::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry};
+use ambition_platformer2d_shared_tangle::held_item_art::{HeldItemArtAppExt, HeldItemArtEntry};
 use bevy::math::Vec2;
 use bevy::prelude::App;
 
@@ -67,7 +67,7 @@ pub(super) fn register(app: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::held_item_art::HeldItemArtManifest;
+    use ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest;
 
     #[test]
     fn ambition_registers_its_held_item_props() {

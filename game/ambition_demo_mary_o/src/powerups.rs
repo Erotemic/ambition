@@ -2,9 +2,9 @@
 //!
 //! These are the M-track's proof that "powerups as equipment" is pure content on
 //! the finished engine face (`docs/planning/demos/super-mary-o.md` §M1): a
-//! mushroom-analog and a flower-analog authored entirely through the `ambition`
+//! mushroom-analog and a flower-analog authored entirely through the `ambition_platformer2d`
 //! umbrella's re-exported A3 vocabulary, with **zero engine edits**. The engine's
-//! `ambition::characters::equipment` module (A3) supplies the three mechanisms —
+//! `ambition_platformer2d::characters::equipment` module (A3) supplies the three mechanisms —
 //! numeric modifiers, behavioral grants, on-hit armor — and this file just names
 //! two rows that use them.
 //!
@@ -13,18 +13,18 @@
 
 use bevy::prelude::*;
 
-use ambition::characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
-use ambition::characters::equipment::{
+use ambition_platformer2d::characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
+use ambition_platformer2d::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
 
-use ambition::actors::actor::{BodyBaseSize, PrimaryPlayer};
-use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::items::{spawn_world_item, WorldItem};
-use ambition::actors::rooms::RoomLoaded;
-use ambition::characters::actor::WornCharacter;
-use ambition::engine_core as ae;
-use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
+use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::items::{spawn_world_item, WorldItem};
+use ambition_platformer2d::actors::rooms::RoomLoaded;
+use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 
 use crate::provider::MARY_O_CHARACTER_ID;
 
@@ -94,7 +94,7 @@ pub fn grow_cap() -> EquipmentRow {
 ///
 /// It grants a bouncing spark ([`EquipmentGrant::Ranged`]) and scales that shot's
 /// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
-/// modifier, folded in [`ambition::characters::equipment::resolved_ranged`] at
+/// modifier, folded in [`ambition_platformer2d::characters::equipment::resolved_ranged`] at
 /// trigger-resolve).
 ///
 /// Crucially it is ALSO armor, and its `downgrade_to` is the [`grow_cap`]. That
@@ -110,9 +110,9 @@ pub fn grow_cap() -> EquipmentRow {
 /// spending this row revokes its verb on the same path that granted it, and the
 /// honest representation is available.
 ///
-/// [`ranged_param::DAMAGE`]: ambition::characters::equipment::ranged_param::DAMAGE
+/// [`ranged_param::DAMAGE`]: ambition_platformer2d::characters::equipment::ranged_param::DAMAGE
 pub fn spark_blossom() -> EquipmentRow {
-    use ambition::characters::equipment::ranged_param;
+    use ambition_platformer2d::characters::equipment::ranged_param;
     EquipmentRow {
         id: SPARK_BLOSSOM_ID.to_string(),
         modifiers: vec![ParamModifier {
@@ -176,9 +176,9 @@ pub struct MaryOSpark;
 pub fn tag_mary_o_sparks(
     mut commands: Commands,
     fresh: Query<
-        (Entity, &ambition::projectiles::ProjectileVisualId),
+        (Entity, &ambition_platformer2d::projectiles::ProjectileVisualId),
         (
-            Added<ambition::projectiles::ProjectileVisualId>,
+            Added<ambition_platformer2d::projectiles::ProjectileVisualId>,
             Without<MaryOSpark>,
         ),
     >,
@@ -317,7 +317,7 @@ pub fn sync_grown_form(
         ),
         With<PrimaryPlayer>,
     >,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
 ) {
     let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
@@ -354,8 +354,8 @@ pub fn sync_grown_form(
         // and it was taking the session's source.
         sfx.write_for(
             body,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::new("mary_o.transform"),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::new("mary_o.transform"),
                 pos: kin.pos,
             },
         );
@@ -365,7 +365,7 @@ pub fn sync_grown_form(
         // asking the regime for the time dilation; this only says it happened.
         commands
             .entity(body)
-            .try_insert(ambition::actors::features::transform_beat::TransformBeatRequested);
+            .try_insert(ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested);
     }
     worn_char.0 = target_id.to_string();
 }
@@ -383,15 +383,15 @@ pub fn ensure_transform_beat_policy(
         bevy::prelude::Entity,
         (
             With<PrimaryPlayer>,
-            bevy::prelude::Without<ambition::actors::features::transform_beat::TransformBeatPolicy>,
+            bevy::prelude::Without<ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy>,
         ),
     >,
 ) {
     for entity in &bodies {
         commands.entity(entity).try_insert(
-            ambition::actors::features::transform_beat::TransformBeatPolicy {
+            ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
                 duration: 0.5,
-                anim: ambition::sprite_sheet::character::CharacterAnim::Death,
+                anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Death,
                 clock_scale: 0.35,
                 untouchable: true,
             },
@@ -426,12 +426,12 @@ pub fn refill_power_blocks_on_room_loaded(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
+    use ambition_platformer2d::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
 
     /// The grow-cap absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure
     /// view of *wearing* the cap; the cap's data is just this one-hit armor.)
-    /// Proven through the umbrella's A3 API: if `ambition` didn't re-export
+    /// Proven through the umbrella's A3 API: if `ambition_platformer2d` didn't re-export
     /// `characters::equipment`, this demo would not compile (the E9 oracle).
     #[test]
     fn grow_cap_absorbs_one_hit_then_is_spent() {
@@ -449,8 +449,8 @@ mod tests {
     /// The spark-blossom grants a ranged verb and scales its shot's damage at fire.
     #[test]
     fn spark_blossom_grants_a_scaled_bouncing_spark() {
-        use ambition::characters::brain::action_set::ActionSet;
-        use ambition::combat::moveset::{build_actor_moveset, RANGED_VERB};
+        use ambition_platformer2d::characters::brain::action_set::ActionSet;
+        use ambition_platformer2d::combat::moveset::{build_actor_moveset, RANGED_VERB};
 
         let worn = WornEquipment::new(vec![spark_blossom()]);
 
@@ -578,7 +578,7 @@ mod tests {
                 },
             ))
             .id();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
         // Feet (screen up = -y, so feet = max.y = pos.y + size.y/2).
@@ -651,7 +651,7 @@ mod tests {
                 WornEquipment::new(vec![spark_blossom()]),
             ))
             .id();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
         let feet = |app: &App| {
@@ -716,7 +716,7 @@ mod tests {
     /// already speaks its own sound.
     #[test]
     fn stepping_up_a_power_tier_voices_the_transform_chime() {
-        use ambition::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
+        use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
 
         let mut app = App::new();
         let small = small_body_size();

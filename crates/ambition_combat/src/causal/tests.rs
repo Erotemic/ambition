@@ -4,7 +4,7 @@
 //! instrument flagged the inline module at >=200 lines and the honest answer to
 //! "does it need to be inline" was no. It reaches nothing private: every item it
 //! touches is `pub`, and a child module would still see the private ones if that
-//! changed. Same rule, same reason, as `ambition_runtime`'s `causal_it.rs`.
+//! changed. Same rule, same reason, as `ambition_platformer2d_runtime`'s `causal_it.rs`.
 
 use super::*;
 use ambition_causal::{FactValue, RecordingPolicy};

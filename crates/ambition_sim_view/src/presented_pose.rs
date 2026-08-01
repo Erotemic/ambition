@@ -64,7 +64,7 @@
 //! fallback is a two-tick interpolation buffer — the same machinery, sampling
 //! backwards instead of forwards.
 
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 use ambition_time::SimTick;
 use bevy::prelude::{
     Commands, Component, Entity, Fixed, IntoScheduleConfigs, Query, Res, ResMut, Resource,
@@ -390,7 +390,7 @@ pub struct PresentedPosePlugin;
 
 impl bevy::prelude::Plugin for PresentedPosePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use ambition_platformer_primitives::schedule::SimScheduleExt as _;
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
         app.init_resource::<PresentationPhase>();
         app.init_resource::<PresentedFeaturePoses>();
@@ -429,7 +429,7 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
             app.configure_sets(
                 Update,
                 PresentedPoseSet
-                    .after(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+                    .after(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
             );
         }
         // The rollback host's phase lives in the GGRS driver's own accumulator,
@@ -586,7 +586,7 @@ mod tests {
 
     #[test]
     fn frame_stepped_presented_pose_runs_after_feature_view_sync() {
-        use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt as _};
+        use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt as _};
         use bevy::ecs::schedule::{NodeId, Schedules};
         use bevy::prelude::{App, IntoScheduleConfigs as _, Update};
 
@@ -622,13 +622,13 @@ mod tests {
     /// **Every resampler is ordered after the phase it resamples against.**
     ///
     /// Stated on the SETS, so it holds for the rollback host's sampler too — that
-    /// one lives in `ambition_runtime` (this crate must not learn about netcode)
+    /// one lives in `ambition_platformer2d_runtime` (this crate must not learn about netcode)
     /// and cannot be reached from here. What can be checked from here is the edge
     /// it relies on, which is the thing that was missing: both samplers named one
     /// resampler with a `.before` and the id-keyed poses raced the phase.
     #[test]
     fn the_phase_is_sampled_before_every_pose_is_resampled() {
-        use ambition_platformer_primitives::schedule::SimScheduleExt as _;
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         use bevy::ecs::schedule::{NodeId, Schedules};
         use bevy::prelude::{App, FixedUpdate};
 

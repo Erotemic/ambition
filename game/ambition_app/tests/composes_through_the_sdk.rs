@@ -19,7 +19,7 @@
 //! through `PlatformerApp`; the surrounding shell is named in the row's record
 //! as what remains.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 /// One shipped game, declared. Each existing provider plugin already registers
 /// its own catalogs, session construction and rules — the module says who it is
@@ -84,7 +84,7 @@ fn the_shipped_games_compose_through_the_public_api() {
     // a launcher host is that every game it ships can be entered.
     let catalog = app
         .world()
-        .resource::<ambition::game_shell::ShellRouteCatalog>();
+        .resource::<ambition_platformer2d::game_shell::ShellRouteCatalog>();
     let routes: Vec<String> = catalog.ids().map(str::to_string).collect();
     for expected in [
         ambition_demo_sanic::provider::SANIC_GAMEPLAY_ROUTE,
@@ -130,8 +130,8 @@ fn the_shipped_games_compose_through_the_public_api() {
 /// virtualization on no failing consumer — is the wrong trade today.
 #[test]
 fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys() {
-    use ambition::game_shell::{ShellCommand, ShellRouteId};
-    use ambition::view::{ids, SandboxAssetCatalog};
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
+    use ambition_platformer2d::view::{ids, SandboxAssetCatalog};
 
     let mut app = PlatformerApp::headless()
         .with_game_assets()
@@ -211,7 +211,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
     // catalog folds the PRIMARY's registry only.
     let registry = app
         .world()
-        .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
     let declared = registry
         .music_for(ambition_demo_mary_o::provider::MARY_O_EXPERIENCE)
         .expect("Mary-O's provider registers a music registry")

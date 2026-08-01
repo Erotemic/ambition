@@ -44,7 +44,7 @@ costs with different mechanisms, and conflating them is the draft's main flaw.
 
 ### 1. Portal dive — a *real-time, per-frame* cost
 
-Confirmed in `crates/ambition_portal_presentation/src/view_cones.rs`: every visible
+Confirmed in `crates/ambition_portal2d_presentation/src/view_cones.rs`: every visible
 portal **re-renders the whole scene** (world layer + parallax + recursion) into its own
 render target, **every frame**, with **no throttle and no cap on simultaneous
 captures**. `sync_portal_view_cones` updates every rig each frame; `is_active` only
@@ -199,7 +199,7 @@ Runtime-switchable, per Jon's choice. Two halves: **generate** the variants, the
 ### Installed layout
 
 ```
-crates/ambition_actors/assets/
+crates/ambition_platformer2d_actor_monolith/assets/
   sprites/                          # Full  (current path, unchanged)
   sprites_0_5x/                     # Half
   sprites_0_25x/                    # Quarter (optional first pass; Half is the priority)
@@ -453,11 +453,11 @@ clamp and the path resolver are both pure and unit-testable without a GPU.
 
 ```
 cargo fmt --check
-cargo check -p ambition_actors
+cargo check -p ambition_platformer2d_actor_monolith
 cargo check -p ambition_render
-cargo check -p ambition_portal_presentation --features effect_view_cones
+cargo check -p ambition_portal2d_presentation --features effect_view_cones
 cargo check -p ambition_app --features desktop_dev
-cargo test  -p ambition_actors -p ambition_render -p ambition_portal_presentation
+cargo test  -p ambition_platformer2d_actor_monolith -p ambition_render -p ambition_portal2d_presentation
 cd tools/ambition_sprite2d_renderer && uv run pytest tests/test_render_scale.py tests/test_core_pipeline.py tests/test_packer.py
 ```
 

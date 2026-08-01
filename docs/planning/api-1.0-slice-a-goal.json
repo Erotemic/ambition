@@ -43,7 +43,7 @@
     "",
     "⚠ THE BASELINE IS 18, NOT 19. api-1.0-campaign.md §A1 and ADR 0031 both said",
     "19 while listing eighteen names; the fixture names eighteen distinct top-level",
-    "`ambition::` modules, with no braced `ambition::{...}` imports and no root-level",
+    "`ambition_platformer2d::` modules, with no braced `ambition_platformer2d::{...}` imports and no root-level",
     "type re-exports hiding from the count. Both documents are corrected in the same",
     "commit as A1. The number here is what the INSTRUMENT prints, never what the",
     "prose says -- a baseline transcribed from a document is a ratchet nobody",

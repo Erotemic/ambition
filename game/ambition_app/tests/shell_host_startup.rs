@@ -13,7 +13,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition::game_shell::{
+use ambition_platformer2d::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, ActiveShellSequence, ShellLauncherState,
     ShellRouter, ShellSequenceCommand,
 };
@@ -176,13 +176,13 @@ fn startup_card_plays_then_hands_off_to_the_launcher() {
     );
     assert!(matches!(
         app.world()
-            .resource::<ambition::audio::selection::ActiveAudioSelection>()
+            .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
             .owner(),
-        Some(ambition::sfx::AudioContextOwner::Frontend(_)),
+        Some(ambition_platformer2d::sfx::AudioContextOwner::Frontend(_)),
     ));
     assert!(
         !app.world()
-            .resource::<ambition::audio::AudioBackendState>()
+            .resource::<ambition_platformer2d::audio::AudioBackendState>()
             .device_backend_installed,
         "no-window startup acceptance never opens the audio device",
     );
@@ -285,7 +285,7 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
 /// sequence composed straight from the committed content manifest.
 #[test]
 fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
-    use ambition::game_shell::{image_sequence_total, ShellSegmentPresentation};
+    use ambition_platformer2d::game_shell::{image_sequence_total, ShellSegmentPresentation};
 
     let mut app = startup_app();
     shell_host::compose_ambition_startup_sequence(&mut app);
@@ -341,7 +341,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
 /// a manifest that exports zero-length or wrongly-ordered holds.
 #[test]
 fn the_authored_card_advances_through_its_frames_and_finishes() {
-    use ambition::game_shell::{
+    use ambition_platformer2d::game_shell::{
         ShellSegmentSpec, ShellSequenceFrame, ShellSequenceRuntime, ShellSequenceSpec,
     };
     use std::time::Duration;
@@ -393,8 +393,8 @@ fn the_authored_card_advances_through_its_frames_and_finishes() {
     );
 }
 
-fn current_frame_index(runtime: &ambition::game_shell::ShellSequenceRuntime) -> Option<usize> {
-    use ambition::game_shell::{image_sequence_frame_at, ShellSegmentPresentation};
+fn current_frame_index(runtime: &ambition_platformer2d::game_shell::ShellSequenceRuntime) -> Option<usize> {
+    use ambition_platformer2d::game_shell::{image_sequence_frame_at, ShellSegmentPresentation};
     let segment = runtime.current()?;
     let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
         return None;

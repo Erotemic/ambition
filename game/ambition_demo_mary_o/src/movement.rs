@@ -11,11 +11,11 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::PrimaryPlayer;
-use ambition::characters::brain::ActorControl;
-use ambition::characters::equipment::WornEquipment;
-use ambition::engine_core as ae;
-use ambition::platformer::frame_env::ResolvedMotionFrame;
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::equipment::WornEquipment;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
 
 use crate::powerups::SPARK_BLOSSOM_ID;
 
@@ -78,7 +78,7 @@ pub struct MaryOSparkCooldown {
 /// Inert for any body without the component, which is what lets this be
 /// registered outside the mode gate.
 pub fn clear_spark_cooldown_on_restart(
-    restart: On<ambition::engine_core::BodyRestarted>,
+    restart: On<ambition_platformer2d::engine_core::BodyRestarted>,
     mut cooldowns: Query<&mut MaryOSparkCooldown>,
 ) {
     if let Ok(mut cooldown) = cooldowns.get_mut(restart.entity) {
@@ -151,7 +151,7 @@ pub fn walk_by_default_run_while_held(
 /// body missing it (Bevy queries drop non-matching entities — no error, no log).
 /// Keeping the cadence separate means neither system can disable the other.
 pub fn tick_spark_cooldown(
-    time: Res<ambition::time::WorldTime>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
     mut bodies: Query<&mut MaryOSparkCooldown, With<PrimaryPlayer>>,
 ) {
     for mut spark in &mut bodies {
@@ -196,7 +196,7 @@ pub fn fire_spark_on_run_press(
         // Primarily along her facing; the shot's own authored gravity supplies the
         // arc, so no launch angle is baked in here.
         frame.fire = Some(
-            ambition::characters::actor::control::ActorFireRequest::controlled_body_local(
+            ambition_platformer2d::characters::actor::control::ActorFireRequest::controlled_body_local(
                 ae::Vec2::new(kin.facing.signum(), 0.0),
                 0.0,
             ),
@@ -219,7 +219,7 @@ pub fn sync_run_action_scheme(
     mut bodies: Query<
         (
             Entity,
-            Option<&mut ambition::characters::action_scheme::ActorTechniques>,
+            Option<&mut ambition_platformer2d::characters::action_scheme::ActorTechniques>,
             Option<&WornEquipment>,
         ),
         With<PrimaryPlayer>,
@@ -243,7 +243,7 @@ pub fn sync_run_action_scheme(
             }
             None => {
                 commands.entity(entity).try_insert(
-                    ambition::characters::action_scheme::ActorTechniques(vec![run_technique(
+                    ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![run_technique(
                         label,
                     )]),
                 );
@@ -252,12 +252,12 @@ pub fn sync_run_action_scheme(
     }
 }
 
-fn run_slot() -> ambition::entity_catalog::action_scheme::ControlSlot {
-    ambition::entity_catalog::action_scheme::ControlSlot::Modifier
+fn run_slot() -> ambition_platformer2d::entity_catalog::action_scheme::ControlSlot {
+    ambition_platformer2d::entity_catalog::action_scheme::ControlSlot::Modifier
 }
 
-fn run_technique(label: &str) -> ambition::entity_catalog::action_scheme::ActionSpec {
-    use ambition::entity_catalog::action_scheme as sch;
+fn run_technique(label: &str) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
+    use ambition_platformer2d::entity_catalog::action_scheme as sch;
     sch::ActionSpec {
         id: sch::ActionId::new("run"),
         slot: sch::ControlSlot::Modifier,

@@ -22,8 +22,8 @@
     "minimal_game": true,
     "notes": "BOTH faces, against baseline's headless-only. Windowed proven in the GPU-less form the engine documents; a real window is impossible on this box (no display server). The build was clean FIRST TRY \u2014 the patch-table instructions were correct and sufficient \u2014 and it needed no `bevy` dependency, confirming slice B's claim."
   },
-  "first_engine_file_opened": "crates/ambition_world/src/lib.rs",
-  "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
+  "first_engine_file_opened": "crates/ambition_platformer2d_world/src/lib.rs",
+  "first_engine_file_reason": "To find where `RoomSpec` and `RoomMetadata` live. `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room` takes `RoomMetadata`; neither was reachable from `ambition_platformer2d::app::prelude`, rustdoc with --no-deps rendered both as unlinked text, and rustc offered NO import suggestion for `RoomSpec`. CLOSED the same day: the prelude now re-exports both, guarded by `the_app_prelude_carries_the_room_types_its_signatures_require`.",
   "engine_api_surfaces_read": [
     {
       "crate": "ambition",
@@ -31,12 +31,12 @@
       "looking_for": "the real method list, because api-prototype.md \u00a73 says its own example is illustrative \u2014 this is where it learned no_characters/no_audio/playable/host_status exist at all"
     },
     {
-      "crate": "ambition_world",
+      "crate": "ambition_platformer2d_world",
       "via": "cargo doc",
       "looking_for": "where RoomSpec/RoomMetadata live (did not answer it)"
     },
     {
-      "crate": "ambition_world",
+      "crate": "ambition_platformer2d_world",
       "via": "source",
       "looking_for": "the answer: `pub mod prelude`"
     },
@@ -56,7 +56,7 @@
     "headless": "false -> TRUE",
     "windowed": "false -> TRUE (GPU-less form)",
     "engine_surfaces_read": "8 -> 4",
-    "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_world/src/lib.rs (an API question)",
+    "first_file_opened": "fixtures/external_consumer/Cargo.lock (a BUILDABILITY question) -> crates/ambition_platformer2d_world/src/lib.rs (an API question)",
     "reading": "The first-file field moved from 'I cannot compile this' to 'I cannot find one type', which is the campaign working: the blocker got smaller and more specific. \u00a74.2 still fails \u2014 the gate is ZERO engine files."
   },
   "findings": [
@@ -93,7 +93,7 @@
       "id": "component-names-are-invisible-to-consumers",
       "severity": "tooling",
       "closed": false,
-      "summary": "`ambition::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
+      "summary": "`ambition_platformer2d::bevy` is re-exported without Bevy's `debug` feature, so World::inspect_entity reports '<Enable the debug feature to see the name>' for everything \u2014 removing the one generic tool a consumer has for 'what did the engine spawn?'."
     },
     {
       "id": "non-empty-roster-schema-undocumented",

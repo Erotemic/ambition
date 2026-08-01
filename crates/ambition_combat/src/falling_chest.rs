@@ -13,8 +13,8 @@ use super::{CHEST_FALL_GRAVITY, CHEST_FALL_MAX_SPEED};
 pub fn update_ecs_falling_chests(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut chests: Query<(Entity, &mut CenteredAabb, &mut FallingChest), With<ChestFeature>>,
 ) {

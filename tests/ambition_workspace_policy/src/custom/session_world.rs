@@ -120,7 +120,7 @@ fn inspect_source(path: &Path, text: &str) -> Vec<String> {
             }
         }
     }
-    if path.ends_with("crates/ambition_runtime/src/session_world.rs") {
+    if path.ends_with("crates/ambition_platformer2d_runtime/src/session_world.rs") {
         let compact = compact(text);
         for required in ["#[derive(Bundle", "pubstructPlatformerSessionWorld"] {
             if !compact.contains(required) {
@@ -145,7 +145,7 @@ pub fn metas() -> Vec<CustomMeta> {
     vec![CustomMeta {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
-        owners: vec!["ambition_platformer_primitives".to_string()],
+        owners: vec!["ambition_platformer2d_shared_tangle".to_string()],
         watch_paths: vec!["crates".to_string(), "game".to_string()],
         source_doc: "docs/planning/engine/architecture.md".to_string(),
         severity: Severity::Error,
@@ -161,7 +161,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
             for detail in inspect_source(&file, &text) {
                 report.push(Diagnostic {
                     policy_id: POLICY_ID.to_string(),
-                    owners: vec!["ambition_platformer_primitives".to_string()],
+                    owners: vec!["ambition_platformer2d_shared_tangle".to_string()],
                     source_doc: "docs/planning/engine/architecture.md"
                         .to_string(),
                     rationale: "live platformer world state exists only as components on the exact SessionRoot; process resources and synchronization bridges are forbidden"

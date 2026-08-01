@@ -15,13 +15,13 @@
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use ambition::characters::brain::{PlayerSlot, SlotControls};
-use ambition::engine_core::ControlFrame;
+use ambition_platformer2d::characters::brain::{PlayerSlot, SlotControls};
+use ambition_platformer2d::engine_core::ControlFrame;
 
 fn player_pos_x(app: &mut App) -> f32 {
     let mut q = app.world_mut().query_filtered::<
-        &ambition::actors::actor::BodyKinematics,
-        With<ambition::actors::actor::PrimaryPlayer>,
+        &ambition_platformer2d::actors::actor::BodyKinematics,
+        With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
     >();
     q.iter(app.world())
         .next()
@@ -123,13 +123,13 @@ fn synthetic_keyboard_moves_the_player_through_the_standard_path() {
 
 #[test]
 fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
-    use ambition::characters::actor::WornCharacter;
+    use ambition_platformer2d::characters::actor::WornCharacter;
     use ambition_demo_sanic::{SANIC_CHARACTER_ID, SUPER_SANIC_CHARACTER_ID};
 
     fn worn_id(app: &mut App) -> String {
         let mut q = app
             .world_mut()
-            .query_filtered::<&WornCharacter, With<ambition::actors::actor::PrimaryPlayer>>();
+            .query_filtered::<&WornCharacter, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
         q.iter(app.world())
             .next()
             .expect("the demo spawned a primary worn character")
@@ -166,8 +166,8 @@ fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
     assert_eq!(worn_id(&mut app), SUPER_SANIC_CHARACTER_ID);
     let flight = {
         let mut q = app.world_mut().query_filtered::<
-            &ambition::actors::actor::BodyFlightState,
-            With<ambition::actors::actor::PrimaryPlayer>,
+            &ambition_platformer2d::actors::actor::BodyFlightState,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         >();
         *q.iter(app.world())
             .next()
@@ -222,7 +222,7 @@ fn without_input_the_player_does_not_drift_right() {
 /// must suppress every one of them on every frame.
 #[test]
 fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
-    use ambition::characters::brain::ActorControl;
+    use ambition_platformer2d::characters::brain::ActorControl;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.update();
@@ -271,9 +271,9 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
         let (control, shield_active, melee_swinging) = {
             let mut q = app.world_mut().query_filtered::<(
                 &ActorControl,
-                &ambition::actors::actor::BodyShieldState,
-                &ambition::actors::actor::BodyMelee,
-            ), With<ambition::actors::actor::PrimaryPlayer>>(
+                &ambition_platformer2d::actors::actor::BodyShieldState,
+                &ambition_platformer2d::actors::actor::BodyMelee,
+            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
             );
             let (control, shield, melee) = q
                 .iter(app.world())
@@ -293,7 +293,7 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
         let live = {
             let mut q = app
                 .world_mut()
-                .query::<&ambition::projectiles::LiveProjectile>();
+                .query::<&ambition_platformer2d::projectiles::LiveProjectile>();
             q.iter(app.world()).count()
         };
         projectiles_ever_live |= live > 0;
@@ -343,9 +343,9 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
 /// generic melee.
 #[test]
 fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
-    use ambition::actors::features::MotionModel;
-    use ambition::engine_core::BodyMode;
-    use ambition::sprite_sheet::character::CharacterAnim;
+    use ambition_platformer2d::actors::features::MotionModel;
+    use ambition_platformer2d::engine_core::BodyMode;
+    use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
     use ambition_demo_sanic::ball_dash::{BallDash, BallDashTuning, Rolling};
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
@@ -384,9 +384,9 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
         let (charge, mode, anim) = {
             let mut q = app.world_mut().query_filtered::<(
                 &BallDash,
-                &ambition::actors::actor::BodyModeState,
-                &ambition::sim_view::BodyPoseView,
-            ), With<ambition::actors::actor::PrimaryPlayer>>(
+                &ambition_platformer2d::actors::actor::BodyModeState,
+                &ambition_platformer2d::sim_view::BodyPoseView,
+            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
             );
             let (dash, mode, pose) = q
                 .iter(app.world())
@@ -436,9 +436,9 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
                 &BallDash,
                 Option<&Rolling>,
                 &MotionModel,
-                &ambition::actors::actor::BodyKinematics,
+                &ambition_platformer2d::actors::actor::BodyKinematics,
                 &ambition_demo_sanic::ball_dash::BallDashInput,
-            ), With<ambition::actors::actor::PrimaryPlayer>>(
+            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
             );
             let (dash, rolling, motion, kin, technique_input) = q
                 .iter(app.world())
@@ -446,8 +446,8 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
                 .expect("the demo spawned a primary player body");
             let speed = match motion {
                 MotionModel::SurfaceMomentum(momentum) => match momentum.state {
-                    ambition::engine_core::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
-                    ambition::engine_core::SurfaceMotion::Airborne => kin.vel.length(),
+                    ambition_platformer2d::engine_core::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
+                    ambition_platformer2d::engine_core::SurfaceMotion::Airborne => kin.vel.length(),
                 },
                 MotionModel::AxisSwept(_) | MotionModel::AdhesiveCrawler(_) => 0.0,
             };

@@ -2,7 +2,7 @@
 //! stands up through it.**
 //!
 //! Every consumer the campaign has proven so far — Outlander and the minimal
-//! game — was written or rewritten against `ambition::app`. Sanic was not. It
+//! game — was written or rewritten against `ambition_platformer2d::app`. Sanic was not. It
 //! is an in-tree demo with presentation profiles, a declared HUD, music,
 //! procedural SFX and packed SFX, written before `PlatformerApp` existed, and
 //! it is the closest thing available to an independent consumer.
@@ -18,7 +18,7 @@
 //! and using it here is evidence about where `playable` stops rather than a
 //! workaround.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 use ambition_demo_sanic::provider::{
     SanicExperiencePlugin, SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
 };
@@ -111,7 +111,7 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
                 .experience("neighbour")
                 .launcher_route("neighbour/menu")
                 .gameplay_route("neighbour/play")
-                .characters(ambition::app::MINIMAL_CHARACTER_ROSTER_RON)
+                .characters(ambition_platformer2d::app::MINIMAL_CHARACTER_ROSTER_RON)
                 .no_audio()
                 // It must be PLAYABLE, or nothing registers its route and rule
                 // 7 refuses the composition — which it did on the first
@@ -126,8 +126,8 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
         }
     }
 
-    fn neighbour_room() -> ambition::world::prelude::RoomSpec {
-        use ambition::world::prelude::*;
+    fn neighbour_room() -> ambition_platformer2d::world::prelude::RoomSpec {
+        use ambition_platformer2d::world::prelude::*;
         let size = Vec2::new(640.0, 360.0);
         let world = AuthoredWorld::new(
             "Neighbour Room",
@@ -141,10 +141,10 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
         RoomSpec::new("neighbour_room", world)
     }
 
-    fn sanic_identity(app: &ambition::bevy::prelude::App) -> (String, String) {
+    fn sanic_identity(app: &ambition_platformer2d::bevy::prelude::App) -> (String, String) {
         let authored = app
             .world()
-            .get_resource::<ambition::character::PlatformerAuthoredCatalogRegistry>()
+            .get_resource::<ambition_platformer2d::character::PlatformerAuthoredCatalogRegistry>()
             .expect("the authored catalog registry exists once a provider registered")
             .deterministic_dump();
         // Only Sanic's rows. The embedded app also holds the neighbour's, and
@@ -157,7 +157,7 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
         let schema = format!(
             "{:?}",
             app.world()
-                .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+                .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
                 .expect("the rollback registry exists")
                 .schema_fingerprint()
         );

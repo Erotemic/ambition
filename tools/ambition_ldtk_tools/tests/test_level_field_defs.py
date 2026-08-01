@@ -25,7 +25,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Level fields read by `LdtkLevel::level_metadata` in
-# `crates/ambition_ldtk_map/src/project.rs`. Adding a reader there without
+# `crates/ambition_platformer2d_ldtk/src/project.rs`. Adding a reader there without
 # adding the def here (and to the projects) recreates the `mode` bug.
 ENGINE_READ_LEVEL_FIELDS = {
     "activeArea",

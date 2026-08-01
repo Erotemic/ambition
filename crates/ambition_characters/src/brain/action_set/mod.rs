@@ -15,7 +15,7 @@
 //! Telegraphs aren't a separate concept; each attack spec owns its
 //! full windup → active → recover animation timing.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::ecs::component::Component;
 
 /// Per-entity capability set. Resolves abstract brain intent

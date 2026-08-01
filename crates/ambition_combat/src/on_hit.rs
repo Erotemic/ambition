@@ -27,7 +27,7 @@ use bevy::prelude::{
     Component, Entity, Has, Message, MessageReader, MessageWriter, Query, Res, With,
 };
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::EffectRef;
 
 use super::components::{ActorAggression, ActorFaction};
@@ -285,9 +285,9 @@ pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
     pogo_targets: Query<(), With<PogoTarget>>,
     mut owners: Query<(
-        &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::BodyKinematics,
-        &mut ambition_engine_core::BodyGroundState,
+        &mut ambition_platformer2d_core::BodyGroundState,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {

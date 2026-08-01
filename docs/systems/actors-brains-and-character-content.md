@@ -15,7 +15,7 @@ separate body implementations.
 - `ambition_characters` owns reusable actor identity/control vocabulary,
   `Brain`, perception/memory, action schemes, equipment-to-parameters, and the
   character-catalog schema/assembly registry.
-- `ambition_actors` currently owns the unified live body/simulation integration
+- `ambition_platformer2d_actor_monolith` currently owns the unified live body/simulation integration
   and some remaining adapters. It is not a license for named content to move
   back into machinery.
 - `ambition_combat` owns movesets, `MovePlayback`, attack timelines, and shared

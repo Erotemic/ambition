@@ -5,7 +5,7 @@
 //! in the engine so later story crates can share them.
 
 use ambition_characters::actor::Health;
-use ambition_engine_core::Aabb;
+use ambition_platformer2d_core::Aabb;
 use ambition_entity_catalog::placements::HazardRespawn;
 
 /// A player-facing interaction trigger.

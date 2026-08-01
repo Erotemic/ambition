@@ -66,7 +66,7 @@ thing eventually disagree, with nothing to say which one reconstruction should
 believe.
 
 **Construction is planned as a pure value, then committed.**
-`ambition_platformer_primitives::construction` owns the content-free vocabulary:
+`ambition_platformer2d_shared_tangle::construction` owns the content-free vocabulary:
 `RecipeId`, `ConstructionRequest`, `ConstructionPlan`, `PlannedEntity`,
 `PlannedRelation`, a recipe registry on ADR 0026's registration lifecycle, and a
 byte-stable dump. Planning validates identity collisions (against the plan and
@@ -193,7 +193,7 @@ committed with the rest of the room. `apply_spawn_actor_requests` survives for
 programmatic scene setup (RL episode reset, demo spawns), which legitimately
 wants a message.
 
-`ContentEpoch` moved from `ambition_runtime` to `ambition_engine_core`.
+`ContentEpoch` moved from `ambition_platformer2d_runtime` to `ambition_platformer2d_core`.
 Construction planning sits far below the crate that owns content identity and
 must be able to state the generation a plan was prepared against; allocation
 stayed where it was, and only the stamp moved. That stamp is **recorded, not

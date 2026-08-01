@@ -13,8 +13,8 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
 use ambition_demo_sanic::SanicActState;
 use ambition_demo_sanic_app::{build_demo_app, build_demo_app_with_home};
 
@@ -29,7 +29,7 @@ fn active_route(app: &App) -> Option<String> {
 fn primary_players(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<Entity, With<ambition::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
     query.iter(app.world()).count()
 }
 
@@ -142,11 +142,11 @@ fn simulation_sleeps_at_the_launcher_and_wakes_per_session() {
     assert_eq!(active_route(&app), Some("sanic_gameplay".to_owned()));
 
     // In-session the timeline advances: one update == one fixed tick.
-    let in_session = app.world().resource::<ambition::runtime::SimTick>().0;
+    let in_session = app.world().resource::<ambition_platformer2d::runtime::SimTick>().0;
     app.update();
     app.update();
     assert_eq!(
-        app.world().resource::<ambition::runtime::SimTick>().0,
+        app.world().resource::<ambition_platformer2d::runtime::SimTick>().0,
         in_session + 2,
         "fixed-tick simulation advances while a session is live"
     );
@@ -155,12 +155,12 @@ fn simulation_sleeps_at_the_launcher_and_wakes_per_session() {
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     assert_eq!(active_route(&app), Some("sanic_launcher".to_owned()));
-    let at_home = app.world().resource::<ambition::runtime::SimTick>().0;
+    let at_home = app.world().resource::<ambition_platformer2d::runtime::SimTick>().0;
     for _ in 0..8 {
         app.update();
     }
     assert_eq!(
-        app.world().resource::<ambition::runtime::SimTick>().0,
+        app.world().resource::<ambition_platformer2d::runtime::SimTick>().0,
         at_home,
         "no fixed-update gameplay simulation runs at the launcher"
     );
@@ -169,11 +169,11 @@ fn simulation_sleeps_at_the_launcher_and_wakes_per_session() {
     app.world_mut()
         .write_message(ShellLauncherCommand::LaunchSelected);
     settle(&mut app);
-    let relaunched = app.world().resource::<ambition::runtime::SimTick>().0;
+    let relaunched = app.world().resource::<ambition_platformer2d::runtime::SimTick>().0;
     app.update();
     app.update();
     assert_eq!(
-        app.world().resource::<ambition::runtime::SimTick>().0,
+        app.world().resource::<ambition_platformer2d::runtime::SimTick>().0,
         relaunched + 2,
         "a fresh session resumes the simulation"
     );

@@ -1,10 +1,10 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
 //! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_engine_core::snapshot` owns the trait and the orphan rule binds an
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
 //! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_runtime`. The
+//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
+//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
 //! orphan rule is what proves this file is in the right crate: if a type moves,
 //! this stops compiling rather than drifting.
 //!
@@ -12,11 +12,11 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_engine_core::snapshot::{
+use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u8, put_vec2,
     Reader, SnapshotCursor, SnapshotResolve, SnapshotState,
 };
-use ambition_engine_core::{snapshot_pod, snapshot_unit_enum};
+use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::targeting::MatchTeam {
     fn encode(&self, out: &mut Vec<u8>) {

@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use ambition_combat::GameplayBanner;
 use ambition_items::{Item, OwnedItems};
 
-pub use ambition_actors::quest::push_room_entered_quest_events;
+pub use ambition_platformer2d_actor_monolith::quest::push_room_entered_quest_events;
 /// Facade: the generic registry half moved to [`ambition_persistence::quest::registry`].
 /// Inbound `crate::quest::QuestRegistry` paths keep working.
 pub use ambition_persistence::quest::registry::{apply_quest_advance_events, QuestRegistry};

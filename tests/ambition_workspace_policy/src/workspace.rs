@@ -135,14 +135,17 @@ fn package_name(manifest: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Collect `ambition`/`ambition_*` dependency names from every standard
-/// dependency table of a parsed manifest.
+/// Collect `ambition_*` dependency names from every standard dependency table of
+/// a parsed manifest.
 fn ambition_deps_of(manifest: &str) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let Ok(table) = manifest.parse::<toml::Table>() else {
         return out;
     };
-    let is_ambition = |name: &str| name == "ambition" || name.starts_with("ambition_");
+    // The facade used to be the one crate named `ambition` with no suffix, so
+    // this carried an equality arm beside the prefix test. It is
+    // `ambition_platformer2d` now, which the prefix already covers.
+    let is_ambition = |name: &str| name.starts_with("ambition_");
 
     let mut collect = |t: Option<&toml::Value>| {
         if let Some(deps) = t.and_then(|v| v.as_table()) {

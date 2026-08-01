@@ -83,9 +83,9 @@ pub fn sync_resolved_visual_quality(
 #[cfg(feature = "portal_render")]
 pub fn sync_portal_quality_budget(
     quality: Res<ResolvedVisualQuality>,
-    mut portal_budget: ResMut<ambition_portal_presentation::PortalCaptureQualityBudget>,
+    mut portal_budget: ResMut<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
 ) {
-    let next = ambition_portal_presentation::PortalCaptureQualityBudget {
+    let next = ambition_portal2d_presentation::PortalCaptureQualityBudget {
         max_resolution: quality.budget.portal.max_resolution,
         texels_per_world_px: quality.budget.portal.texels_per_world_px,
         recursion_depth: quality.budget.portal.recursion_depth,

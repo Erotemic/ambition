@@ -104,11 +104,11 @@ impl Plugin for AmbitionContentPlugin {
         // The spectator duel is the arena room's registered content staging:
         // part of room construction (every path — activation, transition,
         // reset, restore staging — rebuilds it), not a RoomLoaded consumer.
-        app.init_resource::<ambition_actors::features::RoomContentStagingRegistry>();
+        app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();
         super::duel_arena::register_duel_content_staging(
             &mut app
                 .world_mut()
-                .resource_mut::<ambition_actors::features::RoomContentStagingRegistry>(),
+                .resource_mut::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>(),
         );
         #[cfg(feature = "ui")]
         {

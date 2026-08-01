@@ -13,8 +13,8 @@
 //! was tried and abandoned — see `the_act_clear_restarts_the_act_after_the_full_dwell`
 //! below for why the post-goal death makes that run unable to isolate a replay.
 
-use ambition::engine_core as ae;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_sanic_app::build_demo_app;
 use bevy::prelude::*;
 
@@ -25,7 +25,7 @@ struct RoomResetsSeen(usize);
 
 fn count_room_resets(
     mut seen: ResMut<RoomResetsSeen>,
-    mut resets: MessageReader<ambition::combat::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::ResetRoomFeaturesEvent>,
 ) {
     seen.0 += resets.read().count();
 }
@@ -50,7 +50,7 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
 fn room_spawn(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<ambition::platformer::lifecycle::SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
     query
         .iter(app.world())
         .next()
@@ -76,7 +76,7 @@ fn settle_until_playable(app: &mut App) -> Vec2 {
 fn displace(app: &mut App, to: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query
@@ -109,7 +109,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 
     app.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     app.update();
 
     let home = player_pos(&mut app).expect("he is still in the world");
@@ -213,7 +213,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 
     app.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     for _ in 0..4 {
         app.update();
     }

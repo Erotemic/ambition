@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Unified actor system for Ambition: actor control/AI vocabulary + the universal brain (player, NPC, enemy, boss) + the character catalog. Bosses are actors (ADR 0016)."
 
 [dependencies]
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The content-free ability vocabulary (MoveSpec / EffectRef / ParamValue). A
 # downward edge (entity_catalog is a leaf): the universal-brain `Special` action
 # carries an `EffectRef`'s opaque `ParamValue` so a content technique hydrates

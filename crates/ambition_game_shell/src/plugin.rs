@@ -41,7 +41,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
-            .add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>()
+            .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>()
             .configure_sets(
                 Update,
                 (
@@ -203,12 +203,12 @@ fn initialize_shell(
 }
 
 fn quit_active_session_from_developer_action(
-    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
     active: Option<Res<ActiveGameplaySession>>,
     mut shell: MessageWriter<ShellCommand>,
 ) {
     let requested = actions.read().any(|action| {
-        *action == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::QuitToHome
+        *action == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::QuitToHome
     });
     if requested
         && active

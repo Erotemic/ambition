@@ -2,7 +2,7 @@
 //! /projectile/portal debug draws, health bars, camera frame, LDtk spine.
 //!
 //! The engine-generic world layers (bounds/blocks/chains/grids/rebound/moving
-//! platforms) moved to `ambition::render::rendering::debug_viz` — any game
+//! platforms) moved to `ambition_platformer2d::render::rendering::debug_viz` — any game
 //! opts into those via `DebugVizPlugin`; this overlay imports them back
 //! through the parent module's re-export and composes them with the layers
 //! here.
@@ -26,13 +26,13 @@ pub(crate) fn draw_held_projectiles<'a>(
     world: &ae::World,
     projectiles: impl Iterator<
         Item = (
-            &'a ambition::actors::actor::BodyKinematics,
-            &'a ambition::actors::items::pickup::HeldProjectile,
+            &'a ambition_platformer2d::actors::actor::BodyKinematics,
+            &'a ambition_platformer2d::actors::items::pickup::HeldProjectile,
         ),
     >,
     developer_tools: &DeveloperTools,
 ) {
-    use ambition::actors::items::pickup::HeldProjectile;
+    use ambition_platformer2d::actors::items::pickup::HeldProjectile;
     let contact_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue (player-side)
     let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45); // faint orange (AOE)
     for (kin, proj) in projectiles {
@@ -57,7 +57,7 @@ pub(crate) fn draw_held_projectiles<'a>(
 pub(crate) fn draw_portals<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    portals: impl Iterator<Item = &'a ambition::portal::PlacedPortal>,
+    portals: impl Iterator<Item = &'a ambition_platformer2d::portal::PlacedPortal>,
 ) {
     for portal in portals {
         let color = portal.channel.display().0.with_alpha(0.95);
@@ -75,7 +75,7 @@ pub(crate) fn draw_portals<'a>(
         // along the doorway). The portal map preserves this component, so it sets
         // whether your along-surface direction is kept or mirrored. Drawn in green
         // as a single-headed tick so its sign is visible.
-        let tangent = ambition::portal::pieces::portal_tangent(portal.normal);
+        let tangent = ambition_platformer2d::portal::pieces::portal_tangent(portal.normal);
         gizmos.line_2d(
             base,
             w2(world, portal.pos + tangent * 18.0),
@@ -91,49 +91,49 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            ambition::actors::features::BossClusterRef,
-            &'static ambition::characters::actor::BodyHealth,
-            &'static ambition::characters::brain::BossAttackState,
-            Option<&'static ambition::actors::features::BossAnimationFrameSample>,
+            ambition_platformer2d::actors::features::BossClusterRef,
+            &'static ambition_platformer2d::characters::actor::BodyHealth,
+            &'static ambition_platformer2d::characters::brain::BossAttackState,
+            Option<&'static ambition_platformer2d::actors::features::BossAnimationFrameSample>,
         ),
-        With<ambition::actors::features::FeatureSimEntity>,
+        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
     pub actors: Query<
         'w,
         's,
         (
-            &'static ambition::actors::features::ActorDisposition,
-            &'static ambition::actors::features::ActorAggression,
-            &'static ambition::actors::features::CenteredAabb,
-            Option<&'static ambition::actors::features::BodyKinematics>,
-            Option<&'static ambition::actors::features::BodyMelee>,
-            Option<&'static ambition::actors::features::ActorSurfaceState>,
+            &'static ambition_platformer2d::actors::features::ActorDisposition,
+            &'static ambition_platformer2d::actors::features::ActorAggression,
+            &'static ambition_platformer2d::actors::features::CenteredAabb,
+            Option<&'static ambition_platformer2d::actors::features::BodyKinematics>,
+            Option<&'static ambition_platformer2d::actors::features::BodyMelee>,
+            Option<&'static ambition_platformer2d::actors::features::ActorSurfaceState>,
         ),
-        With<ambition::actors::features::FeatureSimEntity>,
+        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
     pub breakables: Query<
         'w,
         's,
-        &'static ambition::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::actors::features::CenteredAabb,
         (
-            With<ambition::actors::features::FeatureSimEntity>,
-            With<ambition::actors::features::BreakableFeature>,
+            With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+            With<ambition_platformer2d::actors::features::BreakableFeature>,
         ),
     >,
     pub chests: Query<
         'w,
         's,
-        &'static ambition::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::actors::features::CenteredAabb,
         (
-            With<ambition::actors::features::FeatureSimEntity>,
-            With<ambition::actors::features::ChestFeature>,
+            With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+            With<ambition_platformer2d::actors::features::ChestFeature>,
         ),
     >,
     pub hazards: Query<
         'w,
         's,
-        &'static ambition::actors::features::HazardFeature,
-        With<ambition::actors::features::FeatureSimEntity>,
+        &'static ambition_platformer2d::actors::features::HazardFeature,
+        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
     /// All live `Hitbox` entities (melee swings, World-anchored
     /// hazards like the Gradient Sentinel's PitTrap pit /
@@ -141,11 +141,11 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// view answers "what just hit me?" — without this pass the
     /// World-anchored boss specials are invisible even though they
     /// deal damage.
-    pub hitboxes: Query<'w, 's, &'static ambition::actors::features::Hitbox>,
+    pub hitboxes: Query<'w, 's, &'static ambition_platformer2d::actors::features::Hitbox>,
     /// CenteredAabb lookup for resolving `FollowOwner` hitboxes to
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
-    pub hitbox_owners: Query<'w, 's, &'static ambition::actors::features::CenteredAabb>,
+    pub hitbox_owners: Query<'w, 's, &'static ambition_platformer2d::actors::features::CenteredAabb>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -157,24 +157,24 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition::actors::actor::BodyKinematics,
-            &'static ambition::actors::items::pickup::HeldProjectile,
+            &'static ambition_platformer2d::actors::actor::BodyKinematics,
+            &'static ambition_platformer2d::actors::items::pickup::HeldProjectile,
         ),
-        Without<ambition::actors::actor::PlayerEntity>,
+        Without<ambition_platformer2d::actors::actor::PlayerEntity>,
     >,
     /// The player's resolved gravity, so the player debug box can rotate to
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
-    pub gravity: Option<Res<'w, ambition::actors::physics::GravityField>>,
+    pub gravity: Option<Res<'w, ambition_platformer2d::actors::physics::GravityField>>,
     /// App-local character authority and attack-volume bridge used by the combat
     /// preview. Keeping them in this bundle preserves the top-level system's
     /// parameter budget.
     pub character_catalog:
-        Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
-    pub boss_catalog: Res<'w, ambition::actors::boss_encounter::BossCatalog>,
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    pub boss_catalog: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     pub authored_attack_volumes:
-        Res<'w, ambition::actors::combat::authored_volumes::AuthoredAttackVolumeResolver>,
+        Res<'w, ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver>,
     /// In-flight player projectiles (ECS entities). Bundled here (rather than a
     /// top-level param) so `draw_debug_overlay` has a slot free for the
     /// debug-label buffer while staying under the 16-param ceiling.
@@ -182,20 +182,20 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub player_projectiles: Query<
         'w,
         's,
-        &'static ambition::actors::actor::BodyKinematics,
+        &'static ambition_platformer2d::actors::actor::BodyKinematics,
         (
-            With<ambition::projectiles::PlayerProjectile>,
-            Without<ambition::actors::actor::PlayerEntity>,
+            With<ambition_platformer2d::projectiles::PlayerProjectile>,
+            Without<ambition_platformer2d::actors::actor::PlayerEntity>,
         ),
     >,
     /// In-flight enemy projectiles (ECS entities); see `player_projectiles`.
     pub enemy_projectiles: Query<
         'w,
         's,
-        &'static ambition::actors::actor::BodyKinematics,
+        &'static ambition_platformer2d::actors::actor::BodyKinematics,
         (
-            With<ambition::projectiles::enemy::EnemyProjectile>,
-            Without<ambition::actors::actor::PlayerEntity>,
+            With<ambition_platformer2d::projectiles::enemy::EnemyProjectile>,
+            Without<ambition_platformer2d::actors::actor::PlayerEntity>,
         ),
     >,
 }
@@ -229,26 +229,26 @@ pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: 
 pub(crate) fn draw_ldtk_runtime_spine(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    spine_index: &ambition::actors::ldtk_world::LdtkRuntimeSpineIndex,
+    spine_index: &ambition_platformer2d::actors::ldtk_world::LdtkRuntimeSpineIndex,
 ) {
     for entity in &spine_index.entities {
         let color = match entity.role {
-            ambition::actors::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
-            ambition::actors::ldtk_world::LdtkRuntimeRole::LoadingZone => {
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::LoadingZone => {
                 Color::srgba(1.0, 1.0, 1.0, 0.70)
             }
-            ambition::actors::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
-            ambition::actors::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
             // Solid runtime rects are drawn by the dedicated Solid index pass
             // so they can be color-keyed against the JSON-derived collision
             // blocks during the Step 2 raw-vs-runtime overlay work.
-            ambition::actors::ldtk_world::LdtkRuntimeRole::Solid => continue,
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::Solid => continue,
             // OneWayPlatform / DamageVolume have their own dedicated runtime
             // indices and overlay passes; skip them in the generic spine
             // overlay so colors don't double-stamp.
-            ambition::actors::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
-            ambition::actors::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
-            ambition::actors::ldtk_world::LdtkRuntimeRole::Other => continue,
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
+            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::Other => continue,
         };
         draw_aabb(gizmos, world, entity.aabb(), color);
     }
@@ -259,8 +259,8 @@ pub(crate) fn draw_ldtk_runtime_spine(
 pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
-    authored_attack_volumes: &ambition::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+    authored_attack_volumes: &ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
     clusters: &ae::BodyClustersMut<'_>,
     // **Where the body is DRAWN this frame** — the frame-clock presented
@@ -283,8 +283,8 @@ pub(crate) fn draw_player_debug(
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
     motion_model: &ae::MotionModel,
-    moving_platforms: &[ambition::actors::world::platforms::MovingPlatformState],
-    attack: Option<&ambition::actors::MeleeSwing>,
+    moving_platforms: &[ambition_platformer2d::actors::world::platforms::MovingPlatformState],
+    attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
@@ -306,8 +306,8 @@ pub(crate) fn draw_player_debug(
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
     // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition::actors::features::collision_aabb(
-        &ambition::actors::features::SimpleActorGeometry {
+    let body = ambition_platformer2d::actors::features::collision_aabb(
+        &ambition_platformer2d::actors::features::SimpleActorGeometry {
             // The presented centre, with the size/facing/frame the sim published:
             // the shared-geometry guarantee above is about the SHAPE, and moving
             // the centre onto the render clock leaves that untouched.
@@ -356,7 +356,7 @@ pub(crate) fn draw_player_debug(
     // debug below.
     let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
     if gameplay_active && developer_tools.show_combat_preview {
-        let view = ambition::actors::combat::AttackView {
+        let view = ambition_platformer2d::actors::combat::AttackView {
             pos,
             size,
             facing,
@@ -369,7 +369,7 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume = ambition::actors::features::ecs::attack::player_attack_hitbox(
+            let volume = ambition_platformer2d::actors::features::ecs::attack::player_attack_hitbox(
                 character_catalog,
                 authored_attack_volumes,
                 Some(worn_character_id),
@@ -378,12 +378,12 @@ pub(crate) fn draw_player_debug(
                 gravity_dir,
             )
             .unwrap_or_else(|| {
-                ambition::actors::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
+                ambition_platformer2d::actors::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
             });
             let color = match attack_state.phase() {
-                Some(ambition::actors::combat::AttackPhase::Startup) => yellow(),
-                Some(ambition::actors::combat::AttackPhase::Active) => red(),
-                Some(ambition::actors::combat::AttackPhase::Recovery) => gray(),
+                Some(ambition_platformer2d::actors::combat::AttackPhase::Startup) => yellow(),
+                Some(ambition_platformer2d::actors::combat::AttackPhase::Active) => red(),
+                Some(ambition_platformer2d::actors::combat::AttackPhase::Recovery) => gray(),
                 None => gray(),
             };
             draw_combat_volume(gizmos, world, &volume, color);
@@ -491,7 +491,7 @@ pub(crate) fn draw_health_bars(
     gizmos: &mut Gizmos,
     world: &ae::World,
     player_aabb: ae::Aabb,
-    player_health: Option<&ambition::characters::actor::BodyHealth>,
+    player_health: Option<&ambition_platformer2d::characters::actor::BodyHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
     draw_health_bar(gizmos, world, player_aabb, ratio, cyan());
@@ -589,13 +589,13 @@ pub(crate) fn draw_feature_debug(
                 // Forward-swing hitbox geometry (matches
                 // ActorMut::attack_aabb): offset by facing.
                 let center = kin.pos
-                    + ambition::engine_core::Vec2::new(
+                    + ambition_platformer2d::engine_core::Vec2::new(
                         kin.facing * (kin.size.x * 0.55 + 24.0),
                         -4.0,
                     );
-                let attack_box = ambition::engine_core::Aabb::new(
+                let attack_box = ambition_platformer2d::engine_core::Aabb::new(
                     center,
-                    ambition::engine_core::Vec2::new(34.0, 28.0),
+                    ambition_platformer2d::engine_core::Vec2::new(34.0, 28.0),
                 );
                 if attack.is_active() {
                     draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
@@ -644,7 +644,7 @@ pub(crate) fn draw_feature_debug(
         if !health.alive() {
             continue;
         }
-        let ctx = ambition::actors::features::BossVolumeContext::from_ref(
+        let ctx = ambition_platformer2d::actors::features::BossVolumeContext::from_ref(
             &feature_q.boss_catalog,
             bf.as_boss_ref(),
             attack_state,
@@ -682,7 +682,7 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in ambition::actors::features::damageable_volumes(&ctx) {
+        for hurtbox in ambition_platformer2d::actors::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
             label_box(
                 labels,
@@ -692,7 +692,7 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::TopLeft,
             );
         }
-        for vol in ambition::actors::features::active_attack_volumes(&ctx) {
+        for vol in ambition_platformer2d::actors::features::active_attack_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
             label_box(labels, vol, "active", active_color, LabelSpot::Center);
         }
@@ -761,9 +761,9 @@ pub(crate) fn draw_feature_debug(
         let owner_pos = match (owner_pos, hitbox.anchor) {
             (Some(p), _) => p,
             // World-anchored: center is fixed at spawn, owner pos unused.
-            (None, ambition::actors::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
+            (None, ambition_platformer2d::actors::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
             // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
-            (None, ambition::actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
+            (None, ambition_platformer2d::actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
         };
         // Draw the hitbox's TRUE damage volume — the authored convex blade / OBB /
         // circle the strike actually resolves against, not just its AABB. When a
@@ -772,10 +772,10 @@ pub(crate) fn draw_feature_debug(
         // per-clip poly through the moveset, so "hit:player" now shows that poly.)
         let volume = hitbox.world_volume(owner_pos);
         let (color, tag) = match hitbox.source {
-            ambition::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
-            ambition::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
-            ambition::vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
-            ambition::vfx::HitSide::Npc | ambition::vfx::HitSide::Neutral => {
+            ambition_platformer2d::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
+            ambition_platformer2d::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
+            ambition_platformer2d::vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
+            ambition_platformer2d::vfx::HitSide::Npc | ambition_platformer2d::vfx::HitSide::Neutral => {
                 (npc_hitbox_color, "hit:npc")
             }
         };
@@ -791,8 +791,8 @@ pub(crate) fn draw_feature_debug(
 pub(crate) fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_bodies: impl IntoIterator<Item = &'a ambition::actors::actor::BodyKinematics>,
-    enemy_bodies: impl IntoIterator<Item = &'a ambition::actors::actor::BodyKinematics>,
+    player_bodies: impl IntoIterator<Item = &'a ambition_platformer2d::actors::actor::BodyKinematics>,
+    enemy_bodies: impl IntoIterator<Item = &'a ambition_platformer2d::actors::actor::BodyKinematics>,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);

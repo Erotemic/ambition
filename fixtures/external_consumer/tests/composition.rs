@@ -22,11 +22,11 @@
 //! This file is inside the `include_tests` scope of BOTH slice-A contracts
 //! (`outlander-names-only-the-public-sdk` and
 //! `outlander-does-not-hand-order-its-own-composition`) — the fixture's tests
-//! ARE the consumer. So it names `ambition::app` and nothing else, and it must
+//! ARE the consumer. So it names `ambition_platformer2d::app` and nothing else, and it must
 //! not reach for a plugin group to check its own work. Everything asserted below
 //! is observable through the public surface or through the `App` itself.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 use outlander::OutlanderModule;
 
 /// Both faces come from ONE module, so the test cannot accidentally prove that
@@ -64,7 +64,7 @@ fn platformer_app_composes_the_fixture_headless() {
 /// material; that it is one builder call is the thing under test.
 ///
 /// Deliberately NOT gated on the `visible` feature. The face selection lives in
-/// `ambition::app` with no `cfg` on it, so if this ever stops compiling under
+/// `ambition_platformer2d::app` with no `cfg` on it, so if this ever stops compiling under
 /// default features that is a real change in what a consumer can reach for, and a
 /// gate here would hide it.
 #[test]
@@ -105,7 +105,7 @@ fn a_face_that_cannot_honor_a_request_says_so() {
 /// This is the blind agent's finding of 2026-07-30, turned into the check that
 /// should have existed. It declared a gameplay route no experience registered
 /// and got a host that built clean, ran 60 ticks, and spawned zero entities —
-/// while `ambition::app`'s own module docs claimed rule 7 was enforced "by TYPE,
+/// while `ambition_platformer2d::app`'s own module docs claimed rule 7 was enforced "by TYPE,
 /// so the empty host is unreachable rather than merely documented". What was
 /// enforced was that a *string* had been supplied.
 ///

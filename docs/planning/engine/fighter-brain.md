@@ -410,7 +410,7 @@ those checks would otherwise surface as *"the levels do not order correctly"* af
 hours of self-play.
 
 **`rollout_depth` is zero on every row.** L3 needs N3.1's `restore`, which landed
-2026-07-10 (`ambition_runtime::snapshot::restore`); FB6 is now unblocked and is the
+2026-07-10 (`ambition_platformer2d_runtime::snapshot::restore`); FB6 is now unblocked and is the
 slice that turns rollouts on (until then every row still ships `rollout_depth = 0`).
 §1 promises graceful degradation — *"L3 is an upgrade, not a dependency"* —
 so the whole ladder plays on L2's scores alone today, and FB6 turns them on without
@@ -588,17 +588,17 @@ finding; (4) test KO — a body in hitstun outside `stage` bounds emits `KO`.
 **`hitstun_s` and the knockback response are NOT a free calibration point —
 the real formula already exists, and the fork is whether to SHARE it.** The
 authoritative response is pure math in
-`ambition_actors::features::ecs::damage_apply`:
+`ambition_platformer2d_actor_monolith::features::ecs::damage_apply`:
 `hitstun_timer = feel.{boss|enemy}_hitstun_time ×
 knockback_reaction_scale(kb).max(0.35)`, velocity from
 `resolved_body_knockback_velocity`, plus the carried-momentum rule. The brain
-cannot name any of it: `ambition_actors` AND `ambition_combat` both depend on
+cannot name any of it: `ambition_platformer2d_actor_monolith` AND `ambition_combat` both depend on
 `ambition_characters` (verified in both Cargo.tomls), so the kernel sits
 above the crate that wants to speak it — the slice-F shape exactly. Two ways
 out, and FB6b must pick one:
 
 1. **Carve the pure hit-response kernel** (the two functions plus the feel
-   constants they read) down to `ambition_engine_core`, and have
+   constants they read) down to `ambition_platformer2d_core`, and have
    `damage_apply` and the shadow model call ONE function. Fidelity on the
    hit-response axis becomes exact by construction instead of calibrated.
    Recommended — the orphan-rule precedent says let the dependency graph
@@ -776,7 +776,7 @@ the discipline §9 already pinned.
 | # | Slice | Grade |
 |---|---|---|
 | FB6a | ~~`MoveFrameData.max_damage`/`max_knockback` derivation + L2's `expected_payoff` feature (§12.5)~~ ✅ **LANDED 2026-07-30** — `the_smash_outbids_the_jab_on_a_punish_it_fits` pins the recorded scenario both ways | [opus] |
-| FB6b | ~~`ShadowState`/`shadow_step` + unit properties~~ ✅ **LANDED 2026-07-30**, route 1 taken: the hit-response kernel (types + `di_adjust` + `knockback_velocity` + `hitstun_duration`) carved to `ambition_engine_core::hit_response`, `damage_apply` and the shadow model call ONE formula, and `the_hit_response_is_the_authoritative_kernel_not_an_imitation` goes red if a private copy reappears. Ballistic projectiles are in v1 | [opus] |
+| FB6b | ~~`ShadowState`/`shadow_step` + unit properties~~ ✅ **LANDED 2026-07-30**, route 1 taken: the hit-response kernel (types + `di_adjust` + `knockback_velocity` + `hitstun_duration`) carved to `ambition_platformer2d_core::hit_response`, `damage_apply` and the shadow model call ONE formula, and `the_hit_response_is_the_authoritative_kernel_not_an_imitation` goes red if a private copy reappears. Ballistic projectiles are in v1 | [opus] |
 | FB6c | ~~D3's predicted-opponent policy~~ ✅ **LANDED 2026-07-30** — `predicted_foe_intent`: modal habit only when it strictly beats the uniform prior AND `read_weight > 0`; otherwise inertia; no RNG | [opus] |
 | FB6d | ~~`refine_by_rollout`~~ ✅ **LANDED 2026-07-30** — re-ranks L2's top k against a do-nothing baseline; `None` at zero k/depth; the marquee test re-ranks a whiffing jab under a connecting lunge | [opus] |
 | FB6e | §12.6's instruments. Landed 2026-07-30: `l3_decides_identically_twice`, the bench pin (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`, 100 worst-case decisions < 100 ms), and the fidelity instrument (`the_shadow_model_agrees_with_the_real_sim_about_what_lands` in `app_it` — shadow prediction vs a REAL versus-stage swing at four gaps, frame data captured from the sim's own `MovePlayback`, floor 3 of 4). **Still owed to FB4's rig:** the GGRS-resimulation half of determinism. `l3_earns_its_depth` has its FIRST measurement (2026-07-31, `ladder_probe` — see §12.6), which unblocks authoring a nonzero `rollout_depth` on a survival claim but not on an attack one; the real rig is still owed | [opus] |
@@ -789,8 +789,8 @@ carries `damage`/`knockback` (`ambition_entity_catalog/src/lib.rs`);
 `Perceived` is a private-field wrapper minted only by
 `DelayedPerception::perceive`; `PerceivedProjectile` carries
 `pos`/`vel`/`damage`; the hit-response kernel lives in
-`ambition_actors::features::ecs::damage_apply` and is unreachable from
-`ambition_characters` (both `ambition_actors` and `ambition_combat` depend on
+`ambition_platformer2d_actor_monolith::features::ecs::damage_apply` and is unreachable from
+`ambition_characters` (both `ambition_platformer2d_actor_monolith` and `ambition_combat` depend on
 it); `AttackOption` carries `MoveFrameData` and score-sorted, id-tie-broken
 order; every shipped ladder row has `rollout_depth = 0` today. If any of
 those is no longer true, surface the mismatch instead of adapting silently.

@@ -6,10 +6,10 @@
 //! campaign gets to look at, because a mandatory line in a minimal game is a
 //! tax on every game.
 
-// ONE import for room authoring. This used to be `ambition::engine_core as ae`
-// plus `ambition::world::rooms::RoomSpec` — two modules, one of them an
+// ONE import for room authoring. This used to be `ambition_platformer2d::engine_core as ae`
+// plus `ambition_platformer2d::world::rooms::RoomSpec` — two modules, one of them an
 // implementation crate named `engine_core`, to place a floor.
-use ambition::world::prelude::*;
+use ambition_platformer2d::world::prelude::*;
 
 use crate::MINIMAL_EXPERIENCE;
 

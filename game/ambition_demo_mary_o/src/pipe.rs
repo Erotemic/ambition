@@ -7,7 +7,7 @@
 //!
 //! ## How it is composed, with no engine edits
 //!
-//! * **The motion** is [`ambition::engine_core::movement::transit_body`] re-issued
+//! * **The motion** is [`ambition_platformer2d::engine_core::movement::transit_body`] re-issued
 //!   every tick along an eased path, rather than once at the end. That is the
 //!   engine's authority for discretely relocating a body (ADR 0024) and it
 //!   reconciles the motion model's private attachment/maneuver state each time, so
@@ -29,9 +29,9 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::PlayerEntity;
-use ambition::characters::actor::BodyCombat;
-use ambition::engine_core as ae;
+use ambition_platformer2d::actors::actor::PlayerEntity;
+use ambition_platformer2d::characters::actor::BodyCombat;
+use ambition_platformer2d::engine_core as ae;
 
 /// Seconds spent sinking into the near pipe, and rising out of the far one. Half
 /// a second each way: slow enough to read as a slide rather than a snap, short
@@ -200,12 +200,12 @@ fn smoothstep(t: f32) -> f32 {
 /// engine's transit authority, and drop the component when it surfaces.
 pub fn run_pipe_transits(
     mut commands: Commands,
-    world_time: Res<ambition::time::WorldTime>,
+    world_time: Res<ambition_platformer2d::time::WorldTime>,
     mut bodies: Query<
         (
             Entity,
             ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
+            &mut ambition_platformer2d::actors::features::MotionModel,
             &mut BodyCombat,
             &mut PipeTransit,
         ),
@@ -219,11 +219,11 @@ pub fn run_pipe_transits(
         let mut clusters = item.as_clusters_mut();
         // Re-issued every tick, not once at the end: this is what keeps the body
         // ON the scripted path while the shared movement phase runs around it.
-        ambition::engine_core::movement::transit_body(
+        ambition_platformer2d::engine_core::movement::transit_body(
             &mut model,
             &mut clusters,
             fx.pos,
-            ambition::engine_core::movement::TransitVelocity::Zero,
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
         );
         match fx.next {
             Some(next) => {

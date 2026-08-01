@@ -84,13 +84,13 @@ fn harness(victim_is_pogoable: bool) -> (App, Entity) {
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
             },
-            ambition_engine_core::BodyGroundState {
+            ambition_platformer2d_core::BodyGroundState {
                 on_ground: true,
                 ..Default::default()
             },
             ActorFaction::Player,
             MovePlayback::new(pogo_dair(), 1.0),
-            ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     let victim = app
@@ -123,7 +123,7 @@ fn down_air_pogos_off_a_pogo_target() {
     );
     assert!(
         !app.world()
-            .get::<ambition_engine_core::BodyGroundState>(owner)
+            .get::<ambition_platformer2d_core::BodyGroundState>(owner)
             .unwrap()
             .on_ground,
         "the pogo un-grounds the owner",
@@ -167,13 +167,13 @@ fn down_air_pogos_off_a_factionless_world_orb() {
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
             },
-            ambition_engine_core::BodyGroundState {
+            ambition_platformer2d_core::BodyGroundState {
                 on_ground: true,
                 ..Default::default()
             },
             ActorFaction::Player,
             MovePlayback::new(pogo_dair(), 1.0),
-            ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     // The orb below: NO ActorFaction, just the capability.

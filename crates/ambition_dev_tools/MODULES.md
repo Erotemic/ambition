@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_dev_tools** — Reusable developer-tooling state + logic (E1d carve out of `ambition_actors`).
+**ambition_dev_tools** — Reusable developer-tooling state + logic (E1d carve out of `ambition_platformer2d_actor_monolith`).
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

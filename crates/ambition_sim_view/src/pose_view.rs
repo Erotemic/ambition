@@ -14,7 +14,7 @@
 //! materializes one row, so the render pool is a pure consumer.
 
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_platformer_primitives::lifecycle::PlayerVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 
@@ -26,14 +26,14 @@ use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 /// slower-light observer views ride.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug)]
 pub struct BodyPoseView {
-    pub pos: ambition_engine_core::Vec2,
-    pub vel: ambition_engine_core::Vec2,
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub vel: ambition_platformer2d_core::Vec2,
     /// Current collision AABB size (crouch/morph compaction included).
-    pub size: ambition_engine_core::Vec2,
+    pub size: ambition_platformer2d_core::Vec2,
     /// Standing (base) AABB size — the denominator of the crouch stance
     /// ratio and the body-profile sprite scale. Falls back to `size` for a
     /// body without a `BodyBaseSize`.
-    pub base_size: ambition_engine_core::Vec2,
+    pub base_size: ambition_platformer2d_core::Vec2,
     pub facing: f32,
     /// Aerial/gravity roll angle (radians) — the sprite rotation.
     pub roll_angle: f32,
@@ -42,7 +42,7 @@ pub struct BodyPoseView {
     pub stance_ratio_y: f32,
     /// Gravity direction used for the facing flip (the global field read the
     /// player path has always used).
-    pub gravity_dir: ambition_engine_core::Vec2,
+    pub gravity_dir: ambition_platformer2d_core::Vec2,
     /// The picked animation row for this tick (the player picker over the
     /// body's real clusters).
     pub anim: CharacterAnim,
@@ -61,14 +61,14 @@ pub struct BodyPoseView {
 impl Default for BodyPoseView {
     fn default() -> Self {
         Self {
-            pos: ambition_engine_core::Vec2::ZERO,
-            vel: ambition_engine_core::Vec2::ZERO,
-            size: ambition_engine_core::Vec2::ONE,
-            base_size: ambition_engine_core::Vec2::ONE,
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::ONE,
+            base_size: ambition_platformer2d_core::Vec2::ONE,
             facing: 1.0,
             roll_angle: 0.0,
             stance_ratio_y: 1.0,
-            gravity_dir: ambition_engine_core::Vec2::Y,
+            gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
             hp_current: 0,
@@ -91,28 +91,28 @@ impl Default for BodyPoseView {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_body_pose_views(
     mut commands: Commands,
-    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     mut bodies: Query<
         (
             (
                 Entity,
-                &ambition_actors::actor::BodyKinematics,
-                Option<&ambition_actors::actor::BodyGroundState>,
-                Option<&ambition_engine_core::BodyMotionFacts>,
-                Option<&ambition_actors::actor::BodyFlightState>,
+                &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyGroundState>,
+                Option<&ambition_platformer2d_core::BodyMotionFacts>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyFlightState>,
                 Option<&BodyCombat>,
-                Option<&ambition_actors::actor::BodyAnimFacts>,
-                Option<&ambition_actors::avatar::PlayerBlinkCameraState>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
+                Option<&ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
             ),
             (
-                Option<&ambition_actors::actor::BodyModeState>,
-                Option<&ambition_actors::actor::BodyEnvironmentContact>,
-                Option<&ambition_actors::actor::BodyAbilities>,
-                Option<&ambition_actors::actor::BodyShieldState>,
-                Option<&ambition_actors::actor::BodyMelee>,
-                Option<&ambition_engine_core::BodyBaseSize>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyModeState>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyEnvironmentContact>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyAbilities>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyShieldState>,
+                Option<&ambition_platformer2d_actor_monolith::actor::BodyMelee>,
+                Option<&ambition_platformer2d_core::BodyBaseSize>,
                 Option<&BodyHealth>,
-                Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
+                Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
                 Option<&ambition_projectiles::PlayerProjectileState>,
                 Option<&mut BodyPoseView>,
             ),
@@ -124,7 +124,7 @@ pub fn rebuild_body_pose_views(
     // flip (localized zone gravity is the actor path's read) — preserved.
     let gravity_dir = gravity
         .as_deref()
-        .map_or(ambition_engine_core::Vec2::Y, |g| g.dir);
+        .map_or(ambition_platformer2d_core::Vec2::Y, |g| g.dir);
     for (
         (entity, kinematics, ground, motion_facts, flight, combat, anim_facts, blink_cam),
         (
@@ -157,7 +157,7 @@ pub fn rebuild_body_pose_views(
                 (Some(ground), Some(motion_facts), Some(flight)),
                 (Some(combat), Some(anim_facts), Some(blink_cam)),
                 (Some(body_mode), Some(env_contact), Some(abilities), Some(shield)),
-            ) => ambition_actors::character_sprites::pick_player_anim(
+            ) => ambition_platformer2d_actor_monolith::character_sprites::pick_player_anim(
                 anim_facts,
                 combat,
                 blink_cam,
@@ -187,7 +187,7 @@ pub fn rebuild_body_pose_views(
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),
             morph_ball: body_mode
-                .is_some_and(|m| m.body_mode == ambition_engine_core::BodyMode::MorphBall),
+                .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
         };
@@ -204,8 +204,8 @@ pub fn rebuild_body_pose_views(
 /// pooled ring sprite per row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShieldRingFact {
-    pub pos: ambition_engine_core::Vec2,
-    pub size: ambition_engine_core::Vec2,
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub size: ambition_platformer2d_core::Vec2,
     pub parrying: bool,
 }
 
@@ -218,8 +218,8 @@ pub struct ShieldRingsView(pub Vec<ShieldRingFact>);
 pub fn rebuild_shield_rings_view(
     mut view: ResMut<ShieldRingsView>,
     bodies: Query<(
-        &ambition_actors::actor::BodyKinematics,
-        &ambition_actors::actor::BodyShieldState,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        &ambition_platformer2d_actor_monolith::actor::BodyShieldState,
     )>,
 ) {
     view.0.clear();

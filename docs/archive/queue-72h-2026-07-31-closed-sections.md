@@ -23,7 +23,7 @@ somebody reopens a settled question.
 ### ✔ S1. Slice H — merged and verified from the main checkout (2026-07-30/31)
 
 **Why first:** it is done work rotting on a branch, and it is the one §4
-decomposition trigger that never fired. Depending on `ambition` links 41 crates,
+decomposition trigger that never fired. Depending on `ambition_platformer2d` links 41 crates,
 19 of which a movement-only game never asked for.
 
 A first cut exists **unmerged and unverified**: branch
@@ -36,7 +36,7 @@ of features, so it could never have moved).
 
 Three verifications were still compiling at wrap-up and were never run:
 
-1. `cargo check -p ambition` (default features),
+1. `cargo check -p ambition_platformer2d` (default features),
 2. `cargo test` in `fixtures/minimal_game` AND `fixtures/external_consumer`,
 3. the red-probe of the new art-without-render refusal.
 
@@ -46,7 +46,7 @@ not a failure** — it is the first thing this slice has said that nobody knew.
 ⚠ the honest residue is already recorded on the branch: `render` is optional in
 the facade but NOT for `minimal_game` (its windowed boot is a slice-B exit
 criterion), `audio` stays unconditional, and the other 14 unwanted crates remain
-linked because **`ambition_actors` brings them** — the §4 carve condition,
+linked because **`ambition_platformer2d_actor_monolith` brings them** — the §4 carve condition,
 exactly as the baseline predicted. Do not cut edges until the number looks good;
 that failure mode is named in the slice's own exit criteria.
 
@@ -58,7 +58,7 @@ METHOD, not about slice H.**
 
 | # | verification | result |
 |---|---|---|
-| 1 | `cargo check -p ambition` (default features) | ✔ green |
+| 1 | `cargo check -p ambition_platformer2d` (default features) | ✔ green |
 | 2a | `fixtures/minimal_game` | ✔ green, 16 passed |
 | 2b | `fixtures/external_consumer` | ✘ 2 failed **IN THE WORKTREE ONLY — not a slice-H defect** |
 | 3 | red-probe the art-without-render refusal | ✔ **RED, as claimed — and it found a second thing** |
@@ -67,10 +67,10 @@ METHOD, not about slice H.**
 session's handoff says to run these verifications *"from inside the worktree,
 not from the main checkout"*, and for anything that reads generated art that
 instruction is WRONG. `actors_desktop_asset_root()` resolves the engine tree to
-`CARGO_MANIFEST_DIR/../ambition_actors/assets`, which is per-checkout, and the
+`CARGO_MANIFEST_DIR/../ambition_platformer2d_actor_monolith/assets`, which is per-checkout, and the
 generated sprite tree there is git-ignored — so it does not travel to a worktree:
 
-    crates/ambition_actors/assets/sprites/   main: 972 files   worktree: 4
+    crates/ambition_platformer2d_actor_monolith/assets/sprites/   main: 972 files   worktree: 4
 
 Confirmed by running the same target from the main checkout at the PRE-merge
 commit: `fixtures/external_consumer --test gameplay` → **9 passed, 0 failed**.
@@ -159,7 +159,7 @@ reason that still holds: its safety would be `Without<..>` in every present and
 future body query. Defer a REQUEST, never publish an incomplete body.
 
 **Guard:** a test module named `activation_transaction` passing in
-`ambition_actors` or `app_it`.
+`ambition_platformer2d_actor_monolith` or `app_it`.
 
 
 ### ✔ S3. AC24 exists and was PROBED RED (2026-07-31)
@@ -282,7 +282,7 @@ session begins, and let the stage read it instead of writing the world's.
   and `ResolvedCombatTuning` (what combat reads). The type lives there because
   `on_hit`, `hitbox` and the damage paths are its readers and a type must sit at
   or below its readers.
-- The FOLD lives one layer up in `ambition_actors::features::combat_rules`,
+- The FOLD lives one layer up in `ambition_platformer2d_actor_monolith::features::combat_rules`,
   because its inputs do not both live down there — friendly fire is combat's own
   baseline, `di_max_angle` is this crate's feel tuning. Ownership travels down
   with the type; the projection happens where the facts are visible. It runs in
@@ -325,7 +325,7 @@ rather than typing are done:
   recommend but only a maintainer grants a permanent exception. ⚠ **two are a
   finding on SIZE regardless of placement** and want a maintainer's eye first:
   `game/ambition_demo_mary_o/src/lib.rs` (2896 test lines) and
-  `crates/ambition_actors/src/features/enemies/mod.rs` (1039).
+  `crates/ambition_platformer2d_actor_monolith/src/features/enemies/mod.rs` (1039).
 - **`AGENTS.md` was 227 lines, not the 193 `status.md` claimed** — the stale
   number was itself part of the problem. Now 179. Routed rather than trimmed:
   the Hall rationale became `docs/concepts/hall-of-characters-is-not-special.md`
@@ -751,17 +751,17 @@ that reads as the code being wrong.
 1. **The SDK reference ratchet did its job.** `RollbackHealth::generation` was a
    new public method the reference did not name, and
    `test_every_public_builder_method_is_documented` said so. `docs/sdk/api-reference.md`
-   now documents `generation()` and `ambition::rollback::stop`, including why a
+   now documents `generation()` and `ambition_platformer2d::rollback::stop`, including why a
    frame number cannot tell a restart from a rewind.
 2. **The facade's first unit test created a feature job that ABORTS on this
    machine.** `crate_has_tests` is what admits a crate to the per-crate feature
-   pass, so `crates/ambition` gaining `#[cfg(test)]` created a
-   `-p ambition --features ...,profile,...` job — and `profile` forwards
+   pass, so `crates/ambition_platformer2d` gaining `#[cfg(test)]` created a
+   `-p ambition_platformer2d --features ...,profile,...` job — and `profile` forwards
    `bevy/trace_tracy`, whose static initializer aborts a test binary on a CPU
    with no invariant TSC. It fails before libtest lists a test: `--list` and a
-   filter matching nothing fail identically. `ambition` joins `SKIP_FEATURE_JOB`
+   filter matching nothing fail identically. `ambition_platformer2d` joins `SKIP_FEATURE_JOB`
    for the reason already stated there — every one of its 17 extra features is a
-   forwarder to `ambition_actors`, which is skipped for the same reason — and
+   forwarder to `ambition_platformer2d_actor_monolith`, which is skipped for the same reason — and
    the Tracy trap is written down where the next person to remove that entry
    will read it.
 3. **⛔ A standing guard was FLAKY, and its flakiness was invisible.**
@@ -851,7 +851,7 @@ as the camera walked away, and the one thing a parallax layer exists for never
 happened. Nothing about that reads as a missing system. The art is correct, in
 the wrong place, and only when you walk. It now registers in the same plugin,
 `.after(camera_follow)` — legal because `camera_follow` is DEFINED in
-`ambition_render` and merely REGISTERED by `ambition_host`.
+`ambition_render` and merely REGISTERED by `ambition_platformer2d_host`.
 
 **Who this actually fixes, checked rather than asserted:** `ambition_demo_sanic`
 authors ONE room and gives it the `skybridge` theme, so the startup bind already
@@ -983,12 +983,12 @@ the whole parallax family and had no way to ask whether a backdrop existed —
 with the consumer that justifies it.
 
 ⛔ **and I exported it in the WRONG place, which a guard caught the same run.**
-The first version reached it through `ambition::renderer` — the raw crate
+The first version reached it through `ambition_platformer2d::renderer` — the raw crate
 re-export — and `outlander-names-only-the-public-sdk` failed on `new=['renderer']`
 in the suite. That contract exists because *"a consumer's imports encode our
 implementation topology and we cannot move an implementation without breaking
 them"* (ADR 0031), and "my test needed it" is exactly how such a leak gets made.
-It lives in `ambition::view` now — *"what is drawn, as a game observes it"* —
+It lives in `ambition_platformer2d::view` now — *"what is drawn, as a game observes it"* —
 which is the surface the question belongs to.
 
 ⛔ **the Sanic sibling was FLAKY for a day-old reason.** It passed alone and
@@ -1002,7 +1002,7 @@ a message buffer — and both were invisible to a single-test run.
 ⚠ **and the quality half of this file was ATTEMPTED and removed, which was worth
 the attempt.** `ResolvedVisualQuality` reads `UserSettings`, and Outlander is
 built `default-features = false`: it never took the `ambition_persistence`
-capability, so `ambition::persistence` does not exist for it and there is no
+capability, so `ambition_platformer2d::persistence` does not exist for it and there is no
 settings resource to read. The quality resolve is inert there BY CONSTRUCTION —
 slice H working as intended, not an omission. A consumer-level test for that
 half belongs in a fixture that takes the capability, not in the one whose whole
@@ -1012,7 +1012,7 @@ point is taking as little as possible.
 ### ✔ S19. AC21 — the workspace builds with ZERO warnings (2026-07-31)
 
 AC21 said AC17's *"remaining warnings are TEST-only and in
-`ambition_engine_core`"* was already stale. It was, and the answer is now a
+`ambition_platformer2d_core`"* was already stale. It was, and the answer is now a
 number instead of a list: `cargo check --workspace --all-targets` emits **no
 warnings at all**.
 
@@ -1029,7 +1029,7 @@ were an `unused_mut` and an unused import.
 `web_served_assets` feature set are cfg-shaped and expected; what matters is
 that the default `--all-targets` build is silent, because a build with five
 warnings is a build where the sixth — the real one — arrives unnoticed.
-`ambition_engine_core` 448 and `ambition_characters` 379 tests green after the
+`ambition_platformer2d_core` 448 and `ambition_characters` 379 tests green after the
 deletions.
 
 

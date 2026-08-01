@@ -19,18 +19,18 @@ bench = false
 [features]
 default = []
 # Draw it AND make it playable, exactly as the Sanic shell does.
-visible = ["ambition/visible", "ambition/basic_shell_presentation", "ambition/audio", "input"]
-input = ["ambition/input"]
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input"]
+input = ["ambition_platformer2d/input"]
 # The causal log, for `ladder_probe`'s seam trace. Off by default (§2e): a demo
 # that never opens an inspector must not link one. With it, the probe reads the
 # typed fact `record_body_control_frame` publishes instead of hand-querying the
 # same components — which is what makes the brain's decision and the body's
 # received frame ONE joined line rather than two streams to correlate by eye.
-causal = ["ambition/causal"]
+causal = ["ambition_platformer2d/causal"]
 
 [dependencies]
-# A demo app depends on `ambition`, never on `ambition_app`. That is the demo gate.
-ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+# A demo app depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 bevy = { version = "0.18.1", default-features = false }
 

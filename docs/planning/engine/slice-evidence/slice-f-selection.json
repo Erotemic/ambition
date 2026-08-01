@@ -13,25 +13,25 @@
   "from_slice": "E",
   "the_convergence": {
     "note": "Every remaining terminal condition reduces to rollback, and none of them was steered there — each was reached independently.",
-    "§4.1 the ratchet is at 1": "The single entry is `ambition::runtime`, and all ten of its uses are `rollback::*`.",
+    "§4.1 the ratchet is at 1": "The single entry is `ambition_platformer2d::runtime`, and all ten of its uses are `rollback::*`.",
     "§4.3 the last matrix row": "Smash needs 'participants, character selection, atomic match lifecycle, scoped rules, rollback'.",
     "row 4's weak half": "`sanic_has_the_same_identities_standalone_and_embedded` compares a rollback schema fingerprint that is ENGINE-WIDE rather than module-scoped, so it is equal partly because there is nothing per-module for it to differ from.",
     "reading": "Three independent paths, one destination. That is the campaign telling the truth about where its boundary is, rather than a plan predicting it."
   },
   "ranked_candidates": [
     {
-      "leak": "rollback is not a public knob, so a consumer that needs it names `ambition::runtime::rollback` directly",
+      "leak": "rollback is not a public knob, so a consumer that needs it names `ambition_platformer2d::runtime::rollback` directly",
       "source": "2a, 2c, and the consumer matrix",
       "cost": "It is ALL THREE remaining terminal conditions. Nothing else is left.",
       "closeable": "YES, but not cheaply and not as a re-export. ADR 0031 enumerates what the promise actually costs: frozen schema, complete authoritative baseline, stable participants, deterministic activation, lifecycle rebasing, confirmation boundaries.",
       "owned": "YES — and DEFERRED BY DECISION rather than by oversight. ADR 0031's Deferred section reserves it for 'its own slice, its own acceptance tests'.",
       "route": "3b: Closeable + Owned -> SLICE F, and it is the only candidate left.",
-      "⚠": "The cheap version — curate `ambition::rollback` as a closed module, prune the baseline, declare §4.1 met — is available tonight and would be FRAUD against the ADR. The technique that closed seventeen entries does not apply to the eighteenth, and the contract entry says so at the entry precisely because 'one away from zero' is when somebody reaches for it."
+      "⚠": "The cheap version — curate `ambition_platformer2d::rollback` as a closed module, prune the baseline, declare §4.1 met — is available tonight and would be FRAUD against the ADR. The technique that closed seventeen entries does not apply to the eighteenth, and the contract entry says so at the entry precisely because 'one away from zero' is when somebody reaches for it."
     }
   ],
   "slice_f": {
     "name": "rollback as a public promise",
-    "one_leak": "a consumer whose game owns authoritative state must name `ambition::runtime::rollback` — an implementation module — because the engine has no public way to say 'this session rewinds'.",
+    "one_leak": "a consumer whose game owns authoritative state must name `ambition_platformer2d::runtime::rollback` — an implementation module — because the engine has no public way to say 'this session rewinds'.",
     "scope_from_ADR_0031": [
       "frozen schema — the rollback registration set and its codecs, ratcheted the way the module allowlist is;",
       "a complete authoritative baseline;",
@@ -47,12 +47,12 @@
     ],
     "unlocks_in_order": [
       "the second ratchet from the campaign's §Ratchets table (central registrations + codecs, frozen by SET);",
-      "`ambition::runtime` leaving the allowlist baseline — §4.1 at zero;",
+      "`ambition_platformer2d::runtime` leaving the allowlist baseline — §4.1 at zero;",
       "consumer-matrix row 5, Smash;",
       "row 4's identity comparison becoming load-bearing instead of trivially true."
     ],
     "not_in_this_slice": [
-      "the `ambition_actors` decomposition — §4's carve trigger did NOT fire (39 of 39 facade dependencies are unconditional, so the footprint is unreduced rather than irreducible);",
+      "the `ambition_platformer2d_actor_monolith` decomposition — §4's carve trigger did NOT fire (39 of 39 facade dependencies are unconditional, so the footprint is unreduced rather than irreducible);",
       "the facade-optionality experiment, which is the measurement that would settle that;",
       "migrating `game/ambition_app`'s production binary — row 6 is proven on its experiences, and the surrounding app shell is named as remaining."
     ]
@@ -67,27 +67,27 @@
   },
   "blocking_finding": {
     "measured_on": "2026-07-30",
-    "finding": "ROLLBACK CANNOT BE FEDERATED WITHOUT MOVING CODE BETWEEN CRATES, and this is the structural reason ownership has stayed central. The registration vocabulary — `AmbitionRollbackApp` (rollback/registry.rs) and `SnapshotState` (rollback/codec.rs) — lives in `ambition_runtime`. `ambition_runtime` depends on TWENTY domain crates; none of them depends on it. So a domain registering its own rollback state would need a trait from a crate above it, which is a cycle.",
+    "finding": "ROLLBACK CANNOT BE FEDERATED WITHOUT MOVING CODE BETWEEN CRATES, and this is the structural reason ownership has stayed central. The registration vocabulary — `AmbitionRollbackApp` (rollback/registry.rs) and `SnapshotState` (rollback/codec.rs) — lives in `ambition_platformer2d_runtime`. `ambition_platformer2d_runtime` depends on TWENTY domain crates; none of them depends on it. So a domain registering its own rollback state would need a trait from a crate above it, which is a cycle.",
     "verified": [
-      "ambition_runtime/Cargo.toml depends on ambition_portal; ambition_portal does not depend on ambition_runtime.",
-      "Same direction for ambition_combat, ambition_projectiles, ambition_encounter — none depends on ambition_runtime.",
-      "319 stable schema names and 62 codecs are all registered centrally, in ambition_runtime."
+      "ambition_platformer2d_runtime/Cargo.toml depends on ambition_portal2d; ambition_portal2d does not depend on ambition_platformer2d_runtime.",
+      "Same direction for ambition_combat, ambition_projectiles, ambition_encounter — none depends on ambition_platformer2d_runtime.",
+      "319 stable schema names and 62 codecs are all registered centrally, in ambition_platformer2d_runtime."
     ],
-    "what_the_leak_NAMES": "The boundary is not 'split ambition_actors'. It is: the rollback REGISTRATION VOCABULARY must sit BELOW the domains that need it — a foundation crate holding `SnapshotState`, `AmbitionRollbackApp` and the codec helpers, which every domain may depend on and which depends on none of them. That is ADR 0032's `RollbackSchemaFragment` with its precondition made explicit.",
-    "§4_routing": "NOT closeable without moving code between crates + OWNED -> DECOMPOSITION EVIDENCE, which §4 says AUTHORISES a carve. ⚠ And §4's constraint applies in full: 'Do not let a single leak authorise a full decomposition. Carve exactly the boundary the leak NAMES, migrate its consumers, delete the displaced path, guard the absence — then return to §2.' The boundary this leak names is the vocabulary extraction, and NOTHING ELSE. It is not licence for the `ambition_actors` split, whose own trigger was measured earlier and did NOT fire — 39 of 39 facade dependencies are unconditional, so that footprint is unreduced rather than irreducible.",
-    "why_this_is_the_good_ending": "§4 calls this 'the interesting end' and says it is the whole point: a carve authorised WITH AN ARGUMENT, where the leak names the boundary, the contract diff names the paths, the fixture log names what a consumer had to know, and the blind run names what an author had to learn. All four exist. The carve this campaign ends up authorising is not the one anybody proposed at the start — that was `ambition_actors`, argued from size — and it is a boundary no amount of reading the module list would have produced.",
+    "what_the_leak_NAMES": "The boundary is not 'split ambition_platformer2d_actor_monolith'. It is: the rollback REGISTRATION VOCABULARY must sit BELOW the domains that need it — a foundation crate holding `SnapshotState`, `AmbitionRollbackApp` and the codec helpers, which every domain may depend on and which depends on none of them. That is ADR 0032's `RollbackSchemaFragment` with its precondition made explicit.",
+    "§4_routing": "NOT closeable without moving code between crates + OWNED -> DECOMPOSITION EVIDENCE, which §4 says AUTHORISES a carve. ⚠ And §4's constraint applies in full: 'Do not let a single leak authorise a full decomposition. Carve exactly the boundary the leak NAMES, migrate its consumers, delete the displaced path, guard the absence — then return to §2.' The boundary this leak names is the vocabulary extraction, and NOTHING ELSE. It is not licence for the `ambition_platformer2d_actor_monolith` split, whose own trigger was measured earlier and did NOT fire — 39 of 39 facade dependencies are unconditional, so that footprint is unreduced rather than irreducible.",
+    "why_this_is_the_good_ending": "§4 calls this 'the interesting end' and says it is the whole point: a carve authorised WITH AN ARGUMENT, where the leak names the boundary, the contract diff names the paths, the fixture log names what a consumer had to know, and the blind run names what an author had to learn. All four exist. The carve this campaign ends up authorising is not the one anybody proposed at the start — that was `ambition_platformer2d_actor_monolith`, argued from size — and it is a boundary no amount of reading the module list would have produced.",
     "ratchet_now_watching_it": "The second ratchet (319 names, 62 codecs) was built one commit before this was measured, so the federation has an instrument from its first day rather than from whenever somebody notices it needs one."
   },
   "carve_attempted_and_backed_out": {
     "on": "2026-07-30",
-    "what_was_tried": "Extract the snapshot vocabulary (`SnapshotState`, encode/decode, checksums, the put_*/take_* helpers) from `ambition_runtime::rollback::codec` into a new foundation crate `ambition_snapshot` depending only on `bevy_math` — the exact boundary §4's trigger named.",
-    "what_the_compiler_proved": "⚠ E0117, THE ORPHAN RULE. The 62 `impl SnapshotState for <foreign type>` blocks in `rollback/codecs.rs` are legal ONLY while the trait is local to `ambition_runtime`. Move the trait to a floor crate and every one of them becomes an orphan impl — both trait and type foreign — and stops compiling.",
+    "what_was_tried": "Extract the snapshot vocabulary (`SnapshotState`, encode/decode, checksums, the put_*/take_* helpers) from `ambition_platformer2d_runtime::rollback::codec` into a new foundation crate `ambition_snapshot` depending only on `bevy_math` — the exact boundary §4's trigger named.",
+    "what_the_compiler_proved": "⚠ E0117, THE ORPHAN RULE. The 62 `impl SnapshotState for <foreign type>` blocks in `rollback/codecs.rs` are legal ONLY while the trait is local to `ambition_platformer2d_runtime`. Move the trait to a floor crate and every one of them becomes an orphan impl — both trait and type foreign — and stops compiling.",
     "why_that_is_a_RESULT_not_a_setback": "It converts the finding from an argument into a compiler-enforced fact. Before this, 'the vocabulary must move below the domains' was a well-supported inference from the dependency graph. Now it is checked: the carve and the federation are ONE ATOMIC CHANGE. You cannot extract the vocabulary and migrate the 62 impls in separate commits, because the intermediate state does not compile. Any plan that assumed otherwise — including the one written an hour earlier in this file — was wrong about the sequencing.",
     "second_finding": "`CanonicalCodecStrategy` implements `bevy_ggrs::Strategy`, so it is a GGRS BRIDGE rather than vocabulary and must stay behind. Pulling it into the floor would make every domain depend on the PATCHED bevy_ggrs fork — the same fork whose `[patch.crates-io]` entry is this engine's highest-cost consumer leak. A floor that drags the hardest dependency in the tree behind it is not a floor.",
     "backed_out_because": "The atomic change is a 62-impl migration across ~20 domain crates, each of which must also gain a dependency on the new floor. That is a slice, not the tail of one, and landing it half-done would leave `main` red — which rule 5 forbids and which no amount of 'it is nearly working' justifies.",
     "what_the_next_attempt_should_know": [
       "One commit, not two: extract the vocabulary AND move all 62 impls to their owning domains together.",
-      "`CanonicalCodecStrategy` stays in `ambition_runtime`; only the pure vocabulary moves.",
+      "`CanonicalCodecStrategy` stays in `ambition_platformer2d_runtime`; only the pure vocabulary moves.",
       "The floor needs `bevy_math` and nothing else from the workspace; a dependency contract should pin that the day it lands.",
       "The second ratchet (319 names, 62 codecs) is already watching, so the migration's progress is measurable from its first commit.",
       "`rollback/codec.rs` is 234 lines with ZERO imports — the vocabulary itself is genuinely clean. The cost is entirely in the 62 impls, not in the extraction."
@@ -96,17 +96,17 @@
   "carve_plan_CORRECTED": {
     "on": "2026-07-30",
     "supersedes": "the `ambition_snapshot` new-crate plan recorded above. That attempt was backed out on the orphan rule; measuring WHERE the 62 impls belong shows a better boundary that needs no new crate at all.",
-    "the_better_boundary": "Put the snapshot vocabulary in `ambition_engine_core`, not in a new crate. It is ALREADY the floor — the dependency contract `engine-core-is-the-floor` pins that it depends on zero workspace crates, and eight of the nine crates owning the 62 impls already depend on it.",
+    "the_better_boundary": "Put the snapshot vocabulary in `ambition_platformer2d_core`, not in a new crate. It is ALREADY the floor — the dependency contract `engine-core-is-the-floor` pins that it depends on zero workspace crates, and eight of the nine crates owning the 62 impls already depend on it.",
     "measured_distribution_of_the_62": {
-      "ambition_actors": 14,
+      "ambition_platformer2d_actor_monolith": 14,
       "ambition_characters": 13,
-      "ambition_platformer_primitives": 11,
+      "ambition_platformer2d_shared_tangle": 11,
       "ambition_projectiles": 6,
       "ambition_combat": 6,
-      "ambition_engine_core (incl. body_clusters)": 5,
+      "ambition_platformer2d_core (incl. body_clusters)": 5,
       "ambition_time": 4,
       "ambition_encounter": 2,
-      "ambition_world": 1
+      "ambition_platformer2d_world": 1
     },
     "why_this_is_cheaper_than_a_new_crate": [
       "FIVE of the 62 are engine_core's own types — they become local impls and move nowhere.",
@@ -114,8 +114,8 @@
       "No new workspace member, no new manifest, no new entry in the layering docs.",
       "`ambition_time` is the ONLY crate that would need a new edge, and it is 4 impls — worth checking whether those types belong in engine_core anyway before adding it."
     ],
-    "what_still_stays_behind": "`CanonicalCodecStrategy` implements `bevy_ggrs::Strategy` and must remain in `ambition_runtime`. Pulling bevy_ggrs into engine_core would make the FLOOR depend on the patched fork — this engine's highest-cost consumer leak — and would violate `engine-core-is-the-floor` outright.",
-    "still_one_atomic_commit": "The orphan rule is unchanged: the moment the trait leaves `ambition_runtime`, all 57 non-engine_core impls become orphans. Trait move + 57 impl moves are one commit. What changed is the size of the rest — no crate, no edges, five impls already home.",
+    "what_still_stays_behind": "`CanonicalCodecStrategy` implements `bevy_ggrs::Strategy` and must remain in `ambition_platformer2d_runtime`. Pulling bevy_ggrs into engine_core would make the FLOOR depend on the patched fork — this engine's highest-cost consumer leak — and would violate `engine-core-is-the-floor` outright.",
+    "still_one_atomic_commit": "The orphan rule is unchanged: the moment the trait leaves `ambition_platformer2d_runtime`, all 57 non-engine_core impls become orphans. Trait move + 57 impl moves are one commit. What changed is the size of the rest — no crate, no edges, five impls already home.",
     "instruments_already_watching": "The central-rollback ratchet (319 stable names + 62 codecs, frozen as a SET) and the capability-footprint ratchet (41 crates, 19 unwanted). Both were built before this plan existed, so the migration is measurable from its first commit.",
     "how_the_correction_was_found": "By counting where the impls belong instead of assuming they were scattered. The same technique that corrected the 'easy four' estimate an hour earlier: the dependency graph says what depends on what; only counting says how much."
   },
@@ -145,7 +145,7 @@
     "the_macros_are_good_news": "37 of the ~100 impl sites are one-line macro invocations — `snapshot_pod!(Type)` — which relocate trivially once the macros are exported from the floor. The hand-written 65 are the real work.",
     "why_it_was_not_attempted_in_this_session": "Two carve attempts were made and one was backed out on the orphan rule. A third attempt at ~100 impl sites plus macros plus a private trait, in one commit that must compile or `main` goes red, is not something to start without room to finish it. Rule 5 forbids landing it half-done and 'it is nearly working' does not override that — which is the same judgement that backed out the first attempt.",
     "what_the_next_attempt_has_that_this_session_did_not": [
-      "the boundary: `ambition_engine_core`, not a new crate — it is already the floor and 8 of 9 owning crates already depend on it",
+      "the boundary: `ambition_platformer2d_core`, not a new crate — it is already the floor and 8 of 9 owning crates already depend on it",
       "the constraint: ONE commit, proven by E0117 rather than argued",
       "the size: ~100 impl sites, 3 macros, 1 private trait, 2688 lines",
       "what must NOT move: CanonicalCodecStrategy, or the floor gains the patched bevy_ggrs fork",

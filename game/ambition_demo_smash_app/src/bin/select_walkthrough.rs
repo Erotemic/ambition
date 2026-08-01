@@ -11,7 +11,7 @@
 //! hand-rolled 5x7 font rendering them into a PNG would be a less faithful view
 //! of the same strings, not a more faithful one.
 
-use ambition::input::{MenuControlFrame, SeatMenuFrames};
+use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use ambition_demo_smash::select::{MAX_SMASH_SEATS, SmashSelect};
 use ambition_demo_smash::select_ui::{panel_text, prompt_text};
 use ambition_demo_smash_app::build_demo_app;
@@ -24,7 +24,7 @@ fn main() {
     }
     let devices: Vec<Entity> = (0..3).map(|_| app.world_mut().spawn(()).id()).collect();
     app.world_mut()
-        .insert_resource(ambition::input::LocalDeviceOrder::from_devices(devices));
+        .insert_resource(ambition_platformer2d::input::LocalDeviceOrder::from_devices(devices));
 
     show(&mut app, "the screen as three people find it");
     step(
@@ -52,7 +52,7 @@ fn main() {
 
     let started = app
         .world()
-        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
         .is_some();
     println!("\nmatch published: {started}");
 }
@@ -90,7 +90,7 @@ fn show(app: &mut App, what: &str) {
     // what changes the WORDS on a panel, not whether it exists.
     let offered = app
         .world()
-        .get_resource::<ambition::input::LocalDeviceOrder>()
+        .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
         .map(ambition_demo_smash::select::seats_offered)
         .unwrap_or(1);
     for seat in 0..MAX_SMASH_SEATS {

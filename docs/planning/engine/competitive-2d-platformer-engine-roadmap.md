@@ -219,9 +219,9 @@ special cases."
 
 Primary owners include:
 
-- `crates/ambition_engine_core/src/movement/`
-- `crates/ambition_engine_core/src/cast.rs`
-- `crates/ambition_platformer_primitives/src/body/`
+- `crates/ambition_platformer2d_core/src/movement/`
+- `crates/ambition_platformer2d_core/src/cast.rs`
+- `crates/ambition_platformer2d_shared_tangle/src/body/`
 - [`unified-movement-kernel.md`](unified-movement-kernel.md)
 - [`collision-and-ccd.md`](collision-and-ccd.md)
 
@@ -233,7 +233,7 @@ general engines and should not be weakened by a generic rigid-body abstraction.
 
 Primary owners include:
 
-- `crates/ambition_runtime/src/rollback/`
+- `crates/ambition_platformer2d_runtime/src/rollback/`
 - `crates/ambition_sim_harness/`
 - `crates/ambition_sim_view/`
 - `crates/ambition_gameplay_trace/`
@@ -251,7 +251,7 @@ platformer/action framework than a general engine supplies by default.
 
 Primary owners include:
 
-- `crates/ambition_actors/`
+- `crates/ambition_platformer2d_actor_monolith/`
 - `crates/ambition_characters/`
 - `crates/ambition_combat/`
 - [`combat-model.md`](combat-model.md)
@@ -267,10 +267,10 @@ not yet express it. This is consolidation, not a new action or combat engine.
 
 Primary owners include:
 
-- `crates/ambition_platformer_provider/`
-- `crates/ambition_world/`
-- `crates/ambition_actors/src/world/rooms/`
-- `crates/ambition_actors/src/features/ecs/spawn/`
+- `crates/ambition_platformer2d_provider/`
+- `crates/ambition_platformer2d_world/`
+- `crates/ambition_platformer2d_actor_monolith/src/world/rooms/`
+- `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/`
 - [`immutable-content-and-transactional-construction.md`](immutable-content-and-transactional-construction.md)
 
 This campaign is substantially advanced. It should be finished and simplified,
@@ -334,7 +334,7 @@ knowledge of unstable implementation internals.
 The oracle has an executable instrument:
 [`fixtures/external_consumer/`](../../../fixtures/external_consumer/)
 (Outlander) authors a room, character, enemy, recipe, and transition from outside
-the workspace through the `ambition` umbrella alone, gated by `external consumer:
+the workspace through the `ambition_platformer2d` umbrella alone, gated by `external consumer:
 outlander` in `scripts/run_tests.py`, with each engine-internal assumption it must
 lean on recorded as a named API leak. Tasks 3, 4, 6, and 8 below should each
 retire leaks rather than add them.
@@ -429,9 +429,9 @@ checksums, simulation authorization, lifecycle cleanup, or reconstruction.
 
 **Current code to refactor**
 
-- `crates/ambition_runtime/src/rollback/mod.rs::register_engine_rollback_state`
-- `crates/ambition_platformer_primitives/src/schedule.rs::SandboxSet`
-- runtime plugin assembly in `crates/ambition_runtime/src/lib.rs`
+- `crates/ambition_platformer2d_runtime/src/rollback/mod.rs::register_engine_rollback_state`
+- `crates/ambition_platformer2d_shared_tangle/src/schedule.rs::SandboxSet`
+- runtime plugin assembly in `crates/ambition_platformer2d_runtime/src/lib.rs`
 - demo scheduling in `game/ambition_demo_mary_o/` and
   `game/ambition_demo_sanic/`
 - `game/ambition_app/tests/rollback_coverage.rs`
@@ -439,7 +439,7 @@ checksums, simulation authorization, lifecycle cleanup, or reconstruction.
 **Approach**
 
 1. Move rollback declarations toward owner crates through a neutral registration
-   vocabulary that does not invert dependencies into `ambition_runtime`.
+   vocabulary that does not invert dependencies into `ambition_platformer2d_runtime`.
 2. Require authoritative systems to install into explicit engine semantic phases.
 3. Remove gameplay-authoritative `Local<T>` state; use rollback state or derived
    state with a proved reconstruction rule.
@@ -465,9 +465,9 @@ The criterion is answered, and deliberately from outside the workspace, in
 `consumer_owned_authoritative_state_survives_real_resimulation`. Outlander
 declares `BeaconCharge`, writes its own snapshot codec, registers it with
 `app.rollback_component_canonical::<BeaconCharge>(..)` through the public
-`ambition::runtime::rollback` vocabulary, and installs its systems into
+`ambition_platformer2d::runtime::rollback` vocabulary, and installs its systems into
 `SandboxSet::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
-component; nothing in `ambition` could, because nothing in `ambition` has heard
+component; nothing in `ambition_platformer2d` could, because nothing in `ambition_platformer2d` has heard
 of it. The rewind is real — a GGRS sync-test session, ~900 loads and ~4500
 resimulated advances in the test's own run — and the ridge gate is GATED on the
 charge, so the state is authoritative rather than decorative. Verified RED:
@@ -579,9 +579,9 @@ not already own it.
 - `crates/ambition_characters/src/brain/action_set/mod.rs::ActionSet`
 - `crates/ambition_characters/src/action_scheme.rs`
 - `crates/ambition_combat/src/moveset/mod.rs::{ActorMoveset, MovePlayback}`
-- `crates/ambition_actors/src/ability_cooldown.rs`
-- `crates/ambition_actors/src/avatar/starting_character.rs::gate_worn_player_control`
-- `crates/ambition_actors/src/affordances/`
+- `crates/ambition_platformer2d_actor_monolith/src/ability_cooldown.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs::gate_worn_player_control`
+- `crates/ambition_platformer2d_actor_monolith/src/affordances/`
 - focused plans [`character-actions.md`](character-actions.md),
   [`participant-input.md`](participant-input.md), and
   [`participant-action-system.md`](participant-action-system.md)
@@ -658,9 +658,9 @@ event type.
 
 **Current code and plans**
 
-- `crates/ambition_engine_core/src/cast.rs`
-- `crates/ambition_engine_core/src/world.rs`
-- `crates/ambition_engine_core/src/body_clusters.rs::{SweepSample, BodyEnvironmentContact}`
+- `crates/ambition_platformer2d_core/src/cast.rs`
+- `crates/ambition_platformer2d_core/src/world.rs`
+- `crates/ambition_platformer2d_core/src/body_clusters.rs::{SweepSample, BodyEnvironmentContact}`
 - `crates/ambition_interaction/src/lib.rs::Interactable`
 - `crates/ambition_combat/src/lib.rs::DamageVolume`
 - hazard, rebound, pogo, pipe, loading-zone, portal, and actor-contact consumers
@@ -750,10 +750,10 @@ validated authority boundary.
 
 **Current code and plans**
 
-- `crates/ambition_actors/src/world/rooms/stage.rs::RoomConstructionPlan`
-- `crates/ambition_world/src/placements.rs::PlacementLoweringPlan`
-- `crates/ambition_actors/src/features/ecs/spawn/content_staging.rs`
-- `crates/ambition_platformer_provider/`
+- `crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs::RoomConstructionPlan`
+- `crates/ambition_platformer2d_world/src/placements.rs::PlacementLoweringPlan`
+- `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs`
+- `crates/ambition_platformer2d_provider/`
 - [`immutable-content-and-transactional-construction.md`](immutable-content-and-transactional-construction.md)
 - the current closure items recorded in `../status.md` and `../tracks.md`
 
@@ -855,22 +855,22 @@ knowledge of leaf systems, without prematurely promising API stability.
 
 **Current code to refactor**
 
-- `crates/ambition_runtime/src/lib.rs`
-- `crates/ambition_platformer_provider/`
-- `crates/ambition_host/`
-- `crates/ambition/src/lib.rs`
+- `crates/ambition_platformer2d_runtime/src/lib.rs`
+- `crates/ambition_platformer2d_provider/`
+- `crates/ambition_platformer2d_host/`
+- `crates/ambition_platformer2d/src/lib.rs`
 - domain owner plugins throughout the workspace
 - [`architecture.md`](architecture.md)
 
 **Approach**
 
-1. Keep `ambition_runtime` responsible for the global semantic phase graph and
+1. Keep `ambition_platformer2d_runtime` responsible for the global semantic phase graph and
    common session lifecycle, not installation of every leaf system.
 2. Move domain-local initialization, systems, registrations, and presentation
    adapters into owner plugins.
 3. Keep Bevy `App`, `Plugin`, components, resources, and schedules visible to
    providers where they are the correct extension mechanism.
-4. Curate the `ambition` facade around supported composition conveniences, but
+4. Curate the `ambition_platformer2d` facade around supported composition conveniences, but
    avoid hiding implementation crates behind indiscriminate re-exports.
 5. Delay compatibility promises until multiple current games use the same seam.
 
@@ -890,13 +890,13 @@ plainly false.**
 Providers use ordinary Bevy composition: Outlander is a `Plugin` that calls
 `app.sim_schedule()` and `.in_set(SandboxSet::PlayerSimulation)`, never a literal
 schedule, and it assembles a whole game from outside the workspace through the
-`ambition` umbrella. Four recorded API leaks is the honest cost, and they are
+`ambition_platformer2d` umbrella. Four recorded API leaks is the honest cost, and they are
 listed rather than hidden. Domain plugins largely own their installation — the
 2026-07-27 addition of consumer-owned rollback registration is the strongest case
 of that, since the engine cannot even name the type.
 
 The second clause is not met and the file says so at a glance:
-`crates/ambition_runtime/src/player_schedule.rs` names `ambition_actors::` leaf
+`crates/ambition_platformer2d_runtime/src/player_schedule.rs` names `ambition_platformer2d_actor_monolith::` leaf
 systems THIRTY times in one chain. It is a readable chain with good reasons
 written beside each entry, but "orders semantic sets rather than naming leaf
 systems" is exactly what it does not do — and the 2026-07-27 `GgrsSchedule` cycle
@@ -1000,7 +1000,7 @@ participant-owned semantic controls without changing the authoritative body path
 
 - `crates/ambition_input/`
 - `crates/ambition_touch_input/`
-- participant/control components in `ambition_actors` and `ambition_characters`
+- participant/control components in `ambition_platformer2d_actor_monolith` and `ambition_characters`
 - [`participant-input.md`](participant-input.md)
 - [`participant-action-system.md`](participant-action-system.md)
 
@@ -1057,7 +1057,7 @@ extending central hardcoded ladders or creating a parallel rendering world.
 
 **Current code to refactor**
 
-- `crates/ambition_actors/src/character_sprites/anim/`
+- `crates/ambition_platformer2d_actor_monolith/src/character_sprites/anim/`
 - sprite-sheet and character-presentation crates
 - `crates/ambition_sim_view/src/camera_snapshot.rs`
 - camera systems in render/host composition
@@ -1351,7 +1351,7 @@ budgets; diagnostics do not affect authoritative outcomes.
 
 "Diagnostics do not affect authoritative outcomes" is the strongest one and it is
 architectural rather than promised: the confirmed-frame external-effect
-quarantine (`ambition_runtime::external_effects`) means a speculating host defers
+quarantine (`ambition_platformer2d_runtime::external_effects`) means a speculating host defers
 an effect instead of suppressing it, and the emit-time gate that used to drop
 sounds during resimulation was deleted precisely because suppressing at emit time
 destroys the corrected outcome.

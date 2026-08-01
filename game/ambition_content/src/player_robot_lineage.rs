@@ -35,7 +35,7 @@
 //! from v2. A reader who treats it as an inheritance edge has reintroduced the
 //! patch layer this design exists to refuse.
 
-use ambition_actors::character_runtime::{
+use ambition_platformer2d_actor_monolith::character_runtime::{
     CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt, Lineage,
 };
 

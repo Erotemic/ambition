@@ -14,7 +14,7 @@ engine-work findings and slice H are carried out of the campaign — see
 
 **§4.2 went red because a new surface was measured for the first time, and that
 is the gate working.** All six earlier runs used Script A, whose task is
-standing a game up. Slice F published `ambition::rollback`, which Script A's
+standing a game up. Slice F published `ambition_platformer2d::rollback`, which Script A's
 task cannot reach — a minimal game that boots never starts a session. So six
 green runs said nothing about the newest public surface, and
 [Script B](slice-evidence/blind-agent-runs/SCRIPT.md) was added as a NEW SERIES
@@ -61,7 +61,7 @@ chose to measure and not about the API being finished:
   Outlander is external in *dependency shape* and internal in *authorship*.
   Nothing in §4 measures this, the blind-agent runs are a deliberate proxy for
   it, and it is not closeable by a slice.
-* **The capability footprint never moved.** Depending on `ambition` links 41
+* **The capability footprint never moved.** Depending on `ambition_platformer2d` links 41
   crates, 19 of which a movement-only game never asked for, and that number is
   identical to slice A's. It is the one §4 decomposition trigger that never
   fired. Seven slices of "no consumer has been unable to do something because
@@ -70,7 +70,7 @@ chose to measure and not about the API being finished:
   things a consumer felt in one session, and is now **slice H** rather than a
   footnote.
 
-Slice F is the one the campaign could have faked. `ambition::rollback` could
+Slice F is the one the campaign could have faked. `ambition_platformer2d::rollback` could
 have been curated and the baseline pruned in an afternoon, at any point across
 slices C, D and E, and the ratchet would have read zero. The shortcut publishes
 the same module name over the same implementation; what it omits is everything
@@ -95,7 +95,7 @@ on 2026-07-30 once this campaign reached its terminal condition.
 | **C** | the engine refuses a game and drops the reason | `HostStatus::Refused`; a route hold was suppressing failure reporting |
 | **D** | a composition holds ONE experience; the shipped host has four | multi-experience drafts; matrix row 4 |
 | **E** | the builder boots only into a game; the shipped host boots into a launcher | `start_at_launcher()`; matrix row 6 |
-| **F** | rollback is not a public promise; `SnapshotState` sat above the domains it encodes | `ambition::rollback` + `PlatformerApp::rollback(n)`; the vocabulary carved to `ambition_engine_core::snapshot`; ratchet 1 → 0; ADRs 0031/0032 Accepted |
+| **F** | rollback is not a public promise; `SnapshotState` sat above the domains it encodes | `ambition_platformer2d::rollback` + `PlatformerApp::rollback(n)`; the vocabulary carved to `ambition_platformer2d_core::snapshot`; ratchet 1 → 0; ADRs 0031/0032 Accepted |
 | **G** | the SDK stops at `start()` returning Ok | `sim_schedule` documented, `rollback::health`, `MatchSeat`; Script B run 8 at zero engine files |
 
 ### The shape that recurred three times
@@ -118,7 +118,7 @@ delivery looked like.)*
 **Rollback as a public promise.** The only candidate left, and the campaign's
 §4 carve trigger FIRED while scoping it: rollback ownership cannot be federated
 without moving code between crates, because `SnapshotState` and
-`AmbitionRollbackApp` live in `ambition_runtime`, which depends on twenty domain
+`AmbitionRollbackApp` live in `ambition_platformer2d_runtime`, which depends on twenty domain
 crates while none depends on it.
 
 ⚠ **The compiler then proved the sequencing.** Attempting the carve produced
@@ -135,7 +135,7 @@ Full derivation, ranking and the five things the next attempt inherits:
 [`slice-evidence/slice-f-selection.json`](slice-evidence/slice-f-selection.json).
 
 ⚠ **The cheap version is available and would be fraud.** Curating
-`ambition::rollback` as a closed module and pruning the baseline takes §4.1 to
+`ambition_platformer2d::rollback` as a closed module and pruning the baseline takes §4.1 to
 zero in twenty minutes and makes, through the back door, exactly the promise
 ADR 0031 reserves for its own slice. The allowlist contract carries that
 reasoning at the entry, because "one away from zero" is when somebody reaches
@@ -152,12 +152,12 @@ hour, so the footprint moved to slice H and G became **the far side of
 
 **Closed (2026-07-30):** (e) where gameplay systems go — `app.sim_schedule()`,
 never `Update`, now the phase-table section of `docs/sdk/api-reference.md`;
-(c) session liveness — `ambition::rollback::health`, whose docs state the limit
+(c) session liveness — `ambition_platformer2d::rollback::health`, whose docs state the limit
 a single sample cannot see (a frozen session reports Healthy forever, so
 liveness is a property of TWO observations); (f) REFUTED —
 `drive_control_frame` is correct under GGRS, proven by Outlander's
 byte-identical parity walk; (a) closed as documentation — `require_rollback`
-at the point of failure; (g) partly — `ambition::actor::MatchSeat` is the
+at the point of failure; (g) partly — `ambition_platformer2d::actor::MatchSeat` is the
 query half of seating. Run 8's four findings, all documentation (a
 `SnapshotState` worked example with the field-ORDER warning; "`rollback(n)`
 does not create n characters"; `encoded_types()` is a DELTA assertion, not an
@@ -248,7 +248,7 @@ greps.
 Unchanged in content from the superseded slice-G ranking (the `slice_g` object
 in [`slice-g-selection.json`](slice-evidence/slice-g-selection.json), including
 its exit-criteria sketch and the failure mode to avoid — cutting edges until
-the number looks good). Depending on `ambition` links 41 crates, 19 of which a
+the number looks good). Depending on `ambition_platformer2d` links 41 crates, 19 of which a
 movement-only game never asked for; it is the one §4 decomposition trigger
 that never fired, and it is still unfelt by any consumer after eight blind
 runs. The reason to do it has not weakened; the reason to do it FIRST has,
@@ -266,9 +266,9 @@ of features — it could never have moved) with the baseline pruned 41→38 /
 files: `render` is optional in the facade but NOT for minimal_game (its
 windowed boot is a slice-B exit criterion); `audio` stays unconditional
 (`no_audio` still registers a fragment); and the other 14 unwanted crates
-remain linked because **`ambition_actors` brings them — the §4 carve
+remain linked because **`ambition_platformer2d_actor_monolith` brings them — the §4 carve
 condition, exactly as the baseline predicted.** NOT merged because three
-verifications were still compiling at wrap-up: `cargo check -p ambition`
+verifications were still compiling at wrap-up: `cargo check -p ambition_platformer2d`
 (default features), `cargo test` in both fixture workspaces, and the
 red-probe of the new art-without-render refusal. Run those three before
 merging; a green result closes most of the slice, a red one is a finding.
@@ -304,7 +304,7 @@ Three, identical in shape. Each lands **green against a recorded baseline**, so
 
 | Ratchet | Baseline | Invariant | Zero means |
 |---|---|---|---|
-| **Module allowlist violations** | every `ambition::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member, **and may not keep one the consumer stopped naming** | consumers name only the SDK |
+| **Module allowlist violations** | every `ambition_platformer2d::…` path production consumer code names that is not in the reviewed public surface | the set may not gain a member, **and may not keep one the consumer stopped naming** | consumers name only the SDK |
 | **Central rollback registrations + codecs** — **BUILT 2026-07-30**, baseline **319 stable names + 62 codecs** in `slice-evidence/rollback-schema-baseline.json` | the explicit set of stable schema names in `register_engine_rollback_state` and the `impl SnapshotState` blocks in `rollback/codecs.rs` | `current ⊆ frozen`, **and** `frozen ⊆ current` so a federating migration must prune | rollback ownership is federated |
 | **Undeleted compensating mechanisms** | ADR 0032's deletion criteria | the list may not gain a member | the seams took ownership |
 | **Capability footprint** — **BUILT 2026-07-30**, baseline **41 crates, 19 unwanted** in `slice-evidence/capability-footprint-baseline.json` | the transitive `ambition_*` closure a consumer links by depending on the facade alone | the closure may not GROW (one invariant, not two — see below) | a game links only what it asked for |
@@ -326,9 +326,9 @@ ceremony.
 ⚠ **A count is not a ratchet.** Freezing only the *number* of central rollback
 registrations permits deleting one and adding another. Freeze the **set**, by
 stable schema name. Same for codecs — otherwise registration federates outward
-while `ambition_runtime` remains the implementation owner of every domain's
+while `ambition_platformer2d_runtime` remains the implementation owner of every domain's
 snapshot, which is exactly the state
-`impl SnapshotState for ambition_actors::…::MatchSeat` describes today.
+`impl SnapshotState for ambition_platformer2d_actor_monolith::…::MatchSeat` describes today.
 
 ⚠ **Freezing the set is only half of it — the set must also be PRUNED.** A1
 found this while implementing the first ratchet. A frozen set whose entries
@@ -356,10 +356,10 @@ whatever host assembly needs and no more.
 
 Extend `scripts/check_absence_contracts.py` to module-path granularity and add
 an **allowlist** contract: production game/consumer code may name only reviewed
-public SDK modules; everything else under `ambition::` is a violation.
+public SDK modules; everything else under `ambition_platformer2d::` is a violation.
 
 ⚠ **Allowlist, not denylist, and the numbers settle it.** Outlander names **18
-distinct top-level `ambition::` modules** — `actors`, `asset_manager`, `audio`,
+distinct top-level `ambition_platformer2d::` modules** — `actors`, `asset_manager`, `audio`,
 `characters`, `engine`, `engine_core`, `entity_catalog`, `game_assets`,
 `game_shell`, `input`, `platformer`, `presentation`, `provider`, `runtime`,
 `sprite_sheet`, `time`, `windowed_host`, `world`. The first draft of this
@@ -368,7 +368,7 @@ open**, which is worse than no contract because it would have been believed.
 
 > ⚠ **Correction, 2026-07-30 — this row said NINETEEN and listed eighteen.**
 > So did [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md).
-> The fixture names **eighteen**: no brace-grouped `ambition::{…}` imports and
+> The fixture names **eighteen**: no brace-grouped `ambition_platformer2d::{…}` imports and
 > no root-level type re-exports were hiding from the count. The number now comes
 > from the instrument (`--allowlist-open-count`), never from this paragraph — a
 > baseline transcribed out of prose is a ratchet nobody measured, and the
@@ -399,10 +399,10 @@ back, because invariant 1 then rejects it.
 
 **Seen red before green**, all four ways: a module dropped from the baseline
 reports `NEW`; an unpruned entry reports `STALE`; a brace-grouped
-`use ambition::{combat::Strike, effects::Spark};` appended to the real fixture
+`use ambition_platformer2d::{combat::Strike, effects::Spark};` appended to the real fixture
 took the contract red at `src/lib.rs:911` with exit 1; and prose naming
-`ambition::runtime` stays silent. That third one is why the contract parses use
-trees instead of matching a line regex — `\bambition::([a-z_]+)` sees `{` and
+`ambition_platformer2d::runtime` stays silent. That third one is why the contract parses use
+trees instead of matching a line regex — `\bambition_platformer2d::([a-z_]+)` sees `{` and
 stops, so the obvious implementation would have been green, and wrong the first
 time anyone wrote idiomatic Rust. Probes live in
 `scripts/tests/test_absence_contracts.py`, including a non-vacuity assertion:
@@ -422,8 +422,8 @@ Two constraints, cheap now and expensive later:
   erased into `PreparedModule` is sufficient — but because a receiver-less
   `define` or an associated `const ID` forecloses parameterised modules for
   nothing.
-* **Domain preludes, not one root prelude.** `ambition::character::prelude`,
-  `ambition::world::prelude`. One enormous root prelude is a discovery problem
+* **Domain preludes, not one root prelude.** `ambition_platformer2d::character::prelude`,
+  `ambition_platformer2d::world::prelude`. One enormous root prelude is a discovery problem
   for an agent, not a convenience.
 
 ### A3 — implement `PlatformerApp` — **LANDED 2026-07-30**
@@ -436,7 +436,7 @@ the one correct order.
 `Simulation`/`SessionMode` exposes **fixed-step only**. Rollback is not a public
 knob in A — see §Deferred.
 
-**Landed as `crates/ambition/src/app.rs`.** The umbrella is where it belongs and
+**Landed as `crates/ambition_platformer2d/src/app.rs`.** The umbrella is where it belongs and
 there is precedent in the same crate: `game_assets` lives there because it spans
 two layers that may not depend on each other, and its module docs say so. A
 builder that sequences installs is assembly, not the leaf system ADR 0031 warns
@@ -471,7 +471,7 @@ names are pruned and invariant 1 now rejects them. Two independent guards on one
 regression, which is what pruning bought.
 
 **Result: 18 → 14, exactly the four A2 §5 predicted** (`engine`, `game_assets`,
-`presentation`, `windowed_host`). `ambition::app` is the first entry in the
+`presentation`, `windowed_host`). `ambition_platformer2d::app` is the first entry in the
 allowlist's `allowed` set — the first name in this engine that is a promise
 rather than a mirror of the crate list.
 
@@ -546,18 +546,18 @@ slice, and three of its findings are worth reading in full.
 #### The binding constraint is not an API leak
 
 > **The engine does not compile for an outside consumer at all.** A fresh
-> lockfile resolves `bevy_ggrs` from crates.io and `ambition_runtime` dies with
+> lockfile resolves `bevy_ggrs` from crates.io and `ambition_platformer2d_runtime` dies with
 > `cannot find type GgrsFrameTiming`; you must copy `[patch.crates-io]` out of
 > the engine's workspace root, and nothing says so.
 
-It precedes every API question. No amount of work on `ambition::app` reaches a
+It precedes every API question. No amount of work on `ambition_platformer2d::app` reaches a
 third party who cannot get past `cargo check`. Now documented in
 `docs/sdk/README.md` — and see the slice-B derivation for why *removing* it is
 not ours to decide.
 
 #### Two of the overclaims were in documents this campaign wrote
 
-* **Rule 7 was not enforced, and `ambition::app` claimed it was.** The module
+* **Rule 7 was not enforced, and `ambition_platformer2d::app` claimed it was.** The module
   docs said the empty host was *"unreachable rather than merely documented"*.
   What was enforced is that a STRING had been supplied. The agent declared a
   gameplay route nothing served and got a host that built clean, ran 60 ticks
@@ -700,7 +700,7 @@ Outlander, so what compiles is what a third party gets.
   preparing art is now a structured `CompositionError` naming both fixes.
   `EMPTY_CHARACTER_ROSTER_RON` is published because the blind agent had to
   recover it by feeding the parser `"()"` and reading the errors back.
-* **`ambition::app::host_status`** — the read-model the blind agent went looking
+* **`ambition_platformer2d::app::host_status`** — the read-model the blind agent went looking
   for. `Running { prepared }` is two facts, and `is_running()` requires both, so
   the type cannot agree with the empty host it exists to expose.
 
@@ -822,7 +822,7 @@ The first draft of ADR 0032 conflated them; it has been corrected.
   `slice-d-selection.json` records the refusal as "closeable: Yes, trivially
   and WRONGLY".
 
-  The six properties are now `ambition::rollback`, with a test each in
+  The six properties are now `ambition_platformer2d::rollback`, with a test each in
   `fixtures/external_consumer/tests/rollback_is_a_promise.rs`. The named
   hazards are structural rather than documented: `start` activates and settles
   before rebasing frame zero, so the un-rebased write and the
@@ -833,14 +833,14 @@ The first draft of ADR 0032 conflated them; it has been corrected.
   reference was deleted with it.
 
   ⚠ The prerequisite was an internal carve, and it was not visible from the API
-  side. `SnapshotState` sat in `ambition_runtime`, above every crate whose
+  side. `SnapshotState` sat in `ambition_platformer2d_runtime`, above every crate whose
   types it encoded, so the orphan rule had forced ~100 foreign impls into one
   2688-line file — and no consumer could implement it for their own type
-  without naming an engine crate. Moving it to `ambition_engine_core::snapshot`
+  without naming an engine crate. Moving it to `ambition_platformer2d_core::snapshot`
   is what made the public promise expressible at all. §4's carve authorisation
   covered it exactly: a leak that cannot be closed without moving code between
   crates authorises the boundary the leak names.
-* **Any `ambition_actors` decomposition.** See
+* **Any `ambition_platformer2d_actor_monolith` decomposition.** See
   [api-growth-method.md](api-growth-method.md) §4 for the two conditions that
   authorise it.
 * **The capability-composition doctrine.** Derived at the end, not written at

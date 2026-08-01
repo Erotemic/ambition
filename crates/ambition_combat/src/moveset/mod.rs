@@ -27,8 +27,8 @@ use bevy::prelude::{
     Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With,
 };
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use ambition_entity_catalog::{
     AttackDir, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
@@ -264,7 +264,7 @@ impl MovePlayback {
     /// `active_elapsed` still folds in the telegraph offset (E53). Events with
     /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
     /// **Resume a move mid-flight.** Historical: built for the deleted
-    /// `ambition_runtime::snapshot` engine's
+    /// `ambition_platformer2d_runtime::snapshot` engine's
     /// `SnapshotResolve`.
     ///
     /// The blob carries the CHOICE — which move, how far in, did it land — and the
@@ -343,7 +343,7 @@ impl bevy::ecs::entity::MapEntities for StrikeVolume {
 /// `live_boxes`. It earns its keep when the two disagree, which happens when
 /// `MovePlayback` is REPLACED rather than advanced:
 ///
-/// - (historical) the deleted `ambition_runtime::snapshot::restore` rebuilt it from a
+/// - (historical) the deleted `ambition_platformer2d_runtime::snapshot::restore` rebuilt it from a
 ///   blob (`MovePlayback::resumed`) with an empty `live_boxes`; this system despawned
 ///   the boxes the rewound-from tick left standing. Under GGRS (ADR 0027) the playback
 ///   is instead CLONED + entity-remapped, so the failure mode INVERTS: a cloned slot
@@ -386,7 +386,7 @@ pub fn advance_move_playback(
     // The owner's per-tick resolved frame (ADR 0024), for rotating authored
     // body-local volumes into world space. Looked up by owner entity; a bare
     // test body without one uses the engine default down.
-    owner_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
+    owner_frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_owners: Option<
         Res<ambition_characters::actor::character_catalog::CharacterCatalogOwners>,
@@ -425,7 +425,7 @@ pub fn advance_move_playback(
         // it opens can derive one. Without it every anonymous hitbox folded to the
         // same constant in the entity-reference probes, and swapped owners were
         // invisible. `None` (a bare test body) simply mints nothing.
-        Option<&ambition_platformer_primitives::sim_id::SimId>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     )>,
     // Liveness oracle for the `live_boxes` cache. The cache is NOT the
     // authority — `(t, window)` is — so every cached slot is validated against
@@ -709,7 +709,7 @@ pub fn advance_move_playback(
                         // for.
                         if let Some(owner_sim_id) = owner_sim_id {
                             ec.insert(
-                                ambition_platformer_primitives::sim_id::SimId::strike_volume(
+                                ambition_platformer2d_shared_tangle::sim_id::SimId::strike_volume(
                                     owner_sim_id,
                                     pb.spec.id.as_str(),
                                     w_idx,
@@ -774,7 +774,7 @@ pub fn resolve_attack_gestures(
     mut bodies: Query<(
         &ActorControl,
         &ae::BodyKinematics,
-        Option<&ambition_engine_core::BodyGroundState>,
+        Option<&ambition_platformer2d_core::BodyGroundState>,
         &mut AttackGestureState,
         &AttackGestureTuning,
         &mut ResolvedAttackGesture,
@@ -825,14 +825,14 @@ pub fn trigger_moveset_moves(
         // The body's per-tick resolved frame (ADR 0024): a move's authored
         // body-local start impulse rotates through the SAME frame the body's
         // movement integrated under. `Option` for bare test bodies.
-        Option<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         // Mutable so a move's authored `start_impulse` (self-motion) lands at
         // trigger — the move-start seam.
         &mut ae::BodyKinematics,
         // Grounded state selects tilt-vs-air variants. Absent on bare test
         // bodies → treated as grounded (immaterial: such bodies author only
         // the base `attack`, which every direction resolves to).
-        Option<&ambition_engine_core::BodyGroundState>,
+        Option<&ambition_platformer2d_core::BodyGroundState>,
         // The playing move, if any — the CM4 cancel seam. `None` = the plain
         // trigger path.
         Option<&mut MovePlayback>,

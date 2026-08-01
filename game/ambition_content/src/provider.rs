@@ -2,12 +2,12 @@
 
 use bevy::prelude::*;
 
-use ambition::presentation::profiles;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_actors::ldtk_world::LdtkRuntimeIndex;
-use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet};
-use ambition_engine_core::RoomGeometry;
-use ambition_runtime::PreparedPlatformerSource;
+use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
+use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet};
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_runtime::PreparedPlatformerSource;
 
 pub const AMBITION_EXPERIENCE: &str = crate::AMBITION_CONTENT_PROVIDER;
 pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
@@ -16,7 +16,7 @@ pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
 pub struct AmbitionPreparedWorld {
     pub room_set: RoomSet,
     pub ldtk_index: LdtkRuntimeIndex,
-    pub starting_character: ambition_actors::avatar::StartingCharacter,
+    pub starting_character: ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
 }
 
 impl AmbitionPreparedWorld {
@@ -105,7 +105,7 @@ fn ambition_session_world(prepared_world: Res<AmbitionPreparedWorld>) -> Prepare
 mod tests {
     use bevy::prelude::App;
 
-    use ambition::game_shell::{
+    use ambition_platformer2d::game_shell::{
         MinimalShellPlugins, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog,
         ShellRouteId,
     };
@@ -116,7 +116,7 @@ mod tests {
     fn alternate_host_composes_provider_without_ambition_app_initializers() {
         let mut app = App::new();
         app.add_plugins(MinimalShellPlugins);
-        app.add_plugins(ambition::load::AmbitionLoadPlugin);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
         app.add_plugins(crate::AmbitionContentPlugin);
         app.add_plugins(AmbitionExperiencePlugin::new(
             AmbitionExperienceConfig::default(),

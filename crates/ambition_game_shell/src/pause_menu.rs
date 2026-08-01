@@ -26,7 +26,7 @@ use ambition_menu::render::bevy_ui::{
 use ambition_menu::{
     MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
 };
-use ambition_platformer_primitives::schedule::GameMode;
+use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::prelude::*;
 

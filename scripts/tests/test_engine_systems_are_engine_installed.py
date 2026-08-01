@@ -33,7 +33,7 @@ APP_ROOTS = ["game"]
 
 def test_a_registration_inside_add_systems_is_seen():
     source = """
-        app.add_systems(Update, ambition::render::rendering::sync_parallax_layers);
+        app.add_systems(Update, ambition_platformer2d::render::rendering::sync_parallax_layers);
     """
     bodies = add_systems_bodies(source)
     assert len(bodies) == 1
@@ -89,7 +89,7 @@ def test_a_doc_comment_naming_a_system_is_not_a_registration():
     source = """
         // ⚠ `sync_parallax_layers` left this list: SessionRoomVisualsPlugin
         // registers it for every composition now.
-        app.add_systems(Update, ambition::render::rendering::sync_health_overlays);
+        app.add_systems(Update, ambition_platformer2d::render::rendering::sync_health_overlays);
     """
     body = add_systems_bodies(strip_comments(source))[0]
     assert "sync_health_overlays" in body

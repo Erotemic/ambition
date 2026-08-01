@@ -3,7 +3,7 @@
 //! Owns Ambition's immutable App-local boss fragment and the live
 //! [`BossEncounterRegistry`] resource used by an active session. The general
 //! boss machinery (profiles, specs, encounter registry/system, patterns) still
-//! lives in `ambition_actors::boss_encounter`; this module owns the bespoke per-boss
+//! lives in `ambition_platformer2d_actor_monolith::boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 //!
 //! - [`gnu_ton`] — GNU-ton's bespoke arena gating (retreat-ladder reveal +
@@ -12,8 +12,8 @@
 //!   ([`banter::install_boss_banter`] / [`banter::tick_boss_idle_barks`]),
 //!   installed next to its dialogue registration.
 
-use ambition_platformer_primitives::schedule::gameplay_allowed;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 pub mod banter;
@@ -140,8 +140,8 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 }
 
 /// Ambition's immutable App-local boss contribution.
-pub fn boss_catalog_fragment() -> ambition_actors::boss_encounter::BossCatalogFragment {
-    ambition_actors::boss_encounter::BossCatalogFragment::from_ron(
+pub fn boss_catalog_fragment() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
+    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
@@ -158,8 +158,8 @@ pub fn boss_catalog_fragment() -> ambition_actors::boss_encounter::BossCatalogFr
 ///
 /// Pure content tests use this helper so they exercise the same provider
 /// fragment as production composition rather than installing process state.
-pub fn authored_boss_catalog() -> ambition_actors::boss_encounter::BossCatalog {
-    let mut registry = ambition_actors::boss_encounter::BossCatalogRegistry::default();
+pub fn authored_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog {
+    let mut registry = ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
     registry
         .register(boss_catalog_fragment())
         .expect("Ambition boss fragment should register");
@@ -174,7 +174,7 @@ pub fn authored_boss_catalog() -> ambition_actors::boss_encounter::BossCatalog {
 /// call this before building its asset catalog and later add
 /// [`AmbitionBossContentPlugin`] without coordinating install order.
 pub fn register(app: &mut App) {
-    use ambition_actors::boss_encounter::BossCatalogAppExt as _;
+    use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogAppExt as _;
     app.register_boss_catalog_fragment(boss_catalog_fragment());
 }
 
@@ -190,7 +190,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // multi-game hosts without process-global install order.
         register(app);
 
-        app.insert_resource(ambition_actors::boss_encounter::BossEncounterRegistry::default());
+        app.insert_resource(ambition_platformer2d_actor_monolith::boss_encounter::BossEncounterRegistry::default());
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
         // never by the host's sim plugin (anti-god rule 5).
@@ -202,7 +202,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // replays must not advance the choice twice. Copy-cheap; registered
         // through the same content seam the specials use.
         {
-            use ambition_runtime::rollback::AmbitionRollbackApp;
+            use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
             app.rollback_resource_clone::<CutRopeHeavyObjectCycle>(
                 "ambition_content::bosses",
                 "content.cut_rope_heavy_object_cycle",
@@ -224,14 +224,14 @@ impl Plugin for AmbitionBossContentPlugin {
             sim,
             (
                 reset_cut_rope_boss_arena_on_room_reset
-                    .in_set(ambition_actors::session::reset::ContentRoomResetSet),
+                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
                 emit_cut_rope_room_replay_after_dialogue_closes
-                    .in_set(ambition_actors::session::reset::ContentDialogueFollowupSet),
+                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet),
                 // The content half of an in-place room replay: clear the cut-rope
                 // boss's per-attempt state. The host anchors this slot before its
                 // generic replay consumer (which owns the player/world reset).
                 reset_cut_rope_attempt_on_replay
-                    .in_set(ambition_actors::session::reset::ContentRoomReplayResetSet),
+                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
             ),
         );
 
@@ -249,7 +249,7 @@ impl Plugin for AmbitionBossContentPlugin {
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()
-                .in_set(ambition_platformer_primitives::schedule::CombatSet::ContentFlavor),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),
         );
 
         // Generic "lured movement" steering: any boss carrying a `CommandedMove`
@@ -260,8 +260,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // chain) — exactly where the old cut-rope-specific steering ran.
         app.add_systems(
             sim,
-            ambition_actors::boss_encounter::tick_commanded_moves
-                .in_set(ambition_platformer_primitives::schedule::BossSteerSlot),
+            ambition_platformer2d_actor_monolith::boss_encounter::tick_commanded_moves
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
         );
 
         // Content progression systems hang on the engine's labeled Progression
@@ -275,11 +275,11 @@ impl Plugin for AmbitionBossContentPlugin {
                 // Cut-rope arena per-attempt setup — MID boss-tick (after the
                 // engine advances encounter progress, before scripted hazards).
                 setup_cut_rope_encounter
-                    .in_set(ambition_actors::boss_encounter::ContentEncounterScriptSet),
+                    .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentEncounterScriptSet),
                 // Victory NPC spawn — after the boss chain frees the payload,
                 // before the save mirrors run.
                 spawn_cut_rope_victory_npc
-                    .in_set(ambition_actors::boss_encounter::ContentEncounterVictorySet),
+                    .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentEncounterVictorySet),
             ),
         );
 
@@ -292,9 +292,9 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             sim,
             gate_gnu_ton_arena_ladder
-                .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
-                .before(ambition_actors::features::update_ecs_hazards)
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
+                .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::WorldPrep),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
@@ -311,7 +311,7 @@ impl Plugin for AmbitionBossContentPlugin {
             app.add_systems(
                 Update,
                 yarn::mirror_cut_rope_heavy_object
-                    .after(ambition_actors::dialog::yarn_bindings::refresh_yarn_state_mirror),
+                    .after(ambition_platformer2d_actor_monolith::dialog::yarn_bindings::refresh_yarn_state_mirror),
             );
         }
     }
@@ -350,7 +350,7 @@ mod apple_rain_animation_key_tests {
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
         let catalog = super::authored_boss_catalog();
         let profile = BossAttackProfile::Special("apple_rain".to_string());
-        let claimed = ambition_actors::boss_encounter::behavior::boss_animation_keys_for_profile(
+        let claimed = ambition_platformer2d_actor_monolith::boss_encounter::behavior::boss_animation_keys_for_profile(
             &catalog, &profile,
         );
         assert!(

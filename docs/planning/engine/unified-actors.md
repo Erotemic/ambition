@@ -350,7 +350,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      combatant role is faction DATA, not a special "boss" type (a hostile Enemy-faction
      player_robot IS the player-faces-its-own-kit demo); the kit itself was already pinned at
      the spec level.
-   - **C3 — convergence metric.** The `crate::player` importer SINK in `ambition_actors`
+   - **C3 — convergence metric.** The `crate::player` importer SINK in `ambition_platformer2d_actor_monolith`
      (non-player files) is **62 → 50 → 43** (−31% from the documented baseline); the remaining
      names are genuine controller/player concepts (`PlayerInputFrame`, `PlayerInteractionState`,
      `PlayerSlot`, camera/anim/composition), not body vocabulary. **8 parallel authorities
@@ -370,20 +370,20 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
 
    🟢 **Phase C (payoff verification) DONE (2026-07-10).** It was ONE LINT, and it
    is the gate on the S5/S6 player fold:
-   **the `engine.control-frame` / `game.control-frame` policy** (`tests/ambition_workspace_policy/src/custom/control_frame.rs`; migrated 2026-07-10 from `ambition_runtime/tests/control_frame_lint.rs`). Most of step 5's payoff was
+   **the `engine.control-frame` / `game.control-frame` policy** (`tests/ambition_workspace_policy/src/custom/control_frame.rs`; migrated 2026-07-10 from `ambition_platformer2d_runtime/tests/control_frame_lint.rs`). Most of step 5's payoff was
    already pinned by tests that exist: `duel_arena.rs` (the B1 grudge reframe — two
    ordinary `Npc`s, no hostile faction), `unified_melee.rs`,
    `unified_body_movement.rs`, `player_clone_live.rs`. What was NOT pinned was
    **B3**, and B3 had drifted — in both directions, exactly as suspected.
 
    **What the lint found.** B3's audit conclusion (below, now corrected) claimed
-   the only `Res<ControlFrame>` holders inside `ambition_actors` were "the two
+   the only `Res<ControlFrame>` holders inside `ambition_platformer2d_actor_monolith` were "the two
    input-bridge writers (`populate_control_frame_from_actions`,
    `sync_local_player_input_frame`)".
 
    - `sync_local_player_input_frame` **is not a holder** — it reads
      `Res<SlotControls>`. (It exists; the claim about it was wrong.)
-   - There are **FIVE** holders in `ambition_actors`, not two and not the four the
+   - There are **FIVE** holders in `ambition_platformer2d_actor_monolith`, not two and not the four the
      first re-count found:
      `schedule/input_systems.rs::populate_control_frame_from_actions`,
      `control/input_systems.rs::{input_timer_system, interaction_input_system}`,
@@ -460,12 +460,12 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    - 🟢 **B3 (de-player-center the control surface) DONE** — ⚠️ **its audit conclusion
      was WRONG, corrected 2026-07-10 by the Phase C lint above.** *What it said:* the
      stated violation — sim/body logic reading the **global** `Res<ControlFrame>` — was
-     already resolved, and inside `ambition_actors` the ONLY holders were the two
+     already resolved, and inside `ambition_platformer2d_actor_monolith` the ONLY holders were the two
      input-bridge writers (`populate_control_frame_from_actions` device→frame,
      `sync_local_player_input_frame` frame→`PlayerInputFrame`), so every sim reader
      already consumed an entity-local component. *What is true:*
      `sync_local_player_input_frame` reads `Res<SlotControls>` and was never a holder;
-     there are FIVE holders in `ambition_actors`; and one of them —
+     there are FIVE holders in `ambition_platformer2d_actor_monolith`; and one of them —
      `possession_trigger_system` — is a real sim reader that makes possession
      local-player-only. Nothing guarded any of this, which is the point: an audit is a
      measurement at one instant, a lint is an invariant. The remaining global-frame
@@ -595,7 +595,7 @@ Every later step must move toward convergence, never away:
 - Body resolver (actor side): `features/enemies/integration.rs` (`ActorMut::update`,
   the spine), `features/ecs/actors/update.rs` (`update_ecs_actors`), `combat/components`
   (`ActorAttackState`, `CombatCapabilities`, `ActorTuning`, `BodyMovementTuning`).
-- Body pipeline both run on: `ambition_engine_core/movement`
+- Body pipeline both run on: `ambition_platformer2d_core/movement`
   (`update_body_with_tuning_clusters` + the `update_player_*_clusters` wrappers = body fn +
   respawn policy, the `apply_*` limbs, `integrate_normal_spine`, `BodyClustersMut` — the
   view both the player query and `ActorMut::clusters_mut` build; module `body_clusters`).

@@ -7,7 +7,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::runtime::rollback::{Rollback, RollbackRegistry};
+use ambition_platformer2d::runtime::rollback::{Rollback, RollbackRegistry};
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::With;
 
@@ -100,7 +100,7 @@ fn dynamic_actor_churn_survives_ggrs_recreation() {
         "ggrs_probe",
         (640.0, 400.0),
         (24.0, 36.0),
-        ambition::entity_catalog::placements::BossBrain::Dormant,
+        ambition_platformer2d::entity_catalog::placements::BossBrain::Dormant,
     );
 
     let rebased = sim.rollback_execution_stats().unwrap();
@@ -182,17 +182,17 @@ fn authoritative_entity_families_are_ggrs_anchors() {
     {
         let world = sim.world_mut();
         let subject = world
-            .resource::<ambition::platformer::markers::ControlledSubject>()
+            .resource::<ambition_platformer2d::platformer::markers::ControlledSubject>()
             .0
             .expect("the sandbox session has a controlled subject");
         world
             .entity_mut(subject)
-            .insert(ambition::combat::held_items::HeldItem::new(
-                ambition::characters::brain::HeldItemSpec {
+            .insert(ambition_platformer2d::combat::held_items::HeldItem::new(
+                ambition_platformer2d::characters::brain::HeldItemSpec {
                     id: "desync_canary_bolt_thrower".to_string(),
                     melee: None,
                     ranged: Some(
-                        ambition::characters::brain::action_set::RangedActionSpec::bolt(400.0, 1),
+                        ambition_platformer2d::characters::brain::action_set::RangedActionSpec::bolt(400.0, 1),
                     ),
                     use_behavior: Default::default(),
                 },
@@ -210,7 +210,7 @@ fn authoritative_entity_families_are_ggrs_anchors() {
         });
         let world = sim.world_mut();
         let mut live = world
-            .query_filtered::<(), With<ambition::platformer::projectile::ProjectileGameplay>>();
+            .query_filtered::<(), With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
         if live.iter(world).next().is_some() {
             projectile_seen = true;
             break;
@@ -226,17 +226,17 @@ fn authoritative_entity_families_are_ggrs_anchors() {
     let world = sim.world_mut();
 
     let mut bodies =
-        world.query_filtered::<Option<&Rollback>, With<ambition::actors::actor::BodyKinematics>>();
+        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
     assert_family_anchored::<(), _>(world, "BodyKinematics", &mut bodies);
 
-    let mut features = world.query_filtered::<Option<&Rollback>, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+    let mut features = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     assert_family_anchored::<(), _>(world, "FeatureSimEntity", &mut features);
 
-    let mut projectiles = world.query_filtered::<Option<&Rollback>, With<ambition::platformer::projectile::ProjectileGameplay>>();
+    let mut projectiles = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
     assert_family_anchored::<(), _>(world, "ProjectileGameplay", &mut projectiles);
 
     let mut roots =
-        world.query_filtered::<Option<&Rollback>, With<ambition::actors::rooms::RoomSet>>();
+        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::actors::rooms::RoomSet>>();
     assert_family_anchored::<(), _>(world, "RoomSet", &mut roots);
 }
 
@@ -255,7 +255,7 @@ fn ordinary_room_local_motion_does_not_invalidate_the_session_contract() {
     let mut sim = rollback_sim();
     let initial = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
         query
             .single(world)
             .copied()
@@ -269,7 +269,7 @@ fn ordinary_room_local_motion_does_not_invalidate_the_session_contract() {
 
     let observed = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
         query
             .single(world)
             .copied()
@@ -377,11 +377,11 @@ fn two_seats_drive_independent_streams_through_a_rewind() {
         // streams can never be mistaken for each other.
         sim.drive_seat(
             1,
-            ambition::engine_core::ControlFrame {
+            ambition_platformer2d::engine_core::ControlFrame {
                 axis_x: if frame % 24 < 12 { -1.0 } else { 1.0 },
                 jump_pressed: frame % 13 == 0,
                 attack_pressed: frame % 7 == 3,
-                ..ambition::engine_core::ControlFrame::default()
+                ..ambition_platformer2d::engine_core::ControlFrame::default()
             },
         );
         sim.step(scripted_action(frame));
@@ -404,12 +404,12 @@ fn two_seats_drive_independent_streams_through_a_rewind() {
     // — that GGRS carried a second, different input to the slot its brain reads.
     let seat_two = sim
         .world()
-        .get_resource::<ambition::characters::brain::SlotControls>()
+        .get_resource::<ambition_platformer2d::characters::brain::SlotControls>()
         .expect("a two-seat session publishes slot controls")
-        .get(ambition::characters::brain::PlayerSlot(1));
+        .get(ambition_platformer2d::characters::brain::PlayerSlot(1));
     let seat_one = *sim
         .world()
-        .get_resource::<ambition::engine_core::ControlFrame>()
+        .get_resource::<ambition_platformer2d::engine_core::ControlFrame>()
         .expect("the primary seat's frame exists");
 
     // ⚠ NOT `seat_two.axis_x != 0.0`. That was the first assertion and it passed

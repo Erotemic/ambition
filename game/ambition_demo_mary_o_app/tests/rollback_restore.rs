@@ -8,7 +8,7 @@
 //! nothing in resimulation rewrites it — so this discriminates real
 //! save→mutate→restore coverage from registration theater.
 
-use ambition::game_shell::{
+use ambition_platformer2d::game_shell::{
     ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
 };
 use ambition_demo_mary_o::{MaryOExperiencePlugin, MaryOLevelState, MARY_O_GAMEPLAY_ROUTE};
@@ -20,16 +20,16 @@ use bevy::prelude::*;
 /// (rightly) private to the demo app crate.
 fn build_rollback_demo_app() -> App {
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::rollback());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::rollback());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    app.insert_resource(ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
     ));
     // No `AmbitionLoadPlugin` here — the engine group supplies it (the
     // room-transition transaction is a load plan), and a duplicate panics.
-    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
+    app.add_plugins(ambition_platformer2d::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(MaryOExperiencePlugin);
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -66,7 +66,7 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         app.update();
         let session_active = app
             .world()
-            .get_resource::<ambition::game_shell::ActiveGameplaySession>()
+            .get_resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
             .is_some_and(|session| session.0.is_some());
         if session_active {
             activated = true;
@@ -81,13 +81,13 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
     // A real sync-test session over the activated world: every update saves,
     // rolls back `check_distance` frames, and resimulates. GGRS now drives
     // the sim, which finishes staging the room and spawns the mode owner.
-    ambition::runtime::rollback::start_sync_test_session(
+    ambition_platformer2d::runtime::rollback::start_sync_test_session(
         app.world_mut(),
-        ambition::runtime::rollback::SyncTestSettings {
+        ambition_platformer2d::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
             // Single-player demo, stated rather than inherited (2026-07-29).
-            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
+            ..ambition_platformer2d::runtime::rollback::SyncTestSettings::for_players(1)
         },
     )
     .expect("the demo composition starts a GGRS sync-test session");
@@ -117,7 +117,7 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         before.time_remaining,
         running.time_remaining
     );
-    ambition::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::runtime::rollback::session_health(app.world())
         .expect("the demo's registered state resimulates checksum-identical");
 
     // Save → MUTATE → restore: poke a score no gameplay produced, outside any
@@ -141,6 +141,6 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         "a dirty out-of-band score must be OVERWRITTEN by the rollback restore \
          — surviving it means MaryOLevelState is not actually snapshot/restored"
     );
-    ambition::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::runtime::rollback::session_health(app.world())
         .expect("the run stays checksum-identical after the dirty write is rolled back");
 }

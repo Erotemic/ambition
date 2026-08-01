@@ -1,7 +1,7 @@
 //! ECS entity components for the enemy/boss projectile pool.
 //!
 //! Each in-flight hostile or boss-authored projectile is one entity carrying shared
-//! [`ambition_engine_core::BodyKinematics`], shared
+//! [`ambition_platformer2d_core::BodyKinematics`], shared
 //! [`crate::ProjectileGameplay`], a deterministic
 //! [`crate::ProjectileSeq`], an owner-id string for visuals/traces, and
 //! the [`EnemyProjectile`] pool marker.

@@ -50,7 +50,7 @@ The repository currently carries two partially overlapping encounter systems:
 
 1. `ambition_encounter`: a generic but wave-centric resource state machine with
    its own phase enum, registry, music request, reward path, and spawn commands.
-2. `ambition_actors::boss_encounter`: actor-local boss phase machinery plus a
+2. `ambition_platformer2d_actor_monolith::boss_encounter`: actor-local boss phase machinery plus a
    second encounter entity, registry, event stream, music request, scripted beat
    VM, rewards, and automatic boss-to-encounter wrapping.
 
@@ -61,7 +61,7 @@ to compose, harder to snapshot, and larger than necessary.
 Measured 2026-07-10:
 
 - `crates/ambition_encounter/src`: 1,082 total source lines including tests.
-- `crates/ambition_actors/src/boss_encounter`: 5,493 total source lines including
+- `crates/ambition_platformer2d_actor_monolith/src/boss_encounter`: 5,493 total source lines including
   tests, much of which is legitimately actor-local attack geometry, profiles,
   behavior, and sprites.
 - The migration surface - generic encounter files, boss encounter/entity/script/
@@ -428,10 +428,10 @@ blocks and `*tests.rs` files):
 | Group | What | prod | test | total |
 |---|---|---:|---:|---:|
 | A | `ambition_encounter/src` (generic wave crate) | 815 | 267 | 1,082 |
-| B | `ambition_actors/src/boss_encounter/{encounter_entity,encounter_script,events,registry,systems}` (+ their `tests.rs`) | 1,093 | 542 | 1,635 |
+| B | `ambition_platformer2d_actor_monolith/src/boss_encounter/{encounter_entity,encounter_script,events,registry,systems}` (+ their `tests.rs`) | 1,093 | 542 | 1,635 |
 | C | `ambition_characters/src/boss_encounter.rs` (+ `phase_mechanism_tests.rs`) — the actor-local phase module | 436 | 233 | 669 |
 | **A+B+C** | **the doc's "~3,681" migration surface** | **2,344** | **1,042** | **3,386** |
-| D | `ambition_actors/src/encounter/*` (the Bevy host adapter wrapping crate A) | 808 | 740 | 1,548 |
+| D | `ambition_platformer2d_actor_monolith/src/encounter/*` (the Bevy host adapter wrapping crate A) | 808 | 740 | 1,548 |
 | **A+B+C+D** | **full runtime surface incl. wave host** | **3,152** | **1,782** | **4,934** |
 
 The `LOC acceptance` target (≥ 800 total source lines removed, stretch 1,200+) is
@@ -441,18 +441,18 @@ touches group D.
 **Consumer map (recorded so the heavy slices are turn-key):**
 
 - *Generic wave crate A* is reached almost entirely through two facades:
-  `ambition::encounter` (`crates/ambition/src/lib.rs` `pub use ambition_encounter as encounter`)
-  and the host module `ambition_actors::encounter` (thin re-export shims). The
+  `ambition_platformer2d::encounter` (`crates/ambition_platformer2d/src/lib.rs` `pub use ambition_encounter as encounter`)
+  and the host module `ambition_platformer2d_actor_monolith::encounter` (thin re-export shims). The
   live state authority is the resource pair `EncounterState`/`EncounterRegistry`,
-  driven by `ambition_actors::encounter::systems::update_encounters_from_world`
+  driven by `ambition_platformer2d_actor_monolith::encounter::systems::update_encounters_from_world`
   (one ~355-line monolith). Consumers: HUD (`ambition_app/app/hud.rs`), camera
   zoom (`ambition_sim_view/camera_snapshot.rs`), music intent
-  (`ambition_actors/music/intent.rs`), reward chests
-  (`ambition_actors/features/ecs/encounter_rewards.rs`), switches, lock walls,
+  (`ambition_platformer2d_actor_monolith/music/intent.rs`), reward chests
+  (`ambition_platformer2d_actor_monolith/features/ecs/encounter_rewards.rs`), switches, lock walls,
   save projection, session reset.
 - *Boss orchestration B* is wired in exactly one schedule
-  (`ambition_runtime/progression_schedule.rs`, the boss `.chain()`), inits its
-  registry in `ambition_runtime/sim_core_resources.rs`, and is authored as
+  (`ambition_platformer2d_runtime/progression_schedule.rs`, the boss `.chain()`), inits its
+  registry in `ambition_platformer2d_runtime/sim_core_resources.rs`, and is authored as
   content in `game/ambition_content/src/bosses/**` (the cut-rope fight is the
   only content author of `EncounterScript`/beats). HUD reads
   `EncounterDef`+`EncounterProgress`. `sync_boss_encounter_entities` auto-wraps
@@ -811,9 +811,9 @@ boss side is already an entity (`EncounterDef`). E1 moves the wave lifecycle
 `ambition_encounter/state.rs`) onto components and reduces `EncounterRegistry`
 to an index, then adds the generic `Start/Fail/Complete/Signal` command ingress
 (§4). Blast radius (from the E0 consumer map): the ~355-line
-`ambition_actors/encounter/systems.rs` monolith, plus HUD
+`ambition_platformer2d_actor_monolith/encounter/systems.rs` monolith, plus HUD
 (`ambition_app/app/hud.rs`), camera (`ambition_sim_view/camera_snapshot.rs`),
 music intent, reward chests, switches, lock walls, and save projection. Build a
-parity harness against the existing `ambition_actors/encounter/tests.rs` (118
+parity harness against the existing `ambition_platformer2d_actor_monolith/encounter/tests.rs` (118
 green tests) FIRST, then port. Do E1 as its own commit before E2 touches
 participants/roles.

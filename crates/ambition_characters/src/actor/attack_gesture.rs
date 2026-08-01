@@ -7,7 +7,7 @@
 //! a device adapter or a character: human, brain, replay, RL, and remote control
 //! all traverse the same interpreter.
 
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 pub use ambition_entity_catalog::AttackDir;
 use bevy::prelude::Component;
 

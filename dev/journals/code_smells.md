@@ -80,7 +80,7 @@ Entry format:
 
 **Resolved by the tracks #1 confirmed-frame quarantine** (`ab8a5a564`,
 `14fbc6ec4`, `385a165ee`, `2eb14ef9e`):
-`ambition_runtime::external_effects` holds `VfxMessage`, `ExplosionRequest`,
+`ambition_platformer2d_runtime::external_effects` holds `VfxMessage`, `ExplosionRequest`,
 `FireworksRequest`, and `DebrisBurstMessage` at `ConfirmedFrameBoundary` and
 releases with `take_confirmed` — exactly the staged fix this entry demanded
 (confirmed, not ran-before; one seam, not 27 gated call sites).
@@ -95,21 +95,21 @@ open smells; entry kept for the analysis below.
 ## 2026-07-19 BIFURCATION: projectile hit-detection runs TWO victim loops — ✅ RESOLVED 2026-07-19
 - **RESOLUTION (same day, tracks #8):** collapsed to ONE victim loop over every body, mirroring `hitbox/mod.rs:203`. `Has<PlayerEntity>` now picks only payload policy (routing stamp + the player's parry heal). Three real drifts died with the fork: the actor side got knockback (it passed `None`, so an actor hit by the very bolt that launched the player just absorbed it), the player side got the grudge term (`damage_lands` instead of `can_damage`), and vulnerability became FEEDBACK-only for both (§A2: the event always flows, i-frames resolve at consume time). The vulnerability cluster is `Option` in the unified query on purpose — requiring it would silently drop simple feature bodies from the query (the required-components-skip trap, which is exactly how the 4 test failures during this change presented). `can_damage` is now unused by projectiles.
 - **(historical)**
-- **Where:** `crates/ambition_actors/src/projectile/systems.rs:577-665` (player loop) and `:679-729` (actor loop); the unified pattern to copy is `crates/ambition_combat/src/hitbox/mod.rs:203-322`.
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs:577-665` (player loop) and `:679-729` (actor loop); the unified pattern to copy is `crates/ambition_combat/src/hitbox/mod.rs:203-322`.
 - **Smell:** the melee hitbox path collapsed to ONE victim loop over every body with `Has<PlayerEntity>` picking only payload policy; projectiles still run the pre-unification shape — separate `strict_intersects`, separate vulnerability checks, `HitTarget::Player` vs `HitTarget::Actor`, and a knockback asymmetry (player gets `FeelScale(0.85)`, actor gets `None`). The code self-documents the drift (`:617-619` "This site had drifted (it dropped the parry term)"). This is the single clearest unmerged combat fork left.
 - **Noticed while:** 2026-07-19 deep review (bifurcation sweep).
 - **Suggested fix / size:** M — one victims query with `Has<PlayerEntity>` selecting payload policy, exactly like `hitbox/mod.rs:203`; delete both loops.
 
 ## 2026-07-19 BIFURCATION: "body was struck" feedback keyed on `is_player` at TWO attacker-side emit sites
-- **Where:** `crates/ambition_combat/src/hitbox/mod.rs:241-268` and `crates/ambition_actors/src/features/ecs/actors/update.rs:1113-1142` (byte-identical payload: `PLAYER_DAMAGE` sfx + `Burst{14,300,[1.0,0.34,0.28,0.88],Shard}` + `DebrisBurst{Impact}`); non-player victims get their richer feedback on the CONSUMER side instead (`damage/actor_hit.rs:271`, `:207-213`). Death feedback is likewise per-victim-kind at three sites (`actor_hit.rs:377-388`, `boss_hit.rs:205-215`, `damage_apply.rs` `death_respawn_player`).
+- **Where:** `crates/ambition_combat/src/hitbox/mod.rs:241-268` and `crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1113-1142` (byte-identical payload: `PLAYER_DAMAGE` sfx + `Burst{14,300,[1.0,0.34,0.28,0.88],Shard}` + `DebrisBurst{Impact}`); non-player victims get their richer feedback on the CONSUMER side instead (`damage/actor_hit.rs:271`, `:207-213`). Death feedback is likewise per-victim-kind at three sites (`actor_hit.rs:377-388`, `boss_hit.rs:205-215`, `damage_apply.rs` `death_respawn_player`).
 - **Smell:** hit RESOLUTION is unified (`resolve_body_hit`), but hit FEEDBACK forks by `is_player` and by layer. Duplicated payload constants at two emit sites will drift.
 - **Noticed while:** 2026-07-19 deep review. **Jon's fix note asks for per-attack VFX/SFX binding ("the same one should not generically be used for all attacks") — the elegant resolution is ONE victim-side feedback seam keyed on the attack/volume spec + the victim's feel profile, which retires both `is_player` branches AND gives moves authored feedback in the same stroke.**
 - **Suggested fix / size:** M — single victim-side reaction system consuming the resolved hit event; attack spec contributes the effect identity; delete both attacker-side emit blocks.
 
 ## 2026-07-19 Portal gun visuals read sim `BodyKinematics` directly (read-model leak) — ✅ RESOLVED 2026-07-19
-- **Where:** `crates/ambition_portal_presentation/src/gun_visuals.rs:62-63` (`Query<(&BodyKinematics, &PortalGun, Option<&PortalTransit>)>`); `lib.rs:128` documents attaching runtime `BodyKinematics` to the presentation entity.
+- **Where:** `crates/ambition_portal2d_presentation/src/gun_visuals.rs:62-63` (`Query<(&BodyKinematics, &PortalGun, Option<&PortalTransit>)>`); `lib.rs:128` documents attaching runtime `BodyKinematics` to the presentation entity.
 - **Smell:** presentation crate queries the sim-side kinematics component instead of a pose view (`BodyPoseView` exists and the rest of render uses it). Portal-domain component reads are fine; the body-kinematics read is the leak.
-- **Resolution:** the crate now reads a host-published `PortalBodyView` (pos/size/facing) on two seams — `PortalSceneBody` and the new `PortalAffordanceBody` — and names `BodyKinematics`/`PlayerEntity`/`PrimaryPlayer` nowhere. **The suggested fix ("read the pose from `ambition_sim_view`") was NOT taken and should not be:** `ambition_sim_view` depends on `ambition_actors`, so consuming `BodyPoseView` would add exactly the host-crate edge this crate's manifest forbids ("never a host crate"). Used the crate's own host-seam idiom instead (same shape as `PortalCameraContinuityHostView`). **The leak was hiding a bug:** the affordance body is tagged from `ControlledSubject`, so while possessing, the held gun and disorientation indicator drew on the HOME AVATAR while the fire adapter already resolved the shot from the controlled body holding the gun (`portal_fire_origin_comes_from_the_holding_controlled_body`, "no fallback" to primary). Pinned by two `ambition_host` tests; the untag half poison-verified.
+- **Resolution:** the crate now reads a host-published `PortalBodyView` (pos/size/facing) on two seams — `PortalSceneBody` and the new `PortalAffordanceBody` — and names `BodyKinematics`/`PlayerEntity`/`PrimaryPlayer` nowhere. **The suggested fix ("read the pose from `ambition_sim_view`") was NOT taken and should not be:** `ambition_sim_view` depends on `ambition_platformer2d_actor_monolith`, so consuming `BodyPoseView` would add exactly the host-crate edge this crate's manifest forbids ("never a host crate"). Used the crate's own host-seam idiom instead (same shape as `PortalCameraContinuityHostView`). **The leak was hiding a bug:** the affordance body is tagged from `ControlledSubject`, so while possessing, the held gun and disorientation indicator drew on the HOME AVATAR while the fire adapter already resolved the shot from the controlled body holding the gun (`portal_fire_origin_comes_from_the_holding_controlled_body`, "no fallback" to primary). Pinned by two `ambition_platformer2d_host` tests; the untag half poison-verified.
 
 ## 2026-07-19 `ambition_menu`/`ambition_settings_menu` reimplement navigation beside `ambition_ui_nav`
 - **Where:** `crates/ambition_menu/src/render/bevy_ui/mod.rs:165` (`focus_key_for`/`MenuFocusKey` own focus model; no `ui_nav` dep), `crates/ambition_settings_menu` (same), plus the shell pause menu, `ambition_app/src/menu/grid_backend.rs`, and `kaleidoscope_app.rs` stacks.
@@ -122,22 +122,22 @@ open smells; entry kept for the analysis below.
 - **Suggested fix / size:** S/M — a shared "gameplay input suspended" gate derived from `GameMode` + domain locks, consumed by the one input-folding seam.
 
 ## 2026-07-19 `spawn_actors.rs` is a second spawn-side monolith
-- **Where:** `crates/ambition_actors/src/features/ecs/spawn_actors.rs:120` (`apply_spawn_actor_requests`, ~513 lines, 23 branch constructs) and `:633` (`boss_actor_cluster`, ~355 lines); 7 commits since 2026-07-16.
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn_actors.rs:120` (`apply_spawn_actor_requests`, ~513 lines, 23 branch constructs) and `:633` (`boss_actor_cluster`, ~355 lines); 7 commits since 2026-07-16.
 - **Smell:** the ledger's monolith attention is all on `update_ecs_actors`; the spawn dispatcher grew to the same shape unnoticed.
 - **Suggested fix / size:** M — extract per-`SpawnActorKind` spawn helpers so the dispatcher is a thin match.
 
-## 2026-07-19 `ambition_actors` compat-facade debris (73 `pub use` lines, two dead modules)
-- **Where:** `crates/ambition_actors/src/effects/mod.rs` (10-line `pub use ambition_vfx::*`, ZERO consumers), `src/debug_label.rs` (6-line re-export, ZERO consumers), `src/host/` (46-line re-export of `ambition_persistence::host::windowing`), plus ~73 `pub use ambition_*` compat lines total; doubled `#[cfg(test)]` attribute at `lib.rs:51-52`.
+## 2026-07-19 `ambition_platformer2d_actor_monolith` compat-facade debris (73 `pub use` lines, two dead modules)
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/effects/mod.rs` (10-line `pub use ambition_vfx::*`, ZERO consumers), `src/debug_label.rs` (6-line re-export, ZERO consumers), `src/host/` (46-line re-export of `ambition_persistence::host::windowing`), plus ~73 `pub use ambition_*` compat lines total; doubled `#[cfg(test)]` attribute at `lib.rs:51-52`.
 - **Smell:** migration residue that makes actors' coupling look wider than it is (decomposition.md:93-96 already notes this distorts the touch-input question). AGENTS.md: delete compat shims on sight.
-- **Suggested fix / size:** S per facade — repoint consumers at canonical homes (`ambition_platformer_primitives` for `PrimaryPlayer`/`GravityField` etc.), delete the re-exports. Mechanical, sonnet-gradable.
+- **Suggested fix / size:** S per facade — repoint consumers at canonical homes (`ambition_platformer2d_shared_tangle` for `PrimaryPlayer`/`GravityField` etc.), delete the re-exports. Mechanical, sonnet-gradable.
 
 ## 2026-07-19 `enforce_session_contract` re-fingerprints the whole rollback registry every frame
-- **Where:** `crates/ambition_runtime/src/rollback/session.rs:282-300`.
+- **Where:** `crates/ambition_platformer2d_runtime/src/rollback/session.rs:282-300`.
 - **Smell:** clones the entire `RollbackRegistry` (~165 String-heavy descriptors) and recomputes a blake3 schema fingerprint in `PreUpdate` while any session is active — every frame of every dev build. Correct but wasteful.
 - **Suggested fix / size:** S — compute the fingerprint once at session start (registry is immutable while a session is active) and compare the cached value.
 
 ## 2026-07-19 14 duplicate `fn test_app()` fixtures; `combat/util.rs` grab-bag
-- **Where:** 14 separate `fn test_app()` fixtures in 14 files (11 in `ambition_actors` — `abilities/ranged/*`, `boss_encounter/`, …); `crates/ambition_combat/src/util.rs` (256 lines) self-describes as "grab-bag … no shared theme" with ad-hoc collision predicates (`player_is_standing_on`, ±2.0/8.0 tolerances).
+- **Where:** 14 separate `fn test_app()` fixtures in 14 files (11 in `ambition_platformer2d_actor_monolith` — `abilities/ranged/*`, `boss_encounter/`, …); `crates/ambition_combat/src/util.rs` (256 lines) self-describes as "grab-bag … no shared theme" with ad-hoc collision predicates (`player_is_standing_on`, ±2.0/8.0 tolerances).
 - **Suggested fix / size:** S/M — one shared minimal-app test fixture per crate; classify util.rs items to their owning modules.
 
 ## 2026-07-19 No `[workspace.dependencies]`; real version drift
@@ -196,7 +196,7 @@ open smells; entry kept for the analysis below.
 ## 2026-06-26 Characters are defined by named `EnemyArchetype` rows, not by their movement kit — ✅ RESOLVED 2026-07-15 (commit 60179c706)
 - **RESOLUTION 2026-07-15 (commit 60179c706):** the three sub-smells this entry bundled are all closed. (1) **Named-enum roster** — GONE (resolved-by-drift before this pass): the `CharacterArchetype`/`EnemyArchetype` enum no longer exists; resolution is a pure string brain-key → `CharacterArchetypeSpec` lookup (`CharacterRoster.by_brain: HashMap<String, _>`) assembled from per-App provider fragments (`CharacterRosterFragment`/`Registry`), and movement tuning already COMPOSES via `inherits` (`resolve_movement_inheritance` folds `BASELINE ← parent ← this row's patch`). (2) **Player-ability composition** — `AbilitySet` union/intersect + `AbilityGrant` bundles → `AbilityBase` (commit 6875aeaea). (3) **Enemy movement kit as a frozen bundle of loose bools** — THIS pass. A character's movement verbs (blink/fly/shield/dash) were authored as `smash_can_*` bools on the flat row, projected to the brain-attempt (`SmashCfg.can_*`) AND stored a THIRD time as `CombatCapabilities.can_*` — a redundant mirror of the body's own `AbilitySet` (which `from_caps` already rebuilt from them). Collapsed to ONE authority: `CombatCapabilities` now carries only combat-CONSEQUENCE traits (death behaviors + weapon drop); the movement verbs lose the misleading `smash_` prefix (they're body capabilities, not Smash-template tuning) and feed one `CharacterArchetypeSpec::movement_kit() -> ae::AbilitySet` that BOTH ports read — the body unions it in at spawn (`ActorBody::from_kit`, enforce) and the Smash brain reads the same verbs (`brain_spec`, attempt). The body's `AbilitySet` (`BodyAbilities`/`AbilityBase`) is now the single movement-capability authority for player AND enemy — the exact "characters are defined by the movements they have, in the player's own vocabulary" the smell asked for. Behavior-preserving; workspace all-targets green, 783+370+105 unit tests + boss-possession app test green. NOTE (deliberately NOT chased — separate, lower-value polish): the movement kit is still authored as four sibling RON bools rather than a `Vec<AbilityGrant>` list (would need new Blink/Fly/Shield/Dash grant variants in engine-core; only 2 rows author the kit, so the ceremony isn't worth it yet); and HP/brain-template/melee/ranged still live as sibling fields on the (now string-keyed, inheritance-composing) spec row, which is fine — the "frozen NAMED bundle" was the smell, not "a struct with fields."
 - **(historical) PARTIAL 2026-07-15 (commit 6875aeaea):** the PLAYER-ability axis of this now composes — `AbilitySet` gained `union`/`intersect`, `AbilityGrant` is a composable vocabulary, and a catalog row lists grants that union into `AbilityBase` (see the RESOLVED item ~line 386). The ENEMY-archetype-row bundle (HP + brain + `smash_can_*` caps as one frozen row) is STILL open — that is the bigger fish this entry is really about. *(Superseded by the resolution above.)*
-- **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_actors/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
+- **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_platformer2d_actor_monolith/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
 - **Smell (Jon, 2026-06-26):** "There really shouldn't be archetypes; characters should be defined by what movements they have available to them." An archetype is a frozen bundle; the elegant model is a character = a **capability/kit set** (which verbs its body has: blink, fly, shield, dash, ledge, melee/ranged shapes, tilts, special) + tuning, composed freely, not picked from a closed roster of named rows. The S3 capability work is incrementally pushing this way (each verb is now a per-body `CombatCapabilities` flag projected from the spec into the body AND the brain), but the *source* is still a named archetype row rather than a kit the body simply HAS. The closed-archetype shape is the body-side analogue of the closed-`SpecialActionSpec`-enum tension already noted for the engine-for-other-games goal.
 - **Noticed while:** wiring blink (S3a) + fly (S3b) as body capabilities for the PCA — each verb needed a `smash_can_*` field threaded through the archetype row → spec → (brain cfg + body caps), which is the seam a kit-first model would make unnecessary.
 - **Suggested fix / size:** L, NOT now (explicitly deferred by Jon — "just a smell to log"). Direction: let a character author its capability set + tuning directly (data), drop the named-archetype indirection; the brain reads the kit, the body enforces it. Dovetails with the fighter-unification roadmap's "per-body capability set" and the engine-for-other-games keystone.
@@ -217,10 +217,10 @@ open smells; entry kept for the analysis below.
 - **RESOLUTION:** swept it. The canonical world-authoring docs already flag RON room manifests as historical (`docs/concepts/ldtk-world-composition.md:25` "LDtk is the current world/level authoring source. Old RON room manifests are historical."; `docs/systems/ldtk-world-composition.md` lists "Old RON room manifests are historical" + "Treating old RON room docs as current" as an anti-pattern). Grepping the current-GUIDANCE doc set (`docs/systems`, `docs/recipes`, `docs/concepts`) for present-tense RON room/level authoring turned up only `sprite-rendering-surface.md:103` `assets/sprites/*.ron` (a live sprite manifest, not a level). The remaining 81 `.ron`+room/world/level hits are in brainstorms/ADRs (legit historical snapshots — must NOT be rewritten) or name RON's LIVE roles (tuning/audio/catalogs). No live-guidance doc misleads. No change.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit — ✅ RESOLVED-BY-DRIFT 2026-07-19
-- **RESOLUTION (2026-07-19 deep-review triage):** the enum moved to `crates/ambition_platformer_primitives/src/feature_kind.rs` and the `Sandbag` variant is GONE — collapsed into `Actor` ("one actor kind covers enemy/NPC/boss/sandbag"). Remaining variants: `Actor, Hazard, Breakable, Chest, Pickup, Switch`. Residue: an inert `FeatureVisualKind::Sandbag` line in the gitignored `entity_manifest.yaml` (nothing parses it) and legitimate content display-names.
+- **RESOLUTION (2026-07-19 deep-review triage):** the enum moved to `crates/ambition_platformer2d_shared_tangle/src/feature_kind.rs` and the `Sandbag` variant is GONE — collapsed into `Actor` ("one actor kind covers enemy/NPC/boss/sandbag"). Remaining variants: `Actor, Hazard, Breakable, Chest, Pickup, Switch`. Residue: an inert `FeatureVisualKind::Sandbag` line in the gitignored `entity_manifest.yaml` (nothing parses it) and legitimate content display-names.
 
 ## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name) — ✅ RESOLVED 2026-07-15 (commit d7aa8f2c7)
-- **RESOLUTION:** mostly resolved-by-drift, closed the residual. The consumers MOVED off `ambition_actors/brain_effects.rs` into content Techniques (`game/ambition_content/src/bosses/specials/*.rs`) and the projectile ART became data-driven (`ProjectileVisualKind::Apple.to_tag()`, no owner-id substring read) — both since 2026-06-15. The ENGINE layer was already honest (`SpecialActionSpec::Special(String)`; "the engine names no boss special"). What REMAINED was content-crate vocabulary drift, now fixed: (1) `spawn_gnu_apple_rain_*` → `spawn_apple_rain_*` — the lone fn-name outlier among 10 technique-keyed siblings; (2) owner-id prefixes de-named off the wielding boss onto the technique (`gnu_ton_apple` → `apple_rain`, `smirking_behemoth_eye_beam` → `eye_beam`) — behavior-safe because projectile self/friendly-fire filtering is ENTITY-based (`hitbox.owner`), the owner_id string is trace/nameplate-only; (3) doc comments migrated from DEAD enum names (`MemorizedVolley`/`PitTrap`/`RotatingCross`/`MinionCascade`/`DebrisRain`) to the live technique keys (`overfit_volley`/`minima_trap`/`saddle_point`/`gradient_cascade`/`apple_rain`); (4) a stray GNU-ton reference dropped from a generic-brain comment. LEFT (legitimate, NOT the smell): content-module docstrings that name which boss a Technique kit belongs to ("Gradient Sentinel kit", "Smirking Behemoth eye-beam"); the enum's historical migration note listing the collapsed variant names; encounter-specific test names (`gnu_ton_apple_rain_*` test the gnu_ton pattern); and the GNU-ton art asset PATH (`sprites/gnu_ton_boss/gnu_ton_apple.png` — real boss art). NOTE: the smell's original "lift baked constants into RON spec fields" ambition is deferred — the APPLE_RAIN_*/OVERFIT_VOLLEY_* tuning consts still live in code (content-owned, "just numbers"), not RON; that's a data-authoring nicety, not a vocabulary smell, and a separate item if wanted. ambition_content all-targets clean, 9 specials tests green, no rustfmt cascade.
+- **RESOLUTION:** mostly resolved-by-drift, closed the residual. The consumers MOVED off `ambition_platformer2d_actor_monolith/brain_effects.rs` into content Techniques (`game/ambition_content/src/bosses/specials/*.rs`) and the projectile ART became data-driven (`ProjectileVisualKind::Apple.to_tag()`, no owner-id substring read) — both since 2026-06-15. The ENGINE layer was already honest (`SpecialActionSpec::Special(String)`; "the engine names no boss special"). What REMAINED was content-crate vocabulary drift, now fixed: (1) `spawn_gnu_apple_rain_*` → `spawn_apple_rain_*` — the lone fn-name outlier among 10 technique-keyed siblings; (2) owner-id prefixes de-named off the wielding boss onto the technique (`gnu_ton_apple` → `apple_rain`, `smirking_behemoth_eye_beam` → `eye_beam`) — behavior-safe because projectile self/friendly-fire filtering is ENTITY-based (`hitbox.owner`), the owner_id string is trace/nameplate-only; (3) doc comments migrated from DEAD enum names (`MemorizedVolley`/`PitTrap`/`RotatingCross`/`MinionCascade`/`DebrisRain`) to the live technique keys (`overfit_volley`/`minima_trap`/`saddle_point`/`gradient_cascade`/`apple_rain`); (4) a stray GNU-ton reference dropped from a generic-brain comment. LEFT (legitimate, NOT the smell): content-module docstrings that name which boss a Technique kit belongs to ("Gradient Sentinel kit", "Smirking Behemoth eye-beam"); the enum's historical migration note listing the collapsed variant names; encounter-specific test names (`gnu_ton_apple_rain_*` test the gnu_ton pattern); and the GNU-ton art asset PATH (`sprites/gnu_ton_boss/gnu_ton_apple.png` — real boss art). NOTE: the smell's original "lift baked constants into RON spec fields" ambition is deferred — the APPLE_RAIN_*/OVERFIT_VOLLEY_* tuning consts still live in code (content-owned, "just numbers"), not RON; that's a data-authoring nicety, not a vocabulary smell, and a separate item if wanted. ambition_content all-targets clean, 9 specials tests green, no rustfmt cascade.
 
 ## 2026-06-15 Gravity-inversion residual design questions — ✅ RESOLVED 2026-07-15 (Jon: all frame-relative, no exceptions)
 Jon's call: every one should be frame-relative, always, everywhere. On inspection three of the four were already done by later refactors; only the thrown-item LAUNCH was a live gameplay gap.
@@ -237,7 +237,7 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 - Related: generated output lands in **three** dirs — `generated/`, `targets/generated/`, and the tool-root `generated/` (all gitignored now, so a consistency smell, not a git-hygiene problem). Pick one canonical generated root when doing the path dedup.
 
 ## 2026-06-23 `BrainSnapshot` test helpers rebuild full literals across crates (leave for now)
-- **Where:** per-module test helpers `snap_at` (`ambition_characters/src/brain/state_machine/tests.rs`), `snap_with_target_at_x` (`ambition_characters/src/brain/smash/mod.rs`), plus full `BrainSnapshot { .. }` literals in `ambition_actors` tests (`features/conversion_tests.rs`, `features/ecs/spawn/tests.rs`).
+- **Where:** per-module test helpers `snap_at` (`ambition_characters/src/brain/state_machine/tests.rs`), `snap_with_target_at_x` (`ambition_characters/src/brain/smash/mod.rs`), plus full `BrainSnapshot { .. }` literals in `ambition_platformer2d_actor_monolith` tests (`features/conversion_tests.rs`, `features/ecs/spawn/tests.rs`).
 - **Smell:** each rebuilds the whole `BrainSnapshot` literal instead of starting from the existing `BrainSnapshot::idle()` constructor + overriding the one or two fields each test cares about. A new field means touching all of them.
 - **Why left (not merged):** they span two crates and each helper parameterizes different fields (`target_x` vs `pos_x + target_x`); a single cross-crate shared fixture would be premature generalization. The cheaper, in-scope win is to have each helper build on `..BrainSnapshot::idle()` rather than a full literal — but `idle()`'s defaults may not match every test's intent, so it needs a per-helper check, not a blind sweep. Noticed during the boss de-bloat sweep (the boss fixtures WERE consolidated; these are the actor/brain analog).
 - **Suggested fix / size:** S per helper — reduce each to `BrainSnapshot { field: x, ..BrainSnapshot::idle() }` after confirming `idle()` matches its baseline. Production `BrainSnapshot { .. }` constructions (`actors/update.rs`, `player/systems.rs`) are distinct real builds — leave them.
@@ -260,7 +260,7 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 - **`LdtkProject` synthetic fixtures** — `world/ldtk_world/tests/kinematic_paths.rs` has 6 `LdtkProject` literals. The world-audit agent rated them ~95% identical, but that held only for the first two: across all six the level dimensions diverge (only 2 use 640×480 / 40×30; one project has multiple levels). A single `synthetic_project(id, entities)` helper won't fit without a wide builder (px_wid/hei/c_wid/hei params), at which point the call sites aren't much shorter. Left.
 
 ## 2026-06-23 Portal LDtk-emission field vs helper feature-gate mismatch — ✅ RESOLVED-BY-DRIFT 2026-07-15
-- **RESOLUTION:** stale — a later refactor already fixed it. In `ambition_ldtk_map/src/conversion/mod.rs` the `portal_gun_spawns` field is now UNGATED (always present, an empty Vec when the feature is off), and the only asymmetry left is intentional + consistent: the builder `portal_gun_spawn()` + the `convert_portal_gun_spawn`/`convert_portal` converters carry BOTH a real `#[cfg(feature = "portal_ldtk")]` impl AND an explicit `#[cfg(not(...))]` fail-loud stub (`portal_compiled_out`). Verified `cargo check -p ambition_ldtk_map --no-default-features --features "ldtk_runtime,portal"` builds clean. No `#[cfg(feature = "portal")]`-vs-`portal_ldtk` field/helper split remains. No code change.
+- **RESOLUTION:** stale — a later refactor already fixed it. In `ambition_platformer2d_ldtk/src/conversion/mod.rs` the `portal_gun_spawns` field is now UNGATED (always present, an empty Vec when the feature is off), and the only asymmetry left is intentional + consistent: the builder `portal_gun_spawn()` + the `convert_portal_gun_spawn`/`convert_portal` converters carry BOTH a real `#[cfg(feature = "portal_ldtk")]` impl AND an explicit `#[cfg(not(...))]` fail-loud stub (`portal_compiled_out`). Verified `cargo check -p ambition_platformer2d_ldtk --no-default-features --features "ldtk_runtime,portal"` builds clean. No `#[cfg(feature = "portal")]`-vs-`portal_ldtk` field/helper split remains. No code change.
 
 ## 2026-06-23 `dialog_lint` fixed-arity command table is hand-synced + untested
 - **Where:** `dialog_lint.rs` (`FIXED_ARITY_COMMANDS` ~:19-31) must match the `In<...>` arities of the `cmd_*` fns in `dialog/yarn_bindings.rs`; the comment says "MUST match" but nothing tests it.
@@ -268,8 +268,8 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 - **Suggested fix / size:** M — a test that scrapes the `cmd_*` signatures (or a registry the bindings already build) and cross-checks the table.
 
 ## 2026-06-26 Glob-import seam map (from `clippy::wildcard_imports` sweep) — PARTIAL 2026-07-15 (3 façades landed)
-- **PARTIAL 2026-07-15 (round 2):** two more cleanly-separable façades untangled the same way. **`ambition_render/rendering/actors`** — animation/boss/overlays each dropped `use super::*` for explicit imports (bevy prelude stays; externals from canonical crates); all their "parent" refs turned out to be comment mentions, so zero coupling. Dropping the hub's `#![allow(unused_imports)]` also surfaced 2 genuinely-dead hub imports (`AabbExt`, the boss-sprite trio now living in `boss.rs`) — removed. Forward `pub use x::*` kept (real public render API). **`ambition_world/rooms`** — the 5 leaf spec modules (camera/gate_portal/loading_zone/metadata/specs) + `spawn` went explicit (each used only 1–2 external names + at most 2 sibling spec types); dropping the `allow` revealed the hub's `Resource` import existed ONLY to feed submodules (never used by mod.rs) — removed. **Key judgment:** `room_graph.rs` and `graph.rs` are AGGREGATORS that legitimately consume the whole sibling spec vocabulary (RoomSpec, PropSpec, LoadingZoneActivation, …) — for them `use super::*` is the right idiom, NOT the kitchen-sink smell, so they keep it. A module ending up half-explicit (leaves) / half-glob (aggregators) is the principled end state, not inconsistency. render 44 + world 36 tests green, both crates warning-clean. **`ambition_runtime/snapshot` RECLASSIFIED → coupled (skip):** codecs.rs (1402 lines), registry.rs, restore.rs each heavily use the parent's shared serialization API (`put_f32`/`SnapshotState`/`Reader`/…) — the mod.rs comment documents that shared-core intent deliberately. Full explicit imports = re-listing the module's own API (high churn, re-break-prone), same as `cut_rope`. Left as-is.
-- **PARTIAL 2026-07-15 (round 1):** the named worst offender — `bosses/specials/mod.rs` — is fully untangled. The 7 Technique submodules each dropped `use super::*` for explicit imports (`bevy::prelude::*` stays as the one canonical glob; everything else named); the hub's 7 `pub use x::*` re-exports became one curated `pub use x::{State, spawn_fn}` per submodule (nothing outside the module consumes them, but they're the Techniques' real public API); the `#![allow(unused_imports)]` mask is gone; the test modules' `super::super::*` grandparent-glob is gone (only `gradient_nova`'s needed anything — `WorldTime` — now explicit). ambition_content lib + tests compile warning-clean; 9 specials tests green. **REMAINING back-glob worklist (30 sites, 10 crates)** — a submodule that does `use super::*` under a `pub use submod::*` hub: `ambition_world/rooms` (6), `ambition_combat` (5: lib + components + events + hazard_runtime + path_motion + moveset/prefabs), `ambition_runtime/snapshot` (3), `ambition_render/rendering/actors` (3), `ambition_sprite_sheet` (4: character/sheets + game_assets), `ambition_actors` (4: features/ecs/actors conversion+update, boss_encounter/attack_geometry/aabb, features/ecs/bosses), `ambition_dev_tools` (2), `ambition_characters/brain/boss_pattern/tick`, `ambition_engine_core/ledge_grab/runtime`, `ambition_content/bosses/cut_rope` (arena+victory). NOT all are equal: `cut_rope` and `actors/update` are deeply-coupled flat-modules whose submodules legitimately share the parent's PRIVATE const namespace — full explicit imports there are high-churn with little gain; the real win is curating the `pub use *` re-export (which over-exposes) + dropping the `allow`, keeping the intra-module glob. Judge per-case; don't blind-sweep. Whole-crate re-exports (`pub use ambition_vfx::*` etc.) are deliberate façades, NOT this smell.
+- **PARTIAL 2026-07-15 (round 2):** two more cleanly-separable façades untangled the same way. **`ambition_render/rendering/actors`** — animation/boss/overlays each dropped `use super::*` for explicit imports (bevy prelude stays; externals from canonical crates); all their "parent" refs turned out to be comment mentions, so zero coupling. Dropping the hub's `#![allow(unused_imports)]` also surfaced 2 genuinely-dead hub imports (`AabbExt`, the boss-sprite trio now living in `boss.rs`) — removed. Forward `pub use x::*` kept (real public render API). **`ambition_platformer2d_world/rooms`** — the 5 leaf spec modules (camera/gate_portal/loading_zone/metadata/specs) + `spawn` went explicit (each used only 1–2 external names + at most 2 sibling spec types); dropping the `allow` revealed the hub's `Resource` import existed ONLY to feed submodules (never used by mod.rs) — removed. **Key judgment:** `room_graph.rs` and `graph.rs` are AGGREGATORS that legitimately consume the whole sibling spec vocabulary (RoomSpec, PropSpec, LoadingZoneActivation, …) — for them `use super::*` is the right idiom, NOT the kitchen-sink smell, so they keep it. A module ending up half-explicit (leaves) / half-glob (aggregators) is the principled end state, not inconsistency. render 44 + world 36 tests green, both crates warning-clean. **`ambition_platformer2d_runtime/snapshot` RECLASSIFIED → coupled (skip):** codecs.rs (1402 lines), registry.rs, restore.rs each heavily use the parent's shared serialization API (`put_f32`/`SnapshotState`/`Reader`/…) — the mod.rs comment documents that shared-core intent deliberately. Full explicit imports = re-listing the module's own API (high churn, re-break-prone), same as `cut_rope`. Left as-is.
+- **PARTIAL 2026-07-15 (round 1):** the named worst offender — `bosses/specials/mod.rs` — is fully untangled. The 7 Technique submodules each dropped `use super::*` for explicit imports (`bevy::prelude::*` stays as the one canonical glob; everything else named); the hub's 7 `pub use x::*` re-exports became one curated `pub use x::{State, spawn_fn}` per submodule (nothing outside the module consumes them, but they're the Techniques' real public API); the `#![allow(unused_imports)]` mask is gone; the test modules' `super::super::*` grandparent-glob is gone (only `gradient_nova`'s needed anything — `WorldTime` — now explicit). ambition_content lib + tests compile warning-clean; 9 specials tests green. **REMAINING back-glob worklist (30 sites, 10 crates)** — a submodule that does `use super::*` under a `pub use submod::*` hub: `ambition_platformer2d_world/rooms` (6), `ambition_combat` (5: lib + components + events + hazard_runtime + path_motion + moveset/prefabs), `ambition_platformer2d_runtime/snapshot` (3), `ambition_render/rendering/actors` (3), `ambition_sprite_sheet` (4: character/sheets + game_assets), `ambition_platformer2d_actor_monolith` (4: features/ecs/actors conversion+update, boss_encounter/attack_geometry/aabb, features/ecs/bosses), `ambition_dev_tools` (2), `ambition_characters/brain/boss_pattern/tick`, `ambition_platformer2d_core/ledge_grab/runtime`, `ambition_content/bosses/cut_rope` (arena+victory). NOT all are equal: `cut_rope` and `actors/update` are deeply-coupled flat-modules whose submodules legitimately share the parent's PRIVATE const namespace — full explicit imports there are high-churn with little gain; the real win is curating the `pub use *` re-export (which over-exposes) + dropping the `allow`, keeping the intra-module glob. Judge per-case; don't blind-sweep. Whole-crate re-exports (`pub use ambition_vfx::*` etc.) are deliberate façades, NOT this smell.
 - **Context:** `cargo clippy --fix -W clippy::wildcard_imports` over the workspace. Preludes are correctly exempt; only **4** named globs auto-expanded losslessly (committed `dbe143c4`). The rest are the smells.
 - **~93 named globs clippy *refuses* to auto-expand** — these are the seam-y ones: re-export façades, enum-variant globs (`use PortalChannelColor::*;`, `use Enum::*`), and names fed into macros. clippy marks them `MaybeIncorrect`, so they need manual judgement. This refusal set *is* the untangle worklist; expanding one often reveals a façade module that should be a curated `pub use`.
 - **Production `use super::*` is pervasive (143 non-test sites).** clippy's default only exempts `super::*` *inside test modules*, so it would expand all 143 production ones (out of scope for the named-only pass). Worst case observed: `ambition_content/src/bosses/specials/gradient_sentinel.rs` — `use super::*` expands to a 27-name grab-bag including std `vec`/`format`/`ToString`, i.e. `specials/mod.rs` is re-exporting a kitchen-sink prelude. That re-export hub is the real smell to break up.
@@ -278,7 +278,7 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 
 ## Resolved
 
-- **2026-07-19 A `portal_render` host composition without `PortalPlugin` panicked, and the gate could not see it** — ✅ RESOLVED 2026-07-19 (`e4edd4acb`). The composition decision: `ambition_host/portal` FORWARDS `ambition_runtime/portal` (the facade already co-forwards the pair at the composition root; `PlatformerEnginePlugins` installs `PortalPlugin` under that feature), so a host-standalone graph composes a complete sim — `demo_shell_smoke` went 5-red → 6/6 green under `portal_render` with zero test edits. Both halves closed in order: composition first, then `ambition_host` dropped from `SKIP_FEATURE_JOB` (its "gates no test code" claim had gone false when the feature-gated portal seam tests landed), with the same-commit rule now written at the skip-list site.
+- **2026-07-19 A `portal_render` host composition without `PortalPlugin` panicked, and the gate could not see it** — ✅ RESOLVED 2026-07-19 (`e4edd4acb`). The composition decision: `ambition_platformer2d_host/portal` FORWARDS `ambition_platformer2d_runtime/portal` (the facade already co-forwards the pair at the composition root; `PlatformerEnginePlugins` installs `PortalPlugin` under that feature), so a host-standalone graph composes a complete sim — `demo_shell_smoke` went 5-red → 6/6 green under `portal_render` with zero test edits. Both halves closed in order: composition first, then `ambition_platformer2d_host` dropped from `SKIP_FEATURE_JOB` (its "gates no test code" claim had gone false when the feature-gated portal seam tests landed), with the same-commit rule now written at the skip-list site.
 
 - **2026-07-01 Control convergence pass 2: body SEMANTICS follow the controlled body** — the first pass moved `Brain::Player`; this pass converged what "controlled" MEANS. (1) Body locomotion CAPABILITY vs AI POLICY: peaceful NPC `max_run_speed` is now the body's physical top speed (player's `MAX_RUN_SPEED`), `patrol_speed` stays policy expressed as normalized `locomotion_for` intent — a driven NPC sprints, an autonomous one ambles. (2) Body attack CAPABILITY vs policy: peaceful NPC `ActionSet` derives from its authored combat kit (not empty `peaceful()`), so a driven NPC throws its authored punch while its peaceful brain never presses attack autonomously. (3) Movement-verb taxonomy: flight-mode bodies no longer consume the buffered grounded jump (gated in the one engine jump handler), so a possessed flyer steers vertically instead of leaping. (4) Ability ORIGIN = `ControlledSubject`: blink (+ its in-game preview reticle), grapple, dive, mark/recall, beam, volley, vortex, meteor, puppy-slug, held-weapon fire key on the driven body, not `PrimaryPlayer`. (5) Effective allegiance: `combat::targeting::effective_faction` (a `Brain::Player` body fights as `Player`) replaces the possession faction FLIP — authored `ActorFaction` is never mutated (targeting + incoming-damage + outgoing-stamp all resolve through it). (6) Bosses are architecturally possessable (see Open note). (7) `resolve_controlled_subject` asserts exactly-one `Brain::Player(PRIMARY)`. (8) `PrimaryPlayer`/`PrimaryPlayerOnly` docs now say "home avatar identity, NOT the controlled body". Commit `727ba5d1` + this pass. Remaining (Open): the two melee DRIVER systems (fighter-unification), boss-specials-under-possession, HUD/debug subject.
 - **2026-07-01 Bifurcated control/combat: possession was input-copy, not control transfer** — the home avatar and a possessed actor ran PARALLEL control paths (movement via a `Possessed { control }` input-copy override in `update_ecs_actors` + `sync_possession_input`; the home body suppressed by a `not_possessing` run-condition), while attack still consumed from the home body (`attack_advance_system` on `PrimaryPlayerOnly`) — so a possessed attack came from the vacated body. Collapsed to ONE model: control authority = the entity carrying `Brain::Player(slot)`. Added the slot-input model (`SlotControls`, `PlayerSlot -> ControlFrame`); possession is now brain TRANSFER (move `Brain::Player(PRIMARY)` off the home body onto the target, restore on release); `update_ecs_actors` drives any `Brain::Player` body through the same brain tick via slot input (deleted the possessed override + `POSSESSED_MOVE_SPEED`); `attack_advance_system` consumes for the `ControlledSubject`; camera/portal/nameplates derive from `ControlledSubject`; effective allegiance via a faction flip at transfer (not a `Possessed` marker); melee/ranged effect consumers gate on ActionSet CAPABILITY, not `disposition.is_peaceful()` AI policy. Deleted `Possessed`, `sync_possession_input`, `possession_active`, `not_possessing`. Pinned by the possession test module (brain transfer / restore / exactly-one-player-brain / attack-only-from-target / target-lost). Remaining forks logged Open above (two melee state machines; HUD/debug subject).
@@ -320,7 +320,7 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 ## 2026-07-02 Music renderer audit — findings noted but NOT fixed
 - **Where:** `tools/ambition_music_renderer` (a 4-agent code audit fixed ~35 findings across render/bundle/audit/CLI; these are the survivors).
 - **`audit/reference_audio_audit.py` onset proxy is self-referential** — the onset threshold is the 85th percentile of the flux values themselves, so ~15% of frames always exceed it and `onset_proxy_per_second` is nearly content-independent. Fix wants a robust absolute threshold (median + k·MAD) and a finer hop than 0.5 s, or real peak-picking. Size S-M.
-- **`audit/transition_audit.py` runtime-preview end-of-window step** — the `ambition_runtime` preview freezes the incoming gain and hard-cuts the outgoing at the context-window end, a discontinuity the real runtime (which keeps converging) does not have; the preview can show a click that is not real. Needs both exponentials continued through the post-window region. Size S.
+- **`audit/transition_audit.py` runtime-preview end-of-window step** — the `ambition_platformer2d_runtime` preview freezes the incoming gain and hard-cuts the outgoing at the context-window end, a discontinuity the real runtime (which keeps converging) does not have; the preview can show a click that is not real. Needs both exponentials continued through the post-window region. Size S.
 - **CLAP is discoverable but not hostable** — `plugins list_clap` finds plugins and the validator warns, but no backend can run them; either add a CLAP host adapter or stop discovering them. Size M.
 - **`backends/sfizz_backend.py` VST3-hosted sfizz path shares little with the CLI path** — parameter setting/probing logic partially duplicates `pedalboard_backend`; low value until the sfizz-VST3 path is actually exercised.
 - **`agent/` studio scripts predate the audit fixes** — `agent/song_studio/studio.py` etc. still hand-roll analysis the packaged audits now expose (e.g. `audit mix_balance` CLI); worth folding the studio loop onto the packaged surfaces next time a song-studio pass happens.
@@ -348,7 +348,7 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 - **Suggested fix / size:** M — trace the chase pipeline for an unsorted query/iteration; sort by a stable feature id. Confirm determinism by running the test across two clean builds and asserting identical enemy_x.
 
 ## 2026-07-03 — `control_frame_modes_from_settings` is an unwired settings→control-frame consumer
-- **Where:** `crates/ambition_actors/src/items/pickup/mod.rs:660` — `pub(crate) fn control_frame_modes_from_settings(settings) -> ae::ControlFrameModes` reads `UserSettings.gameplay.control_frame_modes()`, but has ZERO callers (a `never used` warning).
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:660` — `pub(crate) fn control_frame_modes_from_settings(settings) -> ae::ControlFrameModes` reads `UserSettings.gameplay.control_frame_modes()`, but has ZERO callers (a `never used` warning).
 - **Why it matters:** it's the read point for the user's control-frame preference (gravity-relative vs screen-relative joystick mapping) — an OPEN design (frame-of-reference.md). Either a dropped consumer (the setting isn't applied — a feature gap) or a pre-wiring point awaiting the reference-frame decision. Not just dead code to delete.
 - **Why not fixed here:** wiring it needs the open reference-frame design call; deleting it would remove the wiring point. Left in place, flagged. [[project_reference_frames]]
 - **Suggested fix / size:** S once the reference-frame design lands — wire it into the input→control-frame bridge; until then, keep it (or `#[allow(dead_code)]` with a pointer to frame-of-reference.md).
@@ -376,15 +376,15 @@ declarations (`boss.rs`, `game_assets/mod.rs`) added by the F1.5 carve
 lib-test target failed to compile from that commit onward (only surfaced under
 `cargo test --all-targets`, which the default gate doesn't run). No coverage was
 lost: the boss-sprite tests still live at
-`ambition_actors::boss_encounter::sprites::tests` and the game-assets tests at
-`ambition_actors::assets::game_assets::tests` (the config/profile/sandbox half
+`ambition_platformer2d_actor_monolith::boss_encounter::sprites::tests` and the game-assets tests at
+`ambition_platformer2d_actor_monolith::assets::game_assets::tests` (the config/profile/sandbox half
 went to `ambition_asset_manager`). Removed the orphan declarations. OPPORTUNITY:
 sprite_sheet owns real logic (boss sprite-metric derivation, entity-sprite
 resolvers) with no crate-local unit tests — worth adding sprite_sheet-side
 coverage rather than only testing through the actors adapter. Lesson reinforces
 F7: a carve that adds `mod tests;` must MOVE the fixture in the same commit.
 
-## 2026-07-09 — `ambition_actors::features::conversion_tests` is misnamed — ✅ RESOLVED 2026-07-15
+## 2026-07-09 — `ambition_platformer2d_actor_monolith::features::conversion_tests` is misnamed — ✅ RESOLVED 2026-07-15
 
 Renamed `conversion_tests.rs` → `actor_movement_tests.rs` (`git mv` + the
 `#[cfg(test)] mod` decl in `features/mod.rs` + the `features::ecs` re-export
@@ -392,12 +392,12 @@ comment). Dropped the redundant inner `#[cfg(test)] mod conversion_tests { }`
 wrapper — the file decl already scopes the module as test-only — dedenting the
 854-line body one level (14 tests still green). The name now matches the content
 (headless NPC/enemy movement + collision, archetype tuning); no more fable-audit
-mislisting as an `ambition_ldtk_map` test-travel candidate.
+mislisting as an `ambition_platformer2d_ldtk` test-travel candidate.
 
-## 2026-07-10 (R1) — the `ambition` umbrella re-exports `bevy`, but not its DERIVES
+## 2026-07-10 (R1) — the `ambition_platformer2d` umbrella re-exports `bevy`, but not its DERIVES
 
-A downstream game crate whose manifest names ONLY `ambition` can use bevy
-*types* through `ambition::bevy::…`, but it cannot `#[derive(Component)]` /
+A downstream game crate whose manifest names ONLY `ambition_platformer2d` can use bevy
+*types* through `ambition_platformer2d::bevy::…`, but it cannot `#[derive(Component)]` /
 `#[derive(Resource)]`. Bevy's derive macros resolve the `bevy_ecs` path through
 the CONSUMER's `Cargo.toml` (`BevyManifest`), and a re-export does not satisfy
 that lookup — the expansion emits a bare `::bevy_ecs::…` and fails with
@@ -411,16 +411,16 @@ any content crate that defines its own components/resources must ALSO list
 `bevy` in its manifest. That is probably fine (it is one line, and the version
 is pinned by the workspace), but it is not what the umbrella's doc comment
 implies. Options if we want the claim literal: re-export the derives from
-`ambition` under different names (ugly), or document the `bevy` line as expected
+`ambition_platformer2d` under different names (ugly), or document the `bevy` line as expected
 in the umbrella's docs + `docs/planning/demos/README.md` (cheap, honest).
 Size: S. Not blocking — `game/ambition_demo_sanic` authors rooms, not components.
 
 ## 2026-07-10 (R3) — feature-gated test targets rot: `portal_render` had not compiled in weeks
 
 `game/ambition_content/src/portal/tests.rs`'s `partial_render_keeps_the_sprite_and_adds_the_exit_copy`
-(gated `#[cfg(feature = "portal_render")]`) imported `ambition_portal::{sync_portal_world_frame,
+(gated `#[cfg(feature = "portal_render")]`) imported `ambition_portal2d::{sync_portal_world_frame,
 tag_portal_scene_bodies, PortalWorldFrame}`. Those symbols live in
-`ambition_host::portal` and `ambition_portal_presentation` — a crate ABOVE
+`ambition_platformer2d_host::portal` and `ambition_portal2d_presentation` — a crate ABOVE
 content and a crate content only gets under `portal_render`. An E-track carve
 moved them and never updated this test, so `cargo check -p ambition_content
 --features portal_render` had failed since. Nothing in the standing gate builds
@@ -454,7 +454,7 @@ the next rot.
 
 ## 2026-07-10 (R6b) — a gate script that greps only for success is silent on failure
 
-My R6b gate ran `cargo test -p ambition_actors --lib 2>&1 | grep -E "^test result" | tail -1`
+My R6b gate ran `cargo test -p ambition_platformer2d_actor_monolith --lib 2>&1 | grep -E "^test result" | tail -1`
 and printed NOTHING. Nothing is what a clean pass looks like to a careless reader,
 so a `grep`-for-success gate reports "green" when the crate's lib-TEST target does
 not compile. It had not: the slot-0 filter annotations deleted `use
@@ -484,7 +484,7 @@ session. Fixed by gating both `grid_menu_open_routing` and
 `kaleidoscope_menu_open_routing` on `simulation_authorized.and(in_base_mode)` — a
 live Ambition session (a `SessionRoot` the active scope names) AND the active room
 carrying NO demo mode tag. Added `in_base_mode` as the reusable mirror of `in_mode`
-(ambition_runtime, re-exported `ambition::runtime`) so any host-only chrome can gate
+(ambition_platformer2d_runtime, re-exported `ambition_platformer2d::runtime`) so any host-only chrome can gate
 the same way. So the toggle is now impossible on the title screen AND inside a
 hosted demo session. Regression-tested.
 
@@ -606,8 +606,8 @@ UPDATE 2026-07-15 (commit 202a4c0fb): the STANDALONE-only host gap below is now
 CLOSED. The app-local `insert_resource(WorldItemArt)` was the wrong seam (bound milk
 in the standalone app only, and would clobber under a multi-provider host).
 Generalized to the catalog-fragment idiom: the game contributes pure DATA —
-`ambition::platformer::world_item_art::{WorldItemArtEntry, WorldItemArtManifest,
-register_world_item_art}` (in `ambition_platformer_primitives`, the crate render AND
+`ambition_platformer2d::platformer::world_item_art::{WorldItemArtEntry, WorldItemArtManifest,
+register_world_item_art}` (in `ambition_platformer2d_shared_tangle`, the crate render AND
 the render-dep-free provider both reach) — and render resolves it
 (`build_world_item_art` Startup → `WorldItemArt` handles). `MaryOExperiencePlugin`
 registers the milk entry; because BOTH the standalone app and the host add that one
@@ -876,7 +876,7 @@ character-actions gates and touching the real-audio test harness is not zero-ris
 
 ## 2026-07-19 IPFS sidecars are disconnected from the asset manager, with no fetch tool
 - **Where:** `assets/{backgrounds,icons,concept_art,vanity_card}.ipfs`,
-  `crates/ambition_actors/assets/fonts/bundled.ipfs`,
+  `crates/ambition_platformer2d_actor_monolith/assets/fonts/bundled.ipfs`,
   `tools/LDtk-1.5.3-installer.AppImage.ipfs`; `crates/ambition_asset_manager/`
 - **Smell:** Nothing in the Rust code ever reads a `.ipfs` file, and no script in
   `scripts/` or `tools/` hydrates one — re-hydration is a manual `ipfs get <cid>` into
@@ -895,8 +895,8 @@ character-actions gates and touching the real-audio test harness is not zero-ris
 ## 2026-07-19 Room reset revives every actor without consulting its respawn policy — ✅ RESOLVED 2026-07-19
 - **RESOLUTION (same day, track #9):** `reset_to_spawn` now consults `RespawnPolicy` before restoring health. A room reset is a room-scoped return, so it revives a corpse only under `OnRoomReenter` (or `InPlace`, which revives on its own timer anyway); `DeadStaysDead`/`OnRest` corpses keep only their spatial baseline. Living actors still reset to full under every policy. Pinned by `integration/respawn_policy_tests.rs` (4 tests), which assert the value IMMEDIATELY after the reset — the only place the old behavior was observable, since save-sync re-zeroed the HP later in the same frame. Poison-verified: forcing `stays_dead = false` fails 2 of them.
 - **(historical)**
-- **Where:** `crates/ambition_actors/src/features/ecs/reset.rs:119` →
-  `reset_to_spawn` (`crates/ambition_actors/src/features/enemies/integration.rs:432`)
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/features/ecs/reset.rs:119` →
+  `reset_to_spawn` (`crates/ambition_platformer2d_actor_monolith/src/features/enemies/integration.rs:432`)
 - **Smell:** `reset_to_spawn` full-heals EVERY actor in the query with no
   `RespawnPolicy` consultation. For a `DeadStaysDead` / `OnRest` actor that is
   currently dead, this revives it; `sync_ecs_actors_with_save` (Progression, every
@@ -916,11 +916,11 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   alive across a `ResetRoomFeaturesEvent`, since the current wobble is invisible to
   end-of-frame assertions.
 
-## 2026-07-19 `ambition_actors` compat-facade debris — ✅ PARTIALLY RESOLVED 2026-07-19
+## 2026-07-19 `ambition_platformer2d_actor_monolith` compat-facade debris — ✅ PARTIALLY RESOLVED 2026-07-19
 - **RESOLUTION (track #7):** deleted the two genuinely dead ones — `src/effects/mod.rs` (a `pub use ambition_vfx::*` facade that was not even declared in `lib.rs`, so it never compiled) and `src/debug_label.rs` (declared, zero consumers workspace-wide). Also fixed the doubled `#[cfg(test)]` on `character_roster`. **Correction to the original entry:** `src/host/` is NOT dead — `crate::host::windowing` is consumed by actors' own settings model; leave it. The ~73 `pub use ambition_*` re-export lines remain (each needs its consumers repointed at canonical homes first).
 
 ## 2026-07-19 No test drives a kill through the damage path to the death flag
-- **Where:** `crates/ambition_actors/src/features/ecs/save_sync/actor_liveness_tests.rs:60`
+- **Where:** `crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync/actor_liveness_tests.rs:60`
 - **Smell:** `a_killed_unprovoked_npc_stays_dead_on_load` hand-sets
   `enemy_<id>_dead` and asserts only that `sync_ecs_actors_with_save` zeroes HP. The
   entire WRITE side — kill hook → `RespawnPolicy` match → `SetFlagRequested` →
@@ -981,7 +981,7 @@ character-actions gates and touching the real-audio test harness is not zero-ris
   attachments read the presented pose.
 
 ## 2026-07-21 KNOWN-STINKY: presentation reads `bevy_ggrs`'s private accumulator
-- **Where:** `crates/ambition_runtime/src/rollback/mod.rs`
+- **Where:** `crates/ambition_platformer2d_runtime/src/rollback/mod.rs`
   (`sample_ggrs_accumulator_phase`, tagged `HACK(ggrs-accumulator)`), enabled by
   the `[patch.crates-io]` entry at the workspace root pointing `bevy_ggrs` at a
   fork branched from `v0.21.0`.
@@ -1132,7 +1132,7 @@ Finding: `BodyOffense.damage_multiplier` (`engine_core/src/body_clusters.rs:545`
 an `i32`) is:
 - WRITTEN only by dev-tools (`ambition_dev_tools/.../editable.rs:523`,
   `offense.damage_multiplier = stats.slash_damage.max(1)`) and round-tripped by the
-  rollback codec (`ambition_runtime/.../codecs.rs:326`);
+  rollback codec (`ambition_platformer2d_runtime/.../codecs.rs:326`);
 - READ nowhere at runtime. The ONLY reference is a STALE doc comment on
   `AttackSpec.damage_override` (`ambition_combat/src/lib.rs:233`: "None falls back to
   the player's `offense.damage_multiplier`") — but the melee-is-ONE-PATH landing
@@ -1466,7 +1466,7 @@ What is established:
 
 ⛔ **what is NOT established, and why this is parked:** a 34.6-second desktop
 capture containing a real hub → Hall transition produced **zero**
-`ambition::room_transition::performance` lines, while the same module's other
+`ambition_platformer2d::room_transition::performance` lines, while the same module's other
 logs printed fine and no `RUST_LOG` was set. The completion telemetry is emitted
 at retirement behind `runtime.owner.take()`, so a transition that never spawned a
 cover reports nothing at all — which reads as "no transitions happened". A

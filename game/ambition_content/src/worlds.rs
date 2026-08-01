@@ -24,7 +24,7 @@
 
 use std::path::Path;
 
-use ambition_actors::ldtk_world::{WorldManifest, WorldSource};
+use ambition_platformer2d_actor_monolith::ldtk_world::{WorldManifest, WorldSource};
 use ambition_asset_manager::AssetId;
 
 macro_rules! static_world_text {

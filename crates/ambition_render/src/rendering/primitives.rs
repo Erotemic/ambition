@@ -1,18 +1,18 @@
 //! Visual marker components, scene entity registry, color/z helpers,
 //! and the small `spawn_world_label` utility.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 
 // Runtime-owned room lifecycle markers. Re-exported so presentation systems +
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the
-// canonical home is `ambition_platformer_primitives::lifecycle` (content-free, so sim
+// canonical home is `ambition_platformer2d_shared_tangle::lifecycle` (content-free, so sim
 // systems can tag visual entities without importing presentation).
-pub use ambition_platformer_primitives::lifecycle::{
+pub use ambition_platformer2d_shared_tangle::lifecycle::{
     LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual,
 };
 
@@ -62,7 +62,7 @@ pub struct LockWallVisual {
 /// dropping authored geometry, e.g. a broken brick) can find and despawn its
 /// sprite. `spawn_block` tags every block visual with this; `sync_removed_block_visuals`
 /// reconciles them against the overlay. `block_name` is the authored
-/// [`Block::name`](ambition_engine_core::Block), the same key `removed_block_names`
+/// [`Block::name`](ambition_platformer2d_core::Block), the same key `removed_block_names`
 /// carries, so the match is exact.
 #[derive(Component, Clone, Debug)]
 pub struct BlockVisual {
@@ -97,7 +97,7 @@ pub struct PropVisual {
     /// The authored [`PropDraw`], carried for the same reason as `size`: the
     /// sprite is REBUILT on a `GameAssets` change, and a rebuild that does not
     /// know a prop is built world silently reverts it to character sizing.
-    pub draw: ambition_world::rooms::PropDraw,
+    pub draw: ambition_platformer2d_world::rooms::PropDraw,
     /// The authored vertical mirror, carried for the same reason.
     pub flip_y: bool,
 }

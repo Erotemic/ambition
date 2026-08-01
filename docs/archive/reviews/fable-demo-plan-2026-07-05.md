@@ -22,7 +22,7 @@ direction:
 **Everything still OPEN from both docs is re-homed here** under a track
 structure aimed at ONE destination: **the two first demo games, Sanic and
 SMB1** (Q12+Q13, Jon 2026-07-05) — each a content crate + a thin app against
-`ambition_runtime`, built adversarially against the oracle (*could another
+`ambition_platformer2d_runtime`, built adversarially against the oracle (*could another
 platformer be built by ADDING a content crate without editing core?*). Slice
 specs below answer every question opus posed in the two frontier audits
 (Q16–Q26) — read §2 before executing anything.
@@ -52,12 +52,12 @@ When this document is complete, ALL of the following hold:
 1. **The crate map is real.** Every crate in
    [`architecture.md`](../planning/engine/architecture.md)'s 6-tier target
    stack exists with imports flowing strictly downward:
-   `ambition_world` + `ambition_ldtk_map` (W), `ambition_persistence` /
+   `ambition_platformer2d_world` + `ambition_platformer2d_ldtk` (W), `ambition_persistence` /
    `ambition_menu` / `ambition_audio` / `ambition_dialog` /
    `ambition_dev_tools` (E1), `ambition_combat` + `ambition_projectiles`
    (E2), `ambition_sprite_sheet` (E3), `ambition_sim_view` with the render
-   edge cut (E4), `ambition_runtime::PlatformerEnginePlugins` (E5), and the
-   gameplay_core residue renamed `ambition_actors` with the `features/` hub
+   edge cut (E4), `ambition_platformer2d_runtime::PlatformerEnginePlugins` (E5), and the
+   gameplay_core residue renamed `ambition_platformer2d_actor_monolith` with the `features/` hub
    facade dissolved (E7).
 2. **The unification has no tails.** The ability model is COMPLETE (three
    tiers live: data + prefab registry + techniques-with-params — track A);
@@ -70,7 +70,7 @@ When this document is complete, ALL of the following hold:
    cleanups (track C) are gone; content enters ONLY through install
    registries, converters, and manifests.
 4. **The two demos pass the oracle.** `demos/demo_sanic` and `demos/demo_smb`
-   each = one content crate + a ~100-line app on `ambition_runtime`, and each
+   each = one content crate + a ~100-line app on `ambition_platformer2d_runtime`, and each
    demo's `git log --stat` touches zero engine crates. The boundary test
    suite enforces app-thinness and machinery-names-no-content permanently.
 5. **The stretch seams exist** (not the stretch features): AJ13 frame
@@ -381,7 +381,7 @@ those first. Do not start the carve with an unclassified list.
   `pilotable_mount_classes: ["giant"]` — a future mech/colossus rider joins
   the class instead of minting one. (Jon's "giant" framing leaned shareable;
   flip to `"giant_gnu"` only if he objects on the feel pass.)
-- **Q2 (Jon, still open):** endorse `ambition_actors` as the R4g rename of
+- **Q2 (Jon, still open):** endorse `ambition_platformer2d_actor_monolith` as the R4g rename of
   the gameplay_core residue, or supply a name. Pure churn; scheduled last;
   nothing blocks on it.
 
@@ -391,7 +391,7 @@ those first. Do not start the carve with an unclassified list.
 
 Seven tracks. S leads (Jon: Sanic jumps the queue); W and G run parallel to
 S; A and C are small independent fillers; E runs behind demo needs — **E5
-(`ambition_runtime`) is the gate for both demo games** (S5, M-track). Old
+(`ambition_platformer2d_runtime`) is the gate for both demo games** (S5, M-track). Old
 R-numbers cited for traceability; §6 proves nothing was dropped.
 
 ### Track S — Sanic (LEADS)
@@ -419,7 +419,7 @@ R-numbers cited for traceability; §6 proves nothing was dropped.
   artifact for Jon (BLIND-marked).
 - **S5 [senior; opus slices after E5]** — **the Sanic DEMO GAME** (was the
   Q13 promotion): `demos/demo_sanic` = one content crate + a ~100-line app
-  against `ambition_runtime`. Scope v1: one momentum ZONE (multi-room LDtk
+  against `ambition_platformer2d_runtime`. Scope v1: one momentum ZONE (multi-room LDtk
   world: slopes/loops/springs-analog), a rings-analog pickup (this is where
   the deferred `Item`-enum SET opens — violation #2 lands on real demand),
   2–3 patrol enemies reusing engine archetypes, a goal gate, title/results
@@ -481,8 +481,8 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
   `SpatialSource` provenance (kills render's `"ldtk "` name-sniff);
   baked-`RoomSpec` serde + the `ron-room` manifest format (Q20 — Tier-1
   serde OK); S3's room gains its `ron-room` twin here.
-- **W3** the TWO-crate carve: `ambition_world` (IR, no LDtk dep) +
-  `ambition_ldtk_map` (backend; game-side dep). Compile-time before/after.
+- **W3** the TWO-crate carve: `ambition_platformer2d_world` (IR, no LDtk dep) +
+  `ambition_platformer2d_ldtk` (backend; game-side dep). Compile-time before/after.
 - **W4** the leakage ratchet (encounter loading → emissions; menu-map /
   session / settings inversions; schedule-set rename) + **ADR 0021**
   (authoring-backend-agnostic space, citing `spatial-model.md` +
@@ -501,7 +501,7 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
   the OBSERVER's velocity in the camera snapshot, and the render stack keeps
   ONE registered full-screen post-pass seam — the slower-light shaders (L3)
   and any future observer-frame effect plug in there without a schema break.
-- **E5 [opus]** — R5: `ambition_runtime::PlatformerEnginePlugins` — **the
+- **E5 [opus]** — R5: `ambition_platformer2d_runtime::PlatformerEnginePlugins` — **the
   demo gate.** Pull this forward aggressively; S5/M-track cannot start
   without it, and it needs E1e/E2/E3/E4 only to the extent the plugin groups
   reference their crates (assemble with what exists; tighten as carves land).
@@ -518,7 +518,7 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
   brain-tick truly fold into `tick_actor_brains`) — execute them if G-track
   left them cheap, or document them as permanent policy with rationale;
   either closes the item.
-- **E7 [Jon + opus]** — R4g rename (`ambition_actors`, pending Q2) + the
+- **E7 [Jon + opus]** — R4g rename (`ambition_platformer2d_actor_monolith`, pending Q2) + the
   features-hub facade dissolution sweep.
 - **E8 [opus]** — the last R4a near-leaf: `inventory_ui/` → `ambition_items`
   (arch.md: items owns "item/inventory/equipment machinery, shop,
@@ -591,7 +591,7 @@ new entries append HERE.
 
 ## 5. JON'S OPEN ITEMS (short)
 
-- **Q2** — the `ambition_actors` rename: endorse or rename (E7).
+- **Q2** — the `ambition_platformer2d_actor_monolith` rename: endorse or rename (E7).
 - Feel-pass queue (standing): `unified_melee` RED, the BLIND commits ledger,
   the G3 limb-arc taste pass (Q18's slot map is fable-BLIND until then).
 - **BLIND commits ledger** (opus 2026-07-05 eve): `d620a230` sanic_sandbox
@@ -786,7 +786,7 @@ speed each 680px cycle; eventually the body clips PAST the aperture and lands
 embedded in the floor.
 **Root cause (pre-existing, NOT a refactor regression):** portal transit uses
 discrete per-frame position sampling with fixed guard windows
-(`APPROACH_CARVE_REACH = 96`, `CARVE_DEPTH = 60`; `ambition_portal/.../placement.rs:
+(`APPROACH_CARVE_REACH = 96`, `CARVE_DEPTH = 60`; `ambition_portal2d/.../placement.rs:
 306`, `pieces.rs:266`) sized for ONE worst-case per-frame step (~63px). The
 relaxed fall cap (`engine_core/.../integration.rs:435-450`) lets the loop exceed
 that, so in one frame the body jumps from in-front-of-plane to past the carve hole;
@@ -848,7 +848,7 @@ sprite-pipeline refactor. Revisit after Track E3 / sprite-renderer-refactor.
 ### 7.9 — Portal gun → a normal item (portal crate should not know the gun) — [DEFER, refactor, low priority]
 *Not a bug — a decontamination Jon wants on the refactor list.*
 **Today:** the portal crate knows too much about "the portal gun."
-**Target:** the portal gun is a NORMAL item (like the laser sword); `ambition_portal`
+**Target:** the portal gun is a NORMAL item (like the laser sword); `ambition_portal2d`
 knows ~nothing about the gun. The gun's only special property: the projectiles it
 fires spawn portals on the surfaces they land on. **A single gun spawns exactly ONE
 portal PAIR (2 modes/colours)** — not four. Each gun INSTANCE carries a small bit of
@@ -1020,20 +1020,20 @@ allowed "test-fixtures-only" milestone.
 
 **HONEST §0 STATUS — every remaining item is a LARGE multi-session track, not a
 bounded slice** (all the quick evictions are now done):
-- **crit 1** (crate map real): the W-track (`ambition_world`/`ambition_ldtk_map`)
+- **crit 1** (crate map real): the W-track (`ambition_platformer2d_world`/`ambition_platformer2d_ldtk`)
   + E-track carves (`ambition_persistence/menu/audio/dialog/dev_tools/combat/
-  projectiles/sprite_sheet/sim_view/runtime`, `ambition_actors` rename) — none
+  projectiles/sprite_sheet/sim_view/runtime`, `ambition_platformer2d_actor_monolith` rename) — none
   minted yet. This is the bulk of the remaining work.
 - **crit 3** full-zero: the `speech_sfx` voice system (a multi-crate refactor —
   `DIALOGUE_BLIP_*` ids in `ambition_sfx` foundation + the engine table + a new
   content voice-profile registry), E3 projectile visual kinds, E6 boss tail.
 - **crit 2** tail: E6 (boss animator split / target_pos / BossAnim→CharacterAnim).
-- **crit 4** (the demos): gated on **E5** (`ambition_runtime`); neither demo
+- **crit 4** (the demos): gated on **E5** (`ambition_platformer2d_runtime`); neither demo
   crate exists.
 - **crit 5/6**: the slower-light Tier-0 seams (ride E4), the full green gate.
 
-## E5 (first slice) — ambition_runtime + PlatformerEnginePlugins ✅ (`3c70d827`, opus)
-**The demo gate exists.** Minted the `ambition_runtime` crate (§0 crit 1: one
+## E5 (first slice) — ambition_platformer2d_runtime + PlatformerEnginePlugins ✅ (`3c70d827`, opus)
+**The demo gate exists.** Minted the `ambition_platformer2d_runtime` crate (§0 crit 1: one
 target-stack crate now real) with `PlatformerEnginePlugins`, a Bevy PluginGroup
 bundling the 16 unconditional/unentangled engine sim plugins (world-prep,
 universal brain, gravity, abilities, item pickups, feature collection/
@@ -1056,7 +1056,7 @@ decontaminations; G1→G4 (unblock G5 [★fable]). Several need app-run / visual
 verification best done interactively.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
-**E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful
+**E5 (`ambition_platformer2d_runtime`) — demo gate for S5 [senior] + M-track — needs a careful
 dedicated pass (guts the app boot)**; S3b→S4 continue Sanic; W1–W4 world carve
 independent. The remaining §0 is the W/E crate carves + the two demos — all
 multi-session.

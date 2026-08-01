@@ -28,18 +28,18 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition::actors::actor::BodyKinematics;
-use ambition::actors::combat::moveset::MovePlayback;
-use ambition::characters::actor::{ActorFaction, BodyHealth};
-use ambition::characters::brain::fighter::{shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning};
-use ambition::characters::brain::{Brain, PlayerSlot};
-use ambition::characters::perception::{Perceived, PerceivedActor, SelfView, StageView, WorldView};
-use ambition::engine_core as ae;
-use ambition::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
+use ambition_platformer2d::actors::actor::BodyKinematics;
+use ambition_platformer2d::actors::combat::moveset::MovePlayback;
+use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
+use ambition_platformer2d::characters::brain::fighter::{shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning};
+use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+use ambition_platformer2d::characters::perception::{Perceived, PerceivedActor, SelfView, StageView, WorldView};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition::entity_catalog::MoveFrameData;
+use ambition_platformer2d::entity_catalog::MoveFrameData;
 
 fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
     app.world_mut()
@@ -238,7 +238,7 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     for _ in 0..900 {
         app.update();
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition::runtime::demo_fixture::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
         if rooms
             .iter(world)
             .next()

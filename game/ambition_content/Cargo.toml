@@ -10,29 +10,29 @@ autotests = false
 [features]
 default = []
 # Forwarders: the cfg(feature = "...") gates inside this crate's code key off
-# OUR feature names; each forwards to the matching ambition_actors machinery
+# OUR feature names; each forwards to the matching ambition_platformer2d_actor_monolith machinery
 # feature so a mismatched combination is a compile error, never a silent
 # missing-registration.
-portal = ["ambition_actors/portal"]
-portal_render = ["portal", "dep:ambition_portal_presentation"]
-ui = ["ambition_actors/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
-audio = ["ambition_actors/audio"]
+portal = ["ambition_platformer2d_actor_monolith/portal"]
+portal_render = ["portal", "dep:ambition_portal2d_presentation"]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
+audio = ["ambition_platformer2d_actor_monolith/audio"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
 # the loader's embedded paths light up together.
-static_map = ["ambition_actors/static_map"]
+static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 # The falling-sand prototype room (bridges bevy_falling_sand into the
 # movement world). Off by default; the room plugin self-gates on its
 # authored room at runtime.
 falling_sand = ["dep:bevy_falling_sand"]
 
 [dependencies]
-ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
 ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
-ambition_actors = { path = "../../crates/ambition_actors", default-features = false, features = [
+ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
     "ldtk_runtime",
     "input",
     "portal",
@@ -49,21 +49,21 @@ ambition_encounter = { path = "../../crates/ambition_encounter" }
 # N3.1: this crate's boss specials hold SIM STATE, so they register their own
 # snapshot codecs (`SnapshotRegistry` is a resource). netcode.md: "each sim crate
 # registers its components' serialization."
-ambition_runtime = { path = "../../crates/ambition_runtime" }
+ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
 ambition_sfx = { path = "../../crates/ambition_sfx" }
 ambition_vfx = { path = "../../crates/ambition_vfx" }
 ambition_time = { path = "../../crates/ambition_time" }
 ambition_audio = { path = "../../crates/ambition_audio" }
-ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 # `MovingPlatformSet` + `world_with_sandbox_solids` — the composited collision
 # world the portal host adapter and the arena-gate tests read (R3).
-ambition_world = { path = "../../crates/ambition_world" }
-ambition_portal = { path = "../../crates/ambition_portal" }
-ambition_portal_presentation = { path = "../../crates/ambition_portal_presentation", optional = true }
+ambition_platformer2d_world = { path = "../../crates/ambition_platformer2d_world" }
+ambition_portal2d = { path = "../../crates/ambition_portal2d" }
+ambition_portal2d_presentation = { path = "../../crates/ambition_portal2d_presentation", optional = true }
 ambition_input = { path = "../../crates/ambition_input" }
-ambition_engine_core = { path = "../../crates/ambition_engine_core" }
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_characters = { path = "../../crates/ambition_characters", features = ["content_pack"] }
 # The content compiler. This provider LOADS through it: the bytes the

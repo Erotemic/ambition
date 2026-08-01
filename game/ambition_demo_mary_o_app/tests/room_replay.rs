@@ -4,7 +4,7 @@
 //! the engine's generic "replay the active room" request, and Mary-O emits it
 //! from two beats: the flag tally cycling the level, and the clock running out.
 //! Until 2026-07-21 its only consumer was registered by `ambition_app`, and
-//! this crate depends on `ambition`, never on `ambition_app` — so in the
+//! this crate depends on `ambition_platformer2d`, never on `ambition_app` — so in the
 //! shipped standalone binary the message went into a registered channel that
 //! nothing drained.
 //!
@@ -15,8 +15,8 @@
 //! whether or not a consumer exists anywhere. The assertions below are about
 //! the BODY, which only moves if something drained the request.
 
-use ambition::engine_core as ae;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
 
@@ -27,7 +27,7 @@ struct RoomResetsSeen(usize);
 
 fn count_room_resets(
     mut seen: ResMut<RoomResetsSeen>,
-    mut resets: MessageReader<ambition::combat::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::ResetRoomFeaturesEvent>,
 ) {
     seen.0 += resets.read().count();
 }
@@ -53,7 +53,7 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
 fn room_spawn(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<ambition::platformer::lifecycle::SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
     query
         .iter(app.world())
         .next()
@@ -79,7 +79,7 @@ fn settle_until_playable(app: &mut App) -> Vec2 {
 fn displace(app: &mut App, to: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query
@@ -117,7 +117,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 
     app.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     app.update();
 
     let home = player_pos(&mut app).expect("she is still in the world");
@@ -156,7 +156,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 
     app.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     for _ in 0..4 {
         app.update();
     }

@@ -10,7 +10,7 @@
 // `MorphBallSprite` handle to a loaded asset and the same toggle logic
 // applies.
 
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::asset::RenderAssetUsages;
@@ -131,7 +131,7 @@ pub fn spawn_morph_ball_visual(
             Transform::from_xyz(
                 0.0,
                 0.0,
-                ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
+                ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
             ),
             Visibility::Hidden,
             MorphBallVisual,
@@ -145,8 +145,8 @@ pub fn spawn_morph_ball_visual(
 /// AABB. Hides the regular player sprite while the ball is active so
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     // Sim-built pose read-model (E4): body-mode + geometry facts, no live
     // cluster reads.
@@ -155,15 +155,15 @@ pub fn sync_morph_ball_visual(
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
         ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // The primary player's visual is discovered by marker, not a process-global
     // handle: `PrimaryPlayer` names the home avatar, `PlayerVisual` its sprite.
     mut player_query: Query<
         &mut Visibility,
         (
-            With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
-            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
             Without<MorphBallVisual>,
         ),
     >,
@@ -177,12 +177,12 @@ pub fn sync_morph_ball_visual(
     };
     let in_morph = pose.morph_ball;
     if in_morph {
-        transform.translation = ambition_engine_core::config::world_to_bevy(
+        transform.translation = ambition_platformer2d_core::config::world_to_bevy(
             &world.0,
             // The sphere IS the body while morphed, so it draws where the body
             // is presented — not where its last tick left it.
             ambition_sim_view::presented_pose::draw_pos(pose, presented),
-            ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
+            ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.
@@ -228,14 +228,14 @@ pub fn sync_morph_ball_visual(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::lifecycle::PlayerVisual;
-    use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_sim_view::BodyPoseView;
 
     fn pose(morph: bool) -> BodyPoseView {
         BodyPoseView {
             morph_ball: morph,
-            size: ambition_engine_core::Vec2::new(24.0, 24.0),
+            size: ambition_platformer2d_core::Vec2::new(24.0, 24.0),
             ..Default::default()
         }
     }
@@ -245,12 +245,12 @@ mod tests {
     /// `MorphBallVisual` sibling.
     fn rig(morph: bool) -> (App, Entity, Entity) {
         let mut app = App::new();
-        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ambition_engine_core::RoomGeometry(ambition_engine_core::World::new(
+            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "t",
-                ambition_engine_core::Vec2::new(640.0, 480.0),
-                ambition_engine_core::Vec2::ZERO,
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::ZERO,
                 Vec::new(),
             )),
         );

@@ -57,7 +57,7 @@ site by the same body-overlap rule (`dir_for`).
 
 ## One entry, four authorities
 
-`ambition_engine_core::movement::step_motion` is the ONLY continuous-movement
+`ambition_platformer2d_core::movement::step_motion` is the ONLY continuous-movement
 entry; dispatch is a single enum match over `MotionModel`
 (`AxisSwept` / `SurfaceMomentum` / `AdhesiveCrawler`; absence is never a
 policy). Besides the kernel, exactly three named authorities may move a body

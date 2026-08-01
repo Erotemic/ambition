@@ -3,7 +3,7 @@
 ## Status
 
 Accepted; IMPLEMENTED first cut (2026-07-07). The W3/W4 crate split minted
-`ambition_world` for room/placement IR and `ambition_ldtk_map` for the LDtk
+`ambition_platformer2d_world` for room/placement IR and `ambition_platformer2d_ldtk` for the LDtk
 backend, with architecture-boundary tests ratcheting the dependency direction.
 
 ## Context
@@ -21,14 +21,14 @@ load.
 
 ## Decision
 
-1. **`ambition_world` owns the backend-agnostic IR.** Room graph types
+1. **`ambition_platformer2d_world` owns the backend-agnostic IR.** Room graph types
    (`RoomSpec`, `RoomSet`, links/transitions), metadata, loading zones, authored
    placement records, debug labels, and moving-platform math live there.
-2. **`ambition_ldtk_map` owns LDtk.** JSON/project parsing, LDtk validation,
+2. **`ambition_platformer2d_ldtk` owns LDtk.** JSON/project parsing, LDtk validation,
    entity conversion, manifest/file loading, hot-reload state, and the
    `bevy_ecs_ldtk` runtime spine live in the backend crate.
-3. **Dependency direction is one-way.** LDtk converts into `ambition_world`;
-   `ambition_world` never imports LDtk, gameplay-core, app, render, runtime, or
+3. **Dependency direction is one-way.** LDtk converts into `ambition_platformer2d_world`;
+   `ambition_platformer2d_world` never imports LDtk, gameplay-core, app, render, runtime, or
    content. Boundary tests enforce this.
 4. **Simulation lowers, it does not author.** The sim heart registers
    `PlacementKind` interpreters and lowers `PlacementRecord` values during room
@@ -36,7 +36,7 @@ load.
 
 ## Current implications for agents
 
-Add new authored world facts to `ambition_world` first, then teach each backend
+Add new authored world facts to `ambition_platformer2d_world` first, then teach each backend
 to emit them. Do not put LDtk types in world IR. Do not make gameplay-core parse
 backend entities directly. If a live entity needs behavior, add or extend a
 placement schema and lower it through the registry rather than adding a parallel

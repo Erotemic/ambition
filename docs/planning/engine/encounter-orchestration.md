@@ -228,9 +228,9 @@ policy is consulted, not just the enum.
 **Exit met** (evidence updated 2026-07-19: the cited test was deleted with the
 custom snapshot engine, ADR 0027 — the invariant now lives in the GGRS
 registration, see "Encounter authority (E11)" in
-`crates/ambition_runtime/src/rollback/codecs.rs`, exercised by the desync-canary
+`crates/ambition_platformer2d_runtime/src/rollback/codecs.rs`, exercised by the desync-canary
 suite). The original proof, preserved here as history:
-`ambition_runtime::snapshot::tests::restore_preserves_an_active_encounter`
+`ambition_platformer2d_runtime::snapshot::tests::restore_preserves_an_active_encounter`
 took a mid-fight authority (Active phase, elapsed time, two signals, a
 dead-but-retained spawned relation + an adopted one, a mid-wave run), wrecked
 it, restored it, and asserted every field — with `entity: None` proving handles

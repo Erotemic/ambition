@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
-const SPAWN_DIR: &str = "crates/ambition_actors/src/features/ecs";
-const CRATE_SRC: &str = "crates/ambition_actors/src";
+const SPAWN_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs";
+const CRATE_SRC: &str = "crates/ambition_platformer2d_actor_monolith/src";
 const ALLOWLIST: &str = "docs/architecture/architecture-boundary-allowlist.txt";
 const POLICY_ID: &str = "engine.room-feature-spawns";
 
@@ -47,7 +47,7 @@ pub fn metas() -> Vec<CustomMeta> {
     vec![CustomMeta {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
-        owners: vec!["ambition_actors".to_string()],
+        owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
         watch_paths: vec![SPAWN_DIR.to_string(), ALLOWLIST.to_string()],
         source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
         severity: Severity::Error,
@@ -86,7 +86,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
         match allowlist.get(&rel) {
             None => report.push(Diagnostic {
                 policy_id: POLICY_ID.to_string(),
-                owners: vec!["ambition_actors".to_string()],
+                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
                 source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
                 rationale: "the room-feature raw-spawn allowlist is an exact inventory; every scanned spawn module must be reviewed explicitly".to_string(),
                 location: format!("{CRATE_SRC}/{rel}"),
@@ -94,7 +94,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
             }),
             Some(allowed) if actual != *allowed => report.push(Diagnostic {
                 policy_id: POLICY_ID.to_string(),
-                owners: vec!["ambition_actors".to_string()],
+                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
                 source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
                 rationale: "room-authored spawn modules must use scoped construction helpers, and the reviewed raw-spawn inventory must not retain excess allowance".to_string(),
                 location: format!("{CRATE_SRC}/{rel}"),
@@ -108,7 +108,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     for stale in allowlist.keys().filter(|rel| !seen.contains(*rel)) {
         report.push(Diagnostic {
             policy_id: POLICY_ID.to_string(),
-            owners: vec!["ambition_actors".to_string()],
+            owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
             source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
             rationale: "the room-feature raw-spawn allowlist is an exact inventory and may not retain rows for removed or renamed files".to_string(),
             location: ALLOWLIST.to_string(),

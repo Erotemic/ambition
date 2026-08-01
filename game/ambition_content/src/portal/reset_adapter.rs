@@ -1,7 +1,7 @@
 //! Ambition room-reset bridge: `ResetRoomFeaturesEvent` → portal `ClearPortals`.
 //!
-//! Portal core's [`clear_portals_on_reset`](ambition_portal::clear_portals_on_reset)
-//! consumes the portal-owned [`ClearPortals`](ambition_portal::ClearPortals) signal,
+//! Portal core's [`clear_portals_on_reset`](ambition_portal2d::clear_portals_on_reset)
+//! consumes the portal-owned [`ClearPortals`](ambition_portal2d::ClearPortals) signal,
 //! not the Ambition `ResetRoomFeaturesEvent`. This bridge translates the Ambition
 //! room-reset event into the portal signal so portal core never names the reset
 //! event — the room-reset *policy* (when a room resets) stays Ambition's, while
@@ -9,8 +9,8 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_portal::ClearPortals;
+use ambition_platformer2d_actor_monolith::features::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_portal2d::ClearPortals;
 
 /// Emit a [`ClearPortals`] for a MANUAL room reset (the delete-key reset or a
 /// scripted replay), but NOT for a player DEATH — so dying preserves the player's

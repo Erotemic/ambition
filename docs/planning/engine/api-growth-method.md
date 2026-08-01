@@ -50,8 +50,8 @@ made from evidence rather than from whatever seems interesting.
 
 * **Which forbidden paths does the consumer still name, and how many times?**
   Frequency is the crude cost proxy and it is usually right: seven uses of
-  `ambition::actors::features` is a bigger leak than one use of
-  `ambition::time`.
+  `ambition_platformer2d::actors::features` is a bigger leak than one use of
+  `ambition_platformer2d::time`.
 * A path that appears in *more than one* consumer is worth more than its count
   suggests — it is a rule multiple people re-derived independently.
 
@@ -69,7 +69,7 @@ tell you the method is working.
 
 ### 2c. The blind agent run
 
-Fresh context, fixed script, `docs/sdk/` and `ambition::prelude` only.
+Fresh context, fixed script, `docs/sdk/` and `ambition_platformer2d::prelude` only.
 
 The recorded fields are:
 
@@ -108,7 +108,7 @@ Import leaks are not the only evidence, and a clean facade can hide the worst
 kind. **A perfectly semantic API could still force a movement-only game to
 compile and link menus, persistence, audio, LDtk, bosses and every unrelated
 gameplay domain.** No consumer names a forbidden path; the footprint is still
-wrong, and `ambition_actors` carries 27 direct `ambition_*` dependencies today.
+wrong, and `ambition_platformer2d_actor_monolith` carries 27 direct `ambition_*` dependencies today.
 
 So for each sentinel consumer, measure:
 

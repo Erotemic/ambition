@@ -8,7 +8,7 @@
 //!
 //! So these press buttons.
 
-use ambition::input::{MenuControlFrame, SeatMenuFrames};
+use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use ambition_demo_smash::select::{SELECTABLE, SeatSelection, SmashSelect};
 use ambition_demo_smash_app::build_demo_app;
 use bevy::prelude::*;
@@ -37,12 +37,12 @@ fn plug_in(app: &mut App, count: usize) {
     // to fighting the tracker in the configuration where the tracker runs.
     let derived = app
         .world()
-        .get_resource::<ambition::input::LocalDeviceOrder>()
+        .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
         .map(|order| order.devices().len())
         .unwrap_or(0);
     if derived < count {
         app.world_mut()
-            .insert_resource(ambition::input::LocalDeviceOrder::from_devices(pads));
+            .insert_resource(ambition_platformer2d::input::LocalDeviceOrder::from_devices(pads));
     }
 }
 
@@ -72,7 +72,7 @@ fn install_press_port(app: &mut App) {
                 frames.set(*seat, *frame);
             }
         })
-        .in_set(ambition::input::InputSet::Consume)
+        .in_set(ambition_platformer2d::input::InputSet::Consume)
         .before(ambition_demo_smash::SmashSelectSet),
     );
 }
@@ -163,7 +163,7 @@ fn two_players_join_choose_and_lock_in_and_the_battle_starts() {
     // One locked seat is not a match.
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "a match started with one fighter in it"
     );
@@ -175,7 +175,7 @@ fn two_players_join_choose_and_lock_in_and_the_battle_starts() {
 
     let roster = app
         .world()
-        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
         .expect("two locked seats is a decided match, and the screen has to publish it");
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(roster.participants[0].character, SELECTABLE[1]);
@@ -225,7 +225,7 @@ fn a_joined_but_still_browsing_seat_holds_the_match() {
 
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "a third player joined and is still choosing; starting without them is \
          the screen deciding on their behalf"
@@ -364,7 +364,7 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
     press(&mut app, 0, confirm()); // join
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "a browsing seat still holds the match, CPU opponent or not"
     );
@@ -372,19 +372,19 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
 
     let roster = app
         .world()
-        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
         .expect("one player and one CPU is a decided match");
     assert_eq!(roster.participants.len(), 2);
     assert!(
         matches!(
             roster.participants[0].controller,
-            ambition::actor::ControllerBinding::Human { device_slot: 0 }
+            ambition_platformer2d::actor::ControllerBinding::Human { device_slot: 0 }
         ),
         "seat 0 is the person holding the keyboard: {:?}",
         roster.participants[0].controller
     );
     match &roster.participants[1].controller {
-        ambition::actor::ControllerBinding::Cpu { brain_profile } => assert_eq!(
+        ambition_platformer2d::actor::ControllerBinding::Cpu { brain_profile } => assert_eq!(
             brain_profile.as_deref(),
             Some(ambition_demo_smash::SMASH_DUELIST_BRAIN),
             "the CPU seat asked for a brain the roster fragment does not author, \

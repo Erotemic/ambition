@@ -22,11 +22,11 @@
 //! - [`install_duel_yarn_binding`] — the `<<duel>>` dialogue command stages
 //!   the same fight beside the player, anywhere.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_actors::combat::components::ActorFaction;
-use ambition_actors::features::{RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d_actor_monolith::combat::components::ActorFaction;
+use ambition_platformer2d_actor_monolith::features::{RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest};
 
 /// Feature id of the duel's PCA fighter.
 pub const DUEL_PCA_ID: &str = "duel_pca";
@@ -119,8 +119,8 @@ pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry) 
 #[cfg(feature = "ui")]
 fn cmd_duel(
     player: Query<
-        &ambition_actors::actor::BodyKinematics,
-        ambition_actors::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
     mut spawns: MessageWriter<SpawnActorRequest>,
 ) {

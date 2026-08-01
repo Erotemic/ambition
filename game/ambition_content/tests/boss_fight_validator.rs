@@ -17,7 +17,7 @@
 
 use std::collections::BTreeMap;
 
-use ambition_actors::features::BossBehaviorProfile;
+use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
 use ambition_characters::brain::boss_pattern::validator::{
     fight_beats, validate_fight, FightFinding, Severity,
 };

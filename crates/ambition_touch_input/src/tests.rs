@@ -310,7 +310,7 @@ fn touch_action_hit_test_includes_fly_button() {
         touch_action_at_position, touch_action_circle, touch_action_layout, TouchActionButton,
         ACTION_CLUSTER_H, ACTION_CLUSTER_W,
     };
-    use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect;
 
     // A cluster resolved somewhere arbitrary: the hit test follows the
     // PLACEMENT, so a window-relative fixture would be testing the wrong thing.

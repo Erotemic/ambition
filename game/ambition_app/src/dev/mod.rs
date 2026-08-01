@@ -15,7 +15,7 @@ use bevy::prelude::*;
 /// the debug overlay + F6 FPS counter, plus (behind the `dev_tools`
 /// feature) the egui resource/world inspectors. The dev STATE it drives
 /// (`DeveloperTools`, the editable profiles) lives in the machinery lib
-/// (`ambition::dev_tools::dev_tools`); this plugin only wires the
+/// (`ambition_platformer2d::dev_tools::dev_tools`); this plugin only wires the
 /// app-side presentation/inspection of it.
 pub struct DevToolsPlugin;
 
@@ -35,8 +35,8 @@ impl Plugin for DevToolsPlugin {
 /// `EguiPlugin` first, hence the shared gate.
 #[cfg(feature = "dev_tools")]
 fn install_egui_inspectors(app: &mut App) {
-    use ambition::actors::time::feel::SandboxFeelTuning;
-    use ambition::dev_tools::dev_tools::{
+    use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+    use ambition_platformer2d::dev_tools::dev_tools::{
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
     };

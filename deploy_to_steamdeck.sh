@@ -33,7 +33,7 @@ cargo build -p ambition_app --bin ambition_game_bin --release --features static_
 ssh "$DECK" "mkdir -p '$APPDIR'"
 
 rsync -av --delete \
-    target/release/ambition_actors \
+    target/release/ambition_platformer2d_actor_monolith \
     "$DECK:$APPDIR/"
 
 # Deploy the already-composed tree, not two independently-maintained rsync
@@ -80,7 +80,7 @@ export BEVY_ASSET_ROOT="$APPDIR"
 export RUST_BACKTRACE=1
 export RUST_LOG="${RUST_LOG:-warn}"
 
-exec "$APPDIR/ambition_actors" "$@"
+exec "$APPDIR/ambition_platformer2d_actor_monolith" "$@"
 EOF_INNER
 
 # Verify every remote file against the same byte contract used locally. A
@@ -89,7 +89,7 @@ EOF_INNER
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
-test -x "\$APPDIR/ambition_actors"
+test -x "\$APPDIR/ambition_platformer2d_actor_monolith"
 cd "\$APPDIR/assets"
 sha256sum -c "\$APPDIR/asset-contract.steamdeck.sha256"
 test ! -e "\$APPDIR/assets/fonts/local"

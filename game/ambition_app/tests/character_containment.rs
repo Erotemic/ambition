@@ -8,7 +8,7 @@
 //! into. Put him in a room with walls and he ran out of it and fell forever.
 //!
 //! The instrument is embarrassingly cheap: put the character in a box, hold a
-//! direction, check it is still in the box. `ambition_engine_core` owns the
+//! direction, check it is still in the box. `ambition_platformer2d_core` owns the
 //! probe so a game embedding this engine can run it over its own cast; this
 //! test is the half that knows the POPULATION — every character the shipped
 //! host registers, which is where a provider's new cast member arrives.
@@ -19,11 +19,11 @@
 //! authority on which policy a character actually plays under. Probing anything
 //! else would test a copy of the decision rather than the decision.
 
-use ambition::characters::actor::character_catalog::CharacterCatalog;
-use ambition::engine_core::movement::containment::{
+use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer2d::engine_core::movement::containment::{
     probe_containment, walled_box, ContainmentProbe,
 };
-use ambition::engine_core::{Aabb, LocalAxes, Vec2};
+use ambition_platformer2d::engine_core::{Aabb, LocalAxes, Vec2};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// A room the size of the versus arena — the smallest thing anybody would call
@@ -54,7 +54,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
     let mut escapes = Vec::new();
     let mut sized = 0usize;
     for id in &ids {
-        let spec = ambition::actors::avatar::motion_model_spec_for_character_id(catalog, id);
+        let spec = ambition_platformer2d::actors::avatar::motion_model_spec_for_character_id(catalog, id);
         // The character's OWN body, not a generic one. A wide fighter reaches a
         // wall before a narrow one and a tall one can clip a ceiling the default
         // never touches, so probing every character against one scratch body
@@ -63,7 +63,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         // `None` for a character whose sheet publishes no body metrics — the
         // probe falls back to the engine default rather than inventing a size,
         // and the count below keeps that from quietly becoming everybody.
-        let body = ambition::actors::character_sprites::sprite_body_collision_for_character_id_in(
+        let body = ambition_platformer2d::actors::character_sprites::sprite_body_collision_for_character_id_in(
             &Default::default(),
             catalog,
             id,

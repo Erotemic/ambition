@@ -5,12 +5,12 @@ status: current
 authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_runtime
+  - crates/ambition_platformer2d_runtime
   - crates/ambition_sim_view
   - crates/ambition_render
   - crates/ambition_vfx
   - crates/ambition_audio
-  - crates/ambition_host
+  - crates/ambition_platformer2d_host
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
   - docs/adr/0028-dialogue-presentation-is-provider-selected.md

@@ -21,7 +21,7 @@
 //! [`BindingLedger`] and the caller reports it; the visible fallback stays, but
 //! the run also says what it could not find.
 
-use ambition_platformer_primitives::binding::BindingLedger;
+use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 use ambition_sprite_sheet::character::build_atlas_layout;
 use ambition_sprite_sheet::{AnimRowRef, SheetRecord};
 use bevy::image::TextureAtlasLayout;

@@ -1,5 +1,5 @@
 use super::*;
-use ambition::input::ControlFrame;
+use ambition_platformer2d::input::ControlFrame;
 
 #[test]
 fn sim_constructs_and_returns_initial_observation() {

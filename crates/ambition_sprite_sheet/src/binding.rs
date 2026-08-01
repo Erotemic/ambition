@@ -16,11 +16,11 @@
 //!
 //! So there is no name→row lookup on `SheetRecord` any more. A consumer asks the
 //! sheet for its [`Resolver`], resolves through a
-//! [`BindingLedger`](ambition_platformer_primitives::binding::BindingLedger),
+//! [`BindingLedger`](ambition_platformer2d_shared_tangle::binding::BindingLedger),
 //! and then indexes the rows with the resulting [`Bound`] — which it can only
 //! hold because the row exists.
 
-use ambition_platformer_primitives::binding::{Bound, Namespace, Ref, Resolver};
+use ambition_platformer2d_shared_tangle::binding::{Bound, Namespace, Ref, Resolver};
 
 use crate::{SheetRecord, SheetRow};
 
@@ -83,7 +83,7 @@ impl SheetRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::binding::BindingLedger;
+    use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 
     fn sheet_with_rows(names: &[&str]) -> SheetRecord {
         let rows = names

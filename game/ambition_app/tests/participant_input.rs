@@ -30,14 +30,14 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
-use ambition::input::{
+use ambition_platformer2d::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
+use ambition_platformer2d::input::{
     ControlFrame, InputParticipant, SandboxAction, SeatInputContexts, LAUNCHER_CONTEXT,
     STARTUP_ACKNOWLEDGE_CONTEXT,
 };
-use ambition::platformer::lifecycle::PlayerVisual;
-use ambition::sim_view::ControlPrompt;
-use ambition::touch_input::{bevy_plugin::MobileTouchState, TouchControlsPlugin};
+use ambition_platformer2d::platformer::lifecycle::PlayerVisual;
+use ambition_platformer2d::sim_view::ControlPrompt;
+use ambition_platformer2d::touch_input::{bevy_plugin::MobileTouchState, TouchControlsPlugin};
 use ambition_app::app::shell_host;
 use leafwing_input_manager::prelude::{ActionState, Buttonlike};
 
@@ -51,18 +51,18 @@ fn shell_input_app(with_startup_cards: bool) -> App {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     // The host input face: leafwing + the participant spawn + the context
     // resolver + the populate chain (self-sufficient headless).
-    app.add_plugins(ambition::host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     // The touch virtual device. Its HUD spawn orders after the app's font
     // load, so register that Startup system exactly as the app does (the
     // Font asset type must exist for it headless; no TextPlugin runs here).
     app.init_asset::<bevy::text::Font>();
-    app.add_systems(Startup, ambition::render::ui_fonts::load_ui_fonts);
+    app.add_systems(Startup, ambition_platformer2d::render::ui_fonts::load_ui_fonts);
     app.add_plugins(TouchControlsPlugin);
     shell_host::compose_ambition_shell_host(&mut app);
     if with_startup_cards {
@@ -77,7 +77,7 @@ fn settle(app: &mut App) {
     }
 }
 
-fn owner(app: &App) -> Option<ambition::input::InputContextId> {
+fn owner(app: &App) -> Option<ambition_platformer2d::input::InputContextId> {
     app.world()
         .resource::<SeatInputContexts>()
         .primary()
@@ -121,7 +121,7 @@ fn touch_stick(app: &mut App, x: f32, y: f32) {
 /// press produces (the collect system rebuilds `MobileTouchState` from
 /// interactions every frame, so writing the state directly is a no-op).
 fn touch_jump(app: &mut App, held: bool) {
-    use ambition::touch_input::layout::TouchActionButton;
+    use ambition_platformer2d::touch_input::layout::TouchActionButton;
     let jump = {
         let mut q = app
             .world_mut()
@@ -355,7 +355,7 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         With<ActionState<SandboxAction>>,
         Or<(
             With<PlayerVisual>,
-            With<ambition::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         )>,
     )>();
     assert_eq!(
@@ -406,7 +406,7 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
     // participant persists — same entity, device state intact — and the
     // launcher reclaims the context.
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::QuitToHome);
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::QuitToHome);
     let mut back_home = false;
     for _ in 0..120 {
         app.update();

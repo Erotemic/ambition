@@ -6,7 +6,7 @@
 //!
 //! **Visible by default on every platform** — desktop, browser,
 //! Android. Toggle via the **Video settings page → "FPS Overlay"** row
-//! (persisted across sessions via `ambition::persistence::settings::persistence`), or
+//! (persisted across sessions via `ambition_platformer2d::persistence::settings::persistence`), or
 //! press `F6` for an in-session keyboard toggle that mutates the same
 //! setting.
 //!
@@ -23,9 +23,9 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
-use ambition::persistence::settings::UserSettings;
-use ambition::platformer::developer_hotkeys::DeveloperAction;
-use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_platformer2d::persistence::settings::UserSettings;
+use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 
 const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
 
@@ -125,7 +125,7 @@ fn spawn_fps_overlay(
 /// The canonical developer action (F6 by default) toggles the FPS overlay by writing to
 /// [`UserSettings::video::show_fps`]. The next
 /// `sync_fps_overlay_state_from_settings` tick mirrors the change into
-/// `FpsOverlayState`, and `ambition::persistence::settings::persistence` autosaves the
+/// `FpsOverlayState`, and `ambition_platformer2d::persistence::settings::persistence` autosaves the
 /// new value so the toggle survives a restart.
 fn toggle_fps_overlay_from_hotkey(
     mut actions: MessageReader<DeveloperAction>,

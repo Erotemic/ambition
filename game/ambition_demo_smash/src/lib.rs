@@ -15,7 +15,7 @@
 //!    once something on the other side of it exists.
 //!
 //! 2. **It is the E9 oracle for a stocks game.** Like the Sanic demo it depends
-//!    on `ambition` + `bevy` and nothing else. If declaring a stocks match needs
+//!    on `ambition_platformer2d` + `bevy` and nothing else. If declaring a stocks match needs
 //!    a type the umbrella does not re-export, that is an engine leak and it
 //!    fails to compile HERE — which is the whole reason a second consumer is
 //!    worth its weight.
@@ -31,14 +31,14 @@
 //! What this crate owns is the two answers the engine refuses to guess: WHERE a
 //! respawning fighter comes back, and WHAT HAPPENS when one side is left.
 
-// ⚠ **no `ambition::prelude::*`.** Declaring a match needs the ACTOR
+// ⚠ **no `ambition_platformer2d::prelude::*`.** Declaring a match needs the ACTOR
 // vocabulary, not the room-authoring one, and reaching for the prelude here
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
-use ambition::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
-use ambition::engine_core as ae;
-use ambition::engine_core::Vec2;
-use ambition::world::rooms::RoomSpec;
+use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod select;
 pub mod select_ui;
@@ -284,10 +284,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The plugin owns its channels. A full app registers these through the
         // engine plugins; a rules-only harness may not, and `add_message` is
         // idempotent.
-        app.add_message::<ambition::actor::FighterStockSpent>();
-        app.add_message::<ambition::actor::StocksMatchDecided>();
+        app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
+        app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
 
-        let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.
@@ -298,10 +298,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             announce_the_winner,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::CombatSet::Settle)
-            .after(ambition::combat::stocks::spend_fighter_stocks);
+            .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+            .after(ambition_platformer2d::combat::stocks::spend_fighter_stocks);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMASH_MODE)));
+            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SMASH_MODE)));
         } else {
             app.add_systems(sim, rules);
         }
@@ -326,12 +326,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
 /// construction and the round starting, and here those are the same tick.
 fn release_the_opening_hold(
     mut commands: bevy::prelude::Commands,
-    active: Option<bevy::prelude::Res<ambition::actors::character_runtime::ActiveMatch>>,
+    active: Option<bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
     held: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<ambition::actor::MatchSeat>,
-            bevy::prelude::With<ambition::characters::brain::ScriptedControl>,
+            bevy::prelude::With<ambition_platformer2d::actor::MatchSeat>,
+            bevy::prelude::With<ambition_platformer2d::characters::brain::ScriptedControl>,
         ),
     >,
 ) {
@@ -341,7 +341,7 @@ fn release_the_opening_hold(
     for body in held.iter() {
         commands
             .entity(body)
-            .try_remove::<ambition::characters::brain::ScriptedControl>();
+            .try_remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
     }
 }
 
@@ -368,10 +368,10 @@ fn release_the_opening_hold(
 /// than announced by hand — the derivation is what makes this a one-line fix
 /// instead of a hunt for every provider that cares.
 fn place_respawning_fighters(
-    mut spent: bevy::prelude::MessageReader<ambition::actor::FighterStockSpent>,
+    mut spent: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterStockSpent>,
     mut bodies: bevy::prelude::Query<(
-        ambition::actor::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        ambition_platformer2d::actor::BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     )>,
 ) {
     for event in spent.read() {
@@ -389,14 +389,14 @@ fn place_respawning_fighters(
         // Velocity is zeroed by the reset itself, which is what a fighter that
         // keeps the velocity that threw it off the stage needs: otherwise it
         // respawns already travelling toward the blast zone it just left.
-        ambition::engine_core::reset_body_clusters(
+        ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
             respawn_placement(stage_centre()),
             // This demo's fighters run the engine's default air game; a stage
             // that tuned it would pass its own number here, which is the point
             // of the parameter.
-            ambition::engine_core::DEFAULT_TUNING.air_jumps,
+            ambition_platformer2d::engine_core::DEFAULT_TUNING.air_jumps,
         );
     }
 }
@@ -423,8 +423,8 @@ fn take_eliminated_fighters_out_of_play(
     eliminated: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<ambition::actor::FighterEliminated>,
-            bevy::prelude::With<ambition::actor::MatchSeat>,
+            bevy::prelude::With<ambition_platformer2d::actor::FighterEliminated>,
+            bevy::prelude::With<ambition_platformer2d::actor::MatchSeat>,
         ),
     >,
 ) {
@@ -435,11 +435,11 @@ fn take_eliminated_fighters_out_of_play(
 
 /// Say who won, once.
 fn announce_the_winner(
-    mut decided: bevy::prelude::MessageReader<ambition::actor::StocksMatchDecided>,
-    mut banner: bevy::prelude::MessageWriter<ambition::combat::GameplayBannerRequested>,
+    mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
+    mut banner: bevy::prelude::MessageWriter<ambition_platformer2d::combat::GameplayBannerRequested>,
 ) {
     for outcome in decided.read() {
-        banner.write(ambition::combat::GameplayBannerRequested::new(
+        banner.write(ambition_platformer2d::combat::GameplayBannerRequested::new(
             victory_banner(outcome.winner.as_deref()),
             3.0,
         ));
@@ -479,8 +479,8 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // rather than `resource_mut` because the rules-and-screen plugins are
         // also composed in harnesses that never installed the shell.
         app.world_mut()
-            .get_resource_or_insert_with(ambition::game_shell::ShellRouteCatalog::default)
-            .register(ambition::game_shell::ShellRouteSpec::new(
+            .get_resource_or_insert_with(ambition_platformer2d::game_shell::ShellRouteCatalog::default)
+            .register(ambition_platformer2d::game_shell::ShellRouteSpec::new(
                 SMASH_SELECT_ROUTE,
                 SMASH_SELECT_EXPERIENCE,
             ));
@@ -492,12 +492,12 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // press a button instead of reaching into `SmashSelect` and setting the
         // answer, and reaching into the answer is how this screen came to be
         // fully unit-tested and completely inert.
-        app.init_resource::<ambition::input::SeatMenuFrames>();
+        app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         // **AND THE SEATS IT OFFERS.** A host seats input participants from the
         // match roster, and this screen is what PRODUCES the roster — so until
         // it declares them, only player one exists and the other panels are
         // chairs no controller can reach. See `DeclaredInputSeats`.
-        app.init_resource::<ambition::input::DeclaredInputSeats>();
+        app.init_resource::<ambition_platformer2d::input::DeclaredInputSeats>();
         // **ONE CHAIN, IN `InputSet::Consume`.** Two things were ambiguous and
         // both are the same mistake — a reader with no stated order.
         //
@@ -514,7 +514,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
                 SmashSelectSet,
-                ambition::input::InputSet::Consume,
+                ambition_platformer2d::input::InputSet::Consume,
             ),
         );
         // **THE SCREEN CLAIMS ITS SEATS' INPUT while it is up.**
@@ -527,7 +527,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
                 declare_the_select_input_context,
-                ambition::input::InputSet::ResolveContext,
+                ambition_platformer2d::input::InputSet::ResolveContext,
             ),
         );
         app.add_systems(
@@ -552,11 +552,11 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 /// resource keeps its decision, which is what the match was built from).
 fn present_the_select_screen(
     mut commands: bevy::prelude::Commands,
-    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut select: bevy::prelude::ResMut<select::SmashSelect>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
-    devices: Option<bevy::prelude::Res<ambition::input::LocalDeviceOrder>>,
-    mut lobby_seats: bevy::prelude::ResMut<ambition::input::DeclaredInputSeats>,
+    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    mut lobby_seats: bevy::prelude::ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -571,7 +571,7 @@ fn present_the_select_screen(
     // on the way out, so the participants it asks for live exactly as long as
     // the question does — the same lifetime rule the match's own seats have.
     let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1) as u8;
-    let want_seats = ambition::input::DeclaredInputSeats(if on_select { offered } else { 0 });
+    let want_seats = ambition_platformer2d::input::DeclaredInputSeats(if on_select { offered } else { 0 });
     if *lobby_seats != want_seats {
         *lobby_seats = want_seats;
     }
@@ -624,10 +624,10 @@ fn present_the_select_screen(
 /// vocabulary the facade already exposes — and the pause menu's higher-priority
 /// capturing claim does the rest. Neither side knows the other exists.
 fn declare_the_select_input_context(
-    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut participants: bevy::prelude::Query<
-        &mut ambition::input::participant::ParticipantContexts,
-        bevy::prelude::With<ambition::input::InputParticipant>,
+        &mut ambition_platformer2d::input::participant::ParticipantContexts,
+        bevy::prelude::With<ambition_platformer2d::input::InputParticipant>,
     >,
 ) {
     let on_select = router
@@ -636,11 +636,11 @@ fn declare_the_select_input_context(
         .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
     for mut contexts in &mut participants {
         // Touch the component only when the claim actually moves.
-        if contexts.is_declared(ambition::input::SELECT_CONTEXT) != on_select {
+        if contexts.is_declared(ambition_platformer2d::input::SELECT_CONTEXT) != on_select {
             contexts.sync(
-                ambition::input::participant::ContextClaim::capturing(
-                    ambition::input::SELECT_CONTEXT,
-                    ambition::input::participant::context_priority::SELECT,
+                ambition_platformer2d::input::participant::ContextClaim::capturing(
+                    ambition_platformer2d::input::SELECT_CONTEXT,
+                    ambition_platformer2d::input::participant::context_priority::SELECT,
                 ),
                 on_select,
             );
@@ -650,10 +650,10 @@ fn declare_the_select_input_context(
 
 fn drive_the_select_screen(
     mut select: bevy::prelude::ResMut<select::SmashSelect>,
-    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
-    frames: Option<bevy::prelude::Res<ambition::input::SeatMenuFrames>>,
-    devices: Option<bevy::prelude::Res<ambition::input::LocalDeviceOrder>>,
-    contexts: Option<bevy::prelude::Res<ambition::input::SeatInputContexts>>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    frames: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatMenuFrames>>,
+    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    contexts: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatInputContexts>>,
 ) {
     let on_select = router
         .active
@@ -676,7 +676,7 @@ fn drive_the_select_screen(
         // the screen, not the arbitration.
         let owned = contexts.as_deref().is_none_or(|c| {
             c.for_seat(seat as u8)
-                .allows(ambition::input::SELECT_CONTEXT)
+                .allows(ambition_platformer2d::input::SELECT_CONTEXT)
         });
         if !owned {
             continue;
@@ -744,9 +744,9 @@ fn drive_the_select_screen(
 fn start_the_battle_when_everyone_is_ready(
     mut commands: bevy::prelude::Commands,
     select: bevy::prelude::Res<select::SmashSelect>,
-    router: bevy::prelude::Res<ambition::game_shell::ShellRouter>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
-    mut shell: bevy::prelude::MessageWriter<ambition::game_shell::ShellCommand>,
+    mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     // Only from the select screen. Without this the system would re-fire during
     // the match — `ready()` stays true while the roster stands — and ask the
@@ -762,8 +762,8 @@ fn start_the_battle_when_everyone_is_ready(
         return;
     };
     commands.insert_resource(decided);
-    shell.write(ambition::game_shell::ShellCommand::GoTo(
-        ambition::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
+    shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+        ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
     ));
 }
 
@@ -782,7 +782,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // experience's entry and refuses a route nobody has registered. The
         // ordering is load-bearing and the refusal says so by name.
         app.add_plugins(SmashSelectPlugin);
-        ambition::provider::PlatformerExperienceAuthoring::new(
+        ambition_platformer2d::provider::PlatformerExperienceAuthoring::new(
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
             "Smash",
@@ -792,7 +792,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             // fighters bring their own cues. Claiming procedural sfx it never
             // registers would be the same shape as the empty function above —
             // a declaration with nothing behind it.
-            ambition::provider::AuthoredCatalogFragments::new(SMASH_CHARACTER_ID, SMASH_EXPERIENCE),
+            ambition_platformer2d::provider::AuthoredCatalogFragments::new(SMASH_CHARACTER_ID, SMASH_EXPERIENCE),
         )
         // **A LAUNCHER ROW LEADS TO THE QUESTION, NOT TO THE STAGE.** Without
         // this the only way into the select screen was to make it a whole app's
@@ -801,7 +801,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // in the Ambition title screen would have dropped a lone duelist onto
         // the platform with nobody to fight.
         .entered_at(SMASH_SELECT_ROUTE)
-        .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
+        .with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
     }
@@ -843,7 +843,7 @@ pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 /// fighting the cast the game already ships, which is the more interesting
 /// claim. It does not compile as a claim: that lineage lives in
 /// `game/ambition_content`, which is ABOVE the facade, so a demo naming it would
-/// break the `ambition` + `bevy` rule that makes this crate an oracle at all.
+/// break the `ambition_platformer2d` + `bevy` rule that makes this crate an oracle at all.
 ///
 /// The engine caught it the only way it could — at BOOT, with
 /// `character_catalog: Resource does not exist`, because the demo had declared a
@@ -923,8 +923,8 @@ const SMASH_CATALOG_RON: &str = r#"(
 /// SILENCE is a registration, not the absence of one: the fighters bring their
 /// own cues, which is what a crossover stage means.
 fn install_smash_content(app: &mut bevy::prelude::App) {
-    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition::characters::actor::character_catalog::{
+    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::characters::actor::character_catalog::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -943,7 +943,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // placeholder. Pocket shipped that way and nobody noticed until somebody
     // looked at the screen.
     {
-        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         for (id, name, sheet) in [
             (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
             (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
@@ -987,9 +987,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // it is this game's kit that is wrong for it, not every game's.
             // Mary-O and the exploration protagonist keep the recoil they were
             // tuned with.
-            definition.movement_tuning = Some(ambition::engine_core::MovementTuning {
+            definition.movement_tuning = Some(ambition_platformer2d::engine_core::MovementTuning {
                 slash_recoil: 0.0,
-                ..ambition::engine_core::DEFAULT_TUNING
+                ..ambition_platformer2d::engine_core::DEFAULT_TUNING
             });
             app.register_character(definition);
         }
@@ -1002,7 +1002,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // stopped falling back to a generic enemy the same day); before that it
     // silently became a stand-still body.
     {
-        use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(SMASH_EXPERIENCE, None::<String>, SMASH_ROSTER_RON)
                 .expect("the smash duelist roster fragment is valid"),
@@ -1108,15 +1108,15 @@ const SMASH_ROSTER_RON: &str = r#"{
 }"#;
 
 /// The stage, as the shared preparation lifecycle wants it.
-fn smash_prepared_session_world() -> ambition::runtime::PreparedPlatformerSource {
-    use ambition::runtime::demo_fixture::{
+fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPlatformerSource {
+    use ambition_platformer2d::runtime::demo_fixture::{
         ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
     };
 
     let room = smash_stage();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    ambition::runtime::PreparedPlatformerSource::new(
+    ambition_platformer2d::runtime::PreparedPlatformerSource::new(
         SMASH_EXPERIENCE,
         RoomSet::from_parts(SMASH_STAGE_ROOM_ID, vec![room], Vec::new()),
         geometry,
@@ -1129,7 +1129,7 @@ fn smash_prepared_session_world() -> ambition::runtime::PreparedPlatformerSource
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::engine_core::AabbExt;
+    use ambition_platformer2d::engine_core::AabbExt;
 
     /// **A stocks roster declares the pair the engine insists on.**
     #[test]
@@ -1276,21 +1276,21 @@ mod tests {
         use bevy::prelude::*;
 
         let mut app = App::new();
-        app.add_message::<ambition::actor::StocksMatchDecided>();
-        app.add_message::<ambition::combat::GameplayBannerRequested>();
+        app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
+        app.add_message::<ambition_platformer2d::combat::GameplayBannerRequested>();
         app.add_systems(Update, announce_the_winner);
         app.update();
 
         app.world_mut()
-            .resource_mut::<Messages<ambition::actor::StocksMatchDecided>>()
-            .write(ambition::actor::StocksMatchDecided {
+            .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
+            .write(ambition_platformer2d::actor::StocksMatchDecided {
                 winner: Some("seat 2".to_string()),
             });
         app.update();
 
         let messages = app
             .world()
-            .resource::<Messages<ambition::combat::GameplayBannerRequested>>();
+            .resource::<Messages<ambition_platformer2d::combat::GameplayBannerRequested>>();
         let mut cursor = messages.get_cursor();
         let raised: Vec<_> = cursor.read(messages).collect();
         assert_eq!(
@@ -1309,18 +1309,18 @@ mod tests {
         use bevy::prelude::*;
 
         let mut app = App::new();
-        app.add_message::<ambition::actor::StocksMatchDecided>();
-        app.add_message::<ambition::combat::GameplayBannerRequested>();
+        app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
+        app.add_message::<ambition_platformer2d::combat::GameplayBannerRequested>();
         app.add_systems(Update, announce_the_winner);
         app.update();
         app.world_mut()
-            .resource_mut::<Messages<ambition::actor::StocksMatchDecided>>()
-            .write(ambition::actor::StocksMatchDecided { winner: None });
+            .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
+            .write(ambition_platformer2d::actor::StocksMatchDecided { winner: None });
         app.update();
 
         let messages = app
             .world()
-            .resource::<Messages<ambition::combat::GameplayBannerRequested>>();
+            .resource::<Messages<ambition_platformer2d::combat::GameplayBannerRequested>>();
         let mut cursor = messages.get_cursor();
         let raised: Vec<_> = cursor.read(messages).collect();
         assert!(
@@ -1339,7 +1339,7 @@ mod tests {
     /// working, because nobody notices a game they cannot start.
     #[test]
     fn a_host_composing_this_plugin_can_route_to_the_stage() {
-        use ambition::game_shell::{
+        use ambition_platformer2d::game_shell::{
             MinimalShellPlugins, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog,
             ShellRouteId,
         };
@@ -1347,7 +1347,7 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins(MinimalShellPlugins);
-        app.add_plugins(ambition::load::AmbitionLoadPlugin);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
         app.add_plugins(SmashExperiencePlugin);
 
         let registration = app
@@ -1390,7 +1390,7 @@ mod tests {
 
         let authored = app
             .world()
-            .resource::<ambition::provider::PlatformerAuthoredCatalogRegistry>()
+            .resource::<ambition_platformer2d::provider::PlatformerAuthoredCatalogRegistry>()
             .get(SMASH_EXPERIENCE)
             .expect("the host sees this demo's authored catalogs");
         assert_eq!(authored.starting_character, SMASH_CHARACTER_ID);
@@ -1453,7 +1453,7 @@ mod tests {
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
-        use ambition::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
+        use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
         assert!(
@@ -1464,7 +1464,7 @@ mod tests {
         let brain = catalog
             .build_brain_from_preset(
                 "duelist",
-                &ambition::characters::actor::character_catalog::BrainBuildContext::at(0.0),
+                &ambition_platformer2d::characters::actor::character_catalog::BrainBuildContext::at(0.0),
             )
             .expect("the `duelist` preset builds a brain");
         assert_eq!(
@@ -1489,10 +1489,10 @@ mod tests {
 #[cfg(test)]
 mod pause_arbitration_tests {
     use super::*;
-    use ambition::input::participant::{
+    use ambition_platformer2d::input::participant::{
         ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
     };
-    use ambition::input::{
+    use ambition_platformer2d::input::{
         InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
     };
     use bevy::prelude::*;
@@ -1503,7 +1503,7 @@ mod pause_arbitration_tests {
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SeatMenuFrames>();
         app.init_resource::<select::SmashSelect>();
-        app.init_resource::<ambition::game_shell::ShellRouter>();
+        app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
         app.add_systems(
             Update,
             (resolve_active_input_context, drive_the_select_screen).chain(),
@@ -1513,7 +1513,7 @@ mod pause_arbitration_tests {
         // claim `declare_the_select_input_context` writes in production.
         let mut contexts = ParticipantContexts::default();
         contexts.declare(ContextClaim::capturing(
-            ambition::input::SELECT_CONTEXT,
+            ambition_platformer2d::input::SELECT_CONTEXT,
             context_priority::SELECT,
         ));
         // The pause menu's claim, at its real priority. ⚠ this test names it
@@ -1527,17 +1527,17 @@ mod pause_arbitration_tests {
         }
         app.world_mut().spawn((
             InputParticipant {
-                id: ambition::input::ParticipantId(0),
+                id: ambition_platformer2d::input::ParticipantId(0),
             },
             contexts,
         ));
 
         app.world_mut()
-            .resource_mut::<ambition::game_shell::ShellRouter>()
-            .active = Some(ambition::game_shell::ActiveShellExperience {
-            activation_id: ambition::game_shell::ShellActivationId(1),
-            route_id: ambition::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
-            experience_id: ambition::game_shell::ShellExperienceId::new(SMASH_SELECT_EXPERIENCE),
+            .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active = Some(ambition_platformer2d::game_shell::ActiveShellExperience {
+            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
+            route_id: ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
+            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(SMASH_SELECT_EXPERIENCE),
             parameters: Default::default(),
             load_authorization: None,
             prepared_session: None,

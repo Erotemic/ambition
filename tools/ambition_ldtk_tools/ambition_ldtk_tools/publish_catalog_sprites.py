@@ -37,7 +37,7 @@ own invocation (we list them explicitly so they're easy to find).
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools.publish_catalog_sprites \\
     --renderer-dir tools/ambition_sprite2d_renderer \\
-    --sprites-dir crates/ambition_actors/assets/sprites
+    --sprites-dir crates/ambition_platformer2d_actor_monolith/assets/sprites
 ```
 
 `--dry-run` prints what it would do without invoking the renderer.

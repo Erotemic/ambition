@@ -14,7 +14,7 @@
 //! naming the missing fifth meant closing it was one test rather than a
 //! re-audit of what "Smash proven" had been taken to mean.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 /// The versus stage, mounted through the public API.
 struct VersusModule;
@@ -36,8 +36,8 @@ impl GameModule for VersusModule {
 #[derive(Clone)]
 struct VersusCapability;
 
-impl ambition::bevy::prelude::Plugin for VersusCapability {
-    fn build(&self, app: &mut ambition::bevy::prelude::App) {
+impl ambition_platformer2d::bevy::prelude::Plugin for VersusCapability {
+    fn build(&self, app: &mut ambition_platformer2d::bevy::prelude::App) {
         ambition_app::app::versus::compose_versus_experience(app);
     }
 }
@@ -62,7 +62,7 @@ fn the_versus_stage_composes_and_seats_two_participants() {
     // seated one, or none, would still route and still report a live host.
     let catalog = app
         .world()
-        .resource::<ambition::character::CharacterCatalog>();
+        .resource::<ambition_platformer2d::character::CharacterCatalog>();
     let ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
     // ⚠ Spelled out rather than importing `versus::FIGHTERS`, which is private.
     // AGENTS.md: never widen a production API to move a test. These are content
@@ -77,7 +77,7 @@ fn the_versus_stage_composes_and_seats_two_participants() {
     // SCOPED RULES: the stage registered its own route rather than borrowing one.
     let routes: Vec<String> = app
         .world()
-        .resource::<ambition::game_shell::ShellRouteCatalog>()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteCatalog>()
         .ids()
         .map(str::to_string)
         .collect();
@@ -103,7 +103,7 @@ fn the_versus_stage_composes_and_seats_two_participants() {
 /// that usually agree.
 #[test]
 fn the_versus_stage_rolls_back_with_two_participants() {
-    use ambition::rollback::{RollbackPlan, RollbackRegistry};
+    use ambition_platformer2d::rollback::{RollbackPlan, RollbackRegistry};
 
     let mut app = PlatformerApp::headless()
         .rollback(2)
@@ -111,7 +111,7 @@ fn the_versus_stage_rolls_back_with_two_participants() {
         .try_build()
         .expect("the versus stage must compose for rollback through the public API");
 
-    let session = ambition::rollback::start(&mut app, RollbackPlan::new())
+    let session = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())
         .expect("the versus stage must reach a running rollback session");
 
     assert_eq!(
@@ -130,7 +130,7 @@ fn the_versus_stage_rolls_back_with_two_participants() {
     // by name in the sibling test above.
     //
     // ⚠ What is still NOT proven here: that two SEPARATE input streams reach
-    // two separate bodies. `ambition::actor::MatchSeat` now answers the QUERY
+    // two separate bodies. `ambition_platformer2d::actor::MatchSeat` now answers the QUERY
     // half (see the sibling test), but there is no public seam for driving
     // input to a NAMED seat — `drive_control_frame` writes one frame for the
     // composition. Slice-G finding (g), open, and named rather than papered
@@ -141,13 +141,13 @@ fn the_versus_stage_rolls_back_with_two_participants() {
     // A session that started and then stopped being live would pass everything
     // above, because starting is the part that is easy — and `is_running()`
     // alone does NOT see that: a frozen sim still reports `Running`.
-    let before = ambition::rollback::health(&app)
+    let before = ambition_platformer2d::rollback::health(&app)
         .frame()
         .expect("a started session has a frame");
     for _ in 0..120 {
         app.update();
     }
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(
         health.frame().expect("a frame") > before,
         "the versus match did not ADVANCE across 120 updates: {health:?}"
@@ -197,13 +197,13 @@ fn the_versus_stage_rolls_back_with_two_participants() {
 /// seats, and the session advances undesynced with both in it.
 #[test]
 fn the_match_has_two_distinct_seats_and_simulates_with_both() {
-    use ambition::rollback::RollbackPlan;
+    use ambition_platformer2d::rollback::RollbackPlan;
 
     let mut app = PlatformerApp::headless()
         .rollback(2)
         .mount(VersusModule)
         .build();
-    let session = ambition::rollback::start(&mut app, RollbackPlan::new())
+    let session = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())
         .expect("the versus stage must reach a running rollback session");
     assert_eq!(session.participants(), 2);
 
@@ -211,7 +211,7 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
     for _ in 0..600 {
         app.update();
         let world = app.world_mut();
-        let mut query = world.query::<&ambition::actor::MatchSeat>();
+        let mut query = world.query::<&ambition_platformer2d::actor::MatchSeat>();
         seats = query.iter(world).map(|seat| seat.0).collect();
         seats.sort_unstable();
         if seats.len() >= 2 {
@@ -237,11 +237,11 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
 
     // And the match still simulates with both of them in it. `is_running()`
     // would not see a frozen sim; the frame advancing is the fact.
-    let before = ambition::rollback::health(&app).frame().expect("a frame");
+    let before = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
     for _ in 0..120 {
         app.update();
     }
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(
         health.frame().expect("a frame") > before && health.is_healthy(),
         "the two-seat match did not advance cleanly: {health:?}"
@@ -264,7 +264,7 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
 /// the population this one serves is the SDK consumer with no content crate.
 #[test]
 fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
-    use ambition::actors::features::CharacterRoster;
+    use ambition_platformer2d::actors::features::CharacterRoster;
 
     let app = PlatformerApp::headless()
         .start_at_launcher()

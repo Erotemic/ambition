@@ -29,7 +29,7 @@
 //!   (fighter-brain.md §12): a pure imagination built only from a `Perceived`,
 //!   stepped under an exact `rollout_k × (1 + rollout_depth)` budget against a
 //!   deterministic predicted opponent, striking with the REAL hit-response
-//!   kernel (`ambition_engine_core::hit_response` — the same one
+//!   kernel (`ambition_platformer2d_core::hit_response` — the same one
 //!   `damage_apply` resolves authoritative hits with).
 //!
 //! Still owed: FB4's ladder self-play rig and APM enforcement (both need a brain

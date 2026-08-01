@@ -10,7 +10,7 @@ Examples:
     python scripts/agent_query.py "room transition loading"
     python scripts/agent_query.py symbol GroundContactTransition
     python scripts/agent_query.py ecs "room transition" --crate ambition_app
-    python scripts/agent_query.py crate ambition_runtime
+    python scripts/agent_query.py crate ambition_platformer2d_runtime
     python scripts/agent_query.py build-catalog
 """
 
@@ -359,7 +359,7 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
             'python scripts/agent_query.py "room transition loading"',
             "python scripts/agent_query.py symbol GroundContactTransition",
             'python scripts/agent_query.py ecs "room transition" --crate ambition_app',
-            "python scripts/agent_query.py crate ambition_runtime",
+            "python scripts/agent_query.py crate ambition_platformer2d_runtime",
         ],
     }
     write_json(CATALOG_PATH, catalog)
@@ -401,7 +401,7 @@ python scripts/agent_query.py symbol GroundContactTransition
 python scripts/agent_query.py docs \"transactional construction\"
 python scripts/agent_query.py ecs \"room transition\" --crate ambition_app
 python scripts/agent_query.py tests \"ground contact\"
-python scripts/agent_query.py crate ambition_runtime
+python scripts/agent_query.py crate ambition_platformer2d_runtime
 ```
 
 ## Available detail

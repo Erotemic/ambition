@@ -7,8 +7,8 @@ use super::*;
 use crate::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
 use ambition_characters::brain::PlayerSlot;
 use ambition_characters::brain::{Brain, StateMachineCfg};
-use ambition_engine_core::BodyKinematics;
-use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Effective allegiance: a body carrying `Brain::Player` fights as `Player`
 /// regardless of its authored faction (that's why possession never mutates

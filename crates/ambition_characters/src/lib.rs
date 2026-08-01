@@ -1,7 +1,7 @@
 //! The actor BEHAVIOR + identity layer — the "minds and cast" of the
 //! workspace.
 //!
-//! Sits one level above [`ambition_engine_core`] (the pure movement/physics
+//! Sits one level above [`ambition_platformer2d_core`] (the pure movement/physics
 //! model): this crate owns the content-free vocabulary that makes an entity
 //! controllable and gives it a behavior and an identity. The same brain +
 //! control-frame contract drives players, NPCs, enemies, and bosses.
@@ -17,7 +17,7 @@
 //!   phase logic; per-phase attack data lives in [`brain`]).
 //!
 //! Named world content (the actual cast of bosses/enemies) stays in
-//! `ambition_content`; `ambition_actors` re-exports these modules at the
+//! `ambition_content`; `ambition_platformer2d_actor_monolith` re-exports these modules at the
 //! historical `crate::actor` / `crate::brain` paths.
 
 pub mod action_scheme;

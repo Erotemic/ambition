@@ -11,7 +11,7 @@ and 5 of the current 25 crates. For current truth read
 [`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md).
 
 The monolith was bisected into a layered crate
-graph (Stage 20); `ambition_actors` is now the **machinery library**, not the
+graph (Stage 20); `ambition_platformer2d_actor_monolith` is now the **machinery library**, not the
 playable shell. The remaining monolith-breakup backlog lives in
 [`next.md`](next.md).
 
@@ -30,23 +30,23 @@ Bevy ECS runtime
   Components/entities/systems/messages are the main integration language.
 
 Crate layers (low → high; lower must never import higher):
-  foundations  ambition_engine_core (geometry/collision/movement/body/player
+  foundations  ambition_platformer2d_core (geometry/collision/movement/body/player
                clusters/world), ambition_characters (unified actor system: control
                vocabulary + universal brain + character catalog; bosses are
-               actors), ambition_platformer_primitives (kinematic body,
-               gravity, rooms, projectile), ambition_portal, ambition_time,
+               actors), ambition_platformer2d_shared_tangle (kinematic body,
+               gravity, rooms, projectile), ambition_portal2d, ambition_time,
                ambition_input, ambition_menu, ambition_audio, ambition_sfx[_bank],
                ambition_asset_manager, ambition_gameplay_trace, ambition_cutscene,
                ambition_interaction, ambition_sprite_sheet, ambition_ui_nav,
                ambition_vfx.
-  machinery    ambition_actors (lib): content-free simulation systems,
+  machinery    ambition_platformer2d_actor_monolith (lib): content-free simulation systems,
                runtime state, world/LDtk integration, player/session systems,
                combat/items/encounter machinery, persistence, schedules, and
                compatibility facade re-exports.
   presentation ambition_render: Bevy sprite/world sync, camera, parallax, HUD,
                screen-space effects, dialog/cutscene UI, fonts, and render-only
                visual systems. It reads gameplay state and should not mutate the
-               sim as presentation. ambition_portal_presentation is reusable
+               sim as presentation. ambition_portal2d_presentation is reusable
                portal rendering used by this layer.
   content      ambition_content: named game content — quests, bosses, the enemy
                roster (installed into the lib's generic holder), items roster,
@@ -69,7 +69,7 @@ Current rule:
 
 - LDtk owns areas, collision layers, loading zones, room/world spatial data, and authored level entities.
 - Bevy ECS owns the runtime representation.
-- `crates/ambition_engine_core/src/` owns reusable engine semantics such as geometry, collision, movement, body modes, player clusters, and world/block policy. Focused sandbox mechanics such as projectiles live in their own crate modules.
+- `crates/ambition_platformer2d_core/src/` owns reusable engine semantics such as geometry, collision, movement, body modes, player clusters, and world/block policy. Focused sandbox mechanics such as projectiles live in their own crate modules.
 - RON remains valid for tuning, save/settings, generated-audio specs, boss encounter specs, character catalogs, and other non-world data where it is still the best format.
 - Agents must not hand-edit `sandbox.ldtk`; use `python -m ambition_ldtk_tools` and validation tools.
 
@@ -134,7 +134,7 @@ Landed or scaffolded mechanics include:
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
 - character catalog and Hall of Characters content flow;
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
-- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_actors/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
+- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
 
 The actor/brain unification is live, not a shadow seam: player movement/control,
 melee-start gating, projectile tick/charge, enemy ranged + melee windups, and

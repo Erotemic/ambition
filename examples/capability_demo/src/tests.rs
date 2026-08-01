@@ -9,7 +9,7 @@ use ambition_content_pack::{
     AssetsUnchecked, ContentPackDraft, ContentPackManifest, ModuleNamespace, PackId, PackVersion,
     SchemaId, SchemaRegistry, SourceDeclaration, compile,
 };
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 
 const PROFILES: &str = r#"(
     profiles: [
@@ -136,16 +136,16 @@ fn the_capability_registers_its_own_semantic_action() {
 /// **HALF 3 — rollback state the capability OFFERS and a composition installs.**
 ///
 /// ⛔ the capability does not register it itself, and that is deliberate: the
-/// registration trait lives in `ambition_runtime`, so self-registering would
+/// registration trait lives in `ambition_platformer2d_runtime`, so self-registering would
 /// drag the whole simulation into a mechanic that uses none of it. Offering is
 /// also what the other two halves already do — a schema and an action are
 /// offered, and whoever composes installs them.
 ///
-/// This test IS the composition. `ambition_runtime` is a dev-dependency, so it
+/// This test IS the composition. `ambition_platformer2d_runtime` is a dev-dependency, so it
 /// is in scope here and absent from the crate's real closure.
 #[test]
 fn a_composition_installs_the_rollback_state_the_capability_offers() {
-    use ambition_runtime::rollback::AmbitionRollbackApp;
+    use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 
     let mut app = App::new();
     app.add_plugins(PulsePlugin::default());
@@ -160,7 +160,7 @@ fn a_composition_installs_the_rollback_state_the_capability_offers() {
 
     let dump = app
         .world()
-        .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
         .expect("registered")
         .schema_dump();
     assert!(
@@ -183,7 +183,7 @@ fn the_plugin_alone_registers_no_rollback_state() {
     app.add_plugins(PulsePlugin::default());
     let registered = app
         .world()
-        .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
         .map(|r| r.schema_dump().contains(ROLLBACK_STATE))
         .unwrap_or(false);
     assert!(
@@ -344,7 +344,7 @@ fn firing_arms_the_cooldown_and_it_ages() {
 /// content compiler uses for "a `Runtime` schema must lower an artifact".
 #[test]
 fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
-    use ambition_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+    use ambition_platformer2d_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
 
     // A host that installed the mechanic and nothing else.
     let mut forgetful = App::new();
@@ -403,7 +403,7 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
 /// pass — one that reports safety while the desync is still there.
 #[test]
 fn another_capabilitys_registration_does_not_satisfy_this_one() {
-    use ambition_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+    use ambition_platformer2d_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
 
     let mut app = App::new();
     app.add_plugins(PulsePlugin::default());

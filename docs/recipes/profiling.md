@@ -91,7 +91,7 @@ chaining `phase_mark(...)` between Startup systems in
 
 Code lives in
 [crates/ambition_dev_tools/src/profiling.rs](../../crates/ambition_dev_tools/src/profiling.rs)
-(re-exported on the historical `ambition_actors::dev::profiling` path).
+(re-exported on the historical `ambition_platformer2d_actor_monolith::dev::profiling` path).
 
 ## 1b. Steady-state censuses
 
@@ -141,7 +141,7 @@ sudo sysctl kernel.perf_event_paranoid=1
 # Optional, restart-persistent: echo "kernel.perf_event_paranoid=1" | sudo tee /etc/sysctl.d/local-perf.conf
 ```
 
-Add this to `crates/ambition_actors/Cargo.toml` for symbol-rich
+Add this to `crates/ambition_platformer2d_actor_monolith/Cargo.toml` for symbol-rich
 release builds (already there if you've enabled it elsewhere; safe
 to keep on for normal `cargo run --release`):
 
@@ -159,10 +159,10 @@ cargo build --release -p ambition_app --bin ambition_game_bin
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
 # to the binary path (`target/release/assets/`) instead of the
-# package's `crates/ambition_actors/assets/`. Without this var, you
+# package's `crates/ambition_platformer2d_actor_monolith/assets/`. Without this var, you
 # get `Path not found: target/release/assets/...` for every asset
 # and bevy_yarnspinner panics on the missing dialogue/ folder.
-BEVY_ASSET_ROOT=$PWD/crates/ambition_actors \
+BEVY_ASSET_ROOT=$PWD/crates/ambition_platformer2d_actor_monolith \
 cargo flamegraph -p ambition_app --bin ambition_game_bin \
     --release \
     --output flamegraph_startup.svg \
@@ -276,7 +276,7 @@ profile an optimized build, and a second `--` to reach game arguments
 (`-- release -- --start-room mary_o_level_1`).
 
 Attach modes look for the current desktop game process, `ambition_game_bin`,
-and also accept the historical `ambition_actors` name for older local
+and also accept the historical `ambition_platformer2d_actor_monolith` name for older local
 builds.
 
 ## 2c. Android native allocation profiling

@@ -140,13 +140,13 @@ pub struct EncounterRegistryPlugin;
 
 impl bevy::prelude::Plugin for EncounterRegistryPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use ambition_platformer_primitives::schedule::SimScheduleExt;
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
         use bevy::prelude::IntoScheduleConfigs;
         app.init_resource::<EncounterRegistry>();
         app.init_resource::<crate::entity::EncounterView>();
         // The generic clock mirror the reducer reads (the host overwrites it
         // each frame; init never clobbers a pre-inserted resource).
-        app.init_resource::<ambition_platformer_primitives::time::SimDt>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
         app.add_message::<crate::lifecycle::EncounterCommand>();
         app.add_message::<crate::events::EncounterEventMsg>();
         let sim = app.sim_schedule();

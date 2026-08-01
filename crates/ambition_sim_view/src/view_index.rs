@@ -3,17 +3,17 @@
 //! Presentation systems consult this read-model for sprite swaps, debug overlays,
 //! and HUD readouts instead of re-scanning every feature family per visual.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;
-use ambition_actors::features::HazardFeature;
-use ambition_actors::features::{
+use ambition_platformer2d_actor_monolith::features::HazardFeature;
+use ambition_platformer2d_actor_monolith::features::{
     ActorConfig, ActorDisposition, ActorIdentity, ActorRenderSize, ActorSurfaceState, BodyMelee,
     BossDeathAnimation, BossPhase, BreakableFeature, CenteredAabb, ChestFeature, Collected,
     FeatureId, FeatureSimEntity, Opened, PickupFeature, SwitchFeature, SwitchOn,
 };
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 
 /// One feature's per-frame render snapshot — THE read-model row of
 /// [`FeatureViewIndex`]. Moved here from `ambition_combat::events` (recon C2):
@@ -208,10 +208,10 @@ pub fn rebuild_feature_view_index(
             Option<&ActorSurfaceState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
-            Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
+            Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
-            Option<&ambition_actors::features::ActorSpriteOffset>,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
         // by `sync_boss_actor_components`) but are their OWN feature family below.
@@ -221,12 +221,12 @@ pub fn rebuild_feature_view_index(
         // are absent), shadowing the boss view → the boss renders as the generic
         // fallback sprite instead of its sheet. This is the boss-exclusion the
         // deleted `ActorRuntime` tag used to provide implicitly.
-        Without<ambition_actors::features::BossConfig>,
+        Without<ambition_platformer2d_actor_monolith::features::BossConfig>,
     >,
     hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
-        ambition_actors::features::BossClusterRef,
+        ambition_platformer2d_actor_monolith::features::BossClusterRef,
         &ambition_characters::brain::BossAttackState,
         // Shared combat read-model, synced from the boss runtime by
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
@@ -239,7 +239,7 @@ pub fn rebuild_feature_view_index(
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
         // use, so a boss rights itself under flipped / sideways gravity instead of
         // staying screen-axis-aligned (it floats, but it should still flip).
-        Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
+        Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
     )>,
 ) {
     index.begin_rebuild();
@@ -700,7 +700,7 @@ impl BossRenderIndex {
 /// materialized.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
-    bosses: Query<(&FeatureId, ambition_actors::features::BossClusterRef)>,
+    bosses: Query<(&FeatureId, ambition_platformer2d_actor_monolith::features::BossClusterRef)>,
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
@@ -821,8 +821,8 @@ impl NameplateIndex {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,
-    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
-    primary_player: Query<Entity, ambition_platformer_primitives::markers::PrimaryPlayerOnly>,
+    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    primary_player: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     views: Res<FeatureViewIndex>,
     actors: Query<
         (

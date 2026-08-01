@@ -388,7 +388,7 @@ fn poison_dependency_allowlist_reacts() {
         kind = "dependency-allowlist"
         rationale = "poison"
         manifest = "{POISON_MANIFEST}"
-        allow = ["ambition_engine_core"]
+        allow = ["ambition_platformer2d_core"]
     "#
     ));
     let report = run_one(&p);

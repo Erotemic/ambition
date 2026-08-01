@@ -32,15 +32,15 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// authored entity, written as a `SwitchActivated` message.
 fn activate_authored_switch(sim: &mut ambition_app::SandboxSim, switch_id: &str) {
     let world = sim.world_mut();
-    let mut switches = world.query::<&ambition::actors::features::SwitchFeature>();
+    let mut switches = world.query::<&ambition_platformer2d::actors::features::SwitchFeature>();
     let activation = switches
         .iter(world)
         .map(|feature| feature.activation.clone())
         .find(|activation| activation.id == switch_id)
         .unwrap_or_else(|| panic!("authored switch `{switch_id}` exists in {ROOM_ID}"));
-    world.write_message(ambition::actors::features::SwitchActivated {
+    world.write_message(ambition_platformer2d::actors::features::SwitchActivated {
         activation,
-        pos: ambition::engine_core::Vec2::ZERO,
+        pos: ambition_platformer2d::engine_core::Vec2::ZERO,
     });
 }
 
@@ -107,7 +107,7 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
         sim.step(base());
         let overlay = sim
             .world_mut()
-            .resource::<ambition::platformer::feature_overlay::FeatureEcsWorldOverlay>();
+            .resource::<ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>();
         if overlay
             .gate_solids
             .iter()
@@ -134,7 +134,7 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
         sim.step(base());
         let overlay = sim
             .world_mut()
-            .resource::<ambition::platformer::feature_overlay::FeatureEcsWorldOverlay>();
+            .resource::<ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>();
         assert!(
             overlay
                 .gate_solids

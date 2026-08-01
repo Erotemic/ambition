@@ -19,7 +19,7 @@
 //!
 //! It is a plain component so ANY body could wear a character, and so
 //! presentation (`ambition_render`) can read it without depending on the
-//! player-spawn machinery (`ambition_actors`) — both crates depend on this one.
+//! player-spawn machinery (`ambition_platformer2d_actor_monolith`) — both crates depend on this one.
 
 use bevy::ecs::component::Component;
 

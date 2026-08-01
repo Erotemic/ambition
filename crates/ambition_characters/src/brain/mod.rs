@@ -56,7 +56,7 @@ pub use state_machine::{
 };
 
 #[cfg(test)]
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 /// Per-player slot identifier. Slot `0` is the local primary player;
@@ -96,7 +96,7 @@ impl PlayerSlot {
 /// no input-copy component, no possession-specific override.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControls {
-    slots: [ambition_engine_core::ControlFrame; Self::MAX_SLOTS],
+    slots: [ambition_platformer2d_core::ControlFrame; Self::MAX_SLOTS],
 }
 
 impl SlotControls {
@@ -104,12 +104,12 @@ impl SlotControls {
     pub const MAX_SLOTS: usize = 4;
 
     /// This slot's current controller frame (neutral for an unfilled slot).
-    pub fn get(&self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
+    pub fn get(&self, slot: PlayerSlot) -> ambition_platformer2d_core::ControlFrame {
         self.slots.get(slot.0 as usize).copied().unwrap_or_default()
     }
 
     /// Publish a slot's controller frame. Out-of-range slots are ignored.
-    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_engine_core::ControlFrame) {
+    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_platformer2d_core::ControlFrame) {
         if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
             *entry = frame;
         }
@@ -118,7 +118,7 @@ impl SlotControls {
 
 /// **The frame→tick input latch for SECONDARY seats.** (queue Y2)
 ///
-/// [`ambition_engine_core::ControlFrameLatch`] does this for the primary seat
+/// [`ambition_platformer2d_core::ControlFrameLatch`] does this for the primary seat
 /// and nothing did it for the others, which was written down as a known limit
 /// rather than hidden: *"a secondary seat has no latch yet, so on a fixed-tick
 /// host a very short player-two tap can be missed."*
@@ -135,22 +135,22 @@ impl SlotControls {
 /// `ControlFrameLatch`, and latching it twice would hold an edge for two ticks.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControlLatches {
-    slots: [ambition_engine_core::ControlFrameLatch; SlotControls::MAX_SLOTS],
+    slots: [ambition_platformer2d_core::ControlFrameLatch; SlotControls::MAX_SLOTS],
 }
 
 impl SlotControlLatches {
     /// Fold one device sample for `slot`. Levels overwrite; edges stick.
-    pub fn accumulate(&mut self, slot: PlayerSlot, sample: ambition_engine_core::ControlFrame) {
+    pub fn accumulate(&mut self, slot: PlayerSlot, sample: ambition_platformer2d_core::ControlFrame) {
         if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
             latch.accumulate(sample);
         }
     }
 
     /// Hand `slot`'s accumulated frame to a tick, retaining levels.
-    pub fn take(&mut self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
+    pub fn take(&mut self, slot: PlayerSlot) -> ambition_platformer2d_core::ControlFrame {
         self.slots
             .get_mut(slot.0 as usize)
-            .map(ambition_engine_core::ControlFrameLatch::take)
+            .map(ambition_platformer2d_core::ControlFrameLatch::take)
             .unwrap_or_default()
     }
 
@@ -162,15 +162,15 @@ impl SlotControlLatches {
     /// seat already follows).
     pub fn reset(&mut self, slot: PlayerSlot) {
         if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
-            *latch = ambition_engine_core::ControlFrameLatch::default();
+            *latch = ambition_platformer2d_core::ControlFrameLatch::default();
         }
     }
 
     /// What `slot`'s next tick would take. Test/debug only.
-    pub fn peek(&self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
+    pub fn peek(&self, slot: PlayerSlot) -> ambition_platformer2d_core::ControlFrame {
         self.slots
             .get(slot.0 as usize)
-            .map(ambition_engine_core::ControlFrameLatch::peek)
+            .map(ambition_platformer2d_core::ControlFrameLatch::peek)
             .unwrap_or_default()
     }
 }
@@ -290,7 +290,7 @@ impl Brain {
     }
 
     /// Mutable access to the actor's `BossPatternState`. For
-    /// `ambition_runtime::rollback`, which rewinds the boss's clocks, its step
+    /// `ambition_platformer2d_runtime::rollback`, which rewinds the boss's clocks, its step
     /// cursor, and its `rng_seed` — see `SnapshotCursor for Brain`.
     pub fn boss_pattern_state_mut(&mut self) -> Option<&mut boss_pattern::BossPatternState> {
         match self {
@@ -562,7 +562,7 @@ pub struct ChargesProjectiles;
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
 /// per charge-capable actor per tick. The player projectile EFFECTS
-/// consumer (`update_projectiles` (ambition_actors)) drives its
+/// consumer (`update_projectiles` (ambition_platformer2d_actor_monolith)) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream instead of reading `PlayerInputFrame` directly.
 ///

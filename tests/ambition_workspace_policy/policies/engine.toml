@@ -12,27 +12,27 @@
 id = "engine.engine-core-is-foundation-clean"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_engine_core"]
-watch_paths = ["crates/ambition_engine_core/src"]
-rationale = "ambition_engine_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src"]
+rationale = "ambition_platformer2d_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
 source_doc = "docs/planning/engine/architecture.md"
 severity = "error"
-roots = ["crates/ambition_engine_core/src"]
-forbid = ["ambition_content", "ambition_app", "ambition_runtime"]
+roots = ["crates/ambition_platformer2d_core/src"]
+forbid = ["ambition_content", "ambition_app", "ambition_platformer2d_runtime"]
 
-# ── migrated from crates/ambition_host/tests/host_names_no_content.rs (Task 4) ──
+# ── migrated from crates/ambition_platformer2d_host/tests/host_names_no_content.rs (Task 4) ──
 
 # was: manifest_does_not_depend_on_ambition_content
 [[policy]]
 id = "engine.host-names-no-content"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_host"]
-watch_paths = ["crates/ambition_host/Cargo.toml"]
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/Cargo.toml"]
 rationale = "The windowed host is the ENGINE face's presentation companion, not a game: it must never depend on ambition_content. Locks the E5-step-5 exit invariant from the scaffold onward."
 source_doc = "docs/planning/engine/decomposition.md#E5"
 severity = "error"
-manifest = "crates/ambition_host/Cargo.toml"
+manifest = "crates/ambition_platformer2d_host/Cargo.toml"
 deny = ["ambition_content"]
 
 # was: sources_name_no_content_crate
@@ -40,12 +40,12 @@ deny = ["ambition_content"]
 id = "engine.host-source-names-no-content"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_host"]
-watch_paths = ["crates/ambition_host/src"]
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/src"]
 rationale = "The moment the host moves a system that reaches for a content type, this fails instead of the boundary rotting. Docs deliberately MENTION the forbidden crate, so comments are exempt."
 source_doc = "docs/planning/engine/decomposition.md#E5"
 severity = "error"
-roots = ["crates/ambition_host/src"]
+roots = ["crates/ambition_platformer2d_host/src"]
 forbid = ["ambition_content"]
 
 # ── migrated from crates/ambition_render/tests/observation_boundary.rs (Task 4) ──
@@ -83,11 +83,11 @@ scope = "engine"
 kind = "dependency-denylist"
 owners = ["ambition_render"]
 watch_paths = ["crates/ambition_render/Cargo.toml"]
-rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_actors. Render and the machinery meet only through lower view/vocabulary crates."
+rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_platformer2d_actor_monolith. Render and the machinery meet only through lower view/vocabulary crates."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
 manifest = "crates/ambition_render/Cargo.toml"
-deny = ["ambition_actors"]
+deny = ["ambition_platformer2d_actor_monolith"]
 
 # was: render_has_no_actor_crate_dependency_after_f15 (source half)
 [[policy]]
@@ -96,30 +96,30 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_render"]
 watch_paths = ["crates/ambition_render/src"]
-rationale = "F1.5 complete: render source must not name ambition_actors in code, even where the manifest dep is already gone."
+rationale = "F1.5 complete: render source must not name ambition_platformer2d_actor_monolith in code, even where the manifest dep is already gone."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
 roots = ["crates/ambition_render/src"]
-forbid = ["ambition_actors"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
-# ── migrated from crates/ambition_world/src/lib.rs dependency ratchet (Task 4) ──
+# ── migrated from crates/ambition_platformer2d_world/src/lib.rs dependency ratchet (Task 4) ──
 
 # was: ambition_world_dependency_allowlist_ratchets_world_ir_purity
 [[policy]]
 id = "engine.world-ir-dependency-allowlist"
 scope = "engine"
 kind = "dependency-allowlist"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_world/Cargo.toml"]
-rationale = "ambition_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
+rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
 source_doc = "docs/planning/engine/decomposition.md#W3"
 severity = "error"
 exact = true
-manifest = "crates/ambition_world/Cargo.toml"
+manifest = "crates/ambition_platformer2d_world/Cargo.toml"
 allow = [
-    "ambition_engine_core",
+    "ambition_platformer2d_core",
     "ambition_entity_catalog",
-    "ambition_platformer_primitives",
+    "ambition_platformer2d_shared_tangle",
 ]
 
 # ── architecture_boundaries.rs decomposition, batch 1 (Task 6) ─────────────────
@@ -145,24 +145,24 @@ members = ["ambition_render"]
 id = "engine.actor-manifest-no-render"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/Cargo.toml"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
 rationale = "The sim machinery must not depend on its renderer (render depends on the sim, never the reverse)."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
-manifest = "crates/ambition_actors/Cargo.toml"
+manifest = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
 deny = ["ambition_render"]
 
 [[policy]]
 id = "engine.actor-source-no-render"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
-rationale = "ambition_actors must not reference the render crate in code either."
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "ambition_platformer2d_actor_monolith must not reference the render crate in code either."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
-roots = ["crates/ambition_actors/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["ambition_render"]
 
 # was: architecture_boundaries_menu_crate_stays_content_free
@@ -176,7 +176,7 @@ rationale = "ambition_menu is the reusable menu renderer; the game owns menu con
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 manifest = "crates/ambition_menu/Cargo.toml"
-deny = ["ambition_actors"]
+deny = ["ambition_platformer2d_actor_monolith"]
 
 [[policy]]
 id = "engine.menu-crate-source-no-actors"
@@ -184,11 +184,11 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_menu"]
 watch_paths = ["crates/ambition_menu/src"]
-rationale = "ambition_menu must stay content-free — no ambition_actors references in code."
+rationale = "ambition_menu must stay content-free — no ambition_platformer2d_actor_monolith references in code."
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 roots = ["crates/ambition_menu/src"]
-forbid = ["ambition_actors"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
 # was: architecture_boundaries_persistence_crate_owns_stored_shapes_only
 [[policy]]
@@ -212,7 +212,7 @@ rationale = "ambition_persistence owns stored shapes, not menu/UI/game machinery
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 manifest = "crates/ambition_persistence/Cargo.toml"
-deny = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
 
 [[policy]]
 id = "engine.persistence-crate-source-purity"
@@ -224,7 +224,7 @@ rationale = "ambition_persistence source must stay free of menu/UI/game machiner
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 roots = ["crates/ambition_persistence/src"]
-forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
 
 # was: architecture_boundaries_encounter_crate_is_state_only
 [[policy]]
@@ -248,7 +248,7 @@ rationale = "ambition_encounter is reusable encounter state/vocabulary; the LDtk
 source_doc = "docs/planning/engine/decomposition.md#E-enc"
 severity = "error"
 manifest = "crates/ambition_encounter/Cargo.toml"
-deny = ["ambition_actors", "ambition_characters", "ambition_ldtk_map", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
 
 [[policy]]
 id = "engine.encounter-crate-source-purity"
@@ -260,43 +260,43 @@ rationale = "ambition_encounter source must not reach into sim/content/render/ho
 source_doc = "docs/planning/engine/decomposition.md#E-enc"
 severity = "error"
 roots = ["crates/ambition_encounter/src"]
-forbid = ["ambition_actors", "ambition_characters", "ambition_ldtk_map", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
 
 # was: architecture_boundaries_host_does_not_depend_on_actors
 [[policy]]
 id = "engine.host-crate-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_host"]
+owners = ["ambition_platformer2d_host"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_host, the windowed-host face, must stay a registered workspace member."
+rationale = "ambition_platformer2d_host, the windowed-host face, must stay a registered workspace member."
 source_doc = "docs/planning/engine/decomposition.md#F1.10"
 severity = "error"
-members = ["ambition_host"]
+members = ["ambition_platformer2d_host"]
 
 [[policy]]
 id = "engine.host-manifest-no-actors"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_host"]
-watch_paths = ["crates/ambition_host/Cargo.toml"]
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/Cargo.toml"]
 rationale = "F1.10: the windowed host wires presentation/input/runtime seams, not the actor-systems crate."
 source_doc = "docs/planning/engine/decomposition.md#F1.10"
 severity = "error"
-manifest = "crates/ambition_host/Cargo.toml"
-deny = ["ambition_actors"]
+manifest = "crates/ambition_platformer2d_host/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith"]
 
 [[policy]]
 id = "engine.host-source-no-actors"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_host"]
-watch_paths = ["crates/ambition_host/src", "crates/ambition_host/tests"]
-rationale = "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades, never name ambition_actors:: directly."
+owners = ["ambition_platformer2d_host"]
+watch_paths = ["crates/ambition_platformer2d_host/src", "crates/ambition_platformer2d_host/tests"]
+rationale = "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades, never name ambition_platformer2d_actor_monolith:: directly."
 source_doc = "docs/planning/engine/decomposition.md#F1.10"
 severity = "error"
-roots = ["crates/ambition_host/src", "crates/ambition_host/tests"]
-forbid = ["ambition_actors::"]
+roots = ["crates/ambition_platformer2d_host/src", "crates/ambition_platformer2d_host/tests"]
+forbid = ["ambition_platformer2d_actor_monolith::"]
 
 # ── architecture_boundaries.rs decomposition, batch 2 (Task 9): crate-purity +
 #    consumer-vocab rules migrated declaratively (generated). ─────────────────
@@ -306,85 +306,85 @@ forbid = ["ambition_actors::"]
 id = "engine.platformer-runtime-content-free"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_actors/src/platformer_runtime"]
-rationale = "the platformer_runtime facade in ambition_actors must remain reusable and content-free"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
+rationale = "the platformer_runtime facade in ambition_platformer2d_actor_monolith must remain reusable and content-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/platformer_runtime"]
-forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::sandbox_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal::", "ambition_portal;", "ambition_portal}"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
+forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::sandbox_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
 
 
 # was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
 [[policy]]
-id = "engine.ambition_world-member"
+id = "engine.ambition_platformer2d_world-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_world"]
+owners = ["ambition_platformer2d_world"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_world must stay a registered workspace member"
+rationale = "ambition_platformer2d_world must stay a registered workspace member"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition_world"]
+members = ["ambition_platformer2d_world"]
 
 [[policy]]
-id = "engine.ambition_world-manifest-deny"
+id = "engine.ambition_platformer2d_world-manifest-deny"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_world/Cargo.toml"]
-rationale = "ambition_world is the backend-agnostic world IR"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
+rationale = "ambition_platformer2d_world is the backend-agnostic world IR"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_ldtk_map", "ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app", "ambition_combat", "ambition_interaction", "ambition_portal", "bevy_ecs_ldtk"]
-manifest = "crates/ambition_world/Cargo.toml"
+deny = ["ambition_platformer2d_ldtk", "ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app", "ambition_combat", "ambition_interaction", "ambition_portal2d", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_platformer2d_world/Cargo.toml"
 
 [[policy]]
-id = "engine.ambition_world-source-purity"
+id = "engine.ambition_platformer2d_world-source-purity"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_world/src"]
-rationale = "ambition_world source stays free of forbidden refs"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/src"]
+rationale = "ambition_platformer2d_world source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_world/src"]
-forbid = ["ambition_ldtk_map", "ambition_combat", "ambition_interaction", "ambition_portal", "bevy_ecs_ldtk"]
+roots = ["crates/ambition_platformer2d_world/src"]
+forbid = ["ambition_platformer2d_ldtk", "ambition_combat", "ambition_interaction", "ambition_portal2d", "bevy_ecs_ldtk"]
 
 [[policy]]
 id = "engine.ldtk-map-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_world"]
+owners = ["ambition_platformer2d_world"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_ldtk_map registered"
+rationale = "ambition_platformer2d_ldtk registered"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition_ldtk_map"]
+members = ["ambition_platformer2d_ldtk"]
 
 [[policy]]
 id = "engine.ldtk-map-manifest-deny"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_ldtk_map/Cargo.toml"]
-rationale = "ambition_ldtk_map converts into world IR without depending on the sim heart"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_ldtk/Cargo.toml"]
+rationale = "ambition_platformer2d_ldtk converts into world IR without depending on the sim heart"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
-manifest = "crates/ambition_ldtk_map/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_platformer2d_ldtk/Cargo.toml"
 
 [[policy]]
 id = "engine.ldtk-map-source-purity"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_ldtk_map/src"]
-rationale = "ambition_ldtk_map source must not reach upward into sim/app/render/content (test fixture path string exempt)"
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_ldtk/src"]
+rationale = "ambition_platformer2d_ldtk source must not reach upward into sim/app/render/content (test fixture path string exempt)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_ldtk_map/src"]
-forbid = ["ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+roots = ["crates/ambition_platformer2d_ldtk/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
 allow_lines = ["../../game/ambition_content/assets"]
 
 
@@ -409,7 +409,7 @@ watch_paths = ["crates/ambition_items"]
 rationale = "ambition_items: removed facades stay gone"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_items/src/inventory_ui", "crates/ambition_items/src/inventory_ui/mod.rs", "crates/ambition_items/src/inventory_ui/model.rs", "crates/ambition_actors/src/inventory_ui", "crates/ambition_actors/src/inventory_ui/mod.rs", "crates/ambition_actors/src/inventory_ui/model.rs"]
+paths = ["crates/ambition_items/src/inventory_ui", "crates/ambition_items/src/inventory_ui/mod.rs", "crates/ambition_items/src/inventory_ui/model.rs", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/inventory_ui/model.rs"]
 
 [[policy]]
 id = "engine.ambition_items-manifest-deny"
@@ -420,7 +420,7 @@ watch_paths = ["crates/ambition_items/Cargo.toml"]
 rationale = "ambition_items owns reusable catalog/shop data; UI state lives in ambition_inventory_ui"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
 manifest = "crates/ambition_items/Cargo.toml"
 
 [[policy]]
@@ -433,7 +433,7 @@ rationale = "ambition_items source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_items/src"]
-forbid = ["ambition_actors", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
 
 
 # was: architecture_boundaries_inventory_ui_crate_is_menu_state_only
@@ -470,7 +470,7 @@ rationale = "ambition_inventory_ui source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_inventory_ui/src"]
-forbid = ["ambition_items::", "ambition_actors", "ambition_render", "ambition_content", "ambition_app"]
+forbid = ["ambition_items::", "ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app"]
 
 
 # was: architecture_boundaries_settings_menu_ir_is_foundation_only
@@ -507,7 +507,7 @@ rationale = "ambition_settings_menu source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_settings_menu/src"]
-forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_lunex", "bevy::"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_lunex", "bevy::"]
 
 
 # was: architecture_boundaries_dev_tools_crate_is_foundation_only
@@ -531,7 +531,7 @@ watch_paths = ["crates/ambition_dev_tools/Cargo.toml"]
 rationale = "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_engine_core", "ambition_characters", "ambition_platformer_primitives", "ambition_persistence"]
+allow = ["ambition_platformer2d_core", "ambition_characters", "ambition_platformer2d_shared_tangle", "ambition_persistence"]
 manifest = "crates/ambition_dev_tools/Cargo.toml"
 
 [[policy]]
@@ -544,7 +544,7 @@ rationale = "ambition_dev_tools source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_dev_tools/src"]
-forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_inspector_egui"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_inspector_egui"]
 
 
 # was: architecture_boundaries_dialog_crate_is_runtime_only
@@ -568,7 +568,7 @@ watch_paths = ["crates/ambition_dialog/Cargo.toml"]
 rationale = "ambition_dialog is the reusable dialogue runtime; game bindings stay host-side"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_engine_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence"]
+allow = ["ambition_platformer2d_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence"]
 manifest = "crates/ambition_dialog/Cargo.toml"
 
 [[policy]]
@@ -581,7 +581,7 @@ rationale = "ambition_dialog source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_dialog/src"]
-forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "ambition_characters"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "ambition_characters"]
 
 
 # was: architecture_boundaries_interaction_crate_is_foundation_only
@@ -594,7 +594,7 @@ watch_paths = ["crates/ambition_interaction/Cargo.toml"]
 rationale = "ambition_interaction is a content-free data model over the actor/geometry foundations"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_content", "ambition_render", "bevy"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_render", "bevy"]
 manifest = "crates/ambition_interaction/Cargo.toml"
 
 [[policy]]
@@ -607,7 +607,7 @@ rationale = "ambition_interaction source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_interaction/src"]
-forbid = ["ambition_actors", "ambition_content", "gnu_ton", "gradient_sentinel"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content", "gnu_ton", "gradient_sentinel"]
 
 
 # was: architecture_boundaries_effects_crate_is_foundation_only
@@ -620,7 +620,7 @@ watch_paths = ["crates/ambition_vfx/Cargo.toml"]
 rationale = "ambition_vfx is the reusable effect substrate; never depends on the game lib or cast crate"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_characters"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
 manifest = "crates/ambition_vfx/Cargo.toml"
 
 [[policy]]
@@ -633,7 +633,7 @@ rationale = "ambition_vfx source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_vfx/src"]
-forbid = ["ambition_actors", "ambition_characters"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
 
 
 # was: architecture_boundaries_projectiles_crate_is_model_only
@@ -657,7 +657,7 @@ watch_paths = ["crates/ambition_projectiles/Cargo.toml"]
 rationale = "ambition_projectiles is the projectile MODEL \u2014 no sim-heart/combat/brain/host/content coupling"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
 manifest = "crates/ambition_projectiles/Cargo.toml"
 
 [[policy]]
@@ -670,19 +670,19 @@ rationale = "ambition_projectiles source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_projectiles/src"]
-forbid = ["ambition_actors", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
 
 [[policy]]
 id = "engine.projectiles-actor-stepper-generic"
 scope = "engine"
 kind = "file-omits"
 owners = ["ambition_projectiles"]
-watch_paths = ["crates/ambition_actors/src/projectile/systems.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs"]
 rationale = "projectile-kind-specific expiry VFX policy belongs in ambition_projectiles::visual_kind"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["fn lasersword_detonation", "ExplosionKind::ClassicBurst"]
-file = "crates/ambition_actors/src/projectile/systems.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs"
 
 [[policy]]
 id = "engine.projectiles-visual-owns-expiry"
@@ -712,215 +712,215 @@ id = "engine.projectiles-no-actor-facade-tests"
 scope = "engine"
 kind = "forbidden-path"
 owners = ["ambition_projectiles"]
-watch_paths = ["crates/ambition_actors/src/projectile"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile"]
 rationale = "pure projectile primitive tests do not live under the actor facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/projectile/engine_tests.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/engine_tests.rs"]
 
 [[policy]]
 id = "engine.projectiles-actor-mod-no-engine-tests"
 scope = "engine"
 kind = "file-omits"
 owners = ["ambition_projectiles"]
-watch_paths = ["crates/ambition_actors/src/projectile/mod.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/projectile/mod.rs"]
 rationale = "actor projectile mod exposes only steppers"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["engine_tests"]
-file = "crates/ambition_actors/src/projectile/mod.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/projectile/mod.rs"
 
 
 # was: architecture_boundaries_portal_crate_is_extracted
 [[policy]]
-id = "engine.ambition_portal-member"
+id = "engine.ambition_portal2d-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_portal"]
+owners = ["ambition_portal2d"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_portal must stay a registered workspace member"
+rationale = "ambition_portal2d must stay a registered workspace member"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition_portal"]
+members = ["ambition_portal2d"]
 
 [[policy]]
-id = "engine.ambition_portal-extracted-paths"
+id = "engine.ambition_portal2d-extracted-paths"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal"]
-rationale = "ambition_portal extracted-crate files exist"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d"]
+rationale = "ambition_portal2d extracted-crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_portal/Cargo.toml", "crates/ambition_portal/src/lib.rs"]
+paths = ["crates/ambition_portal2d/Cargo.toml", "crates/ambition_portal2d/src/lib.rs"]
 
 [[policy]]
-id = "engine.ambition_portal-manifest-deny"
+id = "engine.ambition_portal2d-manifest-deny"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/Cargo.toml"]
-rationale = "ambition_portal must stay host-free"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
+rationale = "ambition_portal2d must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
-manifest = "crates/ambition_portal/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal2d/Cargo.toml"
 
 [[policy]]
-id = "engine.ambition_portal-manifest-allow"
+id = "engine.ambition_portal2d-manifest-allow"
 scope = "engine"
 kind = "dependency-allowlist"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/Cargo.toml"]
-rationale = "ambition_portal must stay host-free"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
+rationale = "ambition_portal2d must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_engine_core", "ambition_platformer_primitives"]
-manifest = "crates/ambition_portal/Cargo.toml"
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle"]
+manifest = "crates/ambition_portal2d/Cargo.toml"
 
 [[policy]]
-id = "engine.ambition_portal-source-purity"
+id = "engine.ambition_portal2d-source-purity"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src"]
-rationale = "ambition_portal source stays free of forbidden refs"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
+rationale = "ambition_portal2d source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal/src"]
-forbid = ["ambition_actors"]
+roots = ["crates/ambition_portal2d/src"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
 [[policy]]
 id = "engine.portal-exposes-plugin"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src/lib.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
 rationale = "portal exposes a drop-in PortalPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub use plugin::{PortalPlugin"]
-file = "crates/ambition_portal/src/lib.rs"
+file = "crates/ambition_portal2d/src/lib.rs"
 
 [[policy]]
 id = "engine.portal-plugin-impl"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src/plugin.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
 rationale = "portal plugin impl"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["impl Plugin for PortalPlugin"]
-file = "crates/ambition_portal/src/plugin.rs"
+file = "crates/ambition_portal2d/src/plugin.rs"
 
 [[policy]]
 id = "engine.actors-no-portal-facade"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_actors/src/lib.rs"]
-rationale = "ambition_actors must not reintroduce a portal facade"
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
+rationale = "ambition_platformer2d_actor_monolith must not reintroduce a portal facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub mod portal"]
-file = "crates/ambition_actors/src/lib.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
 
 
 # was: architecture_boundaries_portal_presentation_crate_is_extracted
 [[policy]]
-id = "engine.ambition_portal_presentation-member"
+id = "engine.ambition_portal2d_presentation-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_portal_presentation"]
+owners = ["ambition_portal2d_presentation"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_portal_presentation must stay a registered workspace member"
+rationale = "ambition_portal2d_presentation must stay a registered workspace member"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition_portal_presentation"]
+members = ["ambition_portal2d_presentation"]
 
 [[policy]]
-id = "engine.ambition_portal_presentation-extracted-paths"
+id = "engine.ambition_portal2d_presentation-extracted-paths"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal_presentation"]
-rationale = "ambition_portal_presentation extracted-crate files exist"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation"]
+rationale = "ambition_portal2d_presentation extracted-crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_portal_presentation/Cargo.toml"]
+paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
 
 [[policy]]
-id = "engine.ambition_portal_presentation-manifest-deny"
+id = "engine.ambition_portal2d_presentation-manifest-deny"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal_presentation/Cargo.toml"]
-rationale = "ambition_portal_presentation must stay host-free"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
+rationale = "ambition_portal2d_presentation must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
-manifest = "crates/ambition_portal_presentation/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal2d_presentation/Cargo.toml"
 
 [[policy]]
-id = "engine.ambition_portal_presentation-manifest-allow"
+id = "engine.ambition_portal2d_presentation-manifest-allow"
 scope = "engine"
 kind = "dependency-allowlist"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal_presentation/Cargo.toml"]
-rationale = "ambition_portal_presentation must stay host-free"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/Cargo.toml"]
+rationale = "ambition_portal2d_presentation must stay host-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_engine_core", "ambition_platformer_primitives", "ambition_portal"]
-manifest = "crates/ambition_portal_presentation/Cargo.toml"
+allow = ["ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_portal2d"]
+manifest = "crates/ambition_portal2d_presentation/Cargo.toml"
 
 [[policy]]
-id = "engine.ambition_portal_presentation-source-purity"
+id = "engine.ambition_portal2d_presentation-source-purity"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal_presentation/src"]
-rationale = "ambition_portal_presentation source stays free of forbidden refs"
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/src"]
+rationale = "ambition_portal2d_presentation source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal_presentation/src"]
-forbid = ["ambition_actors", "ambition_content"]
+roots = ["crates/ambition_portal2d_presentation/src"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content"]
 
 [[policy]]
 id = "engine.portal-presentation-plugin"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal_presentation/src/lib.rs"]
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d_presentation/src/lib.rs"]
 rationale = "exposes PortalPresentationPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["PortalPresentationPlugin"]
-file = "crates/ambition_portal_presentation/src/lib.rs"
+file = "crates/ambition_portal2d_presentation/src/lib.rs"
 
 [[policy]]
 id = "engine.portal-mechanic-no-renderer-dep"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_portal/Cargo.toml"]
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_portal2d/Cargo.toml"]
 rationale = "headless portal must not depend on its renderer"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["ambition_portal_presentation"]
-file = "crates/ambition_portal/Cargo.toml"
+forbid = ["ambition_portal2d_presentation"]
+file = "crates/ambition_portal2d/Cargo.toml"
 
 [[policy]]
 id = "engine.actors-no-portal-presentation-dep"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_portal_presentation"]
-watch_paths = ["crates/ambition_actors/Cargo.toml"]
+owners = ["ambition_portal2d_presentation"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
 rationale = "actors must not depend on portal presentation"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["ambition_portal_presentation"]
-file = "crates/ambition_actors/Cargo.toml"
+forbid = ["ambition_portal2d_presentation"]
+file = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
 
 
 # was: architecture_boundaries_time_crate_is_extracted
@@ -955,7 +955,7 @@ watch_paths = ["crates/ambition_time/Cargo.toml"]
 rationale = "ambition_time is the reusable time layer"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors"]
+deny = ["ambition_platformer2d_actor_monolith"]
 manifest = "crates/ambition_time/Cargo.toml"
 
 [[policy]]
@@ -968,7 +968,7 @@ rationale = "ambition_time source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_time/src"]
-forbid = ["ambition_actors"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
 [[policy]]
 id = "engine.time-exposes-plugin"
@@ -987,34 +987,34 @@ id = "engine.time-facades-removed"
 scope = "engine"
 kind = "forbidden-path"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_actors/src/time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time"]
 rationale = "clock_state/camera_ease facades removed"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/time/clock_state.rs", "crates/ambition_actors/src/time/camera_ease.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/time/clock_state.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
 
 [[policy]]
 id = "engine.time-world-time-bridge"
 scope = "engine"
 kind = "file-contains"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_actors/src/time/world_time.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"]
 rationale = "world_time.rs is the sim-dt bridge naming ambition_time directly"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["mirror_sim_dt_into_runtime", "ambition_time::"]
-file = "crates/ambition_actors/src/time/world_time.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/time/world_time.rs"
 
 [[policy]]
 id = "engine.time-sandbox-policy-exists"
 scope = "engine"
 kind = "required-path"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_actors/src/time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time"]
 rationale = "sandbox game-specific time policy exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/time/time_control", "crates/ambition_actors/src/time/feel.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/time/time_control", "crates/ambition_platformer2d_actor_monolith/src/time/feel.rs"]
 
 
 # was: architecture_boundaries_input_crate_is_extracted
@@ -1038,7 +1038,7 @@ watch_paths = ["crates/ambition_input"]
 rationale = "ambition_input: removed facades stay gone"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/input.rs", "crates/ambition_actors/src/input", "crates/ambition_actors/src/persistence/settings/controls.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/input.rs", "crates/ambition_platformer2d_actor_monolith/src/input", "crates/ambition_platformer2d_actor_monolith/src/persistence/settings/controls.rs"]
 
 [[policy]]
 id = "engine.ambition_input-manifest-deny"
@@ -1049,7 +1049,7 @@ watch_paths = ["crates/ambition_input/Cargo.toml"]
 rationale = "ambition_input must stay decoupled from sandbox content and reusable brains"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors", "ambition_characters"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
 manifest = "crates/ambition_input/Cargo.toml"
 
 [[policy]]
@@ -1057,12 +1057,12 @@ id = "engine.actors-no-input-shim"
 scope = "engine"
 kind = "file-omits"
 owners = ["ambition_input"]
-watch_paths = ["crates/ambition_actors/src/lib.rs"]
-rationale = "the ambition_actors::input compat shim was removed"
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
+rationale = "the ambition_platformer2d_actor_monolith::input compat shim was removed"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub use ambition_input as input"]
-file = "crates/ambition_actors/src/lib.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
 
 [[policy]]
 id = "engine.persistence-reexports-input-controls"
@@ -1081,12 +1081,12 @@ id = "engine.actors-settings-surfaces-controls"
 scope = "engine"
 kind = "file-contains"
 owners = ["ambition_input"]
-watch_paths = ["crates/ambition_actors/src/persistence/settings/mod.rs"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence/settings/mod.rs"]
 rationale = "actors persistence::settings re-surfaces controls (E1a layering)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["controls"]
-file = "crates/ambition_actors/src/persistence/settings/mod.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/persistence/settings/mod.rs"
 
 
 # was: architecture_boundaries_touch_input_render_edge_is_intentional
@@ -1110,7 +1110,7 @@ watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
 rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_app", "ambition_content", "ambition_host", "ambition_ldtk_map", "ambition_asset_manager", "bevy_ecs_ldtk"]
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_platformer2d_ldtk", "ambition_asset_manager", "bevy_ecs_ldtk"]
 manifest = "crates/ambition_touch_input/Cargo.toml"
 
 [[policy]]
@@ -1122,7 +1122,7 @@ watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
 rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_input", "ambition_engine_core", "ambition_platformer_primitives", "ambition_actors", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
+allow = ["ambition_input", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_actor_monolith", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
 manifest = "crates/ambition_touch_input/Cargo.toml"
 
 [[policy]]
@@ -1135,7 +1135,7 @@ rationale = "ambition_touch_input source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_touch_input/src"]
-forbid = ["ambition_app::", "ambition_content::", "ambition_host::", "ambition_ldtk_map::", "bevy_ecs_ldtk::"]
+forbid = ["ambition_app::", "ambition_content::", "ambition_platformer2d_host::", "ambition_platformer2d_ldtk::", "bevy_ecs_ldtk::"]
 
 [[policy]]
 id = "engine.touch-input-render-edge"
@@ -1155,13 +1155,13 @@ file = "crates/ambition_touch_input/Cargo.toml"
 id = "engine.f2-schedule-labels-primitive-home"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platformer_primitives::schedule"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platformer2d_shared_tangle::schedule"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_actors::schedule::SandboxSet", "ambition_actors::schedule::CombatSet", "ambition_actors::schedule::BossSteerSlot", "ambition_actors::schedule::PresentationSetupSet", "ambition_actors::schedule::SimulationSetupSet"]
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::schedule::SandboxSet", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
 
 
 # was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates
@@ -1169,13 +1169,13 @@ forbid = ["ambition_actors::schedule::SandboxSet", "ambition_actors::schedule::C
 id = "engine.f2-asset-vocab-lower-crates"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
+owners = ["ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
 rationale = "F2 assets pass: pure asset vocabulary owned by ambition_sprite_sheet/ambition_asset_manager"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
-forbid = ["ambition_actors::assets::game_assets::GameAssetConfig", "ambition_actors::assets::game_assets::GameAssets", "ambition_actors::assets::game_assets::EntitySprite", "ambition_actors::assets::sandbox_assets::SandboxAssetCatalog", "ambition_actors::assets::sandbox_assets::ids"]
+forbid = ["ambition_platformer2d_actor_monolith::assets::game_assets::GameAssetConfig", "ambition_platformer2d_actor_monolith::assets::game_assets::GameAssets", "ambition_platformer2d_actor_monolith::assets::game_assets::EntitySprite", "ambition_platformer2d_actor_monolith::assets::sandbox_assets::SandboxAssetCatalog", "ambition_platformer2d_actor_monolith::assets::sandbox_assets::ids"]
 
 
 # was: architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet
@@ -1183,13 +1183,13 @@ forbid = ["ambition_actors::assets::game_assets::GameAssetConfig", "ambition_act
 id = "engine.f2-character-anim-sprite-sheet"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
+owners = ["ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
 rationale = "F2 character-sprites pass: CharacterAnim vocabulary lives in ambition_sprite_sheet"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_actors::character_sprites::CharacterAnim"]
+forbid = ["ambition_platformer2d_actor_monolith::character_sprites::CharacterAnim"]
 
 
 # was: architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate
@@ -1197,13 +1197,13 @@ forbid = ["ambition_actors::character_sprites::CharacterAnim"]
 id = "engine.f2-encounter-vocab-encounter-crate"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
 rationale = "F2 encounter pass: pure encounter vocabulary lives in ambition_encounter"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
-forbid = ["ambition_actors::encounter::EncounterEvent", "ambition_actors::encounter::EncounterMobSpec", "ambition_actors::encounter::EncounterMusicRequest", "ambition_actors::encounter::BossEncounterMusicRequest", "ambition_actors::encounter::EncounterPhase", "ambition_actors::encounter::EncounterRegistry", "ambition_actors::encounter::EncounterRun", "ambition_actors::encounter::EncounterSpec", "ambition_actors::encounter::EncounterState", "ambition_actors::encounter::EncounterWaveSpec", "ambition_actors::encounter::LockWallSpec", "ambition_actors::encounter::encounter_reward_chest_pos", "ambition_actors::encounter::encounter_reward_looted_flag", "ambition_actors::encounter::install_encounter_waves"]
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+forbid = ["ambition_platformer2d_actor_monolith::encounter::EncounterEvent", "ambition_platformer2d_actor_monolith::encounter::EncounterMobSpec", "ambition_platformer2d_actor_monolith::encounter::EncounterMusicRequest", "ambition_platformer2d_actor_monolith::encounter::BossEncounterMusicRequest", "ambition_platformer2d_actor_monolith::encounter::EncounterPhase", "ambition_platformer2d_actor_monolith::encounter::EncounterRegistry", "ambition_platformer2d_actor_monolith::encounter::EncounterRun", "ambition_platformer2d_actor_monolith::encounter::EncounterSpec", "ambition_platformer2d_actor_monolith::encounter::EncounterState", "ambition_platformer2d_actor_monolith::encounter::EncounterWaveSpec", "ambition_platformer2d_actor_monolith::encounter::LockWallSpec", "ambition_platformer2d_actor_monolith::encounter::encounter_reward_chest_pos", "ambition_platformer2d_actor_monolith::encounter::encounter_reward_looted_flag", "ambition_platformer2d_actor_monolith::encounter::install_encounter_waves"]
 
 
 # was: architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate
@@ -1211,13 +1211,13 @@ forbid = ["ambition_actors::encounter::EncounterEvent", "ambition_actors::encoun
 id = "engine.menu-backend-vocab-menu-crate"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["game/ambition_app/src", "crates/ambition_actors/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "F2 menu-backend pass: InventoryUiBackend + availability constants live in ambition_menu::backend"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["game/ambition_app/src", "crates/ambition_actors/src"]
-forbid = ["ambition_actors::menu::backend", "crate::menu::backend::InventoryUiBackend", "crate::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED", "crate::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED"]
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
+forbid = ["ambition_platformer2d_actor_monolith::menu::backend", "crate::menu::backend::InventoryUiBackend", "crate::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED", "crate::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED"]
 
 
 # was: architecture_boundaries_dialog_vocab_consumers_use_dialog_crate
@@ -1225,13 +1225,13 @@ forbid = ["ambition_actors::menu::backend", "crate::menu::backend::InventoryUiBa
 id = "engine.dialog-vocab-dialog-crate"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
 rationale = "F2 dialog pass: reusable dialog vocabulary lives in ambition_dialog"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_actors::dialog::DialogState", "ambition_actors::dialog::DialogChoice", "ambition_actors::dialog::DialogChoiceSlot", "ambition_actors::dialog::dialog_input", "ambition_actors::dialog::dialog_pointer_input", "ambition_actors::dialog::dialog_reveal_tick", "ambition_actors::dialog::yarn_bindings::YarnContentBindings", "ambition_actors::dialog::yarn_bindings::YarnStateMirror", "ambition_actors::dialog::yarn_bindings::YarnStateMirrorData", "ambition_actors::dialog::yarn_bindings::YarnPresentationCue", "ambition_actors::dialog::yarn_bindings::clear_yarn_presentation_cue"]
+roots = ["crates/ambition_platformer2d_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::dialog::DialogState", "ambition_platformer2d_actor_monolith::dialog::DialogChoice", "ambition_platformer2d_actor_monolith::dialog::DialogChoiceSlot", "ambition_platformer2d_actor_monolith::dialog::dialog_input", "ambition_platformer2d_actor_monolith::dialog::dialog_pointer_input", "ambition_platformer2d_actor_monolith::dialog::dialog_reveal_tick", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnContentBindings", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnStateMirror", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnStateMirrorData", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::YarnPresentationCue", "ambition_platformer2d_actor_monolith::dialog::yarn_bindings::clear_yarn_presentation_cue"]
 
 
 # was: architecture_boundaries_developer_persistence_uses_dev_tools_crate
@@ -1239,13 +1239,13 @@ forbid = ["ambition_actors::dialog::DialogState", "ambition_actors::dialog::Dial
 id = "engine.developer-persistence-dev-tools"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
+owners = ["ambition_platformer2d_actor_monolith"]
 watch_paths = ["game/ambition_app/src"]
 rationale = "F2 developer-persistence pass: DeveloperTools disk persistence scheduled through ambition_dev_tools"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["game/ambition_app/src"]
-forbid = ["ambition_actors::persistence::DeveloperPersistenceSchedulePlugin"]
+forbid = ["ambition_platformer2d_actor_monolith::persistence::DeveloperPersistenceSchedulePlugin"]
 
 
 # was: architecture_boundaries_audio_facade_consumers_use_audio_crate
@@ -1253,13 +1253,13 @@ forbid = ["ambition_actors::persistence::DeveloperPersistenceSchedulePlugin"]
 id = "engine.audio-facade-audio-crate"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["game/ambition_app/src", "crates/ambition_runtime/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src"]
 rationale = "F2 audio pass: pure playback vocabulary owned by ambition_audio::library"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["game/ambition_app/src", "crates/ambition_runtime/src"]
-forbid = ["ambition_actors::audio::AudioLibrary", "ambition_actors::audio::MusicPlaybackState", "ambition_actors::audio::RadioStationState", "ambition_actors::audio::MusicChannel", "ambition_actors::audio::SfxChannel", "ambition_actors::audio::set_radio_track"]
+roots = ["game/ambition_app/src", "crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_platformer2d_actor_monolith::audio::AudioLibrary", "ambition_platformer2d_actor_monolith::audio::MusicPlaybackState", "ambition_platformer2d_actor_monolith::audio::RadioStationState", "ambition_platformer2d_actor_monolith::audio::MusicChannel", "ambition_platformer2d_actor_monolith::audio::SfxChannel", "ambition_platformer2d_actor_monolith::audio::set_radio_track"]
 
 
 # was: architecture_boundaries_machinery_does_not_import_content
@@ -1267,12 +1267,12 @@ forbid = ["ambition_actors::audio::AudioLibrary", "ambition_actors::audio::Music
 id = "engine.machinery-imports-no-content"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
-rationale = "machinery (all of ambition_actors/src) must not import the content module in code; comments/prose exempt"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "machinery (all of ambition_platformer2d_actor_monolith/src) must not import the content module in code; comments/prose exempt"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["crate::content::", "ambition_content::"]
 skip_tests = true
 
@@ -1311,12 +1311,12 @@ skip_tests = true
 id = "engine.enemy-sim-reads-data"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
 rationale = "per-frame enemy sim reads projected tuning/capabilities, not named archetypes"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
 forbid = ["CharacterArchetype", ".archetype"]
 production_only = true
 
@@ -1339,7 +1339,7 @@ roots = ["crates/ambition_characters/src"]
 # on crate names produces a fresh false positive every time somebody adds a crate
 # whose name extends an existing one. (2026-07-31)
 whole_ident = true
-forbid = ["ambition_actors", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
 
 
 # was: architecture_boundaries_sim_does_not_import_presentation
@@ -1347,12 +1347,12 @@ forbid = ["ambition_actors", "ambition_content", "ambition_app", "GnuTon", "gnu_
 id = "engine.sim-no-presentation-import"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "pure gameplay/sim code must not import crate::presentation (render depends on sim, not the reverse)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["crate::presentation"]
 skip_paths = ["presentation/", "dialog/ui.rs", "runtime/setup.rs", "runtime/reset/"]
 
@@ -1362,13 +1362,13 @@ skip_paths = ["presentation/", "dialog/ui.rs", "runtime/setup.rs", "runtime/rese
 id = "engine.game-mode-schedule-vocab"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src", "crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
-rationale = "all code should name GameMode through ambition_platformer_primitives::schedule"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "all code should name GameMode through ambition_platformer2d_shared_tangle::schedule"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src", "crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_actors::GameMode", "ambition_actors::game_mode", "ambition_actors::session::game_mode", "ambition_actors::gameplay_allowed", "ambition_actors::gameplay_suspended", "crate::GameMode", "crate::gameplay_allowed", "crate::game_mode", "crate::session::game_mode"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::GameMode", "ambition_platformer2d_actor_monolith::game_mode", "ambition_platformer2d_actor_monolith::session::game_mode", "ambition_platformer2d_actor_monolith::gameplay_allowed", "ambition_platformer2d_actor_monolith::gameplay_suspended", "crate::GameMode", "crate::gameplay_allowed", "crate::game_mode", "crate::session::game_mode"]
 
 # ── architecture_boundaries.rs decomposition, batch 3 (Task 9): composition +
 #    facade/file-content rules migrated declaratively (generated). ────────────
@@ -1378,119 +1378,119 @@ forbid = ["ambition_actors::GameMode", "ambition_actors::game_mode", "ambition_a
 id = "engine.platformer-primitives-extracted"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives"]
-rationale = "ambition_platformer_primitives extracted-crate files exist"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle"]
+rationale = "ambition_platformer2d_shared_tangle extracted-crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer_primitives/Cargo.toml", "crates/ambition_platformer_primitives/src/lib.rs", "crates/ambition_platformer_primitives/src/prelude.rs", "crates/ambition_platformer_primitives/src/schedule.rs", "crates/ambition_platformer_primitives/src/lifecycle/mod.rs", "crates/ambition_platformer_primitives/src/lifecycle/markers.rs", "crates/ambition_platformer_primitives/src/lifecycle/spawn_ext.rs", "crates/ambition_platformer_primitives/src/lifecycle/cleanup.rs", "crates/ambition_platformer_primitives/src/math.rs", "crates/ambition_platformer_primitives/src/transit.rs", "crates/ambition_platformer_primitives/src/body.rs", "crates/ambition_platformer_primitives/src/gravity.rs", "crates/ambition_platformer_primitives/src/orientation.rs"]
+paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml", "crates/ambition_platformer2d_shared_tangle/src/lib.rs", "crates/ambition_platformer2d_shared_tangle/src/prelude.rs", "crates/ambition_platformer2d_shared_tangle/src/schedule.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/mod.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/markers.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/spawn_ext.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/cleanup.rs", "crates/ambition_platformer2d_shared_tangle/src/math.rs", "crates/ambition_platformer2d_shared_tangle/src/transit.rs", "crates/ambition_platformer2d_shared_tangle/src/body.rs", "crates/ambition_platformer2d_shared_tangle/src/gravity.rs", "crates/ambition_platformer2d_shared_tangle/src/orientation.rs"]
 
 [[policy]]
 id = "engine.platformer-primitives-no-actors"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives/Cargo.toml"]
-rationale = "ambition_platformer_primitives stays reusable and content-free"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml"]
+rationale = "ambition_platformer2d_shared_tangle stays reusable and content-free"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_actors"]
-manifest = "crates/ambition_platformer_primitives/Cargo.toml"
+deny = ["ambition_platformer2d_actor_monolith"]
+manifest = "crates/ambition_platformer2d_shared_tangle/Cargo.toml"
 
 [[policy]]
 id = "engine.platformer-primitives-projectile-generic-spec"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives/src/projectile/spec.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/spec.rs"]
 rationale = "generic projectile primitive names no game projectile kinds"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["ProjectileKind", "Fireball", "Hadouken"]
-file = "crates/ambition_platformer_primitives/src/projectile/spec.rs"
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/spec.rs"
 
 [[policy]]
 id = "engine.platformer-primitives-projectile-generic-body"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives/src/projectile/body.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs"]
 rationale = "generic projectile body names no game projectile kinds"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["ProjectileKind", "Fireball", "Hadouken"]
-file = "crates/ambition_platformer_primitives/src/projectile/body.rs"
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs"
 
 [[policy]]
 id = "engine.platformer-primitives-projectile-generic-collision"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives/src/projectile/collision.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs"]
 rationale = "generic projectile collision names no game projectile kinds"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["ProjectileKind", "Fireball", "Hadouken"]
-file = "crates/ambition_platformer_primitives/src/projectile/collision.rs"
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs"
 
 [[policy]]
 id = "engine.platformer-primitives-projectile-generic-mod"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_platformer_primitives/src/projectile/mod.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_shared_tangle/src/projectile/mod.rs"]
 rationale = "generic projectile mod names no game projectile kinds"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["ProjectileKind", "Fireball", "Hadouken"]
-file = "crates/ambition_platformer_primitives/src/projectile/mod.rs"
+file = "crates/ambition_platformer2d_shared_tangle/src/projectile/mod.rs"
 
 [[policy]]
 id = "engine.actor-platformer-facade-shrunk"
 scope = "engine"
 kind = "forbidden-path"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_actors/src/platformer_runtime"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
 rationale = "sandbox platformer_runtime facade shrunk after extraction"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/platformer_runtime/schedule.rs", "crates/ambition_actors/src/platformer_runtime/lifecycle", "crates/ambition_actors/src/platformer_runtime/transit.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/schedule.rs", "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/lifecycle", "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/transit.rs"]
 
 [[policy]]
 id = "engine.actor-platformer-facade-reexports"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_actors/src/platformer_runtime/mod.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/mod.rs"]
 rationale = "facade re-exports the extracted modules"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer_primitives::{gravity, lifecycle, math, schedule, transit}"]
-file = "crates/ambition_actors/src/platformer_runtime/mod.rs"
+contains = ["ambition_platformer2d_shared_tangle::{gravity, lifecycle, math, schedule, transit}"]
+file = "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/mod.rs"
 
 [[policy]]
 id = "engine.actor-orientation-facade"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_actors/src/platformer_runtime/orientation.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/orientation.rs"]
 rationale = "orientation facade re-exports the extracted module"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer_primitives::orientation"]
-file = "crates/ambition_actors/src/platformer_runtime/orientation.rs"
+contains = ["ambition_platformer2d_shared_tangle::orientation"]
+file = "crates/ambition_platformer2d_actor_monolith/src/platformer_runtime/orientation.rs"
 
 [[policy]]
 id = "engine.actor-physics-facade"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_platformer_primitives"]
-watch_paths = ["crates/ambition_actors/src/physics.rs"]
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/physics.rs"]
 rationale = "physics re-exports the extracted gravity module"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer_primitives::gravity"]
-file = "crates/ambition_actors/src/physics.rs"
+contains = ["ambition_platformer2d_shared_tangle::gravity"]
+file = "crates/ambition_platformer2d_actor_monolith/src/physics.rs"
 
 
 # was: architecture_boundaries_asset_manager_is_backend_generic
@@ -1558,73 +1558,73 @@ file = "crates/ambition_asset_manager/Cargo.toml"
 id = "engine.projectile-schedule-facade"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/src"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
 rationale = "F2 projectile residual scheduling facade exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_runtime/src/projectile_schedule.rs"]
+paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
 
 [[policy]]
 id = "engine.projectile-schedule-facade-owns"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/src/projectile_schedule.rs"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
 rationale = "runtime owns the projectile schedule facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_actors::projectile", "ambition_projectiles::enemy::apply_enemy_projectile_effect_requests", "ambition_projectiles::apply_player_spawn_projectile_messages"]
-file = "crates/ambition_runtime/src/projectile_schedule.rs"
+contains = ["ambition_platformer2d_actor_monolith::projectile", "ambition_projectiles::enemy::apply_enemy_projectile_effect_requests", "ambition_projectiles::apply_player_spawn_projectile_messages"]
+file = "crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"
 
 [[policy]]
 id = "engine.projectile-schedule-facade-omits"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/src/projectile_schedule.rs"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
 rationale = "enemy-pool effect-request spawning is substrate-owned"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["ambition_actors::enemy_projectile"]
-file = "crates/ambition_runtime/src/projectile_schedule.rs"
+forbid = ["ambition_platformer2d_actor_monolith::enemy_projectile"]
+file = "crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"
 
 [[policy]]
 id = "engine.app-no-actor-projectile-steppers"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_runtime"]
+owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["game/ambition_app/src"]
-rationale = "app schedules projectile steppers through ambition_runtime::projectile_schedule"
+rationale = "app schedules projectile steppers through ambition_platformer2d_runtime::projectile_schedule"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["game/ambition_app/src"]
-forbid = ["ambition_actors::projectile::", "ambition_actors::enemy_projectile::"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
 
 [[policy]]
 id = "engine.content-no-actor-projectile-steppers"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_runtime"]
+owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["game/ambition_content/src"]
 rationale = "production content emits projectile messages, not actor stepper refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["game/ambition_content/src"]
-forbid = ["ambition_actors::projectile::", "ambition_actors::enemy_projectile::"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
 skip_tests = true
 
 [[policy]]
 id = "engine.runtime-actor-projectile-centralized"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/src"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
 rationale = "the actor-side projectile stepper edge is centralized in projectile_schedule.rs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src"]
-forbid = ["ambition_actors::projectile::", "ambition_actors::enemy_projectile::"]
+roots = ["crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_platformer2d_actor_monolith::projectile::", "ambition_platformer2d_actor_monolith::enemy_projectile::"]
 skip_paths = ["projectile_schedule.rs"]
 
 
@@ -1633,31 +1633,31 @@ skip_paths = ["projectile_schedule.rs"]
 id = "engine.runtime-member"
 scope = "engine"
 kind = "workspace-member"
-owners = ["ambition_runtime"]
+owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["Cargo.toml"]
-rationale = "ambition_runtime registered"
+rationale = "ambition_platformer2d_runtime registered"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-members = ["ambition_runtime"]
+members = ["ambition_platformer2d_runtime"]
 
 [[policy]]
 id = "engine.runtime-required-deps"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/Cargo.toml"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is the headless composition tier: these direct deps are intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_actors", "ambition_combat", "ambition_projectiles", "ambition_encounter", "ambition_dialog", "ambition_menu"]
-file = "crates/ambition_runtime/Cargo.toml"
+contains = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_projectiles", "ambition_encounter", "ambition_dialog", "ambition_menu"]
+file = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
 id = "engine.runtime-manifest-allow"
 scope = "engine"
 kind = "dependency-allowlist"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/Cargo.toml"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -1668,38 +1668,38 @@ severity = "error"
 # app/content/host/render, so it fits the rationale above; the list simply
 # lagged the decision, and this gate only caught it once an earlier failure
 # stopped masking the whole job.
-allow = ["ambition_actors", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_engine_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer_primitives", "ambition_dev_tools", "ambition_world", "ambition_load",
+allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Structured causal facts: a FOUNDATION crate with no Bevy beyond `bevy_ecs`,
     # no domain types and no content. The runtime owns the host-side half of
     # causal recording (the frame stamp, the execution-identity fact), so the
-    # edge is downward and in the same direction as `ambition_engine_core`.
+    # edge is downward and in the same direction as `ambition_platformer2d_core`.
     "ambition_causal"]
-manifest = "crates/ambition_runtime/Cargo.toml"
+manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
 id = "engine.runtime-manifest-deny"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/Cargo.toml"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is headless composition, not app/content/host/render/backend ownership"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_app", "ambition_content", "ambition_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_ldtk_map", "bevy_ecs_ldtk"]
-manifest = "crates/ambition_runtime/Cargo.toml"
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_ldtk", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
 id = "engine.runtime-source-no-upper"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_runtime"]
-watch_paths = ["crates/ambition_runtime/src"]
+owners = ["ambition_platformer2d_runtime"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src"]
 rationale = "runtime source composes without reaching into app/content/host/render tiers"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src"]
-forbid = ["ambition_render::", "ambition_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_ldtk_map::", "bevy_ecs_ldtk::"]
-allow_lines = ["\"ambition_ldtk_map::"]
+roots = ["crates/ambition_platformer2d_runtime/src"]
+forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_platformer2d_ldtk::", "bevy_ecs_ldtk::"]
+allow_lines = ["\"ambition_platformer2d_ldtk::"]
 
 
 # was: architecture_boundaries_control_frame_lives_with_engine_body_contract
@@ -1707,30 +1707,30 @@ allow_lines = ["\"ambition_ldtk_map::"]
 id = "engine.control-frame-home"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_engine_core"]
-watch_paths = ["crates/ambition_engine_core/src"]
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src"]
 rationale = "engine-owned ControlFrame vocabulary exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_engine_core/src/control_frame.rs"]
+paths = ["crates/ambition_platformer2d_core/src/control_frame.rs"]
 
 [[policy]]
 id = "engine.control-frame-exported"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_engine_core"]
-watch_paths = ["crates/ambition_engine_core/src/lib.rs"]
-rationale = "ControlFrame exported from ambition_engine_core"
+owners = ["ambition_platformer2d_core"]
+watch_paths = ["crates/ambition_platformer2d_core/src/lib.rs"]
+rationale = "ControlFrame exported from ambition_platformer2d_core"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub mod control_frame", "pub use control_frame::ControlFrame"]
-file = "crates/ambition_engine_core/src/lib.rs"
+file = "crates/ambition_platformer2d_core/src/lib.rs"
 
 [[policy]]
 id = "engine.characters-no-input-dep"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_engine_core"]
+owners = ["ambition_platformer2d_core"]
 watch_paths = ["crates/ambition_characters/Cargo.toml"]
 rationale = "brains consume engine-owned control vocabulary; input is only a device adapter"
 source_doc = "docs/architecture/architecture-boundaries.md"
@@ -1742,7 +1742,7 @@ manifest = "crates/ambition_characters/Cargo.toml"
 id = "engine.characters-no-input-source"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_engine_core"]
+owners = ["ambition_platformer2d_core"]
 watch_paths = ["crates/ambition_characters/src"]
 rationale = "ambition_characters does not depend on the input adapter for ControlFrame"
 source_doc = "docs/architecture/architecture-boundaries.md"
@@ -1754,12 +1754,12 @@ forbid = ["ambition_input", "ambition_input::ControlFrame"]
 id = "engine.input-reexports-control-frame"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_engine_core"]
+owners = ["ambition_platformer2d_core"]
 watch_paths = ["crates/ambition_input/src/lib.rs"]
 rationale = "ambition_input keeps the old import path as a compat re-export"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["pub use ambition_engine_core::ControlFrame"]
+contains = ["pub use ambition_platformer2d_core::ControlFrame"]
 file = "crates/ambition_input/src/lib.rs"
 
 
@@ -1768,48 +1768,48 @@ file = "crates/ambition_input/src/lib.rs"
 id = "engine.f2-actor-facades-gone"
 scope = "engine"
 kind = "forbidden-path"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "F1-era actor compatibility facades removed"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/session/camera_layers.rs", "crates/ambition_actors/src/session/game_mode.rs", "crates/ambition_actors/src/time/camera_ease.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/session/camera_layers.rs", "crates/ambition_platformer2d_actor_monolith/src/session/game_mode.rs", "crates/ambition_platformer2d_actor_monolith/src/time/camera_ease.rs"]
 
 [[policy]]
 id = "engine.f2-actor-lib-no-facades"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/lib.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/lib.rs"]
 rationale = "actor crate root keeps no F1 compatibility facades"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub use session::game_mode", "pub use game_mode", "CameraEaseState", "CameraEaseTuning", "SandboxDevState"]
-file = "crates/ambition_actors/src/lib.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/lib.rs"
 
 [[policy]]
 id = "engine.f2-possession-no-controlled-subject-reexport"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/abilities/traversal/possession.rs"]
-rationale = "ControlledSubject is named from ambition_platformer_primitives::markers"
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"]
+rationale = "ControlledSubject is named from ambition_platformer2d_shared_tangle::markers"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["pub use ambition_platformer_primitives::markers::ControlledSubject"]
-file = "crates/ambition_actors/src/abilities/traversal/possession.rs"
+forbid = ["pub use ambition_platformer2d_shared_tangle::markers::ControlledSubject"]
+file = "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"
 
 [[policy]]
 id = "engine.f2-consumers-use-canonical-crates"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
 rationale = "F2.1 consumers use canonical lower crates, not actor facades"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_actors::SandboxDevState", "ambition_actors::CameraEaseState", "ambition_actors::CameraEaseTuning", "ambition_actors::time::camera_ease", "ambition_actors::session::camera_layers", "ambition_actors::abilities::traversal::possession::ControlledSubject", "ambition_actors::features::FeatureEcsWorldOverlay"]
+roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_platformer2d_actor_monolith::SandboxDevState", "ambition_platformer2d_actor_monolith::CameraEaseState", "ambition_platformer2d_actor_monolith::CameraEaseTuning", "ambition_platformer2d_actor_monolith::time::camera_ease", "ambition_platformer2d_actor_monolith::session::camera_layers", "ambition_platformer2d_actor_monolith::abilities::traversal::possession::ControlledSubject", "ambition_platformer2d_actor_monolith::features::FeatureEcsWorldOverlay"]
 
 
 # was: architecture_boundaries_actor_dialog_keeps_only_game_bindings
@@ -1817,25 +1817,25 @@ forbid = ["ambition_actors::SandboxDevState", "ambition_actors::CameraEaseState"
 id = "engine.actor-dialog-no-runtime-reexport"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/dialog.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dialog.rs"]
 rationale = "actor dialog does not re-export reusable dialog runtime vocabulary"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "dialog_input", "dialog_pointer_input", "dialog_reveal_tick", "DialogueRunnerEntity"]
-file = "crates/ambition_actors/src/dialog.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/dialog.rs"
 
 [[policy]]
 id = "engine.actor-yarn-no-runtime-reexport"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/dialog/yarn_bindings.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dialog/yarn_bindings.rs"]
 rationale = "actor Yarn bindings do not re-export generic Yarn vocabulary"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub use ambition_dialog"]
-file = "crates/ambition_actors/src/dialog/yarn_bindings.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/dialog/yarn_bindings.rs"
 
 
 # was: architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias
@@ -1843,13 +1843,13 @@ file = "crates/ambition_actors/src/dialog/yarn_bindings.rs"
 id = "engine.actor-persistence-no-dev-tools-alias"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/persistence/mod.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence/mod.rs"]
 rationale = "actor persistence keeps no dev-tools persistence compatibility alias"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["DeveloperPersistenceSchedulePlugin"]
-file = "crates/ambition_actors/src/persistence/mod.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/persistence/mod.rs"
 
 
 # was: architecture_boundaries_touch_input_crate_is_extracted
@@ -1884,7 +1884,7 @@ watch_paths = ["game/ambition_app/src/app/plugins.rs"]
 rationale = "app adds the touch plugin through the umbrella touch_input facade"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition::touch_input::TouchControlsPlugin"]
+contains = ["ambition_platformer2d::touch_input::TouchControlsPlugin"]
 file = "game/ambition_app/src/app/plugins.rs"
 
 [[policy]]
@@ -1905,13 +1905,13 @@ file = "game/ambition_app/src/app/plugins.rs"
 id = "engine.non-portal-mechanics-runtime-raycast"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/abilities/traversal/blink.rs", "crates/ambition_actors/src/abilities/traversal/dive.rs", "crates/ambition_actors/src/abilities/traversal/grapple.rs", "crates/ambition_actors/src/items/pickup/mod.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
 rationale = "non-portal mechanics use the proto-runtime raycast seam, not the portal mechanic"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/abilities/traversal/blink.rs", "crates/ambition_actors/src/abilities/traversal/dive.rs", "crates/ambition_actors/src/abilities/traversal/grapple.rs", "crates/ambition_actors/src/items/pickup/mod.rs"]
-forbid = ["ambition_portal::raycast_solids"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/blink.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/dive.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+forbid = ["ambition_portal2d::raycast_solids"]
 
 
 # was: architecture_boundaries_portal_orders_against_item_set_not_function
@@ -1919,37 +1919,37 @@ forbid = ["ambition_portal::raycast_solids"]
 id = "engine.portal-plugin-no-host-item-subsystem"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src/plugin.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
 rationale = "portal/plugin.rs must not name the host item subsystem in code"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal/src/plugin.rs"]
-forbid = ["ambition_actors::items::pickup"]
+roots = ["crates/ambition_portal2d/src/plugin.rs"]
+forbid = ["ambition_platformer2d_actor_monolith::items::pickup"]
 
 [[policy]]
 id = "engine.portal-wiring-orders-against-set"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_runtime/src/portal_schedule.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/portal_schedule.rs"]
 rationale = "portal wiring orders against ItemPickupSet, not a concrete function"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["after(ambition_actors::items::pickup::ground_item_physics)"]
-file = "crates/ambition_runtime/src/portal_schedule.rs"
+forbid = ["after(ambition_platformer2d_actor_monolith::items::pickup::ground_item_physics)"]
+file = "crates/ambition_platformer2d_runtime/src/portal_schedule.rs"
 
 [[policy]]
 id = "engine.portal-wiring-uses-item-set"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_runtime/src/portal_schedule.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/portal_schedule.rs"]
 rationale = "portal wiring orders on the held-item/ground-item simulation set"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems"]
-file = "crates/ambition_runtime/src/portal_schedule.rs"
+contains = ["ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems"]
+file = "crates/ambition_platformer2d_runtime/src/portal_schedule.rs"
 
 
 # was: architecture_boundaries_portal_core_does_not_import_ambition_content_roster
@@ -1957,14 +1957,14 @@ file = "crates/ambition_runtime/src/portal_schedule.rs"
 id = "engine.portal-core-no-content-roster"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src", "crates/ambition_portal_presentation/src"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src", "crates/ambition_portal2d_presentation/src"]
 rationale = "portal core/presentation consume reusable seams, not Ambition content roster names"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal/src", "crates/ambition_portal_presentation/src"]
-forbid = ["ambition_actors::items", "Item::PortalGun", "OwnedItems", "ambition_inventory_ui", "ambition_actors::menu::effects", "StashedActionSet", "ambition_actors::content", "ambition_actors::quest", "ambition_actors::ldtk_world", "ambition_actors::world::ldtk_world", "ambition_actors::persistence", "ambition_input::ControlFrame", "ambition_actors::items::pickup::GroundItem"]
-allow_lines = ["ambition_actors::items::pickup::ItemPickupSet", "ambition_actors::items::pickup::axe_spec"]
+roots = ["crates/ambition_portal2d/src", "crates/ambition_portal2d_presentation/src"]
+forbid = ["ambition_platformer2d_actor_monolith::items", "Item::PortalGun", "OwnedItems", "ambition_inventory_ui", "ambition_platformer2d_actor_monolith::menu::effects", "StashedActionSet", "ambition_platformer2d_actor_monolith::content", "ambition_platformer2d_actor_monolith::quest", "ambition_platformer2d_actor_monolith::ldtk_world", "ambition_platformer2d_actor_monolith::world::ldtk_world", "ambition_platformer2d_actor_monolith::persistence", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::items::pickup::GroundItem"]
+allow_lines = ["ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet", "ambition_platformer2d_actor_monolith::items::pickup::axe_spec"]
 skip_tests = true
 
 
@@ -1973,13 +1973,13 @@ skip_tests = true
 id = "engine.portal-core-no-host-world-reset"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
 rationale = "portal core reaches host collision/reset/input through portal-owned resources and content adapters"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal/src"]
-forbid = ["ambition_actors::features", "ambition_engine_core::RoomGeometry", "Res<RoomGeometry>", "FeatureEcsWorldOverlay", "ResetRoomFeaturesEvent", "ambition_input::ControlFrame", "ambition_actors::avatar"]
+roots = ["crates/ambition_portal2d/src"]
+forbid = ["ambition_platformer2d_actor_monolith::features", "ambition_platformer2d_core::RoomGeometry", "Res<RoomGeometry>", "FeatureEcsWorldOverlay", "ResetRoomFeaturesEvent", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::avatar"]
 skip_paths = ["presentation.rs"]
 skip_tests = true
 
@@ -1989,12 +1989,12 @@ skip_tests = true
 id = "engine.music-director-content-agnostic"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/music"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/music"]
 rationale = "music director consumes neutral MusicIntent; content mapping belongs in music::intent"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/music"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/music"]
 forbid = ["crate::encounter", "crate::rooms", "crate::content"]
 skip_paths = ["intent.rs"]
 skip_tests = true
@@ -2005,18 +2005,18 @@ skip_tests = true
 id = "engine.gravity-mechanic-extracted"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/gravity"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
 rationale = "extracted gravity mechanic files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/gravity/mod.rs", "crates/ambition_actors/src/gravity/plugin.rs", "crates/ambition_actors/src/gravity/lifecycle.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs", "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs"]
 
 [[policy]]
 id = "engine.gravity-visuals-in-render"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_actors"]
+owners = ["ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates/ambition_render/src/rendering"]
 rationale = "gravity visuals live in the render crate"
 source_doc = "docs/architecture/architecture-boundaries.md"
@@ -2027,38 +2027,38 @@ paths = ["crates/ambition_render/src/rendering/gravity_visuals.rs"]
 id = "engine.gravity-owns-plugin"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/gravity/plugin.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"]
 rationale = "gravity mechanic owns a GravityPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub struct GravityPlugin"]
-file = "crates/ambition_actors/src/gravity/plugin.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs"
 
 [[policy]]
 id = "engine.gravity-portal-independent"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/gravity"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
 rationale = "gravity mechanic is portal-independent"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/gravity"]
-forbid = ["ambition_portal::", "ambition_portal;", "ambition_portal}", "ambition_actors::portal,", "ambition_portal "]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/gravity"]
+forbid = ["ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}", "ambition_platformer2d_actor_monolith::portal,", "ambition_portal2d "]
 
 [[policy]]
 id = "engine.portal-no-gravity-symbols"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_portal/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src"]
 rationale = "portal must not own gravity-zone mechanic symbols"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_portal/src"]
+roots = ["crates/ambition_portal2d/src"]
 forbid = ["GravityFlipSwitch", "gravity_flip_switch_system", "GravityZoneVisual", "GravitySwitchVisual", "sync_gravity_zone_visual", "sync_gravity_switch_visual", "reset_gravity_on_room_reset"]
-allow_lines = ["ambition_actors::gravity"]
+allow_lines = ["ambition_platformer2d_actor_monolith::gravity"]
 skip_tests = true
 
 
@@ -2067,35 +2067,35 @@ skip_tests = true
 id = "engine.portal-mechanic-crate-files"
 scope = "engine"
 kind = "required-path"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src"]
 rationale = "portal mechanic crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_portal/src/lib.rs", "crates/ambition_portal/src/plugin.rs", "crates/ambition_portal/src/schedule.rs", "crates/ambition_portal/src/color.rs", "crates/ambition_portal/src/types.rs", "crates/ambition_portal/src/gun.rs", "crates/ambition_portal/src/gun_pickup.rs", "crates/ambition_portal/src/gun_projectile.rs", "crates/ambition_portal/src/placement.rs", "crates/ambition_portal/src/transit.rs", "crates/ambition_portal/src/lifecycle.rs", "crates/ambition_portal/src/messages.rs", "crates/ambition_portal/src/pieces.rs"]
+paths = ["crates/ambition_portal2d/src/lib.rs", "crates/ambition_portal2d/src/plugin.rs", "crates/ambition_portal2d/src/schedule.rs", "crates/ambition_portal2d/src/color.rs", "crates/ambition_portal2d/src/types.rs", "crates/ambition_portal2d/src/gun.rs", "crates/ambition_portal2d/src/gun_pickup.rs", "crates/ambition_portal2d/src/gun_projectile.rs", "crates/ambition_portal2d/src/placement.rs", "crates/ambition_portal2d/src/transit.rs", "crates/ambition_portal2d/src/lifecycle.rs", "crates/ambition_portal2d/src/messages.rs", "crates/ambition_portal2d/src/pieces.rs"]
 
 [[policy]]
 id = "engine.actor-portal-facade-gone"
 scope = "engine"
 kind = "forbidden-path"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_actors/src"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "actor crate portal facade deleted"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_actors/src/portal/mod.rs", "crates/ambition_actors/src/portal/plugin.rs", "crates/ambition_actors/src/portal/transit.rs", "crates/ambition_actors/src/portal/gun.rs", "crates/ambition_actors/src/portal/presentation.rs", "crates/ambition_actors/src/portal.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/portal/mod.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/plugin.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/transit.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/gun.rs", "crates/ambition_platformer2d_actor_monolith/src/portal/presentation.rs", "crates/ambition_platformer2d_actor_monolith/src/portal.rs"]
 
 [[policy]]
 id = "engine.portal-plugin-labels-transit"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_portal"]
-watch_paths = ["crates/ambition_portal/src/plugin.rs"]
+owners = ["ambition_portal2d"]
+watch_paths = ["crates/ambition_portal2d/src/plugin.rs"]
 rationale = "portal plugin labels transit systems with PortalSet"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["PortalSet::Transit"]
-file = "crates/ambition_portal/src/plugin.rs"
+file = "crates/ambition_portal2d/src/plugin.rs"
 
 
 # was: architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample
@@ -2103,61 +2103,61 @@ file = "crates/ambition_portal/src/plugin.rs"
 id = "engine.actor-clusters-require-sweep"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/actor_clusters.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"]
 rationale = "ECS ActorClusterQueryData requires the shared SweepSample"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub sweep: &'static mut ae::SweepSample"]
-file = "crates/ambition_actors/src/features/ecs/actor_clusters.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"
 
 [[policy]]
 id = "engine.actor-clusters-no-optional-sweep"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/actor_clusters.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"]
 rationale = "runtime actor/boss queries do not make SweepSample optional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub sweep: Option<&'static mut ae::SweepSample>"]
-file = "crates/ambition_actors/src/features/ecs/actor_clusters.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs"
 
 [[policy]]
 id = "engine.portal-transit-uses-sweep"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_portal/src/transit.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/transit.rs"]
 rationale = "portal transit CCD consumes the canonical SweepSample"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["Option<&ae::SweepSample>", "portal_sweep_sample"]
-file = "crates/ambition_portal/src/transit.rs"
+file = "crates/ambition_portal2d/src/transit.rs"
 
 [[policy]]
 id = "engine.portal-transit-no-anchor"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_portal/src/transit.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/transit.rs"]
 rationale = "portal-local sweep anchors retired"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["PortalSweepAnchor"]
-file = "crates/ambition_portal/src/transit.rs"
+file = "crates/ambition_portal2d/src/transit.rs"
 
 [[policy]]
 id = "engine.portal-lib-no-anchor"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_portal/src/lib.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
 rationale = "PortalSweepAnchor not part of the portal public surface"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["PortalSweepAnchor"]
-file = "crates/ambition_portal/src/lib.rs"
+file = "crates/ambition_portal2d/src/lib.rs"
 
 
 # was: architecture_boundaries_clock_resets_use_time_control_owner
@@ -2165,12 +2165,12 @@ file = "crates/ambition_portal/src/lib.rs"
 id = "engine.clock-resets-owner-only"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src", "game/ambition_app/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "game/ambition_app/src"]
 rationale = "reset/respawn/transition code emits ClockResetRequest; only the time-control owner snaps time_scale to 1.0"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src", "game/ambition_app/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "game/ambition_app/src"]
 forbid = ["time_scale = 1.0", "time_scale=1.0"]
 skip_paths = ["time/time_control/mod.rs", "time/time_control/tests.rs"]
 
@@ -2178,13 +2178,13 @@ skip_paths = ["time/time_control/mod.rs", "time/time_control/tests.rs"]
 id = "engine.runtime-applies-clock-reset"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_runtime/src/player_schedule.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
 rationale = "the runtime time-control chain applies queued ClockResetRequest messages"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["apply_clock_reset_requests", "run_if(gameplay_allowed)"]
-file = "crates/ambition_runtime/src/player_schedule.rs"
+file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
 
 
 # was: architecture_boundaries_player_fallbacks_are_slot_ordered
@@ -2192,37 +2192,37 @@ file = "crates/ambition_runtime/src/player_schedule.rs"
 id = "engine.player-fallbacks-no-raw-query"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/save_sync.rs", "crates/ambition_actors/src/features/ecs/actors/update.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs", "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
 rationale = "player fallbacks are deterministic by PlayerSlot, not raw Bevy query order"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_actors/src/features/ecs/save_sync.rs", "crates/ambition_actors/src/features/ecs/actors/update.rs"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs", "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
 forbid = ["primary_player.iter().next()", "player_query.iter().next()"]
 
 [[policy]]
 id = "engine.player-fallback-save-sync-documented"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/save_sync.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"]
 rationale = "save_sync documents the deterministic PlayerSlot fallback"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
-file = "crates/ambition_actors/src/features/ecs/save_sync.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"
 
 [[policy]]
 id = "engine.player-fallback-update-documented"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src/features/ecs/actors/update.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
 rationale = "actors/update documents the deterministic PlayerSlot fallback"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
-file = "crates/ambition_actors/src/features/ecs/actors/update.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"
 
 # ── Loading and game-shell core carve ─────────────────────────────────────────
 [[policy]]
@@ -2246,7 +2246,7 @@ rationale = "ambition_load owns headless evidence and barriers; it must not reac
 source_doc = "docs/planning/engine/architecture.md"
 severity = "error"
 manifest = "crates/ambition_load/Cargo.toml"
-deny = ["ambition_game_shell", "ambition_load_presentation", "ambition_render", "ambition_menu", "ambition_asset_manager", "ambition_persistence", "ambition_world", "ambition_content", "ambition_app"]
+deny = ["ambition_game_shell", "ambition_load_presentation", "ambition_render", "ambition_menu", "ambition_asset_manager", "ambition_persistence", "ambition_platformer2d_world", "ambition_content", "ambition_app"]
 
 [[policy]]
 id = "engine.game-shell-dependency-purity"
@@ -2294,12 +2294,12 @@ forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_d
 id = "engine.audio-authority-is-app-local"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_audio", "ambition_actors"]
-watch_paths = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+owners = ["ambition_audio", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 rationale = "Authored audio is App-local via AudioCatalogRegistry. The retired process-global install/override seam (install_music_registry / install_sfx_registry / authored_music_registry / authored_sfx_registry / *_REGISTRY_OVERRIDE) must never return; a new host reads the registry resource instead."
 source_doc = "docs/planning/engine/architecture.md"
 severity = "error"
-roots = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]
 
 # ── One frame-aware movement kernel (ADR 0024) ──
@@ -2313,7 +2313,7 @@ forbid = ["install_music_registry", "install_sfx_registry", "authored_music_regi
 id = "engine.movement-model-is-never-optional"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_engine_core", "ambition_actors"]
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
 rationale = "ADR 0024 §1: absence is never a movement policy. No production query may treat MotionModel as optional or filter on its absence; every integrated body carries a variant from spawn and dispatch happens inside step_motion."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
@@ -2337,15 +2337,15 @@ forbid = [
 id = "engine.crawler-flag-is-spawn-selection-only"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "ADR 0024 §8: the former surface_walker integrator is the AdhesiveCrawler policy. The authored boolean selects the MotionModel once at spawn (ActorTuning::motion_model); runtime dispatch reads the body's explicit model, never the flag."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true
 skip_tests = true
 skip_paths = ["features/ecs/actor_tuning.rs", "features/enemies/mod.rs"]
-roots = ["crates/ambition_actors/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]
 
 # ADR 0024 authority model: every production write to authoritative body pose
@@ -2359,7 +2359,7 @@ forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]
 id = "engine.pose-writes-are-authority-only"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_engine_core", "ambition_actors"]
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
 rationale = "ADR 0024 authority model: body pose writes go through the kernel, transit_body, carry_body/constrain_body_pose, or a sanctioned domain integrator — never a bare field write."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
@@ -2374,18 +2374,18 @@ forbid = [
 ]
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.
-    "ambition_engine_core/src/movement/",
-    "ambition_engine_core/src/ledge_grab/",
+    "ambition_platformer2d_core/src/movement/",
+    "ambition_platformer2d_core/src/ledge_grab/",
     # Engine body-shape ops (feet-planted resize recenters).
-    "ambition_engine_core/src/player_state.rs",
+    "ambition_platformer2d_core/src/player_state.rs",
     # Sanctioned domain integrators: generic kinematic bodies, projectile
     # physics, free thrown items, and the portal core's aperture transit
     # (whose kernel-body reconciliation is completed by the content adapter).
-    "ambition_platformer_primitives/src/kinematic.rs",
-    "ambition_platformer_primitives/src/projectile/",
+    "ambition_platformer2d_shared_tangle/src/kinematic.rs",
+    "ambition_platformer2d_shared_tangle/src/projectile/",
     "ambition_projectiles/src/",
-    "ambition_portal/src/transit.rs",
-    "ambition_actors/src/items/pickup/",
+    "ambition_portal2d/src/transit.rs",
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
 ]
@@ -2400,7 +2400,7 @@ skip_paths = [
 id = "engine.mechanics-consume-the-resolved-frame"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_engine_core", "ambition_actors"]
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
 rationale = "ADR 0024 frame law: gameplay mechanics read ResolvedMotionFrame; dir_at/GravityField are observation-only (render, roll easing, dev, the gravity machinery)."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
@@ -2408,7 +2408,7 @@ severity = "error"
 production_only = true
 skip_tests = true
 roots = [
-    "crates/ambition_actors/src",
+    "crates/ambition_platformer2d_actor_monolith/src",
     "crates/ambition_combat/src",
     "crates/ambition_characters/src",
     "game",
@@ -2416,10 +2416,10 @@ roots = [
 forbid = [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("]
 skip_paths = [
     # The gravity machinery + frame resolution phase itself.
-    "ambition_actors/src/gravity/",
+    "ambition_platformer2d_actor_monolith/src/gravity/",
     # Free-body integrators resolve per body inline (dir_for) and feed the
     # shared world-forces seam through a local field value.
-    "ambition_actors/src/items/pickup/",
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Presentation, dev tooling, and the RL observation port.
     "ambition_app/src/dev/",
     "ambition_app/src/rl_sim/",
@@ -2437,7 +2437,7 @@ skip_paths = [
 id = "engine.character-authority-is-app-local"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_characters", "ambition_actors", "ambition_combat", "ambition_runtime", "ambition_content", "ambition_app"]
+owners = ["ambition_characters", "ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_platformer2d_runtime", "ambition_content", "ambition_app"]
 watch_paths = ["crates", "game"]
 rationale = "Playable-character definitions, hostile archetypes, boss behavior/encounters/art, presentation, dialogue, bark, collision, and authored attack geometry must come from validated resources assembled in each Bevy App. Production code may not reinstall process-global authority, silently substitute an empty catalog, make those resources optional, or use retired implicit lookup wrappers."
 source_doc = "docs/planning/engine/architecture.md"
@@ -2458,7 +2458,7 @@ forbid = [
     "Option<Res<CharacterCatalog>>",
     "Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>",
     "Option<Res<CharacterRoster>>",
-    "Option<Res<ambition_actors::features::CharacterRoster>>",
+    "Option<Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>>",
     "install_enemy_roster",
     "ENEMY_ROSTER_OVERRIDE",
     "OnceLock<CharacterRoster>",
@@ -2476,7 +2476,7 @@ forbid = [
     "dedicated_boss_sheets(",
     "sprite_render_size_for(target: &str",
     "Option<Res<BossCatalog>>",
-    "Option<Res<ambition_actors::boss_encounter::BossCatalog>>",
+    "Option<Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>>",
     "pub struct CharacterCatalog(pub",
 ]
 

@@ -98,10 +98,10 @@ Obligations (each a slice, all [opus]):
   fixed_tick }` hosts the sim in `FixedUpdate` on `Time<Fixed>` at
   `SIM_TICK_HZ = 60`; `SimTick` (in `ambition_time`) is the canonical timeline;
   `ControlFrameLatch` (in `engine_core`) is the frame→tick input latch, owned
-  by the DEVICE layer (`ambition_host`). Exit check met: the rl_sim
+  by the DEVICE layer (`ambition_platformer2d_host`). Exit check met: the rl_sim
   `player_phase_split` / `actor_phase_split` suites pass with the label
   threaded BOTH ways, plus a split-brain guard in
-  `ambition_host/tests/demo_shell_smoke.rs` that fails if any sim system is
+  `ambition_platformer2d_host/tests/demo_shell_smoke.rs` that fails if any sim system is
   stranded in `Update` under fixed tick.
 
   **Executor deviation from the ruled mechanism (vision §7 — the case, not a
@@ -192,13 +192,13 @@ Obligations (each a slice, all [opus]):
     ::with_fixed_tick` parameterizes `player_phase_split` and
     `actor_phase_split`.
 - **N0.2 Input-stream capture as a first-class type — ✅ LANDED (opus,
-  2026-07-09).** `ambition_engine_core::InputStream` — versioned
+  2026-07-09).** `ambition_platformer2d_core::InputStream` — versioned
   (`INPUT_STREAM_VERSION`), serde, per-tick `SlotControls` keyed by `SimTick`,
   contiguous, `validate()`d on load. Explicit field order, `u64`/`u32` only (no
   `usize`), so it does not preclude level 3. `ControlFrame` gained
   `#[serde(default)]`, so ADDING a field never bumps the version: an older
   stream loads with the new field neutral, which is what it meant.
-  `ambition_runtime::InputStreamRecorder` is the ONE capture path, recording
+  `ambition_platformer2d_runtime::InputStreamRecorder` is the ONE capture path, recording
   `SlotControls` after the input phase finalizes them — the frame the SIM
   consumed, not the one the device produced (gestures, portal warp, and the
   fixed-tick latch all rewrite it in between). `SandboxSim::step_frame` drives a
@@ -217,7 +217,7 @@ Obligations (each a slice, all [opus]):
   (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
   `Entity` as an ordering key) are greps over non-test source under `crates/*` AND
   `game/{ambition_content,ambition_demo_sanic,ambition_demo_mary_o}`,
-  in the `engine.determinism` policy (`tests/ambition_workspace_policy/src/custom/determinism.rs`; migrated 2026-07-10 from `crates/ambition_runtime/tests/determinism_lints.rs`), with an
+  in the `engine.determinism` policy (`tests/ambition_workspace_policy/src/custom/determinism.rs`; migrated 2026-07-10 from `crates/ambition_platformer2d_runtime/tests/determinism_lints.rs`), with an
   auditable `AMBITION_REVIEW(determinism)` escape hatch. The doc page is
   **ADR 0023**. Each lint is poison-tested (a violation injected into a real sim
   source makes it fail), so none of them passes vacuously.
@@ -249,7 +249,7 @@ Obligations (each a slice, all [opus]):
   *choose*; a tiebreak that EXISTS, which is the whole requirement.
   `rule_three_sees_a_bare_hashmap_and_not_a_bevy_one` poison-tests both spellings and
   both exemptions, because *a lint that only sees the spelling its author had in mind
-  is not a lint.* `ambition_world::placements::registered_kinds` picked up the marker:
+  is not a lint.* `ambition_platformer2d_world::placements::registered_kinds` picked up the marker:
   it sorts the keys on the very next line, at room load, outside the tick.
 
   **Scope widening — DONE (2026-07-10).** N0.3 now scans `game/ambition_content` and
@@ -285,7 +285,7 @@ Obligations (each a slice, all [opus]):
   of the sim. That is the honest reading of decision (1), not a loophole.
 
   Built on N3.1's registration seam, as this section required
-  (`ambition_runtime::snapshot`). The hash is FNV-1a, never
+  (`ambition_platformer2d_runtime::snapshot`). The hash is FNV-1a, never
   `std::hash::DefaultHasher`: `RandomState` is seeded per process, and a canary
   that changes its mind between runs is the bug class ADR 0023 exists to prevent.
   Entity rows are sorted by stable key before hashing, because Bevy's `Query`
@@ -335,10 +335,10 @@ snapshots needed. Needs N0 complete, plus:
   uniqueness, complete mutable-state coverage, codec failure semantics,
   active-room ownership, and dynamic-spawn reconstruction remain open.
 
-  - `ambition_runtime::snapshot`: `SnapshotRegistry` (opt-in per plugin, decision
+  - `ambition_platformer2d_runtime::snapshot`: `SnapshotRegistry` (opt-in per plugin, decision
     1), `StateHasher`, `hash_entities_by_key` (the stable-order rule),
     `register_engine_sim_state`. N0.4 rides it.
-  - `ambition_platformer_primitives::sim_id`: **`SimId`**, the one identity
+  - `ambition_platformer2d_shared_tangle::sim_id`: **`SimId`**, the one identity
     vocabulary — `placement(id)` (an LDtk iid / `FeatureId`), `player_slot(n)`,
     and `spawned(spawner, counter)`. It is a *`String`* on purpose: a desync report
     that says `placement:BossSpawn-4308/3` names a projectile fired by a boss;
@@ -437,7 +437,7 @@ snapshots needed. Needs N0 complete, plus:
   thing. The exit oracle is what measures whether stale state actually leaks.
 
   The ledger keys on `TypeId` (always exact); component NAMES need `bevy_ecs/debug`,
-  which `ambition_app`'s test graph happens to enable and `ambition_runtime`'s does
+  which `ambition_app`'s test graph happens to enable and `ambition_platformer2d_runtime`'s does
   not — so the counts are trustworthy in both and the names are readable where it
   matters. Lower it by registering a component, or by `declare_derived::<C>()`, which
   is a *promise* that the same per-frame system that maintains `C` rebuilds it —
@@ -502,7 +502,7 @@ snapshots needed. Needs N0 complete, plus:
   - `ambition_encounter::state::EncounterState` — the live encounter phase, the wave
     run, the spawn counter. **This was why `mockingbird_arena` diverged** before the missing state was registered; the current replay table below records it clean.
   - `ambition_projectiles::enemy::state::EnemyProjectileState`.
-  - `ambition_actors::encounter::switches::SwitchActivationQueue`.
+  - `ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivationQueue`.
 
   *What the canary cannot see, it cannot defend* — and for one whole chain of commits,
   it could not see a resource. The number is the point: it was zero because nothing
@@ -618,7 +618,7 @@ snapshots needed. Needs N0 complete, plus:
   cursor, resolved, resource, resource-cursor), four message channels, three declared
   derived, and an exit oracle that three rooms pass and the fourth is *asserted* to fail.
 
-  A note on where the codecs live. `ambition_runtime` implements `SnapshotState` for
+  A note on where the codecs live. `ambition_platformer2d_runtime` implements `SnapshotState` for
   other crates' types today because it sits above them all. That is the bootstrap, not
   the destination: this section asks that *"each sim crate registers its components'
   serialization"*, which needs the trait to move down to `platformer_primitives`. It
@@ -697,7 +697,7 @@ snapshots needed. Needs N0 complete, plus:
      unresolved resource cursor (`resource_cursors_unresolved`) — the false-success the old
      bare-`true` insert produced. Registered `Messages<M>` channels are CLAIMED (restore
      clears them), not counted as false debt. The sim-resource universe is a NAMED exclusion
-     policy (`SIM_RESOURCE_EXCLUSIONS`), per-TYPE for mixed-purpose crates (`ambition_ldtk_map`)
+     policy (`SIM_RESOURCE_EXCLUSIONS`), per-TYPE for mixed-purpose crates (`ambition_platformer2d_ldtk`)
      so a new resource there is a review event, namespace-form only for wholly-presentation
      subtrees. The coverage ledger pins the debt by TYPE NAME against reviewed inventory files
      (`tests/known_{resource,component}_debt.txt`), not just by count, so a substitution that
@@ -726,7 +726,7 @@ snapshots needed. Needs N0 complete, plus:
 ## N3.1 design sketch (pre-solved; sim components conform to this NOW)
 
 ```rust
-// ambition_runtime (owner):
+// ambition_platformer2d_runtime (owner):
 pub struct SnapshotRegistry { /* built at plugin init */ }
 impl SnapshotRegistry {
     /// Each SIM crate's plugin calls this for every component/resource that

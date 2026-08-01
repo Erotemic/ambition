@@ -1,7 +1,7 @@
 //! Plain Bevy UI reference presentation for load evidence and ready-hold.
 
 use ambition_game_shell::{shell_action_edges, FrontendOwnedEntity, FrontendPresentationKind};
-use ambition_platformer_primitives::developer_hotkeys::{DeveloperAction, DeveloperHotkeyBindings};
+use ambition_platformer2d_shared_tangle::developer_hotkeys::{DeveloperAction, DeveloperHotkeyBindings};
 use bevy::prelude::*;
 
 use crate::{

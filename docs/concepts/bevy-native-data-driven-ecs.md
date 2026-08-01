@@ -9,11 +9,11 @@ related_adrs:
   - docs/adr/0003-data-specs-and-asset-loading.md
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 implemented_by:
-  - crates/ambition_engine_core
-  - crates/ambition_platformer_primitives
-  - crates/ambition_world
-  - crates/ambition_ldtk_map
-  - crates/ambition_runtime
+  - crates/ambition_platformer2d_core
+  - crates/ambition_platformer2d_shared_tangle
+  - crates/ambition_platformer2d_world
+  - crates/ambition_platformer2d_ldtk
+  - crates/ambition_platformer2d_runtime
 ---
 
 # Bevy-native data-driven ECS
@@ -38,8 +38,8 @@ authored/generated data
 - Pure math and deterministic kernels stay usable without a Bevy world.
 - Runtime integration is Bevy-native when ECS identity, scheduling, lifecycle,
   queries, or resources are the natural model.
-- LDtk owns Ambition's world authoring today. `ambition_ldtk_map` adapts LDtk;
-  `ambition_world` owns reusable world records/lowering vocabulary.
+- LDtk owns Ambition's world authoring today. `ambition_platformer2d_ldtk` adapts LDtk;
+  `ambition_platformer2d_world` owns reusable world records/lowering vocabulary.
 - RON remains appropriate for compact provider catalogs, tuning, settings,
   saves, and generated-asset specifications.
 - One domain owns each noncommutative state machine. Multiple append-only

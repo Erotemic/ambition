@@ -4,7 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition_engine_core::ControlFrame;
+use ambition_platformer2d_core::ControlFrame;
 
 fn input_with<F: FnOnce(&mut ControlFrame)>(mut_fn: F) -> ControlFrame {
     let mut c = ControlFrame::default();

@@ -25,10 +25,10 @@
 //! the type belongs next to the brains, the *construction* (which reads the ECS
 //! world) belongs in the gameplay layer. So this module owns the headless,
 //! controller-neutral **value** and its pure tactical queries (line-of-fire,
-//! reachability); `ambition_actors` owns the body-generic **builder** that
+//! reachability); `ambition_platformer2d_actor_monolith` owns the body-generic **builder** that
 //! fills it from real solids / actors / projectiles. Zero rendering dependency
 //! (invariant I5) and zero Bevy-world dependency here — just plain data over
-//! [`ambition_engine_core`] geometry, so it is replay-deterministic and trivially
+//! [`ambition_platformer2d_core`] geometry, so it is replay-deterministic and trivially
 //! assertable in a headless harness.
 //!
 //! ### Frame-agnostic (invariant I10)
@@ -40,7 +40,7 @@
 //! that wants body-local reasoning can project into the acceleration frame.
 
 use ae::AabbExt;
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 use crate::actor::ActorFaction;
 

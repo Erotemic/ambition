@@ -7,7 +7,7 @@ is here or in a doc this file points to. Executor rules:
 Jon can only read, not ask.
 
 **Standing verification gate:** `cargo build -p ambition_app --features
-rl_sim` + `ambition_actors --lib` + content + app rl_sim suites +
+rl_sim` + `ambition_platformer2d_actor_monolith --lib` + content + app rl_sim suites +
 boundary tests. **Also run the `--features portal` content suite** — the
 default gate silently skips it (found by CC6, 2026-07-09).
 
@@ -94,7 +94,7 @@ stay completed unless explicitly reopened or reclassified here.
 
 1. ~~**The demo-shell arc — a runnable `ambition_demo_sanic`.**~~
    ✅ **DONE 2026-07-10 — playbook exit 3 is MET and gate-enforced.**
-   `game/ambition_demo_sanic_app` (manifest: `ambition` + `ambition_demo_sanic` +
+   `game/ambition_demo_sanic_app` (manifest: `ambition_platformer2d` + `ambition_demo_sanic` +
    `bevy`, nothing else) boots foundation + `PlatformerEnginePlugins::fixed_tick()`
    + `PlatformerHostPlugins` + the demo's content and rules, and steps the real
    sim. `SanicRulesPlugin::{hosted, global}` is the D-C constructor flag with its
@@ -116,8 +116,8 @@ stay completed unless explicitly reopened or reclassified here.
    ADR-0020 linked pair. **Its premise was WRONG and the doc now says so:**
    `boss_encounter/` is not a shell and did not shrink — 5456→5457 total src
    lines — so R2 does NOT unblock R4) → **R3** the overlay split ✅ **DONE
-   2026-07-10** (`CollisionWorld` + `MovingPlatformSet` → `ambition_world::collision`;
-   the spike found an unlisted `ambition_portal` dep, so `subtract_aabb` moved DOWN
+   2026-07-10** (`CollisionWorld` + `MovingPlatformSet` → `ambition_platformer2d_world::collision`;
+   the spike found an unlisted `ambition_portal2d` dep, so `subtract_aabb` moved DOWN
    to `engine_core::geometry` rather than let the space IR name a mechanic) →
    **R4** ✅ **RE-CHECKED + STOPPED 2026-07-10** (fable's ruling held:
    `ProjectileCollisionWorld` came home to `ambition_projectiles`; victim routing
@@ -213,9 +213,9 @@ CC4 (profile first); CC7 P3a.
 | Track | Doc | Status | Next |
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](../../../planning/engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` is the sole authored-entity channel; playbook exits 1–5 are met | shell-dissolution chain: [refactor-chain.md](../../../planning/engine/refactor-chain.md) |
-| Decomposition D-B | same | **✅ RE-CLOSED (2026-07-11)** — all five re-close criteria met. Series 1 landed the executable gate (`engine.module-size` policy in `tests/ambition_workspace_policy`, config `policies/module_size.toml`: code-line limit 1500 + bidirectional reasoned waiver list, poison-tested; migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/module_size.rs`), regenerated the stale `MODULES.md`, and corrected the member count to 45 (44
+| Decomposition D-B | same | **✅ RE-CLOSED (2026-07-11)** — all five re-close criteria met. Series 1 landed the executable gate (`engine.module-size` policy in `tests/ambition_workspace_policy`, config `policies/module_size.toml`: code-line limit 1500 + bidirectional reasoned waiver list, poison-tested; migrated 2026-07-10 from the retired `crates/ambition_platformer2d_runtime/tests/module_size.rs`), regenerated the stale `MODULES.md`, and corrected the member count to 45 (44
 crates + the `ambition_workspace_policy` test-policy package; was mis-documented as 42). Criterion-4 line-size debt EFFECTIVELY CLEARED 2026-07-11 — all three over-limit non-declarative modules split: **`snapshot.rs` (3684)** → `snapshot/{mod,registry,restore,codecs}.rs` (1155/718/471/1379), 46 tests + rl_sim `desync_canary` green; **`moveset.rs` (1536)** → `moveset/{mod,prefabs}.rs` (862/691), 102 combat tests green (never waived — a pre-existing gate RED the "under the code-line limit" note had masked; the gate counts TOTAL lines); **`view_cones.rs` (2206)** → `view_cones.rs` render path (1145) + `view_cones/debug.rs` diagnostics (1078), 45 portal-presentation tests green. Each waiver deleted; **gate GREEN (28 policy checks)**. The ONLY remaining waiver is `menu/kaleidoscope_app.rs` (1814), a declarative Lunex node tree — the legitimate "generated/declarative" permanent-waiver class. Other D-B criteria (module maps, dissolved hub globs) already done. | — RE-CLOSED. The `kaleidoscope_app.rs` waiver stands as the justified declarative exception criterion 4 permits ("split OR justify"); if Jon would rather see zero waivers, splitting the Lunex tree into per-panel modules is the only remaining line-size work, but it is not required for closure. |
-| Decomposition D-C | same | **✅ DONE (2026-07-10)** — the mode-scope seam shipped as `refactor-chain.md` R1: `RoomMetadata.mode`, `ModeScopedEntity` + `spawn_mode_scoped`, `in_mode(name)` + `ModeScopePlugin`. Two hosted rulesets coexist (`ambition_runtime/tests/mode_scope.rs`); `sanic_speedway` claims its mode | — |
+| Decomposition D-C | same | **✅ DONE (2026-07-10)** — the mode-scope seam shipped as `refactor-chain.md` R1: `RoomMetadata.mode`, `ModeScopedEntity` + `spawn_mode_scoped`, `in_mode(name)` + `ModeScopePlugin`. Two hosted rulesets coexist (`ambition_platformer2d_runtime/tests/mode_scope.rs`); `sanic_speedway` claims its mode | — |
 | Encounter orchestration | [engine/encounter-orchestration.md](../../../planning/engine/encounter-orchestration.md) | **✅ LANDED E0–E7 (2026-07-11)** — ONE encounter-entity model + generic `ambition_encounter::{participants,objective,timeline}` vocab; `ActorPhaseState`; one prioritized music stream; five duplicate authorities deleted. Two goals deliberately unmet with stated reasons (E7 audit): additive **+458** not the ≥ 800-line deletion (amortizes as non-boss customers reuse the vocab), and #7/#10 partial (wave keeps its concurrent spawn stepper; boss auto-wrap retained, now composes a generic encounter) | first non-boss customer to prove the vocab (Sanic race via `Objective::ReceiveSignal`, or a puzzle with no actors); E5 deeper authored phase-keys; E3b/E4 in-game feel pass (BLIND) |
 | Collision doctrine | [engine/collision-and-ccd.md](../../../planning/engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 LANDED; **CC3 DIAGNOSTIC LANDED, ENFORCEMENT OPEN** — six invariants and replay payload exist, but the comprehensive sweep is diagnostic/ignored and does not enforce the completion thresholds | turn the measured oracle into a poison-tested gate when its policy is ready; CC4/CC7 remain |
 | Combat stack | [engine/combat-model.md](../../../planning/engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation). **A3 equipment→params LANDED (2026-07-11)** — `ambition_characters::equipment`: read-time modifier fold + behavioral grants + `OnHit::ConsumeAsArmor` in the one `resolve_body_hit`; three v1 deviations named in combat-model §8 | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
@@ -235,7 +235,7 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](../../../planning/road
 ## Drift findings (the plan vs. the measured code)
 
 - ~~**The residual ledger is wrong.**~~ **RULED (Jon, 2026-07-10): the adapter
-  floor IS the floor.** The alarm's number was right — `ambition_actors` is
+  floor IS the floor.** The alarm's number was right — `ambition_platformer2d_actor_monolith` is
   **64.0k total src lines** (units matter: TOTAL, incl. tests) against a
   projected 31–35k. But the gap is not one missing carve. Three measurements
   ([decomposition.md](../../../planning/engine/decomposition.md) THE LEDGER): (1) the crate has
@@ -252,7 +252,7 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](../../../planning/road
   **The units lesson (recorded, hard-won):** an opus pass tried to re-baseline
   this ledger in production-only lines, compared them against a total-lines
   projection, and concluded the alarm was a counting error — the opposite of the
-  truth. Retracted. The durable finding is that `ambition_actors` is 43% test
+  truth. Retracted. The durable finding is that `ambition_platformer2d_actor_monolith` is 43% test
   code (27.8k of 64.0k), useful when SCOPING a carve, not as the comparison.
   **State the units in every ledger.**
 - ~~**Playbook exit 5 cannot be met as written.**~~ **REWRITTEN and met (opus,
@@ -261,9 +261,9 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](../../../planning/road
   with four measured, absolute, ratchetable rebuild loops (see
   [decomposition.md](../../../planning/engine/decomposition.md) exit 5). The headline: editing
   CONTENT rebuilds the app in **9.4 s** — the decomposition's actual payoff —
-  editing a leaf sim module rebuilds `ambition_actors` in **3.2 s**, and the
+  editing a leaf sim module rebuilds `ambition_platformer2d_actor_monolith` in **3.2 s**, and the
   full play loop after a sim edit is **104 s**, which is the residual cost of
-  everything above `ambition_actors` relinking.
+  everything above `ambition_platformer2d_actor_monolith` relinking.
 - **Playbook exit 3 is Jon-gated, not agent-gated.** A demo app building
   from runtime+host+content with zero engine edits needs a demo binary;
   fable ruled the feel half interactive.
@@ -347,8 +347,8 @@ renderer, and now it does not.
 - **fable** — E4 EXECUTED: slices 1–20 + the `ambition_sim_view` mint. Pose/anim/feature/boss/nameplate/hud/item/prop/camera read-models rebuild sim-side; render is a pure consumer; `ControlledSubject` never appears in render; `observation_boundary.rs` forbids ~45 live sim-state type names in render sources forever. RULING: camera-EASE stays sim-side. (`d5675f27`…`971bb41a`)
 - **fable** — CM1 COMPLETE: authored launch angles. `launch_dir` is direction-only, victim-gravity-frame, x mirrored away-from-source; it replaces the default diagonal while PRESERVING its speed, so an authored angle can never out-throw the feel launch. (`c695cd9c`)
 - **opus** — W1 STATE-inversion: `load_room_geometry` dropped its four cross-domain params; the composition tier applies the transition resets (anti-god rule 6). The `world → characters + combat` VOCAB arrow escalated to fable with a pre-solved option matrix.
-- **opus** — E5 step-5 de-risked: the "gated on E1d/E1e" accounting was DISPROVEN; `ambition_host` scaffold + boundary test landed so fable's carve is a pure system-move.
-- **fable, night** — **E5 STEP 5 + 6 EXECUTED — THE DEMO GATE IS OPEN.** Card amended: shared per-frame sim wiring belongs in the ENGINE group (headless/RL add it too), so `ambition_runtime` grew four per-domain schedule plugins and `ambition_host` = leafwing bindings + camera cluster. `SimCoreResourcesPlugin` minted; `demo_shell_smoke.rs` PASSES — a demo-shaped app boots and ticks. Also: W-a…W-e RULED (Tier-0 catalog stays serde-only; `KinematicPath` → engine_core; `DamageVolume` dissolves into `PlacementRecord` + Tier-0 spec; two-stage lowering registry; `WorldDelta` = ordered ops; placement ids REQUIRED; unknown placement = hard error), `GeoId` §3.6 RULED, and the opus-proofing detail pass pinned CM6 / A3 / N0.1 / BD1 / BD6 / FB4 / E6(d) / E7 / SurfaceRamp / dialog-context / falling-sand-spout. Zero `QUESTION FOR FABLE` markers remain.
+- **opus** — E5 step-5 de-risked: the "gated on E1d/E1e" accounting was DISPROVEN; `ambition_platformer2d_host` scaffold + boundary test landed so fable's carve is a pure system-move.
+- **fable, night** — **E5 STEP 5 + 6 EXECUTED — THE DEMO GATE IS OPEN.** Card amended: shared per-frame sim wiring belongs in the ENGINE group (headless/RL add it too), so `ambition_platformer2d_runtime` grew four per-domain schedule plugins and `ambition_platformer2d_host` = leafwing bindings + camera cluster. `SimCoreResourcesPlugin` minted; `demo_shell_smoke.rs` PASSES — a demo-shaped app boots and ticks. Also: W-a…W-e RULED (Tier-0 catalog stays serde-only; `KinematicPath` → engine_core; `DamageVolume` dissolves into `PlacementRecord` + Tier-0 spec; two-stage lowering registry; `WorldDelta` = ordered ops; placement ids REQUIRED; unknown placement = hard error), `GeoId` §3.6 RULED, and the opus-proofing detail pass pinned CM6 / A3 / N0.1 / BD1 / BD6 / FB4 / E6(d) / E7 / SurfaceRamp / dialog-context / falling-sand-spout. Zero `QUESTION FOR FABLE` markers remain.
 - **opus** — the decomposition-unblock run: W-queue step 1 (`entity_catalog::placements` + `engine_core::kinematic_path`, no shims), all 7 E2 in-place back-edge verdicts (byte-parity, one commit each), and the `GeoId` substrate (`Block.id`, Anon default, inert). **SweepSample PARKED** with a decision brief — genuine ECS-seam ambiguity on the hottest engine struct.
 - **Codex** — E1a: `ambition_persistence` owns saved shapes (save I/O, `UserSettings`, quest specs/registry).
 - **Codex** — E1b: `ambition_audio` owns the reusable SFX-bank runtime; the dead encounter-music fallback deleted.
@@ -362,31 +362,31 @@ renderer, and now it does not.
 - **opus** — E1d: `ambition_dev_tools` owns the dev-tool STATE. Card deviation recorded: the state is consumed below app so it must be foundational; the egui overlays stay app-level.
 - **opus** — E1e: `ambition_settings_menu` (the god-dep dissolution — pure logic, no bevy, no renderer) + `game/ambition_menu_kaleidoscope`, **the first extension crate**. Two independent renderers now drive one page model. C3 explicitly closed. **E1 COMPLETE.**
 - **Codex** — E-assets: `ambition_asset_manager::sandbox_assets` owns the catalog/source layer; upward reads inverted into plain `SandboxCatalogInputs` rows.
-- **Codex** — W3/W4: `ambition_world` (room IR, placements + lowering registry, platform math) and `ambition_ldtk_map` (the backend) split; ADR 0021 + boundary test. The backend ships no hidden game content.
+- **Codex** — W3/W4: `ambition_platformer2d_world` (room IR, placements + lowering registry, platform math) and `ambition_platformer2d_ldtk` (the backend) split; ADR 0021 + boundary test. The backend ships no hidden game content.
 - **Codex** — E3: `ambition_sprite_sheet::character` owns `CharacterAnim`, sheet specs/geometry, animator, baked RON tables. Also fixed a portal feature-forwarding mismatch under Cargo unification.
 - **Codex** — E-enc: `ambition_encounter` owns wave specs/state/events/registry/music/reward math; the ECS/LDtk adapters stay actor-side by design.
 - **Codex** — E6 tail: (a) boss anim frame → sim-owned state, closing the E4 slice-8 boundary violation; (c) `BrainSnapshot.target_pos` retired from production; (b/d) the two deep folds closed by permanent code-site policy comments (`BossAnim` rows are authored attack-geometry verbs — folding them through `CharacterAnim` would mislabel them).
 - **Codex** — E8: `ambition_items`. E7: workspace re-home (`ambition_app` + `ambition_content` → `game/`), then five combat/vocab facade cleanups across runtime/app/content/sim-view/render, and three E4 render import cleanups.
 - **Codex** — F1.5 first cut: render reads rooms/camera/sheet vocabulary from the lower crates; an exact-count ratchet added.
-- **fable, FINAL** — the whole-repo audit → [engine/fable-final-audit-2026-07-07.md](../../../planning/engine/fable-final-audit-2026-07-07.md). DAG sound, eleven arrows prescribed (F1); `ambition_actors` classified (F2); rulings verified (F3); **TWO rename-fallout regressions found and FIXED** — the desktop asset root silently degraded (the game ran with no assets) and the music-tool repo probe was dead (F4); the `ambition` umbrella + demo homes proposed (F5); gate green (F6); the lowering seam had three real defects, fixed (F7).
-- **Codex** — F1.1/F3 world-purity first cut (`ron_room` re-sided into `ambition_world`; room-transition SFX became a plain cue id; the world dependency allow-list test landed). F1.2 the `actors::portal` facade DELETED. F1.3 `ambition_vfx` owns `HitSide`, dropping its characters dep. F1.4 `GameMode` moved down to `platformer_primitives::schedule`.
+- **fable, FINAL** — the whole-repo audit → [engine/fable-final-audit-2026-07-07.md](../../../planning/engine/fable-final-audit-2026-07-07.md). DAG sound, eleven arrows prescribed (F1); `ambition_platformer2d_actor_monolith` classified (F2); rulings verified (F3); **TWO rename-fallout regressions found and FIXED** — the desktop asset root silently degraded (the game ran with no assets) and the music-tool repo probe was dead (F4); the `ambition_platformer2d` umbrella + demo homes proposed (F5); gate green (F6); the lowering seam had three real defects, fixed (F7).
+- **Codex** — F1.1/F3 world-purity first cut (`ron_room` re-sided into `ambition_platformer2d_world`; room-transition SFX became a plain cue id; the world dependency allow-list test landed). F1.2 the `actors::portal` facade DELETED. F1.3 `ambition_vfx` owns `HitSide`, dropping its characters dep. F1.4 `GameMode` moved down to `platformer_primitives::schedule`.
 
 ## 2026-07-08 (Codex)
-- F1.5 complete: **`ambition_render` no longer depends on `ambition_actors`.** `GameAssets`/boss render types → `ambition_sprite_sheet`; physics settings + feature overlay + shrine pulse → `platformer_primitives`; `SandboxDevState` → `dev_tools`; render's feature visuals read `FeatureView`, not live ECS.
+- F1.5 complete: **`ambition_render` no longer depends on `ambition_platformer2d_actor_monolith`.** `GameAssets`/boss render types → `ambition_sprite_sheet`; physics settings + feature overlay + shrine pulse → `platformer_primitives`; `SandboxDevState` → `dev_tools`; render's feature visuals read `FeatureView`, not live ECS.
 - F1.6 `ambition_inventory_ui` split out of items. F1.7 `ControlFrame` → `engine_core`, so reusable character brains no longer depend on the input adapter. F1.8 the unused asset-manager↔sfx adapter deleted.
-- F1.9 + F1.11 closed as explicit **no-move rulings** (runtime IS the engine composition tier; `ambition_touch_input` owns the visible touch HUD, so its render dep is correct — it is a presentation/input adapter with a legacy name). F1.10 `ambition_host → ambition_actors` removed. F1.1 closed.
-- **F2 CLOSED:** the `ambition_actors` compatibility-facade burn-down — GameMode, camera layers/ease, `SandboxDevState`, `ControlledSubject`, character-sprites, assets, projectile scheduling, dev-tools, audio, schedule labels, menu backend, settings/menu IR, encounter vocabulary, dialog/dev-persistence, `MapMenuState`. Every deletion ratcheted. Deeper actor decomposition moves to later cards.
+- F1.9 + F1.11 closed as explicit **no-move rulings** (runtime IS the engine composition tier; `ambition_touch_input` owns the visible touch HUD, so its render dep is correct — it is a presentation/input adapter with a legacy name). F1.10 `ambition_platformer2d_host → ambition_platformer2d_actor_monolith` removed. F1.1 closed.
+- **F2 CLOSED:** the `ambition_platformer2d_actor_monolith` compatibility-facade burn-down — GameMode, camera layers/ease, `SandboxDevState`, `ControlledSubject`, character-sprites, assets, projectile scheduling, dev-tools, audio, schedule labels, menu backend, settings/menu IR, encounter vocabulary, dialog/dev-persistence, `MapMenuState`. Every deletion ratcheted. Deeper actor decomposition moves to later cards.
 
 ## 2026-07-09
 - **Codex** — F4.3 `ClockResetRequest` routes reset intent through the one time-control owner. F4.4 deterministic lowest-`PlayerSlot` fallbacks replace raw Bevy query order, tagged `AMBITION_REVIEW(determinism)`. F3.2 swept-mover closeout: ECS actors/bosses REQUIRE `SweepSample`; `PortalSweepAnchor` retired; portal CCD feeds from the kernel sample with a live-endpoint guard against reading a teleport as a crossing.
-- **E9 umbrella:** `crates/ambition` re-exports runtime/host/render/world/model/vocabulary + a curated prelude; `game/ambition_demo_sanic` + `game/ambition_demo_smb1` registered, depping ONLY the umbrella, oracle-ratcheted. The app manifest collapsed to three `ambition*` deps (facade + content + kaleidoscope).
+- **E9 umbrella:** `crates/ambition_platformer2d` re-exports runtime/host/render/world/model/vocabulary + a curated prelude; `game/ambition_demo_sanic` + `game/ambition_demo_smb1` registered, depping ONLY the umbrella, oracle-ratcheted. The app manifest collapsed to three `ambition*` deps (facade + content + kaleidoscope).
 - The `unified_melee` feel-RED was **diagnosed as a stale read-model assumption in the TEST**, not a sim regression: it now follows the hostile by `FeatureId + BodyMelee` and accepts both swing authorities (flat `BodyMelee` and the moveset-backed `MovePlayback`). **Gate: 44/44 suites green, zero failures.**
 - Projectile residual-glue slices: the substrate-only enemy/boss `Effect::Projectiles` spawn executor → `ambition_projectiles::enemy`; kind-specific expiry VFX → `ProjectileVisualKind::expiry_vfx`; pure primitive tests travelled to the model crate.
 - **fable** — F9 verification pass (independent, against manifests/source): all F1 arrows closed, world purity real, F3.2/F4.3/F4.4 closed, E9 exit met. RULED: the IR-native-family route for F1.1 is ACCEPTED, but the resulting two-channel IR is an internal split-brain with a real tax — record-over-schema consolidation continues, one family per session, exiting when the dual-emit guard deletes.
 - **fable** — **CC6 MOVING PORTALS LANDED** (§5-P2 in full; amendments in §5-P2a). Host-attached frames via `GeoFaceRef`, the relative swept trigger (the scoop works; co-moving bodies never spuriously transit), Galilean transfer with the exit-REST-frame min-exit floor, host-carried motion exempt from eviction (close-only pushout preserved), per-frame frame re-derivation so a portal closes with its host face. Found and fixed: the default gate was silently skipping the `--features portal` content suite (101 tests).
-- **fable** — F5.4: the gate-portal phase tests travelled to `ambition_world::rooms::gate_portal`.
+- **fable** — F5.4: the gate-portal phase tests travelled to `ambition_platformer2d_world::rooms::gate_portal`.
 - **fable** — **the F9.2 IR-consolidation arc, families 1–6, CLOSED.** Interactables → pickups → chests → breakables were Tier-0 MOVES into `entity_catalog::placements` (one pure type, no schema/world mirror). Portals were the deliberate `Vec2` exception, done as a Tier-0 `PortalSchema` mirror whose lowering DERIVES the face center from the record's `aabb.center()`. Hazards closed the arc: `convert_damage_volume` now LIFTS a legacy inline `motion: KinematicPath` to a synthesized room-level path (`{iid}__inline_motion`) referenced by `path_id`, behavior-preserving. **`RoomSpec` carries zero typed per-family Vecs, there are zero typed spawn loops, and the dual-emit guard is DELETED — `placements` is the sole authored-entity channel.** A future authored family adds ONE `PlacementSchema` variant + one lowering interpreter.
-- **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
+- **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition_platformer2d` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
 - **Jon** — the CC6 content-side host adapter committed. (`c9ef23d8`)
 - **opus** — bookkeeping. **Playbook exit 5 rewritten** from a comparison against a
   never-recorded baseline into four measured, absolute, ratchetable rebuild loops;
@@ -507,7 +507,7 @@ renderer, and now it does not.
   (aborts restore); `Ok(None)` (content gone) → `Unapplied` (denies `lossless()`);
   `Ok(Some)` → `Applied` after `finish()`. `resolve` now decodes the whole blob before
   the content lookup, so truncation is detected even when the content is present. Fully
-  contained in `ambition_runtime` (only `MovePlayback` impls the trait). Poison test
+  contained in `ambition_platformer2d_runtime` (only `MovePlayback` impls the trait). Poison test
   `a_truncated_resolved_blob_is_a_decode_failure_not_a_content_change` (red-before: the
   old `Option` reported `Unapplied`). Narrower residual named: cursor/resolved codecs
   still can't be preflighted standalone. netcode.md §4 + audit doc + tracks-row updated.

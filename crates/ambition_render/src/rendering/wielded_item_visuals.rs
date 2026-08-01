@@ -11,8 +11,8 @@ use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::HostileWieldedItemsView;
@@ -112,8 +112,8 @@ pub struct WieldedItemVisual;
 pub fn sync_wielded_item_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     catalog: Res<WieldedItemVisualCatalog>,

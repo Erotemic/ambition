@@ -25,10 +25,10 @@
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
-use ambition::engine_core as ae;
-use ambition::platformer::camera_layers::MainCamera;
-use ambition::platformer::gameplay_presentation::ResolvedGameplayPresentation;
-use ambition::sim_view::camera_snapshot::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::camera_layers::MainCamera;
+use ambition_platformer2d::platformer::gameplay_presentation::ResolvedGameplayPresentation;
+use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
 };
 
@@ -146,7 +146,7 @@ fn assert_one_coherent_layout(app: &mut App, display: ae::Vec2, label: &str) {
 
 fn player_exists(app: &mut App) -> bool {
     app.world_mut()
-        .query::<&ambition::platformer::body::BodyKinematics>()
+        .query::<&ambition_platformer2d::platformer::body::BodyKinematics>()
         .iter(app.world())
         .next()
         .is_some()
@@ -196,7 +196,7 @@ fn fixed_tick_sanic_keeps_one_layout_across_a_resize() {
 /// second render-frame test wearing a fixed-tick label.
 #[test]
 fn the_sanic_demo_really_runs_the_sim_in_fixed_update() {
-    use ambition::platformer::schedule::SimScheduleExt as _;
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt as _;
     let app = sanic_app(DISPLAY);
     assert!(
         app.sim_is_fixed_tick(),

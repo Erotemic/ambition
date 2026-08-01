@@ -2,10 +2,10 @@
 //!
 //! Pure-Rust pixels — no GPU, no windowing, no asset tree — so it runs anywhere
 //! the crate compiles. It is the geometry half of seeing a room, in the tradition
-//! of `ambition_actors`' `render_room_geometry` example, and it exists separately
+//! of `ambition_platformer2d_actor_monolith`' `render_room_geometry` example, and it exists separately
 //! for two reasons that are both findings:
 //!
-//! 1. **that example is bound to `ambition_actors`' own room list**, so a demo
+//! 1. **that example is bound to `ambition_platformer2d_actor_monolith`' own room list**, so a demo
 //!    cannot render its own stage with it at all; and
 //! 2. **nothing in the tree draws BLAST MARGINS.** Every existing renderer draws
 //!    what a body can stand on. On this stage the interesting geometry is the
@@ -22,14 +22,14 @@
 //! which made that bin's `main` dead code inside the other one, and said so as a
 //! warning on every build.
 
-use ambition::engine_core::AabbExt;
+use ambition_platformer2d::engine_core::AabbExt;
 
 const WIDTH: u32 = 480;
 const HEIGHT: u32 = 320;
 
 /// One fighter, as the diagram draws it.
 pub struct DrawnFighter {
-    pub aabb: ambition::engine_core::Aabb,
+    pub aabb: ambition_platformer2d::engine_core::Aabb,
     /// Damage percent — `1.88` is 188%, and the bar is allowed past full for
     /// exactly that reason.
     pub percent: f32,
@@ -149,7 +149,7 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
 /// A minimal PNG: signature, IHDR, one STORED-deflate IDAT, IEND.
 ///
 /// Hand-rolled for the same reason the external-consumer fixture hand-rolls one
-/// — this crate's dependency rule is `ambition` + `ambition_demo_smash` + `bevy`,
+/// — this crate's dependency rule is `ambition_platformer2d` + `ambition_demo_smash` + `bevy`,
 /// and reaching for an encoder to draw five rectangles would spend the rule this
 /// crate exists to hold.
 fn encode_png(pixels: &[[u8; 4]]) -> Vec<u8> {

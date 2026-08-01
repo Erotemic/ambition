@@ -15,7 +15,7 @@ use bevy::prelude::*;
 /// SAME [`SanicExperiencePlugin`] powers direct entry and launcher relaunch.
 ///
 /// Headless-foundation here; a windowed shell swaps that one call for
-/// `DefaultPlugins` + `ambition::engine::init_engine_states`.
+/// `DefaultPlugins` + `ambition_platformer2d::engine::init_engine_states`.
 pub fn build_demo_app() -> App {
     build_demo_app_with_home(ambition_demo_sanic::SANIC_LAUNCHER_ROUTE)
 }
@@ -27,9 +27,9 @@ pub fn build_demo_app() -> App {
 /// host declared — the provider never names either launcher.
 pub fn build_demo_app_with_home(home_route: &str) -> App {
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
     // host/dev capability later; it is inherited here, not a Sanic ability.
@@ -50,19 +50,19 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
     // The seven standard host steps, plus the one thing this demo actually
     // decides: its launcher speaks, so the frontend context carries the three
     // menu cues instead of the bare default.
-    ambition::provider::ShellComposition::new(
+    ambition_platformer2d::provider::ShellComposition::new(
         ambition_demo_sanic::SANIC_EXPERIENCE,
         home_route,
         SANIC_GAMEPLAY_ROUTE,
     )
     .with_frontend_audio(
-        ambition::audio::selection::FrontendAudioProfile::new(
+        ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
             ambition_demo_sanic::SANIC_EXPERIENCE,
         )
         .with_sfx([
-            ambition::sfx::ids::UI_MENU_MOVE,
-            ambition::sfx::ids::UI_MENU_ACCEPT,
-            ambition::sfx::ids::UI_MENU_BACK,
+            ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+            ambition_platformer2d::sfx::ids::UI_MENU_BACK,
         ]),
     )
     .install(app, SanicExperiencePlugin);
@@ -93,7 +93,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 
     let mut app = App::new();
     if matches!(render, RenderMode::Headless) {
-        app.insert_resource(ambition::audio::AudioOutputMode::Recording);
+        app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
     }
     let asset_root = desktop_asset_root();
     eprintln!("sanic_demo: asset root = {asset_root}");
@@ -143,9 +143,9 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                 .disable::<bevy::winit::WinitPlugin>(),
         ),
     };
-    ambition::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    ambition_platformer2d::engine::init_engine_states(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
     // host/dev capability later; it is inherited here, not a Sanic ability.
@@ -162,7 +162,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // no world manifest: a world-less catalog contributes no world rows and
     // every other entry still lands.
     app.add_plugins(
-        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
+        ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_sanic::SANIC_EXPERIENCE,
         )
         // Startup binding precedes activation, so the theme (and the skybridge
@@ -174,11 +174,11 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
     // chain. No HUD, no menus, no dev stack — those are the GAME's.
     app.insert_resource(ClearColor(Color::srgb(0.025, 0.045, 0.09)));
-    app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+    app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
     // The engine's opt-in F1 debug visualizations (collision blocks, surface
     // chains + normals, rebound vectors, read-model body/feature boxes).
     // Shapes only — no dev HUD. Starts OFF; press F1 in-game.
-    app.add_plugins(ambition::render::rendering::debug_viz::DebugVizPlugin::default());
+    app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
 
     // Windowed hosts use the physical Kira backend; headless presentation
     // hosts select the device-free recording backend before this shared audio
@@ -192,22 +192,22 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// and the room's skybridge parallax stack.
 #[cfg(feature = "visible")]
 fn load_sanic_game_assets(
-    config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition::actors::character_sprites::AuthoredSheets>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
-    catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    config: Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>,
+    character_catalog: Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    catalog: Res<ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
+    mut game_assets: ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
 ) {
     // Startup asset binding precedes gameplay activation in the shared host, so
     // derive the presentation theme from Sanic's immutable authored world rather
     // than reaching for a not-yet-published live session root. Runtime consumers
     // still read the exact `SessionRoot` components after activation.
     let authored_room = ambition_demo_sanic::sanic_session_world().metadata;
-    *game_assets = ambition::actors::assets::game_assets::load_game_assets(
+    *game_assets = ambition_platformer2d::actors::assets::game_assets::load_game_assets(
         &config,
         &character_catalog,
         &authored_sheets,
@@ -247,17 +247,17 @@ fn install_sanic_audio(app: &mut App) {
     // standalone app contributes only its provider catalogs and resident asset
     // library; selection, intent priority, playback state, channels, and the
     // director are installed once by `SandboxAudioPlugin`.
-    app.add_plugins(ambition::actors::audio::SandboxAudioPlugin)
+    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin)
         .add_systems(
             Startup,
-            setup_sanic_audio_library.in_set(ambition::actors::schedule::PresentationSetupSet),
+            setup_sanic_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
         );
 }
 
 #[cfg(feature = "visible")]
 fn setup_sanic_audio_library(
     mut commands: Commands,
-    catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    catalogs: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
 ) {
     let music = catalogs
@@ -266,7 +266,7 @@ fn setup_sanic_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_sanic::SANIC_EXPERIENCE)
         .expect("Sanic provider registered its App-local SFX catalog");
-    let (library, music_state) = ambition::audio::library::AudioLibrary::new_with_playback_state(
+    let (library, music_state) = ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
         &mut audio_sources,
         sfx,
         music,
@@ -294,7 +294,7 @@ fn desktop_asset_root() -> String {
         return "assets".to_string();
     }
     let shared_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../crates/ambition_actors/assets");
+        .join("../../crates/ambition_platformer2d_actor_monolith/assets");
     match shared_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),
@@ -324,8 +324,8 @@ mod tests {
     #[test]
     fn headless_demo_uses_the_device_free_recording_audio_backend() {
         let app = super::build_windowed_demo_app(super::RenderMode::Headless);
-        let backend = app.world().resource::<ambition::audio::AudioBackendState>();
-        assert_eq!(backend.mode, ambition::audio::AudioOutputMode::Recording);
+        let backend = app.world().resource::<ambition_platformer2d::audio::AudioBackendState>();
+        assert_eq!(backend.mode, ambition_platformer2d::audio::AudioOutputMode::Recording);
         assert!(!backend.device_backend_installed);
     }
 
@@ -365,7 +365,7 @@ mod tests {
         let declared: Vec<String> = {
             let assets = app
                 .world()
-                .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+                .resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>();
             assets
                 .characters
                 .declared_character_ids()
@@ -387,7 +387,7 @@ mod tests {
         {
             let mut demand =
                 app.world_mut()
-                    .resource_mut::<ambition::actors::character_runtime::CharacterLoadDemand>();
+                    .resource_mut::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
             for (character_id, _) in forms {
                 demand.request(character_id);
             }
@@ -396,17 +396,17 @@ mod tests {
 
         let states = app
             .world()
-            .resource::<ambition::actors::character_runtime::CharacterLoadStates>();
+            .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>();
         for (character_id, sheet_stem) in forms {
             assert_eq!(
                 states.outcome(character_id),
-                Some(ambition::actors::character_runtime::CharacterLoadOutcome::Ready),
+                Some(ambition_platformer2d::actors::character_runtime::CharacterLoadOutcome::Ready),
                 "published {sheet_stem}.png + .ron must materialize for {character_id}"
             );
         }
         let assets = app
             .world()
-            .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+            .resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>();
         for (character_id, _) in forms {
             assert!(
                 assets.characters.sheet(character_id).is_some(),

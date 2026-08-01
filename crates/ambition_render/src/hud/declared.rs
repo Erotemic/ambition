@@ -5,9 +5,9 @@
 //! HUD without a core edit. This module draws whatever the ACTIVE ROUTE
 //! declared instead, and knows nothing about what any of it means: it spawns
 //! one text node per
-//! [`HudSlotSpec`](ambition_platformer_primitives::gameplay_presentation::HudSlotSpec)
+//! [`HudSlotSpec`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec)
 //! and mirrors the matching
-//! [`HudReadouts`](ambition_platformer_primitives::gameplay_presentation::HudReadouts)
+//! [`HudReadouts`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts)
 //! entry into it every frame. "RINGS", "SCORE", "TIME" are strings a game
 //! writes; none of them appear here.
 //!
@@ -17,11 +17,11 @@
 //! gameplay. No layout negotiation: a readout knows its own size.
 //!
 //! [`hud_region`]:
-//!     ambition_platformer_primitives::gameplay_presentation::ResolvedGameplayPresentation::hud_region
+//!     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation::hud_region
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::{
+use ambition_platformer2d_shared_tangle::{
     gameplay_presentation::{
         ActiveHudDeclaration, HudFigure, HudReadouts, HudSlotId, HudSlotSpec,
         ResolvedGameplayPresentation, ScreenOccluder, ScreenRect, SurroundRegion,
@@ -425,14 +425,14 @@ impl Plugin for DeclaredHudPlugin {
                 // Consumes THIS frame's resolved HUD regions, so a profile
                 // that reserves surround actually gets the readouts put there.
                 place_declared_hud.after(
-                    ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
                 ),
                 // AFTER the placer: a gauge tracks its slot's live position, so
                 // it has to read the position this frame settled on.
                 update_declared_hud_gauges.after(place_declared_hud),
             )
                 .chain()
-                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
     }
 }
@@ -440,7 +440,7 @@ impl Plugin for DeclaredHudPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::gameplay_presentation::{
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         HudDeclaration, HudLayoutPolicy, NamedScreenRect,
     };
 

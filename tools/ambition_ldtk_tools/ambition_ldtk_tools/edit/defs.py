@@ -84,7 +84,7 @@ VALIDATOR = PKG_DIR / "validate.py"
 RUNTIME_RS = (
     REPO_ROOT
     / "crates"
-    / "ambition_actors"
+    / "ambition_platformer2d_actor_monolith"
     / "src"
     / "world"
     / "ldtk_world"

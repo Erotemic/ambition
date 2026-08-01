@@ -1,18 +1,18 @@
 //! Ambition world-seam adapter for the in-flight portal shot.
 //!
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
-//! [`SolidWorldQuery`](ambition_actors::platformer_runtime::collision::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_platformer2d_actor_monolith::platformer_runtime::collision::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
-//! fizzles, without ever reading the concrete `ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>`. This adapter owns
-//! the concrete world — it reads `ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>`, calls the helper per shot, and
+//! fizzles, without ever reading the concrete `ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>`. This adapter owns
+//! the concrete world — it reads `ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>`, calls the helper per shot, and
 //! applies the [`PortalShotStep`] outcome (entity spawn/despawn + sfx). Moving
 //! the `RoomGeometry` read here keeps portal core's projectile step content-free.
 
 use bevy::prelude::*;
 
-use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_engine_core::RoomGeometry;
-use ambition_portal::{
+use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_portal2d::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalShot, PortalShotStep, PortalShotWorld,
 };
 
@@ -23,7 +23,7 @@ use ambition_portal::{
 /// range / out of bounds / on a non-placeable surface (the rejection buzz).
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,

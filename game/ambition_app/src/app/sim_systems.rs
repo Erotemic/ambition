@@ -1,10 +1,10 @@
 //! Host-bound simulation systems that CANNOT move down to a library plugin.
 //!
 //! The body-generic input/timer/dev systems that used to live here folded into
-//! their owning `ambition::actors` modules (C4): `input_timer_system`,
-//! `interaction_input_system`, `cleanup_timers_system` → `ambition::actors::avatar`;
-//! `sync_live_player_dev_edits_system` → `ambition::actors::dev`;
-//! `apply_suspended_time_scale_system` → `ambition::actors::time::time_control`.
+//! their owning `ambition_platformer2d::actors` modules (C4): `input_timer_system`,
+//! `interaction_input_system`, `cleanup_timers_system` → `ambition_platformer2d::actors::avatar`;
+//! `sync_live_player_dev_edits_system` → `ambition_platformer2d::actors::dev`;
+//! `apply_suspended_time_scale_system` → `ambition_platformer2d::actors::time::time_control`.
 //! The host schedule (`super::plugins::register_player_input_systems`) still owns
 //! their ordering + `run_if` gates and references those moved `pub fn`s.
 //!
@@ -13,29 +13,29 @@
 //! because the button binding is Ambition's, not the engine's.
 //!
 //! Its former neighbour, the `RoomReplayRequested` consumer, moved to
-//! [`ambition::runtime::sandbox_reset`] (2026-07-21, tracks §2.5). Both called
+//! [`ambition_platformer2d::runtime::sandbox_reset`] (2026-07-21, tracks §2.5). Both called
 //! `reset_sandbox`, which was the stated reason they were stuck here — but
 //! `reset_sandbox` was only app-local by accident of the module it sat in, and
 //! the replay consumer is engine-generic (it names no content and no Ambition
 //! input). Leaving it here meant the standalone demo binaries, which depend on
-//! `ambition` but never on `ambition_app`, had no consumer at all.
+//! `ambition_platformer2d` but never on `ambition_app`, had no consumer at all.
 //!
 //! This system is a narrow query/resource system registered in the
 //! [`SandboxSet::CoreSimulation`] chain configured by
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition::actors::time::feel::SandboxFeelTuning;
-use ambition::actors::time::time_control::ClockResetRequest;
-use ambition::actors::SandboxSimState;
-use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition::engine_core::RoomGeometry;
-use ambition::input::ControlFrame;
-use ambition::sfx::SfxWriter;
-use ambition::vfx::VfxMessage;
+use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::time::time_control::ClockResetRequest;
+use ambition_platformer2d::actors::SandboxSimState;
+use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::sfx::SfxWriter;
+use ambition_platformer2d::vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
 /// and execute the full sandbox reset before the rest of the gameplay
@@ -55,7 +55,7 @@ use ambition::vfx::VfxMessage;
 /// reset input.
 pub fn apply_player_reset_input_system(
     mut control_frame: ResMut<ControlFrame>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
@@ -66,18 +66,18 @@ pub fn apply_player_reset_input_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
-            &mut ambition::actors::actor::BodyAnimFacts,
-            &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::avatar::PlayerBlinkCameraState,
-            &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::avatar::PlayerSafetyState,
+            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::actors::actor::BodyMelee,
+            &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
         ),
-        ambition::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     // Reset zeroes the local controller's slot gestures (reset/save identity is a
     // sanctioned PrimaryPlayer concern).
-    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_platformer2d::actors::control::SlotInteractionState>,
 ) {
     if !control_frame.reset_pressed {
         return;
@@ -100,7 +100,7 @@ pub fn apply_player_reset_input_system(
     control_frame.reset_pressed = false;
 
     let mut clusters = cluster_item.as_clusters_mut();
-    ambition::runtime::reset_sandbox(
+    ambition_platformer2d::runtime::reset_sandbox(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,

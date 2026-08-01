@@ -6,7 +6,7 @@
 //! fallback-friendly loading behavior without forcing the room renderer through
 //! an external API.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::camera::visibility::RenderLayers;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -14,13 +14,13 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use super::primitives::RoomVisual;
-use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
+use ambition_platformer2d_core::config::{WINDOW_H, WINDOW_W};
 use ambition_persistence::settings::ParallaxBudget;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
-use ambition_world::rooms::RoomMetadata;
+use ambition_platformer2d_world::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ParallaxLayerVisual {
@@ -127,7 +127,7 @@ pub fn spawn_parallax_layers(
                     asset: spec.asset,
                 },
                 RenderLayers::layer(
-                    ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER,
+                    ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
                 ),
                 RoomVisual,
                 Name::new(format!(
@@ -145,7 +145,7 @@ pub fn spawn_parallax_layers(
 /// `Single` params were always satisfied — that host's session root carries both.
 /// Installing it engine-side (S12) ran it in compositions whose root carries
 /// neither, and a `Single` that matches nothing is a system-param VALIDATION
-/// PANIC, not a skip: eight tests across `ambition_host` and both consumer
+/// PANIC, not a skip: eight tests across `ambition_platformer2d_host` and both consumer
 /// fixtures died on *"Resource does not exist"* with the system name compiled
 /// out. A world with no room geometry has no parallax to refresh, which is an
 /// ordinary state and not an error.
@@ -153,12 +153,12 @@ pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     world: Option<
-        ambition_platformer_primitives::lifecycle::SessionWorldRef<
-            ambition_engine_core::RoomGeometry,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_core::RoomGeometry,
         >,
     >,
     room_set: Option<
-        ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -225,7 +225,7 @@ pub fn ensure_active_room_parallax_theme(
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     room_set: Option<
-        ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     mut attempted: Local<Vec<ParallaxTheme>>,
 ) {
@@ -273,7 +273,7 @@ pub fn sync_parallax_layers(
     camera: Query<
         &Transform,
         (
-            With<ambition_platformer_primitives::camera_layers::MainCamera>,
+            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
         ),
     >,
@@ -300,7 +300,7 @@ pub fn sync_portal_capture_parallax_layers(
         Without<PortalCaptureParallaxLayerVisual>,
     >,
     rigs: Query<
-        (Entity, &ambition_portal_presentation::PortalViewRig),
+        (Entity, &ambition_portal2d_presentation::PortalViewRig),
         Without<PortalCaptureParallaxLayerVisual>,
     >,
     mut copies: Query<(
@@ -422,7 +422,7 @@ mod theme_load_tests {
     use super::*;
     use ambition_asset_manager::profile::AssetProfile;
     use ambition_asset_manager::sandbox_assets::SandboxAssetCatalog;
-    use ambition_platformer_primitives::lifecycle::{SessionRoot, SessionScopeId};
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
 
     /// Trusts packaging rather than the filesystem — `AndroidBundle` is the
     /// profile whose `should_attempt_resolved_load` is unconditionally true, so
@@ -437,18 +437,18 @@ mod theme_load_tests {
     }
 
     /// One room, in a biome that is deliberately NOT the engine's default.
-    fn room_set_in(theme_key: &str) -> ambition_world::rooms::RoomSet {
-        let mut room = ambition_world::rooms::RoomSpec::new(
+    fn room_set_in(theme_key: &str) -> ambition_platformer2d_world::rooms::RoomSet {
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
             "second_biome",
-            ambition_engine_core::World::new(
+            ambition_platformer2d_core::World::new(
                 "second_biome",
-                ambition_engine_core::Vec2::new(640.0, 480.0),
-                ambition_engine_core::Vec2::new(16.0, 16.0),
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
                 Vec::new(),
             ),
         );
         room.metadata.visual_profile.parallax_theme = Some(theme_key.to_string());
-        ambition_world::rooms::RoomSet::from_parts("second_biome", vec![room], Vec::new())
+        ambition_platformer2d_world::rooms::RoomSet::from_parts("second_biome", vec![room], Vec::new())
     }
 
     /// **The theme the ACTIVE room asks for is loaded by whoever presents it.**
@@ -507,7 +507,7 @@ mod theme_load_tests {
     /// place, and only when you walk.
     #[test]
     fn the_backdrop_follows_the_camera_in_a_composition_that_is_not_the_app() {
-        use ambition_platformer_primitives::camera_layers::MainCamera;
+        use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);

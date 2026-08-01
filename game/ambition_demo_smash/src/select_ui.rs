@@ -110,7 +110,7 @@ pub fn despawn_select_ui(mut commands: Commands, roots: Query<Entity, With<Smash
 
 pub fn update_select_ui(
     select: Res<SmashSelect>,
-    devices: Option<Res<ambition::input::LocalDeviceOrder>>,
+    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     mut panels: Query<(&SmashSeatPanel, &mut Text, &mut Node), Without<SmashSelectPrompt>>,
     mut prompt: Query<&mut Text, With<SmashSelectPrompt>>,
 ) {

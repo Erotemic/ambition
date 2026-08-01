@@ -23,8 +23,8 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
 
 use ambition_demo_sanic_app::{build_windowed_demo_app, RenderMode};
 
@@ -75,7 +75,7 @@ fn ui_node_count(app: &mut App) -> usize {
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition::presentation::DeclaredHudRoot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition_platformer2d::presentation::DeclaredHudRoot>>();
     query.iter(app.world()).count()
 }
 
@@ -93,7 +93,7 @@ fn engine_owned_ui_node_count(app: &mut App) -> usize {
 fn declared_hud_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudSlot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition_platformer2d::presentation::DeclaredHudSlot>>();
     query.iter(app.world()).count()
 }
 
@@ -115,7 +115,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
     let room_visuals = {
         let mut q = app
             .world_mut()
-            .query::<&ambition::platformer::lifecycle::RoomVisual>();
+            .query::<&ambition_platformer2d::platformer::lifecycle::RoomVisual>();
         q.iter(app.world()).count()
     };
     assert!(
@@ -133,7 +133,7 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
 
     assert!(
         app.world()
-            .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+            .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>()
             .is_some(),
         "the standalone demo must use the shared GameAssets loader, not an app-local sprite path"
     );
@@ -197,8 +197,8 @@ fn the_demo_spawns_a_renderable_player_sprite() {
 
     let visible_players = {
         let mut q = app.world_mut().query_filtered::<
-            (&ambition::render::rendering::PlayerSpriteCharacter, &Sprite),
-            With<ambition::platformer::lifecycle::PlayerVisual>,
+            (&ambition_platformer2d::render::rendering::PlayerSpriteCharacter, &Sprite),
+            With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
         >();
         q.iter(app.world())
             .filter(|(bound, _)| bound.id == "sanic")
@@ -218,14 +218,14 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
 
     {
         let mut q = app.world_mut().query_filtered::<
-            &mut ambition::characters::actor::WornCharacter,
-            With<ambition::actors::actor::PrimaryPlayer>,
+            &mut ambition_platformer2d::characters::actor::WornCharacter,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         >();
         let mut worn = q
             .iter_mut(app.world_mut())
             .next()
             .expect("the visible demo spawned its canonical player");
-        *worn = ambition::characters::actor::WornCharacter::new(
+        *worn = ambition_platformer2d::characters::actor::WornCharacter::new(
             ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
         );
     }
@@ -233,8 +233,8 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
 
     let rebound = {
         let mut q = app.world_mut().query_filtered::<
-            &ambition::render::rendering::PlayerSpriteCharacter,
-            With<ambition::platformer::lifecycle::PlayerVisual>,
+            &ambition_platformer2d::render::rendering::PlayerSpriteCharacter,
+            With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
         >();
         q.iter(app.world())
             .any(|bound| bound.id == ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID)
@@ -255,14 +255,14 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
     let cameras = {
         let mut q = app
             .world_mut()
-            .query_filtered::<Entity, With<ambition::platformer::camera_layers::MainCamera>>();
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::camera_layers::MainCamera>>();
         q.iter(app.world()).count()
     };
     assert_eq!(cameras, 1, "exactly one main camera");
 
     assert!(
         app.world()
-            .get_resource::<ambition::platformer::camera_layers::MainCameraEntity>()
+            .get_resource::<ambition_platformer2d::platformer::camera_layers::MainCameraEntity>()
             .is_some(),
         "`MainCameraEntity` must be published — the host's camera-follow and the \
          portal viewer both resolve the camera through it"
@@ -275,7 +275,7 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 ///
 /// It asserts on `bevy_ui` nodes rather than on named resources, because the
 /// naming test I first wrote was WRONG: `SandboxDevState` looked app-local and is
-/// in fact ENGINE state (`commit_room_transition_geometry` writes it, and `ambition_runtime`
+/// in fact ENGINE state (`commit_room_transition_geometry` writes it, and `ambition_platformer2d_runtime`
 /// re-exports it as a host seam). A demo carrying it is correct. A demo carrying
 /// Ambition's HUD is not, and a UI node is what a HUD is made of.
 #[test]
@@ -307,7 +307,7 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // `spawn_room_visuals` reads it to pick sprite variants.
     assert!(app
         .world()
-        .get_resource::<ambition::render::quality::ResolvedVisualQuality>()
+        .get_resource::<ambition_platformer2d::render::quality::ResolvedVisualQuality>()
         .is_some(),);
 }
 
@@ -427,7 +427,7 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
     let texts: Vec<String> = {
         let mut query = app
             .world_mut()
-            .query_filtered::<&bevy::prelude::Text, bevy::prelude::With<ambition::presentation::DeclaredHudRoot>>();
+            .query_filtered::<&bevy::prelude::Text, bevy::prelude::With<ambition_platformer2d::presentation::DeclaredHudRoot>>();
         query.iter(app.world()).map(|text| text.0.clone()).collect()
     };
     assert_eq!(texts.len(), 2, "both declared slots draw a text node");
@@ -468,7 +468,7 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
 /// visible and the one that had no guard for it.
 #[test]
 fn the_speedway_backdrop_follows_the_camera() {
-    use ambition::view::ParallaxLayerVisual;
+    use ambition_platformer2d::view::ParallaxLayerVisual;
 
     let mut app = drawn_demo();
     // ⚠ **PIN THE CLOCK.** A fixed-tick host without one runs a
@@ -514,9 +514,9 @@ fn the_speedway_backdrop_follows_the_camera() {
     // Hold right. The body accelerates down the speedway, the camera follows it,
     // and each layer follows the camera at its own factor.
     for _ in 0..240 {
-        ambition::sim::drive_control_frame(
+        ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
-            ambition::sim::ControlFrame {
+            ambition_platformer2d::sim::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
             },

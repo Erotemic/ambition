@@ -2,13 +2,13 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::demo_fixture::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::runtime::PreparedPlatformerSource;
-use ambition::world::rooms::RoomSpec;
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
+use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub const POCKET_EXPERIENCE: &str = "pocket";
 pub const POCKET_GAMEPLAY_ROUTE: &str = "pocket_gameplay";
@@ -66,21 +66,21 @@ pub fn pocket_room() -> RoomSpec {
     room
 }
 
-pub fn pocket_frontend_audio_profile() -> ambition::audio::selection::FrontendAudioProfile {
-    ambition::audio::selection::FrontendAudioProfile::new(POCKET_EXPERIENCE).with_sfx([
-        ambition::sfx::ids::UI_MENU_MOVE,
-        ambition::sfx::ids::UI_MENU_ACCEPT,
-        ambition::sfx::ids::UI_MENU_BACK,
+pub fn pocket_frontend_audio_profile() -> ambition_platformer2d::audio::selection::FrontendAudioProfile {
+    ambition_platformer2d::audio::selection::FrontendAudioProfile::new(POCKET_EXPERIENCE).with_sfx([
+        ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+        ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+        ambition_platformer2d::sfx::ids::UI_MENU_BACK,
     ])
 }
 
-fn cue(id: Option<&str>, frequency: f32) -> ambition::audio::spec::SfxSpec {
-    ambition::audio::spec::SfxSpec {
+fn cue(id: Option<&str>, frequency: f32) -> ambition_platformer2d::audio::spec::SfxSpec {
+    ambition_platformer2d::audio::spec::SfxSpec {
         cue: id
             .is_none()
-            .then_some(ambition::audio::spec::SoundCueKey::Jump),
+            .then_some(ambition_platformer2d::audio::spec::SoundCueKey::Jump),
         id: id.map(str::to_owned),
-        waveform: ambition::audio::spec::WaveformSpec::Square,
+        waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
         frequency,
         frequency_end: frequency * 1.25,
         duration: 0.08,
@@ -92,8 +92,8 @@ fn cue(id: Option<&str>, frequency: f32) -> ambition::audio::spec::SfxSpec {
 }
 
 pub fn install_pocket_content(app: &mut App) {
-    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition::characters::actor::character_catalog::{
+    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::characters::actor::character_catalog::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -124,7 +124,7 @@ pub fn install_pocket_content(app: &mut App) {
     // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
     // exist in this repository at all, so even the legacy path had nothing to load.
     {
-        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
                 .with_sheet("super_mary_o")
@@ -142,7 +142,7 @@ pub fn install_pocket_content(app: &mut App) {
         AudioCatalogFragment::new(
             POCKET_EXPERIENCE,
             None,
-            Some(ambition::audio::spec::SfxRegistry {
+            Some(ambition_platformer2d::audio::spec::SfxRegistry {
                 sample_rate: 44_100,
                 sfx: vec![
                     cue(None, 520.0),
@@ -170,7 +170,7 @@ impl Plugin for PocketExperiencePlugin {
             AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE)
                 .with_procedural_sfx(),
         )
-        .with_loading_activity(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
+        .with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
         .install(app, pocket_prepared_session_world);
     }
 }
@@ -193,7 +193,7 @@ fn pocket_prepared_session_world() -> PreparedPlatformerSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::game_shell::{
+    use ambition_platformer2d::game_shell::{
         MinimalShellPlugins, ShellExperienceId, ShellExperienceRegistry, ShellRouteCatalog,
         ShellRouteId,
     };
@@ -202,7 +202,7 @@ mod tests {
     fn standalone_host_composes_the_same_provider_plugin() {
         let mut app = App::new();
         app.add_plugins(MinimalShellPlugins);
-        app.add_plugins(ambition::load::AmbitionLoadPlugin);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
         app.insert_resource(pocket_frontend_audio_profile());
         app.add_plugins(PocketExperiencePlugin);
         let registration = app
@@ -220,7 +220,7 @@ mod tests {
             .is_some());
         let authored = app
             .world()
-            .resource::<ambition::provider::PlatformerAuthoredCatalogRegistry>()
+            .resource::<ambition_platformer2d::provider::PlatformerAuthoredCatalogRegistry>()
             .get(POCKET_EXPERIENCE)
             .expect("standalone host sees Pocket's authoritative authored catalogs");
         assert_eq!(authored.starting_character, POCKET_CHARACTER_ID);
@@ -231,11 +231,11 @@ mod tests {
         assert!(!authored.expects_packed_sfx);
         let loading = app
             .world()
-            .resource::<ambition::load_presentation::ShellLoadPresentationCatalog>()
+            .resource::<ambition_platformer2d::load_presentation::ShellLoadPresentationCatalog>()
             .for_route(&ShellRouteId::new(POCKET_GAMEPLAY_ROUTE));
         assert_eq!(
             loading.activity.as_ref().map(|activity| activity.as_str()),
-            Some(ambition::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID),
+            Some(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID),
             "provider authoring selects the reusable load activity without host wiring",
         );
     }

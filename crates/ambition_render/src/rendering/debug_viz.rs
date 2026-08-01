@@ -24,14 +24,14 @@
 
 use ambition_dev_tools::dev_tools::DeveloperTools;
 use ambition_dev_tools::SandboxDevState;
-use ambition_engine_core as ae;
-use ambition_engine_core::config::world_to_bevy;
-use ambition_engine_core::{AabbExt, RoomGeometry};
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_platformer_primitives::lifecycle::{session_world_exists, SessionWorldRef};
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::config::world_to_bevy;
+use ambition_platformer2d_core::{AabbExt, RoomGeometry};
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::{session_world_exists, SessionWorldRef};
 use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
-use ambition_world::collision::MovingPlatformSet;
-use ambition_world::platforms::MovingPlatformState;
+use ambition_platformer2d_world::collision::MovingPlatformSet;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -339,10 +339,10 @@ pub fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major
 /// Lightweight coarse grid drawn straight through gizmos. Used when
 /// `hide_sprites` strips the authored sprite grid so the player still has a
 /// spatial reference. Spacing matches
-/// [`ambition_engine_core::config::GRID_STEP`] (the same step the sprite grid
+/// [`ambition_platformer2d_core::config::GRID_STEP`] (the same step the sprite grid
 /// uses).
 pub fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
-    let step = ambition_engine_core::config::GRID_STEP;
+    let step = ambition_platformer2d_core::config::GRID_STEP;
     if step <= 0.0 {
         return;
     }
@@ -478,7 +478,7 @@ impl Plugin for DebugVizPlugin {
     fn build(&self, app: &mut App) {
         // Thin-host safety: the shared sim stack normally owns these, but the
         // plugin must not panic in a host that draws without it.
-        app.add_message::<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>();
+        app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
         app.init_resource::<SandboxDevState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
@@ -517,12 +517,12 @@ impl Plugin for DebugVizPlugin {
 /// F1 flips the shared debug flag — the same seam the sandbox's hotkeys and
 /// the portal debug overlay bridge read.
 pub fn toggle_debug_viz(
-    mut actions: MessageReader<ambition_platformer_primitives::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
     mut dev_state: ResMut<SandboxDevState>,
 ) {
     if actions.read().any(|action| {
         *action
-            == ambition_platformer_primitives::developer_hotkeys::DeveloperAction::ToggleDebugOverlay
+            == ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction::ToggleDebugOverlay
     }) {
         dev_state.debug = !dev_state.debug;
     }
@@ -550,7 +550,7 @@ pub fn draw_debug_viz(
     bodies: Query<(&BodyPoseView, Option<&ambition_sim_view::PresentedPose>)>,
     // The live gravity, for the blast-zone lines. `Option` because headless and
     // test apps do not insert it, and "down" is the honest fallback there.
-    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -561,7 +561,7 @@ pub fn draw_debug_viz(
         draw_blast_zones(
             &mut gizmos,
             world,
-            ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref()),
+            ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref()),
         );
     }
     if developer_tools.show_world_blocks {

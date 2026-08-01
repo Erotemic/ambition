@@ -1,0 +1,185 @@
+//! `SnapshotState` for this crate's own types — the rollback wire format.
+//!
+//! ⚠ These impls live HERE, beside the types they encode, because
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
+//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
+//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
+//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
+//! orphan rule is what proves this file is in the right crate: if a type moves,
+//! this stops compiling rather than drifting.
+//!
+//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//! decode must stay in the same order, and `snapshot_unit_enum!` codes are
+//! authored per variant so inserting one never renumbers the rest.
+
+use ambition_platformer2d_core::snapshot::{
+    put_f32, put_i32, put_str, put_u64, put_u8, put_vec2,
+    Reader, SnapshotState,
+};
+use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
+
+impl SnapshotState for crate::lifecycle::RoomScopedEntity {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
+
+impl SnapshotState for crate::lifecycle::SessionScopedEntity {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0 .0);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(
+            crate::lifecycle::SessionScopeId(r.u64()?),
+        ))
+    }
+}
+
+
+
+snapshot_pod!(crate::orientation::ActorRoll { angle: f32 });
+
+impl SnapshotState for crate::sim_id::SimId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.as_str());
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::sim_id::SimId::from_snapshot(r.str()?.to_string()))
+    }
+}
+
+/// Provenance is snapshot state, not derived state.
+///
+/// A blob-rebuilt entity has to be able to say where it came from, because that
+/// is precisely when nothing else can: its spawner may itself have been rebuilt,
+/// and the room that authored it is long past. This is the durable fact that
+/// replaced splitting a `/`-delimited parent out of the entity's own `SimId`.
+impl SnapshotState for crate::construction::TransactionId {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.as_str());
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self::from_raw(r.str()?.to_owned()))
+    }
+}
+
+impl SnapshotState for crate::construction::SpawnOrigin {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::construction::SpawnOrigin as O;
+        match self {
+            O::Authored { source, instance } => {
+                put_u8(out, 0);
+                put_str(out, source);
+                put_str(out, instance);
+            }
+            O::ProviderStaged {
+                provider,
+                room,
+                instance,
+            } => {
+                put_u8(out, 1);
+                put_str(out, provider);
+                put_str(out, room);
+                put_str(out, instance);
+            }
+            O::Dynamic { parent, sequence } => {
+                put_u8(out, 2);
+                put_str(out, parent.as_str());
+                put_u64(out, *sequence);
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use crate::construction::SpawnOrigin as O;
+        use crate::sim_id::SimId;
+        Some(match r.u8()? {
+            0 => O::Authored {
+                source: r.str()?.to_string(),
+                instance: r.str()?.to_string(),
+            },
+            1 => O::ProviderStaged {
+                provider: r.str()?.to_string(),
+                room: r.str()?.to_string(),
+                instance: r.str()?.to_string(),
+            },
+            2 => O::Dynamic {
+                parent: SimId::from_snapshot(r.str()?.to_string()),
+                sequence: r.u64()?,
+            },
+            _ => return None,
+        })
+    }
+}
+
+impl SnapshotState for crate::sim_id::SimIdCounter {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::sim_id::SimIdCounter(
+            r.u64()?,
+        ))
+    }
+}
+
+snapshot_unit_enum!(crate::projectile::WorldHitPolicy {
+    Bouncing = 0,
+    ExpireOnContact = 1,
+});
+
+impl SnapshotState for crate::projectile::ProjectileGameplay {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.age);
+        put_f32(out, self.max_lifetime);
+        put_f32(out, self.gravity);
+        put_i32(out, self.damage);
+        put_u8(out, self.bounces_remaining);
+        self.world_hit.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            age: r.f32()?,
+            max_lifetime: r.f32()?,
+            gravity: r.f32()?,
+            damage: r.i32()?,
+            bounces_remaining: r.u8()?,
+            world_hit: crate::projectile::WorldHitPolicy::decode(r)?,
+        })
+    }
+}
+
+impl SnapshotState for crate::time::SimDt {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.dt);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dt: r.f32()? })
+    }
+}
+
+impl SnapshotState for crate::gravity::BaseGravity {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.dir);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dir: r.vec2()? })
+    }
+}
+
+impl SnapshotState for crate::gravity::GravityField {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.dir);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self { dir: r.vec2()? })
+    }
+}

@@ -25,7 +25,7 @@ NpcSpawn declares — fine for a gallery pedestal.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools.synth_boss_manifest \\
-    crates/ambition_actors/assets/sprites/gnu_ton_boss/gnu_ton_boss_spritesheet_manifest.json
+    crates/ambition_platformer2d_actor_monolith/assets/sprites/gnu_ton_boss/gnu_ton_boss_spritesheet_manifest.json
 ```
 
 Writes `<target>_spritesheet.ron` next to the JSON.

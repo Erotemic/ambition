@@ -21,8 +21,8 @@
 //!
 //! `ResolvedCombatTuning` has to live at or below `ambition_combat`, because
 //! `on_hit`, `hitbox` and `targeting` are its readers. Its INPUTS do not both
-//! live there — `di_max_angle` belongs to `ambition_actors`' feel tuning — so
-//! the projection system lives in `ambition_actors`, one layer up, where both
+//! live there — `di_max_angle` belongs to `ambition_platformer2d_actor_monolith`' feel tuning — so
+//! the projection system lives in `ambition_platformer2d_actor_monolith`, one layer up, where both
 //! inputs are visible. Ownership travels down with the type; the fold happens
 //! where the facts are.
 

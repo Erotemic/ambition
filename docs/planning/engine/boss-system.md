@@ -93,7 +93,7 @@ installs its own bosses as data (via the `BOSS_*` / `ENCOUNTER_WAVE_BOOK` instal
 ## Pointers
 
 `ambition_characters/src/boss_encounter.rs` (`ActorPhaseState`), HP on the body's
-`BodyHealth`, the `BossPattern` brain, `ambition_actors/src/features/ecs/damage/boss_hit.rs` (`record_boss_damage`).
+`BodyHealth`, the `BossPattern` brain, `ambition_platformer2d_actor_monolith/src/features/ecs/damage/boss_hit.rs` (`record_boss_damage`).
 The blast radius of a registry change is ~15 files across machinery / characters / app /
 content — run the boss lifecycle tests after.
 

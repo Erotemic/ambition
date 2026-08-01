@@ -1,12 +1,12 @@
 //! `SnapshotCursor` for this crate's own types — the rollback checksum wire.
 //!
 //! ⚠ One impl, and it is here only because the orphan rule put it here. It was
-//! written in `ambition_runtime` against `ambition_actors`' RE-EXPORT of the
+//! written in `ambition_platformer2d_runtime` against `ambition_platformer2d_actor_monolith`' RE-EXPORT of the
 //! type, which reads as if actors owned it; the definition is in this crate.
 //! The doc comment below was already arguing that the type is misfiled — the
 //! carve did not discover that, it inherited it.
 
-use ambition_engine_core::snapshot::{put_bool, put_f32, put_u32, put_u8, SnapshotCursor};
+use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_u32, put_u8, SnapshotCursor};
 
 /// **The boss's animation cursor** — sim-owned, and gameplay geometry reads it.
 ///

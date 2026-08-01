@@ -16,7 +16,7 @@ use bevy::prelude::{Entity, Resource};
 
 use crate::content::DialogChoice;
 use crate::context::DialogueContext;
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 use ambition_ui_nav::MenuFocusState;
 
 #[cfg(feature = "ui")]

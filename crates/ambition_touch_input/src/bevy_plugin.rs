@@ -310,9 +310,9 @@ impl Plugin for TouchControlsPlugin {
                     // the menu consumers read it.
                     fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
-                        .after(ambition_actors::schedule::populate_menu_control_frame_from_actions)
-                        .before(ambition_actors::schedule::apply_menu_frame_to_cutscene_request)
-                        .before(ambition_actors::schedule::MenuNavConsume),
+                        .after(ambition_platformer2d_actor_monolith::schedule::populate_menu_control_frame_from_actions)
+                        .before(ambition_platformer2d_actor_monolith::schedule::apply_menu_frame_to_cutscene_request)
+                        .before(ambition_platformer2d_actor_monolith::schedule::MenuNavConsume),
                 )
                     .chain(),
             )
@@ -339,9 +339,9 @@ impl Plugin for TouchControlsPlugin {
                     // wins over the blanket setting mirror rather than racing it.
                     sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
                     update_button_glyph_from_active_input
-                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
                     update_button_pressed_from_actions
-                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
                         .after(update_button_verb_from_prompt)
                         .after(update_button_glyph_from_active_input)
@@ -541,12 +541,12 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
 /// inverse mapping, so labels move only when the active mapping policy says that
 /// a different raw joystick direction now means local U/D/L/R.
 fn position_frame_axis_glyphs(
-    gravity: Option<Res<ambition_actors::physics::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_actor_monolith::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
-    use ambition_engine_core::{AccelerationFrame, InputFrameMode};
-    let gdir = ambition_actors::physics::gravity_dir_or_default(gravity.as_deref());
+    use ambition_platformer2d_core::{AccelerationFrame, InputFrameMode};
+    let gdir = ambition_platformer2d_actor_monolith::physics::gravity_dir_or_default(gravity.as_deref());
     let mode = user_settings
         .as_deref()
         .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {
@@ -562,7 +562,7 @@ fn position_frame_axis_glyphs(
         let on_input = frame
             .raw_axis_for_resolved_input(
                 mode,
-                ambition_engine_core::LocalAxes::from_vec(glyph.local_axis),
+                ambition_platformer2d_core::LocalAxes::from_vec(glyph.local_axis),
             )
             .vec();
         node.left = Val::Px(center.x + on_input.x * radius - 7.0);
@@ -1239,7 +1239,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> Option<SandboxAc
 /// [`KeyboardPreset`] (from settings), so HUD glyphs follow a rebind
 /// instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
-    active: Res<ambition_actors::affordances::ActiveInputMethod>,
+    active: Res<ambition_platformer2d_actor_monolith::affordances::ActiveInputMethod>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
@@ -1262,7 +1262,7 @@ pub fn update_button_glyph_from_active_input(
         let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
             continue;
         };
-        let next = ambition_actors::affordances::glyph_for(sa, &preset, bound, active.0);
+        let next = ambition_platformer2d_actor_monolith::affordances::glyph_for(sa, &preset, bound, active.0);
         if glyph.0 != next {
             glyph.0 = next;
         }
@@ -1895,7 +1895,7 @@ mod prompt_tests {
         app.world_mut()
             .resource_mut::<crate::placement::TouchControlPlacement>()
             .movement = Some(
-            ambition_platformer_primitives::gameplay_presentation::ScreenRect::from_min_size(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect::from_min_size(
                 Vec2::new(40.0, 300.0),
                 Vec2::new(160.0, 160.0),
             ),

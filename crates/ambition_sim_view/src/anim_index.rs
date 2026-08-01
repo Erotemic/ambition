@@ -4,12 +4,12 @@
 
 use bevy::prelude::{Query, ResMut, Resource};
 
-use ambition_actors::features::{
+use ambition_platformer2d_actor_monolith::features::{
     boss_anim_state_for, ActorAnimOverride, ActorConfig, ActorStatus, BodyKinematics, BodyMelee,
     FeatureId,
 };
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::character::CharacterAnim;
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
@@ -18,7 +18,7 @@ use ambition_sprite_sheet::character::CharacterAnim;
 /// declare `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
 ///
 /// All fields are required (not `Option`): every spawned actor carries the full
-/// [`ambition_actors::actor::AncillaryMovementBundle`] (the same bundle the player nests)
+/// [`ambition_platformer2d_actor_monolith::actor::AncillaryMovementBundle`] (the same bundle the player nests)
 /// plus `ActorStatus` / `ActorConfig` / `BodyMelee`, so an entity that is missing
 /// any of them — a boss (its own cluster + anim path) or a prop — correctly does
 /// not match and is skipped, instead of half-resolving from a sparse read. This
@@ -33,21 +33,21 @@ pub struct ActorSpriteData {
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub config: &'static ActorConfig,
     pub attack: &'static BodyMelee,
-    pub ground: &'static ambition_actors::actor::BodyGroundState,
+    pub ground: &'static ambition_platformer2d_actor_monolith::actor::BodyGroundState,
     /// The published semantic movement facts (ADR 0024) — maneuver reads
     /// (dash/blink/wall/ledge/dodge/glide) come from here, never from policy
     /// internals.
     pub motion_facts: &'static ae::BodyMotionFacts,
-    pub flight: &'static ambition_actors::actor::BodyFlightState,
-    pub body_mode: &'static ambition_actors::actor::BodyModeState,
-    pub env_contact: &'static ambition_actors::actor::BodyEnvironmentContact,
-    pub abilities: &'static ambition_actors::actor::BodyAbilities,
-    pub shield: &'static ambition_actors::actor::BodyShieldState,
+    pub flight: &'static ambition_platformer2d_actor_monolith::actor::BodyFlightState,
+    pub body_mode: &'static ambition_platformer2d_actor_monolith::actor::BodyModeState,
+    pub env_contact: &'static ambition_platformer2d_actor_monolith::actor::BodyEnvironmentContact,
+    pub abilities: &'static ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+    pub shield: &'static ambition_platformer2d_actor_monolith::actor::BodyShieldState,
     /// Movement-driven presentation overlays (wall-jump / dash-startup / landing /
     /// shoot poses), shared with the player. `Option` so an actor spawned without
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
-    pub anim: Option<&'static ambition_actors::actor::BodyAnimFacts>,
+    pub anim: Option<&'static ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
     /// Content-driven pose PIN. When present it wins over the picked pose — a
     /// content state machine (e.g. a shelled enemy's withdraw cycle) uses it to
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
@@ -120,7 +120,7 @@ impl ActorAnimIndex {
 
 /// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
 /// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
-/// uses ([`ambition_actors::character_sprites::pick_actor_anim`] → `body_view_from_body`).
+/// uses ([`ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim`] → `body_view_from_body`).
 /// One path, disposition-agnostic: an enemy and an NPC animate from identical
 /// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
@@ -130,7 +130,7 @@ impl ActorAnimIndex {
 pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
     index.begin_rebuild();
     for a in &actors {
-        let anim = ambition_actors::character_sprites::pick_actor_anim(
+        let anim = ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
             a.motion_facts,
@@ -140,7 +140,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
             a.abilities,
             a.shield,
             a.attack.swing.as_ref(),
-            ambition_actors::character_sprites::ActorAnimState {
+            ambition_platformer2d_actor_monolith::character_sprites::ActorAnimState {
                 alive: a.health.alive(),
                 hit_flash: a.combat.hit_flash > 0.0,
                 // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
@@ -198,7 +198,7 @@ pub struct BossFrameIndex {
 
 #[derive(Clone, Copy, Debug)]
 pub struct BossFrameView {
-    pub anim: ambition_actors::boss_encounter::sprites::BossAnimState,
+    pub anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimState,
     /// The SIM-owned draw cursor (`BossAnimFrame`), published by id so the
     /// render's draw-only [`BossAnimator`] can mirror the advancing frame WITHOUT
     /// borrowing the sim entity's component. The render's `FeatureVisual` entity
@@ -206,7 +206,7 @@ pub struct BossFrameView {
     /// the frame — like every other sim→render fact — has to cross the boundary
     /// through this read-model. `drive_boss_animators` advances the cursor earlier
     /// in the sim tick; this captures its current value.
-    pub cursor_anim: ambition_actors::boss_encounter::sprites::BossAnim,
+    pub cursor_anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim,
     pub cursor_frame: usize,
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
@@ -259,7 +259,7 @@ pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
     bosses: Query<(
         &FeatureId,
-        ambition_actors::features::BossClusterRef,
+        ambition_platformer2d_actor_monolith::features::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -269,10 +269,10 @@ pub fn rebuild_boss_frame_index(
         // FeatureViewSync rebuild), so we read the CURRENT frame and publish it for
         // the render mirror. `Option` so a boss fixture spawned without the anim
         // cursor still lands in the index (it just draws Rest frame 0).
-        Option<&ambition_actors::boss_encounter::sprites::BossAnimFrame>,
+        Option<&ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimFrame>,
     )>,
 ) {
-    use ambition_actors::boss_encounter::sprites::BossAnim;
+    use ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
@@ -293,7 +293,7 @@ pub fn rebuild_boss_frame_index(
         );
         let hazard_lane = if health.alive() && (in_telegraph || in_strike) {
             let boss = feature.as_boss_ref();
-            ambition_actors::features::volumes_for_profile(
+            ambition_platformer2d_actor_monolith::features::volumes_for_profile(
                 &BossAttackProfile::Strike("hazard_column".to_string()),
                 boss.kin.pos,
                 boss.combat_size(),

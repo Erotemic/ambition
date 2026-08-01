@@ -52,7 +52,7 @@ Takeaways:
 
 ## 2026-07-19: Trimming one crate's bevy features broke three others — feature unification had been hiding missing declarations
 
-Symptom: giving `ambition_menu` `default-features = false` (it had been requesting bevy's full defaults, which fed pbr/gltf/audio/winit into *every* workspace build) made three previously-green isolated builds fail — `ambition_platformer_primitives` with 26 `cannot find type KeyCode`, and `ambition_game_shell` / `ambition_load_presentation` with `winit: The platform you're compiling for is not supported`.
+Symptom: giving `ambition_menu` `default-features = false` (it had been requesting bevy's full defaults, which fed pbr/gltf/audio/winit into *every* workspace build) made three previously-green isolated builds fail — `ambition_platformer2d_shared_tangle` with 26 `cannot find type KeyCode`, and `ambition_game_shell` / `ambition_load_presentation` with `winit: The platform you're compiling for is not supported`.
 
 Root cause: none of the three declared the bevy feature it actually used (`bevy_input_focus`; a display backend for the winit that `ui_api` transitively pulls). They compiled only because Cargo unifies features across the graph, and one untrimmed dependency was silently donating the superset to everyone. `ambition_dialog` and `ambition_audio` already carried the `x11` declaration with a comment explaining exactly this, so the trap was known — just not swept for.
 
@@ -131,7 +131,7 @@ Benchmark candidate: `dev/benchmark-candidates/swept-parallel-graze-far-edge-dep
 
 ## 2026-05-21: Bevy file watcher EMFILE is `inotify_instances`, not `max_user_watches`
 
-Reported during the intro-v1 polish session: `cargo run -p ambition_actors --bin ambition_game_bin` on the user's host failed with `Failed to create file watcher from path "…/crates/ambition_actors/assets", Error { kind: Io(Os { code: 24, kind: Uncategorized, message: "Too many open files" }), paths: [] }`. First guess (in the original developer-tools doc patch) was that `max_user_watches` was exhausted by the ~320 files in `crates/ambition_actors/assets/`. The user immediately falsified that — `cat /proc/sys/fs/inotify/max_user_watches → 65536` — and confirmed that removing `bevy/file_watcher` from the default `dev_tools` feature resolved the error.
+Reported during the intro-v1 polish session: `cargo run -p ambition_platformer2d_actor_monolith --bin ambition_game_bin` on the user's host failed with `Failed to create file watcher from path "…/crates/ambition_platformer2d_actor_monolith/assets", Error { kind: Io(Os { code: 24, kind: Uncategorized, message: "Too many open files" }), paths: [] }`. First guess (in the original developer-tools doc patch) was that `max_user_watches` was exhausted by the ~320 files in `crates/ambition_platformer2d_actor_monolith/assets/`. The user immediately falsified that — `cat /proc/sys/fs/inotify/max_user_watches → 65536` — and confirmed that removing `bevy/file_watcher` from the default `dev_tools` feature resolved the error.
 
 The actual scarce resource on Linux for `inotify_init()` is `max_user_instances` — the count of inotify INSTANCES a user may hold open simultaneously across every program they're running. The default is **128** on most distros (Ubuntu, Fedora, Arch at time of writing). VSCode language servers, file managers, sync clients (Dropbox, Syncthing), browser dev tools, watch-mode test runners, and so on each take one or more inotify instances. By the time the user hits `cargo run` on a Bevy app, the cap is already close to exhausted; Bevy's watcher tries `inotify_init()`, the syscall returns errno 24 (EMFILE), and `notify` surfaces it as `Too many open files`.
 
@@ -148,7 +148,7 @@ Rule for the next agent looking at this error message: `code: 24` from `notify` 
 
 ## 2026-05-21: Area-spec `world_x` can drift from the live LDtk; treat the live file as truth
 
-While building out the intro-v1 vertical slice (Task 02 reshape of `intro_escape_shaft`) the area spec `tools/ambition_ldtk_tools/specs/intro_escape_shaft_area.yaml` carried `world_x: 104000`, but the live `crates/ambition_actors/assets/ambition/worlds/intro.ldtk` had `worldX: 2624`. Inspecting the other intro specs found the same drift across all five of them (`100000 / 102000 / 104000 / 106000 / 108000`), so a previous repo refactor had moved the intro levels in the live LDtk without re-applying the specs.
+While building out the intro-v1 vertical slice (Task 02 reshape of `intro_escape_shaft`) the area spec `tools/ambition_ldtk_tools/specs/intro_escape_shaft_area.yaml` carried `world_x: 104000`, but the live `crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/intro.ldtk` had `worldX: 2624`. Inspecting the other intro specs found the same drift across all five of them (`100000 / 102000 / 104000 / 106000 / 108000`), so a previous repo refactor had moved the intro levels in the live LDtk without re-applying the specs.
 
 If you re-apply such a drifted spec with `area create --replace-existing --ldtk intro.ldtk`, the tool obediently authors the level at the spec's stale coordinates and leaves a duplicate-or-misplaced level far away from the active intro strip. The runtime keeps using the original level by `level_id`, so the failure mode is silent: tests still pass, validation still passes, but the LDtk editor view looks weird and the next area-create on a different room produces overlap errors against the misplaced ghost.
 
@@ -162,7 +162,7 @@ Adjacent tooling gap discovered: `tileset add-layer` errored out instead of bein
 
 ## 2026-05-11: Movement split broke extension-trait scope and `Self: Sized` assumptions
 
-A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_engine_core/src/movement/mod.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.
+A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_platformer2d_core/src/movement/mod.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.
 
 The first handoff mistake was the command itself:
 
@@ -199,7 +199,7 @@ Benchmark candidate: [`dev/benchmark-candidates/rust-questions.md`](../benchmark
 
 ## 2026-05-10: Movement-snap probes must validate world bounds, not just intra-block clearance
 
-[`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine_core/src/ledge_grab/mod.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
+[`ambition_engine::probe_ledge_grab`](../../crates/ambition_platformer2d_core/src/ledge_grab/mod.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
 
 The visible symptom was a teleport-loop trapping the player in the goblin encounter:
 
@@ -218,7 +218,7 @@ When debugging similar teleport-loops: read the F8 trace's event list for paired
 
 ## 2026-05-10: Enemies and NPCs share the player's collision semantics via `KinematicBody`
 
-The sandbox used to ship per-actor collision predicates `blocked` / `blocked_y` in `crates/ambition_actors/src/features/util.rs` that diverged from `ambition_engine::movement::sweep_player_y` in a load-bearing way: OneWay platforms always blocked vertical motion regardless of approach direction. Symptoms downstream:
+The sandbox used to ship per-actor collision predicates `blocked` / `blocked_y` in `crates/ambition_platformer2d_actor_monolith/src/features/util.rs` that diverged from `ambition_engine::movement::sweep_player_y` in a load-bearing way: OneWay platforms always blocked vertical motion regardless of approach direction. Symptoms downstream:
 
 - A hostile NPC (e.g. the kernel guide that turns into a goblin after three strikes) could not chase the player through a one-way platform. The goblin stood on top of the platform forever while the player fell through it.
 - Free-falling enemies could become wedged on top of one-way platforms even when they should have walked off the edge, because the predicate didn't expose `prev_bottom` for the landing-from-above check.
@@ -250,7 +250,7 @@ The runtime stitches by activeArea, so this is not a cosmetic warning — the wa
 Quick check for a destination's activeArea:
 
 ```bash
-grep -B1 -A1 '"identifier": "central_hub_main"' crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk \
+grep -B1 -A1 '"identifier": "central_hub_main"' crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/sandbox.ldtk \
   | head -2
 # Then look for the level's "activeArea" field instance below.
 ```
@@ -268,7 +268,7 @@ Reaching for `sed` or the `Edit` tool is the wrong muscle: the file's `realEdito
 
 ## 2026-05-10: Calibrate `CharacterSheetSpec.collision_scale` against the generator's `body_pixel_bbox` fraction
 
-`build_character_sprite` in `crates/ambition_actors/src/character_sprites/sheets.rs` (historical path) sizes the rendered quad as `collision.max() * collision_scale`. The visible body inside that quad is determined by the generator's frame layout: how much of `frame_height × frame_width` is opaque body pixels.
+`build_character_sprite` in `crates/ambition_platformer2d_actor_monolith/src/character_sprites/sheets.rs` (historical path) sizes the rendered quad as `collision.max() * collision_scale`. The visible body inside that quad is determined by the generator's frame layout: how much of `frame_height × frame_width` is opaque body pixels.
 
 Robot/Goblin sheets use `collision_scale: 2.1` because their generator leaves big transparent margins (the silhouette occupies maybe 60% of the frame). Copying `2.1` for a generator like `absurd_general` whose `body_pixel_bbox` covers ~95% of the frame produces a sprite ~2× too tall — the General towers above the player.
 
@@ -326,7 +326,7 @@ I suggested `adb install --no-stream`, but the target device rejected it as an u
 
 ### Overlay patches must not clobber platform entrypoints
 
-A later Android usability overlay replaced `crates/ambition_actors/src/lib.rs` from a source snapshot that did not contain the Android shared-library entry point. The APK still built and installed, but launch failed with:
+A later Android usability overlay replaced `crates/ambition_platformer2d_actor_monolith/src/lib.rs` from a source snapshot that did not contain the Android shared-library entry point. The APK still built and installed, but launch failed with:
 
 ```text
 UnsatisfiedLinkError: dlopen failed: cannot locate symbol "android_main" referenced by libambition_actors.so
@@ -630,10 +630,10 @@ Three coordinated invariants:
    `ControlFrame` is left intact.
 
 Regression tests live in
-[`crates/ambition_actors/tests/crouch_stability.rs`](../../game/ambition_app/tests/crouch_stability.rs)
+[`crates/ambition_platformer2d_actor_monolith/tests/crouch_stability.rs`](../../game/ambition_app/tests/crouch_stability.rs)
 (held Down for 30 frames must stay Crouching with per-frame `pos.y`
 delta < 5 px) and
-`fold_held_down_without_edge_flag_does_not_fire_down_pressed` (historical path: `crates/ambition_actors/src/mobile_input.rs`)
+`fold_held_down_without_edge_flag_does_not_fire_down_pressed` (historical path: `crates/ambition_platformer2d_actor_monolith/src/mobile_input.rs`)
 (pins the touch path).
 
 ### Takeaway
@@ -695,7 +695,7 @@ signal can't latch across frames. `SandboxRuntime::reset` clears it
 defensively.
 
 Regression test
-[`morph_ball_does_not_fire_from_control_frame_alone`](../../crates/ambition_actors/src/body_mode/mod.rs)
+[`morph_ball_does_not_fire_from_control_frame_alone`](../../crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs)
 sets `controls.fast_fall_pressed = true` directly on the resource and
 asserts the driver does **not** enter MorphBall. The negative
 assertion pins the seam.
@@ -800,7 +800,7 @@ state explicitly:
 
 ### Fix
 
-Two coordinated changes in `crates/ambition_actors/src/music/director.rs`:
+Two coordinated changes in `crates/ambition_platformer2d_actor_monolith/src/music/director.rs`:
 
 1. `resume_simple_music` takes `set_mode_to_simple_track: bool`.
    `drive_outro_tail` passes `false` (still in `AdaptiveOutro`
@@ -827,7 +827,7 @@ a closure inside `drive_adaptive_cue_state` it would need the
 whole Bevy `App` + audio channels + asset server to drive.
 
 Regression tests live in
-[`crates/ambition_actors/src/music/tests.rs`](../../crates/ambition_actors/src/music/tests.rs)
+[`crates/ambition_platformer2d_actor_monolith/src/music/tests.rs`](../../crates/ambition_platformer2d_actor_monolith/src/music/tests.rs)
 under `should_restart_adaptive_*`.
 
 ### Takeaway
@@ -968,7 +968,7 @@ y-range being nested inside the block's y-range — independent of
 x-overlap — and catches edge-touching and penetrating side contacts
 uniformly. The integration test
 `square_arena_wall_cling_full_world_does_not_teleport` in
-`crates/ambition_actors/tests/repro_walls.rs` replays the live
+`crates/ambition_platformer2d_actor_monolith/tests/repro_walls.rs` replays the live
 trace pose against the actual square_arena world; the unit test
 `body_is_side_contact_classifies_walls_vs_floors` pins the
 predicate against floor-landing, top-corner-landing, and ceiling-
@@ -1024,7 +1024,7 @@ plugin-spawned entity instances are invisible markers only.
 ### Fix
 
 ```rust
-// crates/ambition_actors/src/app.rs
+// crates/ambition_platformer2d_actor_monolith/src/app.rs
 .insert_resource(LdtkSettings {
     level_background: LevelBackground::Nonexistent,
     int_grid_rendering: IntGridRendering::Invisible,  // <-- this
@@ -1224,10 +1224,10 @@ The Bash tool started returning "the temp filesystem at /tmp/claude-*/.../tasks 
 
 ### Root cause
 Two separable things were conflated:
-1. The **claude task-output files** (`/tmp/claude-*/<session>/tasks/*.output`) accumulate the *full* stdout/stderr of every command — and a backgrounded `cargo test -p ambition_actors --all-targets` writes a huge log. A few of those fill the small partition backing `/tmp`, after which *any* command's output capture fails with ENOSPC even though the command itself ran.
+1. The **claude task-output files** (`/tmp/claude-*/<session>/tasks/*.output`) accumulate the *full* stdout/stderr of every command — and a backgrounded `cargo test -p ambition_platformer2d_actor_monolith --all-targets` writes a huge log. A few of those fill the small partition backing `/tmp`, after which *any* command's output capture fails with ENOSPC even though the command itself ran.
 2. `df` reporting the virtiofs root as 100% is partly host-side (guest `rm` of a 1.8G dir did not move the `df` number), so chasing guest-side frees is a dead end.
 
-Crucially, **cargo incremental builds kept working the whole time** — a `cargo build -p ambition_actors --lib` finished in ~5s and `cargo test --lib` ran fine. The build dir (`~/ambition-target`, 19G) writes deltas without issue.
+Crucially, **cargo incremental builds kept working the whole time** — a `cargo build -p ambition_platformer2d_actor_monolith --lib` finished in ~5s and `cargo test --lib` ran fine. The build dir (`~/ambition-target`, 19G) writes deltas without issue.
 
 ### Fix / workaround
 - Do **not** `run_in_background` heavy cargo commands; their output logs are what fill `/tmp`.
@@ -1347,7 +1347,7 @@ Warnings are config-relative, not absolute. A "clean" fix under one feature set 
 
 ---
 
-**Date:** 2026-07-10. **Context:** Sanic's ball dash needed the momentum kernel's airborne "local right" axis (`ambition_engine_core::surface`). Reading it exposed a sign error; fixing the sign turned a green test red and exposed a *second*, worse bug underneath.
+**Date:** 2026-07-10. **Context:** Sanic's ball dash needed the momentum kernel's airborne "local right" axis (`ambition_platformer2d_core::surface`). Reading it exposed a sign error; fixing the sign turned a green test red and exposed a *second*, worse bug underneath.
 
 ### Transferable lesson — two bugs can hold each other up, and a green suite proves nothing about the code no test *reads*
 - **Bug 1:** `step_airborne` built its side axis as `tangent_of(gravity)`. A floor's normal is `-gravity`, so the axis was exactly negated: **holding right in mid-air accelerated a momentum body left.** The suite had airborne tests — ballistic arcs, landings, ceiling bonks — but **not one of them held a direction while airborne.** Coverage of a function is not coverage of its *parameters*.

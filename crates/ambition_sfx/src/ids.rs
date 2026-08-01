@@ -12,7 +12,7 @@
 //! python3 tools/ambition_sfx_pack/pack.py --dump
 //! ```
 //!
-//! and grep `crates/ambition_actors/assets/audio/sfx.bank.txt`.
+//! and grep `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank.txt`.
 //!
 //! # Why a macro
 //!

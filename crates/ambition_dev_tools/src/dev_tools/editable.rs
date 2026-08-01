@@ -2,10 +2,10 @@
 //! systems that mirror their edits into the running player clusters.
 
 use super::*;
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-/// Reflected mirror of `ambition_engine_core::AbilitySet` for live inspector editing.
+/// Reflected mirror of `ambition_platformer2d_core::AbilitySet` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableAbilitySet {
@@ -109,7 +109,7 @@ impl Default for EditableAbilitySet {
     }
 }
 
-/// Reflected mirror of `ambition_engine_core::MovementTuning` for live inspector editing.
+/// Reflected mirror of `ambition_platformer2d_core::MovementTuning` for live inspector editing.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditableMovementTuning {
@@ -312,10 +312,10 @@ pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut player_q: Query<
         (
-            &mut ambition_engine_core::BodyKinematics,
-            &mut ambition_engine_core::BodyBaseSize,
+            &mut ambition_platformer2d_core::BodyKinematics,
+            &mut ambition_platformer2d_core::BodyBaseSize,
         ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     let desired = developer.player_body_profile.size();
@@ -340,7 +340,7 @@ pub fn sync_developer_body_profile(
 /// [`sync_developer_body_profile`], which runs every frame, so the menu caller
 /// does not need to hold a `&mut BodyBaseSize`.
 pub fn apply_player_body_profile(
-    kinematics: &mut ambition_engine_core::BodyKinematics,
+    kinematics: &mut ambition_platformer2d_core::BodyKinematics,
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();
@@ -359,9 +359,9 @@ pub fn apply_movement_profile(
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
     live_movement_refs: Option<(
-        &ambition_engine_core::BodyAbilities,
-        &mut ambition_engine_core::BodyDashState,
-        &mut ambition_engine_core::BodyJumpState,
+        &ambition_platformer2d_core::BodyAbilities,
+        &mut ambition_platformer2d_core::BodyDashState,
+        &mut ambition_platformer2d_core::BodyJumpState,
     )>,
 ) {
     let tuning = profile.tuning();
@@ -376,11 +376,11 @@ pub fn apply_movement_profile(
 /// Mutates `BodyAbilities` + side-effects on `BodyFlightState`,
 /// `MotionModel`, `BodyDashState`, and `BodyJumpState` directly.
 pub fn sync_live_ability_edits_clusters(
-    abilities: &mut ambition_engine_core::BodyAbilities,
-    flight: &mut ambition_engine_core::BodyFlightState,
-    model: &mut ambition_engine_core::MotionModel,
-    dash: &mut ambition_engine_core::BodyDashState,
-    jump: &mut ambition_engine_core::BodyJumpState,
+    abilities: &mut ambition_platformer2d_core::BodyAbilities,
+    flight: &mut ambition_platformer2d_core::BodyFlightState,
+    model: &mut ambition_platformer2d_core::MotionModel,
+    dash: &mut ambition_platformer2d_core::BodyDashState,
+    jump: &mut ambition_platformer2d_core::BodyJumpState,
     desired: ae::AbilitySet,
     tuning: ae::MovementTuning,
 ) {
@@ -395,7 +395,7 @@ pub fn sync_live_ability_edits_clusters(
         // Cancel any in-flight blink telegraph: hold/aim state is the axis
         // policy's private maneuver state (ADR 0024), so this deliberate
         // dev-tools poke goes through the model variant.
-        if let ambition_engine_core::MotionModel::AxisSwept(axis) = model {
+        if let ambition_platformer2d_core::MotionModel::AxisSwept(axis) = model {
             axis.state.blink_hold_active = false;
             axis.state.blink_hold_timer = 0.0;
             axis.state.blink_aiming = false;
@@ -480,14 +480,14 @@ pub fn sync_player_stats_with_inspector(
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         (
-            &mut ambition_engine_core::BodyMana,
-            &mut ambition_engine_core::BodyOffense,
+            &mut ambition_platformer2d_core::BodyMana,
+            &mut ambition_platformer2d_core::BodyOffense,
         ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut health_q: Query<
         &mut ambition_characters::actor::BodyHealth,
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     if !snapshot.initialized {

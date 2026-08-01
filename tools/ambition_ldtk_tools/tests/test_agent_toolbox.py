@@ -177,5 +177,5 @@ def test_room_spec_compile_paints_and_adds_entity() -> None:
         },
     )
     assert any("paint Collision" in line for line in report)
-    ambition = next(l for l in project["levels"][0]["layerInstances"] if l["__identifier"] == "Ambition")
+    ambition_platformer2d = next(l for l in project["levels"][0]["layerInstances"] if l["__identifier"] == "Ambition")
     assert any(e["__identifier"] == "PlayerStart" for e in ambition["entityInstances"])

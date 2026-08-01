@@ -11,6 +11,6 @@ if [[ ! -f game/ambition_app/web/index.html ]]; then
     exit 1
 fi
 
-rm -rf crates/ambition_actors/web
+rm -rf crates/ambition_platformer2d_actor_monolith/web
 
-echo "removed stale crates/ambition_actors/web bootstrap; web assets now live under game/ambition_app/web"
+echo "removed stale crates/ambition_platformer2d_actor_monolith/web bootstrap; web assets now live under game/ambition_app/web"

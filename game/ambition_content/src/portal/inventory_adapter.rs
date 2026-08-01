@@ -1,7 +1,7 @@
 //! Ambition inventory binding for the portal gun.
 //!
-//! Portal core owns the [`PortalGun`](ambition_portal::PortalGun) component and the
-//! [`PortalGunPickup`](ambition_portal::PortalGunPickup) body, but the *policy* of
+//! Portal core owns the [`PortalGun`](ambition_portal2d::PortalGun) component and the
+//! [`PortalGunPickup`](ambition_portal2d::PortalGunPickup) body, but the *policy* of
 //! how the Ambition player acquires / relinquishes the gun is content-specific:
 //!
 //! - equipping replaces the player's melee `Attack` (the same
@@ -12,30 +12,30 @@
 //!
 //! These translate the reusable [`PickUpPortalGun`] / [`DropPortalGun`] intents
 //! (emitted by the input adapter) and the [`PortalGunEquipped`] outcome into
-//! Ambition item state. The reusable portal core never imports `ambition_actors::items`,
+//! Ambition item state. The reusable portal core never imports `ambition_platformer2d_actor_monolith::items`,
 //! `StashedActionSet`, or `HeldItem`.
 
 use bevy::prelude::*;
 
 #[cfg(test)]
-use ambition_actors::actor::BodyBaseSize;
-use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::features::HeldItem;
-use ambition_actors::items::pickup::StashedActionSet;
-use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::features::HeldItem;
+use ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet;
+use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::brain::ActionSet;
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_items::{Item, OwnedItems};
-use ambition_platformer_primitives::markers::ControlledSubject;
-use ambition_portal::{
+use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_portal2d::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
 
 /// Facade: the menu-driven equip/unequip pair moved to
-/// [`ambition_actors::items::pickup`] (their bodies are pure item-equip
+/// [`ambition_platformer2d_actor_monolith::items::pickup`] (their bodies are pure item-equip
 /// machinery, the twins of `equip_held_spec` / `unequip_held`); the
 /// content adapter keeps the roster-policy systems below.
-pub use ambition_actors::items::pickup::{equip_portal_gun, unequip_portal_gun};
+pub use ambition_platformer2d_actor_monolith::items::pickup::{equip_portal_gun, unequip_portal_gun};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
 /// `PortalGun` (so `Attack` stops firing portals), restore the stashed melee,
@@ -162,7 +162,7 @@ pub fn pickup_portal_gun_system(
                 id: ambition_sfx::ids::PORTAL_POWERUP,
                 pos: kin.pos,
             });
-            bevy::log::info!(target: "ambition::portal", "picked up the portal gun");
+            bevy::log::info!(target: "ambition_platformer2d::portal", "picked up the portal gun");
             break;
         }
     }

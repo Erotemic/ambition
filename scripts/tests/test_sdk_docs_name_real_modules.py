@@ -1,11 +1,11 @@
-"""Every `ambition::` module the SDK's CODE BLOCKS name must actually exist.
+"""Every `ambition_platformer2d::` module the SDK's CODE BLOCKS name must actually exist.
 
 ⚠ **This is here because prose failed three times in four blind runs**, and each
 failure sent a third-party agent into `crates/`:
 
 * the README's "Known gaps" advertised gaps slices B and C had already closed;
-* `api-prototype.md` §5 published `ambition::experience`, which never existed;
-* §5 then DENIED `ambition::world::prelude` exists, after slice C shipped it —
+* `api-prototype.md` §5 published `ambition_platformer2d::experience`, which never existed;
+* §5 then DENIED `ambition_platformer2d::world::prelude` exists, after slice C shipped it —
   costing blind run 4 two engine crates, and making its headline finding a
   documentation defect rather than an API one.
 
@@ -15,7 +15,7 @@ documents, and this is that test.
 
 ## Why CODE BLOCKS only
 
-A doc that says "`ambition::experience` never existed" must not fail the guard
+A doc that says "`ambition_platformer2d::experience` never existed" must not fail the guard
 that verified it. That is the exact recurrence
 `scripts/check_absence_contracts.py` was built around, and its answer is the
 same one: strip the prose, check the code. What a reader COPIES is a fenced
@@ -48,14 +48,14 @@ REPO = Path(
 )
 
 _FENCED = re.compile(r"```[a-z]*\n(.*?)```", re.DOTALL)
-_MODULE = re.compile(r"\bambition::([a-z_][a-z0-9_]*)")
-# Declared in `crates/ambition/src/lib.rs` as either a real module or a crate
+_MODULE = re.compile(r"\bambition_platformer2d::([a-z_][a-z0-9_]*)")
+# Declared in `crates/ambition_platformer2d/src/lib.rs` as either a real module or a crate
 # re-export.
 _EXPORT = re.compile(r"^pub (?:mod|use ambition_[a-z_0-9]+ as) ([a-z_][a-z0-9_]*)", re.M)
 
 
 def facade_modules() -> set[str]:
-    lib = (REPO / "crates/ambition/src/lib.rs").read_text(encoding="utf-8")
+    lib = (REPO / "crates/ambition_platformer2d/src/lib.rs").read_text(encoding="utf-8")
     modules = set(_EXPORT.findall(lib))
     # `pub use bevy;` is the documented Bevy re-export and is not spelled like
     # the others.
@@ -92,7 +92,7 @@ def test_the_sdk_code_blocks_name_only_modules_that_exist():
     assert not missing, (
         "the SDK's code blocks name modules the facade does not export — a "
         f"reader copying them gets a compile error: {missing}. This is the "
-        "defect that shipped `ambition::experience` in api-prototype.md §5, a "
+        "defect that shipped `ambition_platformer2d::experience` in api-prototype.md §5, a "
         "list explicitly framed as an OUTPUT read off the call sites."
     )
 

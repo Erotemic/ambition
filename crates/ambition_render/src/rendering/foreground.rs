@@ -4,13 +4,13 @@
 //! are intentionally optional. If a generated PNG is absent, no fallback quad is
 //! spawned; foreground atmosphere should never become gameplay-critical.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
-use ambition_engine_core::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
-use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_core::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use ambition_sprite_sheet::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
@@ -33,7 +33,7 @@ pub struct ForegroundParallax {
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    spec: &ambition_world::rooms::RoomSpec,
+    spec: &ambition_platformer2d_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
     let Some(assets) = assets else {
@@ -91,7 +91,7 @@ pub fn sync_foreground_parallax(
     camera: Query<
         &Transform,
         (
-            With<ambition_platformer_primitives::camera_layers::MainCamera>,
+            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<ForegroundParallax>,
         ),
     >,

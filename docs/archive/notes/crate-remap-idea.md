@@ -4,15 +4,15 @@
 crates/
   ambition_engine/
   ambition_audio/
-  ambition_world/
+  ambition_platformer2d_world/
   ambition_ldtk/
   ambition_bevy/
   ambition_devtools/
-  ambition_actors/
+  ambition_platformer2d_actor_monolith/
   ambition_game/
 ```
 
-I would **not** add all of these at once. The first useful split is probably `ambition_audio`, then `ambition_world`/`ambition_ldtk`, then `ambition_bevy` when `ambition_game` is real.
+I would **not** add all of these at once. The first useful split is probably `ambition_audio`, then `ambition_platformer2d_world`/`ambition_ldtk`, then `ambition_bevy` when `ambition_game` is real.
 
 ## 1. `ambition_engine`
 
@@ -64,7 +64,7 @@ game startup playback
 
 Current docs already identify audio as a hard-coded area and say the next step is moving symbolic sound specs into `ambition_audio` if the sandbox audio layer becomes shared across game crates.  That is exactly where you are now: the sandbox and future game will both want generated tracks, tune previewing, SFX specs, and eventually different instruments.
 
-## 3. `ambition_world`
+## 3. `ambition_platformer2d_world`
 
 This is for runtime world topology, not LDtk file details.
 
@@ -81,7 +81,7 @@ non-Euclidean seam semantics
 reachability validation
 ```
 
-The current repo has LDtk as the sandbox world source, but it also has active-area composition, transition repair, room graph validity, loading-zone semantics, and hot reload behavior. Those should not be duplicated in `ambition_actors` and `ambition_game`.
+The current repo has LDtk as the sandbox world source, but it also has active-area composition, transition repair, room graph validity, loading-zone semantics, and hot reload behavior. Those should not be duplicated in `ambition_platformer2d_actor_monolith` and `ambition_game`.
 
 ## 4. `ambition_ldtk`
 
@@ -92,7 +92,7 @@ Owns:
 ```text
 LDtk parsing/validation
 Ambition LDtk entity definitions/field rules
-LDtk -> ambition_world / ambition_engine runtime data
+LDtk -> ambition_platformer2d_world / ambition_engine runtime data
 editor round-trip checks if moved from tools later
 ```
 
@@ -106,7 +106,7 @@ The current state says the sandbox RON is no longer the room/world owner; LDtk i
 
 ## 5. `ambition_bevy`
 
-This is the shared Bevy frontend layer used by both `ambition_actors` and `ambition_game`.
+This is the shared Bevy frontend layer used by both `ambition_platformer2d_actor_monolith` and `ambition_game`.
 
 Owns reusable Bevy integration:
 
@@ -149,9 +149,9 @@ music/tune debug panels
 feature lab tools
 ```
 
-The current docs explicitly say debug overlays should stay presentation-only and out of `ambition_engine`; the Bevy adapter should decide how to visualize deterministic engine state.  That can remain in `ambition_actors` for now, then move to `ambition_devtools` when the full game wants dev builds without inheriting every sandbox lab.
+The current docs explicitly say debug overlays should stay presentation-only and out of `ambition_engine`; the Bevy adapter should decide how to visualize deterministic engine state.  That can remain in `ambition_platformer2d_actor_monolith` for now, then move to `ambition_devtools` when the full game wants dev builds without inheriting every sandbox lab.
 
-## 7. `ambition_actors`
+## 7. `ambition_platformer2d_actor_monolith`
 
 After the split, this becomes thinner:
 
@@ -194,14 +194,14 @@ It should not copy movement, input mapping, Kira setup, LDtk semantics, room gra
 Move only pure audio/data/rendering things.
 
 ```text
-from ambition_actors:
+from ambition_platformer2d_actor_monolith:
   data audio structs
   procedural music/SFX renderer
   WAV preview writer
   tune validation
   tune preview tests
 
-stay in ambition_actors:
+stay in ambition_platformer2d_actor_monolith:
   Kira AudioLibrary
   MusicChannel / SfxChannel
   pause menu track switching
@@ -210,7 +210,7 @@ stay in ambition_actors:
 
 This is high-value because you are actively iterating on procedural music and instruments.
 
-### Phase 2: `ambition_world`
+### Phase 2: `ambition_platformer2d_world`
 
 Extract room graph and transition semantics that are not Bevy presentation.
 
@@ -227,12 +227,12 @@ Leave LDtk parsing where it is until the boundary is clearer.
 
 ### Phase 3: `ambition_ldtk`
 
-Move LDtk-specific validation/conversion once `ambition_world` exists.
+Move LDtk-specific validation/conversion once `ambition_platformer2d_world` exists.
 
 ```text
 LDtk native file
   -> ambition_ldtk validation/conversion
-  -> ambition_world topology
+  -> ambition_platformer2d_world topology
   -> ambition_engine collision/world data
 ```
 
@@ -256,6 +256,6 @@ camera/pause/settings foundations
 Then:
 
 ```text
-ambition_actors = lab content + debug UX
+ambition_platformer2d_actor_monolith = lab content + debug UX
 ambition_game    = campaign content + release UX
 ```

@@ -32,8 +32,8 @@ pub use components::*;
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in
-// `ambition_platformer_primitives::lifecycle` (ADR 0019).
-pub use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
+// `ambition_platformer2d_shared_tangle::lifecycle` (ADR 0019).
+pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 pub use hazard_runtime::*;
 pub use path_motion::*;
 
@@ -75,9 +75,9 @@ const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
 // Shared imports the module tree reaches via `use super::*` (the historical
 // combat/mod.rs surface, kept so the moved files stay byte-similar).
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 #[allow(unused_imports)]
-use ambition_platformer_primitives::lifecycle::RoomVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 #[allow(unused_imports)]
 use ambition_sfx::SfxMessage;
 #[allow(unused_imports)]
@@ -87,7 +87,7 @@ use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxM
 #[allow(unused_imports)]
 use bevy::prelude::*;
 
-use ambition_engine_core::{Aabb, AabbExt, KinematicPath, Vec2};
+use ambition_platformer2d_core::{Aabb, AabbExt, KinematicPath, Vec2};
 pub use ambition_entity_catalog::placements::DamageKind;
 use ambition_entity_catalog::placements::{DamageTeam, HazardRespawn};
 
@@ -250,7 +250,7 @@ impl AttackSpec {
     /// local side, up/down are away-from-feet/toward-feet. This conversion is the
     /// single runtime seam that turns those local values into world AABBs and
     /// impulses.
-    pub fn into_world_frame(mut self, frame: ambition_engine_core::AccelerationFrame) -> Self {
+    pub fn into_world_frame(mut self, frame: ambition_platformer2d_core::AccelerationFrame) -> Self {
         self.hitbox_offset = frame.to_world(self.hitbox_offset);
         self.hitbox_half_size = frame.to_world_half(self.hitbox_half_size);
         self.self_impulse = frame.to_world(self.self_impulse);
@@ -490,7 +490,7 @@ pub fn attack_hitbox_from_view(view: &AttackView, spec: AttackSpec) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core::Vec2;
+    use ambition_platformer2d_core::Vec2;
 
     /// Test helper: resolve the canonical attack pipeline
     /// (`resolve_attack_intent` → `attack_spec` → `attack_hitbox`) into
@@ -504,12 +504,12 @@ mod tests {
     fn view_at(pos: Vec2, facing: f32) -> AttackView {
         AttackView {
             pos,
-            size: ambition_engine_core::movement::default_player_body_size(),
+            size: ambition_platformer2d_core::movement::default_player_body_size(),
             facing,
             on_ground: false,
             wall_clinging: false,
             dashing: false,
-            abilities_directional_primary: ambition_engine_core::AbilitySet::sandbox_all()
+            abilities_directional_primary: ambition_platformer2d_core::AbilitySet::sandbox_all()
                 .directional_primary,
         }
     }
@@ -597,7 +597,7 @@ mod tests {
             Vec2::new(0.0, -1.0),
             Vec2::new(-1.0, 0.0),
         ] {
-            let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+            let frame = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir);
             let world = local.into_world_frame(frame);
             let offset_local = frame.to_local(world.hitbox_offset);
             let impulse_local = frame.to_local(world.self_impulse);
@@ -622,7 +622,7 @@ mod tests {
             Vec2::new(0.0, -1.0),
             Vec2::new(-1.0, 0.0),
         ] {
-            let frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
+            let frame = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir);
             let dir = |intent| {
                 attack_spec_from_view(&view, intent)
                     .into_world_frame(frame)

@@ -27,8 +27,8 @@
 
 use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 
-use ambition::actors::platformer_runtime::body::BodyKinematics;
-use ambition::portal::{PortalBody, PortalPolicy};
+use ambition_platformer2d::actors::platformer_runtime::body::BodyKinematics;
+use ambition_platformer2d::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]

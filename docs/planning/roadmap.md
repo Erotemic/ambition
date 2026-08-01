@@ -106,7 +106,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 - **Feel drift:** use per-body data and differential/property tests, never divergent kernels.
 - **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
 - **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
-- **Public naming:** the provider crate shipped as `ambition_platformer_provider`; engine/repository split timing and final `ambition_actors`/`features` names remain unsettled.
+- **Public naming:** the provider crate shipped as `ambition_platformer2d_provider`; engine/repository split timing and final `ambition_platformer2d_actor_monolith`/`features` names remain unsettled.
 - **Boss carve:** convergence permits reassessment, but the current source review has not identified a concrete reuse, dependency, or build boundary; the maintainer ruling remains open.
 - **Online transport:** GGRS integration is landed; Matchbox signaling/WebRTC and production connection policy are DEFERRED to the Super Smash Siblings era (Jon, 2026-07-24) — no netplay work before a game needs it.
 

@@ -65,7 +65,7 @@ python3 scripts/goal_guard.py --arm .goal/planning-sweep.json
 
 ## 3. The instrument built this run — use it
 
-`crates/ambition_runtime/src/rollback/probes.rs` — per-component and per-resource
+`crates/ambition_platformer2d_runtime/src/rollback/probes.rs` — per-component and per-resource
 localization across the save/load boundary. A GGRS sync test reports ONE aggregate
 checksum; this names the type.
 

@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub use ambition_engine_core::InputFrameMode;
+pub use ambition_platformer2d_core::InputFrameMode;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Difficulty {
@@ -154,12 +154,12 @@ pub struct GameplaySettings {
 /// Locomotion frame-mode default (see [`GameplaySettings::movement_frame_mode`]),
 /// resolved from the engine's single source of truth.
 fn default_movement_frame_mode() -> InputFrameMode {
-    ambition_engine_core::ControlFrameModes::default().movement
+    ambition_platformer2d_core::ControlFrameModes::default().movement
 }
 
 /// Precision aiming defaults to screen-directed (see [`GameplaySettings::aim_frame_mode`]).
 fn default_aim_frame_mode() -> InputFrameMode {
-    ambition_engine_core::ControlFrameModes::default().aim
+    ambition_platformer2d_core::ControlFrameModes::default().aim
 }
 
 fn default_debug_hud_visible() -> bool {
@@ -210,8 +210,8 @@ impl GameplaySettings {
 
     /// The pair of control-authority frame policies these settings express, for
     /// the gameplay verbs that resolve input by source ([`ae::ControlFrameModes`]).
-    pub fn control_frame_modes(&self) -> ambition_engine_core::ControlFrameModes {
-        ambition_engine_core::ControlFrameModes {
+    pub fn control_frame_modes(&self) -> ambition_platformer2d_core::ControlFrameModes {
+        ambition_platformer2d_core::ControlFrameModes {
             movement: self.movement_frame_mode,
             aim: self.aim_frame_mode,
         }

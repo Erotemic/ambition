@@ -16,15 +16,15 @@ use bevy::image::{TextureAtlas, TextureAtlasLayout};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
-use ambition_platformer_primitives::binding::BindingLedger;
+use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 
 /// The `robot_slash` sheet name in the baked [`SheetRegistry`].
 const SLASH_SHEET: &str = "robot_slash";
@@ -126,8 +126,8 @@ fn slash_source(
 pub(crate) fn spawn_slash_effects(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,

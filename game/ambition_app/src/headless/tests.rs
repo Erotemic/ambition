@@ -4,13 +4,13 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition::input::ControlFrame;
-use ambition::sfx::SfxMessage;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::sfx::SfxMessage;
 use bevy::ecs::message::Messages;
 
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
-    ambition::runtime::add_headless_foundation(&mut app);
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
     app.add_plugins(crate::app::SandboxSimulationPlugin);
     app
 }
@@ -58,7 +58,7 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
 
     let messages = app
         .world()
-        .resource::<Messages<ambition::sfx::OwnedSfxMessage>>();
+        .resource::<Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
     let reset_count = messages
         .iter_current_update_messages()
         .filter(|m| matches!(m.request, SfxMessage::Reset { .. }))
@@ -78,7 +78,7 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
 /// counter resource gets reset/leaked between frames.
 #[test]
 fn sim_completes_60_ticks_with_counter_intact() {
-    use ambition::characters::brain::BrainActionCounter;
+    use ambition_platformer2d::characters::brain::BrainActionCounter;
     let mut app = sandbox_sim_app();
     // Run 60 ticks (1 sim second at 60Hz).
     for _ in 0..60 {
@@ -101,10 +101,10 @@ fn sim_completes_60_ticks_with_counter_intact() {
 /// — adding the plugin should mean ActorActionMessage +
 /// BrainActionCounter are both registered. Catches a future
 /// app-plugin refactor that accidentally drops the
-/// `app.add_plugins(ambition::characters::brain::BrainPlugin)` call.
+/// `app.add_plugins(ambition_platformer2d::characters::brain::BrainPlugin)` call.
 #[test]
 fn sim_includes_brain_plugin_registration() {
-    use ambition::characters::brain::{ActorActionMessage, BrainActionCounter};
+    use ambition_platformer2d::characters::brain::{ActorActionMessage, BrainActionCounter};
     use bevy::ecs::message::Messages;
     let app = initialized_sandbox_sim_app();
     // Both resources should be present.
@@ -127,7 +127,7 @@ fn sim_includes_brain_plugin_registration() {
 /// (not just single-tick poison).
 #[test]
 fn sim_accumulates_messages_across_repeated_attacks() {
-    use ambition::characters::brain::BrainActionCounter;
+    use ambition_platformer2d::characters::brain::BrainActionCounter;
     let mut app = initialized_sandbox_sim_app();
     for i in 0..20 {
         let attack = i % 2 == 0;
@@ -155,8 +155,8 @@ fn sim_accumulates_messages_across_repeated_attacks() {
 /// runs through the real Startup schedule.
 #[test]
 fn sim_spawns_player_with_brain_and_action_set() {
-    use ambition::actors::actor::PlayerEntity;
-    use ambition::characters::brain::{ActionSet, ActorControl, Brain};
+    use ambition_platformer2d::actors::actor::PlayerEntity;
+    use ambition_platformer2d::characters::brain::{ActionSet, ActorControl, Brain};
     let mut app = initialized_sandbox_sim_app();
     let mut q = app
         .world_mut()
@@ -183,7 +183,7 @@ fn sim_spawns_player_with_brain_and_action_set() {
 /// in `player/systems.rs` tests).
 #[test]
 fn sim_emits_action_messages_when_player_attacks() {
-    use ambition::characters::brain::{ActorActionMessage, BrainActionCounter};
+    use ambition_platformer2d::characters::brain::{ActorActionMessage, BrainActionCounter};
     let mut app = initialized_sandbox_sim_app();
     // Stamp an attack press into the control frame.
     *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {

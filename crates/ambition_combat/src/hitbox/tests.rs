@@ -321,9 +321,9 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             victim_faction,
             // Every body carries the vulnerability trio (§A1 slice 3) — the
             // victim query is no longer `Option` over them.
-            ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyMotionFacts::default(),
-            ambition_engine_core::BodyShieldState::default(),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
@@ -424,9 +424,9 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer_primitives::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             ActorFaction::Player,
-            ambition_engine_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
@@ -437,9 +437,9 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(28.0, 46.0),
             ),
-            ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyMotionFacts::default(),
-            ambition_engine_core::BodyShieldState::default(),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
@@ -554,7 +554,7 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
     let owner = app
         .world_mut()
         .spawn((
-            ambition_engine_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 ..Default::default()
             },
@@ -608,7 +608,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
     let owner = app
         .world_mut()
         .spawn((
-            ambition_engine_core::BodyKinematics::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
             crate::BodyMelee::default(), // swing = None
         ))
         .id();
@@ -681,11 +681,11 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     app.world_mut().spawn((
         ae::CenteredAabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(14.0, 20.0)),
         ActorFaction::Player,
-        ambition_engine_core::BodyOffense::default(),
-        ambition_engine_core::BodyMotionFacts::default(),
-        ambition_engine_core::BodyShieldState::default(),
+        ambition_platformer2d_core::BodyOffense::default(),
+        ambition_platformer2d_core::BodyMotionFacts::default(),
+        ambition_platformer2d_core::BodyShieldState::default(),
         ambition_characters::actor::BodyCombat::default(),
-        ambition_platformer_primitives::markers::PlayerEntity,
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
     ));
     app.update();
     let cap = app.world().resource::<CapturedHits>();

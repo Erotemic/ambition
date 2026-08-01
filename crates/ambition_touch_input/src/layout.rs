@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::gameplay_presentation::ScreenRect;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect;
 
 /// Marker + identity for touch action buttons. Each `TouchActionButton`
 /// entity is a Bevy `Button` whose `Interaction` state is collected into

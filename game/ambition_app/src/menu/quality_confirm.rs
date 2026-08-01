@@ -7,7 +7,7 @@
 
 use bevy::prelude::Resource;
 
-use ambition::persistence::settings::VisualQualityProfile;
+use ambition_platformer2d::persistence::settings::VisualQualityProfile;
 
 /// App-local state for an in-flight visual-quality profile confirmation.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]

@@ -4,7 +4,7 @@
 //! one consumer and only `ambition_app` registered it, so a demo host could not
 //! change rooms at all — which is why 1-1's coin vault had to be dug into the
 //! same `RoomSpec` as the surface rather than being its own room. The
-//! transaction is engine-side now (`ambition::runtime::room_transition`), and
+//! transaction is engine-side now (`ambition_platformer2d::runtime::room_transition`), and
 //! this level is what proves it: two authored rooms in the demo's own binary,
 //! linked both ways, reached by walking.
 //!
@@ -26,9 +26,9 @@
 //! body tick and the ride/ledge-carry logic reads its delta — so this level adds
 //! no movement code of its own.
 
-use ambition::engine_core as ae;
-use ambition::world::platforms::MovingPlatformState;
-use ambition::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSpec};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::world::platforms::MovingPlatformState;
+use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSpec};
 
 use crate::{MARY_O_MODE, T};
 
@@ -191,7 +191,7 @@ pub fn level_1_2() -> RoomSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::engine_core::AabbExt;
+    use ambition_platformer2d::engine_core::AabbExt;
 
     #[test]
     fn the_chasm_is_only_crossable_by_the_platform() {

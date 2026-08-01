@@ -14,9 +14,9 @@ rest confirmed, several with sharper receipts than the audit had.
 The incoming controlled-body damage multiplier is
 `difficulty.damage_taken_multiplier() × player_damage_multiplier ×
 assist_factor`, all three read from `UserSettings.gameplay` (local disk)
-inside the sim (`crates/ambition_actors/src/features/ecs/damage_apply.rs:729-735`).
+inside the sim (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage_apply.rs:729-735`).
 `RollbackSessionContract` is `{content, schema}` only
-(`crates/ambition_runtime/src/rollback/session.rs:46-49`). Frame modes are
+(`crates/ambition_platformer2d_runtime/src/rollback/session.rs:46-49`). Frame modes are
 likewise sim-read from settings (`actors/affordances/intent.rs:181-182`) —
 though notably `brain/player.rs:71-79` reads the same modes from the
 *snapshot*, so one path already treats them as participant data; the
@@ -26,7 +26,7 @@ the damage path, which feeds finding A2 directly.
 
 **A2. Dev tools as production authority — CONFIRMED, hard receipt.**
 [observed] `ambition_dev_tools` sits under `[dependencies]` — not
-dev-dependencies — of BOTH `ambition_actors` and `ambition_runtime`
+dev-dependencies — of BOTH `ambition_platformer2d_actor_monolith` and `ambition_platformer2d_runtime`
 (section-checked). The sim compiles against the editor's mirrors.
 
 **A3. Three player-facing bugs — ALL CONFIRMED, one worse than stated.**
@@ -60,7 +60,7 @@ or replaces it with registrations.
 **C. Process-global provider identity — CONFIRMED.** [observed]
 `ITEM_CATALOG_OVERRIDE` (`ambition_items/src/lib.rs:150`),
 `ENCOUNTER_WAVE_BOOK` (`ambition_encounter/src/spec.rs:19`),
-`WORLD_MANIFEST` (`ambition_ldtk_map/src/manifest.rs:80`) — all
+`WORLD_MANIFEST` (`ambition_platformer2d_ldtk/src/manifest.rs:80`) — all
 first-install-wins `OnceLock`s. Two aggravations: the manifest global has a
 test-fixture fallback baked into it (`manifest.rs:99`), and the wave book
 has a second fixture global in `actors/encounter/loading.rs:22-40`. Test
@@ -82,9 +82,9 @@ poison, no census) is right, and the struct's own claim that "the ownership
 set is stated in one place" makes the omission a documentation lie too.
 
 **F. Portal convention — MECHANISM CORRECTED, ownership finding stands.**
-[observed] There is no `AtomicBool` in `ambition_platformer_primitives::math`
+[observed] There is no `AtomicBool` in `ambition_platformer2d_shared_tangle::math`
 (the only one in that crate is a schedule-bookkeeping flag) nor in
-`engine_core`/`ambition_portal`. The actual mechanism: the convention is
+`engine_core`/`ambition_portal2d`. The actual mechanism: the convention is
 `PortalTuning::reorient_facing` — an App-local Bevy *resource* — mirrored
 every frame from `UserSettings.gameplay.portal_reverses_facing` by
 `sync_portal_reorient_from_settings`
@@ -148,7 +148,7 @@ README).
   lane (they are narrow and verified). First *authority* slice: movement
   tuning (Q1 below).
 - **Deletes:** `ambition_dev_tools` from `[dependencies]` of
-  `ambition_actors` and `ambition_runtime` (movement slice); the
+  `ambition_platformer2d_actor_monolith` and `ambition_platformer2d_runtime` (movement slice); the
   `sync_portal_reorient_from_settings` mirror system (portal slice); the
   settings read in `intent.rs` (frame-mode slice); `SandboxDevState.preset_index`
   as an authority (bug 3 fix).
@@ -211,7 +211,7 @@ README).
   shipping config picks its simulation host explicitly and excludes
   dev_tools, rl_sim, mobile_touch.
 - **First slice:** R1 (the host `portal` feature forwards
-  `ambition_runtime/portal`, per round 3 — unchanged and still recommended)
+  `ambition_platformer2d_runtime/portal`, per round 3 — unchanged and still recommended)
   plus a `desktop_game` feature bundle and its boot check in the runner.
 - **Deletes:** the implicit "dev build = shipping build" assumption; the
   release-command drift.

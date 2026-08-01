@@ -38,7 +38,7 @@ Options:
   --compile-sdk API      Android compileSdk. Default: highest installed, else 35.
   --target-sdk API       Android targetSdk. Default: compileSdk.
   --features LIST        Cargo features to add. Default: android_dev.
-  --use-default-features Also enable ambition_actors default features. Off by default for Android.
+  --use-default-features Also enable ambition_platformer2d_actor_monolith default features. Off by default for Android.
   --no-default-features  Disable default features (default for Android builds).
   --static-map           Add static_map to the Android cargo features.
   --no-static-map        Remove static_map from the Android cargo features.
@@ -527,7 +527,7 @@ if [[ -n "$EMULATOR_NAME" ]]; then
     fi
 fi
 
-DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_actors/assets/audio/sfx.bank"
+DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank"
 if [[ -n "${AMBITION_SFX_BANK_PATH:-}" ]]; then
     DEFAULT_SFX_BANK_PATH="$AMBITION_SFX_BANK_PATH"
 fi
@@ -896,7 +896,7 @@ APK=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | sort | tail -1)
 
 OUT_DIR="$ROOT/target/android/apks"
 mkdir -p "$OUT_DIR"
-OUT_APK="$OUT_DIR/ambition_actors-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
+OUT_APK="$OUT_DIR/ambition_platformer2d_actor_monolith-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
 cp "$APK" "$OUT_APK"
 
 # The staging directory is not proof that Gradle included the files. Read the

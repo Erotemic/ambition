@@ -78,7 +78,7 @@
       "id": "the-query-snippet-did-not-compile-as-printed",
       "severity": "medium",
       "closed": true,
-      "summary": "The 'where is my character?' example uses `With<PrimaryPlayer>` with no import for `With`. Guessed `ambition::bevy::prelude::With` correctly. Now in the snippet."
+      "summary": "The 'where is my character?' example uses `With<PrimaryPlayer>` with no import for `With`. Guessed `ambition_platformer2d::bevy::prelude::With` correctly. Now in the snippet."
     },
     {
       "id": "disk-and-build-time-understated",

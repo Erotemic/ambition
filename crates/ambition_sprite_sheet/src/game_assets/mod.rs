@@ -36,7 +36,7 @@ use ambition_asset_manager::AssetProfile;
 use crate::boss::BossSpriteAsset;
 use crate::character::CharacterSpriteAssets;
 use ambition_persistence::settings::VisualQualityBudget;
-use ambition_world::rooms::RoomMetadata;
+use ambition_platformer2d_world::rooms::RoomMetadata;
 
 /// Pick a sensible default [`AssetProfile`] for the current build target.
 ///
@@ -380,7 +380,7 @@ impl GameAssets {
     }
 }
 
-// Full `load_game_assets` remains in `ambition_actors::assets::game_assets`
+// Full `load_game_assets` remains in `ambition_platformer2d_actor_monolith::assets::game_assets`
 // because it joins the content-installed character roster. The render-facing
 // data/resource types and static image loaders live here.
 
@@ -444,7 +444,7 @@ pub fn ensure_parallax_layers_for_room(
         .ensure_theme_loaded(catalog, asset_server, theme, quality);
     if added > 0 {
         bevy::log::debug!(
-            target: "ambition::assets",
+            target: "ambition_platformer2d::assets",
             "lazy-loaded {added}/{} parallax layers for '{}'",
             ParallaxLayerAsset::ALL.len(),
             theme.key(),
@@ -458,10 +458,10 @@ pub fn ensure_parallax_layers_for_room(
 // already returned `None` upstream.
 
 // NOTE (fable audit follow-up): the game-assets unit tests were NOT carved over
-// from `ambition_actors` in cdf21e0b — the monolithic test file spanned code
+// from `ambition_platformer2d_actor_monolith` in cdf21e0b — the monolithic test file spanned code
 // that the carve split across `ambition_asset_manager` (config/profile/sandbox
 // catalog) and this crate (entity sprites), and it still lives (compiled) at
-// `ambition_actors::assets::game_assets::tests`. The dangling `mod tests;`
+// `ambition_platformer2d_actor_monolith::assets::game_assets::tests`. The dangling `mod tests;`
 // placeholder pointed at a `game_assets/tests.rs` that never existed and left
 // this crate's lib-test target uncompilable; removed here. Splitting
 // sprite-side coverage into this crate is a separate opportunity

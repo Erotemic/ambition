@@ -11,7 +11,7 @@
 //! they are, and "two fighters exist" is true of a match with both of them
 //! stacked at the origin, standing off the platform, or inside each other.
 
-use ambition::engine_core::AabbExt;
+use ambition_platformer2d::engine_core::AabbExt;
 use ambition_demo_smash_app::build_demo_app;
 
 fn main() {
@@ -33,8 +33,8 @@ fn main() {
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::GoTo(
-            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
     // Long enough for the route to resolve, the session to prepare and seating
     // to run. If the fighters are missing below, this is the first suspect.
@@ -49,8 +49,8 @@ fn main() {
         .and_then(|arg| arg.parse().ok())
         .unwrap_or(140);
     if damage > 0 {
-        use ambition::actor::MatchSeat;
-        use ambition::characters::actor::BodyHealth;
+        use ambition_platformer2d::actor::MatchSeat;
+        use ambition_platformer2d::characters::actor::BodyHealth;
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyHealth)>();
         for (seat, mut health) in query.iter_mut(world) {
@@ -83,8 +83,8 @@ fn main() {
     // off, the knockback curve does not reach this stage's blast line — which is
     // a tuning fact no unit test can hold an opinion about.
     {
-        use ambition::actor::{FighterStocks, MatchSeat};
-        use ambition::characters::actor::BodyHealth;
+        use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
+        use ambition_platformer2d::characters::actor::BodyHealth;
         let mut peak = 0.0f32;
         let mut spent = 0u32;
         for _ in 0..3_600 {
@@ -104,8 +104,8 @@ fn main() {
         );
     }
     {
-        use ambition::actor::MatchSeat;
-        use ambition::characters::brain::{Brain, ScriptedControl};
+        use ambition_platformer2d::actor::MatchSeat;
+        use ambition_platformer2d::characters::brain::{Brain, ScriptedControl};
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
@@ -148,9 +148,9 @@ fn main() {
 fn collect_fighters(
     app: &mut bevy::prelude::App,
 ) -> Vec<ambition_demo_smash_app::stage_diagram::DrawnFighter> {
-    use ambition::actor::{FighterStocks, MatchSeat};
-    use ambition::characters::actor::BodyHealth;
-    use ambition::engine_core::CenteredAabb;
+    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::CenteredAabb;
 
     let world = app.world_mut();
     let mut query = world.query::<(
@@ -165,7 +165,7 @@ fn collect_fighters(
             (
                 seat.0,
                 ambition_demo_smash_app::stage_diagram::DrawnFighter {
-                    aabb: ambition::engine_core::Aabb::new(aabb.center, aabb.half_size),
+                    aabb: ambition_platformer2d::engine_core::Aabb::new(aabb.center, aabb.half_size),
                     percent: health.damage_percent(),
                     stocks: stocks.map(|s| s.remaining).unwrap_or(0),
                 },

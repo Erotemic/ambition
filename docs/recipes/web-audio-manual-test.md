@@ -21,7 +21,7 @@
    for the default music track. The first `play()` only fires after
    both are true.
 3. **Better diagnostics.** Every audio-pipeline event now logs under
-   target `ambition::audio`: plugin install, gesture observed,
+   target `ambition_platformer2d::audio`: plugin install, gesture observed,
    waiting-for-asset, music play attempt, SFX bank async load,
    SfxBankResource install, first SFX play attempt.
 
@@ -53,12 +53,12 @@ With `--served`, you should see:
 
 `--served` builds with `--features web_served_assets`, which includes
 `web_audio` (so `bevy_kira_audio` is in the wasm) and auto-symlinks
-`crates/ambition_actors/assets/` to `game/ambition_app/web/assets/`
+`crates/ambition_platformer2d_actor_monolith/assets/` to `game/ambition_app/web/assets/`
 so the served URLs resolve.
 
 ### First sanity check after page load
 
-The very first log line under target `ambition::sandbox_assets` is:
+The very first log line under target `ambition_platformer2d::sandbox_assets` is:
 
 ```text
 web start: AssetProfile = <PROFILE> | static_map = ... | static_core_assets = ... | static_sfx_bank = ...
@@ -91,7 +91,7 @@ Expected, in order:
    then
    `[ambition-audio] attempted resume on 1 suspended context(s); current states=[running]`
 
-### Filter `ambition::audio` (Rust side)
+### Filter `ambition_platformer2d::audio` (Rust side)
 
 Expected, in order:
 

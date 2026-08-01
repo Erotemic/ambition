@@ -1,6 +1,6 @@
 //! Sanic-style demo content home.
 //!
-//! This crate intentionally depends only on the `ambition` facade crate. It is
+//! This crate intentionally depends only on the `ambition_platformer2d` facade crate. It is
 //! the E9 engine-for-other-games ORACLE: a second platformer's content is
 //! authored entirely through the umbrella surface, never by reaching into a
 //! lower `ambition_*` crate or copying `game/ambition_app`'s dependency wall.
@@ -18,9 +18,9 @@
 //! through the public facade, so generated Sanic art and existing parallax /
 //! block assets light up without an `ambition_app` dependency.
 
-use ambition::engine_core as ae;
-use ambition::prelude::*;
-use ambition::world::rooms::RoomSpec;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::prelude::*;
+use ambition_platformer2d::world::rooms::RoomSpec;
 
 /// Stable room id for the momentum speedway.
 pub const SPEEDWAY_ROOM_ID: &str = "sanic_speedway";
@@ -28,7 +28,7 @@ pub const SPEEDWAY_ROOM_ID: &str = "sanic_speedway";
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition hosts this demo by loading its rooms alongside its own; a Sanic
-/// rules plugin gates its systems on `ambition::runtime::in_mode(SANIC_MODE)`
+/// rules plugin gates its systems on `ambition_platformer2d::runtime::in_mode(SANIC_MODE)`
 /// so they sleep everywhere else. [`SanicRulesPlugin`] is that ruleset, and its
 /// `hosted()` / `global()` constructor flag is the D-C pattern made real.
 pub const SANIC_MODE: &str = "sanic";
@@ -189,8 +189,8 @@ pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 /// A ring placement: one of the `currency:1` pickups the author script lays down
 /// (named `ring`). The demo tags these with the animated sprite and the tests
 /// count them through this one predicate.
-pub fn is_ring_placement(record: &ambition::world::placements::PlacementRecord) -> bool {
-    use ambition::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+pub fn is_ring_placement(record: &ambition_platformer2d::world::placements::PlacementRecord) -> bool {
+    use ambition_platformer2d::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
     record.name == "ring"
         && matches!(
             &record.schema,
@@ -214,7 +214,7 @@ pub const SFX_SKID: &str = "sanic.skid";
 /// The ring-collect ding. Rings are lowered as `Currency` pickups, so the shared
 /// `collect_ecs_pickups` loop emits `ids::WORLD_COIN_PICKUP` on pickup — voicing
 /// THAT id (not a private `sanic.*` one) is what makes a ring audible. Kept in
-/// sync with `ambition::sfx::ids::WORLD_COIN_PICKUP` by a test.
+/// sync with `ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP` by a test.
 pub const SFX_RING: &str = "world.coin.pickup";
 /// Scatter cue for the (deferred) drop-on-hit; authored ahead so the loss path
 /// is a pure emit when it lands.
@@ -245,7 +245,7 @@ pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
 /// [`struct@LOOP_RAMP_START_X`]/[`struct@LOOP_RUNOUT_END_X`], and this
 /// function panics loudly if the two files drift.
 pub fn sanic_speedway() -> RoomSpec {
-    let project = ambition::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
     let room_set = project
         .to_room_set_with_entry(SPEEDWAY_ROOM_ID)
@@ -268,7 +268,7 @@ pub fn sanic_speedway() -> RoomSpec {
     // badnik above — the pickup renderer then binds the animated ring sheet.
     for record in &mut room.placements {
         if is_ring_placement(record) {
-            if let ambition::entity_catalog::placements::PlacementSchema::Pickup(pickup) =
+            if let ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(pickup) =
                 &mut record.schema
             {
                 pickup.sprite = Some(RING_SPRITE_KIND.to_string());
@@ -317,14 +317,14 @@ pub fn sanic_speedway() -> RoomSpec {
     room.debug_labels = labels
         .into_iter()
         .map(|(id, text, position)| {
-            ambition::world::rooms::Authored::new(
+            ambition_platformer2d::world::rooms::Authored::new(
                 format!("sanic_{id}"),
                 text.clone(),
                 ae::Aabb::new(position, ae::Vec2::splat(1.0)),
-                ambition::world::debug_label::DebugLabel::new(
+                ambition_platformer2d::world::debug_label::DebugLabel::new(
                     text,
                     position,
-                    ambition::world::debug_label::DebugLabelKind::Custom,
+                    ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
                 ),
             )
         })
@@ -524,8 +524,8 @@ pub use provider::{
 
 /// Content plugin for the Sanic movement demo: registers Sanic's App-local
 /// authored catalogs, installs the world, and adds the engine's sim-world setup. This is the shape
-/// `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes, built through the
-/// `ambition` umbrella alone.
+/// `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes, built through the
+/// `ambition_platformer2d` umbrella alone.
 pub struct SanicDemoContentPlugin;
 
 /// Register Sanic's immutable authored definitions in one Bevy `App`: the
@@ -538,8 +538,8 @@ pub struct SanicDemoContentPlugin;
 /// Runtime simulation, presentation, dialogue, and combat consumers receive
 /// the assembled catalog explicitly through Bevy resources.
 pub fn install_sanic_content(app: &mut App) {
-    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition::characters::actor::character_catalog::{
+    use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition_platformer2d::characters::actor::character_catalog::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -555,7 +555,7 @@ pub fn install_sanic_content(app: &mut App) {
     // the prepared definition and demands its art, so the standalone app stopped
     // naming sheets and stopped hand-rolling the decode.
     {
-        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `sanic_spritesheet.ron` declares
         // `target: "sanic"`, and the registry is keyed by the target.
         // A VOICE, so neither stands mute on a Hall pedestal. A registered-only
@@ -596,9 +596,9 @@ pub fn install_sanic_content(app: &mut App) {
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             provider::SANIC_EXPERIENCE,
-            Some(ambition::audio::spec::MusicRegistry {
+            Some(ambition_platformer2d::audio::spec::MusicRegistry {
                 default_track: "you_are_too_slow".to_string(),
-                tracks: vec![ambition::audio::spec::MusicTrack {
+                tracks: vec![ambition_platformer2d::audio::spec::MusicTrack {
                     id: "you_are_too_slow".to_string(),
                     display_name: "You Are Too Slow".to_string(),
                     asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
@@ -610,7 +610,7 @@ pub fn install_sanic_content(app: &mut App) {
             // them is what authorizes them under provider-relative SFX: a Sanic
             // session plays these and nothing else, and an Ambition-only bank id
             // resident in the shared bank cannot resolve here.
-            Some(ambition::audio::spec::SfxRegistry {
+            Some(ambition_platformer2d::audio::spec::SfxRegistry {
                 sample_rate: 44_100,
                 sfx: sanic_sfx_specs(),
             }),
@@ -630,7 +630,7 @@ pub fn install_sanic_content(app: &mut App) {
     // fingerprints the App, so the schema fingerprint (part of the content
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
-        use ambition::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
         // The act-state ANCHOR comes first: the mode owner is a bare
         // state-holder entity no engine rollback anchor reaches, and a
         // registered-but-unanchored component silently never snapshots (the
@@ -676,8 +676,8 @@ pub fn install_sanic_content(app: &mut App) {
 /// and the insert flips `GameAssets::is_changed()` so the prop-rebind pass runs.
 /// No-ops in a headless/sim-only build where no `GameAssets` (or renderer) exists.
 fn register_sanic_ring_prop_sheet(
-    game_assets: Option<bevy::prelude::ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<bevy::prelude::Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    game_assets: Option<bevy::prelude::ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
     asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
     layouts: Option<
         bevy::prelude::ResMut<bevy::prelude::Assets<bevy::prelude::TextureAtlasLayout>>,
@@ -691,12 +691,12 @@ fn register_sanic_ring_prop_sheet(
     if config.no_assets || game_assets.characters.props.contains_key(RING_SPRITE_KIND) {
         return;
     }
-    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+    if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
         &asset_server,
         &mut layouts,
         &config.sprite_folder,
         RING_SPRITE_KIND,
-        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 2),
+        &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
     ) {
         game_assets
             .characters
@@ -710,8 +710,8 @@ fn register_sanic_ring_prop_sheet(
 /// engine's shared movement/hazard events, and the open `sanic.*` ids voice the
 /// mode-local techniques (rev, launch, transform, monitor, badnik, skid, rings).
 /// Authoring each here is what authorizes it under provider-relative playback.
-fn sanic_sfx_specs() -> Vec<ambition::audio::spec::SfxSpec> {
-    use ambition::audio::spec::{SoundCueKey as Cue, WaveformSpec as Wave};
+fn sanic_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
+    use ambition_platformer2d::audio::spec::{SoundCueKey as Cue, WaveformSpec as Wave};
     vec![
         // Shared engine movement/vitals cues, in Sanic's bright voice.
         sanic_cue(Cue::Dash, Wave::Square, 900.0, 1400.0, 0.12, 0.5, 0.0),
@@ -766,14 +766,14 @@ fn sanic_sfx_specs() -> Vec<ambition::audio::spec::SfxSpec> {
 /// fixed onset; `release` trails a fixed fraction of the duration.
 fn sanic_open(
     id: &str,
-    waveform: ambition::audio::spec::WaveformSpec,
+    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
     frequency: f32,
     frequency_end: f32,
     duration: f32,
     volume: f32,
     noise: f32,
-) -> ambition::audio::spec::SfxSpec {
-    ambition::audio::spec::SfxSpec {
+) -> ambition_platformer2d::audio::spec::SfxSpec {
+    ambition_platformer2d::audio::spec::SfxSpec {
         cue: None,
         id: Some(id.to_owned()),
         waveform,
@@ -789,15 +789,15 @@ fn sanic_open(
 
 /// A typed engine cue in Sanic's voice (full control).
 fn sanic_cue(
-    cue: ambition::audio::spec::SoundCueKey,
-    waveform: ambition::audio::spec::WaveformSpec,
+    cue: ambition_platformer2d::audio::spec::SoundCueKey,
+    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
     frequency: f32,
     frequency_end: f32,
     duration: f32,
     volume: f32,
     noise: f32,
-) -> ambition::audio::spec::SfxSpec {
-    ambition::audio::spec::SfxSpec {
+) -> ambition_platformer2d::audio::spec::SfxSpec {
+    ambition_platformer2d::audio::spec::SfxSpec {
         cue: Some(cue),
         id: None,
         waveform,
@@ -813,28 +813,28 @@ fn sanic_cue(
 
 impl Plugin for SanicDemoContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
+        use ambition_platformer2d::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
         install_sanic_content(app);
         let room = sanic_speedway();
-        let source = ambition::runtime::PreparedPlatformerSource::new(
+        let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             SANIC_EXPERIENCE,
             RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
-            ambition::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
-            ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
+            ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
-        let content = ambition::provider::prepare_platformer_content_for_app(
+        let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
             app,
             source,
             &provider::sanic_authored_catalogs(),
         )
         .expect("Sanic direct prepared-content assembly must succeed");
         app.world_mut().spawn((
-            ambition::platformer::lifecycle::SessionRoot(
-                ambition::platformer::lifecycle::SessionScopeId(0),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(
+                ambition_platformer2d::platformer::lifecycle::SessionScopeId(0),
             ),
             content.source().instantiate_live(),
             content.identity(),
@@ -842,7 +842,7 @@ impl Plugin for SanicDemoContentPlugin {
         ));
         app.add_systems(
             bevy::app::Startup,
-            sanic_setup.in_set(ambition::runtime::demo_fixture::SimulationSetupSet),
+            sanic_setup.in_set(ambition_platformer2d::runtime::demo_fixture::SimulationSetupSet),
         );
     }
 }
@@ -853,42 +853,42 @@ impl Plugin for SanicDemoContentPlugin {
 #[allow(clippy::too_many_arguments)]
 fn sanic_setup(
     mut commands: bevy::prelude::Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::RoomSet,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::RoomSet,
     >,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::LdtkRuntimeIndex,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
-    editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
-    tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::ActiveMovementTuning>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::StartingCharacter,
+    editable_abilities: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet>,
+    tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
+    starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::StartingCharacter,
     >,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
-        ambition::characters::actor::character_catalog::CharacterCatalog,
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     prepared_characters: Option<
-        bevy::prelude::Res<ambition::actors::character_runtime::PreparedCharacterRegistry>,
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
-    authored_sheets: bevy::prelude::Res<ambition::actors::character_sprites::AuthoredSheets>,
-    character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
+    authored_sheets: bevy::prelude::Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::PlacementLoweringRegistry,
+        ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
     >,
     content_staging: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::RoomContentStagingRegistry,
+        ambition_platformer2d::runtime::demo_fixture::RoomContentStagingRegistry,
     >,
     construction_recipes: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::ActorConstructionRegistry,
+        ambition_platformer2d::runtime::demo_fixture::ActorConstructionRegistry,
     >,
 ) {
-    ambition::runtime::demo_fixture::simulation_world(
+    ambition_platformer2d::runtime::demo_fixture::simulation_world(
         &mut commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition::runtime::demo_fixture::SimulationSetup {
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
             ldtk_index: &ldtk_index,
@@ -903,7 +903,7 @@ fn sanic_setup(
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,
             // so it has no prepared-content generation to state.
-            construction: ambition::runtime::demo_fixture::ActorConstructionContext::new(
+            construction: ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
                 &construction_recipes,
                 Default::default(),
             ),
@@ -980,17 +980,17 @@ impl Plugin for SanicRulesPlugin {
         // contribute to the collision overlay. A full app registers all of
         // these through the engine plugins; a thin rules-only harness may not,
         // and `add_message`/`init_resource` are idempotent.
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition::vfx::VfxMessage>();
-        app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
-        app.add_message::<ambition::actors::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+        app.add_message::<ambition_platformer2d::actors::rooms::RoomLoaded>();
         // The act cycle restarts the room on a clear, exactly as Mary-O's level
         // cycle does. The engine registers this in a full app; a thin
         // rules-only harness may not, and `add_message` is idempotent.
-        app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
-        app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
+        app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+        app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
-        let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
         // Sanic's half of a body reset, answered wherever a body is restarted —
         // a versus round boundary, a respawn, anything that says so. Registered
@@ -1016,23 +1016,23 @@ impl Plugin for SanicRulesPlugin {
             take_the_controls_at_the_goal,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-            .after(ambition::actors::avatar::tick_player_brains)
-            .before(ambition::actors::avatar::gate_worn_player_control);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition_platformer2d::actors::avatar::tick_player_brains)
+            .before(ambition_platformer2d::actors::avatar::gate_worn_player_control);
         // AFTER the gate: read Sanic's spin-dash rev from the sanctioned technique
         // edge the gate resolved — the fragile before-gate `melee_pressed`
         // interception window is GONE (a plain melee edge is no longer the API).
         let sanic_post_gate = ball_dash::capture_ball_dash_input
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-            .after(ambition::actors::avatar::gate_worn_player_control);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition_platformer2d::actors::avatar::gate_worn_player_control);
         if self.hosted {
             app.add_systems(
                 sim,
-                sanic_pre_gate.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                sanic_pre_gate.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
             app.add_systems(
                 sim,
-                sanic_post_gate.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                sanic_post_gate.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
         } else {
             app.add_systems(sim, sanic_pre_gate);
@@ -1045,23 +1045,23 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(
                 sim,
                 sync_hosted_sanic_wallet_shield
-                    .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+                    .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
                     // D7: the PHASE, not the leaf. A provider ordering against
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
-                    .after(ambition::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
+                    .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
+                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         } else {
             app.add_systems(
                 sim,
                 sync_sanic_wallet_shield
-                    .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+                    .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
                     // D7: the PHASE, not the leaf. A provider ordering against
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
-                    .after(ambition::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
+                    .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
+                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events),
             );
         }
 
@@ -1093,28 +1093,28 @@ impl Plugin for SanicRulesPlugin {
             cycle_act_after_clear,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
         let milestone_sfx = emit_sanic_milestone_sfx
-            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
         // The badnik defeat runs BEFORE the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
         let badniks = badnik::defeat_badniks
-            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
-            .before(ambition::actors::features::apply_actor_contact_damage);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::WorldPrep)
+            .before(ambition_platformer2d::actors::features::apply_actor_contact_damage);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerSimulation)
-            .after(ambition::actors::features::ecs::damage_apply::apply_player_hit_events);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerSimulation)
+            .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The scattered-ring burst flies out BETWEEN the coin magnet and the
         // collect: it owns each ring's position during the lock so the magnet
         // can't reclaim it, and collect then sees the ring out at its arc rather
         // than on top of the knocked-back body.
         let scatter_arc = arc_scattered_rings
-            .in_set(ambition::platformer::schedule::SandboxSet::FeatureCollection)
-            .after(ambition::actors::features::magnetize_pickups)
-            .before(ambition::actors::features::collect_ecs_pickups);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::FeatureCollection)
+            .after(ambition_platformer2d::actors::features::magnetize_pickups)
+            .before(ambition_platformer2d::actors::features::collect_ecs_pickups);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
         // speed-shoes grant. Broken monitors contribute to the overlay's
         // `removed_block_names` AFTER the engine's per-frame rebuild clears it
@@ -1126,32 +1126,32 @@ impl Plugin for SanicRulesPlugin {
             monitors::tick_speed_shoes,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
-            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
-            .after(ambition::actors::features::rebuild_feature_ecs_world_overlay);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::WorldPrep)
+            .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SANIC_MODE)));
+            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)));
             app.add_systems(
                 sim,
-                milestone_sfx.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                milestone_sfx.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
-            app.add_systems(sim, badniks.run_if(ambition::runtime::in_mode(SANIC_MODE)));
+            app.add_systems(sim, badniks.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)));
             app.add_systems(
                 sim,
-                ring_loss.run_if(ambition::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                scatter_arc.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                ring_loss.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
             app.add_systems(
                 sim,
-                monitor_rules.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                scatter_arc.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
             app.add_systems(
                 sim,
-                monitor_overlay.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+                monitor_rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
+            );
+            app.add_systems(
+                sim,
+                monitor_overlay.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
         } else {
             app.add_systems(sim, rules);
@@ -1172,10 +1172,10 @@ impl Plugin for SanicRulesPlugin {
 /// scrape once per skid onset instead of every tick it holds. One controlled body
 /// plays it, so a `Local` edge latch is sufficient.
 fn emit_sanic_skid_sfx(
-    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut was_skidding: bevy::prelude::Local<bool>,
     bodies: bevy::prelude::Query<(&ae::BodyMotionFacts, &ae::BodyKinematics)>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     let subject = subject.and_then(|s| s.0);
     let skid = subject.and_then(|e| bodies.get(e).ok());
@@ -1189,8 +1189,8 @@ fn emit_sanic_skid_sfx(
         if let Some(subject) = subject {
             sfx.write_for(
                 subject,
-                ambition::sfx::SfxMessage::Play {
-                    id: ambition::sfx::SfxId::from_static(SFX_SKID),
+                ambition_platformer2d::sfx::SfxMessage::Play {
+                    id: ambition_platformer2d::sfx::SfxId::from_static(SFX_SKID),
                     pos,
                 },
             );
@@ -1209,10 +1209,10 @@ fn emit_sanic_skid_sfx(
 /// single gameplay + presentation authority. No timer: a future ring drain can
 /// wear the form off the same way this toggle does.
 fn toggle_sanic_form(
-    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut bodies: bevy::prelude::Query<(
-        &mut ambition::characters::brain::ActorControl,
-        &mut ambition::characters::actor::WornCharacter,
+        &mut ambition_platformer2d::characters::brain::ActorControl,
+        &mut ambition_platformer2d::characters::actor::WornCharacter,
     )>,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
@@ -1235,7 +1235,7 @@ fn toggle_sanic_form(
     };
     // The transform SOUND fires from the worn-identity edge in
     // `sync_super_form_traits`, so wearing the form is all this does.
-    *worn = ambition::characters::actor::WornCharacter::new(next);
+    *worn = ambition_platformer2d::characters::actor::WornCharacter::new(next);
 }
 
 /// How often the super form's sparkle trail pulses (sim seconds).
@@ -1271,16 +1271,16 @@ fn ensure_sanic_transform_beat_policy(
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
-            bevy::prelude::Without<ambition::actors::features::transform_beat::TransformBeatPolicy>,
+            bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            bevy::prelude::Without<ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy>,
         ),
     >,
 ) {
     for entity in &bodies {
         commands.entity(entity).try_insert(
-            ambition::actors::features::transform_beat::TransformBeatPolicy {
+            ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
                 duration: 0.35,
-                anim: ambition::sprite_sheet::character::CharacterAnim::Taunt,
+                anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Taunt,
                 clock_scale: 0.5,
                 untouchable: true,
             },
@@ -1289,21 +1289,21 @@ fn ensure_sanic_transform_beat_policy(
 }
 
 fn sync_super_form_traits(
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
     mut sparkle_orbit: bevy::prelude::Local<f32>,
-    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
     mut players: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition::characters::actor::WornCharacter,
-            &mut ambition::characters::actor::BodyHealth,
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            &mut ambition_platformer2d::characters::actor::BodyHealth,
             &ae::BodyKinematics,
             Option<&SuperFormLatch>,
         ),
-        bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
+        bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
     >,
 ) {
     // `None` = no controlled player (the session has retired; a player is present
@@ -1340,8 +1340,8 @@ fn sync_super_form_traits(
         // H2: a transformation is the most character-defining sound a body makes.
         // Attributed to the transforming body, falling back to the session only
         // when nothing published a source for it.
-        let transform = ambition::sfx::SfxMessage::Play {
-            id: ambition::sfx::SfxId::from_static(if to_super {
+        let transform = ambition_platformer2d::sfx::SfxMessage::Play {
+            id: ambition_platformer2d::sfx::SfxId::from_static(if to_super {
                 SFX_TRANSFORM
             } else {
                 SFX_DETRANSFORM
@@ -1363,7 +1363,7 @@ fn sync_super_form_traits(
             if let Some(body) = body {
                 commands
                     .entity(body)
-                    .try_insert(ambition::actors::features::transform_beat::TransformBeatRequested);
+                    .try_insert(ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested);
             }
         }
     }
@@ -1385,12 +1385,12 @@ fn sync_super_form_traits(
         // (still-falling) Spark motes hovering around the torso.
         *sparkle_orbit += 2.399_963; // golden angle, radians
         let ring = ae::Vec2::new(sparkle_orbit.cos(), sparkle_orbit.sin()) * SUPER_SPARKLE_RADIUS;
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: pos + ring - ae::Vec2::new(0.0, SUPER_SPARKLE_RISE),
             count: 2,
             speed: 26.0,
             color: [1.0, 0.9, 0.4, 1.0],
-            kind: ambition::vfx::ParticleKind::Spark,
+            kind: ambition_platformer2d::vfx::ParticleKind::Spark,
         });
     }
 }
@@ -1427,10 +1427,10 @@ fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool
 fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
-    session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+    use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep when a session-scoped host has retired the live session (i.e. at the
     // launcher): the room metadata may still read "sanic" until the next
     // activation overwrites it, but there is no session to own new state, so the
@@ -1449,7 +1449,7 @@ fn spawn_sanic_mode_owner(
         // launch → quit → relaunch cycle).
         commands
             .spawn_session_scoped(spawn_scope, SanicActState::default())
-            .insert(ambition::platformer::lifecycle::ModeScopedEntity(
+            .insert(ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
                 SANIC_MODE.to_string(),
             ));
         // Audible confirmation that the standalone shell is draining the
@@ -1462,7 +1462,7 @@ fn spawn_sanic_mode_owner(
         // session context.
         sfx.write_from(
             provider::SANIC_EXPERIENCE,
-            ambition::sfx::SfxMessage::Dash {
+            ambition_platformer2d::sfx::SfxMessage::Dash {
                 pos: ae::Vec2::ZERO,
             },
         );
@@ -1472,7 +1472,7 @@ fn spawn_sanic_mode_owner(
 /// The act timer runs on the SIM clock (`scaled_dt`), so bullet-time and pause
 /// slow it exactly as they slow everything else — `WorldTime`, never `Res<Time>`.
 fn tick_sanic_act(
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut act: bevy::prelude::Query<&mut SanicActState>,
 ) {
     for mut state in &mut act {
@@ -1484,15 +1484,15 @@ fn tick_sanic_act(
 
 /// Emit a small, existing Ambition cue when the primary body crosses each
 /// visible distance marker. These are deliberately simple diagnostic sounds:
-/// the demo is proving that its shell drains the standard [`ambition::sfx::SfxMessage`] seam,
+/// the demo is proving that its shell drains the standard [`ambition_platformer2d::sfx::SfxMessage`] seam,
 /// not inventing a parallel Sanic audio stack.
 fn emit_sanic_milestone_sfx(
     player: bevy::prelude::Query<
         &ae::BodyKinematics,
-        bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
+        bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     let Ok(kin) = player.single() else {
         return;
@@ -1503,9 +1503,9 @@ fn emit_sanic_milestone_sfx(
                 break;
             }
             let message = if state.next_milestone % 2 == 0 {
-                ambition::sfx::SfxMessage::Dash { pos: kin.pos }
+                ambition_platformer2d::sfx::SfxMessage::Dash { pos: kin.pos }
             } else {
-                ambition::sfx::SfxMessage::Jump { pos: kin.pos }
+                ambition_platformer2d::sfx::SfxMessage::Jump { pos: kin.pos }
             };
             // H2/I3: the COURSE's. A milestone is the room announcing that the
             // runner passed it — the room's event, not the runner's, and not the
@@ -1615,10 +1615,10 @@ type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     's,
     (
         bevy::prelude::Entity,
-        &'static ambition::characters::actor::WornCharacter,
-        Option<&'static ambition::characters::actor::BodyWalletShield>,
+        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        Option<&'static ambition_platformer2d::characters::actor::BodyWalletShield>,
     ),
-    ambition::platformer::markers::PrimaryPlayerOnly,
+    ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
 >;
 
 fn reconcile_sanic_wallet_shield(
@@ -1632,12 +1632,12 @@ fn reconcile_sanic_wallet_shield(
             (true, false) => {
                 commands
                     .entity(entity)
-                    .try_insert(ambition::characters::actor::BodyWalletShield);
+                    .try_insert(ambition_platformer2d::characters::actor::BodyWalletShield);
             }
             (false, true) => {
                 commands
                     .entity(entity)
-                    .remove::<ambition::characters::actor::BodyWalletShield>();
+                    .remove::<ambition_platformer2d::characters::actor::BodyWalletShield>();
             }
             _ => {}
         }
@@ -1654,8 +1654,8 @@ fn sync_sanic_wallet_shield(
 fn sync_hosted_sanic_wallet_shield(
     mut commands: bevy::prelude::Commands,
     active: Option<
-        ambition::platformer::lifecycle::SessionWorldRef<
-            ambition::world::rooms::ActiveRoomMetadata,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::ActiveRoomMetadata,
         >,
     >,
     bodies: SanicShieldBodies<'_, '_>,
@@ -1671,22 +1671,22 @@ fn sync_hosted_sanic_wallet_shield(
 /// resolver and owns only Sanic-specific entity spawning, VFX, and SFX.
 pub fn scatter_rings_on_hit(
     mut commands: bevy::prelude::Commands,
-    active_session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    active_session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
     mut spent: bevy::prelude::MessageReader<
-        ambition::actors::features::ecs::damage_apply::WalletShieldSpent,
+        ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent,
     >,
-    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
-            &ambition::platformer::sim_id::SimId,
-            &mut ambition::platformer::sim_id::SimIdCounter,
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            &mut ambition_platformer2d::platformer::sim_id::SimIdCounter,
         ),
-        ambition::platformer::markers::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     let Some(scope) =
-        ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
             active_session.as_deref(),
         )
     else {
@@ -1728,14 +1728,14 @@ pub fn scatter_rings_on_hit(
             let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
             let size = ae::Vec2::splat(18.0);
             let seq = counter.next();
-            let ring_id = ambition::platformer::sim_id::SimId::spawned(player_id, seq);
-            let authored = ambition::actors::rooms::Authored {
+            let ring_id = ambition_platformer2d::platformer::sim_id::SimId::spawned(player_id, seq);
+            let authored = ambition_platformer2d::actors::rooms::Authored {
                 id: ring_id.as_str().to_string(),
                 name: "ring".to_string(),
                 aabb: ae::Aabb::new(event.pos, size * 0.5),
                 payload: {
-                    let mut spec = ambition::entity_catalog::placements::PickupSpec::new(
-                        ambition::entity_catalog::placements::PickupKindSpec::Currency {
+                    let mut spec = ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
+                        ambition_platformer2d::entity_catalog::placements::PickupKindSpec::Currency {
                             amount: 1,
                         },
                     );
@@ -1743,15 +1743,15 @@ pub fn scatter_rings_on_hit(
                     spec
                 },
             };
-            let ring = ambition::actors::features::ecs::spawn_static::spawn_pickup(
+            let ring = ambition_platformer2d::actors::features::ecs::spawn_static::spawn_pickup(
                 &mut commands,
                 scope,
                 &authored,
             );
             commands.entity(ring).insert((
                 ring_id.clone(),
-                ambition::platformer::sim_id::SimIdCounter::default(),
-                ambition::platformer::construction::SpawnOrigin::Dynamic {
+                ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
+                ambition_platformer2d::platformer::construction::SpawnOrigin::Dynamic {
                     parent: player_id.clone(),
                     sequence: seq,
                 },
@@ -1760,24 +1760,24 @@ pub fn scatter_rings_on_hit(
                     lock: SCATTER_LOCK_S,
                     life: SCATTER_LIFE_S,
                 },
-                ambition::actors::features::PickupCollectLock,
+                ambition_platformer2d::actors::features::PickupCollectLock,
             ));
         }
 
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: event.pos,
             count: 24,
             // Matched to the rings' own launch speed, so the sparkle reads as the
             // same event and not a separate, smaller puff at the centre.
             speed: SCATTER_BURST_SPEED,
             color: [1.0, 0.86, 0.28, 1.0],
-            kind: ambition::vfx::ParticleKind::Dust,
+            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
         // H2: losing your rings is the struck BODY's cue.
         sfx.write_for(
             event.victim,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::from_static(SFX_RING_LOSS),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::from_static(SFX_RING_LOSS),
                 pos: event.pos,
             },
         );
@@ -1800,13 +1800,13 @@ pub fn scatter_rings_on_hit(
 /// resimulates identically.
 pub fn arc_scattered_rings(
     mut commands: bevy::prelude::Commands,
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     // Optional on purpose: `SessionWorldRef` is a `Single`, and a Single that
     // matches nothing SKIPS the system entirely — which would freeze every ring
     // in mid-air, forever, in any session without room geometry. Absent geometry
     // means "nothing to bounce off", not "stop simulating".
     world: Option<
-        ambition::platformer::lifecycle::SessionWorldRef<ambition::engine_core::RoomGeometry>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::engine_core::RoomGeometry>,
     >,
     mut rings: bevy::prelude::Query<(
         bevy::prelude::Entity,
@@ -1842,7 +1842,7 @@ pub fn arc_scattered_rings(
                 // the rest of its life, on the shared collection path.
                 commands
                     .entity(entity)
-                    .remove::<ambition::actors::features::PickupCollectLock>();
+                    .remove::<ambition_platformer2d::actors::features::PickupCollectLock>();
             }
         }
     }
@@ -1860,11 +1860,11 @@ fn ring_step(
     ring: ae::Aabb,
     delta: ae::Vec2,
 ) -> (ae::Vec2, Option<ae::Vec2>) {
-    use ambition::engine_core::cast::SolidWorldQuery;
+    use ambition_platformer2d::engine_core::cast::SolidWorldQuery;
     let (Some(world), true) = (world, delta != ae::Vec2::ZERO) else {
         return (delta, None);
     };
-    let mut nearest: Option<ambition::engine_core::geometry::AabbSweepHit> = None;
+    let mut nearest: Option<ambition_platformer2d::engine_core::geometry::AabbSweepHit> = None;
     // One-way platforms count only while the ring is FALLING — the same rule a
     // body gets. A ring should land on the platform you are standing on (that is
     // the point of a scatter you can run back through), but a ring thrown upward
@@ -1960,12 +1960,12 @@ pub fn act_time_text(seconds: f32) -> String {
 /// overwritten from his surface parameter on the next tick, exactly as a poked
 /// `pos` is.
 fn take_the_controls_at_the_goal(
-    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     act: bevy::prelude::Query<&SanicActState>,
     mut commands: bevy::prelude::Commands,
     mut dashes: bevy::prelude::Query<&mut ball_dash::BallDash>,
-    mut models: bevy::prelude::Query<&mut ambition::actors::features::MotionModel>,
+    mut models: bevy::prelude::Query<&mut ambition_platformer2d::actors::features::MotionModel>,
     mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
 ) {
     let cleared = act
@@ -1977,7 +1977,7 @@ fn take_the_controls_at_the_goal(
     if !cleared {
         commands
             .entity(entity)
-            .remove::<ambition::characters::brain::ScriptedControl>();
+            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
         return;
     }
     // The course drives him now — the whole frame, not the three fields this
@@ -1987,7 +1987,7 @@ fn take_the_controls_at_the_goal(
     // itself the instant he crossed the line. The brake launched him.
     commands
         .entity(entity)
-        .try_insert(ambition::characters::brain::ScriptedControl);
+        .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
     // Blanking the frame stops him building any MORE charge, but a charge
     // already stored is spent on an edge, and the edge is exactly what the
     // blanking manufactures. Disarm it rather than trying to hide it.
@@ -2028,13 +2028,13 @@ pub fn clear_act_at_goal(
     player: bevy::prelude::Query<
         (
             &ae::BodyKinematics,
-            &ambition::characters::actor::BodyWallet,
+            &ambition_platformer2d::characters::actor::BodyWallet,
         ),
-        ambition::platformer::markers::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut sfx: ambition::sfx::BodySfxWriter,
-    mut vfx: bevy::prelude::MessageWriter<ambition::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
 ) {
     let Ok((kin, wallet)) = player.single() else {
         return;
@@ -2048,20 +2048,20 @@ pub fn clear_act_at_goal(
             rings: wallet.balance,
             dwell: ACT_CLEAR_DWELL,
         };
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: kin.pos,
             count: 40,
             speed: 320.0,
             color: [1.0, 0.92, 0.35, 1.0],
-            kind: ambition::vfx::ParticleKind::Dust,
+            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
         // H2/I3: the COURSE's. Clearing the act is the ACT's fanfare, belonging to
         // the course the way a goal jingle does — not to whoever happened to run
         // it, and not to whoever is hosting them.
         sfx.write_from(
             provider::SANIC_EXPERIENCE,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::from_static(SFX_TRANSFORM),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::from_static(SFX_TRANSFORM),
                 pos: kin.pos,
             },
         );
@@ -2074,9 +2074,9 @@ pub fn clear_act_at_goal(
 /// legible before the world rebuilds under it, and the restart itself is the
 /// engine's ordinary `RoomReplayRequested` rather than anything demo-specific.
 pub fn cycle_act_after_clear(
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+    mut replay: bevy::prelude::MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
 ) {
     for mut state in &mut act {
         let SanicActPhase::Cleared { dwell, .. } = &mut state.phase else {
@@ -2087,6 +2087,6 @@ pub fn cycle_act_after_clear(
             continue;
         }
         *state = SanicActState::default();
-        replay.write(ambition::actors::session::reset::RoomReplayRequested);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     }
 }

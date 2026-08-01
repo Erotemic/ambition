@@ -4,16 +4,16 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition_actors::features::{
+use ambition_platformer2d_actor_monolith::features::{
     rebuild_feature_ecs_world_overlay, BossBehaviorProfile, BossClusterScratch,
 };
-use ambition_world::collision::world_with_sandbox_solids;
+use ambition_platformer2d_world::collision::world_with_sandbox_solids;
 
 /// The composited collision view (immutable base + this frame's overlay).
 /// The gate is now a derived overlay contributor, so the arena assertions
 /// read the VIEW — what player/actor collision actually sees — not the base.
 fn arena_view(app: &App) -> ae::World {
-    let base = &ambition_platformer_primitives::lifecycle::session_world_component::<RoomGeometry>(
+    let base = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomGeometry>(
         app.world(),
     )
     .expect("session room geometry")
@@ -25,7 +25,7 @@ fn arena_view(app: &App) -> ae::World {
 fn make_game_world(
     name: &str,
     ladders: Vec<ae::ClimbableRegion>,
-) -> ambition_engine_core::RoomGeometry {
+) -> ambition_platformer2d_core::RoomGeometry {
     let world = ae::World::new(
         name,
         ae::Vec2::new(2_000.0, 2_000.0),
@@ -33,13 +33,13 @@ fn make_game_world(
         Vec::new(),
     )
     .with_climbable_regions(ladders);
-    ambition_engine_core::RoomGeometry(world)
+    ambition_platformer2d_core::RoomGeometry(world)
 }
 
 fn make_game_world_with_floor_gate(
     name: &str,
     ladders: Vec<ae::ClimbableRegion>,
-) -> ambition_engine_core::RoomGeometry {
+) -> ambition_platformer2d_core::RoomGeometry {
     let gate_block = ae::Block::solid(
         FLOOR_GATE_BLOCK_NAME,
         ae::Vec2::new(112.0, 208.0),
@@ -52,7 +52,7 @@ fn make_game_world_with_floor_gate(
         vec![gate_block],
     )
     .with_climbable_regions(ladders);
-    ambition_engine_core::RoomGeometry(world)
+    ambition_platformer2d_core::RoomGeometry(world)
 }
 
 fn floor_gate_count(app: &App) -> usize {
@@ -119,7 +119,7 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
 /// while the body envelope carries `combat_offset`.
 #[test]
 fn giant_head_hurtbox_overlaps_the_body_envelope() {
-    use ambition_engine_core::AabbExt;
+    use ambition_platformer2d_core::AabbExt;
 
     let mut app = App::new();
     app.insert_resource(crate::bosses::authored_boss_catalog());
@@ -127,14 +127,14 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     let entity = app
         .world_mut()
         .spawn((
-            ambition_actors::features::FeatureSimEntity,
+            ambition_platformer2d_actor_monolith::features::FeatureSimEntity,
             spawn_giant_bodied_boss_runtime().into_components(),
             ambition_characters::brain::BossAttackState::default(),
         ))
         .id();
     app.add_systems(
         Update,
-        ambition_actors::features::derive_boss_sprite_metrics,
+        ambition_platformer2d_actor_monolith::features::derive_boss_sprite_metrics,
     );
     // First update runs Startup (loads the baked sprite registry)
     // then Update (derives the boss's sprite metrics from it).
@@ -142,7 +142,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 
     let status = app
         .world()
-        .get::<ambition_actors::features::BossEncounter>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BossEncounter>(entity)
         .unwrap();
     assert!(
         status.sprite_metrics.is_some(),
@@ -154,41 +154,41 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         .unwrap();
     let kin = app
         .world()
-        .get::<ambition_actors::features::BodyKinematics>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BodyKinematics>(entity)
         .unwrap();
     let config = app
         .world()
-        .get::<ambition_actors::features::BossConfig>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BossConfig>(entity)
         .unwrap();
     let status = app
         .world()
-        .get::<ambition_actors::features::BossEncounter>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BossEncounter>(entity)
         .unwrap();
-    let boss_ref = ambition_actors::features::BossRef {
+    let boss_ref = ambition_platformer2d_actor_monolith::features::BossRef {
         kin,
         config,
         status,
     };
     let catalog = crate::bosses::authored_boss_catalog();
-    let ctx = ambition_actors::features::BossVolumeContext::from_ref(&catalog, boss_ref, attack);
-    let hurtboxes = ambition_actors::features::damageable_volumes(&ctx);
+    let ctx = ambition_platformer2d_actor_monolith::features::BossVolumeContext::from_ref(&catalog, boss_ref, attack);
+    let hurtboxes = ambition_platformer2d_actor_monolith::features::damageable_volumes(&ctx);
     assert!(
         !hurtboxes.is_empty(),
         "the giant should expose at least one damageable hurtbox at rest"
     );
     let kin = app
         .world()
-        .get::<ambition_actors::features::BodyKinematics>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BodyKinematics>(entity)
         .unwrap();
     let config = app
         .world()
-        .get::<ambition_actors::features::BossConfig>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BossConfig>(entity)
         .unwrap();
     let status = app
         .world()
-        .get::<ambition_actors::features::BossEncounter>(entity)
+        .get::<ambition_platformer2d_actor_monolith::features::BossEncounter>(entity)
         .unwrap();
-    let body = ambition_actors::features::BossRef {
+    let body = ambition_platformer2d_actor_monolith::features::BossRef {
         kin,
         config,
         status,
@@ -203,9 +203,9 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     }
 }
 
-fn make_app(world: ambition_engine_core::RoomGeometry) -> App {
+fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
     let mut app = App::new();
-    ambition::platformer::lifecycle::insert_session_world_component(app.world_mut(), world);
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(app.world_mut(), world);
     app.init_resource::<FeatureEcsWorldOverlay>();
     // Mirror the production WorldPrep order: the overlay rebuild clears the
     // per-frame contributions, then the gate re-derives them this frame.
@@ -247,7 +247,7 @@ fn ladder_is_hidden_on_entry_when_boss_is_alive() {
 /// `mount_links` entry) end-to-end off the embedded sandbox.ldtk.
 #[test]
 fn arena_spawns_the_adr0020_linked_pair() {
-    use ambition_actors::ldtk_world::LdtkProject;
+    use ambition_platformer2d_actor_monolith::ldtk_world::LdtkProject;
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
 
     // `to_room_set` reads the world manifest + resolves spawn display names
@@ -337,8 +337,8 @@ fn ladder_appears_when_boss_dies() {
         .health
         .current = 0;
     app.update();
-    let regions = &ambition_platformer_primitives::lifecycle::session_world_component::<
-        ambition_engine_core::RoomGeometry,
+    let regions = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        ambition_platformer2d_core::RoomGeometry,
     >(app.world())
     .expect("session room geometry")
     .0
@@ -450,8 +450,8 @@ fn leaving_arena_resets_state_for_next_visit() {
     // Leave the arena (room change → world wholesale replaced,
     // boss entity despawned in the real flow but irrelevant
     // here since the room-name check fires first).
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<
-        ambition_engine_core::RoomGeometry,
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+        ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
     .0 = ae::World::new(
@@ -463,8 +463,8 @@ fn leaving_arena_resets_state_for_next_visit() {
     app.update();
 
     // Re-enter arena with fresh ladder + fresh (alive) boss.
-    ambition_platformer_primitives::lifecycle::session_world_component_mut::<
-        ambition_engine_core::RoomGeometry,
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+        ambition_platformer2d_core::RoomGeometry,
     >(app.world_mut())
     .expect("session room geometry")
     .0 = ae::World::new(

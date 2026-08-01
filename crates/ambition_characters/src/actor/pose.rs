@@ -7,7 +7,7 @@
 //! the combat kit because they are ACTOR vocabulary (Stage 22 unified
 //! actor system); the kit re-exports them at the old paths.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::Component;
 
 /// Gameplay-space pose for an actor-like feature.

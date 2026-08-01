@@ -43,10 +43,10 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition::actors::character_runtime::{MatchSeat, seat_placement};
-use ambition::characters::actor::{BodyCombat, BodyHealth};
-use ambition::combat::targeting::MatchTeam;
-use ambition::engine_core as ae;
+use ambition_platformer2d::actors::character_runtime::{MatchSeat, seat_placement};
+use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+use ambition_platformer2d::combat::targeting::MatchTeam;
+use ambition_platformer2d::engine_core as ae;
 
 /// Round wins needed to take the match. Best of three.
 pub const ROUNDS_TO_WIN: u8 = 2;
@@ -185,7 +185,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 /// near-duplicate that drifts on the three-side case.
 ///
 /// What stays here is the ADAPTER: rounds are settled on health.
-use ambition::combat::stocks::{SidesOutcome as RoundResult, last_side_standing};
+use ambition_platformer2d::combat::stocks::{SidesOutcome as RoundResult, last_side_standing};
 
 fn round_result<'a>(
     rows: impl Iterator<Item = (usize, Option<&'a MatchTeam>, i32)>,
@@ -204,7 +204,7 @@ type FighterQuery<'w, 's> = Query<
         Option<&'static MatchTeam>,
         &'static mut BodyHealth,
         ae::BodyClusterQueryData,
-        &'static mut ambition::actors::features::MotionModel,
+        &'static mut ambition_platformer2d::actors::features::MotionModel,
     ),
 >;
 
@@ -248,23 +248,23 @@ fn countdown_may_advance(active_match: bool) -> bool {
 }
 
 pub fn settle_versus_round(
-    time: Res<ambition::time::WorldTime>,
-    roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
-    geometry: Option<ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    roster: Option<Res<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>>,
+    geometry: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
     // Whether every participant on the roster actually HAS a body yet.
     // Seating retries until they all do; the countdown must not run ahead of it.
-    active_match: Option<Res<ambition::actors::character_runtime::ActiveMatch>>,
+    active_match: Option<Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
     // The round LIFETIME, which replaced this system's hand-written projectile
     // query. Campaign 3A: a round boundary must not enumerate the transient
     // families that might exist.
-    mut rounds: ResMut<ambition::platformer::lifecycle::ActiveRoundScope>,
+    mut rounds: ResMut<ambition_platformer2d::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
-    mut firing: Query<&mut ambition::projectiles::PlayerProjectileState, With<MatchSeat>>,
-    mut scale: MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
-    mut snap: MessageWriter<ambition::actors::time::time_control::ClockResetRequest>,
+    mut firing: Query<&mut ambition_platformer2d::projectiles::PlayerProjectileState, With<MatchSeat>>,
+    mut scale: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
+    mut snap: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockResetRequest>,
 ) {
     // No roster means no match. The stage's own teardown removes it, so this
     // needs no second opinion about whether versus is running.
@@ -329,7 +329,7 @@ pub fn settle_versus_round(
             for (entity, ..) in fighters.iter() {
                 commands
                     .entity(entity)
-                    .try_remove::<ambition::characters::brain::ScriptedControl>();
+                    .try_remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
             }
             // Whatever was mashed during the countdown does NOT carry into the
             // round.
@@ -453,8 +453,8 @@ pub fn settle_versus_round(
     // over the following second. A scale request cannot do this job at all,
     // because `min` keeps the strongest slow and the freeze is still in force.
     snap.write(
-        ambition::actors::time::time_control::ClockResetRequest::sim_clock(
-            ambition::actors::time::time_control::ClockRequester::Scripted,
+        ambition_platformer2d::actors::time::time_control::ClockResetRequest::sim_clock(
+            ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
             "versus_round_start",
         ),
     );
@@ -499,17 +499,17 @@ fn take_the_controls(commands: &mut Commands, fighters: impl Iterator<Item = Ent
     for fighter in fighters {
         commands
             .entity(fighter)
-            .try_insert(ambition::characters::brain::ScriptedControl);
+            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
     }
 }
 
 fn request_freeze(
-    scale: &mut MessageWriter<ambition::actors::time::time_control::ClockScaleRequest>,
+    scale: &mut MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
 ) {
-    scale.write(ambition::actors::time::time_control::ClockScaleRequest {
-        domain: ambition::time::ClockDomain::SimClock,
+    scale.write(ambition_platformer2d::actors::time::time_control::ClockScaleRequest {
+        domain: ambition_platformer2d::time::ClockDomain::SimClock,
         scale: 0.0,
-        requester: ambition::actors::time::time_control::ClockRequester::Scripted,
+        requester: ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
         reason: "versus_ko_hold",
     });
 }
@@ -539,7 +539,7 @@ fn begin_round(
     fighters: &mut FighterQuery,
     reactions: &mut Query<&mut BodyCombat, With<MatchSeat>>,
     commands: &mut Commands,
-    rounds: &mut ambition::platformer::lifecycle::ActiveRoundScope,
+    rounds: &mut ambition_platformer2d::platformer::lifecycle::ActiveRoundScope,
 ) {
     // **NOTHING IN FLIGHT CROSSES THE ROUND BOUNDARY**, and this function no
     // longer knows what "in flight" is made of.
@@ -581,7 +581,7 @@ fn begin_round(
         clusters.kinematics.facing = facing;
         commands
             .entity(entity)
-            .try_remove::<ambition::combat::moveset::MovePlayback>();
+            .try_remove::<ambition_platformer2d::combat::moveset::MovePlayback>();
         // The controls deliberately do NOT come back here.
         //
         // They used to: this function ran when the KO hold ended and the round
@@ -630,9 +630,9 @@ pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 /// Publish the scoreboard.
 pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
-    roster: Option<Res<ambition::actors::character_runtime::MatchParticipantRoster>>,
+    roster: Option<Res<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>>,
     fighters: Query<(&MatchSeat, Option<&MatchTeam>, &BodyHealth, &Name)>,
-    mut readouts: ResMut<ambition::presentation::HudReadouts>,
+    mut readouts: ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let (Some(state), Some(_roster)) = (state, roster) else {
         for slot in HEALTH_HUD_SLOTS {
@@ -671,7 +671,7 @@ pub fn publish_versus_hud(
         written[*seat] = true;
         readouts.set(
             *slot,
-            ambition::presentation::HudReadout::gauge(
+            ambition_platformer2d::presentation::HudReadout::gauge(
                 name.clone(),
                 format!("{hp}/{max}"),
                 if *max > 0 {
@@ -705,7 +705,7 @@ pub fn publish_versus_hud(
         .join("  -  ");
     readouts.set(
         ROUNDS_HUD_SLOT,
-        ambition::presentation::HudReadout::bare(if score.is_empty() {
+        ambition_platformer2d::presentation::HudReadout::bare(if score.is_empty() {
             String::new()
         } else {
             format!("ROUNDS  {score}   (first to {ROUNDS_TO_WIN})")
@@ -719,7 +719,7 @@ pub fn publish_versus_hud(
         // beside a simulation timer is two clocks for one fact.
         MatchPhase::Starting { ticks_remaining } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(if *ticks_remaining > FIGHT_CALL_TICKS {
+            ambition_platformer2d::presentation::HudReadout::bare(if *ticks_remaining > FIGHT_CALL_TICKS {
                 format!("ROUND {}", state.round)
             } else {
                 "FIGHT".to_string()
@@ -728,14 +728,14 @@ pub fn publish_versus_hud(
         MatchPhase::Fighting => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
         MatchPhase::Ko { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(match winner {
+            ambition_platformer2d::presentation::HudReadout::bare(match winner {
                 Some(team) => format!("K.O.  {team} wins the round"),
                 None => "DOUBLE K.O.  —  the round is a draw".to_string(),
             }),
         ),
         MatchPhase::Won { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(format!("{winner} WINS THE MATCH")),
+            ambition_platformer2d::presentation::HudReadout::bare(format!("{winner} WINS THE MATCH")),
         ),
     }
 }
@@ -763,7 +763,7 @@ mod tests {
     ///
     /// ✔ that case IS producible, and is driven end-to-end by
     /// `a_roster_with_an_unseatable_participant_never_latches` in
-    /// `ambition_actors`: a roster naming a character nothing registered never
+    /// `ambition_platformer2d_actor_monolith`: a roster naming a character nothing registered never
     /// completes, so the match never activates. The note here used to say the
     /// fixture could not produce it; it could, cheaply (2026-07-29).
     #[test]

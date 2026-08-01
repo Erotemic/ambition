@@ -22,10 +22,10 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_actors::character_sprites::{
+use ambition_platformer2d_actor_monolith::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
-use ambition_actors::rooms::GatePortalRegistry;
+use ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_render::quality::ResolvedVisualQuality;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
@@ -33,7 +33,7 @@ use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::{intro_npc_sprite_rows, intro_prop_sprite_rows};
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Intro portal IDs. The gate stack room places:
 /// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
@@ -114,9 +114,9 @@ impl Plugin for IntroPlugin {
             .add_systems(
                 sim,
                 super::route_state::sync_intro_flag_gated_lock_walls
-                    .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
-                    .before(ambition_actors::features::update_ecs_hazards)
-                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
+                    .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                    .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its
@@ -200,7 +200,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     game_assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_actors::character_sprites::AuthoredSheets>,
+    authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
 ) {
     if installed.0 {
         return;
@@ -280,7 +280,7 @@ pub(crate) fn load_intro_prop_sprites_system(
                 quality.as_deref().map(|q| &q.budget),
             ) {
                 bevy::log::info!(
-                    target: "ambition::sprite_packs",
+                    target: "ambition_platformer2d::sprite_packs",
                     "prop '{kind}' bound to shared sprite pack (target '{target}')",
                 );
                 game_assets

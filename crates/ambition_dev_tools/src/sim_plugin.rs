@@ -5,10 +5,10 @@
 //! instead of naming leaf systems. This plugin owns the dev-editable sim
 //! resources (formerly initialized inside the runtime's core-resources bundle)
 //! and registers the two live-edit sync systems into the public sets below —
-//! `ambition_runtime` now only positions [`DevEditApplySet`] /
+//! `ambition_platformer2d_runtime` now only positions [`DevEditApplySet`] /
 //! [`DevInspectorMirrorSet`] in its phase chains.
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin, SystemSet};
 
 /// PlayerInput-phase seam: apply the developer's live tuning edits

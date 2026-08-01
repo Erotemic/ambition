@@ -13,15 +13,15 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::BodyMelee;
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
-use ambition::actors::features::FeatureId;
-use ambition::characters::actor::BodyHealth;
-use ambition::characters::brain::ActorControl;
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::CharacterBrain;
-use ambition::projectiles::enemy::EnemyProjectile;
+use ambition_platformer2d::actors::actor::BodyMelee;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::combat::components::{ActorDisposition, ActorTarget};
+use ambition_platformer2d::actors::features::FeatureId;
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::projectiles::enemy::EnemyProjectile;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;

@@ -1,14 +1,14 @@
 //! Gravity-zone / gravity-switch visuals (visible build only — registered by
-//! the presentation rendering plugin). Extracted from `ambition_portal::presentation`
+//! the presentation rendering plugin). Extracted from `ambition_portal2d::presentation`
 //! (Stage 6 follow-up): these visualize a *gravity mechanic*, not a portal, and
 //! must not depend on portal mechanics.
 
 use bevy::prelude::*;
 
-use ambition_engine_core::RoomGeometry;
-use ambition_engine_core::{self as ae};
-use ambition_platformer_primitives::gravity::{GravityField, GravityZone};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_core::{self as ae};
+use ambition_platformer2d_shared_tangle::gravity::{GravityField, GravityZone};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
@@ -22,7 +22,7 @@ pub struct GravityZoneVisual;
 /// where gravity changes (violet = up, teal = down/other).
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<&GravityZone>,
@@ -43,7 +43,7 @@ pub fn sync_gravity_zone_visual(
         };
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, center, 7.5);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, center, 7.5);
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -70,7 +70,7 @@ pub fn sync_gravity_zone_visual(
             if zone.dir.y != 0.0 { thickness } else { size.y },
         );
         let band_translation =
-            ambition_engine_core::config::world_to_bevy(&world.0, band_center, 7.6);
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, band_center, 7.6);
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -91,7 +91,7 @@ pub struct GravitySwitchVisual;
 /// orange when it's flipped, so the player can see the current gravity state.
 pub fn sync_gravity_switch_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_session: Option<Res<ActiveSessionScope>>,
     gravity: Option<Res<GravityField>>,
     visuals: Query<Entity, With<GravitySwitchVisual>>,
@@ -112,7 +112,7 @@ pub fn sync_gravity_switch_visual(
         Color::srgba(0.40, 0.90, 0.60, 0.65)
     };
     for sw in &switches.0 {
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
         commands.spawn_session_scoped(
             session_scope,
             (

@@ -37,7 +37,7 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
                     // On every non-rollback host this condition is always true
                     // and the behaviour is unchanged. See `autosave_sandbox_save`.
                     save::autosave_sandbox_save
-                        .run_if(ambition_engine_core::world_state_is_confirmed),
+                        .run_if(ambition_platformer2d_core::world_state_is_confirmed),
                 ),
             );
     }

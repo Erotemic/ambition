@@ -83,7 +83,7 @@ hide a third integrator behind the axis solver.
 
 ### 2. There is one public movement entry
 
-`ambition_engine_core::movement::step_motion` is the one authoritative whole-tick
+`ambition_platformer2d_core::movement::step_motion` is the one authoritative whole-tick
 entry. Physics dispatch is an explicit match inside the trusted kernel.
 
 The ECS layer may:

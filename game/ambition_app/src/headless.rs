@@ -16,8 +16,8 @@ use std::fmt;
 use bevy::prelude::*;
 
 use crate::app::SandboxSimulationPlugin;
-use ambition::actors::ldtk_world;
-use ambition::actors::rooms::RoomSet;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::rooms::RoomSet;
 
 /// Summary of a `run_headless` call. Used by tests, the headless binary, and
 /// future RL drivers to verify the simulation actually progressed instead of
@@ -117,9 +117,9 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 
     let mut app = App::new();
     // The shared engine foundation (schedules/time, asset + image registries,
-    // transforms, states) — ONE definition in ambition::runtime for every
+    // transforms, states) — ONE definition in ambition_platformer2d::runtime for every
     // headless entry point.
-    ambition::runtime::add_headless_foundation(&mut app);
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
 
     app.add_plugins(SandboxSimulationPlugin);
 
@@ -134,7 +134,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     let spine_index = world.resource::<ldtk_world::LdtkRuntimeSpineIndex>();
     let solid_index = world.resource::<ldtk_world::LdtkRuntimeSolidIndex>();
     let active_room_after =
-        ambition::platformer::lifecycle::session_world_component::<RoomSet>(world)
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
             .expect("active session RoomSet")
             .active_spec()
             .id
@@ -149,7 +149,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .map(|r| r.quest_log_lines())
         .unwrap_or_default();
     let visited_rooms = world
-        .get_resource::<ambition::menu::map::MapMenuState>()
+        .get_resource::<ambition_platformer2d::menu::map::MapMenuState>()
         .map(|m| m.visited.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 

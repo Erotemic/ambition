@@ -2,8 +2,8 @@
 //! glowing beacon sprite at the player's dropped mark. Render-only; reads the
 //! sim-side mark read-model.
 
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::MarkBeaconsView;
@@ -25,8 +25,8 @@ const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 /// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     asset_server: Res<AssetServer>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -43,7 +43,7 @@ pub fn sync_mark_beacon_visual(
     };
     for &pos in &marks.0 {
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
-        let translation = ambition_engine_core::config::world_to_bevy(
+        let translation = ambition_platformer2d_core::config::world_to_bevy(
             &world.0,
             pos - ae::Vec2::new(0.0, BEACON_RISE),
             7.0,

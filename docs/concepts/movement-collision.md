@@ -5,9 +5,9 @@ status: current
 authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_engine_core/src/movement
-  - crates/ambition_engine_core/src/geometry.rs
-  - crates/ambition_world/src/collision.rs
+  - crates/ambition_platformer2d_core/src/movement
+  - crates/ambition_platformer2d_core/src/geometry.rs
+  - crates/ambition_platformer2d_world/src/collision.rs
   - crates/ambition_combat
   - crates/ambition_projectiles
 related_docs:
@@ -55,7 +55,7 @@ geometry or outcomes.
 ```bash
 python scripts/agent_query.py "<mechanic> collision sweep"
 python scripts/agent_query.py tests "<geometry case>"
-./run_tests.sh -p ambition_engine_core
+./run_tests.sh -p ambition_platformer2d_core
 ./run_tests.sh -k <test-substring>
 cargo run -p ambition_app --bin headless -- 120
 ```

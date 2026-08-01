@@ -18,7 +18,7 @@
 //! contains no such disagreement, which is a claim only the assembled app can
 //! make.
 
-use ambition::actors::character_runtime::PreparedCharacterRegistry;
+use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 #[test]
@@ -31,7 +31,7 @@ fn every_registered_character_resolves_the_art_it_declares() {
     // registry at the plugin-composition barrier, which Bevy's runners close and
     // `build_visible_app` alone does not — so a guard that inspects a built-but-
     // never-run app is inspecting the staged cast, not the published one.
-    ambition::runtime::finalize(&mut app);
+    ambition_platformer2d::runtime::finalize(&mut app);
     let registry = app
         .world()
         .get_resource::<PreparedCharacterRegistry>()
@@ -99,9 +99,9 @@ fn every_registered_character_resolves_the_art_it_declares() {
 #[test]
 fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    ambition::runtime::finalize(&mut app);
+    ambition_platformer2d::runtime::finalize(&mut app);
     let conflicts =
-        ambition::actors::character_runtime::audit::audit_character_authority_parity(app.world());
+        ambition_platformer2d::actors::character_runtime::audit::audit_character_authority_parity(app.world());
     assert!(
         conflicts.is_empty(),
         "{} character(s) are declared by both the prepared registry and the \

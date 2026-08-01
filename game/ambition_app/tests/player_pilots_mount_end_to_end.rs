@@ -24,12 +24,12 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::features::FeatureId;
-use ambition::actors::features::{MountSlot, Mounted, RidingOn};
-use ambition::characters::brain::{ActorControl, Brain, PlayerSlot};
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::features::FeatureId;
+use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
+use ambition_platformer2d::characters::brain::{ActorControl, Brain, PlayerSlot};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};

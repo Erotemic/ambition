@@ -4,7 +4,7 @@
 //! (`host/`), app-level dev overlays (`dev/`), the game-side menu host stack
 //! (`menu/`), the headless driver (`headless`), and the RL stepping API
 //! (`rl_sim`, feature-gated). Sits on top of the machinery lib
-//! (`ambition::actors`) and the named-content crate (`ambition_content`); this is
+//! (`ambition_platformer2d::actors`) and the named-content crate (`ambition_content`); this is
 //! the only crate allowed to name both.
 //!
 //! Binaries: `ambition_game_bin`, `headless`, `rl_random_walker`, `rl_smoke`,

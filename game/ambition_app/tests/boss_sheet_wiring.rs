@@ -27,7 +27,7 @@ use std::collections::BTreeSet;
 
 /// Load the provider-owned world manifest and assemble the same immutable
 /// App-local boss contribution production uses.
-fn content_boss_catalog() -> ambition::actors::boss_encounter::BossCatalog {
+fn content_boss_catalog() -> ambition_platformer2d::actors::boss_encounter::BossCatalog {
     ambition_content::bosses::authored_boss_catalog()
 }
 
@@ -38,13 +38,13 @@ fn content_boss_catalog() -> ambition::actors::boss_encounter::BossCatalog {
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let boss_catalog = content_boss_catalog();
     let character_catalog =
-        ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
-            ambition::characters::actor::character_catalog::parse_catalog(
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_platformer2d::characters::actor::character_catalog::parse_catalog(
                 ambition_content::character_catalog::CHARACTER_CATALOG_RON,
             ),
         );
     let world_manifest = ambition_content::worlds::world_manifest();
-    let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog(
+    let catalog = ambition_platformer2d::actors::assets::sandbox_assets::desktop_dev_default_catalog(
         &character_catalog,
         &boss_catalog,
         &ambition_content::audio_registries::load_music_registry(),
@@ -53,7 +53,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
 
     let mut missing = Vec::new();
     for (key, _filename) in boss_catalog.sprite_filenames() {
-        let id = ambition::asset_manager::sandbox_assets::ids::boss_sprite(key);
+        let id = ambition_platformer2d::asset_manager::sandbox_assets::ids::boss_sprite(key);
         if catalog.try_path_for_load(&id).is_none() {
             missing.push(key);
         }
@@ -89,7 +89,7 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
         "flying_spaghetti_monster_boss",
         "trex_boss",
     ] {
-        let profile = ambition::actors::features::BossBehaviorProfile::from_data(&boss_catalog, id);
+        let profile = ambition_platformer2d::actors::features::BossBehaviorProfile::from_data(&boss_catalog, id);
         assert_eq!(
             profile.id, id,
             "the profile registry must round-trip its own id"
@@ -145,7 +145,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     let boss_catalog = content_boss_catalog();
 
     let world_manifest = ambition_content::worlds::world_manifest();
-    let project = ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)
+    let project = ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)
         .expect("the shipped LDtk project loads");
     let room_set = project
         .to_room_set(&world_manifest)
@@ -170,11 +170,11 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     for room in &room_set.rooms {
         for spawn in &room.boss_spawns {
             placed += 1;
-            let canonical = ambition::actors::boss_encounter::behavior::canonical_boss_id_from(
+            let canonical = ambition_platformer2d::actors::boss_encounter::behavior::canonical_boss_id_from(
                 &spawn.name,
                 &spawn.payload,
             );
-            let profile = ambition::actors::features::BossBehaviorProfile::for_authored_boss(
+            let profile = ambition_platformer2d::actors::features::BossBehaviorProfile::for_authored_boss(
                 &boss_catalog,
                 &canonical,
             );
@@ -226,7 +226,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
 /// paper over.
 #[test]
 fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
-    use ambition::render::rendering::actor_sprite_path_owns;
+    use ambition_platformer2d::render::rendering::actor_sprite_path_owns;
     use ambition_app::rl_sim::TimestepMode;
     use ambition_app::{AmbitionSim, SandboxSim, SandboxSimOptions};
 
@@ -254,7 +254,7 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 
         let boss_ids: Vec<String> = sim
             .world()
-            .get_resource::<ambition::sim_view::BossRenderIndex>()
+            .get_resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
             .expect("the sim publishes the boss render index")
             .iter()
             .map(|(id, _)| id.to_string())
@@ -268,11 +268,11 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
 
         let boss_index = sim
             .world()
-            .get_resource::<ambition::sim_view::BossRenderIndex>()
+            .get_resource::<ambition_platformer2d::sim_view::BossRenderIndex>()
             .unwrap();
         let actors = sim
             .world()
-            .get_resource::<ambition::sim_view::ActorRenderIndex>()
+            .get_resource::<ambition_platformer2d::sim_view::ActorRenderIndex>()
             .expect("the sim publishes the actor render index");
 
         for id in &boss_ids {

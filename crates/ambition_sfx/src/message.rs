@@ -228,7 +228,7 @@ pub struct OwnedSfxMessage {
 ///
 /// This writer once carried an `SfxEmissionGate` that dropped the request
 /// outright while a rollback host re-simulated a frame. That was removed with
-/// the confirmed-frame quarantine (`ambition_runtime::external_effects`), and
+/// the confirmed-frame quarantine (`ambition_platformer2d_runtime::external_effects`), and
 /// the removal is load-bearing rather than tidying: suppressing at emit time
 /// destroys the corrected sound before anything can decide whether the
 /// prediction it replaces was ever heard. A speculating host now defers this

@@ -70,7 +70,7 @@ frames occur between simulation ticks.
 ```bash
 cargo fmt --all
 cargo check -p ambition_app
-cargo test -p ambition_runtime device_edges_are_consumed_when_read_inputs_runs_not_each_render_frame
+cargo test -p ambition_platformer2d_runtime device_edges_are_consumed_when_read_inputs_runs_not_each_render_frame
 cargo test -p ambition_app rollback_observatory::tests
 cargo test -p ambition_app --features rl_sim --test app_it desync_canary::
 ```

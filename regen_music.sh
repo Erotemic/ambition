@@ -7,7 +7,7 @@
 #     Driven via `ambition_music_renderer radio render-publish`. Adaptive cues
 #     (e.g. first_goblin_tune_v2) are detected and published per-section by the
 #     SAME path — the renderer publishes each adaptive/<section>/<section>.full.ogg
-#     into crates/ambition_actors/assets/audio/music/generated/. No dedicated installer.
+#     into crates/ambition_platformer2d_actor_monolith/assets/audio/music/generated/. No dedicated installer.
 #
 # Usage:
 #   ./regen_music.sh                    # render + install everything (default)

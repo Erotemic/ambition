@@ -2,7 +2,7 @@
 //!
 //! Loads the in-tree fixture trace (`tests/fixtures/replay_central_hub_60f_v1.json`),
 //! lifts its recorded controls into a typed
-//! [`InputStream`](ambition::engine_core::InputStream) (netcode N0.2), drives a
+//! [`InputStream`](ambition_platformer2d::engine_core::InputStream) (netcode N0.2), drives a
 //! fresh `SandboxSim` at fixed-60Hz with it, and asserts ZERO divergence from
 //! the recorded `player.pos` at every tick.
 //!
@@ -28,7 +28,7 @@
 
 use serde::Deserialize;
 
-use ambition::engine_core::{ControlFrame, InputStream};
+use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::SandboxSim;

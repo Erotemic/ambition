@@ -58,7 +58,7 @@ read-model / identity tag the projectile-faction merge
 dispatch on instead of pattern-matching on per-family components.
 
 The mirroring `ProjectileFaction` enum in
-`crates/ambition_platformer_primitives/src/projectile/body.rs` agrees on the
+`crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs` agrees on the
 combat-side semantics — `ProjectileFaction::Player` and
 `ActorFaction::Player` describe the same side — so a future "is this
 projectile hostile to this actor?" predicate can compose the two

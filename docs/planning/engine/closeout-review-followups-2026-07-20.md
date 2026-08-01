@@ -18,7 +18,7 @@
 
 ### Evidence
 
-`crates/ambition_actors/src/session/teardown.rs::SessionScopedResources` resets
+`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs::SessionScopedResources` resets
 an explicit list of eight process-global live-session mirrors. At least two
 other resources contain session-live mutable state and are not in that list:
 
@@ -49,9 +49,9 @@ over another process-global mirror. Do not build a global resource census.
 
 ### Evidence
 
-`ambition_platformer_primitives::math` stores the active mapping convention in
+`ambition_platformer2d_shared_tangle::math` stores the active mapping convention in
 `static PORTAL_MAP_ROTATION: AtomicBool`. Placement and mapping helpers read it
-implicitly; `ambition_portal::tuning` mutates it from live tuning. The pure
+implicitly; `ambition_portal2d::tuning` mutates it from live tuning. The pure
 engine-core map functions already accept an explicit `MapConvention`.
 
 The static prevents two Apps/providers in one process from choosing independent
@@ -173,7 +173,7 @@ are removed unless repeated use justifies a small maintained diagnostic seam.
 
 The generic authored hub/C4 gravity controls are LDtk `Switch` entities handled
 through the normal switch-action path. They do not use
-`ambition_actors::gravity::GravityFlipSwitch`.
+`ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch`.
 
 `GravityPlugin` explicitly does not install `gravity_flip_switch_system` because
 nothing spawns the component in-game. The dormant type nevertheless retains:

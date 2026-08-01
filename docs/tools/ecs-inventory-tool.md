@@ -43,7 +43,7 @@ python scripts/agent_query.py crate ambition_input
 
 ```bash
 uv run --script scripts/ecs_inventory.py \
-  --crate crates/ambition_actors \
+  --crate crates/ambition_platformer2d_actor_monolith \
   --json target/ambition_actors_ecs.json \
   --markdown target/ambition_actors_ecs.md
 ```

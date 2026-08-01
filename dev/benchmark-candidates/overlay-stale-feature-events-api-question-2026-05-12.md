@@ -85,7 +85,7 @@ current code search result, not just the uploaded archive. Then run at least:
 
 ```bash
 cargo fmt --all
-cargo check -p ambition_actors
+cargo check -p ambition_platformer2d_actor_monolith
 ```
 
 If the environment cannot run Cargo, state that explicitly and still inspect the

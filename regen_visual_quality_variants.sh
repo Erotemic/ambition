@@ -14,7 +14,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-asset_root="$repo_root/crates/ambition_actors/assets"
+asset_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets"
 
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/tool_python.sh"

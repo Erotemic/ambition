@@ -40,7 +40,7 @@ We deliberately keep **two movement kernels** — the axis-swept AABB kernel
 (the protected classic-feel fast path) and the surface-momentum kernel
 (chains/blocks, circle proxy). What unifies them is BELOW and BESIDE them:
 
-- **Below — the cast library** (`ambition_engine_core::cast`, minted CC1):
+- **Below — the cast library** (`ambition_platformer2d_core::cast`, minted CC1):
   the primitive queries both kernels and every trigger reader call. No system
   rolls its own overlap/step check. The full family registry and ownership
   rulings: §3.4.
@@ -190,7 +190,7 @@ have a pinned order:
   (transit runs before zone checks); the CC3 fuzz rig asserts the invariant
   ("no two Class-B remaps in one frame"), and violations are re-ordering
   bugs, not tolerated races. **Implemented (2026-07-10):**
-  `ambition_platformer_primitives::class_b` is the countable event — every
+  `ambition_platformer2d_shared_tangle::class_b` is the countable event — every
   Class-B writer calls `ClassBRemapLog::record` at the moment it writes the
   position, the log is cleared at the head of each sim frame, and CC3's
   invariant 5 reads it. Its `ClassBRemap` enum ranks the doctrine's three by
@@ -260,7 +260,7 @@ three CC1 rulings (asked by opus 2026-07-06):
   cast" is satisfied — no system outside the kernel needs a circle cast.
 - **(b) `ray_aabb` + `raycast_solids` + `SolidWorldQuery` move DOWN into
   `engine_core::cast`.** They are pure geometry / world-query with zero
-  platformer semantics; `ambition_platformer_primitives` already depends on
+  platformer semantics; `ambition_platformer2d_shared_tangle` already depends on
   engine_core, so the move is with-the-grain (and the orphan-rule note in
   `world_query.rs` dissolves: the `impl SolidWorldQuery for World` lands
   beside `World`). Consumers repoint in the same arc; no re-export shim
@@ -268,11 +268,11 @@ three CC1 rulings (asked by opus 2026-07-06):
 - **(c) The portal-aware cast lands in `cast` WITH CC5.** It needs the
   engine-level aperture vocabulary (§7); once `PortalFrame`/`PortalAperture`
   live in engine_core, `cast::ray_through_apertures` is correctly layered
-  and `ambition_portal`'s `raycast_through_portals` becomes the gameplay
+  and `ambition_portal2d`'s `raycast_through_portals` becomes the gameplay
   wrapper that supplies apertures from `PlacedPortal`s (channels, tuning,
   recursion budget stay portal-side). The dependency inversion GPT-5.5
   flagged is broken exactly here: **engine_core owns the GEOMETRY of an
-  aperture pair; ambition_portal owns the GAMEPLAY of portals** (placement,
+  aperture pair; ambition_portal2d owns the GAMEPLAY of portals** (placement,
   channels, cooldowns, carve policy, transit machine).
 
 The family registry (which APIs exist, where, and which slice needs them):
@@ -325,7 +325,7 @@ traces? Today `Block.name` is an informal display string and nothing else
 exists. The ruling:
 
 ```rust
-// ambition_engine_core (beside World/Block/SurfaceChain):
+// ambition_platformer2d_core (beside World/Block/SurfaceChain):
 
 /// Durable identity of one piece of ROOM geometry. Two-level: WHERE it
 /// came from + its deterministic ordinal within that source's emission.
@@ -394,7 +394,7 @@ pub struct GeoFaceRef {
    sweep the codebase converting `name` usages speculatively.
 
 **✅ SUBSTRATE MINTED (opus 2026-07-06 night).** The types are in code:
-`ambition_engine_core::geo_id` — `PlacementId`, `GeoSource`, `GeoId`
+`ambition_platformer2d_core::geo_id` — `PlacementId`, `GeoSource`, `GeoId`
 (+ `anon`/`placement`/`tile_layer` constructors, `Default = Anon`), `Face`
 (Top/Bottom/Left/Right | Segment(u16)), `GeoFaceRef` — all re-exported at the
 crate root beside `World`/`Block`. **`Block` gained `id: GeoId`;** the six
@@ -562,11 +562,11 @@ all required rooms and fails on the exact invariant classes it claims to exclude
 
 | Invariant | Status |
 |---|---|
-| 1 embed-in-solid | ✅ **carve-aware.** `solid_blocks` now composes the world through `ambition_world::collision::world_with_portal_carves` before testing, and includes `BlinkWall`. **The transit exemption falls out of the geometry**: a straddling body's center sits in a hole that no longer contains a block, so no `PortalTransit` special case is needed. |
+| 1 embed-in-solid | ✅ **carve-aware.** `solid_blocks` now composes the world through `ambition_platformer2d_world::collision::world_with_portal_carves` before testing, and includes `BlinkWall`. **The transit exemption falls out of the geometry**: a straddling body's center sits in a hole that no longer contains a block, so no `PortalTransit` special case is needed. |
 | 2 straddle-outside-carve | ✅ **live.** The "read-model row" this row said was missing **already existed**: `PortalTransit.straddling` has named the channel since moving-portals landed. What was missing was a caller. The oracle resolves the straddled `PlacedPortal`, rebuilds its `pieces::carve_hole`, and tests the body's center against the **AUTHORED** wall — the composed world used by invariant 1 has *every* carve subtracted, so it is structurally blind to a body standing inside a hole it never entered. That blindness IS the §7.6 class, and this invariant is the eye for it. |
 | 3 out-of-bounds | ✅ pre-existing (by side, with the authored-exit suppression + the through-wall classifier). |
 | 4 NaN/inf | ✅ **folded in and CATALOGED**, pos and vel. It short-circuits: every geometric test is meaningless on a non-finite body. |
-| 5 one Class-B remap per frame | ✅ **live, and it did need new machinery.** `ambition_platformer_primitives::class_b` mints the countable event §3.2 asked for: `ClassBRemap` (priority = declaration order) + a frame-scoped `ClassBRemapLog`, cleared at the head of the sim by `SandboxSetsPlugin` and written by all four authorities — `portal_transit`, `apply_room_transition_system`, `apply_player_hit_events` (death + hazard safe-respawn), and the three traversal teleports (blink / dive / mark-recall). It is a **ledger, not an arbiter**: §3.2 says the one-action rule holds *structurally* via the §3.1 rule-2 sample reset, so an arbiter here would hide a broken reset and silence the oracle. The violation's DETAIL line reads the pair's priority order and names the bug class — a stronger authority applying second means a missed sample reset; a weaker one means a misordered schedule. |
+| 5 one Class-B remap per frame | ✅ **live, and it did need new machinery.** `ambition_platformer2d_shared_tangle::class_b` mints the countable event §3.2 asked for: `ClassBRemap` (priority = declaration order) + a frame-scoped `ClassBRemapLog`, cleared at the head of the sim by `SandboxSetsPlugin` and written by all four authorities — `portal_transit`, `apply_room_transition_system`, `apply_player_hit_events` (death + hazard safe-respawn), and the three traversal teleports (blink / dive / mark-recall). It is a **ledger, not an arbiter**: §3.2 says the one-action rule holds *structurally* via the §3.1 rule-2 sample reset, so an arbiter here would hide a broken reset and silence the oracle. The violation's DETAIL line reads the pair's priority order and names the bug class — a stronger authority applying second means a missed sample reset; a weaker one means a misordered schedule. |
 | 6 one-way fall-through | ✅ **live.** Tracks the one-way a body was supported by at the end of last tick; fires when this tick's center ends below its top with no drop-through intent (held descend axis) and no Class-B remap (room load / respawn). |
 
 **THE MEASUREMENT (all six invariants, 2026-07-10): 72 rooms × 3 seeds × 300
@@ -668,13 +668,13 @@ format contract that must hold from v1: a dump reproduces from
 
 ## 7. `PortalFrame` — the exact conventions (CC5, ✅ landed; this is what the code does)
 
-The old `ambition_portal::pieces::PortalFrame { pos, normal, half_extent }` was
+The old `ambition_portal2d::pieces::PortalFrame { pos, normal, half_extent }` was
 the frame PLUS aperture extent in cardinal-AABB clothing. CC5 SPLIT it and moved
 the split DOWN (reorganize-don't-adapt; no wrapper, no bridge — the old struct
 was deleted in the same arc). The shapes below are live vocabulary:
 
 ```rust
-// ambition_engine_core::frame (new module; bevy_math only)
+// ambition_platformer2d_core::frame (new module; bevy_math only)
 
 /// A portal endpoint IS a frame. World-frame fields (AJ13 naming).
 pub struct PortalFrame {
@@ -695,14 +695,14 @@ impl PortalFrame {
 
 /// Frame + opening extent. THE aperture vocabulary the portal-aware cast
 /// consumes. Carve depth / capture margins are NOT here — they are
-/// ambition_portal gameplay policy.
+/// ambition_portal2d gameplay policy.
 pub struct PortalAperture {
     pub frame: PortalFrame,
     pub half_length: f32,   // opening half-extent along tangent()
 }
 
 /// The pair map. `convention` is an EXPLICIT parameter at this layer —
-/// the global flag (`portal_map_rotation()`) is ambition_portal's wrapper
+/// the global flag (`portal_map_rotation()`) is ambition_portal2d's wrapper
 /// concern, never engine_core's.
 pub enum MapConvention { Reflection /* det −1, today's default */, Rotation /* det +1 */ }
 pub fn map_point(a: &PortalFrame, b: &PortalFrame, c: MapConvention, p: Vec2) -> Vec2;
@@ -730,7 +730,7 @@ byte-identically. If a future change drifts a portal test, the resolution is
 exact-op matching, **not** tolerance-loosening.
 
 Carve depth and capture margins are deliberately NOT in the aperture type —
-they are `ambition_portal` gameplay policy. The capture box builds from
+they are `ambition_portal2d` gameplay policy. The capture box builds from
 `half_length` + `TRANSIT_BEGIN_MARGIN` explicitly, which is what the old
 `half_extent`'s through-thickness component always meant.
 

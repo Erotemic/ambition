@@ -30,8 +30,8 @@
 //! on now has an EXTENT ([`ShadowFighter::ground_span`]); everything above it
 //! remains omitted.
 
-use ambition_engine_core as ae;
-use ambition_engine_core::hit_response::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::hit_response::{
     self, HitKnockback, HitKnockbackMagnitude, HitResponseTuning,
 };
 use ambition_entity_catalog::MoveFrameData;

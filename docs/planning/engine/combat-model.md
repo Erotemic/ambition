@@ -239,7 +239,7 @@ re-derive them:
    The rich player-victim payload (`PLAYER_DAMAGE` sfx + 14-shard red `Burst` +
    `DebrisBurst{Impact}`) exists ONLY attacker-side, at two byte-identical
    sites: `ambition_combat/src/hitbox/mod.rs:250-268` and
-   `ambition_actors/src/features/ecs/actors/update.rs:1134-1149`. The victim
+   `ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1134-1149`. The victim
    side emits only `SfxMessage::Hit` + `Impact` (`damage/mod.rs:378`,
    `damage_apply.rs:623-624`). So the seam MOVES the payload; it does not drop
    it. This is why the smell is M-sized, not S.

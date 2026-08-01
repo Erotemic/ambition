@@ -40,7 +40,7 @@ Do not begin by recursively reading `docs/`, `.agent/`, or a large crate.
 python scripts/agent_query.py "portal transition arrival"
 
 # Current package role and generated module packet.
-python scripts/agent_query.py crate ambition_portal
+python scripts/agent_query.py crate ambition_portal2d
 
 # Durable or current prose mentioning an invariant.
 python scripts/agent_query.py docs "transactional room load"

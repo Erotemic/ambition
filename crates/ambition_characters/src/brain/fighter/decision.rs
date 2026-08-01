@@ -28,7 +28,7 @@
 //! reason, and a noise stream that did not rewind would make the same fighter
 //! throw a different jab on a replay.
 
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 
 use crate::actor::control::ActorControlFrame;
 use crate::brain::BrainSnapshot;

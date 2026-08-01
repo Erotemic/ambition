@@ -1,0 +1,182 @@
+//! Loot / drop spawners for the damage path.
+//!
+//! The pure helpers `apply_actor_hit` / `apply_boss_hit` (in `damage/`) call
+//! these when something dies — currency coins, health hearts, ability pickups,
+//! the exploding-mite death blast, and the dividing-mite split. Sibling of
+//! `damage/` (which owns hit application) and `damage_predicates`.
+
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use bevy::prelude::{Commands, Entity};
+
+use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
+use ambition_platformer2d_core as ae;
+
+/// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
+/// Deterministic, not random, so the headless sim stays reproducible — the same
+/// enemy always drops or always doesn't.
+pub fn id_drops_health(id: &str) -> bool {
+    let h = id
+        .bytes()
+        .fold(2166136261u32, |a, b| (a ^ b as u32).wrapping_mul(16777619));
+    h % 4 == 0
+}
+
+/// Spawn a collectible currency coin at `pos` — an enemy's death drop. Reuses the
+/// exact pickup entity shape that LDtk-placed coins use, so the already-registered
+/// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
+/// player overlaps it. The coin sits where the enemy fell and never respawns
+/// (`Pickup::new` defaults to [`ambition_interaction::RespawnPolicy::Never`]).
+pub fn drop_currency_coin(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    id: &str,
+    pos: ae::Vec2,
+    amount: i32,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("coin:{id}")),
+            FeatureName::new("Coin"),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("coin:{id}"),
+                ambition_interaction::PickupKind::Currency { amount },
+            )),
+        ),
+    );
+}
+
+/// Half-extent (px) of an `ExplodingMite`'s death blast — a wide, readable boom.
+const EXPLODER_BLAST_HALF: f32 = 64.0;
+/// Damage the blast deals (more than the mite's contact, so a point-blank kill
+/// genuinely punishes).
+pub(super) const EXPLODER_BLAST_DAMAGE: i32 = 3;
+const EXPLODER_BLAST_KNOCKBACK: f32 = 1.6;
+/// A brief flash — the box exists just long enough to register one hit.
+const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
+
+/// Spawn the death blast of a volatile mite: a one-shot **Enemy-faction**
+/// [`Hitbox`](crate::features::Hitbox) centered on the corpse. Enemy faction, so
+/// `apply_hitbox_damage` routes it at the *player* (not other enemies — the blast
+/// doesn't chain), and the player's shield/parry can still negate it. `owner` is
+/// the dying mite (moot for ignore-self, since the blast never hits its own side).
+///
+/// Calls the executor DIRECTLY (not via `Effect::DamageBox`) on purpose: this
+/// runs in the hit-resolution stage, AFTER `apply_effects`, so a fire-and-forget
+/// `EffectRequest` would land a frame late. Spawning the box here keeps it
+/// same-frame (and replay-identical).
+pub(super) fn spawn_death_explosion(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    owner: Entity,
+    pos: ae::Vec2,
+) {
+    let entity = ambition_vfx::spawn_damage_box(
+        commands,
+        owner,
+        ambition_vfx::HitSide::Enemy,
+        pos,
+        ambition_vfx::DamageBox {
+            half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
+            shape: None,
+            damage: EXPLODER_BLAST_DAMAGE,
+            knockback: EXPLODER_BLAST_KNOCKBACK,
+            lifetime_s: EXPLODER_BLAST_LIFETIME_S,
+            name: Some("Exploding mite blast"),
+        },
+    );
+    let mut entity_commands = commands.entity(entity);
+    session_scope.apply_to(&mut entity_commands);
+}
+
+/// Lateral offset (px) each split offspring spawns from the parent's corpse.
+const SPLIT_OFFSET_X: f32 = 30.0;
+/// Half-size of a split offspring (a small-skitter body).
+const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
+
+/// A `DividingMite` splits into two fast `SmallSkitter` offspring on death — one
+/// to each side — through the runtime-minion spawner. The children are plain
+/// skitters (NOT dividers), so the split is exactly one level deep: no runaway
+/// recursion, just "kill the slow parent, then handle two quick children."
+pub(super) fn spawn_split_offspring(
+    commands: &mut Commands,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    character_roster: &crate::features::CharacterRoster,
+    session_scope: SessionSpawnScope,
+    parent_id: &str,
+    pos: ae::Vec2,
+) {
+    for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
+        crate::features::spawn_runtime_minion(
+            commands,
+            character_catalog,
+            authored_sheets,
+            character_roster,
+            session_scope,
+            format!("{parent_id}:split{i}"),
+            "Divided cell",
+            pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
+            SPLIT_OFFSPRING_HALF,
+            "SmallSkitter",
+            format!("{parent_id}:split"),
+            crate::features::ActorFaction::Enemy,
+            crate::features::ActorAggression::hostile(),
+        );
+    }
+}
+
+/// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
+/// same pickup path as the coin so `collect_ecs_pickups` heals the player on
+/// overlap via `PlayerHealRequested`.
+pub fn drop_health_pickup(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    id: &str,
+    pos: ae::Vec2,
+    amount: i32,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("heart:{id}")),
+            FeatureName::new("Health"),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("heart:{id}"),
+                ambition_interaction::PickupKind::Health { amount },
+            )),
+        ),
+    );
+}
+
+/// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
+/// the standard pickup entity shape so [`super::collect_ecs_pickups`] grants the
+/// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
+pub fn drop_ability_pickup(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    boss_id: &str,
+    pos: ae::Vec2,
+    ability_id: &str,
+    ability_name: &str,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("ability_drop:{boss_id}")),
+            FeatureName::new(ability_name.to_string()),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("ability_drop:{boss_id}"),
+                ambition_interaction::PickupKind::Ability {
+                    ability_id: ability_id.to_string(),
+                },
+            )),
+        ),
+    );
+}

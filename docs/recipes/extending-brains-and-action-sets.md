@@ -66,6 +66,6 @@ that can be reset, snapshotted, and tested.
 
 ```bash
 ./run_tests.sh -p ambition_characters -k <new_policy>
-./run_tests.sh -p ambition_actors -k <new_action>
+./run_tests.sh -p ambition_platformer2d_actor_monolith -k <new_action>
 ./run_tests.sh -k action_scheme
 ```

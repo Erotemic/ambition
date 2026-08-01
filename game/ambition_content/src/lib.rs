@@ -3,7 +3,7 @@
 //! the enemy roster, music cues, and the cross-content validator.
 //!
 //! This is the content crate, distinct from the reusable machinery crate
-//! `ambition_actors` it depends on. The dependency direction is strict and
+//! `ambition_platformer2d_actor_monolith` it depends on. The dependency direction is strict and
 //! one-way — content → machinery, never the reverse — so the named cast and
 //! data installed here build on top of the generic schemas/pipelines that
 //! live machinery-side. Registration flows through one seam,
@@ -42,11 +42,11 @@ pub mod falling_sand_sim;
 /// provider fragment.
 pub mod provider;
 // `features` (the feature-ECS actor/boss world) was promoted to
-// `ambition_actors::features` (lib root): machinery presentation/dev still read
+// `ambition_platformer2d_actor_monolith::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
-pub use ambition_actors::features;
+pub use ambition_platformer2d_actor_monolith::features;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod enemy_roster;
@@ -65,7 +65,7 @@ pub mod quest;
 pub mod quests;
 pub mod vanity_card;
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
-/// `ambition_actors::ldtk_world`).
+/// `ambition_platformer2d_actor_monolith::ldtk_world`).
 pub mod worlds;
 
 #[cfg(feature = "portal")]
@@ -81,6 +81,6 @@ pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 // character entries live in `assets/data/character_catalog.ron`.
 
 /// Facade: the data-manifest *machinery* (spec schema + asset wiring)
-/// moved to [`ambition_actors::session::data`]; the authored RON it loads is the
+/// moved to [`ambition_platformer2d_actor_monolith::session::data`]; the authored RON it loads is the
 /// content. Inbound `crate::data::…` paths keep working.
-pub use ambition_actors::session::data;
+pub use ambition_platformer2d_actor_monolith::session::data;

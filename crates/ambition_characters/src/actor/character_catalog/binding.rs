@@ -20,7 +20,7 @@
 //! Precedence and namespace resolution are deterministic (see
 //! [`resolve_initial_brain`]). Once an actor carries a [`BrainBinding`], runtime
 //! gameplay switches its brain through the authoritative command path
-//! (`ambition_actors`'s `BrainCommand`), which rebuilds the [`Brain`] via
+//! (`ambition_platformer2d_actor_monolith`'s `BrainCommand`), which rebuilds the [`Brain`] via
 //! [`CharacterCatalog::build_brain_from_preset`] — the same seam this module uses
 //! at spawn, so a preset resolves identically at spawn and at a later switch.
 
@@ -69,7 +69,7 @@ impl std::fmt::Display for BrainPresetId {
 /// confused with a character id or a catalog preset id.
 ///
 /// This is deliberately *just* a carrier: `ambition_characters` never interprets
-/// it (the roster and the archetype→config projection live in `ambition_actors`).
+/// it (the roster and the archetype→config projection live in `ambition_platformer2d_actor_monolith`).
 /// It is what a [`AutonomousSource::Provoked`] retains so a provoked actor is
 /// reconstructible from a snapshot — the whole archetype config (tuning, brain,
 /// action set, capabilities) is a deterministic function of this id plus the
@@ -106,13 +106,13 @@ impl std::fmt::Display for HostileArchetypeId {
 }
 
 /// A stable id for a boss's authored autonomous mode — the boss's catalog id
-/// (`BossConfig.id`), the key `ambition_actors`' `BossCatalog` resolves a
+/// (`BossConfig.id`), the key `ambition_platformer2d_actor_monolith`' `BossCatalog` resolves a
 /// `BossBehaviorProfile` from. A newtype over `String` so it can't be confused
 /// with a character id, a catalog preset id, or a hostile archetype id.
 ///
 /// Like [`HostileArchetypeId`] this is *just* a carrier: `ambition_characters`
 /// never interprets it (the boss catalog and the `id → BossPatternCfg` projection
-/// live in `ambition_actors`). It is what an [`AutonomousSource::Boss`] retains so
+/// live in `ambition_platformer2d_actor_monolith`). It is what an [`AutonomousSource::Boss`] retains so
 /// a possessed boss has a reconstructible autonomous mode independent of the live
 /// (masked) `Brain`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]

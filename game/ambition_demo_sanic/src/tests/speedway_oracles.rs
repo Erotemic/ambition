@@ -10,7 +10,7 @@
 //! track land on the track) was added with the same-day depth-occlusion
 //! rework that made airborne collision lane-blind.
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 
 use crate::{
     sanic_speedway, FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS,
@@ -915,7 +915,7 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
 
 /// Interpolated ground-route height under `x` (the hills are real geometry,
 /// so "the ground" is the chain surface, not the flat slab top).
-fn ground_y_at(room: &ambition::world::rooms::RoomSpec, x: f32) -> f32 {
+fn ground_y_at(room: &ambition_platformer2d::world::rooms::RoomSpec, x: f32) -> f32 {
     let mut best = f32::MAX;
     for name in ["sanic_floor_route", "sanic_floor_runout"] {
         let chain = &room.world.chains[chain_index(&room.world, name)];

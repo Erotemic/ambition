@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-`ambition_actors` contains reusable platformer behavior, Ambition-specific
+`ambition_platformer2d_actor_monolith` contains reusable platformer behavior, Ambition-specific
 content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
@@ -53,7 +53,7 @@ can be mapped cleanly onto reusable runtime phases.
 
 ```bash
 ./run_tests.sh -p ambition_workspace_policy
-./run_tests.sh -p ambition_actors -k room_scoped
+./run_tests.sh -p ambition_platformer2d_actor_monolith -k room_scoped
 ./run_tests.sh -p ambition_app -k portal
 ./run_tests.sh -p ambition_app -k gravity
 ```
@@ -61,15 +61,15 @@ can be mapped cleanly onto reusable runtime phases.
 ## Current implications for agents
 
 - The crate extraction this ADR set up has LARGELY HAPPENED (Stage 20, 2026-06).
-  The workspace is now `ambition_engine_core` / `ambition_platformer_primitives` /
-  `ambition_portal` / `ambition_time` / `ambition_input` / `ambition_menu` /
-  `ambition_audio` (foundations) ← `ambition_actors` (machinery lib) ←
+  The workspace is now `ambition_platformer2d_core` / `ambition_platformer2d_shared_tangle` /
+  `ambition_portal2d` / `ambition_time` / `ambition_input` / `ambition_menu` /
+  `ambition_audio` (foundations) ← `ambition_platformer2d_actor_monolith` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
   tests). See `docs/planning/engine/architecture.md` and `docs/concepts/engine-mental-model.md`.
 - The `crate::{engine_core, kinematic, input, ui_nav, interaction, actor, brain}`
-  compat re-exports inside `ambition_actors` were REMOVED (2026-06-25). Import
-  each by its canonical path — `ambition_engine_core`,
-  `ambition_platformer_primitives::kinematic`, `ambition_input`, `ambition_ui_nav`,
+  compat re-exports inside `ambition_platformer2d_actor_monolith` were REMOVED (2026-06-25). Import
+  each by its canonical path — `ambition_platformer2d_core`,
+  `ambition_platformer2d_shared_tangle::kinematic`, `ambition_input`, `ambition_ui_nav`,
   `ambition_interaction`, `ambition_characters::{actor, brain}` — and edit the crate
   directly; there is no lib facade. The workspace-policy guards (in
   `tests/ambition_workspace_policy`) guard against re-adding them.
@@ -79,4 +79,4 @@ can be mapped cleanly onto reusable runtime phases.
 - New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),
   not functions hand-wired in the app assembly.
 - Integration tests + binaries live in `ambition_app`; machinery unit tests in
-  `ambition_actors --lib`; content tests in `ambition_content --all-features`.
+  `ambition_platformer2d_actor_monolith --lib`; content tests in `ambition_content --all-features`.

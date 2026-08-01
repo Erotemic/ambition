@@ -1,7 +1,7 @@
 //! Named projectile kinds + their authored stat tables (Ambition's basic kit).
 //!
 //! This is *named game content* — the Fireball / Hadouken tier and the numbers
-//! behind it. It lives here (not in the foundation `ambition_platformer_primitives`,
+//! behind it. It lives here (not in the foundation `ambition_platformer2d_shared_tangle`,
 //! which stays generic, and not yet in `ambition_content`, which the player
 //! fire/charge/gesture systems below can't be reached from without the §4
 //! ControlFrame→actor-intent extraction). The kind *lowers* into the engine's
@@ -12,11 +12,11 @@
 //! the feel-trace, and the renderer (tint / sprite name) can read the named kind
 //! without the engine knowing kinds exist.
 
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 
-use ambition_platformer_primitives::projectile::ProjectileSpec;
+use ambition_platformer2d_shared_tangle::projectile::ProjectileSpec;
 
 /// What kind of projectile to spawn.
 ///

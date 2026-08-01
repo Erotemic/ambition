@@ -23,17 +23,17 @@ default = []
 # — a windowed demo that ignored the keyboard would not be a playable-persona demo.
 # Without it the shell steps the sim headlessly (`tests/exit_3.rs`, the `sanic_demo`
 # bin default).
-visible = ["ambition/visible", "ambition/basic_shell_presentation", "ambition/audio", "input", "dep:bevy_kira_audio"]
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input", "dep:bevy_kira_audio"]
 # The STANDARD host input path (leafwing bindings + the device→ControlFrame bridge +
 # the fixed-tick latch), the same production wiring the full app uses. Folded into
 # `visible` above so the windowed binary is interactive; also usable alone for the
 # headless `tests/standard_input_path.rs` proof.
-input = ["ambition/input"]
+input = ["ambition_platformer2d/input"]
 
 [dependencies]
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
-# depends on `ambition`, never on `ambition_app`. That is the demo gate.
-ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+# depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 # The demo's own content + rules. The shell names nothing else.
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 # Bevy's derives cannot be reached through a re-export (see the content crate's

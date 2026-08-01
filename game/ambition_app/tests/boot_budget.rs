@@ -60,7 +60,7 @@ fn boot_and_settle() -> bevy::app::App {
 
     let images = |app: &bevy::app::App| {
         app.world()
-            .get_resource::<ambition::render::asset_census::ImageCensus>()
+            .get_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
             .map(|census| census.total_images())
             .unwrap_or(0)
     };
@@ -121,7 +121,7 @@ fn boot_decodes_no_more_than_its_budget() {
     let app = boot_and_settle();
     let census = app
         .world()
-        .get_resource::<ambition::render::asset_census::ImageCensus>()
+        .get_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
         .expect("the image census is always-on; without it this guard is blind");
 
     let megapixels = census.total_megapixels();
@@ -267,7 +267,7 @@ fn no_system_is_registered_twice_in_one_schedule() {
 /// reached every room one loading zone from the hub and the hub has 21 of them.
 #[test]
 fn a_gameplay_session_stages_no_more_of_the_cast_than_its_budget() {
-    use ambition::game_shell::ShellCommand;
+    use ambition_platformer2d::game_shell::ShellCommand;
 
     let mut app = boot_and_settle();
     let staged_at_title = staged_cast_len(&app);
@@ -312,7 +312,7 @@ const SESSION_STAGED_CAST_BUDGET: usize = 40;
 
 fn staged_cast_len(app: &bevy::app::App) -> usize {
     app.world()
-        .get_resource::<ambition::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }

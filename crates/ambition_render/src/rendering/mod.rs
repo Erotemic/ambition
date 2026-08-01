@@ -68,7 +68,7 @@ pub use actors::{
 };
 // `BoundFeatureKind` lives with the foundation feature taxonomy; re-exported
 // here so existing render call sites resolve unchanged.
-pub use ambition_platformer_primitives::feature_kind::BoundFeatureKind;
+pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
 // `manage_gradient_lane_visual` + `GradientLaneVisual` stay
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
@@ -135,20 +135,20 @@ pub struct ActorOverlaySet;
 /// session, so the complete per-frame presentation graph must stay dormant.
 fn session_presentation_is_ready(
     gate: Option<
-        bevy::prelude::Res<ambition_platformer_primitives::lifecycle::SessionGatedSimulation>,
+        bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
     >,
     active: Option<
-        bevy::prelude::Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>,
+        bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>,
     >,
-    roots: bevy::prelude::Query<&ambition_platformer_primitives::lifecycle::SessionRoot>,
+    roots: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     // The primary player body IS the readiness signal now: presentation runs only
     // once the session has lowered its home avatar. Derived from the canonical
     // marker instead of a process-global handle bag that outlives its session.
     primary_player: bevy::prelude::Query<
         (),
         (
-            bevy::prelude::With<ambition_platformer_primitives::markers::PlayerEntity>,
-            bevy::prelude::With<ambition_platformer_primitives::markers::PrimaryPlayer>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
 ) -> bool {
@@ -156,7 +156,7 @@ fn session_presentation_is_ready(
         gate.is_none()
             || active
                 .as_deref()
-                .and_then(ambition_platformer_primitives::lifecycle::ActiveSessionScope::current)
+                .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current)
                 == Some(root.0)
     });
     exact_world && !primary_player.is_empty()
@@ -237,14 +237,14 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
         // disorientation / mode indicators) now live in the reusable
-        // `ambition_portal_presentation` crate; the sandbox adds its plugin,
+        // `ambition_portal2d_presentation` crate; the sandbox adds its plugin,
         // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `ambition_portal::host_adapter`). Gravity visuals
+        // tag, gun art — see `ambition_portal2d::host_adapter`). Gravity visuals
         // and the F7 dev off-switch stay host-side. All of it only compiles
         // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
         {
-            use ambition_portal_presentation::{PortalPresentationPlugin, PortalPresentationSet};
+            use ambition_portal2d_presentation::{PortalPresentationPlugin, PortalPresentationSet};
             app.add_plugins(PortalPresentationPlugin::default());
             // The Ambition host-adapter glue (world-frame/viewer/focus/debug
             // seam publishers, scene-body tagging, dev toggles, gun art) is
@@ -260,7 +260,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 PortalPresentationSet
                     .after(actors::animate_player)
                     .after(camera::camera_follow)
-                    .after(ambition_portal_presentation::PortalObservationSet),
+                    .after(ambition_portal2d_presentation::PortalObservationSet),
             );
             app.add_systems(
                 Update,
@@ -275,7 +275,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -298,7 +298,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // sides live in `Update` for all three sim hosts.
         app.configure_sets(
             Update,
-            ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync
+            ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync
                 .after(ambition_sim_view::PresentedPoseSet),
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
@@ -318,7 +318,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(actors::animate_characters)
                 .before(hit_flash::sync_hit_flash_overlays)
                 .in_set(
-                    ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -400,7 +400,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             )
                 .chain()
                 .in_set(
-                    ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );

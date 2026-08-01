@@ -1,12 +1,12 @@
 //! Sprite RESOLVERS: map sim/world entities (hazards, pickups, chests,
 //! breakables, enemies, blocks, loading zones) to an `EntitySprite`.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use super::*;
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_world::rooms::LoadingZoneActivation;
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_world::rooms::LoadingZoneActivation;
 
 pub fn entity_sprite(
     assets: &GameAssets,
@@ -48,18 +48,18 @@ pub fn entity_sprite_or_color(
 /// runtime sync system swaps the sprite later for state-driven kinds
 /// (chest open, breakable cracked).
 pub fn entity_sprite_for_hazard(
-    _volume: &ambition_world::rooms::HazardVolumeSpec,
+    _volume: &ambition_platformer2d_world::rooms::HazardVolumeSpec,
 ) -> Option<EntitySprite> {
     Some(EntitySprite::HazardSpikes)
 }
 
 pub fn entity_sprite_for_pickup(
-    pickup: &ambition_world::rooms::PickupSpec,
+    pickup: &ambition_platformer2d_world::rooms::PickupSpec,
 ) -> Option<EntitySprite> {
     Some(pickup_sprite(&pickup.kind))
 }
 
-pub fn entity_sprite_for_chest(_chest: &ambition_world::rooms::ChestSpec) -> Option<EntitySprite> {
+pub fn entity_sprite_for_chest(_chest: &ambition_platformer2d_world::rooms::ChestSpec) -> Option<EntitySprite> {
     Some(EntitySprite::ChestClosed)
 }
 
@@ -74,17 +74,17 @@ pub fn entity_sprite_for_runtime_chest(
 }
 
 pub fn entity_sprite_for_breakable(
-    _breakable: &ambition_world::rooms::BreakableSpec,
+    _breakable: &ambition_platformer2d_world::rooms::BreakableSpec,
 ) -> Option<EntitySprite> {
     Some(EntitySprite::BreakableIntact)
 }
 
 pub fn entity_sprite_for_interactable(
-    interactable: &ambition_world::rooms::InteractableSpec,
+    interactable: &ambition_platformer2d_world::rooms::InteractableSpec,
 ) -> Option<EntitySprite> {
     if matches!(
         interactable.kind,
-        ambition_world::rooms::InteractionKindSpec::Npc { .. }
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc { .. }
     ) {
         Some(EntitySprite::NpcTerminal)
     } else {
@@ -138,11 +138,11 @@ pub fn entity_sprite_for_boss(
     Some(EntitySprite::BossCore)
 }
 
-fn pickup_sprite(kind: &ambition_world::rooms::PickupKindSpec) -> EntitySprite {
+fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKindSpec) -> EntitySprite {
     match kind {
-        ambition_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
-        ambition_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
-        ambition_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
+        ambition_platformer2d_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
+        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
+        ambition_platformer2d_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
         // StoryFlag and Custom fall back to the ability look until they
         // get dedicated art.
         _ => EntitySprite::PickupAbility,

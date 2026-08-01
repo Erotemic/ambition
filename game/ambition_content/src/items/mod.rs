@@ -2,7 +2,7 @@
 //!
 //! Owns inserting the starter [`OwnedItems`] roster (the 24-item catalog's
 //! default ownership set). The item enum + metadata still live in
-//! `ambition_actors::items`; this module only owns the decision to seed the default
+//! `ambition_platformer2d_actor_monolith::items`; this module only owns the decision to seed the default
 //! inventory as a sandbox resource.
 //!
 //! NOTE: this is installed from the *presentation* assembly

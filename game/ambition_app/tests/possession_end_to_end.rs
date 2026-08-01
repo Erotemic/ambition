@@ -20,12 +20,12 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::abilities::traversal::possession::PossessionState;
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::features::{ActorFaction, FeatureId};
-use ambition::characters::brain::ActorControl;
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
+use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
@@ -125,7 +125,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
 /// follows `Brain::Player`, not the home body.
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
-    use ambition::actors::features::{BodyMelee, Hitbox};
+    use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

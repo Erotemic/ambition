@@ -49,7 +49,7 @@
 //! the standing reference `pose_view` divides by for the stance ratio, the same
 //! seam crouch uses.
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
 /// Feel knobs. A `Resource` so a future act can retune per-zone without a
@@ -138,15 +138,15 @@ pub struct BallDashInput {
 /// reads that edge. Runs AFTER the gate. Vacated bodies are reset so a possession
 /// handoff cannot replay a stale rev edge.
 pub fn capture_ball_dash_input(
-    subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     tuning: Res<BallDashTuning>,
     mut bodies: Query<
         (
             Entity,
-            &ambition::characters::brain::ActorControl,
-            &ambition::characters::action_scheme::ResolvedTechniqueEdges,
-            &ambition::actors::features::MotionModel,
-            &ambition::actors::actor::BodyGroundState,
+            &ambition_platformer2d::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
+            &ambition_platformer2d::actors::features::MotionModel,
+            &ambition_platformer2d::actors::actor::BodyGroundState,
             &mut BallDashInput,
         ),
         With<BallDash>,
@@ -158,7 +158,7 @@ pub fn capture_ball_dash_input(
             let grounded_at_capture = ground.on_ground
                 || matches!(
                     motion,
-                    ambition::actors::features::MotionModel::SurfaceMomentum(momentum)
+                    ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(momentum)
                         if matches!(momentum.state, ae::SurfaceMotion::Riding { .. })
                 );
             let crouch_held = control.0.locomotion.y >= tuning.crouch_threshold;
@@ -264,27 +264,27 @@ pub fn ball_dash_step(
 #[allow(clippy::type_complexity)]
 pub fn tick_ball_dash(
     mut commands: Commands,
-    time: Res<ambition::time::WorldTime>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
     tuning: Res<BallDashTuning>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: Query<(
         Entity,
         &BallDashInput,
         // The body's per-tick resolved frame (ADR 0024): the airborne launch
         // direction is the SAME frame the momentum kernel integrates under.
-        &ambition::actors::physics::ResolvedMotionFrame,
-        &mut ambition::actors::features::MotionModel,
+        &ambition_platformer2d::actors::physics::ResolvedMotionFrame,
+        &mut ambition_platformer2d::actors::features::MotionModel,
         &mut ae::BodyKinematics,
         &mut BallDash,
         Option<&Rolling>,
-        Option<&mut ambition::actors::actor::BodyAnimFacts>,
+        Option<&mut ambition_platformer2d::actors::actor::BodyAnimFacts>,
     )>,
 ) {
     for (entity, input, resolved_frame, mut motion, mut kin, mut state, rolling, mut anim) in
         &mut bodies
     {
         let frame = resolved_frame.basis();
-        let ambition::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion else {
+        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is
             // defined against the momentum kernel's `v_t`, and faking it with a
@@ -322,8 +322,8 @@ pub fn tick_ball_dash(
                     // classic "reh-reh-REH" without per-play pitch.
                     sfx.write_for(
                         entity,
-                        ambition::sfx::SfxMessage::Play {
-                            id: ambition::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
+                        ambition_platformer2d::sfx::SfxMessage::Play {
+                            id: ambition_platformer2d::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
                             pos: kin.pos,
                         },
                     );
@@ -347,8 +347,8 @@ pub fn tick_ball_dash(
                 // The release whoosh — distinct from the generic dash cue.
                 sfx.write_for(
                     entity,
-                    ambition::sfx::SfxMessage::Play {
-                        id: ambition::sfx::SfxId::from_static(crate::SFX_LAUNCH),
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_LAUNCH),
                         pos: kin.pos,
                     },
                 );
@@ -370,14 +370,14 @@ pub fn tick_rolling(
     mut commands: Commands,
     mut bodies: Query<(
         Entity,
-        &ambition::actors::features::MotionModel,
+        &ambition_platformer2d::actors::features::MotionModel,
         &mut ae::BodyKinematics,
         &Rolling,
     )>,
     tuning: Res<BallDashTuning>,
 ) {
     for (entity, motion, mut kin, rolling) in &mut bodies {
-        let ambition::actors::features::MotionModel::SurfaceMomentum(m) = motion else {
+        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = motion else {
             continue;
         };
         // Airborne, speed is the world velocity's magnitude; riding, it is |v_t|.
@@ -437,7 +437,7 @@ pub fn clear_ball_dash_on_restart(
 pub fn mirror_ball_anim_fact(
     mut bodies: Query<(
         Option<&Rolling>,
-        &mut ambition::actors::actor::BodyAnimFacts,
+        &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
     )>,
 ) {
     for (rolling, mut anim) in &mut bodies {
@@ -453,8 +453,8 @@ pub fn mirror_ball_anim_fact(
 /// names the on-screen button "Spin Dash". The technique's BEHAVIOR stays in
 /// this module (the crouch-rev-release chord on `ActorControl`); this only gives
 /// the mechanic an identity so the control prompt can label it honestly.
-fn spin_dash_technique() -> ambition::entity_catalog::action_scheme::ActionSpec {
-    use ambition::entity_catalog::action_scheme as sch;
+fn spin_dash_technique() -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
+    use ambition_platformer2d::entity_catalog::action_scheme as sch;
     sch::ActionSpec {
         id: sch::ActionId::new("spin_dash"),
         slot: sch::ControlSlot::Attack,
@@ -468,7 +468,7 @@ fn spin_dash_technique() -> ambition::entity_catalog::action_scheme::ActionSpec 
 /// possession can hand control to a body that has never revved.
 pub fn attach_ball_dash(
     mut commands: Commands,
-    subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     without: Query<(), (With<ae::BodyKinematics>, Without<BallDash>)>,
 ) {
     let Some(entity) = subject.and_then(|s| s.0) else {
@@ -484,7 +484,7 @@ pub fn attach_ball_dash(
             // technique auto-attaches `ResolvedTechniqueEdges` (required-component
             // of `ActorTechniques`) — the sanctioned edge the gate writes and
             // `capture_ball_dash_input` reads — so the seam can never be missing.
-            ambition::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
+            ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
         ));
     }
 }

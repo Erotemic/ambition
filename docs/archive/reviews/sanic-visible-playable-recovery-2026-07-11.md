@@ -85,7 +85,7 @@ gameplay profiles if the multi-character proof demonstrates real duplication.
 (`--features input`): synthetic ArrowRight → leafwing `ActionState` → the standard
 `populate_control_frame_from_actions` bridge → fixed-tick latch →
 `SlotControls[PRIMARY]` → brain → observable movement, plus a no-input twin. Fix
-landed: `ambition_host` now registers the `CursorMoved` window message
+landed: `ambition_platformer2d_host` now registers the `CursorMoved` window message
 `update_active_input_kind` needs (it panicked headlessly before); the bridge's
 neutral fallback is now diagnostic (`warn_once`).
 
@@ -114,7 +114,7 @@ Headless builds must remain renderer-, window-, and audio-device-free.
 **Status:** DONE for the demo — `visible` now implies `input`, so
 `cargo run --features visible ... --window` is interactive; the headless shell stays
 input-free. (The CANONICAL-identity work is a separate **DONE** slice: `WornCharacter`
-+ `apply_worn_character_gameplay`, proven by `ambition_actors`
++ `apply_worn_character_gameplay`, proven by `ambition_platformer2d_actor_monolith`
 `avatar::starting_character::tests` + the snapshot round-trip. Dialogue now derives
 the speaker from the entity's `WornCharacter`, not `StartingCharacter` — no second
 authority. Spawn + runtime share ONE `apply_worn_character_overlay`, which resolves

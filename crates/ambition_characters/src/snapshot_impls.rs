@@ -1,10 +1,10 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
 //! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_engine_core::snapshot` owns the trait and the orphan rule binds an
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
 //! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_runtime`. The
+//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
+//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
 //! orphan rule is what proves this file is in the right crate: if a type moves,
 //! this stops compiling rather than drifting.
 //!
@@ -12,11 +12,11 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_engine_core::snapshot::{
+use ambition_platformer2d_core::snapshot::{
     Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
     put_u8, put_u32, put_u64, put_vec2,
 };
-use ambition_engine_core::{snapshot_pod, snapshot_unit_enum};
+use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
 snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
     Idle = 0,
@@ -295,7 +295,7 @@ impl SnapshotState for crate::brain::boss_pattern::BossPatternStep {
             S::Select { .. } => {
                 debug_assert!(false, "a resolved timeline still holds a `Select`");
                 bevy::log::error!(
-                    target: "ambition::snapshot",
+                    target: "ambition_platformer2d::snapshot",
                     "a resolved timeline still holds a `Select`; it encodes as \
                      absent and will come back absent from a rewind"
                 );
@@ -625,7 +625,7 @@ impl SnapshotState for crate::brain::ActorControl {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use crate::actor::control::{ActorControlFrame, ActorFireRequest};
-        use ambition_engine_core::reference_frame::GameplayFramePolicy;
+        use ambition_platformer2d_core::reference_frame::GameplayFramePolicy;
         let locomotion = r.vec2()?;
         let velocity_target = r.vec2()?;
         let drop_through = r.bool()?;
@@ -907,8 +907,8 @@ mod body_health_wire_tests {
     use crate::actor::{BodyHealth, DeathPolicy, Health};
 
     fn round_trip(health: &BodyHealth) -> BodyHealth {
-        let bytes = ambition_engine_core::snapshot::encode_state(health);
-        ambition_engine_core::snapshot::decode_state::<BodyHealth>(&bytes)
+        let bytes = ambition_platformer2d_core::snapshot::encode_state(health);
+        ambition_platformer2d_core::snapshot::decode_state::<BodyHealth>(&bytes)
             .expect("the encoding decodes")
     }
 

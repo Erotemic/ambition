@@ -19,13 +19,13 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::BodyMelee;
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
-use ambition::actors::combat::moveset::MovePlayback;
-use ambition::actors::features::{FeatureId, Hitbox};
-use ambition::characters::brain::{ActionSet, ActorControl};
-use ambition::entity_catalog::{placements::CharacterBrain, WindowTag};
+use ambition_platformer2d::actors::actor::BodyMelee;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::combat::components::{ActorDisposition, ActorTarget};
+use ambition_platformer2d::actors::combat::moveset::MovePlayback;
+use ambition_platformer2d::actors::features::{FeatureId, Hitbox};
+use ambition_platformer2d::characters::brain::{ActionSet, ActorControl};
+use ambition_platformer2d::entity_catalog::{placements::CharacterBrain, WindowTag};
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
@@ -38,7 +38,7 @@ fn player_entity(world: &mut World) -> Entity {
     q.single(world).expect("primary player")
 }
 
-fn player_pos(world: &mut World) -> ambition::engine_core::Vec2 {
+fn player_pos(world: &mut World) -> ambition_platformer2d::engine_core::Vec2 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player").pos
 }
@@ -87,7 +87,7 @@ struct HostileMeleeTally {
 fn observe_hostile_melee(
     world: &mut World,
     feature_id: &str,
-    player: ambition::engine_core::Vec2,
+    player: ambition_platformer2d::engine_core::Vec2,
     t: &mut HostileMeleeTally,
 ) {
     let observed = {

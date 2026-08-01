@@ -5,8 +5,8 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
 #[cfg(not(target_arch = "wasm32"))]
-use ambition::engine_core::config::{WINDOW_H, WINDOW_W};
-use ambition::sprite_sheet::game_assets::GameAssetConfig;
+use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
 
@@ -16,7 +16,7 @@ use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimula
 /// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
 /// has been `game/ambition_app/` since the Stage 20 / A3 bisection,
 /// while the asset tree stays with the machinery lib at
-/// `crates/ambition_actors/assets` (the lib's `include_str!` paths and
+/// `crates/ambition_platformer2d_actor_monolith/assets` (the lib's `include_str!` paths and
 /// the regen scripts anchor there). Under `cargo run` that default broke
 /// every AssetServer load (sprites, music OGGs, `.yarn` dialogue, menu
 /// icons) while direct-filesystem readers (SFX bank, LDtk) kept working.
@@ -34,7 +34,7 @@ pub(super) fn desktop_asset_root() -> String {
     // resolve it identically (a demo that rendered nothing standalone was exactly
     // that divergence). It anchors on the machinery lib's own `CARGO_MANIFEST_DIR`,
     // so it no longer matters which `game/` crate the running binary lives in.
-    ambition::asset_manager::actors_desktop_asset_root()
+    ambition_platformer2d::asset_manager::actors_desktop_asset_root()
 }
 
 /// The `game://` asset source root: the content crate's `assets/` tree in
@@ -67,7 +67,7 @@ pub(super) fn game_asset_root() -> String {
 /// reader.
 #[cfg(not(target_arch = "wasm32"))]
 fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
-    ambition::asset_manager::consumer_source::layered_asset_source(
+    ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(
         game_asset_root(),
         desktop_asset_root(),
     )
@@ -189,7 +189,7 @@ mod headless_arg_tests {
             root.is_absolute(),
             "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
         );
-        assert!(root.ends_with("crates/ambition_actors/assets") || root.ends_with("assets"));
+        assert!(root.ends_with("crates/ambition_platformer2d_actor_monolith/assets") || root.ends_with("assets"));
         assert!(
             root.join("ambition/sandbox.ron").exists(),
             "asset root {root:?} must contain ambition/sandbox.ron"
@@ -337,14 +337,14 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
 
     let world = app.world();
     let active_route = world
-        .get_resource::<ambition::game_shell::ShellRouter>()
+        .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
         .and_then(|router| router.active.as_ref())
         .map(|active| active.route_id.as_str().to_owned());
     let launcher_active = world
-        .get_resource::<ambition::game_shell::ShellLauncherState>()
+        .get_resource::<ambition_platformer2d::game_shell::ShellLauncherState>()
         .is_some_and(|launcher| launcher.active);
     let gameplay_session_active = world
-        .get_resource::<ambition::game_shell::ActiveGameplaySession>()
+        .get_resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
         .is_some_and(|session| session.0.is_some());
 
     SharedHostHeadlessReport {
@@ -384,7 +384,7 @@ impl std::fmt::Display for SharedHostAcceptanceReport {
 /// composition. This is exposed to `run_game.sh -- --headless-acceptance-cycle`.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
-    use ambition::game_shell::{
+    use ambition_platformer2d::game_shell::{
         ShellCommand, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState, ShellRouter,
     };
     use bevy::time::TimeUpdateStrategy;
@@ -411,20 +411,20 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     fn title_is_zero_state(app: &App) -> bool {
         let world = app.world();
         world
-            .resource::<ambition::game_shell::ActiveGameplaySession>()
+            .resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
             .0
             .is_none()
             && world
-                .resource::<ambition::platformer::lifecycle::ActiveSessionScope>()
+                .resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
                 .current()
                 .is_none()
             && world
-                .resource::<ambition::load::LoadCoordinator>()
+                .resource::<ambition_platformer2d::load::LoadCoordinator>()
                 .is_empty()
             && world
-                .resource::<ambition::game_shell::PreparedSessionRegistry>()
+                .resource::<ambition_platformer2d::game_shell::PreparedSessionRegistry>()
                 .is_empty()
-            && ambition::platformer::lifecycle::session_world_entity(world).is_none()
+            && ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_none()
     }
 
     fn step_until_title_zero_state(app: &mut App, route: &str, budget: usize) -> bool {
@@ -457,7 +457,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
             .count()
             + usize::from(
                 app.world()
-                    .resource::<ambition::game_shell::ShellLauncherPresentation>()
+                    .resource::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
                     .exit_label
                     .is_some(),
             );
@@ -484,7 +484,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
             .count();
         let has_exit = app
             .world()
-            .resource::<ambition::game_shell::ShellLauncherPresentation>()
+            .resource::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
             .exit_label
             .is_some();
         if !has_exit {
@@ -628,12 +628,12 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         // therefore use GGRS from construction onward. Ordinary play uses a
         // zero-distance baseline; F9 installs one bounded proof pulse and then
         // returns to that baseline.
-        use ambition::runtime::SimulationHostAppExt as _;
-        app.set_simulation_host(ambition::runtime::SimulationHost::Ggrs);
+        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
+        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
     }
     let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
     if direct_windowed {
-        app.insert_resource(ambition::platformer::lifecycle::InitialGameplayReadiness::closed());
+        app.insert_resource(ambition_platformer2d::platformer::lifecycle::InitialGameplayReadiness::closed());
     }
     if matches!(
         render,
@@ -642,7 +642,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         // Automated no-window hosts exercise the real ownership, resolver, and
         // playback-state path, but the final output side effect is recorded
         // instead of issuing Kira `play` commands to the user's speakers.
-        app.insert_resource(ambition::audio::AudioOutputMode::Recording);
+        app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
     }
     // The game's OWN asset source (`game://`): the content crate's assets
     // dir in a dev checkout, the shipped `assets/` dir otherwise. The
@@ -745,13 +745,13 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         }
     }
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition::runtime::init_engine_states(&mut app);
+    ambition_platformer2d::runtime::init_engine_states(&mut app);
     // Main-world frame schedules run serially: headless measurement showed
     // gameplay bodies at <2% of CPU vs ~40% executor bookkeeping + thread
     // parking (3.7x wall, 32x fewer context switches — see
     // serialize_frame_schedules). The render sub-app keeps its own parallel
     // schedules; this only serializes main-world dispatch.
-    ambition::runtime::serialize_frame_schedules(&mut app);
+    ambition_platformer2d::runtime::serialize_frame_schedules(&mut app);
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     // Launch-time "choose your character": inserted BEFORE the plugins so the
@@ -803,7 +803,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),
@@ -845,7 +845,7 @@ fn insert_starting_character_override(app: &mut App) {
     }
     eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
     app.insert_resource(super::resources::StartingCharacterOverride(
-        ambition::actors::avatar::StartingCharacter::new(id),
+        ambition_platformer2d::actors::avatar::StartingCharacter::new(id),
     ));
 }
 
@@ -891,10 +891,10 @@ pub fn run_web() {
         ..default()
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition::runtime::init_engine_states(&mut app);
+    ambition_platformer2d::runtime::init_engine_states(&mut app);
     // wasm has one thread; the multithreaded executor's bookkeeping is pure
     // overhead there. Same measured rationale as the desktop adoption.
-    ambition::runtime::serialize_frame_schedules(&mut app);
+    ambition_platformer2d::runtime::serialize_frame_schedules(&mut app);
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.
@@ -906,7 +906,7 @@ pub fn run_web() {
     // "why is everything a colored rectangle?" — the answer is almost
     // always "the build does not have `static_core_assets`."
     bevy::log::info!(
-        target: "ambition::sandbox_assets",
+        target: "ambition_platformer2d::sandbox_assets",
         "web start: AssetProfile = {} | static_map = {} | static_core_assets = {} | static_sfx_bank = {}",
         active_profile.label(),
         cfg!(feature = "static_map"),
@@ -928,7 +928,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),

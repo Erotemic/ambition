@@ -104,18 +104,18 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 /// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
 /// system can be tested without spinning up a full ECS world.
 pub fn compute_intro_flag_gated_lock_walls(
-    project: &ambition_actors::world::ldtk_world::LdtkProject,
+    project: &ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkProject,
     active_room_id: &str,
     save: &ambition_persistence::save_data::SandboxSaveData,
 ) -> Vec<(
     String,
-    ambition_engine_core::Vec2,
-    ambition_engine_core::Vec2,
+    ambition_platformer2d_core::Vec2,
+    ambition_platformer2d_core::Vec2,
 )> {
     let mut out: Vec<(
         String,
-        ambition_engine_core::Vec2,
-        ambition_engine_core::Vec2,
+        ambition_platformer2d_core::Vec2,
+        ambition_platformer2d_core::Vec2,
     )> = Vec::new();
     for level in &project.levels {
         if level.active_area() != active_room_id {
@@ -125,7 +125,7 @@ pub fn compute_intro_flag_gated_lock_walls(
             if entity.identifier != "LockWall" {
                 continue;
             }
-            let Some(id) = ambition_actors::world::ldtk_world::field_string(entity, "id") else {
+            let Some(id) = ambition_platformer2d_actor_monolith::world::ldtk_world::field_string(entity, "id") else {
                 continue;
             };
             let id_trim = id.trim();
@@ -138,8 +138,8 @@ pub fn compute_intro_flag_gated_lock_walls(
             if save.flag(flag) {
                 continue;
             }
-            let min = ambition_engine_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
-            let size = ambition_engine_core::Vec2::new(entity.width as f32, entity.height as f32);
+            let min = ambition_platformer2d_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
+            let size = ambition_platformer2d_core::Vec2::new(entity.width as f32, entity.height as f32);
             out.push((id_trim.to_string(), min, size));
         }
     }
@@ -168,19 +168,19 @@ pub struct IntroLockWallCache {
     room: Option<String>,
     walls: Vec<(
         String,
-        ambition_engine_core::Vec2,
-        ambition_engine_core::Vec2,
+        ambition_platformer2d_core::Vec2,
+        ambition_platformer2d_core::Vec2,
     )>,
 }
 
 pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_actors::world::ldtk_world::SandboxLdtkProject>>,
+    project: Option<Res<ambition_platformer2d_actor_monolith::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<
-        ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     >,
     save: Option<Res<ambition_persistence::save::SandboxSave>>,
     overlay: Option<
-        ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
+        ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     >,
     mut cache: Local<IntroLockWallCache>,
 ) {
@@ -203,7 +203,7 @@ pub fn sync_intro_flag_gated_lock_walls(
         cache.room = Some(active_room_id.clone());
     }
     for (id, min, size) in &cache.walls {
-        overlay.gate_solids.push(ambition_engine_core::Block::solid(
+        overlay.gate_solids.push(ambition_platformer2d_core::Block::solid(
             format!("intro_lock:{id}"),
             *min,
             *size,

@@ -3,8 +3,8 @@
 //! `spawn_room_visuals` is the entry point called once per room
 //! load.
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -15,9 +15,9 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, BlockVisual, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
-use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::{
@@ -25,9 +25,9 @@ use ambition_sprite_sheet::character::{
     CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
+use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
 
-/// Presentation consumer of [`ambition_world::rooms::RespawnRoomVisualsRequested`].
+/// Presentation consumer of [`ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested`].
 ///
 /// The sim (sandbox reset) emits the request after flipping the active room; this
 /// reads the active room from [`RoomSet`] and rebuilds its static visuals +
@@ -35,12 +35,12 @@ use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSp
 /// render layer, and a headless build (no presentation plugins) simply never runs
 /// this system — correct, since it needs no visuals.
 pub fn respawn_room_visuals_on_request(
-    mut requests: MessageReader<ambition_world::rooms::RespawnRoomVisualsRequested>,
+    mut requests: MessageReader<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_world::rooms::RoomSet,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
     >,
-    physics_settings: Res<ambition_platformer_primitives::physics::PhysicsSandboxSettings>,
+    physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -75,8 +75,8 @@ pub fn respawn_room_visuals_on_request(
 pub fn spawn_room_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    spec: &ambition_world::rooms::RoomSpec,
-    physics_settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
+    spec: &ambition_platformer2d_world::rooms::RoomSpec,
+    physics_settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let world = &spec.world;
@@ -109,11 +109,11 @@ pub fn spawn_room_visuals(
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Hazard(hazard) = &record.schema
         {
-            let authored = ambition_world::rooms::Authored {
+            let authored = ambition_platformer2d_world::rooms::Authored {
                 id: record.id.as_str().to_string(),
                 name: record.name.clone(),
                 aabb: record.aabb,
-                payload: ambition_world::rooms::HazardVolumeSpec::new(hazard.damage),
+                payload: ambition_platformer2d_world::rooms::HazardVolumeSpec::new(hazard.damage),
             };
             spawn_authored_hazard(commands, session_scope, world, &authored, assets);
         }
@@ -157,7 +157,7 @@ pub fn spawn_room_visuals(
     // Chests lower through the single `placements` channel (fable audit F9.2).
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
-            let authored = ambition_world::rooms::Authored {
+            let authored = ambition_platformer2d_world::rooms::Authored {
                 id: record.id.as_str().to_string(),
                 name: record.name.clone(),
                 aabb: record.aabb,
@@ -222,7 +222,7 @@ pub fn spawn_room_visuals(
         if let ambition_entity_catalog::placements::PlacementSchema::Interactable(spec_i) =
             &record.schema
         {
-            let authored = ambition_world::rooms::Authored {
+            let authored = ambition_platformer2d_world::rooms::Authored {
                 id: record.id.as_str().to_string(),
                 name: record.name.clone(),
                 aabb: record.aabb,
@@ -621,7 +621,7 @@ pub fn spawn_block(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     block: &ae::Block,
-    physics_settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
+    physics_settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let size = block.aabb.half_size() * 2.0;
@@ -716,7 +716,7 @@ fn spawn_static_collider_for_block(
     _commands: &mut Commands,
     _world: &ae::World,
     _block: &ae::Block,
-    _settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
+    _settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
 ) {
     // Static physics colliders are installed by the sim/physics adapter when
     // that feature is enabled. Render only spawns visual block entities.
@@ -888,7 +888,7 @@ fn spawn_authored_hazard(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -908,7 +908,7 @@ fn spawn_authored_chest(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -940,16 +940,16 @@ fn spawn_authored_interactable(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_world::rooms::Authored<ambition_world::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
     let kind = if matches!(
         interactable.kind,
-        ambition_world::rooms::InteractionKindSpec::Npc { .. }
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc { .. }
     ) {
         FeatureVisualKind::Actor
-    } else if matches!(&interactable.kind, ambition_world::rooms::InteractionKindSpec::Custom(s) if s.starts_with("switch:"))
+    } else if matches!(&interactable.kind, ambition_platformer2d_world::rooms::InteractionKindSpec::Custom(s) if s.starts_with("switch:"))
     {
         FeatureVisualKind::Switch
     } else {
@@ -1002,10 +1002,10 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
-    overlay: Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
+    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {
@@ -1090,7 +1090,7 @@ pub fn sync_lock_wall_visuals(
 /// (`apply_overlay_subtractions`), and this makes it vanish from the DRAWN world too,
 /// so a broken brick (or any gate-dropped authored block) stops colliding AND stops
 /// drawing — the two halves of "remove a block mid-run" without editing the authored
-/// [`RoomGeometry`](ambition_engine_core::RoomGeometry) base.
+/// [`RoomGeometry`](ambition_platformer2d_core::RoomGeometry) base.
 ///
 /// One-directional by design: room (re)load respawns the full authored block set via
 /// [`spawn_room_visuals`], and the content contributor clears `removed_block_names`
@@ -1099,7 +1099,7 @@ pub fn sync_lock_wall_visuals(
 /// presentation plugin drives, not just Mary-O's bricks.
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
-    overlay: Option<Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>>,
+    overlay: Option<Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>>,
     blocks: Query<(Entity, &BlockVisual)>,
 ) {
     let Some(overlay) = overlay else {
@@ -1122,8 +1122,8 @@ pub fn sync_removed_block_visuals(
 #[cfg(test)]
 mod lock_wall_visual_tests {
     use super::*;
-    use ambition_engine_core::RoomGeometry;
-    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
+    use ambition_platformer2d_core::RoomGeometry;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 
     fn room() -> RoomGeometry {
         RoomGeometry(ae::World::new(
@@ -1157,7 +1157,7 @@ mod lock_wall_visual_tests {
     #[test]
     fn lock_wall_visual_tracks_overlay_gate_solids() {
         let mut app = App::new();
-        ambition_platformer_primitives::lifecycle::insert_session_world_component(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
             room(),
         );

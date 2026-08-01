@@ -281,7 +281,7 @@ platformer-oriented policy and author experience.
 
 Do not create a new crate for the first implementation.
 
-### `ambition_platformer_primitives`
+### `ambition_platformer2d_shared_tangle`
 
 Own content-free vocabulary and pure layout math:
 
@@ -294,7 +294,7 @@ Own content-free vocabulary and pure layout math:
 The resolver must not depend on windows, rendering, touch input, game content,
 or a particular provider.
 
-### `ambition_host`
+### `ambition_platformer2d_host`
 
 Own visible-host integration:
 
@@ -411,12 +411,12 @@ Each full-screen effect should declare whether it covers:
 
 **GP1–GP5 LANDED** (`077d3108a`, `5ac381d72`, and the follow-ups). Owners:
 
-- `ambition_platformer_primitives::gameplay_presentation` — vocabulary,
+- `ambition_platformer2d_shared_tangle::gameplay_presentation` — vocabulary,
   the pure resolver, the presets, the profile catalog, `GameplayPresentationSet`;
-- `ambition_host::gameplay_presentation` — window, safe area, environment,
+- `ambition_platformer2d_host::gameplay_presentation` — window, safe area, environment,
   occupancy collection, publication, `Camera::viewport` application;
 - `ambition_render::gameplay_surround` — the painted surround;
-- `ambition_platformer_provider::authoring` — the declaration + selection;
+- `ambition_platformer2d_provider::authoring` — the declaration + selection;
 - `ambition_touch_input::layout` — published occupancy.
 
 Three things the implementation learned that this design did not anticipate:
@@ -701,7 +701,7 @@ Required structural and behavioral evidence:
 **1 — Provider seam: a field on `PlatformerExperienceAuthoring`.**
 There is no `GameProvider` trait; the seam is
 `PlatformerExperienceAuthoring` + `install()`
-(`crates/ambition_platformer_provider/src/authoring.rs`). It already carries one
+(`crates/ambition_platformer2d_provider/src/authoring.rs`). It already carries one
 optional presentation concern, `loading: Option<LoadExperienceSpec>`, which
 `register()` forwards into a route-keyed catalog resource. Presentation profiles
 join by exactly that shape: `presentation: Option<GameplayPresentationProfiles>`
@@ -773,8 +773,8 @@ room-transition oracles need the assembled app, and those ride the existing
 `cargo test -p ambition_app --test app_it` target.
 
 **9 — No new crate.** The split is
-`ambition_platformer_primitives` (pure vocabulary + resolver, already the home
-of `camera_ease` and `camera_layers`) and `ambition_host` (window, occlusion
+`ambition_platformer2d_shared_tangle` (pure vocabulary + resolver, already the home
+of `camera_ease` and `camera_layers`) and `ambition_platformer2d_host` (window, occlusion
 collection, publication, `Camera.viewport` application). Both edges already
 exist; a third crate would add a node without removing one. Revisit only if a
 non-platformer host ever needs the resolver without the primitives crate.

@@ -1472,9 +1472,9 @@ Headless tests should be able to run simulation without GPU or speakers.
 Read:
 
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
-- [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
-- [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
-- [`../../crates/ambition_platformer_primitives/src/lifecycle/`](../../crates/ambition_platformer_primitives/src/lifecycle/)
+- [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/`](../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/)
 
 The shared host cannot use one process-global gameplay world because it launches several providers and may relaunch the same provider.
 
@@ -1506,7 +1506,7 @@ The title route should not merely ignore gameplay state. It should structurally 
 
 Read:
 
-- [`../../crates/ambition_platformer_provider/src/lib.rs`](../../crates/ambition_platformer_provider/src/lib.rs)
+- [`../../crates/ambition_platformer2d_provider/src/lib.rs`](../../crates/ambition_platformer2d_provider/src/lib.rs)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
 - provider files in `game/ambition_demo_sanic`, `game/ambition_demo_mary_o`, and `game/ambition_demo_pocket`.
 
@@ -1560,7 +1560,7 @@ Read:
 
 - [`../concepts/movement-collision.md`](../concepts/movement-collision.md)
 - [`../adr/0024-frame-aware-unified-movement-kernel.md`](../adr/0024-frame-aware-unified-movement-kernel.md)
-- [`../../crates/ambition_engine_core/src/movement/`](../../crates/ambition_engine_core/src/movement/)
+- [`../../crates/ambition_platformer2d_core/src/movement/`](../../crates/ambition_platformer2d_core/src/movement/)
 
 Bevy should organize bodies and schedule stepping, but the core movement algorithm can remain ordinary typed Rust.
 
@@ -1942,12 +1942,12 @@ Source entrypoints:
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
 - [`../../crates/ambition_game_shell/src/router.rs`](../../crates/ambition_game_shell/src/router.rs)
 - [`../../crates/ambition_load/src/coordinator.rs`](../../crates/ambition_load/src/coordinator.rs)
-- [`../../crates/ambition_platformer_provider/src/lib.rs`](../../crates/ambition_platformer_provider/src/lib.rs)
-- [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
-- [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
-- [`../../crates/ambition_platformer_primitives/src/lifecycle/`](../../crates/ambition_platformer_primitives/src/lifecycle/)
-- [`../../crates/ambition_platformer_primitives/src/schedule.rs`](../../crates/ambition_platformer_primitives/src/schedule.rs)
-- [`../../crates/ambition_actors/src/schedule/`](../../crates/ambition_actors/src/schedule/)
+- [`../../crates/ambition_platformer2d_provider/src/lib.rs`](../../crates/ambition_platformer2d_provider/src/lib.rs)
+- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
+- [`../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/`](../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/)
+- [`../../crates/ambition_platformer2d_shared_tangle/src/schedule.rs`](../../crates/ambition_platformer2d_shared_tangle/src/schedule.rs)
+- [`../../crates/ambition_platformer2d_actor_monolith/src/schedule/`](../../crates/ambition_platformer2d_actor_monolith/src/schedule/)
 - [`../../crates/ambition_render/src/lib.rs`](../../crates/ambition_render/src/lib.rs)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
 - [`../../game/ambition_app/src/app/`](../../game/ambition_app/src/app/)

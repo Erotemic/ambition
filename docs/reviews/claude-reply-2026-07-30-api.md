@@ -1,7 +1,7 @@
 # Reply — the 1.0 API prototype
 
 **Reading:** [gpt56-jon-conv-2026-07-29.md](gpt56-jon-conv-2026-07-29.md).
-**Grounded against:** `crates/ambition/src/lib.rs`, `fixtures/external_consumer/`,
+**Grounded against:** `crates/ambition_platformer2d/src/lib.rs`, `fixtures/external_consumer/`,
 `scripts/check_absence_contracts.py`, `docs/planning/engine/decomposition.md`,
 `docs/planning/architecture-campaign-2026-07-28.md`.
 
@@ -16,17 +16,17 @@ places.** Details below, with what I checked.
 Jon's worry in the conversation was *"you didn't spend too much time actually
 thinking about this"*, so the first thing worth saying is which claims hold.
 
-**The facade really is a namespace mirror.** `crates/ambition/src/lib.rs` is 114
+**The facade really is a namespace mirror.** `crates/ambition_platformer2d/src/lib.rs` is 114
 lines and 50 `pub use`, of which ~40 are `pub use ambition_x as x`. The public
 API of this engine is currently *the list of crates it happens to be built
 from*. That is the diagnosis and it is exactly right.
 
-**Outlander really does reach through it.** Counting distinct `ambition::…`
+**Outlander really does reach through it.** Counting distinct `ambition_platformer2d::…`
 paths in `fixtures/external_consumer/`: `actors::features` (7 uses),
 `runtime::rollback` (6), `platformer::markers` (5), `engine::` (5),
 `sprite_sheet::character` (3), `characters::actor::character_catalog` (3),
 `runtime::demo_fixture` (2)… A third party building a game is naming
-`ambition::actors::features` and `ambition::runtime::rollback::put_f32`.
+`ambition_platformer2d::actors::features` and `ambition_platformer2d::runtime::rollback::put_f32`.
 
 **The host composition is the sharpest evidence, and GPT didn't quote it.**
 `build_windowed_app` in that fixture is ~65 lines a consumer must write and
@@ -72,7 +72,7 @@ content registration. The proposal is not a new theory; it is the third
 iteration of a method with a perfect record here.
 
 **And the existing doctrine already names its own trigger.**
-`decomposition.md`'s settled "no size-driven `ambition_actors` carve" ruling ends
+`decomposition.md`'s settled "no size-driven `ambition_platformer2d_actor_monolith` carve" ruling ends
 with:
 
 > This ruling does not protect misplaced named content or prevent a later split
@@ -117,7 +117,7 @@ before, it is a prediction.
 ### 3b. Rollback ownership is ranked last and belongs early
 
 GPT's Phase 5 is *"decentralize rollback ownership — move rollback registration
-adapters with their domain crates. Otherwise `ambition_runtime` will continue
+adapters with their domain crates. Otherwise `ambition_platformer2d_runtime` will continue
 forcing every actor-domain type back through the same giant integration
 boundary."*
 
@@ -125,10 +125,10 @@ That paragraph is correct and it is ranked last. I'd move it up, on today's
 evidence rather than on principle. Both GPT reviews this week independently
 found that `ActiveMatch`, `MatchSeat`, `MatchTeam` and `RulesetOwnsDeath` were
 simulation-critical and unregistered. When I fixed it, the registrations went
-into `crates/ambition_runtime/src/rollback/mod.rs` — while the types live in
-`ambition_actors` and `ambition_combat`. The codecs went into
-`ambition_runtime/src/rollback/codecs.rs`, which now has `impl SnapshotState for
-ambition_actors::…::MatchSeat`.
+into `crates/ambition_platformer2d_runtime/src/rollback/mod.rs` — while the types live in
+`ambition_platformer2d_actor_monolith` and `ambition_combat`. The codecs went into
+`ambition_platformer2d_runtime/src/rollback/codecs.rs`, which now has `impl SnapshotState for
+ambition_platformer2d_actor_monolith::…::MatchSeat`.
 
 So the engine's rollback schema is a single file that must name every
 gameplay type in the workspace. That has two consequences:
@@ -165,7 +165,7 @@ it: `DEPENDENCY_CONTRACTS` is a table of `{crate, forbidden, reason}` checked
 including `engine-crates-do-not-consume-the-umbrella-facade`.
 
 What it checks today is *crate* edges. The API needs *module* paths
-(`ambition::actors` must not appear in a game crate). That is a real extension
+(`ambition_platformer2d::actors` must not appear in a game crate). That is a real extension
 but a small one, and the file's own docstring already tells you how to build it
 without repeating the three prose-grep failures: search production source only,
 explicit paths, predicate not parser.
@@ -183,12 +183,12 @@ have to waste their context bootstrapping themselves."*
 That is a measurable property and it is not in GPT's §17 at all. The test:
 
 > Can an agent implement a character, a room, and a mechanic in a game crate
-> with only `ambition::prelude` and the engine docs in context — never opening a
+> with only `ambition_platformer2d::prelude` and the engine docs in context — never opening a
 > file under `crates/`?
 
 That is checkable *today*, cheaply, and it is a better acceptance test than
 "main.rs is ~10 lines" because it fails for the right reasons. If the agent has
-to open `crates/ambition_actors/src/character_runtime/seating.rs` to learn what
+to open `crates/ambition_platformer2d_actor_monolith/src/character_runtime/seating.rs` to learn what
 a `MatchParticipant` is, the API is not done regardless of how short `main` got.
 
 I'd add one more, because it is the cheapest possible signal and this repo
@@ -280,9 +280,9 @@ Smallest thing that tests the thesis, in order:
 4. **Migrate Outlander and delete every raw path the facade makes unnecessary.**
    The contract from (1) goes green or the API is not done.
 5. **Then** the doctrine document, derived. And only then reconsider
-   `ambition_actors`, using whatever the migration actually proved.
+   `ambition_platformer2d_actor_monolith`, using whatever the migration actually proved.
 
-I'd hold the `ambition_actors` decomposition until after (4). Not because the
+I'd hold the `ambition_platformer2d_actor_monolith` decomposition until after (4). Not because the
 diagnosis is wrong — it is right — but because the split you'd design today is
 the split that fits today's internal topology, and the whole point of doing the
 API first is that it tells you which boundaries a *consumer* can feel. Those are
@@ -298,10 +298,10 @@ the ones worth paying for.
    an optional entry. Two traits is a real cost for agent-navigability. Worth
    trying to collapse before committing.
 2. **Where does the rollback schema live once capabilities are federated?**
-   §3b. If the answer is "still `ambition_runtime`", the public API is federated
+   §3b. If the answer is "still `ambition_platformer2d_runtime`", the public API is federated
    over a central private one and the next monolith is already scheduled.
 3. **What is the compatibility promise?** GPT says the 1.0 promise is made at
-   the `ambition` surface and the inner crates stay free. Agreed — but that
+   the `ambition_platformer2d` surface and the inner crates stay free. Agreed — but that
    means the facade needs its own versioning story and its own test that the
    inner crates have not leaked back through it. Related to (1) of §6.
 4. **Is `ActorArchetype` the right cut, or is it three things?** The proposal
@@ -349,7 +349,7 @@ still supposed to be inert.
 
 ### 8b. Today's type is already pure — the proposal would move backwards
 
-`crates/ambition_platformer_provider/src/authoring.rs:395`:
+`crates/ambition_platformer2d_provider/src/authoring.rs:395`:
 
 ```rust
 pub struct PlatformerExperienceAuthoring {
@@ -611,7 +611,7 @@ epoch) → run`, and the second half already works.
 **If the 1.0 API only has the composition-time story, the first consumer who
 needs runtime content change — a level editor, a modding hook, a procedural
 room, a character unlocked mid-game — reaches around the API into
-`ambition_actors`. That is precisely how the current sink formed.**
+`ambition_platformer2d_actor_monolith`. That is precisely how the current sink formed.**
 
 So: expose **transaction as a first-class verb from day one**, not as a later
 addition. The vocabulary exists (candidate / validate / commit / epoch), the
@@ -647,11 +647,11 @@ converts "we'll migrate later" from an intention into a ratchet.
 
 Making it recurring is right. One caveat that matters for it to mean anything:
 **it has to be run by an agent with no prior context of this repository.** I have
-spent days in `ambition_actors`; if I run it, it measures my memory, not the
+spent days in `ambition_platformer2d_actor_monolith`; if I run it, it measures my memory, not the
 API. Same for any agent resumed from a session that touched engine internals.
 
 Concretely: fixed task script, fresh context, only `docs/sdk/` and
-`ambition::prelude` in scope, and the recorded result is *which engine file it
+`ambition_platformer2d::prelude` in scope, and the recorded result is *which engine file it
 had to open first*. That last field is the useful one — it names the next leak
 in the same way Outlander's comments do, and it turns the exercise into the
 third instrument in the set alongside the absence contract and the coverage
@@ -673,7 +673,7 @@ The revised twelve-step order works. I'd fold in four amendments:
 
 Nothing here changes the thesis, which I think is now settled between us:
 
-> Do not split `ambition_actors` by today's internal topology. Build and
+> Do not split `ambition_platformer2d_actor_monolith` by today's internal topology. Build and
 > mechanically enforce the public API first, let real consumers reveal the
 > durable capability boundaries, and reorganize behind them.
 
@@ -741,7 +741,7 @@ to be stated.
 Worse, the scan itself is hazardous here:
 
 ```text
-game/ambition_content/assets/sprites -> ../../../crates/ambition_actors/assets/sprites
+game/ambition_content/assets/sprites -> ../../../crates/ambition_platformer2d_actor_monolith/assets/sprites
 ```
 
 A content root in this repo already contains a symlink into the engine's own

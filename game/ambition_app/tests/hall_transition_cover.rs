@@ -29,8 +29,8 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::ShellCommand;
-use ambition::load_presentation::{BasicLoadRoot, LoadForegroundPhase, LoadForegroundState};
+use ambition_platformer2d::game_shell::ShellCommand;
+use ambition_platformer2d::load_presentation::{BasicLoadRoot, LoadForegroundPhase, LoadForegroundState};
 use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
 
 /// The authored door from the hub. Named rather than "any zone" so this test
@@ -45,7 +45,7 @@ const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
     app.world()
-        .get_resource::<ambition::actors::character_runtime::CharacterLoadStates>()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>()
         .map(|states| states.cast().len())
         .unwrap_or(0)
 }
@@ -105,7 +105,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     // The REAL transition, resolved through the room graph rather than
     // synthesised: stand in the Hall door and press interact.
     let transition = {
-        let mut query = app.world_mut().query::<&ambition::actors::rooms::RoomSet>();
+        let mut query = app.world_mut().query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
             .active_loading_zones()
@@ -120,12 +120,12 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             })
             .clone();
         room_set
-            .transition_for_player(zone.aabb, ambition::engine_core::Vec2::ZERO, true)
+            .transition_for_player(zone.aabb, ambition_platformer2d::engine_core::Vec2::ZERO, true)
             .expect("the hall door resolves to a transition")
     };
 
     app.world_mut()
-        .write_message(ambition::actors::rooms::RoomTransitionRequested::new(
+        .write_message(ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
             transition, None,
         ));
     step(&mut app);

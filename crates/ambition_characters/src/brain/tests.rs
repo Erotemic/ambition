@@ -611,7 +611,7 @@ fn melee_brute_brain_resolves_through_action_set() {
 #[test]
 fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
     use crate::brain::{PlayerSlot, SlotControlLatches};
-    use ambition_engine_core::ControlFrame;
+    use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = SlotControlLatches::default();
     let seat_two = PlayerSlot(1);
@@ -644,7 +644,7 @@ fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
 #[test]
 fn each_seats_latch_is_its_own() {
     use crate::brain::{PlayerSlot, SlotControlLatches};
-    use ambition_engine_core::ControlFrame;
+    use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = SlotControlLatches::default();
     latches.accumulate(
@@ -674,7 +674,7 @@ fn each_seats_latch_is_its_own() {
 #[test]
 fn resetting_a_seat_drops_its_held_levels_not_just_its_edges() {
     use crate::brain::{PlayerSlot, SlotControlLatches};
-    use ambition_engine_core::ControlFrame;
+    use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = SlotControlLatches::default();
     let seat = PlayerSlot(1);

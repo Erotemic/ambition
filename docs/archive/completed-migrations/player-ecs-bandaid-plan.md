@@ -12,8 +12,8 @@
 
 ## Current anchors
 
-- `crates/ambition_engine_core/src/player_clusters.rs`
-- `crates/ambition_actors/src/player/`
+- `crates/ambition_platformer2d_core/src/player_clusters.rs`
+- `crates/ambition_platformer2d_actor_monolith/src/player/`
 - `docs/current/state.md`
 - `docs/systems/character-ai-refactor.md`
 

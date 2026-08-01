@@ -26,7 +26,7 @@
 //! place the real population exists. This walks that, and it fails naming the
 //! silent characters rather than a count.
 
-use ambition::characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
+use ambition_platformer2d::characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// Every character the shipped host composes can produce at least one line.
@@ -44,11 +44,11 @@ fn every_composed_character_can_say_at_least_one_line() {
     // — which is how the first version of this test reported three characters
     // mute that had voices, and would equally have reported a real one silent
     // as fine.
-    ambition::platformer::app_finalization::finalize(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     let catalog = app.world().resource::<CharacterCatalog>();
     let registry = app
         .world()
-        .get_resource::<ambition::actors::character_runtime::PreparedCharacterRegistry>();
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
 
     // The composed population: catalog rows AND registered-only characters. The
     // second half is the one that was mute, so a sweep over the catalog alone

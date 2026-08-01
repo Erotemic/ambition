@@ -65,7 +65,7 @@
     "    classifier computed `became_deletable = in_scope`, so the most valuable",
     "    signal the method produces was empty BY CONSTRUCTION while reporting 2/2.",
     "  * AN OVERCLAIMED GUARANTEE IS WORSE THAN AN ABSENT ONE -- it tells a consumer",
-    "    to stop looking. The blind run caught `ambition::app` claiming rule 7 was",
+    "    to stop looking. The blind run caught `ambition_platformer2d::app` claiming rule 7 was",
     "    enforced when only a string was checked. Both overclaims were written by",
     "    this campaign.",
     "  * MEASURE THE PREDICTION BEFORE THE WORK. A number matching a RECORDED",
@@ -75,7 +75,7 @@
     "## Deliberately NOT terminal conditions",
     "",
     "The bevy_ggrs patch table (Jon deferred it 2026-07-30 pending an upstream",
-    "crates.io release) and any `ambition_actors` decomposition (§4 authorises it",
+    "crates.io release) and any `ambition_platformer2d_actor_monolith` decomposition (§4 authorises it",
     "only when a leak or a sentinel consumer's footprint demands it, and then only",
     "the boundary that leak NAMES).",
     "⚠ ADDED 2026-07-30 after a check reported FAILED with an EMPTY detail. The guard handles timeouts explicitly, so an empty detail means the command produced no output at all — which these checks did BY DESIGN, piping everything into `grep >/dev/null`. A check that cannot say why it failed is the silent-failure class this campaign exists to hunt, written into the campaign's own instrument. The long-running checks now PRINT the failing lines before exiting nonzero. Still no `grep -q` in any pipeline: it exits on first match, the writer takes SIGPIPE, and pipefail turns the check into a nondeterministic 141."

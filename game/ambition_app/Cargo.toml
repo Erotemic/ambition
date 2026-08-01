@@ -14,10 +14,10 @@ autotests = false
 crate-type = ["rlib", "cdylib"]
 
 [features]
-# Personas mirror the pre-split ambition_actors graph; each forwards to the
-# machinery lib (ambition_actors) and the content crate so one selection
+# Personas mirror the pre-split ambition_platformer2d_actor_monolith graph; each forwards to the
+# machinery lib (ambition_platformer2d_actor_monolith) and the content crate so one selection
 # configures the whole stack. Command lines change from
-# `-p ambition_actors` to `-p ambition_app` and keep the same feature names.
+# `-p ambition_platformer2d_actor_monolith` to `-p ambition_app` and keep the same feature names.
 default = ["desktop_dev"]
 desktop_dev = [
     "visible",
@@ -34,7 +34,7 @@ desktop_dev = [
 mimalloc_alloc = ["dep:mimalloc"]
 
 visible = [
-    "ambition/visible",
+    "ambition_platformer2d/visible",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ambition_content/ui",
@@ -56,22 +56,22 @@ visible = [
 # with the umbrella's `basic_shell_presentation`. Declaring it locally lets
 # `ambition_app` code `#[cfg(feature = "basic_shell_presentation")]` the bridge
 # (see `app/shell_host.rs`); the minimal `web` build omits it.
-basic_shell_presentation = ["ambition/basic_shell_presentation"]
+basic_shell_presentation = ["ambition_platformer2d/basic_shell_presentation"]
 
-portal = ["ambition/portal", "ambition_content/portal"]
-portal_render = ["portal", "ambition/portal_render", "ambition_content/portal_render"]
-portal_ldtk = ["portal", "ambition/portal_ldtk"]
+portal = ["ambition_platformer2d/portal", "ambition_content/portal"]
+portal_render = ["portal", "ambition_platformer2d/portal_render", "ambition_content/portal_render"]
+portal_ldtk = ["portal", "ambition_platformer2d/portal_ldtk"]
 
-desktop_platform = ["ambition/desktop_platform"]
-android_platform = ["ambition/android_platform"]
+desktop_platform = ["ambition_platformer2d/desktop_platform"]
+android_platform = ["ambition_platformer2d/android_platform"]
 web_platform = [
-    "ambition/web_platform",
+    "ambition_platformer2d/web_platform",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
 ]
 
 visible_web_base = [
-    "ambition/visible_web_base",
+    "ambition_platformer2d/visible_web_base",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ldtk_runtime",
@@ -85,20 +85,20 @@ visible_web = ["visible_web_base", "static_core_assets"]
 visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 web = ["visible_web", "web_platform"]
 web_served_assets = ["visible_web_served", "web_platform"]
-web_served = ["ambition/web_served"]
-web_audio = ["audio", "ambition/web_audio"]
+web_served = ["ambition_platformer2d/web_served"]
+web_audio = ["audio", "ambition_platformer2d/web_audio"]
 
 # The ONE real rl_sim switch: pulls the programmatic harness and gates the
 # rl_sim-only integration tests + `rl_*`/`trace_replay` binaries. (It used to
-# forward `ambition/rl_sim` → `ambition_actors/rl_sim`; both gated nothing once
+# forward `ambition_platformer2d/rl_sim` → `ambition_platformer2d_actor_monolith/rl_sim`; both gated nothing once
 # the RL surface moved to `ambition_sim_harness`, so the chain was deleted.)
 rl_sim = ["dep:ambition_sim_harness"]
-headless = ["ambition/headless"]
-dev_tools = ["ambition/dev_tools", "dep:bevy-inspector-egui"]
-dev_hot_reload = ["ambition/dev_hot_reload"]
-static_map = ["ambition/static_map", "ambition_content/static_map"]
-static_core_assets = ["ambition/static_core_assets"]
-static_sfx_bank = ["ambition/static_sfx_bank"]
+headless = ["ambition_platformer2d/headless"]
+dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
+dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
+static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
+static_core_assets = ["ambition_platformer2d/static_core_assets"]
+static_sfx_bank = ["ambition_platformer2d/static_sfx_bank"]
 android = [
     "visible",
     "android_platform",
@@ -109,21 +109,21 @@ android = [
 ]
 android_dev = ["android", "dev_tools"]
 
-ldtk_runtime = ["ambition/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+ldtk_runtime = ["ambition_platformer2d/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 audio = [
-    "ambition/audio",
+    "ambition_platformer2d/audio",
     "ambition_content/audio",
     "dep:bevy_kira_audio",
 ]
-ui = ["ambition/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
-physics_debris = ["ambition/physics_debris"]
-input = ["ambition/input", "dep:leafwing-input-manager"]
-mobile_touch = ["input", "ambition/mobile_touch"]
+ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+physics_debris = ["ambition_platformer2d/physics_debris"]
+input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
+mobile_touch = ["input", "ambition_platformer2d/mobile_touch"]
 falling_sand = ["ambition_content/falling_sand"]
-bevy_ui_menu = ["ambition/bevy_ui_menu"]
-kaleidoscope_menu = ["ambition/kaleidoscope_menu", "dep:ambition_menu_kaleidoscope"]
-frame_pacing = ["ambition/frame_pacing", "dep:bevy_framepace"]
-profile = ["ambition/profile"]
+bevy_ui_menu = ["ambition_platformer2d/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_platformer2d/kaleidoscope_menu", "dep:ambition_menu_kaleidoscope"]
+frame_pacing = ["ambition_platformer2d/frame_pacing", "dep:bevy_framepace"]
+profile = ["ambition_platformer2d/profile"]
 
 [dependencies]
 # The linked game providers of the multi-game shell host. The HOST depends on
@@ -133,7 +133,7 @@ ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
-ambition = { path = "../../crates/ambition" }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d" }
 ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).

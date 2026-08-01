@@ -18,21 +18,21 @@
 //! These tests stay tiny on purpose: they verify the *shape* of the
 //! simulation plugin, not gameplay behavior. Behavior tests live in
 //! `scripted_gameplay.rs` and the per-feature suites under
-//! `crates/ambition::actors/src/**/tests.rs`.
+//! `crates/ambition_platformer2d::actors/src/**/tests.rs`.
 
-use ambition::actors::actor::BodyAnimFacts;
-use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition::actors::avatar::{PlayerBlinkCameraState, PlayerIdentityBundle};
-use ambition::actors::body_mode::BodyModeCapabilities;
-use ambition::actors::control::{LocalPlayer, PlayerSlot};
-use ambition::actors::rooms::RoomSet;
-use ambition::actors::SandboxSimState;
-use ambition::characters::actor::{BodyCombat, BodyHealth};
-use ambition::engine_core::RoomGeometry;
-use ambition::input::ControlFrame;
-use ambition::platformer::schedule::GameMode;
-use ambition::time::ClockState;
-use ambition::world::collision::MovingPlatformSet;
+use ambition_platformer2d::actors::actor::BodyAnimFacts;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::actors::avatar::{PlayerBlinkCameraState, PlayerIdentityBundle};
+use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
+use ambition_platformer2d::actors::control::{LocalPlayer, PlayerSlot};
+use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::actors::SandboxSimState;
+use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::time::ClockState;
+use ambition_platformer2d::world::collision::MovingPlatformSet;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -73,7 +73,7 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         world.get_resource::<ControlFrame>().is_some(),
         "ControlFrame resource missing — sim/presentation input seam broken"
     );
-    let root = ambition::platformer::lifecycle::session_world_entity(world)
+    let root = ambition_platformer2d::platformer::lifecycle::session_world_entity(world)
         .expect("direct app publishes one canonical session-world root");
     assert!(
         world.get::<RoomGeometry>(root).is_some(),
@@ -84,10 +84,10 @@ fn sandbox_simulation_plugin_inserts_core_resources() {
         "RoomSet component missing from the canonical session root"
     );
     let prepared = world
-        .get::<ambition::runtime::PreparedContent>(root)
+        .get::<ambition_platformer2d::runtime::PreparedContent>(root)
         .expect("immutable PreparedContent missing from the canonical session root");
     assert_eq!(
-        world.get::<ambition::runtime::PreparedContentIdentity>(root),
+        world.get::<ambition_platformer2d::runtime::PreparedContentIdentity>(root),
         Some(&prepared.identity()),
         "the root identity must describe the exact attached prepared object"
     );

@@ -1,6 +1,6 @@
 //! **The external-effect quarantine, against the real simulation.**
 //!
-//! `ambition_runtime::external_effects`' own tests drive the four systems
+//! `ambition_platformer2d_runtime::external_effects`' own tests drive the four systems
 //! directly and prove the *rule*: a re-simulated frame replaces what the
 //! abandoned pass produced, confirmed frames release in order, each intent
 //! exactly once. What they cannot prove is that the plugin's schedule placement
@@ -30,8 +30,8 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::runtime::external_effects::ExternalEffectJournal;
-use ambition::sfx::{OwnedSfxMessage, SfxMessage};
+use ambition_platformer2d::runtime::external_effects::ExternalEffectJournal;
+use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::ecs::message::{MessageCursor, Messages};
 
@@ -216,8 +216,8 @@ fn the_journal_drains_once_every_frame_confirms() {
 /// wrong in the permissive direction is a desync rather than a duplicate sound.
 #[test]
 fn only_presentation_facing_effects_are_quarantined() {
-    use ambition::vfx::vfx::DebrisBurstMessage;
-    use ambition::vfx::{EffectRequest, ExplosionRequest, FireworksRequest, VfxMessage};
+    use ambition_platformer2d::vfx::vfx::DebrisBurstMessage;
+    use ambition_platformer2d::vfx::{EffectRequest, ExplosionRequest, FireworksRequest, VfxMessage};
 
     let sim = sim_with_rewind_distance(4);
     let world = sim.world();
@@ -255,5 +255,5 @@ fn only_presentation_facing_effects_are_quarantined() {
         FireworksRequest,
         DebrisBurstMessage,
     );
-    assert_not_quarantined!(EffectRequest, ambition::projectiles::SpawnProjectile);
+    assert_not_quarantined!(EffectRequest, ambition_platformer2d::projectiles::SpawnProjectile);
 }

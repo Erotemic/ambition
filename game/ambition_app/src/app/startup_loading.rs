@@ -12,12 +12,12 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition::actors::features::RoomContentStagingRegistry;
-use ambition::actors::ldtk_world::LdtkWorldAssets;
-use ambition::actors::rooms::RoomSet;
-use ambition::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
-use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition::sprite_sheet::game_assets::GameAssets;
+use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::actors::ldtk_world::LdtkWorldAssets;
+use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
+use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
 use super::world_flow::{
     build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
@@ -91,27 +91,27 @@ impl DirectStartupLoadingState {
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
     game_assets: ResMut<'w, GameAssets>,
-    asset_catalog: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
-    character_catalog: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    asset_catalog: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    character_catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
-    quality: Res<'w, ambition::render::quality::ResolvedVisualQuality>,
+    quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
-    character_load_states: ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>,
+    character_load_states: ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
     /// Sheets this app's providers authored (queue U1) — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
-    authored_sheets: Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
+    authored_sheets: Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     /// Registered character definitions: a real source of sheets, since a
     /// character may be declared only through `register_character`.
     prepared_characters:
-        Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
+        Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]
-    audio_library: Option<Res<'w, ambition::audio::library::AudioLibrary>>,
+    audio_library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    music_state: Option<Res<'w, ambition::audio::library::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
 }
 
 #[derive(SystemParam)]
@@ -147,13 +147,13 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     app.add_systems(
         Update,
         drive_direct_startup_loading
-            .before(ambition::platformer::schedule::GameplaySimulationRoot)
-            .before(ambition::audio::library::start_default_music_when_ready),
+            .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot)
+            .before(ambition_platformer2d::audio::library::start_default_music_when_ready),
     );
     #[cfg(not(feature = "audio"))]
     app.add_systems(
         Update,
-        drive_direct_startup_loading.before(ambition::platformer::schedule::GameplaySimulationRoot),
+        drive_direct_startup_loading.before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot),
     );
 }
 

@@ -26,7 +26,7 @@ focused child files.
 - Delete or explicitly remove the old `src/rl.rs` file when using an overlay
   workflow that cannot represent deletions.
 - Replace public imports such as `crate::rl::...` and
-  `ambition_actors::rl::...` with `rl_sim` equivalents.
+  `ambition_platformer2d_actor_monolith::rl::...` with `rl_sim` equivalents.
 - Rename the Cargo feature from `rl` to `rl_sim`, including `required-features`
   and `#[cfg(feature = ...)]` gates.
 - Ensure each extracted child module owns the imports it needs.
@@ -39,12 +39,12 @@ focused child files.
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_actors --lib rl_sim
-cargo test -p ambition_actors --test fuzz_random_walker
-cargo test -p ambition_actors --test replay_fixture_regression
-cargo test -p ambition_actors --test crouch_stability
-cargo test -p ambition_actors --test dash_stability
-cargo test -p ambition_actors --test repro_walls
+cargo test -p ambition_platformer2d_actor_monolith --lib rl_sim
+cargo test -p ambition_platformer2d_actor_monolith --test fuzz_random_walker
+cargo test -p ambition_platformer2d_actor_monolith --test replay_fixture_regression
+cargo test -p ambition_platformer2d_actor_monolith --test crouch_stability
+cargo test -p ambition_platformer2d_actor_monolith --test dash_stability
+cargo test -p ambition_platformer2d_actor_monolith --test repro_walls
 ```
 
 ## Failure signatures to catch

@@ -40,7 +40,7 @@ live binding glyphs, and only **arranges and presents**.
 
 Today the on-screen buttons are a shallow touch-only relabel of a fixed
 smash-vocabulary table (`PlayerAffordances`,
-`crates/ambition_actors/src/affordances/`), computed from physics state only.
+`crates/ambition_platformer2d_actor_monolith/src/affordances/`), computed from physics state only.
 They don't know the controlled character's real moveset, never relabel in
 menus, and the button set is hardcoded. Underneath, jump/dash/blink are
 hardcoded bools copied through three frame structs
@@ -92,7 +92,7 @@ Two remap layers fall out naturally:
 ## Invariants (binding)
 
 1. **The wire format is device-shaped.** `ControlFrame`
-   (`crates/ambition_engine_core/src/control_frame.rs`) stays a POD,
+   (`crates/ambition_platformer2d_core/src/control_frame.rs`) stays a POD,
    fixed-size slot-edge frame — it is what `ControlFrameLatch`/`InputStream`
    latch and stream. Scheme resolution happens **sim-side and
    deterministically**, so rollback re-resolves identically even when the
@@ -131,7 +131,7 @@ Two remap layers fall out naturally:
 
 ## What this retires (full replacement, no bridges)
 
-- `crates/ambition_actors/src/affordances/` — `PlayerAffordances`, the fixed
+- `crates/ambition_platformer2d_actor_monolith/src/affordances/` — `PlayerAffordances`, the fixed
   `*Variant` enums, `compute_player_affordances`, and the touch overlay's
   `update_button_verb_from_affordances`. **Honesty note:** the *contextual
   resolve* is inherited, not deleted — directional attack labels come from the
@@ -140,7 +140,7 @@ Two remap layers fall out naturally:
   action's resolver), technique labels from technique state. `glyph_for` and
   the device-detection live on, re-homed with `ActiveBindings`.
 - `gate_worn_player_control`
-  (`crates/ambition_actors/src/avatar/starting_character.rs`) — **NOT retired
+  (`crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs`) — **NOT retired
   yet.** The P3 end-state is a body without an action simply lacking a scheme
   entry (nothing to strip after the fact), reached once the kernel consumes
   actions directly. Until then the gate REMAINS — now as the consumer of the
@@ -316,7 +316,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   `Vec<ActionSpec { id, slot, display_name, visual: Option<VisualId>, gate }>`.
   String `ActionId` (matches `MovesetContract.verbs` keys) + well-known
   constants; `ActionGate::{Movement, Technique, Move, Interact}`.
-  `MovementAction` enum + `ActionEdges` go in `ambition_engine_core` (the
+  `MovementAction` enum + `ActionEdges` go in `ambition_platformer2d_core` (the
   kernel will consume them in P3).
 - Move labels: `MoveSpec::display()` title-cases the id today
   (`sandbag_swat` → "Sandbag Swat"). The authored `display_name:
@@ -396,7 +396,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   label + glyph + pressed straight from the prompt. Deletes
   `update_button_verb_from_affordances` and the static label table
   (`touch_input/src/bevy_plugin.rs:818`, `layout.rs`). The crate's
-  `ambition_actors::affordances` reach goes away (long-flagged decoupling
+  `ambition_platformer2d_actor_monolith::affordances` reach goes away (long-flagged decoupling
   smell).
 - **Payoff already here:** possess a body → buttons change, because the
   scheme is real — even though input still flows the old path (guarded by the
@@ -507,7 +507,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   Sanic, open inventory, rebind a key — buttons rename/hide/re-glyph
   correctly; screenshot the three states.
 - Anchors: `cargo test -p ambition_entity_catalog`, `cargo test -p
-  ambition_characters --lib`, `cargo test -p ambition_engine_core --lib
+  ambition_characters --lib`, `cargo test -p ambition_platformer2d_core --lib
   movement`, `cargo test -p ambition_touch_input`, `./run_tests.sh -k action`.
 
 ## Locked decisions (2026-07-17, with Jon)

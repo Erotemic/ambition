@@ -102,7 +102,7 @@ if let Ok(presented) = presented.get(followed) {
 and that value becomes `ResolvedCameraSnapshot::follow_world`
 (`camera_snapshot.rs:824`).
 
-Meanwhile `apply_portal_camera_continuity` (`ambition_host/src/portal.rs`)
+Meanwhile `apply_portal_camera_continuity` (`ambition_platformer2d_host/src/portal.rs`)
 computes `body_screen_offset_world` from the AUTHORITATIVE `BodyKinematics`,
 post-transit, and `camera_follow` (`ambition_render/src/rendering/camera.rs:159`)
 combines the two:

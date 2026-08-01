@@ -11,7 +11,7 @@
 //! and it is exactly the class this repository keeps rediscovering: every
 //! instrument green, and green about less than it claimed.
 
-use ambition::engine_core::AabbExt;
+use ambition_platformer2d::engine_core::AabbExt;
 use ambition_demo_smash_app::build_demo_app;
 
 /// The stage boots and its geometry is the one the demo authored.
@@ -26,7 +26,7 @@ fn the_shell_boots_onto_the_authored_stage() {
     }
     assert!(
         app.world()
-            .get_resource::<ambition::game_shell::ShellRouter>()
+            .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
             .is_some(),
         "the shell never installed a router, so nothing routed anywhere"
     );
@@ -94,7 +94,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 
     let route_now = |app: &bevy::prelude::App| -> Option<String> {
         app.world()
-            .resource::<ambition::game_shell::ShellRouter>()
+            .resource::<ambition_platformer2d::game_shell::ShellRouter>()
             .active
             .as_ref()
             .map(|active| active.route_id.as_str().to_string())
@@ -107,7 +107,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "a roster exists before anybody chose, so the select screen is decoration"
     );
@@ -125,7 +125,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 
     let roster = app
         .world()
-        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
         .expect("locking in published the match the screen decided");
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(
@@ -156,7 +156,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 /// below the app can reach.
 #[test]
 fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
-    use ambition::actor::{FighterStocks, MatchSeat};
+    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
     use ambition_demo_smash::select::SmashSelect;
     use bevy::prelude::*;
 
@@ -193,12 +193,12 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
     // rather than approached — the stage's margin is a fraction of the platform,
     // and this is several times that per second.
     {
-        use ambition::actor::BodyKinematics;
+        use ambition_platformer2d::actor::BodyKinematics;
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
         for (seat, mut kin) in query.iter_mut(world) {
             if seat.0 == 1 {
-                kin.vel = ambition::engine_core::Vec2::new(2_400.0, -200.0);
+                kin.vel = ambition_platformer2d::engine_core::Vec2::new(2_400.0, -200.0);
             }
         }
     }
@@ -255,8 +255,8 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
 /// perfectly still while every test passed.
 #[test]
 fn the_fighter_brain_engages_rather_than_standing_still() {
-    use ambition::actor::MatchSeat;
-    use ambition::characters::actor::BodyHealth;
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::characters::actor::BodyHealth;
     use bevy::prelude::*;
 
     let mut app = build_demo_app();
@@ -271,8 +271,8 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::GoTo(
-            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
     // ⚠ the sampling window has to sit inside the fighter's LIFE. This test used
     // to sample at ticks 240 and 480, and seat 1 is eliminated around tick 400 —
@@ -286,7 +286,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
 
     let snapshot = |app: &mut App| -> Vec<(usize, f32, f32)> {
         let world = app.world_mut();
-        let mut q = world.query::<(&MatchSeat, &ambition::actor::BodyKinematics, &BodyHealth)>();
+        let mut q = world.query::<(&MatchSeat, &ambition_platformer2d::actor::BodyKinematics, &BodyHealth)>();
         let mut rows: Vec<(usize, f32, f32)> = q
             .iter(world)
             .map(|(seat, kin, health)| (seat.0, kin.pos.x, health.damage_percent()))
@@ -343,8 +343,8 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
 /// is over".
 #[test]
 fn an_eliminated_fighter_does_not_keep_falling_forever() {
-    use ambition::actor::MatchSeat;
-    use ambition::characters::actor::BodyHealth;
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::characters::actor::BodyHealth;
 
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -356,8 +356,8 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::GoTo(
-            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
 
     let mut peak = 0.0f32;
@@ -396,8 +396,8 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
 /// right, which is exactly why the leak was invisible.
 #[test]
 fn losing_a_stock_announces_a_body_restart() {
-    use ambition::actor::{FighterStocks, MatchSeat};
-    use ambition::engine_core::BodyLifetime;
+    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
+    use ambition_platformer2d::engine_core::BodyLifetime;
     use bevy::prelude::*;
 
     let mut app = build_demo_app();
@@ -410,8 +410,8 @@ fn losing_a_stock_announces_a_body_restart() {
             ambition_demo_smash::SMASH_OPPONENT_ID,
         ]));
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::GoTo(
-            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
     for _ in 0..240 {
         app.update();
@@ -430,7 +430,7 @@ fn losing_a_stock_announces_a_body_restart() {
     {
         let world = app.world_mut();
         let mut kin = world
-            .get_mut::<ambition::actor::BodyKinematics>(fighter)
+            .get_mut::<ambition_platformer2d::actor::BodyKinematics>(fighter)
             .expect("the fighter has a body");
         kin.pos.y = 100_000.0;
     }
@@ -481,7 +481,7 @@ fn losing_a_stock_announces_a_body_restart() {
 /// protection that reads as protection and cannot fire.
 #[test]
 fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
-    use ambition::actors::features::CharacterRoster;
+    use ambition_platformer2d::actors::features::CharacterRoster;
 
     let mut app = build_demo_app();
     for _ in 0..30 {

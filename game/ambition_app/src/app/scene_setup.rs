@@ -3,7 +3,7 @@
 //! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel
 //! text, the static room visuals + parallax, and wires the audio library / SFX
 //! bank. It is the render+audio composition that pairs with
-//! `ambition::actors::session::setup::simulation_world` (which stays sim-only).
+//! `ambition_platformer2d::actors::session::setup::simulation_world` (which stays sim-only).
 //! Moved out of the machinery crate so the sim never imports the render layer —
 //! the app, as the composition root, owns the wiring that crosses the seam.
 #![allow(clippy::too_many_arguments)]
@@ -12,25 +12,25 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition::actors::rooms::RoomSet;
+use ambition_platformer2d::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
-use ambition::actors::session::data::{MusicRegistry, SfxRegistry};
-use ambition::actors::world::physics::PhysicsSandboxSettings;
-use ambition::actors::world::platforms;
+use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
+use ambition_platformer2d::actors::world::physics::PhysicsSandboxSettings;
+use ambition_platformer2d::actors::world::platforms;
 #[cfg(feature = "audio")]
-use ambition::asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
+use ambition_platformer2d::asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
-use ambition::audio::library::AudioLibrary;
+use ambition_platformer2d::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
-use ambition::audio::SfxBankResource;
-use ambition::engine_core::RoomGeometry;
-use ambition::render::rendering::{
+use ambition_platformer2d::audio::SfxBankResource;
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, QuestPanelText,
 };
-use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
-use ambition::sfx::BankProvider;
-use ambition::sprite_sheet::game_assets::GameAssets;
+use ambition_platformer2d::sfx::BankProvider;
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
 /// Borrowed inputs for `presentation_world`.
 pub struct PresentationSetup<'a> {
@@ -38,7 +38,7 @@ pub struct PresentationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
-    pub quality: Option<&'a ambition::render::quality::ResolvedVisualQuality>,
+    pub quality: Option<&'a ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]
@@ -79,7 +79,7 @@ pub fn presentation_world(
 /// Build and insert the host-resident audio library (packed SFX bank +
 /// catalog-resolved music assets) and its playback state. An asset CACHE —
 /// host-owned, shared across sessions; the per-session audio AUTHORITY is
-/// `ambition::audio::selection::ActiveAudioSelection`.
+/// `ambition_platformer2d::audio::selection::ActiveAudioSelection`.
 #[cfg(feature = "audio")]
 pub fn install_audio_library(
     commands: &mut Commands,
@@ -94,7 +94,7 @@ pub fn install_audio_library(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::music_track(
+        catalog.path_for(&ambition_platformer2d::asset_manager::sandbox_assets::ids::music_track(
             id,
         ))
     };
@@ -105,7 +105,7 @@ pub fn install_audio_library(
         Some(asset_server),
         bank_provider
             .as_ref()
-            .map(|provider| provider as &dyn ambition::sfx::SfxProvider),
+            .map(|provider| provider as &dyn ambition_platformer2d::sfx::SfxProvider),
         Some(&resolve_track_path),
     );
     // Direct startup and shell activation can now include the initial track in
@@ -175,7 +175,7 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 }
 
 /// Resolve the SFX bank through the
-/// [`ambition::asset_manager::sandbox_assets::SandboxAssetCatalog`] and synchronously
+/// [`ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog`] and synchronously
 /// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),
@@ -254,7 +254,7 @@ fn presentation_world_inner(commands: &mut Commands, params: PresentationSetup<'
     host_presentation_scaffold(commands);
     session_presentation(
         commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         SessionPresentationSetup {
             world: params.world,
             room_set: params.room_set,
@@ -272,7 +272,7 @@ pub struct SessionPresentationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
-    pub quality: Option<&'a ambition::render::quality::ResolvedVisualQuality>,
+    pub quality: Option<&'a ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     pub ui_fonts: Option<&'a UiFonts>,
 }
 
@@ -288,21 +288,21 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // explicitly retargeted back to this camera (see
     // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
     let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
+        .with(ambition_platformer2d::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
     {
         main_camera_layers =
-            main_camera_layers.with(ambition::portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
+            main_camera_layers.with(ambition_platformer2d::portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
     }
     let main_camera = commands
         .spawn((
             Camera2d,
-            ambition::platformer::camera_layers::MainCamera,
-            ambition::game_shell::FrontendOwnedEntity::host(
-                ambition::game_shell::FrontendPresentationKind::HostCamera,
+            ambition_platformer2d::platformer::camera_layers::MainCamera,
+            ambition_platformer2d::game_shell::FrontendOwnedEntity::host(
+                ambition_platformer2d::game_shell::FrontendPresentationKind::HostCamera,
             ),
             main_camera_layers,
-            ambition::render::screen_effects::ScreenEffectSettings::default(),
+            ambition_platformer2d::render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
         ))
         .id();
@@ -321,18 +321,18 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ambition::platformer::camera_layers::FrontHudCamera,
-        ambition::game_shell::FrontendOwnedEntity::host(
-            ambition::game_shell::FrontendPresentationKind::FrontendUiCamera,
+        ambition_platformer2d::platformer::camera_layers::FrontHudCamera,
+        ambition_platformer2d::game_shell::FrontendOwnedEntity::host(
+            ambition_platformer2d::game_shell::FrontendPresentationKind::FrontendUiCamera,
         ),
         IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
-            ambition::platformer::camera_layers::FRONT_HUD_LAYER,
+            ambition_platformer2d::platformer::camera_layers::FRONT_HUD_LAYER,
         ),
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition::platformer::camera_layers::MainCameraEntity(
+    commands.insert_resource(ambition_platformer2d::platformer::camera_layers::MainCameraEntity(
         main_camera,
     ));
 }
@@ -344,7 +344,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 /// captured scope so the generic session sweep retires all of it.
 pub fn session_presentation(
     commands: &mut Commands,
-    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     params: SessionPresentationSetup<'_>,
 ) {
     let world = params.world;
@@ -406,7 +406,7 @@ pub struct SessionDressingSetup<'a> {
 /// linked game) while Ambition keeps its own dressing.
 pub fn session_gameplay_dressing(
     commands: &mut Commands,
-    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     params: SessionDressingSetup<'_>,
 ) {
     let world = params.world;

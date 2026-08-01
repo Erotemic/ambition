@@ -9,7 +9,7 @@ inventory in** ("the demo is a demo, we need to wire us up to use it").
 
 ## Status
 
-- ✅ **Dependency** — `ambition_inventory_ui` added to `ambition_actors` (path dep,
+- ✅ **Dependency** — `ambition_inventory_ui` added to `ambition_platformer2d_actor_monolith` (path dep,
   `optional`, gated by `oot_inventory`); root `Cargo.toml` `exclude`s the submodule
   (it's its own workspace). Resolves + compiles clean: the game and submodule are
   both **bevy 0.18**, so it unifies with `bevy_lunex`. (`build(#31)` commits.)

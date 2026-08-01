@@ -28,16 +28,16 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::character_runtime::{
+use ambition_platformer2d::actors::character_runtime::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, StagesCharacters,
 };
-use ambition::engine_core as ae;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::PreparedPlatformerSource;
-use ambition::runtime::demo_fixture::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
+use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
-use ambition::world::rooms::RoomSpec;
+use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
 pub const VERSUS_GAMEPLAY_ROUTE: &str = "versus_gameplay";
@@ -340,13 +340,13 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 /// reported rather than half-applied.
 fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
-    topology: Option<Res<ambition::input::LocalSeatTopology>>,
+    topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
     roster: Option<ResMut<MatchParticipantRoster>>,
-    active_match: Option<ResMut<ambition::actors::character_runtime::ActiveMatch>>,
-    mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
+    active_match: Option<ResMut<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
+    mut demand: ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
-    seated: Query<&ambition::actors::character_runtime::MatchSeat>,
+    seated: Query<&ambition_platformer2d::actors::character_runtime::MatchSeat>,
 ) {
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
@@ -447,12 +447,12 @@ const VERSUS_DI_MAX_ANGLE: f32 = 0.31;
 ///
 fn track_versus_roster(
     mut commands: Commands,
-    router: Res<ambition::game_shell::ShellRouter>,
-    devices: Res<ambition::input::LocalDeviceOrder>,
+    router: Res<ambition_platformer2d::game_shell::ShellRouter>,
+    devices: Res<ambition_platformer2d::input::LocalDeviceOrder>,
     // The seating a rollback session froze, when one is running.
-    topology: Option<Res<ambition::input::LocalSeatTopology>>,
+    topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
     roster: Option<Res<MatchParticipantRoster>>,
-    mut demand: ResMut<ambition::actors::character_runtime::CharacterLoadDemand>,
+    mut demand: ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>,
 
     mut match_state: ResMut<super::versus_rules::VersusMatch>,
 ) {
@@ -494,7 +494,7 @@ fn track_versus_roster(
             commands.insert_resource(roster);
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.
-            commands.remove_resource::<ambition::actors::character_runtime::ActiveMatch>();
+            commands.remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
             // NO global free-for-all. The fighters are on declared TEAMS
             // (`blue` / `red`), and `MatchTeam` outranks faction for "may this
             // land" — which is what the roster's teams were for since §7.8 and
@@ -516,7 +516,7 @@ fn track_versus_roster(
             // DI ON. A launched fighter can steer its own trajectory, which is
             // the difference between a knock-off that is a read and one that is a
             // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
-            commands.insert_resource(ambition::combat::rules::DeclaredCombatRules {
+            commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
                 friendly_fire: false,
             });
@@ -532,7 +532,7 @@ fn track_versus_roster(
             commands.remove_resource::<MatchParticipantRoster>();
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
-            commands.remove_resource::<ambition::actors::character_runtime::ActiveMatch>();
+            commands.remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
             // DROP THE DECLARATION, which is the whole exit. A match rule that
             // outlives its match is a rule the next game silently inherits, and
             // "your allies can now shoot you" is a bad surprise to bring into a
@@ -545,7 +545,7 @@ fn track_versus_roster(
             // what this did: an experience that authored `di_max_angle = 0.12`
             // got `0.0` handed back merely because the route was visited. No
             // baseline is written now, so it cannot be written wrong.
-            commands.remove_resource::<ambition::combat::rules::DeclaredCombatRules>();
+            commands.remove_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>();
         }
         _ => {}
     }
@@ -557,7 +557,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // Preparation refuses an experience whose starting character has no catalog
     // row, and the hand-authored moveset only exists on the definition.
     {
-        use ambition::characters::actor::character_catalog::{
+        use ambition_platformer2d::characters::actor::character_catalog::{
             CharacterCatalogAppExt, CharacterCatalogFragment,
         };
         app.register_character_catalog_fragment(
@@ -569,7 +569,7 @@ pub fn compose_versus_experience(app: &mut App) {
             .expect("the versus fighter catalog is valid"),
         );
     }
-    use ambition::actors::character_runtime::CharacterDefinitionAppExt;
+    use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
     for fighter in super::versus_fighters::duelists() {
         app.register_character(fighter);
     }
@@ -577,7 +577,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // catalog above, and the one `ControllerBinding::Cpu { brain_profile }`
     // actually consults.
     {
-        use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, None::<String>, VERSUS_ROSTER_RON)
                 .expect("the versus archetype roster is valid"),
@@ -600,16 +600,16 @@ pub fn compose_versus_experience(app: &mut App) {
     // a statement about the STAGE and the stage seats four. Declaring two and
     // making the third fighter share one is what the first version did.
     .with_hud({
-        let mut hud = ambition::presentation::HudDeclaration::new();
+        let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
         for (seat, slot) in super::versus_rules::HEALTH_HUD_SLOTS.iter().enumerate() {
             hud = hud.slot(
-                ambition::presentation::HudSlotSpec::new(*slot)
-                    .with_region(ambition::presentation::SurroundRegion::Top)
+                ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
+                    .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
                     .with_font_size(22.0)
                     // The gauge's full extent is the slot's declared minimum
                     // width, so a stage sizes its bar by saying how much room it
                     // wants rather than by knowing anything about the renderer.
-                    .with_min_px(ambition::engine_core::Vec2::new(220.0, 30.0))
+                    .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
                     // Coloured by SIDE, matching the roster's seat-parity teams,
                     // so a partner's bar reads as a partner's at a glance.
                     .with_color(if seat % 2 == 0 {
@@ -620,8 +620,8 @@ pub fn compose_versus_experience(app: &mut App) {
             );
         }
         hud.slot(
-            ambition::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
-                .with_region(ambition::presentation::SurroundRegion::Top)
+            ambition_platformer2d::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
+                .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
                 .with_font_size(16.0)
                 .with_color([0.75, 0.8, 0.95, 1.0]),
         )
@@ -636,7 +636,7 @@ pub fn compose_versus_experience(app: &mut App) {
         // `publish_versus_hud` clears the slot explicitly on `Fighting`. Without
         // that the word FIGHT would sit over the whole round.
         .slot(
-            ambition::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
+            ambition_platformer2d::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
                 .centered()
                 .with_font_size(34.0)
                 .with_color([1.0, 0.85, 0.3, 1.0]),
@@ -648,7 +648,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // The scoreboard is SIMULATION state: a rewind that restores the fighters
     // and not the score leaves the two disagreeing about what round it is.
     {
-        use ambition::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
         app.rollback_resource_clone::<super::versus_rules::VersusMatch>(
             VERSUS_EXPERIENCE,
             "resource.versus_match",
@@ -666,7 +666,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // resimulation does not replay. Calling a system "the presentation half"
     // does not make the resource it writes presentational.
     {
-        use ambition::platformer::schedule::{CombatSet, SimScheduleExt};
+        use ambition_platformer2d::platformer::schedule::{CombatSet, SimScheduleExt};
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
@@ -679,7 +679,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // no rounds and should carry no round culler. `settle_versus_round` mints the
     // next round; this despawns whatever belonged to the last one, so the rules
     // never enumerate the transient families that might exist.
-    app.add_plugins(ambition::platformer::lifecycle::RoundScopePlugin);
+    app.add_plugins(ambition_platformer2d::platformer::lifecycle::RoundScopePlugin);
 
     // Publishing the scoreboard IS presentation: it reads `VersusMatch` and
     // writes HUD text, and it writes nothing the simulation reads back.
@@ -691,7 +691,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // own: the fighters bring theirs, attributed to THEIR providers, which is the
     // whole point of a crossover.
     {
-        use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+        use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
         app.register_audio_catalog_fragment(
             AudioCatalogFragment::new(VERSUS_EXPERIENCE, None, None)
                 .expect("the silent versus audio fragment is valid"),
@@ -699,13 +699,13 @@ pub fn compose_versus_experience(app: &mut App) {
     }
 
     // The stage READS the device order, so the stage guarantees it exists.
-    // `ambition_host` owns the systems that maintain it, and a composition
+    // `ambition_platformer2d_host` owns the systems that maintain it, and a composition
     // without the host input plugin (the lifecycle fixtures) still routes
     // through here — an `Option<Res>` would turn "this host has no device
     // layer" into "zero controllers", which is exactly the answer that decides
     // player two is a CPU. `init_resource` is a no-op when the host already
     // installed it, so there is still one writer.
-    app.init_resource::<ambition::input::LocalDeviceOrder>();
+    app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
 
     // `Update`, NOT the sim schedule.
     //
@@ -735,16 +735,16 @@ pub fn compose_versus_experience(app: &mut App) {
 #[cfg(test)]
 mod stage_rule_tests {
     use super::*;
-    use ambition::actors::time::feel::SandboxFeelTuning;
+    use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
 
     fn stage_rule_app() -> App {
         let mut app = App::new();
         app.init_resource::<SandboxFeelTuning>();
-        app.init_resource::<ambition::combat::targeting::FriendlyFire>();
+        app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
         app.init_resource::<super::super::versus_rules::VersusMatch>();
-        app.init_resource::<ambition::actors::character_runtime::CharacterLoadDemand>();
-        app.init_resource::<ambition::input::LocalDeviceOrder>();
-        app.insert_resource(ambition::game_shell::ShellRouter::default());
+        app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
+        app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
+        app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
         // The projection normally runs in `SandboxSet::WorldPrep`; here it runs
         // straight after the declarer, which is the same ORDER and all these
         // tests need. Asserting on the resolved value rather than on a global is
@@ -754,7 +754,7 @@ mod stage_rule_tests {
             Update,
             (
                 track_versus_roster,
-                ambition::actors::features::combat_rules::project_combat_rules,
+                ambition_platformer2d::actors::features::combat_rules::project_combat_rules,
             )
                 .chain(),
         );
@@ -762,18 +762,18 @@ mod stage_rule_tests {
         app
     }
 
-    fn resolved(app: &App) -> ambition::combat::rules::ResolvedCombatTuning {
+    fn resolved(app: &App) -> ambition_platformer2d::combat::rules::ResolvedCombatTuning {
         *app.world()
-            .resource::<ambition::combat::rules::ResolvedCombatTuning>()
+            .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
     }
 
     fn enter_versus(app: &mut App) {
         app.world_mut()
-            .resource_mut::<ambition::game_shell::ShellRouter>()
-            .active = Some(ambition::game_shell::ActiveShellExperience {
-            activation_id: ambition::game_shell::ShellActivationId(1),
-            route_id: ambition::game_shell::ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE),
-            experience_id: ambition::game_shell::ShellExperienceId::new(VERSUS_EXPERIENCE),
+            .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active = Some(ambition_platformer2d::game_shell::ActiveShellExperience {
+            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
+            route_id: ambition_platformer2d::game_shell::ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE),
+            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(VERSUS_EXPERIENCE),
             parameters: Default::default(),
             load_authorization: None,
             prepared_session: None,
@@ -783,7 +783,7 @@ mod stage_rule_tests {
 
     fn leave_versus(app: &mut App) {
         app.world_mut()
-            .resource_mut::<ambition::game_shell::ShellRouter>()
+            .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
             .active = None;
         app.update();
     }
@@ -864,7 +864,7 @@ mod stage_rule_tests {
             .resource_mut::<SandboxFeelTuning>()
             .di_max_angle = PRIOR_DI;
         app.world_mut()
-            .resource_mut::<ambition::combat::targeting::FriendlyFire>()
+            .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
             .enabled = true;
         assert_ne!(
             PRIOR_DI,
@@ -872,7 +872,7 @@ mod stage_rule_tests {
             "the premise: this test is only meaningful while the prior value \
              differs from the value a reset would write"
         );
-        assert!(!ambition::combat::targeting::FriendlyFire::default().enabled);
+        assert!(!ambition_platformer2d::combat::targeting::FriendlyFire::default().enabled);
 
         let authored_is_intact = |app: &App, when: &str| {
             assert_eq!(
@@ -883,7 +883,7 @@ mod stage_rule_tests {
             );
             assert!(
                 app.world()
-                    .resource::<ambition::combat::targeting::FriendlyFire>()
+                    .resource::<ambition_platformer2d::combat::targeting::FriendlyFire>()
                     .enabled,
                 "{when}: same for friendly fire — the baseline is not the stage's \
                  to write, in either direction"
@@ -923,7 +923,7 @@ mod stage_rule_tests {
         );
         assert!(
             !app.world()
-                .contains_resource::<ambition::combat::rules::DeclaredCombatRules>(),
+                .contains_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(),
             "the declaration must not outlive the match — dropping it IS the exit"
         );
     }
@@ -932,8 +932,8 @@ mod stage_rule_tests {
 #[cfg(test)]
 mod roster_topology_tests {
     use super::*;
-    use ambition::actors::character_runtime::{ActiveMatch, CharacterLoadDemand};
-    use ambition::input::{LocalDeviceOrder, LocalSeatTopology};
+    use ambition_platformer2d::actors::character_runtime::{ActiveMatch, CharacterLoadDemand};
+    use ambition_platformer2d::input::{LocalDeviceOrder, LocalSeatTopology};
 
     fn topology_of(pads: usize) -> LocalSeatTopology {
         let mut topology = LocalSeatTopology::default();
@@ -1002,7 +1002,7 @@ mod roster_topology_tests {
         // One fighter is already standing on the stage; the other has not seated
         // yet, so `ActiveMatch` is absent — the exact window.
         app.world_mut()
-            .spawn(ambition::actors::character_runtime::MatchSeat(0));
+            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
@@ -1028,7 +1028,7 @@ mod roster_topology_tests {
         let topology = topology_of(2);
         let mut app = app_with(versus_roster_from(2, None), 2, false);
         app.world_mut()
-            .spawn(ambition::actors::character_runtime::MatchSeat(0));
+            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(

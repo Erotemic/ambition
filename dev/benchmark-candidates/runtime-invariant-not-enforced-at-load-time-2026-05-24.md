@@ -80,7 +80,7 @@ if spec.rows.iter().any(|(anim, _)| *anim == CharacterAnim::Idle) {
     Some(spec)
 } else {
     bevy::log::warn!(
-        target: "ambition::character_sprites",
+        target: "ambition_platformer2d::character_sprites",
         "character_sprites: skip spec for '{character_id}' \
          (manifest has no Idle row; rows = {:?})",
         spec.rows.iter().map(|(a, _)| a).collect::<Vec<_>>(),
@@ -145,7 +145,7 @@ Without seeing the panic, the agent has to know:
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_actors --lib \
+~/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib \
     every_catalog_sprite_spec_has_idle_row_if_loaded
 ```
 

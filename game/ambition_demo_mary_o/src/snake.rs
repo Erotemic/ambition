@@ -38,19 +38,19 @@
 //! thin shell over it, mirroring `flag.rs` — so the choreography is unit-tested
 //! even though its LOOK is not visible headlessly.
 //!
-//! Every type it names comes through the `ambition` umbrella — the E9 oracle.
+//! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::actors::combat::components::ActorFaction;
-use ambition::actors::features::{ActorAnimOverride, ActorConfig, FeatureId, FeatureName};
-use ambition::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
-use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
-use ambition::characters::actor::BodyCombat;
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::CharacterBrain;
-use ambition::sprite_sheet::character::CharacterAnim;
+use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::actors::combat::components::ActorFaction;
+use ambition_platformer2d::actors::features::{ActorAnimOverride, ActorConfig, FeatureId, FeatureName};
+use ambition_platformer2d::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d::characters::actor::BodyCombat;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
@@ -393,8 +393,8 @@ const SNAKE_WORLD_PER_PIXEL: f32 = 0.5;
 /// bypasses the lean sandbox catalog), self-healing across a `GameAssets` rebuild
 /// and a no-op headless / `--no-assets`.
 pub fn register_solid_snake_sheet(
-    game_assets: Option<ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    game_assets: Option<ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
 ) {
@@ -406,12 +406,12 @@ pub fn register_solid_snake_sheet(
     if config.no_assets || game_assets.characters.sheet(SNAKE_DISPLAY_NAME).is_some() {
         return;
     }
-    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+    if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
         &asset_server,
         &mut layouts,
         &config.sprite_folder,
         SNAKE_SHEET_TARGET,
-        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 0),
+        &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
     ) {
         // Double-keyed exactly like the eager loader: the render resolves an actor
         // by its display name, and other seams by the catalog id.
@@ -427,7 +427,7 @@ pub fn register_solid_snake_sheet(
 /// Register the demo's hostile roster fragment. Shares the Mary-O provider id so
 /// its brain key namespaces under this experience.
 pub fn register_snake_roster(app: &mut App) {
-    use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron(
             crate::provider::MARY_O_EXPERIENCE,
@@ -457,7 +457,7 @@ const SNAKE_TILE_COLUMNS: &[f32] = &[9.0, 16.0, 31.0, 52.0, 68.0];
 /// (`--no-assets`, a stripped test fixture) falls back to a plain tile-ish box:
 /// the snake still walks and is still stompable, it just isn't art-shaped.
 fn snake_half_size() -> ae::Vec2 {
-    ambition::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
         SNAKE_SHEET_TARGET,
         CharacterAnim::Idle,
         SNAKE_WORLD_PER_PIXEL,
@@ -492,7 +492,7 @@ fn snake_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
 /// contents are staged (initial load, every cyclic replay — the snakes
 /// `respawn: OnRoomReenter` — and a snapshot restore), the walkers stage with them.
 pub fn register_snake_content_staging(
-    registry: &mut ambition::actors::features::RoomContentStagingRegistry,
+    registry: &mut ambition_platformer2d::actors::features::RoomContentStagingRegistry,
 ) {
     registry
         .register(
@@ -518,7 +518,7 @@ pub fn tag_mary_o_snakes(
         if name.0 == SNAKE_DISPLAY_NAME {
             commands.entity(entity).try_insert((
                 SnakeShell::Walking,
-                ambition::actors::character_sprites::SpritePosedBody::new(
+                ambition_platformer2d::actors::character_sprites::SpritePosedBody::new(
                     SNAKE_SHEET_TARGET,
                     SNAKE_WORLD_PER_PIXEL,
                 ),
@@ -552,7 +552,7 @@ pub fn tag_mary_o_snakes(
 /// A per-body runtime switch, distinct from authored tuning, would let the
 /// engine reset it generically for every game.
 pub fn reset_snakes_on_room_reset(
-    mut resets: MessageReader<ambition::actors::features::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::actors::features::ResetRoomFeaturesEvent>,
     mut snakes: Query<(&mut SnakeShell, &mut BodyCombat, &mut ActorConfig)>,
 ) {
     if resets.read().count() == 0 {
@@ -592,16 +592,16 @@ pub fn reset_snakes_on_room_reset(
 #[allow(clippy::too_many_arguments)]
 pub fn run_snake_shells(
     mut commands: Commands,
-    world_time: Res<ambition::time::WorldTime>,
-    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    world_time: Res<ambition_platformer2d::time::WorldTime>,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut hits: MessageWriter<HitEvent>,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     mut snakes: Query<
         (
             Entity,
             &FeatureId,
-            &ambition::characters::actor::BodyHealth,
+            &ambition_platformer2d::characters::actor::BodyHealth,
             &mut ae::BodyKinematics,
             &mut BodyCombat,
             &mut ActorConfig,
@@ -647,12 +647,12 @@ pub fn run_snake_shells(
                 );
                 stomper = Some(player_entity);
             }
-            vfx.write(ambition::vfx::VfxMessage::Burst {
+            vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
                 pos: kin.pos,
                 count: 12,
                 speed: 130.0,
                 color: [0.80, 0.68, 0.48, 1.0],
-                kind: ambition::vfx::ParticleKind::Dust,
+                kind: ambition_platformer2d::vfx::ParticleKind::Dust,
             });
             // H2: a stomp is the STOMPER's verb — the same rule the engine's pogo
             // uses, where the bouncing owner owns the cue. It is the player who
@@ -662,11 +662,11 @@ pub fn run_snake_shells(
             // gone by the time the effect resolves.
             match stomper {
                 Some(stomper) => {
-                    sfx.write_for(stomper, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
+                    sfx.write_for(stomper, ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos })
                 }
                 None => sfx.write_from(
                     crate::provider::MARY_O_EXPERIENCE,
-                    ambition::sfx::SfxMessage::Pogo { pos: kin.pos },
+                    ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },
                 ),
             }
         }
@@ -674,11 +674,11 @@ pub fn run_snake_shells(
             let kicker = players.single().ok().map(|(entity, _)| entity);
             match kicker {
                 Some(kicker) => {
-                    sfx.write_for(kicker, ambition::sfx::SfxMessage::Pogo { pos: kin.pos })
+                    sfx.write_for(kicker, ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos })
                 }
                 None => sfx.write_from(
                     crate::provider::MARY_O_EXPERIENCE,
-                    ambition::sfx::SfxMessage::Pogo { pos: kin.pos },
+                    ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },
                 ),
             }
         }

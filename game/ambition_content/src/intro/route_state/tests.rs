@@ -28,8 +28,8 @@ fn chain_table_has_no_trigger_equals_target() {
 /// Hand-build a minimal LdtkProject with a single level whose
 /// activeArea = "alice_relay" and one LockWall entity matching a
 /// known intro gated lock id.
-fn synthetic_alice_relay_project() -> ambition_actors::world::ldtk_world::LdtkProject {
-    use ambition_actors::world::ldtk_world::{
+fn synthetic_alice_relay_project() -> ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkProject {
+    use ambition_platformer2d_actor_monolith::world::ldtk_world::{
         LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     };
     use serde_json::Value;
@@ -93,8 +93,8 @@ fn lock_wall_compute_returns_block_when_flag_clear() {
     assert_eq!(walls.len(), 1, "expected one lock wall");
     let (id, min, size) = &walls[0];
     assert_eq!(id, "alice_private_return_lock");
-    assert_eq!(*min, ambition_engine_core::Vec2::new(800.0, 624.0));
-    assert_eq!(*size, ambition_engine_core::Vec2::new(96.0, 112.0));
+    assert_eq!(*min, ambition_platformer2d_core::Vec2::new(800.0, 624.0));
+    assert_eq!(*size, ambition_platformer2d_core::Vec2::new(96.0, 112.0));
 }
 
 /// Once the unlock flag flips, compute should drop the LockWall
@@ -124,7 +124,7 @@ fn lock_wall_compute_skips_other_rooms() {
 /// LockWall in the project.
 #[test]
 fn lock_wall_compute_ignores_unregistered_ids() {
-    use ambition_actors::world::ldtk_world::LdtkFieldInstance;
+    use ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkFieldInstance;
     let mut project = synthetic_alice_relay_project();
     // Mutate the one entity's `id` field to something not in
     // INTRO_FLAG_GATED_LOCK_WALLS.
@@ -169,7 +169,7 @@ fn flag_gated_lock_walls_have_unique_ids() {
 #[test]
 fn emit_chains_promotes_bob_survey_to_private_marks() {
     use crate::quest::QuestRegistry;
-    use ambition_actors::features::apply_flag_effects;
+    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
     use ambition_persistence::save::SandboxSave;
     use bevy::app::{App, Update};
@@ -212,8 +212,8 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 #[test]
 fn cartography_quest_advances_through_alice_bob_p5() {
     use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
-    use ambition_actors::features::{apply_flag_effects, apply_quest_effects};
-    use ambition_actors::features::{QuestAdvanceRequested, SetFlagRequested};
+    use ambition_platformer2d_actor_monolith::features::{apply_flag_effects, apply_quest_effects};
+    use ambition_platformer2d_actor_monolith::features::{QuestAdvanceRequested, SetFlagRequested};
     use ambition_persistence::save::SandboxSave;
     use bevy::app::{App, Update};
 
@@ -310,7 +310,7 @@ fn cartography_quest_advances_through_alice_bob_p5() {
 #[test]
 fn emit_chains_promotes_p5_to_route_memory() {
     use crate::quest::QuestRegistry;
-    use ambition_actors::features::apply_flag_effects;
+    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
     use ambition_persistence::save::SandboxSave;
     use bevy::app::{App, Update};
@@ -340,18 +340,18 @@ fn emit_chains_promotes_p5_to_route_memory() {
 /// invalidation checked `save.is_changed()` and the room string only.
 #[test]
 fn lock_walls_recompute_when_the_project_resource_changes() {
-    use ambition_actors::rooms::{RoomSet, RoomSpec};
-    use ambition_actors::world::ldtk_world::SandboxLdtkProject;
-    use ambition_engine_core as ae;
+    use ambition_platformer2d_actor_monolith::rooms::{RoomSet, RoomSpec};
+    use ambition_platformer2d_actor_monolith::world::ldtk_world::SandboxLdtkProject;
+    use ambition_platformer2d_core as ae;
     use ambition_persistence::save::SandboxSave;
-    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
     app.insert_resource(SandboxLdtkProject(synthetic_alice_relay_project()));
     app.insert_resource(SandboxSave::default());
     app.insert_resource(FeatureEcsWorldOverlay::default());
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         RoomSet::from_parts(
             "alice_relay",

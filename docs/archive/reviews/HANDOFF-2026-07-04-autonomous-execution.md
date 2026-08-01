@@ -54,13 +54,13 @@ design fork, note it in the doc for fable and SKIP it — do not stop the run.
 
 ### 1. C4 — app-thinness: fold `sim_systems.rs` into owning library plugins
 `game/ambition_app/src/app/sim_systems.rs` (7 systems, ~579 LOC) holds real gameplay-sim logic
-in the app binary. Move the LOGIC down to its owning `ambition_actors` module; the app's
+in the app binary. Move the LOGIC down to its owning `ambition_platformer2d_actor_monolith` module; the app's
 schedule registration (in `app/plugins.rs` — `register_player_input_systems` ~L245-342 and the
 `cleanup_timers_system` at ~L456) keeps owning the ordering but references the moved `pub fn`.
 - **Movable to `gameplay_core` (render-free, app-only-free):** `sync_live_player_dev_edits_system`
   → `gameplay_core::dev`; `apply_suspended_time_scale_system` → `gameplay_core::time::time_control`;
   `input_timer_system`, `interaction_input_system`, `cleanup_timers_system` → `gameplay_core::player`.
-  In each moved fn, rewrite `ambition_actors::` paths to `crate::`; `ambition_input::` /
+  In each moved fn, rewrite `ambition_platformer2d_actor_monolith::` paths to `crate::`; `ambition_input::` /
   `ambition_sfx::` stay (external to gameplay_core). Verify each still compiles — `gameplay_core`
   has NO `ambition_render` dep (checked), so a fn using `ambition_render::fx::VfxMessage` CANNOT move.
 - **Blocked-until-`reset_sandbox`-moves:** `apply_player_reset_input_system` +
@@ -86,15 +86,15 @@ trips it. All ship `blind` (Jon feel-checks). Targets (verify line numbers again
 - **B1** — moveset hitboxes spawn in the SCREEN frame: `combat/moveset.rs:~138,143` build the volume
   offset unrotated. Rotate the authored offset through `AccelerationFrame::to_world` at spawn (the
   seam `spawn_melee_strike` already uses). This is BOTH the bug fix AND unification with the melee path.
-- **B3** — post-blink velocity damp/clamp on world X/Y: `ambition_engine_core/src/movement/blink.rs`
+- **B3** — post-blink velocity damp/clamp on world X/Y: `ambition_platformer2d_core/src/movement/blink.rs`
   `complete_blink_clusters`. `to_local` via `AccelerationFrame::new(tuning.gravity_dir)`, damp `.x`,
   clamp `.y`, `to_world` back.
-- **B4** — slash recoil along world X: `ambition_engine_core/src/movement/control.rs:~130`
+- **B4** — slash recoil along world X: `ambition_platformer2d_core/src/movement/control.rs:~130`
   `vel.x -= facing * slash_recoil` → `vel -= frame.side * (facing * slash_recoil)`.
-- **B5** — spurious-graze guards welded to world axes: `ambition_engine_core/src/movement/collision.rs`
+- **B5** — spurious-graze guards welded to world axes: `ambition_platformer2d_core/src/movement/collision.rs`
   (`body_is_side_contact` etc.). Phrase both guards in axis-ROLE terms so they rotate with gravity.
 - **B6** — wall-ability ordering differs between the two gravity-axis branches:
-  `ambition_engine_core/src/movement/integration.rs:~176-217`. Make the ordering identical.
+  `ambition_platformer2d_core/src/movement/integration.rs:~176-217`. Make the ordering identical.
 - **B2** — `ActorSurfaceState::surface_normal` is a stale frame source for non-surface-walkers
   (consumers should use `gravity.dir_at(kin.pos)` unless `surface_walker && on_ground`). This overlaps
   the A3/A4 damage work (the shield/knockback/muzzle consumers) — do it there.
@@ -135,7 +135,7 @@ projectile-spec chain (C5 — retire `ProjectileKind`) are the natural follow-on
 prep for a future second game; there IS no second-game consumer yet and that is fine (Jon's explicit call).
 
 ### 6. C6 — boss sheet-specs → RON (content out of core)
-`crates/ambition_actors/src/boss_encounter/sprites/mod.rs` holds hardcoded `pub const`
+`crates/ambition_platformer2d_actor_monolith/src/boss_encounter/sprites/mod.rs` holds hardcoded `pub const`
 `BossSheetSpec`s (`MOCKINGBIRD_SHEET`, `GNU_TON_SHEET`, …) with `rows: &'static [(BossAnim, AnimRow)]`.
 Make them RON-authorable so a content boss authors its sheet layout as data (same "out of core" as the
 E58 `StrikeRect` authored-override I just landed — use that as the pattern). This needs `&'static` →

@@ -21,12 +21,12 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{
+use ambition_platformer2d::actors::actor::{
     BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
 };
-use ambition::actors::features::FeatureId;
-use ambition::characters::actor::BodyHealth;
-use ambition::characters::brain::ActorControl;
+use ambition_platformer2d::actors::features::FeatureId;
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
@@ -141,7 +141,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
         &FeatureId,
         &BodyAbilities,
         &BodyShieldState,
-        &ambition::engine_core::BodyMotionFacts,
+        &ambition_platformer2d::engine_core::BodyMotionFacts,
         &BodyFlightState,
         &BodyBlinkState,
         &ActorControl,
@@ -188,7 +188,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 /// bodies in place.
 #[test]
 fn resetting_the_room_restages_the_duel_fighters_fresh() {
-    use ambition::actors::actor::BodyKinematics as Kin;
+    use ambition_platformer2d::actors::actor::BodyKinematics as Kin;
     let mut sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())

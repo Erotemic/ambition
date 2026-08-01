@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition::menu::ActiveMenuPages;
+use ambition_platformer2d::menu::ActiveMenuPages;
 
 use crate::menu::effects::{
     dispatch_item_confirm, MenuAction, MenuEffectManaQuery, MenuEffectPlayers,
@@ -18,14 +18,14 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::actors::avatar::PlayerHealRequested;
-use ambition::items::OwnedItems;
-use ambition::persistence::settings::UserSettings;
-use ambition::settings_menu::settings::{
+use ambition_platformer2d::actors::avatar::PlayerHealRequested;
+use ambition_platformer2d::items::OwnedItems;
+use ambition_platformer2d::persistence::settings::UserSettings;
+use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
-use ambition::settings_menu::system::SystemMenuAction;
-use ambition::sfx::SfxWriter;
+use ambition_platformer2d::settings_menu::system::SystemMenuAction;
+use ambition_platformer2d::sfx::SfxWriter;
 
 /// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared
 /// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets
@@ -53,11 +53,11 @@ pub(crate) fn dispatch_menu_action(
             // Pick the confirm sound from the RESOLVED action so equip/unequip/use
             // are distinct, and a no-op (not owned / nothing to do) gives error feedback.
             let id = match decided {
-                MenuAction::Equip(_) => ambition::sfx::ids::UI_MENU_EQUIP,
-                MenuAction::Unequip(_) => ambition::sfx::ids::UI_MENU_UNEQUIP,
-                MenuAction::UseConsumable(_) => ambition::sfx::ids::UI_MENU_ACCEPT,
+                MenuAction::Equip(_) => ambition_platformer2d::sfx::ids::UI_MENU_EQUIP,
+                MenuAction::Unequip(_) => ambition_platformer2d::sfx::ids::UI_MENU_UNEQUIP,
+                MenuAction::UseConsumable(_) => ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
                 MenuAction::Inspect(_) | MenuAction::NotOwned(_) => {
-                    ambition::sfx::ids::UI_MENU_ERROR
+                    ambition_platformer2d::sfx::ids::UI_MENU_ERROR
                 }
             };
             play_ui(sfx, id);
@@ -86,7 +86,7 @@ pub(crate) fn dispatch_menu_action(
             } else {
                 let _ = apply_settings_option(option, dir, settings);
             }
-            play_ui(sfx, ambition::sfx::ids::UI_SLIDER_TICK);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_SLIDER_TICK);
             info!("cube system step: {:?} dir {}", option, dir);
         }
         MenuPageAction::SystemOption(opt) => {
@@ -101,24 +101,24 @@ pub(crate) fn dispatch_menu_action(
             if let Some(profile) = quality_confirm.take_confirmed() {
                 settings.video.quality.profile = profile;
                 focus_visual_quality_setting_row(settings, system_nav, cursor, system);
-                play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+                play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
                 info!("cube system action: confirmed visual quality {:?}", profile);
             } else {
-                play_ui(sfx, ambition::sfx::ids::UI_MENU_ERROR);
+                play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR);
                 info!("cube system action: confirm visual quality with no pending profile");
             }
         }
         MenuPageAction::CancelVisualQuality => {
             quality_confirm.cancel();
             focus_visual_quality_setting_row(settings, system_nav, cursor, system);
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_BACK);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             info!("cube system action: cancelled visual quality change");
         }
         MenuPageAction::SystemAction(SystemMenuAction::ResetSandbox) => {
             // Immediate, no-confirm: queue the reset and fold the menu shut.
             system.request_reset();
             *close_menu = true;
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset sandbox");
         }
         MenuPageAction::SystemAction(SystemMenuAction::QuitToHome) => {
@@ -127,9 +127,9 @@ pub(crate) fn dispatch_menu_action(
             // shell pause menu. The router resolves QuitToHome to the
             // host-relative home route, so this row names no route. Fold the menu
             // shut (which also unpauses) as the session tears down.
-            commands.write_message(ambition::game_shell::ShellCommand::QuitToHome);
+            commands.write_message(ambition_platformer2d::game_shell::ShellCommand::QuitToHome);
             *close_menu = true;
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: quit to title");
         }
         MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
@@ -137,7 +137,7 @@ pub(crate) fn dispatch_menu_action(
             // the old pause-menu Quit row (which is removed in a later phase).
             commands.write_message(bevy::app::AppExit::Success);
             *close_menu = true;
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: quit to desktop");
         }
         MenuPageAction::SystemAction(SystemMenuAction::ResetAllSettings) => {
@@ -148,19 +148,19 @@ pub(crate) fn dispatch_menu_action(
             quality_confirm.cancel();
             system.reset_all_settings(settings);
             *close_menu = true;
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_ACCEPT);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);
             info!("cube system action: reset all settings");
         }
         MenuPageAction::OpenSystemEntry(entry) => {
             // Drill INTO an entry: show its screen rows, land the cursor on the
             // first row. The republish picks up the new drill state + cursor.
-            play_ui(sfx, ambition::sfx::ids::UI_TAB_CHANGE);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_TAB_CHANGE);
             system_nav.open_entry = Some(entry);
             cursor.mark_keyboard(MenuFocus::System(0));
             info!("cube system entry \u{2192} {:?}", entry);
         }
         MenuPageAction::CloseSystemEntry => {
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_BACK);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             close_system_entry(system_nav, cursor);
             info!("cube system entry \u{2192} (list)");
         }
@@ -199,7 +199,7 @@ fn apply_system_option(
 ) {
     if option == SettingsOptionId::VisualQuality {
         quality_confirm.step_from(settings.video.quality.profile, 1);
-        play_ui(sfx, ambition::sfx::ids::UI_SLIDER_TICK);
+        play_ui(sfx, ambition_platformer2d::sfx::ids::UI_SLIDER_TICK);
         info!(
             "cube system pending visual quality: {:?}",
             quality_confirm.pending()
@@ -221,7 +221,7 @@ fn apply_system_option(
     let closed = apply_settings_option(option, 0, settings);
     if closed {
         *close_menu = true;
-        play_ui(sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+        play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
         info!("cube system option: {:?}", option);
         return;
     }
@@ -239,14 +239,14 @@ fn apply_system_option(
             play_ui(
                 sfx,
                 if on {
-                    ambition::sfx::ids::UI_TOGGLE_ON
+                    ambition_platformer2d::sfx::ids::UI_TOGGLE_ON
                 } else {
-                    ambition::sfx::ids::UI_TOGGLE_OFF
+                    ambition_platformer2d::sfx::ids::UI_TOGGLE_OFF
                 },
             );
         }
         SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
-            play_ui(sfx, ambition::sfx::ids::UI_SLIDER_TICK);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_SLIDER_TICK);
         }
         SettingsOptionKind::Action => {}
     }

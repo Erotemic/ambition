@@ -9,7 +9,7 @@
 //!
 //! So this drives the REAL Hall room and collects what reaches the VFX bus.
 
-use ambition::vfx::vfx::VfxMessage;
+use ambition_platformer2d::vfx::vfx::VfxMessage;
 use bevy::prelude::Messages;
 
 /// The Hall bark cadence is ~28s base plus up to 24s of per-pedestal jitter, so

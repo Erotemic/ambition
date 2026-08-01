@@ -1,7 +1,7 @@
 //! Ambition bridge: CC6 host attachment — portals ride identified geometry.
 //!
 //! Portal core owns the aperture MODEL (`PlacedPortal.host` — a
-//! [`GeoFaceRef`](ambition_engine_core::GeoFaceRef), plus the derived
+//! [`GeoFaceRef`](ambition_platformer2d_core::GeoFaceRef), plus the derived
 //! `pos`/`vel`/`prev_pos` caches). It never names the concrete composed world.
 //! This adapter owns the two world-seam steps of the §5-P2 frame order:
 //!
@@ -27,10 +27,10 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::world::platforms::world_with_moving_platforms;
-use ambition_engine_core::RoomGeometry;
-use ambition_portal::PlacedPortal;
-use ambition_world::collision::MovingPlatformSet;
+use ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms;
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_portal2d::PlacedPortal;
+use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 /// Attribution probe reach behind the placement point, in px. The gun lifts a
 /// portal 2px proud of the hit face; authored specs sit on the face. The probe
@@ -47,7 +47,7 @@ pub struct PortalHostScanned;
 /// Lazily attach just-placed portals to the identified face they sit on.
 pub fn attach_portal_hosts(
     mut commands: Commands,
-    room: Option<ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
+    room: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
     platforms: Option<Res<MovingPlatformSet>>,
     mut portals: Query<(Entity, &mut PlacedPortal), Without<PortalHostScanned>>,
 ) {
@@ -75,7 +75,7 @@ pub fn attach_portal_hosts(
 /// §5-P2 step 2: re-derive each hosted aperture's frame from its host face.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
-    room: Option<ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
+    room: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
     platforms: Option<Res<MovingPlatformSet>>,
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
@@ -115,7 +115,7 @@ pub fn refresh_hosted_portal_frames(
 fn hostable_view(
     room: &RoomGeometry,
     platforms: Option<&MovingPlatformSet>,
-) -> ambition_engine_core::World {
+) -> ambition_platformer2d_core::World {
     match platforms {
         Some(set) if !set.0.is_empty() => world_with_moving_platforms(&room.0, &set.0),
         _ => room.0.clone(),

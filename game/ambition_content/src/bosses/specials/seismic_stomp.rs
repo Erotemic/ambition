@@ -5,11 +5,11 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::{BossClusterRef, FeatureSimEntity};
+use ambition_platformer2d_actor_monolith::features::{BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
 };
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use ambition_vfx::{Effect, EffectRequest};
 
 // ---- T-Rex's seismic stomp (content-only, open-seam; world-space arena hazard) ----

@@ -46,7 +46,7 @@ pub fn log_press_diagnostics(
         None => "no motion → fireball charge",
     };
     info!(
-        target: "ambition::projectile",
+        target: "ambition_platformer2d::projectile",
         "fire press · trail=[{trail_text}] · super_qcf={super_qcf:?} half_circle={half_circle:?} grace_qcf={grace_qcf:?} → {verdict}",
     );
 }

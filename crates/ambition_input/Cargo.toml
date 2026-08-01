@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Device -> engine-owned ControlFrame input adapter for ambition: SandboxAction (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
-# rlib only: a library consumed by ambition_actors. Packaging is the
+# rlib only: a library consumed by ambition_platformer2d_actor_monolith. Packaging is the
 # consuming binary's responsibility.
 crate-type = ["rlib"]
 
@@ -51,7 +51,7 @@ leafwing-input-manager = { version = "0.20", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side
 # device input into the engine-owned `ControlFrame`, so it depends DOWN on the
-# foundation — never on ambition_actors or ambition_characters.
-ambition_engine_core = { path = "../ambition_engine_core" }
+# foundation — never on ambition_platformer2d_actor_monolith or ambition_characters.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 
 serde = { workspace = true }

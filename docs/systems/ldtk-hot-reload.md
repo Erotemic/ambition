@@ -19,7 +19,7 @@ The canonical developer deck provides:
 - `F5`: overview camera for large or stitched spaces.
 
 The physical bindings live in
-`crates/ambition_platformer_primitives/src/developer_hotkeys.rs`.
+`crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs`.
 
 Before and after significant LDtk edits, run:
 

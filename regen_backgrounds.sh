@@ -18,7 +18,7 @@ source "$repo_root/scripts/lib/tool_python.sh"
 
 background_renderer_dir="$repo_root/tools/ambition_background_renderer"
 parallax_renderer_dir="$repo_root/tools/ambition_parallax_renderer"
-background_root="$repo_root/crates/ambition_actors/assets/backgrounds"
+background_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/backgrounds"
 parallax_dir="$background_root/parallax_layers"
 
 print_help() {

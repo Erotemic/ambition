@@ -28,7 +28,7 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
   editable SVG component scenes, freeform Python animation, and a gradual
   legacy-to-shadow-to-SVG migration with raster-equivalence checks.
   The **public API 1.0 campaign** — build and mechanically enforce the consumer
-  surface *before* decomposing `ambition_actors` — is
+  surface *before* decomposing `ambition_platformer2d_actor_monolith` — is
   [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) (slices A–G closed
   2026-07-30 at §4's terminal condition; two engine-work findings and slice H
   carried open) plus [`engine/api-growth-method.md`](engine/api-growth-method.md),

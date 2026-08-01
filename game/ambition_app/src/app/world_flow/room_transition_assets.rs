@@ -18,20 +18,20 @@ use bevy::prelude::{
 };
 use bevy::time::Real;
 
-use ambition::actors::features::RoomContentStagingRegistry;
-use ambition::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
-use ambition::asset_manager::sandbox_assets::SandboxAssetCatalog;
-use ambition::entity_catalog::placements::PlacementSchema;
-use ambition::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionWorldRef};
-use ambition::render::quality::ResolvedVisualQuality;
-use ambition::sprite_sheet::boss::BossSpriteAsset;
-use ambition::sprite_sheet::character::CharacterSpriteAsset;
-use ambition::sprite_sheet::game_assets::{
+use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
+use ambition_platformer2d::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
+use ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog;
+use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+use ambition_platformer2d::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
+use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionWorldRef};
+use ambition_platformer2d::render::quality::ResolvedVisualQuality;
+use ambition_platformer2d::sprite_sheet::boss::BossSpriteAsset;
+use ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset;
+use ambition_platformer2d::sprite_sheet::game_assets::{
     ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
 };
 
-use ambition::runtime::room_transition::{
+use ambition_platformer2d::runtime::room_transition::{
     set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
     RoomTransitionLoadState,
 };
@@ -103,7 +103,7 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, SandboxAssetCatalog>>,
     pub(crate) character_catalog:
-        Option<Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>>,
+        Option<Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>>,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
     pub(crate) layouts: Option<ResMut<'w, Assets<TextureAtlasLayout>>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
@@ -111,17 +111,17 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// installs it unconditionally, so its absence would mean a composition with
     /// no materialization service at all — which the startup audit reports.
     pub(crate) character_load_states:
-        Option<ResMut<'w, ambition::actors::character_runtime::CharacterLoadStates>>,
+        Option<ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>>,
     /// Registered character definitions. A character may be declared ONLY through
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
     /// registered-only fighter reaches the reveal barrier as a placeholder.
     pub(crate) prepared_characters:
-        Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
+        Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
     /// Sheets this app's providers authored (queue U1) — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
-    pub(crate) authored_sheets: Res<'w, ambition::sprite_sheet::character::sheets::AuthoredSheets>,
+    pub(crate) authored_sheets: Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -202,15 +202,15 @@ pub(crate) fn demand_room_character_sheets(
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &SandboxAssetCatalog,
-    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
-    states: &mut ambition::actors::character_runtime::CharacterLoadStates,
-    registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
+    states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
     // The provider-authored sheets (queue U1) — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
-    authored_sheets: &ambition::sprite_sheet::character::sheets::AuthoredSheets,
+    authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
 ) {
     let mut names: Vec<&str> = staged_actor_names.iter().map(String::as_str).collect();
     for placement in &room.placements {
@@ -235,9 +235,9 @@ pub(crate) fn demand_room_character_sheets(
     // stages — that is content knowledge it legitimately has — but the decode
     // itself is the engine's, so every application gets it whether or not it has
     // a room-transition step at all.
-    let mut demand = ambition::actors::character_runtime::CharacterLoadDemand::default();
+    let mut demand = ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
     demand.request_all(names);
-    ambition::actors::character_runtime::materialize_character_demand(
+    ambition_platformer2d::actors::character_runtime::materialize_character_demand(
         &mut demand,
         states,
         &mut assets.characters,
@@ -344,13 +344,13 @@ pub(crate) fn build_room_asset_manifest(
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &SandboxAssetCatalog,
-    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: &ResolvedVisualQuality,
-    states: &mut ambition::actors::character_runtime::CharacterLoadStates,
-    registry: &ambition::actors::character_runtime::PreparedCharacterRegistry,
-    authored_sheets: &ambition::sprite_sheet::character::sheets::AuthoredSheets,
+    states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
+    registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+    authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
 ) -> RoomAssetManifest {
     ensure_parallax_layers_for_room(
         assets,
@@ -486,7 +486,7 @@ impl RoomPreparationPrefetchState {
                     (Some(now), Some(settled_at)) => {
                         let lead = now.saturating_sub(settled_at);
                         bevy::log::debug!(
-                            target: "ambition::room_transition",
+                            target: "ambition_platformer2d::room_transition",
                             "promoted settled room asset prefetch for '{}' with {:.1} ms lead",
                             manifest.room_id,
                             lead.as_secs_f64() * 1000.0,
@@ -495,7 +495,7 @@ impl RoomPreparationPrefetchState {
                     (Some(now), None) => {
                         let elapsed = now.saturating_sub(entry.requested_at);
                         bevy::log::debug!(
-                            target: "ambition::room_transition",
+                            target: "ambition_platformer2d::room_transition",
                             "promoted in-flight room asset prefetch for '{}' after {:.1} ms",
                             manifest.room_id,
                             elapsed.as_secs_f64() * 1000.0,
@@ -503,7 +503,7 @@ impl RoomPreparationPrefetchState {
                     }
                     (None, _) => {
                         bevy::log::debug!(
-                            target: "ambition::room_transition",
+                            target: "ambition_platformer2d::room_transition",
                             "promoted room asset prefetch for '{}'",
                             manifest.room_id,
                         );
@@ -515,7 +515,7 @@ impl RoomPreparationPrefetchState {
                 self.stale_misses = self.stale_misses.saturating_add(1);
                 self.misses = self.misses.saturating_add(1);
                 bevy::log::debug!(
-                    target: "ambition::room_transition",
+                    target: "ambition_platformer2d::room_transition",
                     "discarded stale room asset prefetch for '{}'",
                     manifest.room_id,
                 );
@@ -524,7 +524,7 @@ impl RoomPreparationPrefetchState {
             None => {
                 self.misses = self.misses.saturating_add(1);
                 bevy::log::debug!(
-                    target: "ambition::room_transition",
+                    target: "ambition_platformer2d::room_transition",
                     "room asset prefetch miss for '{}'",
                     manifest.room_id,
                 );
@@ -672,7 +672,7 @@ pub(crate) fn contribute_room_transition_assets_system(
                 .retryable(true),
             ),
         );
-        bevy::log::error!(target: "ambition::room_transition", "{detail}");
+        bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
     } else if manifest_is_empty || readiness.is_ready() {
         active.asset_readiness_complete = true;
         active.asset_ready_at = now;
@@ -747,7 +747,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         );
         active.last_asset_progress = Some(progress_key);
         active.asset_readiness_complete = true;
-        bevy::log::error!(target: "ambition::room_transition", "{detail}");
+        bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
         return;
     }
 
@@ -823,15 +823,15 @@ const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
 
 pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
-    content_epoch: Res<ambition::runtime::room_transition::RoomTransitionContentEpoch>,
-    placement_lowering: Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
+    content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
+    placement_lowering: Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<RoomContentStagingRegistry>,
-    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
+    character_catalog: Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition_platformer2d::actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     (construction_recipes, active_binding, mut plan_prefetch): (
-        Res<ambition::actors::construction::ActorConstructionRegistry>,
-        Option<Res<ambition::actors::rooms::ActiveContentBinding>>,
+        Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
+        Option<Res<ambition_platformer2d::actors::rooms::ActiveContentBinding>>,
         ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
@@ -840,16 +840,16 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
-        ResMut<ambition::actors::character_runtime::CharacterLoadStates>,
-        Option<Res<ambition::actors::character_runtime::PreparedCharacterRegistry>>,
-        Res<ambition::sprite_sheet::character::sheets::AuthoredSheets>,
+        ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+        Option<Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+        Res<ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
-    let empty_registry = ambition::actors::character_runtime::PreparedCharacterRegistry::default();
+    let empty_registry = ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.source_room_id = None;
@@ -857,7 +857,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     };
     let session_scope = active_session.as_deref().and_then(|scope| scope.current());
     let Some(spawn_scope) =
-        ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
             active_session.as_deref(),
         )
     else {
@@ -892,7 +892,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // NOT silent. A cap that quietly drops work reads as "everything is
         // prefetched" to the next person measuring a transition.
         bevy::log::warn_once!(
-            target: "ambition::room_transition",
+            target: "ambition_platformer2d::room_transition",
             "room '{}' has {} neighbours; prefetching preparation for the first {} and \
              skipping {}. Those rooms take the ordinary covered transition path instead \
              (correct, just not preloaded). A hub with a large fan-out is the case this \
@@ -929,7 +929,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             continue;
         }
         let construction_plan =
-            match ambition::actors::rooms::RoomConstructionPlan::prepare_from_parts(
+            match ambition_platformer2d::actors::rooms::RoomConstructionPlan::prepare_from_parts(
                 &room_set,
                 index,
                 &placement_lowering,
@@ -940,9 +940,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &boss_catalog,
                 spawn_scope,
                 {
-                    let mut context = ambition::actors::features::ActorConstructionContext::new(
+                    let mut context = ambition_platformer2d::actors::features::ActorConstructionContext::new(
                         &construction_recipes,
-                        ambition::engine_core::ContentEpoch(content_epoch.get()),
+                        ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
                     );
                     // Prefetched plans state the LIVE binding too: if a hot
                     // reload moves the session to a new generation before this
@@ -959,7 +959,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     cache.entries.remove(&room.id);
                     plan_prefetch.forget(&room.id);
                     bevy::log::warn!(
-                        target: "ambition::room_transition",
+                        target: "ambition_platformer2d::room_transition",
                         "could not prefetch construction for neighbor room '{}': {error}",
                         room.id,
                     );

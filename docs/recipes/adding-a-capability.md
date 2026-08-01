@@ -13,9 +13,9 @@ both are costs an outside author really pays:
 * **`workspace = true` dependencies do not exist out there.** `ron` and `serde`
   are declared with versions, like anyone else's manifest.
 * ⛔ **`[patch.crates-io]` is not inherited.** The engine pins a forked
-  `bevy_ggrs` rev; outside, `ambition_runtime` resolved the released crate and
+  `bevy_ggrs` rev; outside, `ambition_platformer2d_runtime` resolved the released crate and
   failed on a missing `GgrsFrameTiming`. Any consumer that reaches
-  `ambition_runtime` must repeat the patch — invisible while the crate lived
+  `ambition_platformer2d_runtime` must repeat the patch — invisible while the crate lived
   inside and inherited it for free.
 
 `scripts/run_tests.py` runs it explicitly, because leaving the workspace drops a
@@ -66,10 +66,10 @@ is why a capability's dependency closure stays small: the registries belong to
 whoever is composing, so a mechanic never has to link the thing that owns them.
 
 ⚠ the one that catches people: **do not register your own rollback state.** The
-registration trait lives in `ambition_runtime`, and reaching for it drags the
+registration trait lives in `ambition_platformer2d_runtime`, and reaching for it drags the
 whole simulation into a mechanic that uses none of it. `capability_demo` linked
 133 crates that way and links 8 now (the eighth is
-`ambition_platformer_primitives`, for the schedule seam in §1).
+`ambition_platformer2d_shared_tangle`, for the schedule seam in §1).
 
 ## 1. Behaviour
 
@@ -77,7 +77,7 @@ Ordinary Bevy systems — registered into the schedule **the host declares
 authoritative**, never into bare `Update`:
 
 ```rust
-use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt};
 
 impl Plugin for MyPlugin {
     fn build(&self, app: &mut App) {
@@ -108,7 +108,7 @@ interface; the host has already chosen.
 
 Define your own components rather than borrowing the actor crate's —
 `capability_demo` has `PulseBody` and `PulseAffected` instead of using
-`BodyKinematics`, and that is what keeps `ambition_actors` out of its manifest.
+`BodyKinematics`, and that is what keeps `ambition_platformer2d_actor_monolith` out of its manifest.
 A composition adapts its bodies to what you describe.
 
 ## 2. An authored schema
@@ -121,7 +121,7 @@ the facet is clean.
 A game installs it beside the engine's:
 
 ```rust
-let mut registry = ambition::content::engine_schemas();
+let mut registry = ambition_platformer2d::content::engine_schemas();
 registry.register(my_mechanic::my_schema())?;
 ```
 
@@ -223,7 +223,7 @@ and nothing happened"* is the question people bring to an inspector. See
 ## Testing it
 
 `cargo test -p my_mechanic` should cover the mechanic. Add one integration test
-that mounts it through the facade (`ambition` as a **dev**-dependency, so the
+that mounts it through the facade (`ambition_platformer2d` as a **dev**-dependency, so the
 capability's own closure is unaffected) — `capability_demo/tests/
 composed_through_the_sdk.rs` is the template.
 
@@ -242,7 +242,7 @@ sandbox to be testable would be telling you its seams are wrong.
 The measurement that tells you whether you built a capability or a plugin:
 
 ```bash
-cargo tree -p my_mechanic --edges normal | grep -c 'ambition_actors\|ambition_runtime'
+cargo tree -p my_mechanic --edges normal | grep -c 'ambition_platformer2d_actor_monolith\|ambition_platformer2d_runtime'
 ```
 
 Zero is the target. Non-zero is not automatically wrong — but it should be a

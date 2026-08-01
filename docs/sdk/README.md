@@ -5,7 +5,7 @@ anything under `crates/`.**
 
 That is the acceptance test, not a courtesy. ADR 0031 makes the blind-agent run
 one of two mechanical gates on the public API: *can an agent implement a
-character, a room and a mechanic with only `docs/sdk/` and `ambition::prelude`
+character, a room and a mechanic with only `docs/sdk/` and `ambition_platformer2d::prelude`
 in context, never opening a file under `crates/`?* The recorded result includes
 **which engine file it had to open first**, because that field names the next
 leak. If you had to open one, that is a bug in this directory.
@@ -27,10 +27,10 @@ statement of that limit.
 
 | Area | Status |
 |---|---|
-| Host composition — standing up a game, visible and headless | **IMPLEMENTED** — `ambition::app`, designed in [api-prototype.md](api-prototype.md) |
+| Host composition — standing up a game, visible and headless | **IMPLEMENTED** — `ambition_platformer2d::app`, designed in [api-prototype.md](api-prototype.md) |
 | Declaring content — characters, rooms, packs | **IMPLEMENTED** — `ModuleDraft` (slice B) |
 | Multi-experience composition and host policy | **IMPLEMENTED** — several experiences per composition, `start_at_launcher()` (slices D, E) |
-| Rollback — sessions, participants, your own state in the wire format | **IMPLEMENTED** — `ambition::rollback` (slice F) |
+| Rollback — sessions, participants, your own state in the wire format | **IMPLEMENTED** — `ambition_platformer2d::rollback` (slice F) |
 | Revising content at runtime | not started — no consumer has needed it yet |
 
 ## Before any of that: your `Cargo.toml`
@@ -41,11 +41,11 @@ it could ask a single API question:
 
 ```toml
 [dependencies]
-ambition = { path = "../path/to/ambition/crates/ambition" }
+ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer2d" }
 
 # Only if you `#[derive(Component)]` or `#[derive(Resource)]` yourself — the
 # derive macros resolve `::bevy_ecs` through YOUR manifest and a re-export does
-# not satisfy that. Otherwise `ambition::bevy` is enough.
+# not satisfy that. Otherwise `ambition_platformer2d::bevy` is enough.
 bevy = "0.18"
 
 # Toolchain: rustc/cargo 1.95.0 or newer. `edition = "2021"` is fine.
@@ -83,12 +83,12 @@ the same class of leak as the patch table, and the last file any blind run has
 needed.
 
 Without the patch table a fresh lockfile resolves `bevy_ggrs` from crates.io and the build
-dies in `ambition_runtime` with `cannot find type GgrsFrameTiming in crate
+dies in `ambition_platformer2d_runtime` with `cannot find type GgrsFrameTiming in crate
 bevy_ggrs` — an error with no visible connection to a patch table you have never
 seen.
 
-You do **not** need to declare `bevy` yourself for ordinary use: `ambition`
-re-exports it (`ambition::bevy`). You *do* need it in your own manifest if you
+You do **not** need to declare `bevy` yourself for ordinary use: `ambition_platformer2d`
+re-exports it (`ambition_platformer2d::bevy`). You *do* need it in your own manifest if you
 `#[derive(Component)]` or `#[derive(Resource)]`, because Bevy's derive macros
 resolve `::bevy_ecs` through the consuming crate's manifest and a re-export does
 not satisfy that.
@@ -101,7 +101,7 @@ top-ranked finding in
 ## Standing a game up
 
 ```rust
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 fn main() {
     PlatformerApp::windowed("My Game")
@@ -190,7 +190,7 @@ facade exposes ~30 more; the ones a game reaches for first:
 | `desktop_platform` / `web_platform` / `android_platform` | target selection |
 | `audio` | sound (you still declare `no_audio()` if you author none) |
 
-`ambition::app::prelude` re-exports `PlatformerApp`, `GameModule`,
+`ambition_platformer2d::app::prelude` re-exports `PlatformerApp`, `GameModule`,
 `ModuleManifest`, `ModuleDraft`, `AssetSource`, `SessionMode`, `StartAt`,
 `CompositionError`, `HostStatus`, `host_status`, `RoomSpec`, `RoomMetadata`,
 `EMPTY_CHARACTER_ROSTER_RON`, `MINIMAL_CHARACTER_ROSTER_RON` — and Bevy's `App`,
@@ -201,7 +201,7 @@ name a parameter type.
 `PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
 the source by a test in both directions.
 
-`cargo doc -p ambition -p ambition_world --no-deps --open` is good for browsing
+`cargo doc -p ambition_platformer2d -p ambition_platformer2d_world --no-deps --open` is good for browsing
 afterwards. ⚠ It should not be your first stop: ADR 0031's acceptance test is
 that you never open a file under `crates/`, and this document used to send you
 there before saying anything else.
@@ -214,9 +214,9 @@ for 600 ticks while its character fell out of the world on a loop. Four names
 close that gap:
 
 ```rust
-use ambition::actor::{BodyKinematics, PrimaryPlayer};
-use ambition::bevy::prelude::With;          // Bevy's query filter
-use ambition::sim::{drive_control_frame, ControlFrame};
+use ambition_platformer2d::actor::{BodyKinematics, PrimaryPlayer};
+use ambition_platformer2d::bevy::prelude::With;          // Bevy's query filter
+use ambition_platformer2d::sim::{drive_control_frame, ControlFrame};
 
 // where is my character?
 let mut bodies = app.world_mut()
@@ -229,13 +229,13 @@ drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..Default::defa
 
 ### A room, in full
 
-The room vocabulary lives in **`ambition::world::prelude`** — not in
-`ambition::app::prelude`, which carries `RoomSpec` but not `Block` or
-`AuthoredWorld`. `use ambition::world::*` resolves to nothing; you want the
+The room vocabulary lives in **`ambition_platformer2d::world::prelude`** — not in
+`ambition_platformer2d::app::prelude`, which carries `RoomSpec` but not `Block` or
+`AuthoredWorld`. `use ambition_platformer2d::world::*` resolves to nothing; you want the
 prelude.
 
 ```rust
-use ambition::world::prelude::*;
+use ambition_platformer2d::world::prelude::*;
 
 fn my_room() -> RoomSpec {
     let size = Vec2::new(640.0, 360.0);
@@ -268,11 +268,11 @@ a module that declares none still resolves the engine's own assets.
 
 ### Observing what the engine drew
 
-`ambition::view` is the read side of presentation — what exists to be drawn,
+`ambition_platformer2d::view` is the read side of presentation — what exists to be drawn,
 rather than how it is drawn:
 
 ```rust
-use ambition::view::{GameAssets, RoomVisual, SandboxAssetCatalog};
+use ambition_platformer2d::view::{GameAssets, RoomVisual, SandboxAssetCatalog};
 ```
 
 `GameAssets` holds the decoded sheets, `SandboxAssetCatalog` every asset
@@ -338,7 +338,7 @@ started.
 
 ## The compatibility promise
 
-A game depends on **`ambition`** and nothing else from this workspace (plus
+A game depends on **`ambition_platformer2d`** and nothing else from this workspace (plus
 `bevy`, because derive macros resolve `::bevy_ecs` through the consumer's own
 manifest).
 
@@ -381,18 +381,18 @@ Current, verified against `fixtures/minimal_game/tests/boots.rs`:
   `StandStill`. Those are the ones no error message can give you: the parser
   reports one missing field per build and stops dead at the first enum, because
   variant names cannot be guessed.
-* **Component names are invisible.** `ambition::bevy` is re-exported without
+* **Component names are invisible.** `ambition_platformer2d::bevy` is re-exported without
   Bevy's `debug` feature, so `World::inspect_entity` reports
   `<Enable the debug feature to see the name>` for every component — which
   removes the one generic tool you have for "what did the engine spawn?".
 * ~~Content, capabilities and runtime content revision are not started.~~
   **PARTLY CLOSED.** Content and capabilities are `ModuleDraft` (slices B–E);
-  rollback is `ambition::rollback` (slice F). Runtime content revision is still
+  rollback is `ambition_platformer2d::rollback` (slice F). Runtime content revision is still
   not started, and no consumer has yet needed it — which is why it has not been
   designed rather than why it is fine.
 * **The rollback surface has never been seen by a blind author.** Every other
   part of this SDK has been through at least one run where a third-party agent
-  built against it with no access to `crates/`; `ambition::rollback` shipped
+  built against it with no access to `crates/`; `ambition_platformer2d::rollback` shipped
   after the last one. It is the newest surface and therefore the likeliest to
   send you into the engine. If it does, that is a defect — please say where.
 
@@ -400,5 +400,5 @@ Closed since the runs that found them, and now covered by tests: a declared
 route no capability registers is refused with the registered routes named; a
 starting character no roster contains is refused at BUILD rather than hanging
 forever; a host that can never start reports why instead of spinning;
-`ModuleDraft::capability` no longer requires `Clone`; and `ambition::world` is a
+`ModuleDraft::capability` no longer requires `Clone`; and `ambition_platformer2d::world` is a
 curated module rather than a whole-crate mirror.

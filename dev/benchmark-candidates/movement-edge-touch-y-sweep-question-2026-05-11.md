@@ -67,7 +67,7 @@ the side-wall helper.
 Validation command:
 
 ```bash
-cargo test -p ambition_actors --test repro_walls
+cargo test -p ambition_platformer2d_actor_monolith --test repro_walls
 ```
 
 ### Why this was easy to miss

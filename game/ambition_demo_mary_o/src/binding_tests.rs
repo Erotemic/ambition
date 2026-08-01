@@ -10,10 +10,10 @@
 
 use bevy::prelude::App;
 
-use ambition::actors::features::CharacterRoster;
-use ambition::actors::world::rooms::RoomBindings;
-use ambition::platformer::binding::BindingLedger;
-use ambition::platformer::world_item_art::{WorldItemArtManifest, WorldItemSpriteRef};
+use ambition_platformer2d::actors::features::CharacterRoster;
+use ambition_platformer2d::actors::world::rooms::RoomBindings;
+use ambition_platformer2d::platformer::binding::BindingLedger;
+use ambition_platformer2d::platformer::world_item_art::{WorldItemArtManifest, WorldItemSpriteRef};
 
 use crate::ai_slop::AI_SLOP_BRAIN_KEY;
 use crate::powerups::{BLOSSOM_SPRITE, MILK_SPRITE};
@@ -25,7 +25,7 @@ use crate::snake::SNAKE_BRAIN_KEY;
 /// fragment from the same provider, and reading the shipped rows is the point —
 /// a roster assembled specially for this test would prove nothing about the game.
 fn mary_o_roster() -> CharacterRoster {
-    use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
 
     let mut app = App::new();
     app.register_character_roster_fragment(

@@ -17,10 +17,10 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::boss_encounter::sprites::BossAnimFrame;
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::boss_encounter::sprites::BossAnimFrame;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
@@ -39,7 +39,7 @@ fn read_sim_cursor(world: &mut World) -> Option<usize> {
 /// The cursor as PUBLISHED in the by-id read-model — this is exactly what
 /// `animate_bosses` mirrors into its draw-only `BossAnimator`.
 fn read_published_cursor(world: &mut World, id: &str) -> Option<usize> {
-    let idx = world.get_resource::<ambition::sim_view::BossFrameIndex>()?;
+    let idx = world.get_resource::<ambition_platformer2d::sim_view::BossFrameIndex>()?;
     idx.get(id).map(|v| v.cursor_frame)
 }
 

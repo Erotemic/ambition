@@ -4,11 +4,11 @@
     "engine files; this is zero.",
     "",
     "⚠ CLASSIFICATION, stated so it can be disagreed with. This run read the",
-    "FACADE's own rustdoc (`cargo doc -p ambition --no-deps`) for six items. I am",
+    "FACADE's own rustdoc (`cargo doc -p ambition_platformer2d --no-deps`) for six items. I am",
     "NOT counting that as an engine surface, and the rule I am applying is:",
-    "reading `ambition`'s own generated docs is reading the public API; reading an",
+    "reading `ambition_platformer2d`'s own generated docs is reading the public API; reading an",
     "ENGINE CRATE's docs is a leak. Blind run 4's two opens were",
-    "`cargo doc -p ambition -p ambition_world` — the `ambition_world` half is what",
+    "`cargo doc -p ambition_platformer2d -p ambition_platformer2d_world` — the `ambition_platformer2d_world` half is what",
     "made it a finding. Every rustdoc item this run read is listed below so a",
     "reader who draws the line differently can re-score it without rerunning."
   ],
@@ -21,7 +21,7 @@
   "engine_files_opened": [],
   "engine_api_surfaces_read": [],
   "facade_rustdoc_read": {
-    "command": "cargo doc -p ambition --no-deps",
+    "command": "cargo doc -p ambition_platformer2d --no-deps",
     "items": [
       "rollback::Reader",
       "rollback::SnapshotState",
@@ -31,7 +31,7 @@
       "actor::MatchSeat"
     ],
     "why_it_is_a_finding_anyway": "Every one of these was reached because docs/sdk/ does not contain it. See finding (a): `SnapshotState`'s two methods are on the critical path for the run's whole task and appear nowhere in the SDK. The run got them by writing an empty impl and reading E0046.",
-    "compiler_pointed_at": "crates/ambition_runtime/src/rollback/registry.rs:287 in a trait-bound error. The run read the path in the error text and did NOT open the file."
+    "compiler_pointed_at": "crates/ambition_platformer2d_runtime/src/rollback/registry.rs:287 in a trait-bound error. The run read the path in the error text and did NOT open the file."
   },
   "measured": {
     "participants": 2,
@@ -50,7 +50,7 @@
   "findings": [
     {
       "id": "a",
-      "claim": "`SnapshotState`'s shape is nowhere in docs/sdk/. The reference says 'implementing `ambition::rollback::SnapshotState`' and then shows only the registration line — never the two methods, never `Reader`, never the `put_*` primitives.",
+      "claim": "`SnapshotState`'s shape is nowhere in docs/sdk/. The reference says 'implementing `ambition_platformer2d::rollback::SnapshotState`' and then shows only the registration line — never the two methods, never `Reader`, never the `put_*` primitives.",
       "verified": "YES, and it is squarely on the critical path for this script's whole task. The run got the signature by writing an empty impl and letting E0046 enumerate the missing items, then generating rustdoc for `Reader`'s accessors. Its own words: 'that worked, but it is a trick, not documentation.'",
       "severity": "HIGHEST of this run — it is the sole reason rustdoc was needed at all.",
       "status": "CLOSED 2026-07-30"

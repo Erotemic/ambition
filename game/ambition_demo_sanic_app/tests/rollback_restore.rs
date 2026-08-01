@@ -9,7 +9,7 @@
 //! reached, so the registration was theater until `entity:sanic_mode_owner`
 //! anchored the owner.
 
-use ambition::game_shell::{
+use ambition_platformer2d::game_shell::{
     ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
 };
 use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
@@ -20,16 +20,16 @@ use bevy::prelude::*;
 /// group's host choice differs.
 fn build_rollback_demo_app() -> App {
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::rollback());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
-    app.insert_resource(ambition::audio::selection::FrontendAudioProfile::new(
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::rollback());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
+    app.insert_resource(ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
         ambition_demo_sanic::SANIC_EXPERIENCE,
     ));
     // The engine group supplies `AmbitionLoadPlugin` (the room-transition
     // transaction is a load plan); a duplicate is a hard panic.
-    app.add_plugins(ambition::load_presentation::MinimalShellLoadPresentationPlugins);
+    app.add_plugins(ambition_platformer2d::load_presentation::MinimalShellLoadPresentationPlugins);
     app.add_plugins(SanicExperiencePlugin);
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -64,7 +64,7 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         app.update();
         let session_active = app
             .world()
-            .get_resource::<ambition::game_shell::ActiveGameplaySession>()
+            .get_resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
             .is_some_and(|session| session.0.is_some());
         if session_active {
             activated = true;
@@ -76,14 +76,14 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         "the Sanic shell never activated a gameplay session under the rollback host"
     );
 
-    ambition::runtime::rollback::start_sync_test_session(
+    ambition_platformer2d::runtime::rollback::start_sync_test_session(
         app.world_mut(),
-        ambition::runtime::rollback::SyncTestSettings {
+        ambition_platformer2d::runtime::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
             // Sanic's demo is single-player, and now says so rather than
             // inheriting a guess (2026-07-29).
-            ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
+            ..ambition_platformer2d::runtime::rollback::SyncTestSettings::for_players(1)
         },
     )
     .expect("the demo composition starts a GGRS sync-test session");
@@ -114,7 +114,7 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         before.elapsed,
         running.elapsed
     );
-    ambition::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::runtime::rollback::session_health(app.world())
         .expect("the demo's registered state resimulates checksum-identical");
 
     // Save → MUTATE → restore: an out-of-band milestone index no gameplay
@@ -136,6 +136,6 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         "a dirty out-of-band milestone must be OVERWRITTEN by the rollback \
          restore — surviving it means SanicActState is not actually snapshot/restored"
     );
-    ambition::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::runtime::rollback::session_health(app.world())
         .expect("the run stays checksum-identical after the dirty write is rolled back");
 }

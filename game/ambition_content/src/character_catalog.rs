@@ -153,7 +153,7 @@ pub fn next_playable(current: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_actors::avatar::StartingCharacter;
+    use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
 
     /// **The runtime's cast comes OUT of the compiler.**
     ///

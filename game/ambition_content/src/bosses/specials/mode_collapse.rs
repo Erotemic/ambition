@@ -5,13 +5,13 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::{BodyKinematics, PlayerEntity};
-use ambition_actors::features::{ActorTarget, BossClusterRef, FeatureSimEntity};
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
+use ambition_platformer2d_actor_monolith::features::{ActorTarget, BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::enemy::EnemyProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
@@ -19,7 +19,7 @@ use ambition_vfx::{Effect, EffectRequest};
 // NEW boss special authored entirely on the open `Special(key)` seam —
 // Mode Collapse's converging ring. Proves the engine-content boundary:
 // behavior + params + state + telegraph + schedule all live here in
-// `ambition_content`; NOTHING in the engine lib (`ambition_actors`) was
+// `ambition_content`; NOTHING in the engine lib (`ambition_platformer2d_actor_monolith`) was
 // edited to add it. (The app's combat schedule wires the consumer in, the
 // same as every other special consumer — composition is the app's job.)
 // ===================================================================

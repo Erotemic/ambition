@@ -167,7 +167,7 @@ fn an_untouched_screen_is_not_a_match() {
 /// you cannot start — the keyboard is player one on every other route here.
 #[test]
 fn the_screen_offers_a_seat_per_pad_with_a_keyboard_floor() {
-    use ambition::input::LocalDeviceOrder;
+    use ambition_platformer2d::input::LocalDeviceOrder;
     use bevy::prelude::Entity;
 
     let pads = |count: u32| {

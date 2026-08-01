@@ -4,7 +4,7 @@
 //! > engine edits."* — `docs/planning/engine/decomposition.md`, exit criterion 3.
 //!
 //! This file is that sentence, compiled. It is the shape
-//! `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes and
+//! `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes and
 //! `docs/planning/demos/README.md` mandates for every demo:
 //!
 //! ```text
@@ -15,7 +15,7 @@
 //!   + MaryORulesPlugin::global()(this demo's rules — it IS the game here)
 //! ```
 //!
-//! It names `ambition` and `ambition_demo_mary_o`. It does not name `ambition_app`,
+//! It names `ambition_platformer2d` and `ambition_demo_mary_o`. It does not name `ambition_app`,
 //! and `git log --stat` for this crate touches zero engine crates. If a demo ever
 //! needs an engine change to boot, that is an oracle violation and gets filed in
 //! `docs/planning/tracks.md`, not patched here.
@@ -83,7 +83,7 @@ fn parse_ticks() -> Option<u32> {
 /// Read the sim through the same seams any consumer uses — the canonical timeline,
 /// the mode-scoped act state, and the body's kinematics.
 fn report(app: &mut App, requested: u32) {
-    let tick = app.world().resource::<ambition::runtime::SimTick>().get();
+    let tick = app.world().resource::<ambition_platformer2d::runtime::SimTick>().get();
 
     let remaining = {
         let mut q = app.world_mut().query::<&MaryOLevelState>();
@@ -93,8 +93,8 @@ fn report(app: &mut App, requested: u32) {
     let body = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&ambition::actors::actor::BodyKinematics, With<
-                ambition::actors::actor::PrimaryPlayer,
+            .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics, With<
+                ambition_platformer2d::actors::actor::PrimaryPlayer,
             >>();
         q.iter(app.world()).next().copied()
     };

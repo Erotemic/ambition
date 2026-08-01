@@ -58,7 +58,7 @@ policies = ["engine.persistence-crate-member", "engine.persistence-crate-manifes
 [[entry]]
 old_test = "architecture_boundaries_world_ir_and_ldtk_backend_are_split"
 disposition = "declarative"
-policies = ["engine.ambition_world-member", "engine.ambition_world-manifest-deny", "engine.ambition_world-source-purity", "engine.ldtk-map-member", "engine.ldtk-map-manifest-deny", "engine.ldtk-map-source-purity"]
+policies = ["engine.ambition_platformer2d_world-member", "engine.ambition_platformer2d_world-manifest-deny", "engine.ambition_platformer2d_world-source-purity", "engine.ldtk-map-member", "engine.ldtk-map-manifest-deny", "engine.ldtk-map-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_projectiles_crate_is_model_only"
@@ -283,12 +283,12 @@ policies = ["engine.portal-mechanic-crate-files", "engine.actor-portal-facade-go
 [[entry]]
 old_test = "architecture_boundaries_portal_crate_is_extracted"
 disposition = "declarative"
-policies = ["engine.ambition_portal-member", "engine.ambition_portal-extracted-paths", "engine.ambition_portal-manifest-deny", "engine.ambition_portal-manifest-allow", "engine.ambition_portal-source-purity", "engine.portal-exposes-plugin", "engine.portal-plugin-impl", "engine.actors-no-portal-facade"]
+policies = ["engine.ambition_portal2d-member", "engine.ambition_portal2d-extracted-paths", "engine.ambition_portal2d-manifest-deny", "engine.ambition_portal2d-manifest-allow", "engine.ambition_portal2d-source-purity", "engine.portal-exposes-plugin", "engine.portal-plugin-impl", "engine.actors-no-portal-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_presentation_crate_is_extracted"
 disposition = "declarative"
-policies = ["engine.ambition_portal_presentation-member", "engine.ambition_portal_presentation-extracted-paths", "engine.ambition_portal_presentation-manifest-deny", "engine.ambition_portal_presentation-manifest-allow", "engine.ambition_portal_presentation-source-purity", "engine.portal-presentation-plugin", "engine.portal-mechanic-no-renderer-dep", "engine.actors-no-portal-presentation-dep"]
+policies = ["engine.ambition_portal2d_presentation-member", "engine.ambition_portal2d_presentation-extracted-paths", "engine.ambition_portal2d_presentation-manifest-deny", "engine.ambition_portal2d_presentation-manifest-allow", "engine.ambition_portal2d_presentation-source-purity", "engine.portal-presentation-plugin", "engine.portal-mechanic-no-renderer-dep", "engine.actors-no-portal-presentation-dep"]
 
 [[entry]]
 old_test = "architecture_boundaries_time_crate_is_extracted"

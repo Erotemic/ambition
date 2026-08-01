@@ -61,13 +61,13 @@ fn repro_sim() -> SandboxSim {
 fn feature_roster(sim: &mut SandboxSim) -> HashSet<Entity> {
     let world = sim.world_mut();
     let mut q =
-        world.query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+        world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     q.iter(world).collect()
 }
 
 fn player_y(sim: &mut SandboxSim) -> f32 {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+    let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world).map(|k| k.pos.y).unwrap_or(0.0)
 }
 
@@ -75,7 +75,7 @@ fn player_y(sim: &mut SandboxSim) -> f32 {
 /// confirmed lifecycle commit advances it exactly once.
 fn session_generation(sim: &SandboxSim) -> u64 {
     sim.world()
-        .get_resource::<ambition::engine_core::ConfirmedFrameBoundary>()
+        .get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>()
         .map(|boundary| boundary.session)
         .unwrap_or(0)
 }
@@ -83,7 +83,7 @@ fn session_generation(sim: &SandboxSim) -> u64 {
 /// Whether a deferred lifecycle intent is currently recorded (rollback state).
 fn intent_pending(sim: &SandboxSim) -> bool {
     sim.world()
-        .get_resource::<ambition::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .is_some_and(|slot| slot.pending.is_some())
 }
 
@@ -164,7 +164,7 @@ fn a_room_transition_survives_the_rollback_window() {
 /// its pre-intent value, plus the codec round-trip — but a `LocalSyncTest`
 /// re-simulates with identical input and cannot mispredict, so end-to-end
 /// cancellation belongs to the External/P2P work. The
-/// `ambition_actors::session::lifecycle_commit` unit tests cover only
+/// `ambition_platformer2d_actor_monolith::session::lifecycle_commit` unit tests cover only
 /// earliest-sticky recording, the confirmation comparison, and `take()`.)
 #[test]
 fn a_transition_intent_is_recorded_then_committed_exactly_once() {
@@ -300,7 +300,7 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
 
     // Poison: as if the sim diverged this window.
     sim.world_mut()
-        .resource_mut::<ambition::runtime::rollback::RollbackSessionStatus>()
+        .resource_mut::<ambition_platformer2d::runtime::rollback::RollbackSessionStatus>()
         .mismatch_frames
         .push(-999);
 

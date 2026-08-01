@@ -37,7 +37,7 @@
 //! - **A body reset redefined the body.** `reset_body_clusters` hardcoded the
 //!   default player size into `base_size`, so a grown Mary-O who fell in a pit
 //!   came back with a small collider while still wearing the cap and still
-//!   presenting the tall sprite. Fixed in `ambition_engine_core`.
+//!   presenting the tall sprite. Fixed in `ambition_platformer2d_core`.
 //!
 //! - **Pit B was not a pit.** It used to open directly into the secret vault:
 //!   the vault's ceiling IS the ground slab, and the vault reached under pit B's
@@ -48,9 +48,9 @@
 
 #![cfg(not(feature = "input"))]
 
-use ambition::engine_core::{self as ae, AabbExt};
-use ambition::input::ControlFrame;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::engine_core::{self as ae, AabbExt};
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
 
@@ -107,10 +107,10 @@ impl Body {
 
 fn body(app: &mut App) -> Option<Body> {
     let mut hostiles = app.world_mut().query_filtered::<(
-        &ambition::actors::features::CenteredAabb,
-        &ambition::characters::actor::BodyHealth,
+        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::characters::actor::BodyHealth,
     ), (
-        With<ambition::actors::features::ActorDisposition>,
+        With<ambition_platformer2d::actors::features::ActorDisposition>,
         Without<PrimaryPlayer>,
     )>();
     let threats: Vec<ae::Aabb> = hostiles
@@ -144,21 +144,21 @@ fn body(app: &mut App) -> Option<Body> {
 fn worn_form(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
     q.iter(app.world()).next().map(|w| w.0.clone())
 }
 
 fn wears(app: &mut App, id: &str) -> bool {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition::characters::equipment::WornEquipment, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::equipment::WornEquipment, With<PrimaryPlayer>>();
     q.iter(app.world()).next().is_some_and(|w| w.wears(id))
 }
 
 fn health(app: &mut App) -> Option<i32> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition::characters::actor::BodyHealth, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>();
     q.iter(app.world()).next().map(|h| h.current())
 }
 
@@ -250,7 +250,7 @@ fn press_into_pipe_at(b: Body, mouth_x: f32, down: bool) -> ControlFrame {
 /// readout draws — so this covers placement all the way to the screen.
 fn wallet(app: &mut App) -> i32 {
     app.world()
-        .resource::<ambition::sim_view::PlayerHudFacts>()
+        .resource::<ambition_platformer2d::sim_view::PlayerHudFacts>()
         .balance
 }
 
@@ -413,8 +413,8 @@ fn boot() -> App {
 
 /// The crate-level `cfg(not(feature = "input"))` is NOT sufficient: it reads
 /// THIS crate's flag, while the thing that erases a scripted write is
-/// `ambition/input` in the dependency. Under `cargo test --workspace` cargo
-/// unifies features across the graph, so `ambition` builds WITH `input` while
+/// `ambition_platformer2d/input` in the dependency. Under `cargo test --workspace` cargo
+/// unifies features across the graph, so `ambition_platformer2d` builds WITH `input` while
 /// this crate's flag stays off. Ask the composition, not the feature flag.
 fn scripted_input_reaches_the_sim(app: &mut App) -> bool {
     step(app, move_x(1.0, true));
@@ -429,7 +429,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     if !scripted_input_reaches_the_sim(&mut app) {
         eprintln!(
             "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition/input` is on, likely via workspace feature unification), \
+             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
              so scripted input never reaches the sim."
         );
         return;
@@ -794,8 +794,8 @@ fn snake_by_id(
     id: &str,
 ) -> Option<(ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
-        &ambition::actors::features::FeatureId,
-        &ambition::actors::features::CenteredAabb,
+        &ambition_platformer2d::actors::features::FeatureId,
+        &ambition_platformer2d::actors::features::CenteredAabb,
         &ambition_demo_mary_o::snake::SnakeShell,
     )>();
     q.iter(app.world())
@@ -909,7 +909,7 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
         step(&mut app, idle());
         let dying = app
             .world_mut()
-            .query_filtered::<&ambition::actors::actor::BodyAnimFacts, With<PrimaryPlayer>>()
+            .query_filtered::<&ambition_platformer2d::actors::actor::BodyAnimFacts, With<PrimaryPlayer>>()
             .single(app.world())
             .map(|anim| anim.death_anim_timer > 0.0)
             .unwrap_or(false);

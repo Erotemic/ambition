@@ -23,8 +23,8 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
 
 use ambition_demo_mary_o_app::{build_windowed_demo_app, RenderMode};
 
@@ -75,7 +75,7 @@ fn ui_node_count(app: &mut App) -> usize {
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition::presentation::DeclaredHudRoot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::Without<ambition_platformer2d::presentation::DeclaredHudRoot>>();
     query.iter(app.world()).count()
 }
 
@@ -91,7 +91,7 @@ fn engine_owned_ui_node_count(app: &mut App) -> usize {
 fn declared_hud_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition::presentation::DeclaredHudSlot>>();
+        .query_filtered::<&bevy::ui::Node, bevy::prelude::With<ambition_platformer2d::presentation::DeclaredHudSlot>>();
     query.iter(app.world()).count()
 }
 
@@ -113,7 +113,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
     let room_visuals = {
         let mut q = app
             .world_mut()
-            .query::<&ambition::platformer::lifecycle::RoomVisual>();
+            .query::<&ambition_platformer2d::platformer::lifecycle::RoomVisual>();
         q.iter(app.world()).count()
     };
     assert!(
@@ -143,7 +143,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
 /// working [[feedback-a-green-guardrail-proves-nothing]].
 #[test]
 fn the_generic_presentation_face_places_world_labels() {
-    use ambition::render::rendering::{WorldLabel, WorldLabelFamily};
+    use ambition_platformer2d::render::rendering::{WorldLabel, WorldLabelFamily};
 
     let mut app = drawn_demo();
     settle(&mut app);
@@ -193,14 +193,14 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
     let cameras = {
         let mut q = app
             .world_mut()
-            .query_filtered::<Entity, With<ambition::platformer::camera_layers::MainCamera>>();
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::camera_layers::MainCamera>>();
         q.iter(app.world()).count()
     };
     assert_eq!(cameras, 1, "exactly one main camera");
 
     assert!(
         app.world()
-            .get_resource::<ambition::platformer::camera_layers::MainCameraEntity>()
+            .get_resource::<ambition_platformer2d::platformer::camera_layers::MainCameraEntity>()
             .is_some(),
         "`MainCameraEntity` must be published — the host's camera-follow and the \
          portal viewer both resolve the camera through it"
@@ -213,7 +213,7 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 ///
 /// It asserts on `bevy_ui` nodes rather than on named resources, because the
 /// naming test I first wrote was WRONG: `SandboxDevState` looked app-local and is
-/// in fact ENGINE state (`commit_room_transition_geometry` writes it, and `ambition_runtime`
+/// in fact ENGINE state (`commit_room_transition_geometry` writes it, and `ambition_platformer2d_runtime`
 /// re-exports it as a host seam). A demo carrying it is correct. A demo carrying
 /// Ambition's HUD is not, and a UI node is what a HUD is made of.
 #[test]
@@ -245,7 +245,7 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     // `spawn_room_visuals` reads it to pick sprite variants.
     assert!(app
         .world()
-        .get_resource::<ambition::render::quality::ResolvedVisualQuality>()
+        .get_resource::<ambition_platformer2d::render::quality::ResolvedVisualQuality>()
         .is_some(),);
 }
 
@@ -260,7 +260,7 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
 /// this asserts the configured root rather than polling a load state.)
 #[test]
 fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
-    let root = ambition::asset_manager::actors_desktop_asset_root();
+    let root = ambition_platformer2d::asset_manager::actors_desktop_asset_root();
     // Shipped/override builds fall back to the relative "assets"; this dev-checkout
     // test proves the resolved root actually holds the character sheets.
     if root != "assets" {

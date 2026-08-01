@@ -17,11 +17,11 @@
 //! is unproven until here is everything AFTER the announcement, and injecting the
 //! message is how you get to it without a stage.
 
-use ambition::combat::components::FighterStocks;
-use ambition::combat::stocks::{
+use ambition_platformer2d::combat::components::FighterStocks;
+use ambition_platformer2d::combat::stocks::{
     BodyKnockedOut, FighterEliminated, FighterStockSpent, StocksMatchDecided,
 };
-use ambition::combat::targeting::MatchTeam;
+use ambition_platformer2d::combat::targeting::MatchTeam;
 use ambition_app::app::{SandboxSimulationPlugin, StartRoomOverride};
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::asset::AssetPlugin;
@@ -31,8 +31,8 @@ use bevy::state::app::StatesPlugin;
 use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 
-use ambition::actors::character_runtime::{ActiveMatch, MatchSeat};
-use ambition::characters::actor::{BodyHealth, DeathPolicy, Health};
+use ambition_platformer2d::actors::character_runtime::{ActiveMatch, MatchSeat};
+use ambition_platformer2d::characters::actor::{BodyHealth, DeathPolicy, Health};
 
 const POOL: i32 = 50;
 
@@ -43,7 +43,7 @@ fn composed_app() -> App {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::sim::GameMode>();
+    app.init_state::<ambition_platformer2d::sim::GameMode>();
     app.insert_resource(TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
@@ -75,7 +75,7 @@ fn knock_out(app: &mut App, body: Entity) {
         .resource_mut::<Messages<BodyKnockedOut>>()
         .write(BodyKnockedOut {
             body,
-            cause: ambition::combat::HitSource::LeftTheWorld,
+            cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
         });
     app.update();
 }
@@ -174,13 +174,13 @@ fn a_stocks_match_that_empties_both_sides_is_a_draw() {
         .resource_mut::<Messages<BodyKnockedOut>>()
         .write(BodyKnockedOut {
             body: blue,
-            cause: ambition::combat::HitSource::LeftTheWorld,
+            cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
         });
     app.world_mut()
         .resource_mut::<Messages<BodyKnockedOut>>()
         .write(BodyKnockedOut {
             body: red,
-            cause: ambition::combat::HitSource::LeftTheWorld,
+            cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
         });
     app.update();
 

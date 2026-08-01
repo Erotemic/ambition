@@ -8,7 +8,7 @@ The detailed execution record through 2026-07-11 is archived at
 
 ## Durable conclusions
 
-- No further `ambition_actors` crate split is owed by the decomposition plan.
+- No further `ambition_platformer2d_actor_monolith` crate split is owed by the decomposition plan.
   Compile-time evidence showed that another carve would not address the dominant
   relink cost.
 - The remaining tree should improve by deleting adapter layers and duplicate
@@ -25,12 +25,12 @@ The detailed execution record through 2026-07-11 is archived at
 
 | Slice | Current result | Evidence owner |
 |---|---|---|
-| R1 mode scope | Hosted rules can wake by authored room mode and mode-scoped entities are retired on mode exit. | `ambition_runtime::mode_scope`; demo rules tests |
+| R1 mode scope | Hosted rules can wake by authored room mode and mode-scoped entities are retired on mode exit. | `ambition_platformer2d_runtime::mode_scope`; demo rules tests |
 | R2 GNU-ton teardown | Fused profile/split-layer render duplication was removed; the measured premise that the whole boss directory was an adapter shell was rejected. | boss profile/render tests |
-| R3 collision overlay split | Collision world lives with world geometry; mechanic-specific geometry helpers remain below it. | `ambition_world::collision`; architecture policy |
+| R3 collision overlay split | Collision world lives with world geometry; mechanic-specific geometry helpers remain below it. | `ambition_platformer2d_world::collision`; architecture policy |
 | R4 projectile steppers | One owner moved; two candidates were intentionally stopped because required view/control seams were absent. | archived execution record |
 | R5 `ControlFrame` lint | Global-frame consumers are allowlisted and poison-tested. | workspace policy determinism/control checks |
-| R6a–R6d player fold | Body, control, affordance, mechanics, and avatar concepts were redistributed; `crates/ambition_actors/src/player/` is gone. | source tree and module map |
+| R6a–R6d player fold | Body, control, affordance, mechanics, and avatar concepts were redistributed; `crates/ambition_platformer2d_actor_monolith/src/player/` is gone. | source tree and module map |
 
 Closed slices should not be reopened from their historical prose. Reopen only
 when a current failing invariant or a new customer demonstrates a concrete gap.

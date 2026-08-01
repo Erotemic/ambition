@@ -13,13 +13,13 @@
 //!
 //! Driven through the real app: `portal_lab`'s authored portals must survive BOTH
 //! a player-death reset and a manual reset (the gun-pair clear-on-manual is unit-
-//! tested in `ambition::portal::lifecycle` and the host bridge, since a gun pair is
+//! tested in `ambition_platformer2d::portal::lifecycle` and the host bridge, since a gun pair is
 //! auto-despawned here when the player holds no portal gun).
 
 use crate::common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
-use ambition::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition::portal::PlacedPortal;
+use ambition_platformer2d::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d::portal::PlacedPortal;
 use ambition_app::SandboxSim;
 
 fn authored_count(sim: &mut SandboxSim) -> usize {

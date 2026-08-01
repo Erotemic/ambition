@@ -96,15 +96,15 @@ from pathlib import Path
 ABSENCE_CONTRACTS: list[dict] = [
     {
         "id": "central-rollback-does-not-enumerate-domains",
-        "paths": ["crates/ambition_runtime/src/rollback/mod.rs"],
+        "paths": ["crates/ambition_platformer2d_runtime/src/rollback/mod.rs"],
         "patterns": [
-            r"ambition_actors::",
+            r"ambition_platformer2d_actor_monolith::",
             r"ambition_characters::",
             r"ambition_combat::",
             r"ambition_encounter::",
             r"ambition_items::",
-            r"ambition_platformer_primitives::",
-            r"ambition_portal::",
+            r"ambition_platformer2d_shared_tangle::",
+            r"ambition_portal2d::",
             r"ambition_projectiles::",
             r"ambition_vfx::",
         ],
@@ -123,7 +123,7 @@ ABSENCE_CONTRACTS: list[dict] = [
     },
     {
         "id": "registration-does-not-demand-art",
-        "paths": ["crates/ambition_actors/src/character_runtime/definition.rs"],
+        "paths": ["crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs"],
         "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],
         "reason": (
             "Registering a character DECLARES it; it does not ask for its art. "
@@ -153,7 +153,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "recreate stale repository-layout assumptions'. Fifteen commands and "
             "five test modules then recreated them anyway, in three different "
             "spellings, and when the worlds moved out of "
-            "`crates/ambition_actors/assets` every one of them broke: 11 of 149 "
+            "`crates/ambition_platformer2d_actor_monolith/assets` every one of them broke: 11 of 149 "
             "tests red on a clean tree, and a bare `ldtk edit measure` dying with "
             "FileNotFoundError because its `--ldtk` default pointed at a "
             "directory that had not existed for weeks (2026-07-28). A second "
@@ -188,7 +188,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # the second path this forbids, not an exemption from it.
         "include_tests": True,
         "patterns": [
-            # The engine ordering rules `ambition::app` now owns. Each of these
+            # The engine ordering rules `ambition_platformer2d::app` now owns. Each of these
             # names is one rule a consumer used to have to know and get right:
             # engine foundation before the groups, engine before host before
             # shell, assets after the content that registers the catalogs and
@@ -216,12 +216,12 @@ ABSENCE_CONTRACTS: list[dict] = [
             "sources, a GPU-less window missing one of five disables, engine "
             "groups before `init_engine_states`, a host naming no initial route "
             "and therefore preparing nothing. All three now go through "
-            "`ambition::app::PlatformerApp`, and `src/bin/dump.rs` — the last "
+            "`ambition_platformer2d::app::PlatformerApp`, and `src/bin/dump.rs` — the last "
             "hand-ordered path, which also installed the WINDOWED host in a "
             "headless dump — was retired with it. Reintroducing any of these "
             "names in the consumer means a second composition exists, which is "
             "the state slice A4 is defined as ending. Retiring them is also what "
-            "closed `ambition::engine` and `ambition::windowed_host` on the A1 "
+            "closed `ambition_platformer2d::engine` and `ambition_platformer2d::windowed_host` on the A1 "
             "ratchet, so a regression here shows up in two places."
         ),
     },
@@ -279,8 +279,8 @@ ABSENCE_CONTRACTS: list[dict] = [
             "fixtures/",
             # The FOLD, the wear-time path for ids nothing registered, and the
             # catalog method being read.
-            ":!crates/ambition_actors/src/character_runtime/definition.rs",
-            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\bbuild_default_action_set\b"],
@@ -314,7 +314,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "crates/",
             "game/",
             "fixtures/",
-            ":!crates/ambition_actors/src/character_runtime/presentation.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
         ],
         "patterns": [r"\bprovider_of_character\("],
         "reason": (
@@ -336,8 +336,8 @@ ABSENCE_CONTRACTS: list[dict] = [
         # forbidding a provider to know what it authored.
         "paths": [
             "crates/",
-            ":!crates/ambition_actors/src/character_runtime/definition.rs",
-            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\baxis_tuning\("],
@@ -363,8 +363,8 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "fixtures/",
             # The ONE production caller, and the re-export that lets it be one.
-            ":!crates/ambition_actors/src/avatar/starting_character.rs",
-            ":!crates/ambition_actors/src/avatar/mod.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs",
         ],
         "patterns": [r"\bmovement_tuning_for_character\("],
         "reason": (
@@ -386,7 +386,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             "crates/",
             "game/",
             "fixtures/",
-            ":!crates/ambition_actors/src/avatar/starting_character.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
         ],
         "patterns": [r"\bmotion_model_spec_for_character\("],
         "reason": (
@@ -417,7 +417,7 @@ SELF_REFERENTIAL = {"scripts/check_absence_contracts.py"}
 DEPENDENCY_CONTRACTS: list[dict] = [
     {
         "id": "engine-core-is-the-floor",
-        "crate": "ambition_engine_core",
+        "crate": "ambition_platformer2d_core",
         "forbidden": "*",
         "reason": (
             "The geometry, movement and body vocabulary every other crate is "
@@ -429,14 +429,14 @@ DEPENDENCY_CONTRACTS: list[dict] = [
     },
     {
         "id": "platformer-primitives-stays-a-foundation",
-        "crate": "ambition_platformer_primitives",
+        "crate": "ambition_platformer2d_shared_tangle",
         "forbidden": [
-            "ambition_actors",
+            "ambition_platformer2d_actor_monolith",
             "ambition_characters",
             "ambition_combat",
-            "ambition_runtime",
+            "ambition_platformer2d_runtime",
             "ambition_content",
-            "ambition",
+            "ambition_platformer2d",
         ],
         "reason": (
             "Session scope, binding resolution and stable ids — the vocabulary "
@@ -449,22 +449,22 @@ DEPENDENCY_CONTRACTS: list[dict] = [
     {
         "id": "characters-do-not-depend-on-the-actor-integration-layer",
         "crate": "ambition_characters",
-        "forbidden": ["ambition_actors", "ambition_runtime", "ambition"],
+        "forbidden": ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_platformer2d"],
         "reason": (
-            "`ambition_actors` depends on `ambition_characters`, which makes "
+            "`ambition_platformer2d_actor_monolith` depends on `ambition_characters`, which makes "
             "the reverse edge a cycle waiting to be discovered by the compiler "
             "at the worst moment. It also matters for the deferred "
-            "`ambition_actors` decomposition: if a coherent actor kernel exists "
+            "`ambition_platformer2d_actor_monolith` decomposition: if a coherent actor kernel exists "
             "at all, `ambition_characters` is below it."
         ),
     },
     {
         "id": "engine-crates-do-not-consume-the-umbrella-facade",
-        "crate": "ambition_actors",
-        "forbidden": ["ambition"],
+        "crate": "ambition_platformer2d_actor_monolith",
+        "forbidden": ["ambition_platformer2d"],
         "reason": (
-            "`ambition` is the facade a CONSUMER builds a game against; it "
-            "re-exports `ambition_actors` among thirty-odd others. An engine "
+            "`ambition_platformer2d` is the facade a CONSUMER builds a game against; it "
+            "re-exports `ambition_platformer2d_actor_monolith` among thirty-odd others. An engine "
             "crate reaching back through it is circular by construction, and it "
             "is how a headless consumer ends up compiling the render stack. "
             "⚠ deliberately scoped to engine crates: `ambition_content` DOES "
@@ -478,7 +478,7 @@ DEPENDENCY_CONTRACTS: list[dict] = [
 #
 # The other two tables forbid specific things. This one permits specific things
 # and forbids the rest, and the difference is not stylistic — it is the whole
-# reason the row exists. ADR 0031: `ambition` is a namespace mirror today, so
+# reason the row exists. ADR 0031: `ambition_platformer2d` is a namespace mirror today, so
 # **a denylist always lags it.** The first draft of the campaign forbade six
 # modules. Outlander names eighteen. That contract would have gone green with
 # twelve leaks still open, which is worse than no contract, because a green
@@ -521,8 +521,8 @@ MODULE_ALLOWLISTS: list[dict] = [
         # every module the tests name, `src/` names too — but it changes the
         # counts, and the counts are §2a's cost proxy.
         "include_tests": True,
-        "facade": "ambition",
-        # THE PUBLIC SDK, as of slice A. `ambition::app` is the host-composition
+        "facade": "ambition_platformer2d",
+        # THE PUBLIC SDK, as of slice A. `ambition_platformer2d::app` is the host-composition
         # facade `docs/sdk/api-prototype.md` §5 specifies (`PlatformerApp`,
         # `SessionMode`, `AssetSource`, `GameModule`, `ModuleManifest`,
         # `ModuleDraft`, and `app::prelude`). It is the one name a consumer may
@@ -534,8 +534,8 @@ MODULE_ALLOWLISTS: list[dict] = [
         # apart, so the review is the gate: a module belongs here only once
         # `docs/sdk/api-prototype.md` names it as SDK surface.
         #
-        # §5 also lists `ambition::experience`; the implementation put
-        # `GameModule`/`ModuleManifest`/`ModuleDraft` in `ambition::app` beside
+        # §5 also lists `ambition_platformer2d::experience`; the implementation put
+        # `GameModule`/`ModuleManifest`/`ModuleDraft` in `ambition_platformer2d::app` beside
         # `PlatformerApp` instead of splitting them, so `experience` does not
         # exist and is deliberately NOT pre-registered here. An allowlist entry
         # for a module nothing names is exactly the stale entry invariant 2
@@ -606,7 +606,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # in one, its runtime load state in another, its art in a third, its
         # brain in a fourth — because those are the engine's internal
         # boundaries and the facade published them.
-        # ⚠ 18 -> 1 across slices A-C. What is left is `ambition::runtime`, and
+        # ⚠ 18 -> 1 across slices A-C. What is left is `ambition_platformer2d::runtime`, and
         # every one of its ten uses is `rollback::*`.
         #
         # It stays. ADR 0031's Deferred section is explicit that rollback as a
@@ -614,7 +614,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # complete authoritative baseline, stable participants, deterministic
         # activation, lifecycle rebasing, confirmation boundaries", with its own
         # slice and its own acceptance tests. Curating it into
-        # `ambition::rollback` would make exactly that promise through the back
+        # `ambition_platformer2d::rollback` would make exactly that promise through the back
         # door, and the ratchet reaching zero is not a good enough reason to
         # make a promise the campaign deliberately deferred.
         #
@@ -622,13 +622,13 @@ MODULE_ALLOWLISTS: list[dict] = [
         # closed the other seventeen.
         #
         # ⚠ 1 -> 0, slice F, 2026-07-30 — and NOT by that technique. The
-        # paragraph above stands as written: curating `ambition::rollback` and
+        # paragraph above stands as written: curating `ambition_platformer2d::rollback` and
         # pruning this entry would have taken the ratchet to zero in an
         # afternoon, at any point over the previous four slices, and it would
         # have been wrong every time. What closed it is the slice ADR 0031
         # reserved. `SnapshotState` moved to the floor so a consumer's own
-        # types can implement it without naming `ambition_runtime`
-        # (`ambition_engine_core::snapshot`, part 1); `ambition::rollback`
+        # types can implement it without naming `ambition_platformer2d_runtime`
+        # (`ambition_platformer2d_core::snapshot`, part 1); `ambition_platformer2d::rollback`
         # publishes the six properties with a test each; and Outlander's
         # forty-line hand-ordered startup — activate, settle, rebase, all
         # hazards it had hit — collapsed to one call.
@@ -638,11 +638,11 @@ MODULE_ALLOWLISTS: list[dict] = [
         # thing that makes the name a promise instead of a mirror.
         "baseline": set(),
         "reason": (
-            "A game depends on `ambition`, and `ambition` is currently the list "
+            "A game depends on `ambition_platformer2d`, and `ambition_platformer2d` is currently the list "
             "of crates the engine happens to be built from — so a consumer's "
             "imports encode our implementation topology and we cannot move an "
             "implementation without breaking them (ADR 0031). Outlander reaches "
-            "through the facade for `ambition::runtime::rollback::put_f32`: a "
+            "through the facade for `ambition_platformer2d::runtime::rollback::put_f32`: a "
             "third party building a game is naming an internal serialisation "
             "helper. Each name in `baseline` is one leak still open. The set may "
             "not GAIN a member, and it may not KEEP one the consumer has stopped "
@@ -658,15 +658,15 @@ MODULE_ALLOWLISTS: list[dict] = [
         # be shaped like one game.
         "paths": ["fixtures/minimal_game/"],
         "include_tests": True,
-        "facade": "ambition",
+        "facade": "ambition_platformer2d",
         # `app` is the SDK. `bevy` is the facade's deliberate re-export — its
         # own doc comment commits to it ("so a game can name bevy TYPES through
-        # `ambition::bevy`"), and this game proves the commitment is worth
+        # `ambition_platformer2d::bevy`"), and this game proves the commitment is worth
         # something: it needs NO `bevy` entry in its manifest at all, because it
         # derives nothing. Outlander does. That difference is only visible with
         # two consumers.
         # `world` JOINED 2026-07-30, and only after the facade stopped mirroring
-        # it. `pub use ambition_world as world` published every submodule the
+        # it. `pub use ambition_platformer2d_world as world` published every submodule the
         # crate happened to have; `pub mod world { ... }` publishes a CLOSED
         # list, so a new submodule is an internal change until somebody adds it
         # on purpose. That is the difference between a promise and an accident,
@@ -687,7 +687,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # not RUN: the host sat in `HostStatus::Activating` for 600 ticks and
         # never started, because preparation validation refuses an experience
         # whose provider registered no explicit audio fragment. A movement-only
-        # game with no sound must still DECLARE its silence, so `ambition::audio`
+        # game with no sound must still DECLARE its silence, so `ambition_platformer2d::audio`
         # is a fifth module every game names no matter how small.
         #
         # The lesson is about the instrument, not the number: a consumer's
@@ -698,21 +698,21 @@ MODULE_ALLOWLISTS: list[dict] = [
         # 5 -> 3. `provider` and `runtime` retired when `ModuleDraft::playable`
         # absorbed the experience declaration: the engine assembles the
         # `PreparedPlatformerSource` and installs the authoring, so a game no
-        # longer writes `ambition::runtime::demo_fixture` into its own imports.
+        # longer writes `ambition_platformer2d::runtime::demo_fixture` into its own imports.
         # (A module literally named `demo_fixture` in a shipped game's
         # dependency list is the namespace mirror confessing.)
         #
         # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point —
         # it went STALE-red and named both, so the slots cannot be reoccupied
         # silently.
-        # 3 -> 2. `engine_core` retired when `ambition::world::prelude` landed:
+        # 3 -> 2. `engine_core` retired when `ambition_platformer2d::world::prelude` landed:
         # a game describing a floor no longer reaches into an implementation
         # crate named `engine_core` for `Vec2`/`Block`.
         #
         # ⚠ `world` is deliberately STILL BASELINE, not promoted to `allowed`.
-        # ADR 0031's public module list does name `ambition::world`, and this
+        # ADR 0031's public module list does name `ambition_platformer2d::world`, and this
         # game now touches only its curated prelude — but the facade still
-        # re-exports the WHOLE crate (`pub use ambition_world as world`), so
+        # re-exports the WHOLE crate (`pub use ambition_platformer2d_world as world`), so
         # blessing the name would commit us to every path under it, which is
         # exactly the namespace mirror the campaign exists to end. It moves to
         # `allowed` when the facade turns it into a curated module. Making a
@@ -721,7 +721,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # silence is a word on the draft now, not a hand-registered fragment.
         #
         # ⚠ EMPTY. The movement-only minimal game names ONLY reviewed SDK
-        # surface: `ambition::app`, `ambition::world`, and the facade's
+        # surface: `ambition_platformer2d::app`, `ambition_platformer2d::world`, and the facade's
         # documented `bevy` re-export.
         #
         # This is §4's first terminal condition reached for ONE consumer. It is
@@ -731,7 +731,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # rather than an aspiration.
         #
         # Zero here means the ratchet now guards a PROPERTY instead of tracking
-        # a migration: any new `ambition::` module this game names is a
+        # a migration: any new `ambition_platformer2d::` module this game names is a
         # regression, full stop.
         "baseline": set(),
         "reason": (
@@ -761,17 +761,17 @@ MODULE_ALLOWLISTS: list[dict] = [
 #
 # ⚠ Frozen as a SET, never as a count. The campaign's own words: "Freezing only
 # the NUMBER of central rollback registrations permits deleting one and adding
-# another." Zero means `ambition_runtime` is no longer the implementation owner
+# another." Zero means `ambition_platformer2d_runtime` is no longer the implementation owner
 # of every domain's snapshot — the state
-# `impl SnapshotState for ambition_actors::…::MatchSeat` describes today.
+# `impl SnapshotState for ambition_platformer2d_actor_monolith::…::MatchSeat` describes today.
 # ── The capability-footprint ratchet ─────────────────────────────────────────
 #
 # §2e's subject, made non-increasing. A clean facade can hide this entirely: no
 # consumer names a forbidden path and the footprint is still wrong, because
-# depending on `ambition` used to link 41 crates when a movement-only game asked
+# depending on `ambition_platformer2d` used to link 41 crates when a movement-only game asked
 # for 22 of them. Slice H made the facade's edges optional features and the
 # sentinel's measured closure is now the baseline; the 15 crates still unwanted
-# arrive through `ambition_actors` and wait on the §4 carve, not on a manifest.
+# arrive through `ambition_platformer2d_actor_monolith` and wait on the §4 carve, not on a manifest.
 #
 # ⚠ ONE invariant, not two, and the asymmetry is deliberate. The set may not
 # GROW. It does NOT require pruning as it shrinks, because unlike a module
@@ -789,7 +789,7 @@ CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
 def sentinel_linked_closure(root: Path) -> set[str]:
     """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
 
-    ⚠ Until slice H this walked the workspace manifest graph from `ambition`,
+    ⚠ Until slice H this walked the workspace manifest graph from `ambition_platformer2d`,
     which was correct while every facade edge was unconditional and became the
     wrong subject the moment they were features: a static walk counts an
     optional edge the sentinel never enabled, so the counter could never move.
@@ -839,11 +839,11 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
 
     ⚠ **`central_codecs` was renamed `encoded_types` on 2026-07-30, and the
     rename IS the finding.** It used to read `impl SnapshotState for …` out of
-    ONE file, `ambition_runtime/src/rollback/codecs.rs`, because that was the
+    ONE file, `ambition_platformer2d_runtime/src/rollback/codecs.rs`, because that was the
     only file where such an impl could compile: the trait lived at the top of
     the dependency graph, above every crate whose types it encoded, so ~100
     foreign impls were centralised there by the orphan rule rather than by
-    design. Slice F moved the trait to `ambition_engine_core::snapshot` — the
+    design. Slice F moved the trait to `ambition_platformer2d_core::snapshot` — the
     floor — and the impls went home to the crates that define their types.
 
     The invariant did not change and must not: the rollback wire format is a
@@ -870,9 +870,9 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     # Deliberately NOT a glob over the whole `rollback/` directory: `codec.rs`,
     # `session.rs` and friends contain dotted string literals that are not
     # registration names, and a ratchet that swallows them measures noise.
-    registration_paths = [root / "crates/ambition_runtime/src/rollback/mod.rs"]
+    registration_paths = [root / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"]
     registration_paths.extend(
-        sorted((root / "crates/ambition_runtime/src/rollback/domains").glob("**/*.rs"))
+        sorted((root / "crates/ambition_platformer2d_runtime/src/rollback/domains").glob("**/*.rs"))
     )
     registration = "\n".join(
         path.read_text(errors="replace")
@@ -891,7 +891,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         for match in re.findall(
             r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
         ):
-            # `crate::Foo` inside `ambition_actors` IS `ambition_actors::Foo`;
+            # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
             # collapse the doubled prefix so the frozen name reads like a path.
             encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
 
@@ -1040,9 +1040,9 @@ def use_tree_heads(text: str, index: int) -> list[str]:
     """The top-level module names a use tree introduces at `index`.
 
     ⚠ **This exists because a line regex is EVADABLE, and silently.**
-    `ambition::time` is easy to match. `use ambition::{time::Foo, audio::Bar};`
+    `ambition_platformer2d::time` is easy to match. `use ambition_platformer2d::{time::Foo, audio::Bar};`
     is the same two leaks written in idiomatic Rust, and a
-    `\\bambition::([a-z_]+)` pattern matches neither of them — it sees `{` and
+    `\\bambition_platformer2d::([a-z_]+)` pattern matches neither of them — it sees `{` and
     stops. The fixture happens to contain no brace-grouped facade import today,
     so a line regex would have been green, correct, and wrong the first time
     somebody wrote ordinary Rust.
@@ -1099,10 +1099,10 @@ def allowlist_usage(contract: dict, root: Path) -> dict[str, list[tuple[str, int
     """Every facade module the consumer names, mapped to where it names it.
 
     Whole-file rather than line-by-line, because a use tree spans lines and the
-    heads have to be attributed to the `ambition::` that introduced them.
+    heads have to be attributed to the `ambition_platformer2d::` that introduced them.
     Comments are stripped with the same line-local helper the other tables use,
     so the prose recurrence this module exists to survive is survived here too:
-    a doc comment naming `ambition::runtime` is not a consumer naming it.
+    a doc comment naming `ambition_platformer2d::runtime` is not a consumer naming it.
     """
     listed = subprocess.run(
         ["git", "ls-files", "--", *contract["paths"]],
@@ -1327,7 +1327,7 @@ def main() -> int:
         broken += 1
         print("  RED  capability-footprint-may-not-grow")
         print(
-            "       Depending on `ambition` links these too. §2e: a perfectly "
+            "       Depending on `ambition_platformer2d` links these too. §2e: a perfectly "
             "semantic API can still force a movement-only game to compile and "
             "link every unrelated gameplay domain — no forbidden path is named "
             "and the footprint is still wrong."
@@ -1352,7 +1352,7 @@ def main() -> int:
             "encoded. This ratchet used to be called "
             "`central-rollback-ownership-may-not-grow` and read ONE file, "
             "because the orphan rule forced every impl into "
-            "`ambition_runtime/src/rollback/codecs.rs`. It said the set could "
+            "`ambition_platformer2d_runtime/src/rollback/codecs.rs`. It said the set could "
             "'only shrink as ownership federates outward'; slice F federated "
             "it, so the guard now follows the types instead of the file."
         )

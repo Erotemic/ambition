@@ -41,8 +41,8 @@
 //! `app_it::participant_input` already owns it.
 #![cfg(not(feature = "input"))]
 
-use ambition::input::ControlFrame;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
@@ -91,7 +91,7 @@ fn press_up() -> ControlFrame {
 fn player_size(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()
@@ -102,7 +102,7 @@ fn player_size(app: &mut App) -> Vec2 {
 fn player_pos(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()
@@ -120,8 +120,8 @@ fn player_pos(app: &mut App) -> Vec2 {
 /// thing `SimHarness::teleport_player` does for harness-based tests.
 fn place_player(app: &mut App, pos: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
-        ambition::engine_core::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        ambition_platformer2d::engine_core::BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query
@@ -129,11 +129,11 @@ fn place_player(app: &mut App, pos: Vec2) {
         .next()
         .expect("gameplay has a primary player");
     let mut clusters = cluster_item.as_clusters_mut();
-    ambition::engine_core::movement::transit_body(
+    ambition_platformer2d::engine_core::movement::transit_body(
         &mut motion_model,
         &mut clusters,
         pos,
-        ambition::engine_core::movement::TransitVelocity::Zero,
+        ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
     );
 }
 
@@ -148,7 +148,7 @@ fn level(app: &mut App) -> (u8, u32, f32) {
 
 fn wallet(app: &mut App) -> i32 {
     app.world()
-        .resource::<ambition::sim_view::PlayerHudFacts>()
+        .resource::<ambition_platformer2d::sim_view::PlayerHudFacts>()
         .balance
 }
 
@@ -162,9 +162,9 @@ fn settle(app: &mut App) {
 ///
 /// The crate-level `cfg(not(feature = "input"))` guard is NOT sufficient, and
 /// this is the subtle part. That gate reads THIS crate's `input` feature, but
-/// the thing that erases a scripted write is `ambition/input` — the participant
+/// the thing that erases a scripted write is `ambition_platformer2d/input` — the participant
 /// pipeline in the dependency. Under `cargo test --workspace` cargo unifies
-/// features across the graph, so `ambition` is built WITH `input` (something
+/// features across the graph, so `ambition_platformer2d` is built WITH `input` (something
 /// else in the workspace asks for it) while this crate's own `input` stays off.
 /// The guard then passes, the test runs, and the participant pipeline
 /// repopulates `ControlFrame` from device state every frame — so every scripted
@@ -176,7 +176,7 @@ fn settle(app: &mut App) {
 /// directly with:
 ///
 /// ```text
-/// cargo test -p ambition_demo_mary_o_app --features ambition/input --test scripted_level_run
+/// cargo test -p ambition_demo_mary_o_app --features ambition_platformer2d/input --test scripted_level_run
 /// ```
 ///
 /// So: ask the composition, instead of asking the feature flag. Write a
@@ -241,7 +241,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     if !scripted_input_reaches_the_sim(&mut app) {
         eprintln!(
             "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition/input` is on, likely via workspace feature unification), \
+             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
              so scripted input never reaches the sim. This run is only \
              meaningful in the headless sim composition."
         );
@@ -292,7 +292,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     {
         let mut q = app
             .world_mut()
-            .query_filtered::<&mut ambition::characters::actor::BodyHealth, With<PrimaryPlayer>>();
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>();
         let world = app.world_mut();
         for mut health in q.iter_mut(world) {
             health.health.invulnerable = true;
@@ -439,15 +439,15 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
 
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
-        .write_message(ambition::actors::features::SpawnActorRequest {
+        .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
             id: "scripted_snake".to_string(),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
             half_size: Vec2::new(14.0, 16.0),
-            faction: ambition::actors::combat::components::ActorFaction::Enemy,
+            faction: ambition_platformer2d::actors::combat::components::ActorFaction::Enemy,
             grudge_against: None,
-            kind: ambition::actors::features::SpawnActorKind::Enemy {
-                brain: ambition::entity_catalog::placements::CharacterBrain::Custom(
+            kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy {
+                brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),
             },

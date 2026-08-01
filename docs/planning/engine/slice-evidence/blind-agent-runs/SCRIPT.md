@@ -21,7 +21,7 @@ incomparable, which is the failure it exists to prevent.
 
 ## Script A — standing a game up (runs 1–6)
 
-> You are a third-party game developer. You have just added the `ambition` game
+> You are a third-party game developer. You have just added the `ambition_platformer2d` game
 > engine as a dependency and you want to stand up a minimal game on it.
 >
 > Your goal: **get a minimal game running against this engine — one that boots
@@ -47,7 +47,7 @@ incomparable, which is the failure it exists to prevent.
 
 ⚠ **Added 2026-07-30, for slice G, and it is a NEW SERIES rather than an edit.**
 Script A is unchanged and runs 1–6 stay comparable with each other. Slice F
-published `ambition::rollback`, and Script A's task cannot reach it — a minimal
+published `ambition_platformer2d::rollback`, and Script A's task cannot reach it — a minimal
 game that boots does not start a session, so six green runs say nothing about
 the newest public surface. Editing Script A to cover it would have made the
 existing series incomparable to answer a question about a surface that did not
@@ -56,7 +56,7 @@ exist when the series began.
 The preconditions and contamination note above apply unchanged.
 
 > You are a third-party game developer. You have a small game running on the
-> `ambition` engine and you now want it to use **rollback**: a deterministic
+> `ambition_platformer2d` engine and you now want it to use **rollback**: a deterministic
 > session that saves, rewinds and re-simulates, with **two** local players.
 >
 > Your goal: **get a rollback session running, with your own game state

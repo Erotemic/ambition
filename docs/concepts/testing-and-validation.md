@@ -32,7 +32,7 @@ Useful modes:
 ```bash
 ./run_tests.sh --list                 # inspect the generated job plan
 ./run_tests.sh --fast                 # workspace default-feature backbone only
-./run_tests.sh -p ambition_world      # restrict to an owning crate
+./run_tests.sh -p ambition_platformer2d_world      # restrict to an owning crate
 ./run_tests.sh -k room_transition     # libtest name substring across jobs
 ./run_tests.sh --heavy                # ignored/acceptance cycles too
 ./run_tests.sh -- --nocapture         # forward args to libtest

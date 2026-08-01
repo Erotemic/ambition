@@ -7,12 +7,12 @@
 //! `SpawnPlayerCloneRequest` resource, steps the real schedule, and asserts the
 //! clone runs, leaves the ground, and rises — driven entirely by its brain, with
 //! no human input. Complements the engine-level proof in
-//! `ambition::actors::avatar::clone_probe_tests`.
+//! `ambition_platformer2d::actors::avatar::clone_probe_tests`.
 
 use crate::common::base;
 
-use ambition::actors::actor::BodyGroundState;
-use ambition::actors::actor::BodyKinematics;
+use ambition_platformer2d::actors::actor::BodyGroundState;
+use ambition_platformer2d::actors::actor::BodyKinematics;
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
 use bevy::prelude::{With, World};
 

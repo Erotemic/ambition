@@ -4,7 +4,7 @@
 //! initial colored rectangles into authored character sprites once
 //! the asset is loaded.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -13,10 +13,10 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual,
 };
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
-use ambition_platformer_primitives::feature_kind::{BoundFeatureKind, FeatureVisualKind};
-use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
@@ -195,8 +195,8 @@ fn native_compact_render_pos(pos: ae::Vec2, gravity_dir: ae::Vec2, dy: f32) -> a
 }
 
 pub fn sync_visuals(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     // The primary player body is discovered by its canonical marker, not a
     // process-global handle bag: the home avatar is session-scoped, so after a
@@ -328,7 +328,7 @@ pub fn sync_visuals(
                 // and that is worth knowing just as much.
                 *warned_unsized_player = true;
                 bevy::log::warn!(
-                    target: "ambition::sprites",
+                    target: "ambition_platformer2d::sprites",
                     "player sprite is textured but has no PlayerSpriteBaseline; \
                      custom_size is unset, so it renders at the atlas frame's native \
                      pixel size until a baseline arrives",
@@ -648,7 +648,7 @@ pub fn upgrade_actor_sprites(
                             .to_string(),
                     };
                     bevy::log::warn!(
-                        target: "ambition::sprites",
+                        target: "ambition_platformer2d::sprites",
                         "actor '{missed}' resolved no sprite and is drawing the placeholder \
                          rectangle: {diagnosis}",
                     );
@@ -831,7 +831,7 @@ mod worn_binder_tests;
 #[cfg(test)]
 mod compact_pose_tests {
     use super::native_compact_render_pos;
-    use ambition_engine_core as ae;
+    use ambition_platformer2d_core as ae;
 
     fn assert_vec2_close(actual: ae::Vec2, expected: ae::Vec2) {
         assert!(

@@ -3,7 +3,7 @@
 > **State:** TRIAGE, 2026-07-21. None of these blocked §2.5 and none are fixed.
 > Each is small and independently landable. Filed together because they were all
 > surfaced by the same work: moving the `RoomReplayRequested` consumer into
-> `ambition_runtime` and writing the first proofs that a replay actually replays.
+> `ambition_platformer2d_runtime` and writing the first proofs that a replay actually replays.
 
 ## 1. Sanic clears the act and then dies off the end of it — **FIXED 2026-07-25** (`914a7ee3d`)
 
@@ -86,7 +86,7 @@ open work is finding the existing instances.
 
 `ambition_demo_sanic/src/lib.rs:880` and `ambition_demo_mary_o/src/lib.rs:821`
 each call `add_message::<RoomReplayRequested>()`. The engine already registers it
-in `SandboxResetSchedulePlugin` (`ambition_actors/src/session/reset/mod.rs:337`),
+in `SandboxResetSchedulePlugin` (`ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:337`),
 which both demos get through `PlatformerEnginePlugins`.
 
 Harmless today (Bevy's `add_message` is idempotent), but it reads as though the
@@ -157,7 +157,7 @@ Two separate things worth splitting:
 
 - **The leak.** A body below the world bounds should be retired. Nothing does
   that today, so every pit-walker is a permanent entity accumulating velocity.
-  This is engine-generic (`ambition_actors`), not Mary-O's.
+  This is engine-generic (`ambition_platformer2d_actor_monolith`), not Mary-O's.
 - **The behavior.** Whether a crony SHOULD walk off a ledge is a design question
   — SMB1 goombas do. But the practical effect here is that level 1-1 empties
   itself of enemies within about eight seconds of load, well before a player

@@ -16,7 +16,7 @@
 
 The fable review already established the world seam, content-out-of-core
 direction, `RoomGeometry`, installed world manifests, content-registered LDtk
-conversion, and the next `ambition_world`-style carve. This document starts from
+conversion, and the next `ambition_platformer2d_world`-style carve. This document starts from
 that foundation.
 
 The new claim is narrower and sharper:
@@ -66,7 +66,7 @@ it chooses other content infrastructure.
 The long-term shape is something like:
 
 ```text
-ambition_ldtk_map
+ambition_platformer2d_ldtk
 ambition_tiled_map
 ambition_godot_map
 ```
@@ -213,7 +213,7 @@ converter). Converter + LDtk entity def + validator row follow the
 
 ### As built (opus, 2026-07-10)
 
-`ambition_ldtk_map::conversion::entity_converters::convert_surface_ramp`, keyed
+`ambition_platformer2d_ldtk::conversion::entity_converters::convert_surface_ramp`, keyed
 `"SurfaceRamp"` in the converter registry beside `SurfaceLoop`. Fields: `radius`
 (required), `orientation` (default `FloorToRightWall`), `segments` (default 8).
 
@@ -235,7 +235,7 @@ things that inspection would not have:
    and the bounded walk spun out. **The body froze on the joint, still `Riding`,
    still carrying its velocity** — which is why it read as a physics puzzle
    rather than a rounding bug. Fixed (`joint_nudge` is relative now) with a
-   regression test in `ambition_engine_core::movement::surface_momentum`. The valley tests never
+   regression test in `ambition_platformer2d_core::movement::surface_momentum`. The valley tests never
    caught it: their joints sit at s ≈ 500, where `1e-4` is comfortably many ULPs.
 2. **`SurfaceInputs::run` is along the CHAIN's tangent, not world `+x`.** Holding
    the stick "toward the corner" in world coordinates braked the ceiling cases to

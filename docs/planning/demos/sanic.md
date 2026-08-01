@@ -96,7 +96,7 @@ Remaining acceptance work is product/content work
   instead of racing it, and covers the boss/actor callers for free. It would
   still miss the kernel hazard path, which no health-based scheme can reach.
   Capped at 12 scattered so a big purse does not turn one hit into a shower.
-  Engine change: `ambition_actors::features::ecs::spawn_static::spawn_pickup` is
+  Engine change: `ambition_platformer2d_actor_monolith::features::ecs::spawn_static::spawn_pickup` is
   now PUBLIC. The engine could lower authored pickups but gave a game no way to
   DROP one at runtime, so scatters, enemy loot, and chest rewards would each have
   rebuilt the bundle and drifted from the collection path; a dropped ring and an
@@ -113,12 +113,12 @@ Remaining acceptance work is product/content work
   ✅ **The restart was INERT in the standalone app (found 2026-07-21, FIXED the
   same day — `cf5095576`).** `RoomReplayRequested` had exactly one real consumer,
   registered only by `ambition_app`. `ambition_demo_sanic_app` depends on
-  `ambition`, never on `ambition_app` — that is the demo gate — so in the shipped
+  `ambition_platformer2d`, never on `ambition_app` — that is the demo gate — so in the shipped
   standalone binary the message went into a registered channel that nothing
   drained. The "restart" reset `SanicActState` and nothing else: the player was
   not returned to spawn, the room was not re-lowered, rings were not restored,
   badniks did not respawn. The same was true of Mary-O standalone. The consumer
-  now lives in `ambition_runtime::sandbox_reset` and rides
+  now lives in `ambition_platformer2d_runtime::sandbox_reset` and rides
   `PlatformerEnginePlugins` into all three hosts (tracks §2.5), proved per host
   in `tests/room_replay.rs`.
 

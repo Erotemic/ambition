@@ -98,8 +98,8 @@
 //! ratios are the real thing, and this exists because a first measurement that
 //! can be read in one line beats a suite nobody has run.
 
-use ambition::actor::{FighterStocks, MatchSeat};
-use ambition::characters::brain::{Brain, StateMachineCfg};
+use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
+use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 use ambition_demo_smash_app::build_demo_app;
 use bevy::app::App;
 
@@ -153,7 +153,7 @@ fn main() {
 fn trace_seam(app: &mut App, tick: usize) {
     let Some(log) = app
         .world()
-        .get_resource::<ambition::causal::CausalRecording>()
+        .get_resource::<ambition_platformer2d::causal::CausalRecording>()
     else {
         return;
     };
@@ -176,7 +176,7 @@ fn trace_seam(app: &mut App, tick: usize) {
         if decided.is_none() && tick % 5 != 0 {
             continue;
         }
-        let field = |fact: Option<&ambition::causal::CausalFact>, name: &str| {
+        let field = |fact: Option<&ambition_platformer2d::causal::CausalFact>, name: &str| {
             fact.and_then(|f| f.get(name))
                 .map(|value| format!("{value}"))
                 .unwrap_or_else(|| "-".to_string())
@@ -198,7 +198,7 @@ fn trace_seam(app: &mut App, tick: usize) {
         );
     }
     app.world_mut()
-        .resource_mut::<ambition::causal::CausalRecording>()
+        .resource_mut::<ambition_platformer2d::causal::CausalRecording>()
         .clear();
 }
 
@@ -366,12 +366,12 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     // ladder run pays nothing for an inspector nobody opened.
     #[cfg(feature = "causal")]
     if trace_enabled() {
-        app.add_plugins(ambition::causal::CausalPlugin);
-        ambition::causal::record_domains(
+        app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
+        ambition_platformer2d::causal::record_domains(
             &mut app,
-            ambition::causal::RecordingPolicy::only([
-                ambition::causal::domains::MOVEMENT,
-                ambition::causal::domains::BRAIN,
+            ambition_platformer2d::causal::RecordingPolicy::only([
+                ambition_platformer2d::causal::domains::MOVEMENT,
+                ambition_platformer2d::causal::domains::BRAIN,
             ]),
         );
     }
@@ -387,8 +387,8 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
             level,
         ));
     app.world_mut()
-        .write_message(ambition::game_shell::ShellCommand::GoTo(
-            ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         ));
 
     let mut lost = 0u32;
@@ -437,8 +437,8 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         let mut q = world.query::<(
             &MatchSeat,
             &FighterStocks,
-            &ambition::characters::actor::BodyHealth,
-            &ambition::platformer::body::BodyKinematics,
+            &ambition_platformer2d::characters::actor::BodyHealth,
+            &ambition_platformer2d::platformer::body::BodyKinematics,
         )>();
         let mut present = false;
         let mut seat_x = None;

@@ -2,7 +2,7 @@
 
 Ambition keeps durable game content under ``game/ambition_content/assets`` and
 publishes generated character sprite products under
-``crates/ambition_actors/assets/sprites``.  Keep that split explicit here so
+``crates/ambition_platformer2d_actor_monolith/assets/sprites``.  Keep that split explicit here so
 individual commands do not recreate stale repository-layout assumptions.
 """
 
@@ -61,7 +61,7 @@ def default_sprite_assets_dir(anchor: Path | None = None) -> Path:
     return (
         _repo_root(anchor)
         / "crates"
-        / "ambition_actors"
+        / "ambition_platformer2d_actor_monolith"
         / "assets"
         / "sprites"
     )
@@ -76,7 +76,7 @@ def rel_to_ldtk(ldtk: Path, path: Path) -> str:
 
     Authored worlds are loaded through the ``game://`` source rooted at
     ``game/ambition_content/assets``. That source falls back to the shared
-    ``crates/ambition_actors/assets`` tree, so generated sprites must be
+    ``crates/ambition_platformer2d_actor_monolith/assets`` tree, so generated sprites must be
     addressed through the virtual ``game://sprites`` mount rather than by a
     filesystem traversal into another crate. Bevy rejects those ``../../..``
     traversals before the fallback reader gets a chance to resolve them.

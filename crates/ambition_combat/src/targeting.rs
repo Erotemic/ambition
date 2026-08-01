@@ -8,7 +8,7 @@
 //! sticky-target or role-based selector here without touching any
 //! actor update signatures (OVERNIGHT-TODO #17.8).
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use super::components::{
@@ -16,9 +16,9 @@ use super::components::{
 };
 use super::FeatureSimEntity;
 use ambition_characters::actor::BodyHealth;
-use ambition_engine_core::BodyKinematics;
-use ambition_platformer_primitives::markers::PlayerEntity;
-use ambition_platformer_primitives::sim_id::SimId;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
 /// The relations matrix is indexed by `faction as usize`.

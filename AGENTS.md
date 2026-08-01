@@ -59,13 +59,13 @@ lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
   not missing* — `ls` before concluding an asset is unavailable, and never build
   fetch/hydration machinery as part of a feature (distribution is Jon's). A
   feature owes only: degrade visibly when a file is absent. ⚠ **they do not
-  travel to a `git worktree`** — `crates/ambition_actors/assets/sprites/` has 972
+  travel to a `git worktree`** — `crates/ambition_platformer2d_actor_monolith/assets/sprites/` has 972
   files on `main` and 4 in a fresh worktree, so an asset-touching test run there
   fails for reasons that have nothing to do with the change. Full rules:
   `docs/recipes/adding-an-asset.md`.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
-  compose it; game providers own named content. `ambition_actors` is not awaiting
+  compose it; game providers own named content. `ambition_platformer2d_actor_monolith` is not awaiting
   a size-driven carve. Current roles and accepted extractions are in
   `docs/planning/engine/architecture.md` and `docs/planning/tracks.md`.
 

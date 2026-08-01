@@ -1,7 +1,7 @@
 # Portal tutorial
 
 This example is a deliberately small Bevy host for Ambition's reusable portal crates.
-It uses the actual `ambition_portal` simulation and `ambition_portal_presentation`
+It uses the actual `ambition_portal2d` simulation and `ambition_portal2d_presentation`
 renderer without loading LDtk, the portal gun, Ambition content, or the full game app.
 
 Run it from the repository root:

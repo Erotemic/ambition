@@ -22,7 +22,7 @@ pub fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
 // and their OneWay handling did not differentiate above-vs-below
 // approaches — a hostile NPC chasing the player could not drop
 // through a one-way platform, breaking the chase. Both paths now
-// route through `ambition_engine_core::step_kinematic`, which mirrors
+// route through `ambition_platformer2d_core::step_kinematic`, which mirrors
 // the player's sweep semantics exactly. Don't reintroduce the
 // old helpers; if a new caller needs collision-aware motion, add
 // it through `KinematicBody`.
@@ -148,7 +148,7 @@ mod util_tests {
 }
 
 use ambition_characters::actor::BodyCombat;
-use ambition_engine_core::{BodyOffense, BodyShieldState};
+use ambition_platformer2d_core::{BodyOffense, BodyShieldState};
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 use bevy::prelude::MessageWriter;
 

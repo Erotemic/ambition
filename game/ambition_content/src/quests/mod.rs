@@ -6,7 +6,7 @@
 //! still live in `crate::quest`; this module only owns the
 //! decision to register the default roster as a sandbox resource.
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 /// Installs the default Ambition quest registry resource.
@@ -26,12 +26,12 @@ impl Plugin for AmbitionQuestContentPlugin {
         app.add_systems(
             sim,
             crate::quest::grant_quest_completion_rewards
-                .in_set(ambition_actors::boss_encounter::ContentQuestRewardSet),
+                .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentQuestRewardSet),
         );
         app.add_systems(
             sim,
             crate::quest::populate_quest_registry
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::Progression),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::Progression),
         );
     }
 }

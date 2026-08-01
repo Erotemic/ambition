@@ -14,7 +14,7 @@ use ambition_app::{AgentAction, SandboxSim};
 fn enemy_hps(sim: &mut SandboxSim) -> Vec<i32> {
     let mut q = sim
         .world_mut()
-        .query::<&ambition::characters::actor::BodyHealth>();
+        .query::<&ambition_platformer2d::characters::actor::BodyHealth>();
     q.iter(sim.world()).map(|h| h.health.current).collect()
 }
 

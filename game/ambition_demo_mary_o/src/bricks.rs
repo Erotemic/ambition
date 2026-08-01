@@ -18,12 +18,12 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::PrimaryPlayer;
-use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::features::FeatureEcsWorldOverlay;
-use ambition::actors::rooms::RoomLoaded;
-use ambition::engine_core as ae;
-use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::features::FeatureEcsWorldOverlay;
+use ambition_platformer2d::actors::rooms::RoomLoaded;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 
 use crate::{brick_index_for, brick_min, brick_name, BRICK_COUNT, LEVEL_1_1_ROOM_ID, T};
 
@@ -72,8 +72,8 @@ impl BrokenBricks {
 /// ?-block OR a brick (their `GeoId` base indices are disjoint), never both.
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
-    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
 ) {
     let Ok(frame) = players.single() else {
@@ -94,12 +94,12 @@ pub fn break_bricks(
             // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
             let center = brick_min(i) + ae::Vec2::splat(T * 0.5);
-            vfx.write(ambition::vfx::VfxMessage::Burst {
+            vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
                 pos: center,
                 count: 14,
                 speed: 155.0,
                 color: [0.72, 0.35, 0.22, 1.0],
-                kind: ambition::vfx::ParticleKind::Shard,
+                kind: ambition_platformer2d::vfx::ParticleKind::Shard,
             });
             // ...and cracks, through the engine's shared cue seam. PLACEHOLDER
             // TIMBRE: this reuses the existing `Hit` cue rather than inventing a
@@ -114,7 +114,7 @@ pub fn break_bricks(
             // smasher.
             sfx.write_from(
                 crate::provider::MARY_O_EXPERIENCE,
-                ambition::sfx::SfxMessage::Hit { pos: center },
+                ambition_platformer2d::sfx::SfxMessage::Hit { pos: center },
             );
         }
     }
@@ -138,7 +138,7 @@ pub fn refill_bricks_on_room_loaded(
 /// encounter gates use to DROP authored blocks without editing the base). This is
 /// what actually removes a broken brick from every collision read AND, via the
 /// render reconcile, from the drawn world. Runs AFTER
-/// [`rebuild_feature_ecs_world_overlay`](ambition::actors::features::rebuild_feature_ecs_world_overlay)
+/// [`rebuild_feature_ecs_world_overlay`](ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay)
 /// clears the list (its clean-slate-per-frame contract), exactly as
 /// `contribute_encounter_lock_walls` does for `gate_solids`.
 pub fn contribute_broken_bricks_to_overlay(
@@ -177,17 +177,17 @@ mod tests {
     fn break_app() -> App {
         let mut app = App::new();
         app.init_resource::<BrokenBricks>();
-        app.add_message::<ambition::vfx::VfxMessage>();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, break_bricks);
         app
     }
 
     fn drain_bursts(app: &mut App) -> usize {
         app.world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<ambition::vfx::VfxMessage>>()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::VfxMessage>>()
             .drain()
-            .filter(|m| matches!(m, ambition::vfx::VfxMessage::Burst { .. }))
+            .filter(|m| matches!(m, ambition_platformer2d::vfx::VfxMessage::Burst { .. }))
             .count()
     }
 

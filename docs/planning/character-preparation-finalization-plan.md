@@ -133,7 +133,7 @@ kept only preparation fragments. Green tests, wrong game — and it would read a
 a preparation bug rather than a lifecycle one.
 
 ✔ **LANDED AHEAD OF THE WORK THAT NEEDS IT:**
-`ambition_runtime::{finalize, finalize_and_update}`, with a test pinning that a
+`ambition_platformer2d_runtime::{finalize, finalize_and_update}`, with a test pinning that a
 hand-driven `update` leaves plugins unfinished. The audit now has one place to
 point at instead of scattered hand-written `finish()` calls, and if Bevy ever
 changes this the test says so rather than the helper silently becoming dead

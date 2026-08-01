@@ -48,7 +48,7 @@ engine work or as provider work rather than a demo-shaped core hack.
 [`fixtures/external_consumer/`](../../fixtures/external_consumer/) (Outlander)
 runs it adversarially: a room, character, enemy, recipe, and transition authored
 from OUTSIDE the workspace — own `[workspace]`, own lockfile, no policy
-exemptions — through the `ambition` umbrella alone, gated by `external consumer:
+exemptions — through the `ambition_platformer2d` umbrella alone, gated by `external consumer:
 outlander` in `scripts/run_tests.py`, with every engine-internal assumption it
 must lean on recorded as a named API leak.
 
@@ -60,7 +60,7 @@ must lean on recorded as a named API leak.
    possession as brain transfer), data-driven combat (movesets, volumes,
    knockback), authored space through backend-agnostic IR, deterministic
    headless simulation, and a plugin-group bootstrap
-   (`ambition_runtime::PlatformerEnginePlugins`) plus an explicit provider/host
+   (`ambition_platformer2d_runtime::PlatformerEnginePlugins`) plus an explicit provider/host
    composition path that keeps product apps focused on product policy.
 2. **Ambition, the game** — the flagship content crate
    ([`game/`](game/)): *"Every upgrade a theorem, every boss a failed
@@ -87,7 +87,7 @@ must lean on recorded as a named API leak.
   **Extensibility, pluggability, and agent navigation remain the highest
   priority** — but the mechanism changed as the decomposition landed: the
   2026-07-16 recon settled that there is **no further size-driven
-  `ambition_actors` carve** ([`engine/decomposition.md`](engine/decomposition.md)
+  `ambition_platformer2d_actor_monolith` carve** ([`engine/decomposition.md`](engine/decomposition.md)
   "Settled ruling"); what remains is **role-driven eviction** — misplaced
   product/presentation/observation code leaves the sim heart through the
   open seams (the `ControlPrompt` inversion pattern), and navigability below

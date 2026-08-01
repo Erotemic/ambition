@@ -1,7 +1,7 @@
 //! Device adapters that build the engine-owned `ControlFrame` resource.
 //!
 //! The pure, brain-facing [`ControlFrame`] vocabulary lives in
-//! `ambition_engine_core`; this module is the input adapter that translates
+//! `ambition_platformer2d_core`; this module is the input adapter that translates
 //! Leafwing `SandboxAction`s, control settings, and trigger hysteresis into that
 //! frame. Headless/replay/netcode callers can construct `ControlFrame` directly
 //! without depending on this crate.
@@ -11,7 +11,7 @@ use bevy::prelude::Resource;
 use leafwing_input_manager::prelude::ActionState;
 
 #[cfg(feature = "input")]
-use ambition_engine_core::ControlFrame;
+use ambition_platformer2d_core::ControlFrame;
 
 #[cfg(feature = "input")]
 use crate::actions::SandboxAction;

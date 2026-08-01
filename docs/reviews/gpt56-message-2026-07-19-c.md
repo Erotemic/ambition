@@ -101,7 +101,7 @@ Also verify the desired pause semantics. Current code suppresses controlled-body
 
 The active Ambition content path installs provider data through process-global, first-install-wins storage:
 
-* `ambition_ldtk_map::WORLD_MANIFEST`;
+* `ambition_platformer2d_ldtk::WORLD_MANIFEST`;
 * `ambition_encounter::ENCOUNTER_WAVE_BOOK`;
 * `ambition_items::ITEM_CATALOG_OVERRIDE`.
 
@@ -160,7 +160,7 @@ Longer term, treat this as evidence that session-affine state should increasingl
 
 **[root-caused]**
 
-`ambition_platformer_primitives::math` selects portal mapping through a global `AtomicBool`. Portal math reads that hidden process-global policy.
+`ambition_platformer2d_shared_tangle::math` selects portal mapping through a global `AtomicBool`. Portal math reads that hidden process-global policy.
 
 This prevents independent Apps/providers from choosing different conventions, contaminates tests, and leaves an authoritative simulation input outside rollback/session identity.
 
@@ -190,7 +190,7 @@ The shipping configuration should explicitly choose its simulation host and comp
 
 **[observed]**
 
-The `ambition` facade re-exports nearly every internal crate. The developed demos still assemble or consume internal concepts such as editable tuning, LDtk runtime indexes, room-content staging, boss catalogs, placement lowering, and explicit simulation setup. Their visible shells repeat host, asset, presentation, and audio composition.
+The `ambition_platformer2d` facade re-exports nearly every internal crate. The developed demos still assemble or consume internal concepts such as editable tuning, LDtk runtime indexes, room-content staging, boss catalogs, placement lowering, and explicit simulation setup. Their visible shells repeat host, asset, presentation, and audio composition.
 
 This proves dependency direction better than it proves usability.
 

@@ -116,7 +116,7 @@ pub struct HazardSpec {
 /// components) so it lives in the Tier-0 catalog; the interaction runtime
 /// lowers it into live components at room load.
 ///
-/// Moved down from `ambition_world::rooms` (fable audit F9.2 IR consolidation):
+/// Moved down from `ambition_platformer2d_world::rooms` (fable audit F9.2 IR consolidation):
 /// interactables now flow through the single `PlacementRecord` channel, so the
 /// schema payload and the world IR share ONE pure type instead of a mirror.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -167,7 +167,7 @@ pub enum InteractionKindSpec {
 /// The authored pickup schema — a collectible's reward category, respawn
 /// policy, and collected flag. Fully plain data; the interaction runtime lowers
 /// it to a live pickup component at room load. Moved down from
-/// `ambition_world::rooms` (fable audit F9.2) so the schema and world IR share
+/// `ambition_platformer2d_world::rooms` (fable audit F9.2) so the schema and world IR share
 /// ONE pure type carried on the single `PlacementRecord` channel.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PickupSpec {
@@ -214,7 +214,7 @@ pub enum PickupKindSpec {
 
 /// The authored chest schema — open/closed state, an optional reward, and a
 /// persistence flag. Fully plain data; the interaction runtime lowers it to a
-/// live chest at room load. Moved down from `ambition_world::rooms` (fable audit
+/// live chest at room load. Moved down from `ambition_platformer2d_world::rooms` (fable audit
 /// F9.2) onto the single `PlacementRecord` channel.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
@@ -286,7 +286,7 @@ impl BreakableCollisionSpec {
 
 /// The authored breakable schema — destructible platform/orb with health,
 /// collision, trigger, and debris cue. Fully plain data; lowered to a live
-/// breakable at room load. Moved down from `ambition_world::rooms` (fable audit
+/// breakable at room load. Moved down from `ambition_platformer2d_world::rooms` (fable audit
 /// F9.2) onto the single `PlacementRecord` channel.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BreakableSpec {
@@ -327,7 +327,7 @@ pub enum BreakableStateSpec {
 /// Authored/runtime portal channel color. A pure enum (mirrors the Ambition
 /// portal crate's color vocabulary) so it lives in the Tier-0 catalog; portal
 /// lowerings map it to their runtime channel at the sim edge. Moved down from
-/// `ambition_world::rooms` (fable audit F9.2).
+/// `ambition_platformer2d_world::rooms` (fable audit F9.2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PortalChannelColorSpec {
     Purple,
@@ -389,7 +389,7 @@ impl PortalChannelColorSpec {
 }
 
 /// The authored static-portal schema (the Tier-0 MIRROR of the runtime-facing
-/// `ambition_world::rooms::PortalSpec`). Unlike the other placement families,
+/// `ambition_platformer2d_world::rooms::PortalSpec`). Unlike the other placement families,
 /// the runtime spec carries `Vec2` (`pos`/`normal`) and cannot itself live in
 /// Tier-0, so this plain mirror stores `normal` as a pair and DERIVES the face
 /// center from the placement record's `aabb.center()` at lowering time (the

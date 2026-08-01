@@ -12,8 +12,8 @@
     "minimal_game": true,
     "notes": "Both faces, and it verified the game is REAL: character spawns at (320,240), falls to rest at y=296 on a floor whose top face is y=320, walks right under axis_x 1.0, stops at x=585 against the wall at x=624. Windowed composition verified end-to-end (logs 4/4 parallax layers, so PlatformerAssetsPlugin genuinely ran); a real window is impossible on this box."
   },
-  "first_engine_file_opened": "crates/ambition (directory listing, then cargo doc)",
-  "first_engine_file_reason": "Where `Block`, `Vec2` and `AuthoredWorld` live. The README's worked example CALLS `Block::solid` and never says which module exports it; `ambition::app::prelude` carries `RoomSpec` but not `Block`; and api-prototype.md \u00a75 ACTIVELY DENIED `ambition::world::prelude` exists. One documentation sentence, two engine crates opened.",
+  "first_engine_file_opened": "crates/ambition_platformer2d (directory listing, then cargo doc)",
+  "first_engine_file_reason": "Where `Block`, `Vec2` and `AuthoredWorld` live. The README's worked example CALLS `Block::solid` and never says which module exports it; `ambition_platformer2d::app::prelude` carries `RoomSpec` but not `Block`; and api-prototype.md \u00a75 ACTIVELY DENIED `ambition_platformer2d::world::prelude` exists. One documentation sentence, two engine crates opened.",
   "engine_api_surfaces_read": [
     {
       "crate": "ambition",
@@ -21,7 +21,7 @@
       "looking_for": "ModuleDraft's method signatures and MINIMAL_CHARACTER_ROSTER_RON's character id, which the README did not state"
     },
     {
-      "crate": "ambition_world",
+      "crate": "ambition_platformer2d_world",
       "via": "cargo doc",
       "looking_for": "RoomSpec::new / AuthoredWorld::new / Block::solid signatures"
     }
@@ -42,7 +42,7 @@
       "id": "api-prototype-5-DENIED-a-module-that-exists",
       "severity": "highest",
       "closed": true,
-      "summary": "\u00a75 said `ambition::world::prelude` and `ambition::character::prelude` 'are slice-B surfaces and are not invented here'. `world::prelude` shipped in slice C. Written in slice A, made false in slice C, read by a consumer in slice F.",
+      "summary": "\u00a75 said `ambition_platformer2d::world::prelude` and `ambition_platformer2d::character::prelude` 'are slice-B surfaces and are not invented here'. `world::prelude` shipped in slice C. Written in slice A, made false in slice C, read by a consumer in slice F.",
       "why_it_matters": "THIRD stale-doc finding in four runs, and the pattern is now the finding: a doc that enumerates what does NOT exist must be re-read every time something starts existing, and nothing enforces that. \u00a75 is explicitly an OUTPUT read off the call sites, which makes it the most trustworthy-looking list in the SDK."
     },
     {
@@ -87,7 +87,7 @@
     "The bevy_winit panic text was quoted accurately enough to be recognised instantly \u2014 'the single most useful sentence in that document'.",
     "`host_status`/`is_running`/`is_refused`: 'precisely the API I would have wanted and would otherwise have faked with world().entities().len()'.",
     "`no_audio()` flagged as not cosmetic meant it never hit the Activating hang.",
-    "`ambition::actor` + `ambition::sim` let it prove the character WALKS \u2014 'the difference between this report and one that says it compiled'.",
+    "`ambition_platformer2d::actor` + `ambition_platformer2d::sim` let it prove the character WALKS \u2014 'the difference between this report and one that says it compiled'.",
     "The patch-table rev matched the workspace root verbatim."
   ],
   "verdict": "Closest run yet: 2 surfaces, both cargo doc, and the only reason for either was one sentence in an SDK doc that denied a shipped module existed. Run 4's own summary is the campaign's status in one line \u2014 host composition is documented well enough to work blind; authoring a room was not."

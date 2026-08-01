@@ -126,7 +126,7 @@ semantics. Hard requirements: gameplay geometry stays on BASE data
 root becomes a declared runtime root in `asset_publish` + hygiene once
 installed. *Acceptance:* the prop renders from a shared page in the real
 app at two different quality tiers; all existing sprite tests pass.
-*Validate:* `cargo test -p ambition_sprite_sheet -p ambition_actors`,
+*Validate:* `cargo test -p ambition_sprite_sheet -p ambition_platformer2d_actor_monolith`,
 then `/verify` in-app.
 
 ### W3 [opus] Fold the ~11 bespoke targets into ultrapacking
@@ -520,7 +520,7 @@ Examples:
 ```text
 tools/.../authoring/
 tools/.../scores/
-crates/ambition_actors/assets/data/
+crates/ambition_platformer2d_actor_monolith/assets/data/
 source art directories
 ```
 
@@ -545,19 +545,19 @@ Files the game loads.
 Current transitional roots may include:
 
 ```text
-crates/ambition_actors/assets/sprites/
-crates/ambition_actors/assets/sprites_0_5x/
-crates/ambition_actors/assets/sprites_0_25x/
-crates/ambition_actors/assets/sprites_potato/
-crates/ambition_actors/assets/data/
+crates/ambition_platformer2d_actor_monolith/assets/sprites/
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x/
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x/
+crates/ambition_platformer2d_actor_monolith/assets/sprites_potato/
+crates/ambition_platformer2d_actor_monolith/assets/data/
 ```
 
 Long-term roots should move toward:
 
 ```text
-crates/ambition_actors/assets/data/entities/
-crates/ambition_actors/assets/data/presentation/
-crates/ambition_actors/assets/sprite_packs/<quality>/
+crates/ambition_platformer2d_actor_monolith/assets/data/entities/
+crates/ambition_platformer2d_actor_monolith/assets/data/presentation/
+crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<quality>/
 ```
 
 ### Diagnostics
@@ -636,11 +636,11 @@ Example:
     generated_at: "2026-07-01T00:00:00Z",
 
     runtime_roots: [
-        "crates/ambition_actors/assets/sprites",
-        "crates/ambition_actors/assets/sprites_0_5x",
-        "crates/ambition_actors/assets/sprites_0_25x",
-        "crates/ambition_actors/assets/sprites_potato",
-        "crates/ambition_actors/assets/data",
+        "crates/ambition_platformer2d_actor_monolith/assets/sprites",
+        "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x",
+        "crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x",
+        "crates/ambition_platformer2d_actor_monolith/assets/sprites_potato",
+        "crates/ambition_platformer2d_actor_monolith/assets/data",
     ],
 
     installed: [
@@ -649,14 +649,14 @@ Example:
             kind: "sheet_record",
             quality: "high",
             source: "target/ambition_publish/high/goblin_spritesheet.ron",
-            destination: "crates/ambition_actors/assets/sprites/goblin_spritesheet.ron",
+            destination: "crates/ambition_platformer2d_actor_monolith/assets/sprites/goblin_spritesheet.ron",
         ),
         (
             logical_id: "sprite.goblin.basic.high.page",
             kind: "image_page",
             quality: "high",
             source: "target/ambition_publish/high/goblin.png",
-            destination: "crates/ambition_actors/assets/sprites/goblin.png",
+            destination: "crates/ambition_platformer2d_actor_monolith/assets/sprites/goblin.png",
         ),
     ],
 
@@ -1094,8 +1094,8 @@ scripts/generate_visual_quality_variants.py
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/registry/discovery.py
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/actor_contract.py
 crates/ambition_sprite_sheet/build.rs
-crates/ambition_actors/src/character_sprites/
-crates/ambition_actors/src/assets/sandbox_assets/
+crates/ambition_platformer2d_actor_monolith/src/character_sprites/
+crates/ambition_platformer2d_actor_monolith/src/assets/sandbox_assets/
 ```
 
 Likely useful existing facts:
@@ -1170,7 +1170,7 @@ Do not build a huge matrix in the first pass.
 Suggested commands for a first implementation slice:
 
 ```bash
-cargo test -p ambition_actors publish_manifest
+cargo test -p ambition_platformer2d_actor_monolith publish_manifest
 cargo test -p ambition_asset_manager asset_publish
 ```
 
@@ -1186,7 +1186,7 @@ Also run the relevant existing visual-quality or sprite-loader tests if they exi
 Finish with:
 
 ```bash
-cargo test -p ambition_actors
+cargo test -p ambition_platformer2d_actor_monolith
 cargo fmt --check
 ```
 

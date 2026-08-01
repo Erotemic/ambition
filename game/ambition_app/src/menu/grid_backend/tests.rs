@@ -1,11 +1,11 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
-use ambition::actors::actor::BodyMana;
-use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::characters::brain::ActionSet;
-use ambition::items::Item;
-use ambition::platformer::schedule::GameMode;
-use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
+use ambition_platformer2d::actors::actor::BodyMana;
+use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::items::Item;
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
 /// new frontend (not back on Inventory). The cube stores the page in
@@ -16,7 +16,7 @@ fn backend_switch_carries_the_active_page() {
     let mut app = grid_app();
     app.add_systems(Update, sync_menu_page_across_backend_switch);
     app.world_mut()
-        .resource_mut::<ambition::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
         .visible = true;
 
     // Open on the cube, System page; the first update snapshots the current page.
@@ -65,19 +65,19 @@ fn grid_app() -> App {
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition::dev_tools::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition::dev_tools::SandboxDevState>();
-    app.init_resource::<ambition::actors::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition::actors::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition::dev_tools::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+    app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition::inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition::menu::map::MapMenuState>();
+    app.init_resource::<ambition_platformer2d::inventory_ui::InventoryUiState>();
+    app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
-    app.init_resource::<ambition::input::ActiveInputKind>();
+    app.init_resource::<ambition_platformer2d::input::ActiveInputKind>();
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_observer(grid_menu_pointer_hover);
     app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());
@@ -104,7 +104,7 @@ fn active_tab(app: &App) -> MenuPage {
 
 fn is_open(app: &App) -> bool {
     app.world()
-        .resource::<ambition::inventory_ui::InventoryUiState>()
+        .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
         .visible
 }
 
@@ -349,7 +349,7 @@ fn back_closes_and_respects_opened_from_pause() {
     assert!(is_open(&app));
     assert!(
         app.world()
-            .resource::<ambition::inventory_ui::InventoryUiState>()
+            .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
             .opened_from_pause,
         "opened while already Paused records opened_from_pause"
     );
@@ -553,8 +553,8 @@ fn up_from_non_top_row_stays_in_body() {
 // ----- Pointer bug-fix coverage -----------------------------------------
 
 use crate::menu::test_support::{spawn_control, trigger_over};
-use ambition::menu::render::bevy_ui::BevyUiMenuTab;
-use ambition::menu::AmbitionMenuControl;
+use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
+use ambition_platformer2d::menu::AmbitionMenuControl;
 
 fn press_interaction(app: &mut App, entity: Entity) {
     app.world_mut()
@@ -839,8 +839,8 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
 /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
-    use ambition::input::ActiveInputKind;
-    use ambition::items::Item;
+    use ambition_platformer2d::input::ActiveInputKind;
+    use ambition_platformer2d::items::Item;
 
     let mut app = grid_app();
     // Open the menu so the hover handler's `overlay.visible` guard passes.
@@ -883,14 +883,14 @@ fn hover_is_gated_on_active_input_being_mouse() {
 fn scroll_grid_app() -> App {
     let mut app = grid_app();
     app.add_message::<bevy::input::mouse::MouseWheel>();
-    app.add_message::<ambition::menu::MenuScrollDragged>();
+    app.add_message::<ambition_platformer2d::menu::MenuScrollDragged>();
     app.add_systems(
         Update,
         (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag).before(grid_menu_nav),
     );
     // Open on the System tab, drilled into Developer (the long, scrollable list).
     app.world_mut()
-        .resource_mut::<ambition::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
         .visible = true;
     {
         let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();
@@ -1008,8 +1008,8 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     // A hover (cursor-follow) moves the CURSOR but, with the override set, the
     // EFFECTIVE window stays at the override — hovering does not scroll the list.
     *app.world_mut()
-        .resource_mut::<ambition::input::ActiveInputKind>() =
-        ambition::input::ActiveInputKind::Mouse;
+        .resource_mut::<ambition_platformer2d::input::ActiveInputKind>() =
+        ambition_platformer2d::input::ActiveInputKind::Mouse;
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(MenuFocus::System(0));
@@ -1044,8 +1044,8 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the BOTTOM of the track (fraction 1.0) → window_start == max.
     app.world_mut()
-        .resource_mut::<Messages<ambition::menu::MenuScrollDragged>>()
-        .write(ambition::menu::MenuScrollDragged { fraction: 1.0 });
+        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
+        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 1.0 });
     app.update();
     assert_eq!(
         grid_window_start(&app),
@@ -1055,8 +1055,8 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the MIDDLE (fraction 0.5) → ~half the range.
     app.world_mut()
-        .resource_mut::<Messages<ambition::menu::MenuScrollDragged>>()
-        .write(ambition::menu::MenuScrollDragged { fraction: 0.5 });
+        .resource_mut::<Messages<ambition_platformer2d::menu::MenuScrollDragged>>()
+        .write(ambition_platformer2d::menu::MenuScrollDragged { fraction: 0.5 });
     app.update();
     assert_eq!(
         grid_window_start(&app),

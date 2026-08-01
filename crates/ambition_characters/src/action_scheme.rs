@@ -19,7 +19,7 @@
 //! base; a content technique OVERRIDES whatever base action shares its slot
 //! (Sanic's spin claims the Attack slot in place of any moveset attack).
 
-use ambition_engine_core::{AbilitySet, Edge};
+use ambition_platformer2d_core::{AbilitySet, Edge};
 use ambition_entity_catalog::action_scheme::{
     ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot, CANONICAL_SLOT_ORDER,
 };
@@ -119,7 +119,7 @@ fn clear_attack(control: &mut ActorControlFrame) {
     control.melee_released = false;
     control.melee_strong_hint = false;
     control.pogo_pressed = false;
-    control.attack_axis = ambition_engine_core::Vec2::ZERO;
+    control.attack_axis = ambition_platformer2d_core::Vec2::ZERO;
 }
 
 /// Clear the ranged/charge device verbs on the Projectile slot.
@@ -601,7 +601,7 @@ mod tests {
             ControlSlot::Projectile => {
                 control.projectile_pressed = true;
                 control.fire = Some(ActorFireRequest::world_space(
-                    ambition_engine_core::Vec2::X,
+                    ambition_platformer2d_core::Vec2::X,
                     1.0,
                 ));
             }

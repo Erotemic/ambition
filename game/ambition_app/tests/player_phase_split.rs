@@ -13,8 +13,8 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::PrimaryPlayerOnly;
-use ambition::engine_core::MovementOp;
+use ambition_platformer2d::actors::actor::PrimaryPlayerOnly;
+use ambition_platformer2d::engine_core::MovementOp;
 use ambition_app::app::PlayerBodyFrameOutput;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};

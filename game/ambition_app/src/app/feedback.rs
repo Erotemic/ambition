@@ -1,9 +1,9 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition::combat::{GameplayBanner, HitEvent, ResetRoomFeaturesEvent};
-use ambition::sfx::SfxWriter;
-use ambition::vfx::VfxMessage;
+use ambition_platformer2d::combat::{GameplayBanner, HitEvent, ResetRoomFeaturesEvent};
+use ambition_platformer2d::sfx::SfxWriter;
+use ambition_platformer2d::vfx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
 /// the player tick (and the `player_body_phase` helper it calls) writes
@@ -44,13 +44,13 @@ pub struct SandboxQueues<'w> {
     /// split `DamageEvent` + `PogoBounceEvent` writers.
     pub hit_events: MessageWriter<'w, HitEvent>,
     pub reset_room_features: MessageWriter<'w, ResetRoomFeaturesEvent>,
-    pub feature_ecs_overlay: Res<'w, ambition::platformer::feature_overlay::FeatureEcsWorldOverlay>,
-    pub dialogue: ResMut<'w, ambition::dialog::DialogState>,
-    pub physics_settings: Res<'w, ambition::actors::world::physics::PhysicsSandboxSettings>,
-    pub moving_platforms: ResMut<'w, ambition::world::collision::MovingPlatformSet>,
-    pub sim_state: ResMut<'w, ambition::actors::SandboxSimState>,
-    pub clock: ResMut<'w, ambition::time::ClockState>,
-    pub dev_state: ResMut<'w, ambition::dev_tools::SandboxDevState>,
+    pub feature_ecs_overlay: Res<'w, ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>,
+    pub dialogue: ResMut<'w, ambition_platformer2d::dialog::DialogState>,
+    pub physics_settings: Res<'w, ambition_platformer2d::actors::world::physics::PhysicsSandboxSettings>,
+    pub moving_platforms: ResMut<'w, ambition_platformer2d::world::collision::MovingPlatformSet>,
+    pub sim_state: ResMut<'w, ambition_platformer2d::actors::SandboxSimState>,
+    pub clock: ResMut<'w, ambition_platformer2d::time::ClockState>,
+    pub dev_state: ResMut<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.
@@ -62,13 +62,13 @@ pub struct SandboxQueues<'w> {
 /// behind a single param both keeps the budget headroom and documents
 /// the intentional read-only contract: HUD systems must not mutate
 /// progression state. Mutators live in the producer side
-/// (the player tick, `ambition::actors::quest`, `ambition::actors::boss_encounter`, etc.).
+/// (the player tick, `ambition_platformer2d::actors::quest`, `ambition_platformer2d::actors::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, ambition_content::quest::QuestRegistry>,
-    pub cutscene: Res<'w, ambition::cutscene::ActiveCutscene>,
-    pub cutscene_request: Res<'w, ambition::cutscene::CutsceneAdvanceRequest>,
-    pub bosses: Res<'w, ambition::actors::boss_encounter::BossEncounterRegistry>,
-    pub map: Res<'w, ambition::menu::map::MapMenuState>,
+    pub cutscene: Res<'w, ambition_platformer2d::cutscene::ActiveCutscene>,
+    pub cutscene_request: Res<'w, ambition_platformer2d::cutscene::CutsceneAdvanceRequest>,
+    pub bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossEncounterRegistry>,
+    pub map: Res<'w, ambition_platformer2d::menu::map::MapMenuState>,
     pub banner: Res<'w, GameplayBanner>,
 }

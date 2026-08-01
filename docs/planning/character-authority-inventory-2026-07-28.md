@@ -49,10 +49,10 @@ Eight files. This is the complete list, and it is the one that must shrink to
 
 | file | class |
 |---|---|
-| `crates/ambition_actors/src/avatar/starting_character.rs` | **production body construction** — the one writer for a worn body's persona. The action-set/moveset precedence lives here. |
-| `crates/ambition_actors/src/character_runtime/seating.rs` | **production body construction** — match seating. |
-| `crates/ambition_actors/src/character_runtime/presentation.rs` | **runtime behaviour** — per-body presentation source, cue authorization, sprite declarations. |
-| `crates/ambition_actors/src/character_runtime/audit.rs` | **diagnostics** — legitimately outside the campaign. |
+| `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs` | **production body construction** — the one writer for a worn body's persona. The action-set/moveset precedence lives here. |
+| `crates/ambition_platformer2d_actor_monolith/src/character_runtime/seating.rs` | **production body construction** — match seating. |
+| `crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs` | **runtime behaviour** — per-body presentation source, cue authorization, sprite declarations. |
+| `crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs` | **diagnostics** — legitimately outside the campaign. |
 | `game/ambition_app/src/app/startup_loading.rs` | **preparation** — art demand at load. |
 | `game/ambition_app/src/app/world_flow/room_transition_assets.rs` | **preparation** — room-scoped art demand (4 sites). |
 

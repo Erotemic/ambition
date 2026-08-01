@@ -88,9 +88,9 @@ authority" describes the destination.
 
 ### What changed structurally, so you do not re-derive it
 
-`crates/ambition_actors/src/character_runtime/` is new and is the answer to §2.
+`crates/ambition_platformer2d_actor_monolith/src/character_runtime/` is new and is the answer to §2.
 It owns `CharacterLoadDemand` → materializer → `CharacterLoadStates`, is added
-unconditionally by the engine plugin group in `ambition_runtime/src/lib.rs`, and
+unconditionally by the engine plugin group in `ambition_platformer2d_runtime/src/lib.rs`, and
 **no application can compose the engine without it**. Applications declare and
 submit demand; they never decode. `audit.rs` holds the readiness invariant and
 the capability audit; `staging.rs` holds the three §4.8 projections.
@@ -208,7 +208,7 @@ Every claim below was checked against the source on 2026-07-26.
 
 ### 3.1 The privileged four
 - `EAGER_CHARACTER_IDS = ["player", "robot", "goblin", "sandbag"]` —
-  `crates/ambition_actors/src/character_sprites/assets.rs:277`.
+  `crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs:277`.
 - `CharacterSpriteAssets` has hardcoded `player` / `robot` / `goblin` /
   `sandbag` fields and a `deferred_npcs` map —
   `crates/ambition_sprite_sheet/src/character/assets.rs:12-33`.
@@ -234,9 +234,9 @@ Every claim below was checked against the source on 2026-07-26.
   input → `Neutral` — `crates/ambition_combat/src/moveset/mod.rs:600-616`. So
   **jab ≡ ftilt and nair ≡ fair are the same value**, not merely unresolved.
 - `ControlFrame` has `attack_pressed` and **no held/released** —
-  `crates/ambition_engine_core/src/control_frame.rs:64`.
+  `crates/ambition_platformer2d_core/src/control_frame.rs:64`.
 - Special is non-directional: `move_for_verb("special")` —
-  `crates/ambition_actors/src/action_scheme.rs:235`.
+  `crates/ambition_platformer2d_actor_monolith/src/action_scheme.rs:235`.
 - `directional_verb_chain` resolves **most-specific-first with fallback to the
   base verb**, so adding `Forward` is purely additive: existing movesets keep
   resolving to `attack`, and `attack_forward` is a new optional verb id.
@@ -250,15 +250,15 @@ Every claim below was checked against the source on 2026-07-26.
 ### 3.3 Volume shapes already exist
 - `VolumeShape { Rect { offset, half_extents } | Circle { offset, radius } }` —
   `crates/ambition_entity_catalog/src/lib.rs:217-225`.
-- `ambition_engine_core::VolumeShape { Box, Obb }` —
-  `crates/ambition_engine_core/src/volume_shape.rs:32`.
+- `ambition_platformer2d_core::VolumeShape { Box, Obb }` —
+  `crates/ambition_platformer2d_core/src/volume_shape.rs:32`.
 - So the "rectangles only, or circles too?" question is already answered:
   **reuse `VolumeShape` for hurtboxes.** Rectangle-only would be an asymmetry
   between two volume kinds that get tested against each other, and Sanic in ball
   form wants a circle today.
 
 ### 3.4 Movement inheritance is silently composition-dependent
-- `resolve_movement_inheritance` — `crates/ambition_actors/src/features/enemies/mod.rs:600`.
+- `resolve_movement_inheritance` — `crates/ambition_platformer2d_actor_monolith/src/features/enemies/mod.rs:600`.
   Its own doc: *"a missing parent or a cycle falls back to the baseline rather
   than panicking (a malformed `inherits` is a data smell, not a crash)."*
 - It runs **after all provider fragments are merged** (`:796-804`), so
@@ -281,7 +281,7 @@ Every claim below was checked against the source on 2026-07-26.
 - So the retrofit is: put the emitting source on the message, resolve the
   provider from it. Much cheaper than it first appeared.
 - `PreparedContentIdentity { fingerprint_schema, fingerprint, snapshot_schema,
-  epoch }` — `crates/ambition_runtime/src/content_identity.rs:345`. Both
+  epoch }` — `crates/ambition_platformer2d_runtime/src/content_identity.rs:345`. Both
   fingerprint and epoch already exist; the character layer composes with this
   rather than inventing a parallel generation counter.
 
@@ -382,7 +382,7 @@ Fatal to *publication of the candidate content*, not to the process: on reload
 the last known-good prepared content stays active.
 
 **Inheritance is provider-local**, with cross-provider allowed only through an
-explicit qualified name (`ambition::heavy`) if at all. Unqualified global lookup
+explicit qualified name (`ambition_platformer2d::heavy`) if at all. Unqualified global lookup
 is exactly what makes content non-portable.
 
 ### 4.5 Presentation identity is stable, not a dense index

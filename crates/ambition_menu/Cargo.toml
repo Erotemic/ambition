@@ -13,7 +13,7 @@ kaleidoscope_menu = []
 
 [dependencies]
 # `default-features = false` is load-bearing for the WHOLE workspace: this crate
-# is a normal dep of ambition_actors and ambition_runtime, so Cargo feature
+# is a normal dep of ambition_platformer2d_actor_monolith and ambition_platformer2d_runtime, so Cargo feature
 # unification pushes whatever it asks for into every build of every app —
 # headless, web, Android, CI included. Plain `bevy = "0.18.1"` means
 # `default = [2d, 3d, ui]`, i.e. pbr/gltf/animation/audio/gilrs/hdr/ktx2/

@@ -32,7 +32,7 @@ use bevy::input::ButtonInput;
 use bevy::log::info;
 use bevy::prelude::{App, KeyCode, MouseButton, Plugin, Res, ResMut, Resource, Startup, Update};
 
-pub const AUDIO_LOG_TARGET: &str = "ambition::audio";
+pub const AUDIO_LOG_TARGET: &str = "ambition_platformer2d::audio";
 
 /// ECS-visible readiness signal for "is it safe to start playback?".
 ///

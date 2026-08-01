@@ -15,8 +15,8 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::projectile::EnemyProjectileSpawn;
 
 pub mod vfx;
 pub use vfx::{
@@ -140,7 +140,7 @@ pub struct HitboxLifetime {
 /// IS sim truth under rollback: a re-simulated strike volume restored without
 /// its hit-once memory re-hits every victim it already struck (the Phase-5
 /// second-hit desync). The whole strike-volume entity family snapshots
-/// through GGRS — see the `entity:hitbox` registration in `ambition_runtime`.
+/// through GGRS — see the `entity:hitbox` registration in `ambition_platformer2d_runtime`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct HitboxHits {
     pub hit: std::collections::HashSet<Entity>,

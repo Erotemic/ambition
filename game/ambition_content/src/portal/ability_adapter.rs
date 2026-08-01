@@ -8,7 +8,7 @@
 //! - [`suppress_ledge_grab_during_transit`] — while a body carries the
 //!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_actors::actor::BodyAbilities`, so it is Ambition
+//!   aperture edges. Touches `ambition_platformer2d_actor_monolith::actor::BodyAbilities`, so it is Ambition
 //!   glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
@@ -22,10 +22,10 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer_primitives::markers::ControlledSubject;
-use ambition_portal::pieces::portal_map_vec;
-use ambition_portal::{
+use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_portal2d::pieces::portal_map_vec;
+use ambition_portal2d::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
@@ -57,7 +57,7 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// re-applies every frame while the [`PortalTransit`] latch is present (robust
 /// against the primary player's per-frame F3 ability re-sync), and
 /// [`restore_wall_abilities_after_transit`] puts the verbs back from the body's
-/// own authored [`AbilityBase`](ambition_engine_core::AbilityBase) when the
+/// own authored [`AbilityBase`](ambition_platformer2d_core::AbilityBase) when the
 /// latch is removed — bodies outside the F3 re-sync (everything that isn't the
 /// primary player) would otherwise stay stripped forever.
 /// Gated on [`PortalTuning::suppress_wall_abilities`]. Runs before the movement
@@ -68,7 +68,7 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// portal crate (Stage 19 Phase 5a); identical-sim.
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
-    mut bodies: Query<&mut ambition_actors::actor::BodyAbilities, With<PortalTransit>>,
+    mut bodies: Query<&mut ambition_platformer2d_actor_monolith::actor::BodyAbilities, With<PortalTransit>>,
 ) {
     if !tuning.suppress_wall_abilities {
         return;
@@ -89,7 +89,7 @@ pub fn suppress_ledge_grab_during_transit(
 
 /// When a body's [`PortalTransit`] latch is removed (transit finished or
 /// aborted), restore the four wall verbs from its authored
-/// [`AbilityBase`](ambition_engine_core::AbilityBase). The primary player gets
+/// [`AbilityBase`](ambition_platformer2d_core::AbilityBase). The primary player gets
 /// this for free from the per-frame F3 ability re-sync, but that sync is
 /// primary-only — for every other body (a possessed actor, a wall-able enemy)
 /// the suppression in [`suppress_ledge_grab_during_transit`] would otherwise be
@@ -100,8 +100,8 @@ pub fn restore_wall_abilities_after_transit(
     tuning: Res<PortalTuning>,
     mut removed: RemovedComponents<PortalTransit>,
     mut bodies: Query<(
-        &mut ambition_actors::actor::BodyAbilities,
-        &ambition_engine_core::AbilityBase,
+        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+        &ambition_platformer2d_core::AbilityBase,
     )>,
 ) {
     if !tuning.suppress_wall_abilities {

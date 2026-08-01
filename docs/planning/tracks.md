@@ -55,7 +55,7 @@ by hardness × payoff; every item below is executable today per its own doc.
 2. ~~**FB6 rollout redesign** (track 6, [fable])~~ **DESIGNED AND
    IMPLEMENTED 2026-07-30** (fighter-brain.md §12, slices FB6a–e): the
    shadow-model rollout stack is in `brain::fighter::rollout`, striking with
-   the hit-response kernel carved to `ambition_engine_core::hit_response`,
+   the hit-response kernel carved to `ambition_platformer2d_core::hit_response`,
    with the determinism, bench, and real-sim fidelity instruments beside it.
    **Remaining in this track: FB4b, the decision rig — specced as
    fighter-brain.md §13, [opus, fable-specced].** It is what unlocks the
@@ -123,7 +123,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   .keyboard_preset_index` is the one source; `SandboxDevState.preset_index`
   DELETED (it had no writer — the picker was a no-op).
 - ✅ Portal composition + gate (`e4edd4acb`): host `portal` forwards
-  `ambition_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
+  `ambition_platformer2d_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
   host un-skipped in the runner.
 - ✅ Assist semantics — Jon decided 2026-07-19: **honest rename**. The
   halving stays; the UI now says "Damage assist — take half damage".
@@ -209,8 +209,8 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   gravity resolve, player tick, room flow, session setup/reset, the provider
   session builder, both demos, the host smoke fixture);
   `EditableMovementTuning` is now only an inspector mirror pushed through
-  `apply_editable_movement_tuning` in `DevEditApplySet`. `ambition_engine_core`
-  promoted dev-dep → dep in `ambition_platformer_provider` (no new graph edge;
+  `apply_editable_movement_tuning` in `DevEditApplySet`. `ambition_platformer2d_core`
+  promoted dev-dep → dep in `ambition_platformer2d_provider` (no new graph edge;
   actors already pulled it in). Remaining `EditableMovementTuning` references
   are editor paths only (inspector registration, settings/kaleidoscope
   writers, seeding, test fixtures) — verify with
@@ -274,7 +274,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     (`is_world_less()`), so the twin is deleted and the two procedural demos
     call the ordinary builder.
   - ⚠ Found by the change, not fixed by it:
-    `ambition_actors/examples/render_room_geometry.rs` loaded through the
+    `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs` loaded through the
     global while never installing one, so it panicked the moment it ran. The
     explicit parameter turned that into a compile error; the example now
     builds its own manifest and works.
@@ -487,7 +487,7 @@ implementation cannot accidentally violate either one.
 Deep-review §6 (all carve-doctrine-safe; the settled "no size-driven carve"
 ruling stands — these are ROLE moves, each with a named destination):
 
-- move `ambition_actors/src/menu/` (product Map-tab/settings-IR content) to the
+- move `ambition_platformer2d_actor_monolith/src/menu/` (product Map-tab/settings-IR content) to the
   game side; drop actors' menu/settings_menu edges;
 - invert `affordances/` behind a sim_view-style read model (the `ControlPrompt`
   precedent — decomposition.md names it the preferred direction); this removes
@@ -532,7 +532,7 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
   "player got hurt" burst); and a plain delete of the attacker-side blocks
   would REGRESS player feel, because the rich payload exists only there;
 - ~~fix the portal gun-visuals `BodyKinematics` read-model leak~~ **DONE
-  2026-07-19**, and it was hiding a real bug. `ambition_portal_presentation`
+  2026-07-19**, and it was hiding a real bug. `ambition_portal2d_presentation`
   now reads a host-published `PortalBodyView` (pos/size/facing) on two host
   seams — `PortalSceneBody` (whose sprite decomposes) and the new
   `PortalAffordanceBody` (who operates the portals). The crate no longer names
@@ -546,7 +546,7 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
   agree. Pinned by two host tests, the untag half poison-verified.
   **Deviation surfaced** (per the executor rule): the deep review said "pose
   views exist" — use them. They do, but `BodyPoseView` lives in
-  `ambition_sim_view`, which depends on `ambition_actors`; consuming it would
+  `ambition_sim_view`, which depends on `ambition_platformer2d_actor_monolith`; consuming it would
   add an upward edge the presentation crate's manifest explicitly forbids
   ("never a host crate"). Fixed with the crate's OWN host-seam idiom instead
   (the same shape as `PortalCameraContinuityHostView`).
@@ -629,12 +629,12 @@ Small non-blocking work when it does not collide with the campaigns:
   `docs/concepts/test-placement.md` says belong in an adjacent `src/foo/tests.rs`.
   Fixing it means either performing those moves or reviewing each and recording
   an accepted-inline marker — both are per-file judgement, not bookkeeping.
-  Files: `ambition_actors/src/{action_scheme.rs, features/ecs/autonomous_reconcile.rs}`,
+  Files: `ambition_platformer2d_actor_monolith/src/{action_scheme.rs, features/ecs/autonomous_reconcile.rs}`,
   `ambition_audio/src/catalog.rs`, `ambition_characters/src/{action_scheme.rs,
   actor/character_catalog/{binding.rs, mod.rs}, equipment.rs}`,
   `ambition_encounter/src/{lifecycle.rs, waves.rs}`,
-  `ambition_ldtk_map/src/conversion/mod.rs`,
-  `ambition_platformer_provider/src/lifecycle.rs`,
+  `ambition_platformer2d_ldtk/src/conversion/mod.rs`,
+  `ambition_platformer2d_provider/src/lifecycle.rs`,
   `ambition_sim_view/src/control_prompt.rs`,
   `ambition_touch_input/src/bevy_plugin.rs`,
   `ambition_content/src/presentation/dialog.rs`,

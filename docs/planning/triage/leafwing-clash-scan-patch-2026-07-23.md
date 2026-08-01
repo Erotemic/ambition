@@ -17,11 +17,11 @@ still pays full price, and no strategy value can avoid it from outside.
 
 ## What is already in place (no action needed)
 
-- `tune_clash_strategy_to_bindings` (`ambition_host`, 07bb6bd8c): derives the
+- `tune_clash_strategy_to_bindings` (`ambition_platformer2d_host`, 07bb6bd8c): derives the
   strategy from the live bindings — chord-free maps relax to `PressAll`; the
   frame any composed game authors a chorded binding it returns to
   `PrioritizeLongest`. Both directions pinned by
-  `cargo test -p ambition_host --features input`. Harmless today, becomes the
+  `cargo test -p ambition_platformer2d_host --features input`. Harmless today, becomes the
   payoff switch the moment the patched dep lands.
 - The exact patch, with rationale and wiring instructions:
   `dev/patches/leafwing-0.20-pressall-shortcircuit.patch` (5f92c96fa).

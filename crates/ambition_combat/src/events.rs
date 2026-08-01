@@ -10,7 +10,7 @@
 use super::*;
 
 // The feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`) moved
-// to `ambition_platformer_primitives::feature_kind` and the `FeatureView`
+// to `ambition_platformer2d_shared_tangle::feature_kind` and the `FeatureView`
 // read-model row to `ambition_sim_view` (recon C2): the taxonomy is foundation
 // vocabulary and the row is the read-model's own — neither is combat model.
 
@@ -55,11 +55,11 @@ pub enum HitMode {
 }
 
 // The hit-model VALUE types (`HitKnockback`, `HitKnockbackMagnitude`) moved to
-// the floor (`ambition_engine_core::hit_response`, FB6b) beside the pure
+// the floor (`ambition_platformer2d_core::hit_response`, FB6b) beside the pure
 // response math that consumes them, so the fighter brain's shadow rollout and
 // the authoritative victim path share ONE kernel. Combat remains the event
 // vocabulary's front door; producers keep naming them from here.
-pub use ambition_engine_core::hit_response::{HitKnockback, HitKnockbackMagnitude};
+pub use ambition_platformer2d_core::hit_response::{HitKnockback, HitKnockbackMagnitude};
 
 /// Relationship/AI stimuli observed by actors.
 ///

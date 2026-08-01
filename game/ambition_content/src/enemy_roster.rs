@@ -1,11 +1,11 @@
 //! THE Ambition hostile-archetype roster — named, authored game data.
 //!
-//! The machinery crate (`ambition_actors`) owns the generic schema and spawn
+//! The machinery crate (`ambition_platformer2d_actor_monolith`) owns the generic schema and spawn
 //! pipeline. This module contributes Ambition's immutable fragment to the
 //! current Bevy [`App`](bevy::prelude::App); no process-global install order is
 //! involved.
 
-use ambition_actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+use ambition_platformer2d_actor_monolith::features::{CharacterRosterAppExt, CharacterRosterFragment};
 use bevy::prelude::App;
 
 /// Provider identity used by every Ambition-authored catalog fragment.
@@ -34,7 +34,7 @@ mod tests {
         register(&mut app);
         assert!(app
             .world()
-            .contains_resource::<ambition_actors::features::CharacterRoster>());
+            .contains_resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>());
     }
 
     #[test]
@@ -43,7 +43,7 @@ mod tests {
         register(&mut app);
         assert!(
             app.world()
-                .resource::<ambition_actors::features::CharacterRoster>()
+                .resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>()
                 .sandbags_are_passive(),
             "a sandbag/training-dummy archetype carries a melee attack — passive targets must have `melee: None`"
         );

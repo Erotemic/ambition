@@ -11,5 +11,5 @@ publish = false
 crate-type = ["rlib"]
 
 [dependencies]
-ambition = { path = "../../crates/ambition", default-features = false, features = ["all_capabilities"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 bevy = { version = "0.18.1", default-features = false }

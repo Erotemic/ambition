@@ -5,16 +5,16 @@
 
 use crate::common::{base, hold_right};
 
-use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition::input::ControlFrame;
-use ambition::platformer::camera_layers::MainCamera;
-use ambition::platformer::schedule::GameMode;
-use ambition::portal::{PlacedPortal, PortalTransit};
-use ambition::portal_presentation::{
+use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::camera_layers::MainCamera;
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::portal::{PlacedPortal, PortalTransit};
+use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityConfig, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
     PortalCameraContinuityState, PortalWorldFrame,
 };
-use ambition::render::rendering::{camera_follow, CameraViewState};
+use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
 use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
 use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
@@ -72,20 +72,20 @@ impl HeadlessCameraHarness {
         app.add_systems(
             Update,
             (
-                ambition::host::portal::sync_portal_world_frame
-                    .before(ambition::host::portal::apply_portal_camera_continuity),
-                ambition::host::portal::sync_portal_camera_continuity_focus
-                    .before(ambition::host::portal::apply_portal_camera_continuity),
-                ambition::host::portal::apply_portal_camera_continuity
+                ambition_platformer2d::host::portal::sync_portal_world_frame
+                    .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
+                ambition_platformer2d::host::portal::sync_portal_camera_continuity_focus
+                    .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
+                ambition_platformer2d::host::portal::apply_portal_camera_continuity
                     .after(SandboxSet::CoreSimulation)
                     .before(camera_follow),
                 // Same-frame clamp pad into the sim resolve, like the host.
-                ambition::render::rendering::publish_portal_camera_clamp
-                    .after(ambition::host::portal::apply_portal_camera_continuity)
-                    .before(ambition::sim_view::camera_snapshot::CameraObservationSet),
+                ambition_platformer2d::render::rendering::publish_portal_camera_clamp
+                    .after(ambition_platformer2d::host::portal::apply_portal_camera_continuity)
+                    .before(ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet),
                 camera_follow
-                    .after(ambition::host::portal::apply_portal_camera_continuity)
-                    .after(ambition::sim_view::camera_snapshot::CameraObservationSet),
+                    .after(ambition_platformer2d::host::portal::apply_portal_camera_continuity)
+                    .after(ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet),
             ),
         );
         app.world_mut().spawn((
@@ -141,8 +141,8 @@ impl HeadlessCameraHarness {
         kin.pos = pos;
         kin.vel = vel;
         kin.facing = if vel.x >= 0.0 { 1.0 } else { -1.0 };
-        *world.resource_mut::<ambition::platformer::camera_ease::CameraEaseState>() =
-            ambition::platformer::camera_ease::CameraEaseState::default();
+        *world.resource_mut::<ambition_platformer2d::platformer::camera_ease::CameraEaseState>() =
+            ambition_platformer2d::platformer::camera_ease::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
         world.resource_mut::<PortalCameraContinuityState>().clear();
@@ -163,7 +163,7 @@ impl HeadlessCameraHarness {
             .expect("authored portal near requested position")
     }
 
-    fn portal_by_channel(&mut self, channel: ambition::portal::PortalChannel) -> PlacedPortal {
+    fn portal_by_channel(&mut self, channel: ambition_platformer2d::portal::PortalChannel) -> PlacedPortal {
         let world = self.app.world_mut();
         let mut portals = world.query::<&PlacedPortal>();
         portals
@@ -212,7 +212,7 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
             let body_before =
-                ambition::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
+                ambition_platformer2d::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
             assert_near_vec(
@@ -314,7 +314,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
             let body_before =
-                ambition::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
+                ambition_platformer2d::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
             assert_near_vec(
@@ -449,7 +449,7 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
             crossed = true;
             // At the snap frame the AUTHORITATIVE screen offset jumps by
             // design; the visual invariant is map-aware continuity.
-            let body_before = ambition::portal::pieces::map_point(
+            let body_before = ambition_platformer2d::portal::pieces::map_point(
                 current.player_pos,
                 &exit.frame(),
                 &entry.frame(),

@@ -95,7 +95,7 @@ pub struct ProjectileExpiryBurst {
 }
 
 impl ProjectileExpiryBurst {
-    pub fn to_message(self, pos: ambition_engine_core::Vec2) -> ambition_vfx::vfx::VfxMessage {
+    pub fn to_message(self, pos: ambition_platformer2d_core::Vec2) -> ambition_vfx::vfx::VfxMessage {
         ambition_vfx::vfx::VfxMessage::Explosion {
             pos,
             kind: self.kind,

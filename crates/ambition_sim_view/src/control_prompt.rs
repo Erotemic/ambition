@@ -22,14 +22,14 @@
 //! `ActiveBindings` source in P1/P5; the touch overlay keeps its own glyph
 //! subtitle in the meantime, so this model is label-first.
 
-use ambition_actors::actor::BodyAbilities;
+use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
 use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 use ambition_input::{ActiveUiCues, SeatInputContexts, GAMEPLAY_CONTEXT};
-use ambition_platformer_primitives::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
-use ambition_platformer_primitives::schedule::GameMode;
+use ambition_platformer2d_shared_tangle::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use bevy::prelude::*;
 
 /// Who currently owns input — the source of the prompt's entries.
@@ -305,7 +305,7 @@ fn set_prompt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_engine_core::AbilitySet;
+    use ambition_platformer2d_core::AbilitySet;
     use ambition_entity_catalog::{ClipBinding, MoveSpec, MovesetContract};
     use ambition_input::UiCue;
     use std::collections::BTreeMap;
@@ -611,7 +611,7 @@ mod tests {
         app.add_systems(
             Update,
             (
-                ambition_actors::avatar::gate_worn_player_control,
+                ambition_platformer2d_actor_monolith::avatar::gate_worn_player_control,
                 rebuild_control_prompt,
             )
                 .chain(),

@@ -7,10 +7,10 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::rendering::primitives::{feature_color, FeatureVisual, PlayerVisual};
-use ambition_engine_core as ae;
-use ambition_engine_core::config::world_to_bevy;
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::config::world_to_bevy;
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::FeatureViewIndex;
@@ -92,8 +92,8 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 /// damage geometry — this system only mirrors rows into sprites.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,

@@ -40,7 +40,7 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 fn asset_roots() -> Vec<PathBuf> {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     [
-        manifest.join("../../crates/ambition_actors/assets"),
+        manifest.join("../../crates/ambition_platformer2d_actor_monolith/assets"),
         manifest.join("../ambition_content/assets"),
     ]
     .into_iter()
@@ -62,7 +62,7 @@ fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
 
 #[test]
 fn every_declared_world_item_art_path_names_a_file_that_exists() {
-    use ambition::platformer::world_item_art::WorldItemArtManifest;
+    use ambition_platformer2d::platformer::world_item_art::WorldItemArtManifest;
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
@@ -112,7 +112,7 @@ fn every_declared_world_item_art_path_names_a_file_that_exists() {
 /// ones name no file by construction.
 #[test]
 fn every_declared_projectile_image_names_a_file_that_exists() {
-    use ambition::projectiles::visual::{ProjectileArtSource, ProjectileVisualCatalog};
+    use ambition_platformer2d::projectiles::visual::{ProjectileArtSource, ProjectileVisualCatalog};
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
@@ -167,7 +167,7 @@ fn every_declared_projectile_image_names_a_file_that_exists() {
 /// simply has a silent station, which is indistinguishable from a quiet moment.
 #[test]
 fn every_declared_music_track_path_names_a_file_that_exists() {
-    use ambition::audio::spec::MusicRegistry;
+    use ambition_platformer2d::audio::spec::MusicRegistry;
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();

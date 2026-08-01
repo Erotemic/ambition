@@ -8,7 +8,7 @@
 //! asserts "it compiled" — the campaign's rule is that a proof is a test that
 //! runs.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 use minimal_game::MinimalModule;
 
 /// One module, so a passing pair cannot secretly be two different games.
@@ -24,7 +24,7 @@ fn the_minimal_game_boots_headless() {
         .try_build()
         .expect("the smallest game composes headless");
     assert!(
-        app.get_schedule(ambition::bevy::prelude::FixedUpdate)
+        app.get_schedule(ambition_platformer2d::bevy::prelude::FixedUpdate)
             .is_some(),
         "a composed app runs a fixed-step simulation; its absence means no engine \
          was installed at all, which a did-it-panic test cannot distinguish from \
@@ -49,7 +49,7 @@ fn the_minimal_game_boots_windowed() {
         .try_build()
         .expect("the smallest game composes windowed — this is slice B's leak");
     assert!(
-        app.get_schedule(ambition::bevy::prelude::FixedUpdate)
+        app.get_schedule(ambition_platformer2d::bevy::prelude::FixedUpdate)
             .is_some(),
         "the windowed face runs the same simulation; only the face differs"
     );
@@ -294,15 +294,15 @@ fn a_starting_character_no_roster_contains_is_refused_at_build() {
 /// **The prelude carries the types its own signatures demand.**
 ///
 /// `ModuleDraft::playable` takes `Vec<RoomSpec>`; `ModuleDraft::room` takes
-/// `RoomMetadata`. Blind run 2 had to open `crates/ambition_world/src/lib.rs`
+/// `RoomMetadata`. Blind run 2 had to open `crates/ambition_platformer2d_world/src/lib.rs`
 /// to find where they live — the ONE engine source file it opened, which under
 /// §2c is the field that names the next leak.
 ///
-/// This test imports NOTHING but `ambition::app::prelude` and uses both, so the
+/// This test imports NOTHING but `ambition_platformer2d::app::prelude` and uses both, so the
 /// omission cannot come back quietly.
 #[test]
 fn the_app_prelude_carries_the_room_types_its_signatures_require() {
-    // No `use ambition::world::...` anywhere in this function, deliberately.
+    // No `use ambition_platformer2d::world::...` anywhere in this function, deliberately.
     let room: RoomSpec = minimal_game::minimal_experience::minimal_room();
     let _: RoomMetadata = room.metadata.clone();
     let _ = PlatformerApp::headless();
@@ -394,7 +394,7 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
 /// only test this test's own arithmetic.
 #[test]
 fn a_noncombat_character_gets_no_combat_state() {
-    use ambition::bevy::prelude::{Entity, With};
+    use ambition_platformer2d::bevy::prelude::{Entity, With};
 
     let mut app = PlatformerApp::headless().mount(the_one_module()).build();
     for _ in 0..600 {
@@ -409,7 +409,7 @@ fn a_noncombat_character_gets_no_combat_state() {
     );
 
     let world = app.world_mut();
-    let mut players = world.query_filtered::<Entity, With<ambition::actor::PrimaryPlayer>>();
+    let mut players = world.query_filtered::<Entity, With<ambition_platformer2d::actor::PrimaryPlayer>>();
     let bodies: Vec<Entity> = players.iter(world).collect();
     assert_eq!(bodies.len(), 1, "expected exactly one primary player to inspect");
 
@@ -564,7 +564,7 @@ fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
 /// itself will pass over any amount of broken content.
 #[test]
 fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
-    use ambition::bevy::prelude::With;
+    use ambition_platformer2d::bevy::prelude::With;
 
     let mut app = PlatformerApp::headless()
         .mount(the_one_module())
@@ -584,7 +584,7 @@ fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
         app.update();
         let world = app.world_mut();
         let mut bodies = world
-            .query_filtered::<&ambition::actor::BodyKinematics, With<ambition::actor::PrimaryPlayer>>();
+            .query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::actor::PrimaryPlayer>>();
         if let Ok(kin) = bodies.single(world) {
             samples.push(kin.pos.y);
         }
@@ -698,7 +698,7 @@ fn a_multi_game_host_can_start_at_its_launcher() {
         }
     }
 
-    fn settle(app: &mut ambition::bevy::prelude::App) -> HostStatus {
+    fn settle(app: &mut ambition_platformer2d::bevy::prelude::App) -> HostStatus {
         let mut status = host_status(app);
         for _ in 0..600 {
             app.update();
@@ -752,8 +752,8 @@ fn a_multi_game_host_can_start_at_its_launcher() {
 /// true:
 ///
 /// * the README's "Known gaps" advertised gaps slices B and C had closed;
-/// * `api-prototype.md` §5 published `ambition::experience`, which never existed;
-/// * §5 then DENIED `ambition::world::prelude` exists, after slice C shipped it —
+/// * `api-prototype.md` §5 published `ambition_platformer2d::experience`, which never existed;
+/// * §5 then DENIED `ambition_platformer2d::world::prelude` exists, after slice C shipped it —
 ///   which cost blind run 4 two engine crates, and is the whole reason its
 ///   headline finding was a documentation defect rather than an API one.
 ///
@@ -764,7 +764,7 @@ fn a_multi_game_host_can_start_at_its_launcher() {
 #[test]
 fn the_sdk_worked_room_example_compiles_and_runs() {
     // Exactly the README's imports for a room: the domain prelude, nothing else.
-    use ambition::world::prelude::*;
+    use ambition_platformer2d::world::prelude::*;
 
     fn my_room() -> RoomSpec {
         let size = Vec2::new(640.0, 360.0);
@@ -855,7 +855,7 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
         .expect_err("a module declaring no experience id cannot compose");
     assert_eq!(
         error.stage,
-        ambition::app::CompositionStage::Declaration,
+        ambition_platformer2d::app::CompositionStage::Declaration,
         "a draft refusal was reported as an assembly one, so it claims every \
          capability-dependent check already passed"
     );
@@ -872,16 +872,16 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
 ///
 /// Blind run 7 recorded that no public seam drove input to a named seat, so
 /// couch-versus was not expressible through the SDK. The seam had existed in
-/// `ambition_runtime::rollback` since queue Y1 — it was simply never re-exported,
+/// `ambition_platformer2d_runtime::rollback` since queue Y1 — it was simply never re-exported,
 /// which made the finding true of the FACADE and false of the engine. That is
 /// the harder of the two to notice, because nothing is missing and nothing
 /// fails; the capability is just unreachable from where a consumer stands.
 ///
 /// This asserts what the finding asked for: both halves reachable, by name, from
-/// `ambition` alone.
+/// `ambition_platformer2d` alone.
 #[test]
 fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
-    use ambition::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
+    use ambition_platformer2d::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
 
     let mut app = PlatformerApp::headless()
         .mount(the_one_module())

@@ -15,14 +15,14 @@
 //!   the Sonic fantasy). Both despawn the badnik the same frame so the shared
 //!   contact-damage pass never bills the attacker.
 //!
-//! Every type it names comes through the `ambition` umbrella — the E9 oracle.
+//! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::actors::combat::components::ActorFaction;
-use ambition::characters::actor::BodyHealth;
-use ambition::engine_core as ae;
+use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::actors::combat::components::ActorFaction;
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::engine_core as ae;
 
 /// The catalog `display_name` the badnik renders from; every LDtk enemy spawn
 /// is rebranded to this name in [`crate::sanic_speedway`] so the sprite
@@ -61,7 +61,7 @@ const BADNIK_ROSTER_RON: &str = r#"{
 /// Register the demo's hostile roster fragment (the badnik archetype), keyed
 /// under the Sanic experience so the brain key namespaces per provider.
 pub fn register_badnik_roster(app: &mut App) {
-    use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron(
             crate::provider::SANIC_EXPERIENCE,
@@ -89,15 +89,15 @@ pub fn register_badnik_roster(app: &mut App) {
 /// pop comes from a dust burst through the engine's own vfx seam.
 pub fn defeat_badniks(
     mut commands: Commands,
-    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
             &mut ae::BodyKinematics,
             Option<&crate::ball_dash::Rolling>,
             // Optional so the thin test harnesses need not dress the body; a
             // real player always wears an identity.
-            Option<&ambition::characters::actor::WornCharacter>,
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
         ),
         With<PrimaryPlayer>,
     >,
@@ -139,18 +139,18 @@ pub fn defeat_badniks(
         if stomp && !rolling {
             ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         }
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: badnik_kin.pos,
             count: 12,
             speed: 150.0,
             color: [0.85, 0.62, 0.35, 1.0],
-            kind: ambition::vfx::ParticleKind::Dust,
+            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
         // H2: the badnik is a BODY, and this is it popping. Its own voice.
         sfx.write_for(
             entity,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::from_static(crate::SFX_BADNIK),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_BADNIK),
                 pos: badnik_kin.pos,
             },
         );
@@ -179,14 +179,14 @@ mod tests {
 
     fn defeat_app() -> App {
         let mut app = App::new();
-        app.add_message::<ambition::vfx::VfxMessage>();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, defeat_badniks);
         app
     }
 
     fn spawn_badnik(app: &mut App, pos: ae::Vec2) -> Entity {
-        use ambition::characters::actor::Health;
+        use ambition_platformer2d::characters::actor::Health;
         app.world_mut()
             .spawn((
                 kin(pos, ae::Vec2::ZERO),
@@ -252,7 +252,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
-            ambition::characters::actor::WornCharacter::new(crate::SUPER_SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::actor::WornCharacter::new(crate::SUPER_SANIC_CHARACTER_ID),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
         app.update();
@@ -270,7 +270,7 @@ mod tests {
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
-            ambition::characters::actor::WornCharacter::new(crate::SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::actor::WornCharacter::new(crate::SANIC_CHARACTER_ID),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
         app.update();

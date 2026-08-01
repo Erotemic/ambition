@@ -19,7 +19,7 @@ use bevy::prelude::*;
 /// misclassified as `Back` and fired the aerial back-attack the wrong way.
 #[test]
 fn attack_dir_is_relative_to_facing() {
-    use ambition_engine_core::Vec2;
+    use ambition_platformer2d_core::Vec2;
 
     // Facing RIGHT (+1): screen-right is forward, screen-left is back.
     assert_eq!(
@@ -505,9 +505,9 @@ fn app_with_victim() -> (App, Entity) {
     let victim = app
         .world_mut()
         .spawn((
-            ambition_platformer_primitives::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             ActorFaction::Player,
-            ambition_engine_core::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(128.0, 100.0),
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: -1.0,
@@ -518,9 +518,9 @@ fn app_with_victim() -> (App, Entity) {
                 ae::Vec2::new(128.0, 100.0),
                 ae::Vec2::new(28.0, 46.0),
             ),
-            ambition_engine_core::BodyOffense::default(),
-            ambition_engine_core::BodyMotionFacts::default(),
-            ambition_engine_core::BodyShieldState::default(),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
@@ -840,7 +840,7 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
         );
         // The owner's per-tick resolved frame is the rotation authority now —
         // publish the test gravity on the BODY, as the resolution phase would.
-        let mut frame = ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default();
+        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
         frame.publish(ae::MotionFrame::from_direction(gravity, 900.0));
         app.world_mut().entity_mut(attacker).insert(frame);
         run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
@@ -1206,18 +1206,18 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
             .chain(),
     );
     app.world_mut().spawn((
-        ambition_platformer_primitives::markers::PlayerEntity,
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
         ActorFaction::Player,
-        ambition_engine_core::BodyKinematics {
+        ambition_platformer2d_core::BodyKinematics {
             pos: ae::Vec2::new(128.0, 100.0),
             size: ae::Vec2::new(28.0, 46.0),
             facing: -1.0,
             ..Default::default()
         },
         ae::CenteredAabb::from_center_size(ae::Vec2::new(128.0, 100.0), ae::Vec2::new(28.0, 46.0)),
-        ambition_engine_core::BodyOffense::default(),
-        ambition_engine_core::BodyMotionFacts::default(),
-        ambition_engine_core::BodyShieldState::default(),
+        ambition_platformer2d_core::BodyOffense::default(),
+        ambition_platformer2d_core::BodyMotionFacts::default(),
+        ambition_platformer2d_core::BodyShieldState::default(),
         ambition_characters::actor::BodyCombat::default(),
     ));
     // A body that OWNS a repertoire and is pressing `special` this frame — but

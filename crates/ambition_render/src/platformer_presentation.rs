@@ -33,8 +33,8 @@
 //! own — that is what "owns" means in the demos doctrine.
 //!
 //! ```ignore
-//! app.add_plugins(ambition_runtime::PlatformerEnginePlugins::fixed_tick());
-//! app.add_plugins(ambition_host::PlatformerHostPlugins);
+//! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::fixed_tick());
+//! app.add_plugins(ambition_platformer2d_host::PlatformerHostPlugins);
 //! app.add_plugins(ambition_render::PlatformerPresentationPlugin); // ← this
 //! app.add_plugins(MyDemoContentPlugin);
 //! ```
@@ -45,13 +45,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::camera_layers::{MainCamera, MainCameraEntity};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, MainCameraEntity};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
 };
-use ambition_platformer_primitives::physics::PhysicsSandboxSettings;
+use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 use ambition_sprite_sheet::game_assets::GameAssets;
-use ambition_world::rooms::RoomSet;
+use ambition_platformer2d_world::rooms::RoomSet;
 
 use crate::rendering::{
     spawn_parallax_layers, spawn_room_visuals, PlayerVisualSchedulePlugin,
@@ -115,7 +115,7 @@ impl Plugin for SessionRoomVisualsPlugin {
                 crate::rendering::refresh_parallax_layers_on_quality_change,
             )
                 .chain()
-                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
         // ⚠ **and the layers have to MOVE.** `sync_parallax_layers` was
         // app-local too, which is the same class one step further along: in
@@ -123,7 +123,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         // stayed there, so it slid out of frame as the camera walked away and
         // the one thing a parallax layer is for — moving at its own rate —
         // never happened. `camera_follow` is DEFINED in this crate and
-        // REGISTERED by `ambition_host`, so ordering against it here is legal
+        // REGISTERED by `ambition_platformer2d_host`, so ordering against it here is legal
         // and is a no-op in a composition that has no camera follow.
         //
         // No `session_world_exists` guard: it reads a camera transform and layer
@@ -177,7 +177,7 @@ impl Plugin for PlatformerPresentationPlugin {
 /// hand-build a camera rig to get correct framing.
 fn spawn_main_camera(mut commands: Commands) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER);
+        .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
     let camera = commands
         .spawn((Camera2d, MainCamera, layers, Name::new("Main Camera")))
         .id();
@@ -190,10 +190,10 @@ fn spawn_main_camera(mut commands: Commands) {
             clear_color: bevy::camera::ClearColorConfig::None,
             ..default()
         },
-        ambition_platformer_primitives::camera_layers::FrontHudCamera,
+        ambition_platformer2d_shared_tangle::camera_layers::FrontHudCamera,
         bevy::ui::IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
-            ambition_platformer_primitives::camera_layers::FRONT_HUD_LAYER,
+            ambition_platformer2d_shared_tangle::camera_layers::FRONT_HUD_LAYER,
         ),
         Name::new("Front HUD Camera"),
     ));
@@ -203,7 +203,7 @@ fn spawn_main_camera(mut commands: Commands) {
 /// gameplay-session lifecycle. Shell hosts wait for a real session activation.
 fn spawn_initial_room_visuals(
     mut commands: Commands,
-    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>>,
+    room_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -242,7 +242,7 @@ fn sync_session_room_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     mut presented: ResMut<PresentedSessionScope>,
-    room_set: Option<ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomSet>>,
+    room_set: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,

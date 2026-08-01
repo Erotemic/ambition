@@ -131,9 +131,9 @@ test's red-before/green-after demonstration recorded in the commit message.
 ### The gate, run end to end (exact commands, all green)
 
 ```
-cargo test -p ambition_actors --lib                         → 744 passed
-cargo test -p ambition_engine_core -p ambition_runtime \
-  -p ambition_host -p ambition_dialog -p ambition_sim_view \
+cargo test -p ambition_platformer2d_actor_monolith --lib                         → 744 passed
+cargo test -p ambition_platformer2d_core -p ambition_platformer2d_runtime \
+  -p ambition_platformer2d_host -p ambition_dialog -p ambition_sim_view \
   -p ambition_combat -p ambition_characters                 → all segments ok (356/100/24/282/… )
 cargo test -p ambition_content --features portal            → 101 (+3/5/4/3/1) passed
 cargo test -p ambition_content --features ui --test yarn_compile → 1 passed

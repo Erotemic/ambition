@@ -51,10 +51,10 @@ You are refactoring a Bevy game crate. The crate has four large
 single-file modules:
 
 ```text
-crates/ambition_actors/src/audio.rs   (~1226 lines)
-crates/ambition_actors/src/music.rs   (~1673 lines)
-crates/ambition_actors/src/input.rs   (~1061 lines)
-crates/ambition_actors/src/trace.rs   (~1799 lines)
+crates/ambition_platformer2d_actor_monolith/src/audio.rs   (~1226 lines)
+crates/ambition_platformer2d_actor_monolith/src/music.rs   (~1673 lines)
+crates/ambition_platformer2d_actor_monolith/src/input.rs   (~1061 lines)
+crates/ambition_platformer2d_actor_monolith/src/trace.rs   (~1799 lines)
 ```
 
 The crate root re-exports specific items from each:
@@ -105,7 +105,7 @@ The enumeration should cover at least:
    `pub use audio::{...}` (etc.) must remain visible at
    `crate::audio::Foo`. Compare the parent re-export list against the
    facade exports name-by-name. Static check: a small surface-audit
-   script, plus `cargo check -p ambition_actors`.
+   script, plus `cargo check -p ambition_platformer2d_actor_monolith`.
 2. **Attribute and rustdoc adjacency.** `#[derive(...)]` and `///`
    doc comments are item-adjacent — they bind to the *next* item in
    the source file. When extracting an item, the decoration must move
@@ -119,13 +119,13 @@ The enumeration should cover at least:
    siblings to `pub(super)` and add explicit
    `use super::render::foo;` in callers — do not expose them publicly
    unless the helper truly needs to be part of the crate's public
-   API. Static check: `cargo check -p ambition_actors`.
+   API. Static check: `cargo check -p ambition_platformer2d_actor_monolith`.
 4. **`include_str!` / `include_bytes!` / `#[path]` resolution.**
    These macros resolve relative to the source file containing the
    macro, not the crate root or the old module path. Tests moved one
    directory deeper need `../../assets/...` instead of `../assets/...`,
    or should switch to `concat!(env!("CARGO_MANIFEST_DIR"), ...)`.
-   Static check: `cargo test -p ambition_actors --lib` (the bug may
+   Static check: `cargo test -p ambition_platformer2d_actor_monolith --lib` (the bug may
    live under `#[cfg(test)]` and pass `cargo check`).
 5. **Test-only trait derives.** New regression tests using
    `assert_eq!` on small marker enums (e.g.
@@ -138,8 +138,8 @@ The pre-handoff check pipeline:
 
 ```bash
 cargo fmt --all
-cargo check -p ambition_actors
-cargo test  -p ambition_actors --lib
+cargo check -p ambition_platformer2d_actor_monolith
+cargo test  -p ambition_platformer2d_actor_monolith --lib
 ```
 
 (plus the project's surface-audit script if one exists.)

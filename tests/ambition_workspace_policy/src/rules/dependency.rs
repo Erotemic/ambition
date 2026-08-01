@@ -36,7 +36,7 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
     }
     // Bidirectional ratchet: a stale allow entry — one that names no current dep —
     // means the edge dissolved. Fail so the allowlist shrinks with the code (this
-    // is the property the ambition_world world-IR purity ratchet relies on).
+    // is the property the ambition_platformer2d_world world-IR purity ratchet relies on).
     if policy.exact {
         for allowed in &policy.allow {
             if !deps.contains(allowed) {
@@ -50,7 +50,7 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
 }
 
 /// `manifest` must not depend on any crate in `deny`. `deny` entries are matched
-/// against the manifest's `ambition*` deps AND, for non-`ambition` names (e.g.
+/// against the manifest's `ambition*` deps AND, for non-`ambition_platformer2d` names (e.g.
 /// `bevy_ecs_ldtk`), against a parsed lookup of all dependency tables.
 pub fn denylist(ws: &Workspace, policy: &Policy, report: &mut Report) {
     let manifest = manifest_of(policy);

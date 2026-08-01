@@ -14,8 +14,8 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::gameplay_presentation::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     NamedScreenRect, ResolvedGameplayPresentation, SurroundPolicy, SurroundRegion,
 };
 
@@ -42,7 +42,7 @@ impl Plugin for GameplaySurroundPlugin {
         app.add_systems(
             Update,
             sync_gameplay_surround.after(
-                ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet,
+                ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
             ),
         );
     }

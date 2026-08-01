@@ -34,7 +34,7 @@ fn repro_sim() -> SandboxSim {
 fn active_room(sim: &SandboxSim) -> String {
     // RoomSet is a session-world component, read via the same accessor the
     // harness observation uses.
-    ambition::platformer::lifecycle::session_world_component::<ambition::actors::rooms::RoomSet>(
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::rooms::RoomSet>(
         sim.world(),
     )
     .map(|set| set.active_spec().id.clone())
@@ -47,7 +47,7 @@ fn active_room(sim: &SandboxSim) -> String {
 fn feature_roster(sim: &mut SandboxSim) -> HashSet<Entity> {
     let world = sim.world_mut();
     let mut q =
-        world.query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+        world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     q.iter(world).collect()
 }
 
@@ -62,7 +62,7 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     {
         let world = sim.world_mut();
         world
-            .resource_mut::<ambition::actors::session::reset::SandboxResetRequested>()
+            .resource_mut::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>()
             .request = true;
     }
     sim.rebase_rollback_history()

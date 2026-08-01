@@ -19,9 +19,9 @@ pub mod stage_diagram;
 
 pub fn build_demo_app() -> App {
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     compose_smash_shell(&mut app);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -34,7 +34,7 @@ fn compose_smash_shell(app: &mut App) {
     // the stage has already decided who you are, and leaving a match should
     // return to the screen that chose it rather than to a launcher listing one
     // experience.
-    ambition::provider::ShellComposition::new(
+    ambition_platformer2d::provider::ShellComposition::new(
         ambition_demo_smash::SMASH_EXPERIENCE,
         ambition_demo_smash::SMASH_SELECT_ROUTE,
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

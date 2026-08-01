@@ -283,7 +283,7 @@ pub fn try_load_spec_for_target_authored(
             return Some(spec);
         }
         tracing::warn!(
-            target: "ambition::character_sprites",
+            target: "ambition_platformer2d::character_sprites",
             "authored sheet '{target}' has no Idle row; falling back to the baked \
              index (placeholder rectangle if there is none)",
         );
@@ -362,7 +362,7 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
         Some(spec)
     } else {
         tracing::warn!(
-            target: "ambition::character_sprites",
+            target: "ambition_platformer2d::character_sprites",
             "sheet manifest for target '{target}' has no Idle row; skipping (placeholder rectangle)",
         );
         None
@@ -435,7 +435,7 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
         Some(spec)
     } else {
         tracing::warn!(
-            target: "ambition::character_sprites",
+            target: "ambition_platformer2d::character_sprites",
             "character_sprites: skip spec for catalog id '{character_id}' \
              (manifest has no recognized Idle row; rows = {:?})",
             spec.mapped_anims().collect::<Vec<_>>(),
@@ -684,7 +684,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// scarf and a sealed envelope". Matches the Alice review config
 /// (configs/review/alice.yaml) and the
 /// `alice_spritesheet.yaml`/`.png` pair that ships in
-/// `crates/ambition_actors/assets/sprites/`.
+/// `crates/ambition_platformer2d_actor_monolith/assets/sprites/`.
 
 /// Bob — field cartographer. Toon-side adapter render; the
 /// `bob_engineer` archetype is wider in the shoulders (engineer

@@ -93,7 +93,7 @@ replacement for an ordinary engine responsibility.
 The demo suite runs the oracle continuously.
 [`fixtures/external_consumer/`](fixtures/external_consumer/) (Outlander) runs it
 adversarially: a game authored from outside the workspace, with its own lockfile,
-against the `ambition` umbrella alone. `external consumer: outlander` gates it in
+against the `ambition_platformer2d` umbrella alone. `external consumer: outlander` gates it in
 `scripts/run_tests.py`, and every engine-internal assumption it is forced to lean
 on is recorded as a named API leak.
 

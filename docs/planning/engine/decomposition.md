@@ -16,7 +16,7 @@ Prefer internal modules when code shares runtime authority, schedule ordering,
 private invariants, and nearly all consumers. Do not replace one understandable
 crate with a chain of forwarding facades or abstract service traits.
 
-## Settled ruling: no size-driven `ambition_actors` carve
+## Settled ruling: no size-driven `ambition_platformer2d_actor_monolith` carve
 
 The post-carve actor crate is the authority-woven simulation adapter around one
 body/control/motion path. Its remaining mass is spread across actor spawning,
@@ -32,7 +32,7 @@ reassessed only after boss execution converges onto the canonical moveset path.
 **The trigger above now has a defined mechanism** (2026-07-30). "A real second
 consumer demonstrates" is not a judgement call: it is the terminal condition in
 [`api-growth-method.md`](api-growth-method.md) § 4 — the campaign carves
-`ambition_actors` when, and only when, the highest-cost remaining consumer leak
+`ambition_platformer2d_actor_monolith` when, and only when, the highest-cost remaining consumer leak
 cannot be closed without moving code between crates. The carve is then designed
 from the leak (which names the boundary a consumer could not be given) rather
 than from the module list (which names today's internal topology). See
@@ -51,11 +51,11 @@ observer policy, deterministic serialization, or a replaceable consumer.
 
 ## E5 — runtime and host faces
 
-`ambition_runtime` is the headless simulation assembly. It owns the global phase
+`ambition_platformer2d_runtime` is the headless simulation assembly. It owns the global phase
 ordering contract and composes domain plugins/sets. Domain crates own their local
 messages, resources, systems, and schedule sets.
 
-`ambition_host` owns window/device/presentation wiring. It does not become a
+`ambition_platformer2d_host` owns window/device/presentation wiring. It does not become a
 second simulation assembly and must not depend directly on actor implementation
 internals.
 
@@ -68,22 +68,22 @@ The accepted additional engine faces are:
 
 Stated precisely, because prose elsewhere has claimed more than the tests check:
 
-- **Enforced:** `ambition_host` may not depend on or name `ambition_content`
+- **Enforced:** `ambition_platformer2d_host` may not depend on or name `ambition_content`
   (policies `engine.host-names-no-content`, `engine.host-source-names-no-content`).
 - **Now enforced (since the July-18 policy update; this paragraph previously
   said otherwise):** the host may not *directly* depend on or name
-  `ambition_actors` — `engine.host-manifest-no-actors` and
+  `ambition_platformer2d_actor_monolith` — `engine.host-manifest-no-actors` and
   `engine.host-source-no-actors` (`tests/ambition_workspace_policy/policies/engine.toml`).
   Historical context: F1.10 (2026-07-07) removed the direct dependency but its
   claimed boundary test only ever checked `ambition_content`; the actors guard
   arrived later. `ambition_render` carries the analogous guards
   (`engine.render-no-actor-crate-dependency`,
   `engine.render-source-names-no-actors`).
-- **Already true in practice:** the host reaches `ambition_actors` transitively
-  through `ambition_runtime`, and has since E5 step 5 (2026-07-06).
+- **Already true in practice:** the host reaches `ambition_platformer2d_actor_monolith` transitively
+  through `ambition_platformer2d_runtime`, and has since E5 step 5 (2026-07-06).
 
 So the DIRECT edge is now a ratchet; the *transitive* reach (host →
-`ambition_runtime` → actors) remains real and intentional. Do not quietly
+`ambition_platformer2d_runtime` → actors) remains real and intentional. Do not quietly
 widen the guard to transitive naming — see below.
 
 ### Unsettled: where device input lives when it needs sim vocabulary
@@ -97,12 +97,12 @@ there is what makes every game — Ambition, the demos, anything added later —
 touch by construction instead of each app remembering. Today only
 `ambition_app` composes it, so the standalone demo apps have no touch at all.
 
-What blocks a clean answer is that the overlay names `ambition_actors` for
+What blocks a clean answer is that the overlay names `ambition_platformer2d_actor_monolith` for
 `affordances::{ActiveInputMethod, glyph_for, AffordancesSystemSet}`, the input
 schedule labels in `schedule::input_systems`, and `control::populate_slot_controls`.
 Some of its other actors imports are *already* compat re-exports of foundation
 types (`PrimaryPlayer`, `GravityField`, `gravity_dir_or_default` all live in
-`ambition_platformer_primitives`), so the real coupling is narrower than the
+`ambition_platformer2d_shared_tangle`), so the real coupling is narrower than the
 import list suggests — but it is not zero.
 
 **Preferred direction: invert rather than ban or shrug.** Layers should be able
@@ -136,13 +136,13 @@ in practice, and is the shape to try first on the touch-overlay question above.
 ## F1.5 — simulation and presentation stay separated
 
 `ambition_render` is downstream of simulation and read models.
-`ambition_actors` never imports render. Content may provide presentation plugins
+`ambition_platformer2d_actor_monolith` never imports render. Content may provide presentation plugins
 through public render seams, but named game art/modules do not live in the
 default renderer merely because they draw sprites.
 
 ## W3 — authored world IR and lowering
 
-`ambition_world` owns backend-neutral room/space IR, the closed common Tier-0
+`ambition_platformer2d_world` owns backend-neutral room/space IR, the closed common Tier-0
 placement schema, room graph, placement records, moving-platform math, and the
 composited collision read API. Authoring backends convert into this IR.
 
@@ -164,7 +164,7 @@ encounters are interactive with limited scripting.
 ## F1.10 — windowed host isolation
 
 The host composes input, presentation, runtime, loading, and shell behavior
-through public engine faces. It does not name `ambition_actors` internals or own
+through public engine faces. It does not name `ambition_platformer2d_actor_monolith` internals or own
 provider-specific gameplay lifecycle branches.
 
 Explicit provider plugin registration in the composition root is intentional;

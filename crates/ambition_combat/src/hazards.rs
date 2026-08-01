@@ -15,19 +15,19 @@ pub fn update_ecs_hazards(
     player: Query<
         (
             Entity,
-            &ambition_engine_core::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             Option<&ae::SweepSample>,
             &CenteredAabb,
-            &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyMotionFacts,
-            &ambition_engine_core::BodyShieldState,
+            &ambition_platformer2d_core::BodyOffense,
+            &ambition_platformer2d_core::BodyMotionFacts,
+            &ambition_platformer2d_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             // The victim's per-tick resolved frame (ADR 0024): the knockback
             // side is a fact of the VICTIM's own frame.
-            &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         ),
         (
-            With<ambition_platformer_primitives::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<FeatureSimEntity>,
         ),
     >,
@@ -41,18 +41,18 @@ pub fn update_ecs_hazards(
             Entity,
             // `Option`: every real body carries kinematics (→ swept), but a bare
             // headless/test hurtbox without it falls back to the discrete check.
-            Option<&ambition_engine_core::BodyKinematics>,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
             Option<&ae::SweepSample>,
             &CenteredAabb,
-            &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyMotionFacts,
-            &ambition_engine_core::BodyShieldState,
+            &ambition_platformer2d_core::BodyOffense,
+            &ambition_platformer2d_core::BodyMotionFacts,
+            &ambition_platformer2d_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             &ambition_characters::actor::BodyHealth,
         ),
         (
             With<FeatureSimEntity>,
-            Without<ambition_platformer_primitives::markers::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<HazardFeature>,
         ),
     >,

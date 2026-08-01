@@ -40,7 +40,7 @@ mod tests;
 /// catalogs + the engine simulation group). Runs AFTER the harness has added the
 /// engine foundation and chosen the sim schedule.
 pub fn ambition_sim_composition(app: &mut App, options: &SandboxSimOptions) -> Result<(), String> {
-    use ambition::actors::ldtk_world;
+    use ambition_platformer2d::actors::ldtk_world;
     // Provider-owned catalogs are composed as App-local resources by the
     // simulation plugin; validation reads the provider's manifest directly.
     let world_manifest = ambition_content::worlds::world_manifest();

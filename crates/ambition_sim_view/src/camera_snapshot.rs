@@ -6,17 +6,17 @@
 //! no-GPU/headless PNG tools can all consume the same [`CameraSnapshot2d`]
 //! without depending on each other.
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use bevy_math::UVec2;
 
-use ambition_actors::rooms::{
+use ambition_platformer2d_actor_monolith::rooms::{
     apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec,
 };
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
-use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
-use ambition_platformer_primitives::gameplay_presentation::NormalizedScreenRegion;
+use ambition_platformer2d_shared_tangle::camera_ease::{CameraEaseState, CameraEaseTuning};
+use ambition_platformer2d_shared_tangle::gameplay_presentation::NormalizedScreenRegion;
 
 /// Upper bound on `dt` for camera scale + target easing.
 ///
@@ -696,9 +696,9 @@ pub struct ResolvedCameraSnapshot {
 /// simulation reads what it publishes.
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_camera_observation(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<ae::RoomGeometry>,
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_actors::rooms::RoomSet,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
     >,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
@@ -707,22 +707,22 @@ pub fn resolve_camera_observation(
     viewport: bevy::prelude::Res<CameraViewport>,
     screen_framing: bevy::prelude::Res<CameraScreenFraming>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
-    ease_tuning: bevy::prelude::Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
+    ease_tuning: bevy::prelude::Res<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>,
     mut camera_state: bevy::prelude::ResMut<
-        ambition_platformer_primitives::camera_ease::CameraEaseState,
+        ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
     >,
     mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition_platformer_primitives::body::BodyKinematics,
+            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
             &ae::BodyBaseSize,
-            &ambition_actors::avatar::PlayerBlinkCameraState,
+            &ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
         ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    controlled: bevy::prelude::Res<ambition_platformer_primitives::markers::ControlledSubject>,
+    controlled: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     // Both lookups for whichever body is being followed, grouped into ONE
     // system param because this resolve sits at Bevy's 16-param ceiling.
     //
@@ -730,7 +730,7 @@ pub fn resolve_camera_observation(
     // the sprite must sample the same frame-clock position, or they disagree by
     // up to a tick of travel and the subject shudders — see `presented_pose`.
     followed_body: (
-        bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
+        bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
         bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
     ),
 ) {
@@ -866,7 +866,7 @@ pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use ambition_platformer_primitives::schedule::SimScheduleExt as _;
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         use bevy::prelude::IntoScheduleConfigs as _;
         app.init_resource::<CameraViewport>();
         app.init_resource::<CameraScreenFraming>();
@@ -881,7 +881,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
             app.configure_sets(
                 bevy::prelude::Update,
                 CameraObservationSet
-                    .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::SandboxSet::CoreSimulation),
             );
         }
         // The resolve frames the PRESENTED subject, so the frame-clock resample
@@ -900,7 +900,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
 #[cfg(test)]
 mod m2_forward_scroll_tests {
     use super::*;
-    use ambition_platformer_primitives::camera_ease::CameraEaseState;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
 
     fn world() -> ae::World {
         ae::World::new(
@@ -1007,7 +1007,7 @@ mod m2_forward_scroll_tests {
 #[cfg(test)]
 mod soft_framing_tests {
     use super::*;
-    use ambition_platformer_primitives::camera_ease::CameraEaseState;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
 
     const VIEW: ae::Vec2 = ae::Vec2::new(800.0, 450.0);
     const BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);

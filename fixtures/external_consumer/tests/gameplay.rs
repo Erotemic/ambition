@@ -9,7 +9,7 @@
 /// gate. One test, the whole authored surface: the room (construction), the
 /// character (catalog), the sentry (roster + stager, lowered as a construction
 /// plan row), the consumer's own authoritative component (§authority), and the
-/// transition (`transit_body`) — all through the public `ambition` umbrella with
+/// transition (`transit_body`) — all through the public `ambition_platformer2d` umbrella with
 /// zero engine edits.
 #[test]
 fn outlander_boots_activates_and_walks_the_ridge_gate() {
@@ -39,7 +39,7 @@ fn outlander_boots_activates_and_walks_the_ridge_gate() {
 /// registrations are crate-private conveniences away from being unusable by
 /// anyone else, and a test living inside the workspace cannot tell the
 /// difference. `BeaconCharge` is declared in this crate, encoded by this crate,
-/// registered by this crate through `ambition::runtime::rollback`, and named in
+/// registered by this crate through `ambition_platformer2d::runtime::rollback`, and named in
 /// no engine file.
 ///
 /// The rewind is REAL, not simulated: a GGRS sync-test session resimulates every
@@ -98,7 +98,7 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
 /// untextured boxes — the most visible way "an engine another game can be built
 /// on" can fail, and it failed for want of a function.
 ///
-/// `ambition::game_assets::PlatformerAssetsPlugin` is that function, and this is
+/// `ambition_platformer2d::game_assets::PlatformerAssetsPlugin` is that function, and this is
 /// the test that it works from OUTSIDE the workspace: the fixture resolves its
 /// own dependency graph, so this is the build a third party gets.
 ///
@@ -115,7 +115,7 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
     // `with_game_assets` because that is exactly the subject: a display-less
     // host that still prepares art. It is policy rather than a face, and the
     // default is off — preparing art is not free.
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .with_game_assets()
         .mount(outlander::OutlanderModule)
         .build();
@@ -123,14 +123,14 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 
     let catalog = app
         .world()
-        .get_resource::<ambition::view::SandboxAssetCatalog>()
+        .get_resource::<ambition_platformer2d::view::SandboxAssetCatalog>()
         .expect(
             "the plugin did not install a SandboxAssetCatalog, so every asset path \
              policy the presentation reads is missing",
         );
     assert!(
         catalog
-            .path_for(&ambition::view::ids::sfx_bank())
+            .path_for(&ambition_platformer2d::view::ids::sfx_bank())
             .is_some(),
         "the installed catalog resolves no paths at all, so it was built from \
          nothing — the composition-order failure this plugin is supposed to make \
@@ -139,7 +139,7 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 
     let assets = app
         .world()
-        .get_resource::<ambition::view::GameAssets>()
+        .get_resource::<ambition_platformer2d::view::GameAssets>()
         .expect("the plugin did not install GameAssets");
     assert!(
         !assets.entities.is_empty(),
@@ -220,7 +220,7 @@ fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
 /// 'outlander' names missing default character 'typo_id'" is a diagnostic.
 #[test]
 fn authoring_mistakes_name_the_thing_the_author_must_fix() {
-    use ambition::character::CharacterCatalogFragment;
+    use ambition_platformer2d::character::CharacterCatalogFragment;
 
     // A catalog that parses and names a default character it does not contain —
     // the single most common authoring slip, a typo in one id.
@@ -284,7 +284,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
     // a second file naming ids the catalog owns, which is precisely where a
     // rename goes wrong.
     {
-        use ambition::actor::CharacterRosterFragment;
+        use ambition_platformer2d::actor::CharacterRosterFragment;
         let broken = CharacterRosterFragment::from_ron(
             "outlander",
             None::<String>,
@@ -319,7 +319,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
              is the clause this test exists for: {mistyped}"
         );
 
-        use ambition::actor::CharacterRosterFragment as Roster;
+        use ambition_platformer2d::actor::CharacterRosterFragment as Roster;
         let broken = Roster::from_ron_at(source, "outlander", None::<String>, "( roster: {")
             .expect_err("truncated roster RON must be refused");
         assert!(
@@ -344,7 +344,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 /// so `game://sprites/outlander.png` became `sprites/game://sprites/outlander.png`.
 /// The second is this one, and it was the larger: sheet METADATA — frame size,
 /// rows, where the body sits — was read only from a table baked at build time
-/// from `crates/ambition_actors/assets/sprites`. `manifest_target()` does not
+/// from `crates/ambition_platformer2d_actor_monolith/assets/sprites`. `manifest_target()` does not
 /// return a path; it strips `_spritesheet.ron` and returns a NAME to look up in
 /// that table. So a consumer could ship any art it liked and its character still
 /// resolved no spec and drew the placeholder rectangle.
@@ -355,8 +355,8 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 /// frame size this crate authored.
 #[test]
 fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
-    use ambition::character::AuthoredSheets;
-    use ambition::character::AuthoredSheetAppExt;
+    use ambition_platformer2d::character::AuthoredSheets;
+    use ambition_platformer2d::character::AuthoredSheetAppExt;
     use bevy::prelude::App;
 
     let mut app = App::new();
@@ -379,12 +379,12 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 
     // And the engine's own resolution path finds it — the assertion that
     // distinguishes "a registry accepted my RON" from "my character resolves".
-    let catalog = ambition::character::CharacterCatalog::from_data(
-        ambition::character::parse_catalog(
+    let catalog = ambition_platformer2d::character::CharacterCatalog::from_data(
+        ambition_platformer2d::character::parse_catalog(
             outlander::outlander_catalog_ron(),
         ),
     );
-    let spec = ambition::character::sheet_for_declared_character(
+    let spec = ambition_platformer2d::character::sheet_for_declared_character(
         authored,
         &catalog,
         None,
@@ -519,14 +519,14 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
 /// against the design), proved here by somebody outside it.
 #[test]
 fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
-    use ambition::character::ActionSet;
+    use ambition_platformer2d::character::ActionSet;
 
     let mut app = outlander::build_outlander_app();
     outlander::run_outlander_walkthrough(&mut app)
         .unwrap_or_else(|error| panic!("the Outlander walkthrough failed: {error}"));
 
     let world = app.world_mut();
-    let mut bodies = world.query::<(&ambition::character::WornCharacter, &ActionSet)>();
+    let mut bodies = world.query::<(&ambition_platformer2d::character::WornCharacter, &ActionSet)>();
     let outlanders: Vec<&ActionSet> = bodies
         .iter(world)
         .filter(|(worn, _)| worn.id() == outlander::OUTLANDER_CHARACTER_ID)

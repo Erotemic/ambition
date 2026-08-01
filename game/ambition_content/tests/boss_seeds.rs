@@ -19,7 +19,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_actors::features::BossBehaviorProfile;
+use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
 use ambition_characters::brain::boss_pattern::{
     seeds::SeedLibrary, BossAttackPattern, BossAttackProfile, BossPatternStep,
 };

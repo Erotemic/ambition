@@ -32,11 +32,11 @@ pub fn apply_enemy_projectile_effect_requests(
     mut commands: Commands,
     mut seq: ResMut<ProjectileSeqCounter>,
     mut requests: MessageReader<ambition_vfx::EffectRequest>,
-    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     // The ROUND lifetime, when a match owns one (Campaign 3A). Same reasoning as
     // the player pool: a shot must not cross a round boundary, and the boundary
     // must not know that a shot is one of the things that crosses it.
-    active_round: Option<Res<ambition_platformer_primitives::lifecycle::ActiveRoundScope>>,
+    active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     // Whose voice the shot lands in. Stamped HERE, at materialization, rather than
     // by the engine's inheritance pass — this executor is followed immediately by
     // `step_projectiles`, so a bolt that spawns and hits a wall inside one tick had
@@ -44,7 +44,7 @@ pub fn apply_enemy_projectile_effect_requests(
     // (GPT 5.6, 2026-07-26). Attribution has to happen where the entity is born.
     sources: Query<&ambition_sfx::BodyPresentationSource>,
 ) {
-    use ambition_platformer_primitives::lifecycle::{RoomScopedEntity, SessionSpawnScope};
+    use ambition_platformer2d_shared_tangle::lifecycle::{RoomScopedEntity, SessionSpawnScope};
     // A projectile is ROOM- and SESSION-scoped like the rest of a room's
     // spawns (see `apply_player_spawn_projectile_messages`).
     let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref())

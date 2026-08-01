@@ -20,10 +20,10 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
-use ambition::platformer::developer_hotkeys::DeveloperAction;
-use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition::runtime::rollback::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_platformer2d::runtime::rollback::{
     self, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, ConfirmedFrameCount, LoadWorld,
     LoadWorldSystems, Rollback, RollbackFrameCount, RollbackSessionStatus, RunGgrsSystems,
     SyncTestSettings,
@@ -201,9 +201,9 @@ impl Plugin for RollbackObservatoryPlugin {
     fn build(&self, app: &mut App) {
         if app
             .world()
-            .get_resource::<ambition::runtime::SimulationHost>()
+            .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
             .copied()
-            != Some(ambition::runtime::SimulationHost::Ggrs)
+            != Some(ambition_platformer2d::runtime::SimulationHost::Ggrs)
         {
             return;
         }
@@ -245,7 +245,7 @@ impl Plugin for RollbackObservatoryPlugin {
             .add_systems(
                 Update,
                 ae::accumulate_control_frame_latch
-                    .after(ambition::input::InputSet::Route)
+                    .after(ambition_platformer2d::input::InputSet::Route)
                     .in_set(RollbackProofUpdateSet::InputLatch),
             )
             .add_systems(
@@ -292,19 +292,19 @@ impl Plugin for RollbackObservatoryPlugin {
 /// already-constructed roster stayed as it was.
 ///
 /// Released by `maintain_local_ggrs_session` when gameplay ends.
-fn local_seat_topology(world: &mut World) -> ambition::input::LocalSeatTopology {
-    if let Some(frozen) = world.get_resource::<ambition::input::LocalSeatTopology>() {
+fn local_seat_topology(world: &mut World) -> ambition_platformer2d::input::LocalSeatTopology {
+    if let Some(frozen) = world.get_resource::<ambition_platformer2d::input::LocalSeatTopology>() {
         if frozen.is_frozen() {
             return frozen.clone();
         }
     }
     let order = world
-        .get_resource::<ambition::input::LocalDeviceOrder>()
+        .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
         .map(|devices| devices.devices().to_vec())
         .unwrap_or_default();
-    let order = ambition::input::LocalDeviceOrder::from_devices(order);
+    let order = ambition_platformer2d::input::LocalDeviceOrder::from_devices(order);
     let mut topology =
-        world.get_resource_or_insert_with(ambition::input::LocalSeatTopology::default);
+        world.get_resource_or_insert_with(ambition_platformer2d::input::LocalSeatTopology::default);
     topology.capture(&order);
     topology.clone()
 }
@@ -312,7 +312,7 @@ fn local_seat_topology(world: &mut World) -> ambition::input::LocalSeatTopology 
 fn maintain_local_ggrs_session(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
-    let gameplay_active = ambition::platformer::lifecycle::session_world_entity(world).is_some();
+    let gameplay_active = ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_some();
     let ggrs_active = world.contains_resource::<AmbitionGgrsSession>();
     let (owns_session, current_mode, handled_request) = {
         let state = world.resource::<RollbackProofState>();
@@ -334,7 +334,7 @@ fn maintain_local_ggrs_session(world: &mut World) {
         // topology without asking whether a session owns it, so two people who
         // played, quit, and came back with one controller would still seat two
         // fighters (GPT 5.6, 2026-07-29).
-        world.remove_resource::<ambition::input::LocalSeatTopology>();
+        world.remove_resource::<ambition_platformer2d::input::LocalSeatTopology>();
         let mut state = world.resource_mut::<RollbackProofState>();
         state.owns_session = false;
         state.session_mode = None;
@@ -432,7 +432,7 @@ fn maintain_local_ggrs_session(world: &mut World) {
 fn record_pre_ggrs_state(
     session: Option<Res<AmbitionGgrsSession>>,
     frame: Option<Res<RollbackFrameCount>>,
-    entities: Query<(Entity, &ambition::platformer::sim_id::SimId), With<Rollback>>,
+    entities: Query<(Entity, &ambition_platformer2d::platformer::sim_id::SimId), With<Rollback>>,
     mut state: ResMut<RollbackProofState>,
 ) {
     if state.session_mode != Some(OwnedSessionMode::Proof) || session.is_none() {
@@ -463,7 +463,7 @@ fn capture_loaded_world(
     bodies: Query<
         (
             Entity,
-            &ambition::platformer::sim_id::SimId,
+            &ambition_platformer2d::platformer::sim_id::SimId,
             &ae::BodyKinematics,
         ),
         With<Rollback>,
@@ -727,9 +727,9 @@ fn rollback_proof_visible(state: Res<RollbackProofState>) -> bool {
 
 fn draw_rollback_ghosts(
     state: Res<RollbackProofState>,
-    world_q: Query<&ae::RoomGeometry, With<ambition::platformer::lifecycle::SessionRoot>>,
+    world_q: Query<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>,
     current_bodies: Query<
-        (&ambition::platformer::sim_id::SimId, &ae::BodyKinematics),
+        (&ambition_platformer2d::platformer::sim_id::SimId, &ae::BodyKinematics),
         With<Rollback>,
     >,
     mut gizmos: Gizmos,
@@ -819,8 +819,8 @@ mod tests {
         // `session_players` helper in this file — a second copy of the same rule,
         // and the copy the test watched was not the one the roster used.
         let pads = |count: usize| {
-            let mut topology = ambition::input::LocalSeatTopology::default();
-            topology.capture(&ambition::input::LocalDeviceOrder::from_devices(
+            let mut topology = ambition_platformer2d::input::LocalSeatTopology::default();
+            topology.capture(&ambition_platformer2d::input::LocalDeviceOrder::from_devices(
                 (0..count as u32).filter_map(Entity::from_raw_u32).collect(),
             ));
             topology.players()

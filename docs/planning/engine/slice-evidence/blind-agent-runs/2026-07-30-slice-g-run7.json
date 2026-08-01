@@ -21,21 +21,21 @@
       "why": "whether the engine's own acceptance tests ever run a session far enough to see the freeze it hit"
     },
     {
-      "file": "crates/ambition_runtime/src/rollback/session.rs",
+      "file": "crates/ambition_platformer2d_runtime/src/rollback/session.rs",
       "why": "whether the engine pumps GGRS local inputs itself (it does)"
     },
     {
-      "file": "crates/ambition_host/src/lib.rs",
+      "file": "crates/ambition_platformer2d_host/src/lib.rs",
       "why": "same question, incidental grep hits"
     }
   ],
   "⚠_engine_files_opened_is_NOT_the_headline_here": "Three, and all three were reached only while diagnosing a freeze — the agent got to a running two-player session with its own state in the wire format having opened NONE. §4.2 measures the FIRST open; by that measure this run is worse than run 6 and the reason is that Script B goes somewhere Script A never went.",
-  "grey_area_the_agent_reported_itself": "It used `cargo doc -p ambition --no-deps` heavily. api-reference.md's own header counts that as an engine open, because blind run 4's two opens were exactly that. Its account: EVERY question after the first ten minutes was answered by rustdoc, not by docs/sdk/ — naming SnapshotState's signature, Reader, put_i32, the other 25 AmbitionRollbackApp verbs, SimScheduleExt, SandboxSet and drive_control_frame's caveat as rustdoc-only.",
+  "grey_area_the_agent_reported_itself": "It used `cargo doc -p ambition_platformer2d --no-deps` heavily. api-reference.md's own header counts that as an engine open, because blind run 4's two opens were exactly that. Its account: EVERY question after the first ten minutes was answered by rustdoc, not by docs/sdk/ — naming SnapshotState's signature, Reader, put_i32, the other 25 AmbitionRollbackApp verbs, SimScheduleExt, SandboxSet and drive_control_frame's caveat as rustdoc-only.",
   "findings": [
     {
       "id": "a",
       "claim": "`rollback_component_canonical` on a GAME-SPAWNED entity silently does nothing. Registration is accepted, counted in `encoded_types()`, and the component does not roll back.",
-      "verified": "YES — and the diagnosis was the only part that was wrong. The agent concluded the entity needs `bevy_ggrs::Rollback`, which the facade does not export, and added the patched fork as a direct dependency to prove it — breaking the 'a game depends on `ambition` and nothing else' promise to do so.",
+      "verified": "YES — and the diagnosis was the only part that was wrong. The agent concluded the entity needs `bevy_ggrs::Rollback`, which the facade does not export, and added the patched fork as a direct dependency to prove it — breaking the 'a game depends on `ambition_platformer2d` and nothing else' promise to do so.",
       "what_it_actually_needs": "`AmbitionRollbackApp::require_rollback::<T>(owner, name)` — already on the trait the facade already exports. The capability was reachable; nothing said so. `register_engine_rollback_state` uses it for exactly this purpose on six engine families.",
       "severity": "HIGHEST of the run. Silent, no error message, and the SDK's own remedy ('register it') had already been applied. The count going 331 -> 332 actively confirmed the wrong thing.",
       "why_the_engine_fixture_never_hit_it": "Outlander attaches `BeaconCharge` to the engine-spawned `PrimaryPlayer` body, which is already tracked. Two correct-looking programs, one of which works, and nothing in the API surfaces the difference. A second consumer would not have found it either — `minimal_game` does not use rollback at all.",
@@ -45,7 +45,7 @@
       "id": "b",
       "claim": "The engine's own rollback session desyncs at GGRS frame 6 with NO consumer code in it — `SyncTestMismatch { mismatched_frames: [2,3,4] }` forever, sim frozen, with the agent's game systems disabled.",
       "verified": "NO. DID NOT REPRODUCE.",
-      "how_it_was_checked": "A module composed the documented way (`PlatformerApp::headless().rollback(2).mount(…)`, then `ambition::rollback::start`) run for 200 updates: `RollbackSessionStatus.mismatch_frames` is EMPTY, `invalidation` is None, and `RollbackFrameCount` reached 201 — one frame per update, exactly. Outlander's `consumer_owned_authoritative_state_survives_real_resimulation` independently drives a full walkthrough under GGRS and reaches byte-identical state to the fixed-tick host.",
+      "how_it_was_checked": "A module composed the documented way (`PlatformerApp::headless().rollback(2).mount(…)`, then `ambition_platformer2d::rollback::start`) run for 200 updates: `RollbackSessionStatus.mismatch_frames` is EMPTY, `invalidation` is None, and `RollbackFrameCount` reached 201 — one frame per update, exactly. Outlander's `consumer_owned_authoritative_state_survives_real_resimulation` independently drives a full walkthrough under GGRS and reaches byte-identical state to the fixed-tick host.",
       "⚠": "This was the run's most alarming claim and it is not an engine defect. Recorded rather than dropped, because the agent was not careless — it ran a real session and read a real event. Something about its composition put its systems outside the rollback schedule (its own finding (e) is the likely cause: naming `Update` literally). The lesson is about the REPORT, not the reporter: a subagent's conclusion is evidence to check, not a result to act on.",
       "also_refuted": "Finding (d), 'under rollback `app.update()` is a frame not a tick, 197 updates gave 5 sim frames' — the frame count advanced 1:1 with updates here."
     },
@@ -77,7 +77,7 @@
     },
     {
       "id": "h",
-      "claim": "`ambition::rollback`'s module doc opens with `ambition::world`'s text, and its property table cites `RollbackPlan::for_participants`, which does not exist.",
+      "claim": "`ambition_platformer2d::rollback`'s module doc opens with `ambition_platformer2d::world`'s text, and its property table cites `RollbackPlan::for_participants`, which does not exist.",
       "verified": "PARTLY. The doc-comment bug was REAL and is fixed — inserting `pub mod rollback;` between `world`'s doc comment and `world` gave rollback the wrong docs, and rustdoc showed it. The `for_participants` reference had already been corrected before the run's report landed.",
       "⚠": "The staleness guards could not catch either. They check module paths and method names in `docs/sdk/`; neither is a doc comment in a `.rs` file attached to the wrong item."
     }

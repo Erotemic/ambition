@@ -16,10 +16,10 @@ item — rollback as a public knob — was delivered by slice F with the six
 properties it demanded, each carrying its own acceptance test.
 
 ⚠ One prediction it got wrong, recorded because the correction is more useful
-than the score: it framed the `ambition_actors` decomposition as the carve most
+than the score: it framed the `ambition_platformer2d_actor_monolith` decomposition as the carve most
 likely to be authorised. The carve the campaign actually needed was
-`SnapshotState` down to `ambition_engine_core` — invisible from the API side,
-and reachable only by asking why a consumer had to name `ambition_runtime` to
+`SnapshotState` down to `ambition_platformer2d_core` — invisible from the API side,
+and reachable only by asking why a consumer had to name `ambition_platformer2d_runtime` to
 encode its OWN type. §4's carve condition covered it exactly; the ADR's guess
 at WHICH boundary did not.
 
@@ -38,7 +38,7 @@ satisfied and the allowlist ratchet reaches zero — not when slice A lands.
 
 ## Context
 
-`crates/ambition/src/lib.rs` is 114 lines. Fifty of them are `pub use`, and
+`crates/ambition_platformer2d/src/lib.rs` is 114 lines. Fifty of them are `pub use`, and
 roughly forty are `pub use ambition_x as x`.
 
 **The public API of this engine is currently the list of crates it happens to be
@@ -51,10 +51,10 @@ built from.** That is not a facade; it is a namespace mirror. It means:
 * and there is no answer to "what is public?" other than "everything".
 
 The external-consumer fixture measures the consequence. Outlander depends only
-on `ambition` and Bevy — which was the point — and reaches through it into
-`ambition::actors::features` (7 uses), `ambition::runtime::rollback` (6),
-`ambition::platformer::markers` (5), `ambition::characters::actor::character_catalog`,
-`ambition::runtime::demo_fixture`, and `ambition::runtime::rollback::put_f32`.
+on `ambition_platformer2d` and Bevy — which was the point — and reaches through it into
+`ambition_platformer2d::actors::features` (7 uses), `ambition_platformer2d::runtime::rollback` (6),
+`ambition_platformer2d::platformer::markers` (5), `ambition_platformer2d::characters::actor::character_catalog`,
+`ambition_platformer2d::runtime::demo_fixture`, and `ambition_platformer2d::runtime::rollback::put_f32`.
 A third party building a game is naming an internal serialisation helper.
 
 The same fixture shows the cost at the composition level. `build_windowed_app`
@@ -81,7 +81,7 @@ itself.
 
 It is also what
 [`../planning/engine/decomposition.md`](../planning/engine/decomposition.md)
-already anticipated. Its settled "no size-driven `ambition_actors` carve" ruling
+already anticipated. Its settled "no size-driven `ambition_platformer2d_actor_monolith` carve" ruling
 ends: *"This ruling does not protect misplaced named content or prevent a later
 split that **a real second consumer demonstrates**."* Building the public API
 first is how that consumer gets a voice; it is the mechanism that ruling named,
@@ -89,24 +89,24 @@ not a reversal of it.
 
 ## Decision
 
-**1. `ambition` is a semantic API, not a crate re-export list.** Public modules
+**1. `ambition_platformer2d` is a semantic API, not a crate re-export list.** Public modules
 are named for roles, not for implementation crates:
 
 ```text
-ambition::app        ambition::experience   ambition::character
-ambition::actor      ambition::world        ambition::combat
-ambition::sim        ambition::lifecycle    ambition::effects
-ambition::view       ambition::test         ambition::prelude
+ambition_platformer2d::app        ambition_platformer2d::experience   ambition_platformer2d::character
+ambition_platformer2d::actor      ambition_platformer2d::world        ambition_platformer2d::combat
+ambition_platformer2d::sim        ambition_platformer2d::lifecycle    ambition_platformer2d::effects
+ambition_platformer2d::view       ambition_platformer2d::test         ambition_platformer2d::prelude
 ```
 
 Provisional until the call-site prototype is accepted — the names are a
 consequence of what the call sites need, not an input to them. **Each domain
-carries its own prelude** (`ambition::character::prelude`); one enormous root
+carries its own prelude** (`ambition_platformer2d::character::prelude`); one enormous root
 prelude is a discovery problem for an agent, not a convenience.
 
 **2. The compatibility promise is made at that surface and nowhere else.** Inner
 crates remain independently usable by engine developers and carry no stability
-promise. A game depends on `ambition`.
+promise. A game depends on `ambition_platformer2d`.
 
 **3. Game code may name only the reviewed public surface — an ALLOWLIST, and it
 is executable.** `scripts/check_absence_contracts.py` already owns this class:
@@ -117,18 +117,18 @@ module-path granularity, not a new mechanism.
 
 *Implemented 2026-07-30 as `MODULE_ALLOWLISTS`, one row scoped to
 `fixtures/external_consumer/`. It parses use trees rather than matching a line
-regex, because `use ambition::{time::Clock, audio::Bank};` is two leaks that a
-`\bambition::([a-z_]+)` pattern does not see.*
+regex, because `use ambition_platformer2d::{time::Clock, audio::Bank};` is two leaks that a
+`\bambition_platformer2d::([a-z_]+)` pattern does not see.*
 
 ⚠ **Allowlist, not denylist, and the numbers are decisive.** A denylist always
-lags a namespace mirror. Outlander names **18 distinct top-level `ambition::`
+lags a namespace mirror. Outlander names **18 distinct top-level `ambition_platformer2d::`
 modules**; the first draft of the campaign forbade six of them. It would have
 gone green with twelve leaks still open — worse than no contract, because it
 would have been believed.
 
 > ⚠ **Corrected 2026-07-30.** This paragraph said nineteen, as did the campaign;
 > both listed eighteen names. Measured: eighteen, with no brace-grouped
-> `ambition::{…}` imports and no root-level type re-exports hiding from the
+> `ambition_platformer2d::{…}` imports and no root-level type re-exports hiding from the
 > count. The implemented contract takes its baseline from the instrument rather
 > than from either document.
 
@@ -158,7 +158,7 @@ has become the next monolith and this ADR has failed.
 
 * the dependency contract above; and
 * **the blind agent test** — can an agent implement a character, a room and a
-  mechanic with only `docs/sdk/` and `ambition::prelude` in context, never
+  mechanic with only `docs/sdk/` and `ambition_platformer2d::prelude` in context, never
   opening a file under `crates/`? It must be run with **no prior context of this
   repository**, or it measures the agent's memory rather than the API, and the
   recorded result includes *which engine file it had to open first*. That field
@@ -171,7 +171,7 @@ external composition, a movement-only minimal game, a noncombat actor, a module
 standalone *and* embedded, Smash, and Ambition itself. An API proven against one
 consumer is an API shaped like that consumer.
 
-**The `ambition_actors` decomposition is deferred, deliberately, and gains a
+**The `ambition_platformer2d_actor_monolith` decomposition is deferred, deliberately, and gains a
 trigger.** The diagnosis that it has become a gravitational sink is accepted —
 it owns audio, menu content, persistence compatibility, LDtk loading, session
 lifecycle, cutscene playback and boss orchestration alongside actor simulation.
@@ -187,7 +187,7 @@ work, not decided here.
 
 ## Alternatives considered
 
-**Split `ambition_actors` first, then design the API over the result.** Rejected
+**Split `ambition_platformer2d_actor_monolith` first, then design the API over the result.** Rejected
 on sequencing, not on merit. It designs boundaries from the inside, and the
 stated objective is an engine another game can be built on — a property only a
 consumer can measure. It also risks weeks of refactor during which new features
@@ -212,14 +212,14 @@ erodes at the first deadline.
 - **A consumer names only the reviewed public surface.** `MODULE_ALLOWLISTS`
   in `scripts/check_absence_contracts.py` enforces this at module-path
   granularity over `fixtures/external_consumer/`, with the baseline at zero.
-  When consumer code needs a new `ambition::` module, the module is reviewed
+  When consumer code needs a new `ambition_platformer2d::` module, the module is reviewed
   into `allowed` — the baseline never grows.
-- **Assembly goes through `PlatformerApp`** (`crates/ambition/src/app.rs`).
+- **Assembly goes through `PlatformerApp`** (`crates/ambition_platformer2d/src/app.rs`).
   Never hand-order asset source, engine plugin groups, host groups, shell,
   asset preparation and presentation in a consumer or fixture; every ordering
   rule the engine knows is stated once, in the builder.
   `outlander-does-not-hand-order-its-own-composition` guards the regression.
-- **The facade owns no behavior.** A leaf system added to `crates/ambition`
+- **The facade owns no behavior.** A leaf system added to `crates/ambition_platformer2d`
   belongs in a domain crate; the facade holds assembly contexts and
   re-exported contracts only. If it grows behavior, this ADR has failed.
 - **The blind-agent gate is a series, not a score.** Each run uses the fixed

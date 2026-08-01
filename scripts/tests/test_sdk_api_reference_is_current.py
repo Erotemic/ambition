@@ -14,7 +14,7 @@ methods.
 ## Why the reference exists at all
 
 ADR 0031's gate is that an author never opens a file under `crates/`. The SDK
-was recommending `cargo doc -p ambition -p ambition_world`, so its own advice
+was recommending `cargo doc -p ambition_platformer2d -p ambition_platformer2d_world`, so its own advice
 generated the failures it is scored on. Rustdoc is genuinely better for
 browsing; it is not a substitute for the SDK containing the surface.
 """
@@ -34,14 +34,14 @@ REPO = Path(
     ).stdout.strip()
 )
 
-APP_RS = REPO / "crates/ambition/src/app.rs"
-ROLLBACK_RS = REPO / "crates/ambition/src/rollback.rs"
+APP_RS = REPO / "crates/ambition_platformer2d/src/app.rs"
+ROLLBACK_RS = REPO / "crates/ambition_platformer2d/src/rollback.rs"
 REFERENCE = REPO / "docs/sdk/api-reference.md"
 
 # Every public type the reference documents, and the file it is defined in.
 #
 # ⚠ This used to be a hardcoded read of `app.rs` alone. Slice F published
-# `ambition::rollback`, and the both-ways check immediately reported its methods
+# `ambition_platformer2d::rollback`, and the both-ways check immediately reported its methods
 # as invented — correctly, since it could not see them. The fix is to teach the
 # guard the file, NOT to waive the names: a waiver would have turned the sharper
 # half of this test (the reference naming something that does not exist) off for
@@ -129,7 +129,7 @@ def test_the_reference_names_no_method_that_does_not_exist():
             "manifest",
             "asset_source",
             "update",
-            # `ambition::rollback`'s free function, and the verbs a consumer
+            # `ambition_platformer2d::rollback`'s free function, and the verbs a consumer
             # calls on its own `App` rather than on a builder type. These live
             # on extension traits in engine crates (`AmbitionRollbackApp`,
             # `SimScheduleExt`), which is exactly why the reference has to name

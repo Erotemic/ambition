@@ -582,7 +582,7 @@ pub fn baked_sheet_registry() -> SheetRegistry {
 
 /// Bevy plugin that installs and populates the baked character sheet registry.
 ///
-/// This used to live behind `ambition_actors::character_sprites::registry`, but
+/// This used to live behind `ambition_platformer2d_actor_monolith::character_sprites::registry`, but
 /// it is pure sprite-sheet presentation vocabulary: the data source is the
 /// baked `*_spritesheet.ron` table owned by this crate, and the installed
 /// resource is [`SheetRegistry`]. Keeping the plugin here lets apps/content

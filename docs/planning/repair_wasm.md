@@ -63,7 +63,7 @@ verified):
 - **#6** (`ShellPauseMenuSuppressed` unconditional in `shell_host.rs`): the
   pause-suppression bridge + its system are now `#[cfg(feature = "basic_shell_presentation")]`,
   a newly-DECLARED `ambition_app` feature forwarding to
-  `ambition/basic_shell_presentation` (the old direct dep-feature in `visible`
+  `ambition_platformer2d/basic_shell_presentation` (the old direct dep-feature in `visible`
   couldn't be `cfg`'d). Native `visible` keeps it (behavior identical); the
   minimal `web` build omits it, the documented "standalone demo app" case.
 
@@ -123,7 +123,7 @@ The currently observed failures include:
 
 5. `run_web` contains a `match render` block even though no `render` variable exists. This appears to have been copied from the native visible-app builder.
 
-6. `app/shell_host.rs` unconditionally references `ambition::game_shell::ShellPauseMenuSuppressed`, but that type is exported only with the `basic_presentation` feature.
+6. `app/shell_host.rs` unconditionally references `ambition_platformer2d::game_shell::ShellPauseMenuSuppressed`, but that type is exported only with the `basic_presentation` feature.
 
 ## Required repair strategy
 
@@ -205,7 +205,7 @@ Ensure systems that require the resource are not registered when the resource or
 
 ### 5. Clean related cfg warnings
 
-Fix the observed WASM-only unused import involving `ambition::render::ui_fonts` by placing the import under the same feature or target conditions as its uses.
+Fix the observed WASM-only unused import involving `ambition_platformer2d::render::ui_fonts` by placing the import under the same feature or target conditions as its uses.
 
 Look for immediately adjacent imports or functions with the same class of incorrect cfg boundary, but do not turn this task into a repository-wide cleanup.
 

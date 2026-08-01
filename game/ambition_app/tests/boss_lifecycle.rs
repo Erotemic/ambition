@@ -19,19 +19,19 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::boss_encounter::{
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
-use ambition::actors::features::{
+use ambition_platformer2d::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use ambition_platformer2d::actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
-use ambition::encounter::EncounterMusicRequest;
-use ambition::entity_catalog::placements::BossBrain;
-use ambition::persistence::save::SandboxSave;
-use ambition::persistence::save_data::PersistedEncounterState;
+use ambition_platformer2d::encounter::EncounterMusicRequest;
+use ambition_platformer2d::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::persistence::save::SandboxSave;
+use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
@@ -65,7 +65,7 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
     let mut q = world.query::<(
         &BossConfig,
         &mut BossEncounter,
-        &mut ambition::characters::actor::BodyHealth,
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
     )>();
     for (config, mut status, mut health) in q.iter_mut(world) {
         if config.id == runtime_id {
@@ -80,7 +80,7 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
 }
 
 fn music_track(sim: &SandboxSim) -> Option<String> {
-    ambition::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
         .expect("live encounter-music request")
         .priority_track
         .clone()
@@ -99,7 +99,7 @@ fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
 }
 
 fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
-    let mut q = world.query::<(&BossConfig, &ambition::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.alive())
@@ -113,14 +113,14 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
 }
 
 fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(&BossConfig, &ambition::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.max())
 }
 
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(&BossConfig, &mut ambition::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::characters::actor::BodyHealth)>();
     for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {
             health.health.current = hp;

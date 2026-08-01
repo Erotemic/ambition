@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_dialog** — Reusable dialogue runtime (E1c carve out of `ambition_actors`).
+**ambition_dialog** — Reusable dialogue runtime (E1c carve out of `ambition_platformer2d_actor_monolith`).
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

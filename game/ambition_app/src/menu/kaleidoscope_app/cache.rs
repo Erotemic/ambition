@@ -64,7 +64,7 @@ pub(crate) fn cache_system_menu(
 /// only when something it depends on actually changed: the inventory, the focus
 /// cursor, the active page, the just-opened edge, or the very first publish.
 pub(crate) fn republish_kaleidoscope_pages(
-    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     owned: Option<Res<OwnedItems>>,
     // Read-only here. The mutators (`kaleidoscope_focus_nav`, `kaleidoscope_pointer_release`) take
     // `ResMut<UserSettings>` in SEPARATE systems, so this `Res` is not a B0002
@@ -146,7 +146,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         .map(|previous| previous.changed_fields(&key))
         .unwrap_or_else(|| vec!["initial"]);
     debug!(
-        target: "ambition::kaleidoscope_rebuild",
+        target: "ambition_platformer2d::kaleidoscope_rebuild",
         "republishing cube pages pages_empty={} just_opened={} changed_fields={:?}",
         pages_empty,
         just_opened,
@@ -187,7 +187,7 @@ pub(crate) struct RebuildKey {
     open_entry: Option<SystemMenuEntryId>,
     /// Complete inventory value snapshot. `OwnedItems` intentionally does not expose
     /// its storage, so derive the stable catalog-order counts through its public API.
-    owned_counts: [u32; ambition::items::ITEM_COUNT],
+    owned_counts: [u32; ambition_platformer2d::items::ITEM_COUNT],
     equipped: Option<Item>,
     /// Complete persisted settings value. This keeps the rebuild contract correct as
     /// new rendered settings rows are added without extending a second hand-written

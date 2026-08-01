@@ -33,7 +33,7 @@ was fine and is preserved.
 2. **P0 — `cargo test --workspace` red** [FIXED in this pass]. Two independent
    causes: (a) the reverted moveset test no longer type-checked
    (`(hb.damage, hb.knockback)` vs `(i32, f32)`); (b)
-   `ambition_platformer_primitives` failed to compile standalone — 26 `KeyCode`
+   `ambition_platformer2d_shared_tangle` failed to compile standalone — 26 `KeyCode`
    errors — because `developer_hotkeys.rs` (from `a606dfb43`) needs
    `bevy_input_focus`, which only co-built siblings unified in. Same trap
    `ambition_game_shell`'s manifest already documents; fixed the same way.
@@ -51,7 +51,7 @@ if someone looks at it.
 
 ## 2. GGRS rollback gaps (post-ADR-0027 debt)
 
-The registration set in `crates/ambition_runtime/src/rollback/mod.rs` is
+The registration set in `crates/ambition_platformer2d_runtime/src/rollback/mod.rs` is
 genuinely comprehensive (body/actor/combat/brain/projectile/encounter/portal/
 mount families, MapEntities, 40-entry cleared-on-rollback message list). The
 gaps are the exceptions:
@@ -137,7 +137,7 @@ Broken/stale (fix = small edits now; rewrites are queued tasks):
   "transactional migration" landed (`RoomConstructionPlan`, one artifact for
   startup/reset/transition/reload/reconstruction).
 - **GGRS evidence rot:** encounter-orchestration.md:227 cites the deleted
-  `ambition_runtime::snapshot::tests::restore_preserves_an_active_encounter`
+  `ambition_platformer2d_runtime::snapshot::tests::restore_preserves_an_active_encounter`
   as E11's exit evidence (invariant survives at `rollback/codecs.rs:1871`);
   architecture.md §5 still narrates snapshot-restore room staging;
   headless-verification.md predates the sim-harness extraction;
@@ -188,7 +188,7 @@ Live forks / unification candidates (logged in code_smells.md, queue-worthy):
 authorizes the first two):** `ambition_items::Item` closed enum (24 variants,
 per-variant sprite paths) → provider-registered catalog;
 `deep_dream_strength` knob baked into render/settings; the whole
-`abilities/thrown/puppy_slug_gun.rs` named module inside `ambition_actors`
+`abilities/thrown/puppy_slug_gun.rs` named module inside `ambition_platformer2d_actor_monolith`
 (generic mechanism: summon faction-allied minion) with a hardcoded
 `"puppy_slug_gun"` row in `action_set/mod.rs`.
 
@@ -202,11 +202,11 @@ per-variant sprite paths) → provider-registered catalog;
   `optional = true` behind the existing `kaleidoscope_menu` feature.
 - **Graph:** no production cycles; longest chain depth 11; the serialized spine
   engine_core → characters → combat → actors → sim_view → runtime → host →
-  facade → content → app ≈ 192k LOC. `ambition_actors` out-degree 27 (includes
+  facade → content → app ≈ 192k LOC. `ambition_platformer2d_actor_monolith` out-degree 27 (includes
   menu/settings_menu/ui_nav/dev_tools/cutscene/dialog — the role anomaly).
   Tier tensions: sprite_sheet (Tier 0) → world/persistence/interaction (the
   interaction dep has ZERO path references — free deletion);
-  `ambition_world → ambition_time` unused (free deletion); actors→ui_nav is
+  `ambition_platformer2d_world → ambition_time` unused (free deletion); actors→ui_nav is
   forwarding-only; dev_tools is a normal dep of sim_view/render/runtime/actors
   vs "development-only" in architecture.md — needs a doc amendment or a
   vocabulary split.

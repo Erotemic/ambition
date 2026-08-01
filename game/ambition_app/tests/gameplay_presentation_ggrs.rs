@@ -23,10 +23,10 @@
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
-use ambition::engine_core as ae;
-use ambition::platformer::camera_layers::MainCamera;
-use ambition::platformer::gameplay_presentation::ResolvedGameplayPresentation;
-use ambition::sim_view::camera_snapshot::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::camera_layers::MainCamera;
+use ambition_platformer2d::platformer::gameplay_presentation::ResolvedGameplayPresentation;
+use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
 };
 use ambition_app::rl_sim::ambition_sim_composition;
@@ -56,7 +56,7 @@ fn ggrs_flagship() -> SandboxSim {
             ambition_sim_composition(app, options)?;
             // The visible host is what installs HostGameplayPresentationPlugin
             // and the camera cluster. Without it this would test nothing.
-            app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+            app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
             app.world_mut().spawn((window_at(DISPLAY), PrimaryWindow));
             app.world_mut().spawn((Camera::default(), MainCamera));
             Ok(())
@@ -167,8 +167,8 @@ fn ggrs_flagship_keeps_one_layout_across_a_resize() {
 /// Schedule membership IS the invariant here, so that is what is checked.
 #[test]
 fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
-    use ambition::runtime::rollback::GgrsSchedule;
-    use ambition::sim_view::camera_snapshot::CameraObservationSet;
+    use ambition_platformer2d::runtime::rollback::GgrsSchedule;
+    use ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet;
     use bevy::ecs::schedule::Schedules;
 
     use bevy::ecs::schedule::ScheduleLabel as _;

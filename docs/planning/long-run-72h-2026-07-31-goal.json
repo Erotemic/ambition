@@ -50,7 +50,7 @@
     },
     {
       "name": "S1 slice H: the facade's capabilities are optional and it builds without them",
-      "cmd": "git grep -q 'all_capabilities' -- crates/ambition/Cargo.toml && $HOME/.cargo/bin/cargo check -p ambition --no-default-features --quiet",
+      "cmd": "git grep -q 'all_capabilities' -- crates/ambition_platformer2d/Cargo.toml && $HOME/.cargo/bin/cargo check -p ambition_platformer2d --no-default-features --quiet",
       "timeout": 900
     },
     {
@@ -60,7 +60,7 @@
     },
     {
       "name": "S2 match activation constructs every seat in ONE transaction",
-      "cmd": "out=$( { $HOME/.cargo/bin/cargo test -p ambition_actors --lib activation_transaction 2>&1; $HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it activation_transaction 2>&1; } || true ); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
+      "cmd": "out=$( { $HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib activation_transaction 2>&1; $HOME/.cargo/bin/cargo test -p ambition_app --features rl_sim --test app_it activation_transaction 2>&1; } || true ); echo \"$out\" | grep -E 'test result: ok\\. [1-9][0-9]* passed' >/dev/null",
       "timeout": 900
     },
     {

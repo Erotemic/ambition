@@ -43,7 +43,7 @@ pub fn load_settings(path: &Path) -> UserSettings {
         }
         Err(error) => {
             warn!(
-                target: "ambition::settings",
+                target: "ambition_platformer2d::settings",
                 "could not read settings file {}: {error}; using defaults",
                 path.display()
             );
@@ -57,7 +57,7 @@ pub fn load_settings(path: &Path) -> UserSettings {
         }
         Err(error) => {
             warn!(
-                target: "ambition::settings",
+                target: "ambition_platformer2d::settings",
                 "could not parse settings file {}: {error}; using defaults",
                 path.display()
             );
@@ -113,7 +113,7 @@ pub fn load_settings_at_startup(
         return;
     }
     info!(
-        target: "ambition::settings",
+        target: "ambition_platformer2d::settings",
         "loaded user settings from {}",
         path.display()
     );
@@ -156,7 +156,7 @@ pub fn save_settings_on_change(
     match save_settings(&path, &settings) {
         Ok(()) => last.0 = Some(settings.clone()),
         Err(error) => warn!(
-            target: "ambition::settings",
+            target: "ambition_platformer2d::settings",
             "failed to write settings file {}: {error}",
             path.display()
         ),

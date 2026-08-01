@@ -1,9 +1,9 @@
 # The Phase-6 external-architecture proof (campaign doc §Phase 6): a consumer
 # game that lives OUTSIDE the engine workspace — its own [workspace], its own
 # lockfile, no workspace dependency table, no policy exemptions — so what
-# compiles here is exactly what a third party gets from the `ambition`
+# compiles here is exactly what a third party gets from the `ambition_platformer2d`
 # umbrella. The dependency rule is the same one the in-repo demos prove:
-# `ambition` + `bevy`, nothing else (bevy only because component derives
+# `ambition_platformer2d` + `bevy`, nothing else (bevy only because component derives
 # resolve `bevy_ecs` through the CONSUMER's manifest).
 [package]
 name = "outlander"
@@ -44,9 +44,9 @@ bench = false
 [features]
 default = []
 visible = [
-    "ambition/visible",
-    "ambition/basic_shell_presentation",
-    "ambition/input",
+    "ambition_platformer2d/visible",
+    "ambition_platformer2d/basic_shell_presentation",
+    "ambition_platformer2d/input",
     "bevy/default",
 ]
 
@@ -55,7 +55,7 @@ visible = [
 # windowed face and asserts on `GameAssets` — so it asks for the render
 # capability by name and nothing else. What else still links is the carve's
 # problem, not this manifest's.
-ambition = { path = "../../crates/ambition", default-features = false, features = [
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
     "ambition_render",
 ] }
 bevy = { version = "0.18.1", default-features = false }

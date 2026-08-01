@@ -26,11 +26,11 @@
 //! the next attempt. Cross-session persistence inherits whatever
 //! state the boss runtime restores on respawn — no extra hookup here.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_actors::features::{BossClusterRef, FeatureEcsWorldOverlay};
-use ambition_engine_core::RoomGeometry;
+use ambition_platformer2d_actor_monolith::features::{BossClusterRef, FeatureEcsWorldOverlay};
+use ambition_platformer2d_core::RoomGeometry;
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -52,7 +52,7 @@ const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 /// R2), so the rider id — plus the display name a room author writes — is the
 /// whole recognizer. Note the MOUNT is deliberately not matched: the giant dying
 /// is a phase trigger, not the encounter ending.
-fn boss_is_gnu_ton(boss: &ambition_actors::features::BossRef<'_>) -> bool {
+fn boss_is_gnu_ton(boss: &ambition_platformer2d_actor_monolith::features::BossRef<'_>) -> bool {
     boss.config.behavior.id == "gnu_ton_rider"
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
@@ -76,7 +76,7 @@ fn boss_is_gnu_ton(boss: &ambition_actors::features::BossRef<'_>) -> bool {
 /// base and the derive recomputes from scratch; dying mid-fight (boss back to
 /// alive) re-hides the ladders automatically.
 pub fn gate_gnu_ton_arena_ladder(
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     bosses: Query<(BossClusterRef, &ambition_characters::actor::BodyHealth)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {

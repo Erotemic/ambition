@@ -2,55 +2,55 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition::actors::ldtk_world;
-use ambition::actors::rooms;
-use ambition::dev_tools::dev_tools::DeveloperTools;
-use ambition::dev_tools::SandboxDevState;
-use ambition::engine_core as ae;
-use ambition::engine_core::RoomGeometry;
-use ambition::input::KeyboardPreset;
-use ambition::platformer::schedule::GameMode;
-use ambition::render::rendering::HudText;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
+use ambition_platformer2d::dev_tools::SandboxDevState;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::input::KeyboardPreset;
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::HudText;
 
 use super::feedback::ProgressionResources;
 use crate::host::windowing;
 
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
-    user_settings: Res<'w, ambition::persistence::settings::UserSettings>,
+    user_settings: Res<'w, ambition_platformer2d::persistence::settings::UserSettings>,
     player: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition::actors::actor::BodyKinematics,
-            &'static ambition::actors::actor::BodyGroundState,
-            &'static ambition::actors::actor::BodyWallState,
-            &'static ambition::actors::actor::BodyDashState,
-            &'static ambition::actors::actor::BodyJumpState,
-            &'static ambition::actors::actor::BodyMana,
-            &'static ambition::actors::actor::BodyModeState,
+            &'static ambition_platformer2d::actors::actor::BodyKinematics,
+            &'static ambition_platformer2d::actors::actor::BodyGroundState,
+            &'static ambition_platformer2d::actors::actor::BodyWallState,
+            &'static ambition_platformer2d::actors::actor::BodyDashState,
+            &'static ambition_platformer2d::actors::actor::BodyJumpState,
+            &'static ambition_platformer2d::actors::actor::BodyMana,
+            &'static ambition_platformer2d::actors::actor::BodyModeState,
             // The movement policy: the locomotion label + the debug ledge
             // readout (climb progress) come from the model — this dev HUD
             // deliberately reads the policy's internals (ADR 0024).
             &'static ae::MotionModel,
-            &'static ambition::actors::actor::BodyFlightState,
-            &'static ambition::actors::actor::BodyComboTrace,
-            &'static ambition::characters::actor::BodyHealth,
-            &'static ambition::characters::actor::BodyCombat,
-            &'static ambition::actors::actor::BodyMelee,
+            &'static ambition_platformer2d::actors::actor::BodyFlightState,
+            &'static ambition_platformer2d::actors::actor::BodyComboTrace,
+            &'static ambition_platformer2d::characters::actor::BodyHealth,
+            &'static ambition_platformer2d::characters::actor::BodyCombat,
+            &'static ambition_platformer2d::actors::actor::BodyMelee,
         ),
-        ambition::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition::actors::features::FeatureName,
-            &'static ambition::actors::features::ActorDisposition,
-            &'static ambition::characters::actor::BodyHealth,
-            &'static ambition::characters::actor::BodyCombat,
+            &'static ambition_platformer2d::actors::features::FeatureName,
+            &'static ambition_platformer2d::actors::features::ActorDisposition,
+            &'static ambition_platformer2d::characters::actor::BodyHealth,
+            &'static ambition_platformer2d::characters::actor::BodyCombat,
         ),
-        bevy::prelude::Without<ambition::actors::features::BossConfig>,
+        bevy::prelude::Without<ambition_platformer2d::actors::features::BossConfig>,
     >,
 }
 
@@ -62,8 +62,8 @@ pub(super) struct HudCameraParams<'w, 's> {
 pub(super) fn update_hud(
     dev_state: Res<SandboxDevState>,
     mode: Res<State<GameMode>>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,
@@ -73,8 +73,8 @@ pub(super) fn update_hud(
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
-        &ambition::actors::boss_encounter::EncounterDef,
-        &ambition::actors::boss_encounter::EncounterProgress,
+        &ambition_platformer2d::actors::boss_encounter::EncounterDef,
+        &ambition_platformer2d::actors::boss_encounter::EncounterProgress,
     )>,
     // E12: the encounter status line reads the generic LIFECYCLE on the live
     // encounter entities — one line per in-flight encounter that is not
@@ -82,12 +82,12 @@ pub(super) fn update_hud(
     // above). Wave detail is optional flavor, not a requirement.
     lifecycle_encounters: Query<
         (
-            &ambition::encounter::Encounter,
-            &ambition::encounter::EncounterLifecycle,
-            Option<&ambition::encounter::EncounterWaves>,
-            Option<&ambition::encounter::EncounterParticipants>,
+            &ambition_platformer2d::encounter::Encounter,
+            &ambition_platformer2d::encounter::EncounterLifecycle,
+            Option<&ambition_platformer2d::encounter::EncounterWaves>,
+            Option<&ambition_platformer2d::encounter::EncounterParticipants>,
         ),
-        Without<ambition::actors::boss_encounter::EncounterDef>,
+        Without<ambition_platformer2d::actors::boss_encounter::EncounterDef>,
     >,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -170,7 +170,7 @@ pub(super) fn update_hud(
         String::new()
     };
     // Cutscene UI lives in the dedicated overlay
-    // (`ambition::render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // (`ambition_platformer2d::render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
     // with speaker / body / continue prompt and a skip-hold progress
     // bar. The debug HUD just notes that one is active so testers
     // can correlate skip-hold state with the floating overlay; the
@@ -346,8 +346,8 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
-    user_settings: Res<ambition::persistence::settings::UserSettings>,
-    mut query: Query<&mut Text, With<ambition::render::rendering::QuestPanelText>>,
+    user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
+    mut query: Query<&mut Text, With<ambition_platformer2d::render::rendering::QuestPanelText>>,
 ) {
     // The quest panel is the one session-scoped `QuestPanelText` entity; no live
     // session means no such entity and the update simply no-ops.

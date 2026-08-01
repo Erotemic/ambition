@@ -35,7 +35,7 @@ because this dialog's whole premise is calibration:
    stands (see Q1), but the severity is lower than "candidates still fall back
    to raw Entity ordering" reads.
 3. **`ensure_sim_id` runs twice per tick, by design** — [observed]
-   `crates/ambition_runtime/src/lib.rs:230-259`: once at the frame head
+   `crates/ambition_platformer2d_runtime/src/lib.rs:230-259`: once at the frame head
    (before `SandboxSet::CoreSimulation`) and again at the tail (after
    `ResetProcessing`, before `FeatureViewSync`), precisely so a GGRS save at
    a tick boundary never captures identity-less bodies. The intended contract
@@ -81,11 +81,11 @@ because this dialog's whole premise is calibration:
    the write leaves a validator that fails every archive.
 7. **The persona matrix partially exists already** — [observed]
    `game/ambition_app/Cargo.toml` literally documents its features as
-   personas: "*Personas mirror the pre-split ambition_actors graph; each
+   personas: "*Personas mirror the pre-split ambition_platformer2d_actor_monolith graph; each
    forwards to the machinery lib and the content crate so one selection
    configures the whole stack*" — `desktop_dev` (the default), `visible`,
    `desktop_platform`, `android_platform`, `web_platform`, `portal_render`,
-   `rl_sim`… and `ambition_host`'s `input` feature says "Mirrors the app's
+   `rl_sim`… and `ambition_platformer2d_host`'s `input` feature says "Mirrors the app's
    `input` persona feature." Your §4 proposal is therefore *promotion of an
    existing vocabulary to a tested contract*, not invention. That's cheaper
    and stronger than it looked.
@@ -122,7 +122,7 @@ though ron/thiserror specifically were transitive.
 - The audited population is exactly `With<FeatureSimEntity>`
   (`game/ambition_app/tests/rollback_coverage.rs:111-117`), while the engine
   registers **eight** anchor families
-  (`crates/ambition_runtime/src/rollback/mod.rs:111-133`): `RoomSet` root,
+  (`crates/ambition_platformer2d_runtime/src/rollback/mod.rs:111-133`): `RoomSet` root,
   `BodyKinematics`, `LiveProjectile`, `EncounterLifecycle`,
   `FeatureSimEntity`, `GroundItem`, `PlacedPortal`, `GravityFlipSwitch`,
   plus the `ProjectileGameplay` dynamic anchor. `FeatureSimEntity` is *one of
@@ -209,14 +209,14 @@ today / ⚠ defined but untested / ⏲ scheduled-only candidate):
 | Desktop app, full dev (`desktop_dev` = default) | inside workspace job | ✅ |
 | Leaf-crate personas (content, render, audio, input, …) | the 15 per-crate feature jobs | ✅ |
 | RL / headless sim API | `rl_sim` (inside `desktop_dev` today); a *minimal* no-default persona is ⚠ — exact flag set TBV | ⚠ |
-| Host + input | `-p ambition_host --features input` | ⚠ skipped |
-| Host + portal mechanics + presentation | `-p ambition_host --features portal_render` | ⚠ skipped **and red** (demo_shell_smoke) |
+| Host + input | `-p ambition_platformer2d_host --features input` | ⚠ skipped |
+| Host + portal mechanics + presentation | `-p ambition_platformer2d_host --features portal_render` | ⚠ skipped **and red** (demo_shell_smoke) |
 | Demo apps (mary_o, sanic) | workspace members, default features | ✅ |
 | Web compile persona | `cargo check` under `web_platform` + wasm target | ⏲ toolchain TBV |
 | Android compile persona | `cargo check` under `android_platform` | ⏲ — and real: `7905c6e87` ships Android assets |
 
 Runner change: `SKIP_FEATURE_JOB`'s justification ("gate NO test code") is
-now false for `ambition_host` — my portal seam tests are feature-gated and
+now false for `ambition_platformer2d_host` — my portal seam tests are feature-gated and
 do not run in the gate, which I flagged when I landed them. The skip
 shrinks to crates where the claim is *re-verified*, and the comment gains
 the rule: adding a `#[cfg(feature)]` test to a skipped crate must remove
@@ -252,8 +252,8 @@ Three tiers, in order of preference:
    is acceptable only where the type crate is already a declared dependency
    and empty-queue behavior is meaningful.
 
-For the concrete case: `ambition_host` already depends on `ambition_portal`
-under the `portal` feature (`crates/ambition_host/Cargo.toml`), so the host
+For the concrete case: `ambition_platformer2d_host` already depends on `ambition_portal2d`
+under the `portal` feature (`crates/ambition_platformer2d_host/Cargo.toml`), so the host
 group installing `PortalPlugin` if absent is direction-legal; whether it
 should (vs. assert) depends on whether content compositions configure that
 plugin — decided inside the already-logged smell card, whose ordering
@@ -408,7 +408,7 @@ landable commit; none is a sweeping patch.
 - **C2** SimId contract: end-of-tick assert + loud `None`-tail in targeting
   (Q1.6). Poison-tested.
 - **C3** Portal composition contract → `demo_shell_smoke` green under
-  `portal_render` → un-skip `ambition_host` in `SKIP_FEATURE_JOB` (Q3;
+  `portal_render` → un-skip `ambition_platformer2d_host` in `SKIP_FEATURE_JOB` (Q3;
   ordering already logged in the smell card).
 - **C4** Persona matrix v1: doc table + host jobs in the runner + the
   feature-reachability audit script (Q2).

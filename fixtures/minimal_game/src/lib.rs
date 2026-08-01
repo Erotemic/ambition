@@ -29,7 +29,7 @@
 //! it. That is the whole shape of this slice: not *make the demand go away*,
 //! but *make the true answer expressible*.
 
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 /// This game's ids. A route the shell can reach, and nothing else.
 pub const MINIMAL_EXPERIENCE: &str = "minimal_game";
@@ -78,8 +78,8 @@ impl GameModule for MinimalModule {
 // system, and touches no `App`. That is ADR 0032 decision 1 reaching its
 // conclusion for the smallest possible consumer — "nothing a provider writes is
 // live when its `define` returns" — and it is the clearest measure of what
-// slices A-C bought: this file used to need `ambition::provider`,
-// `ambition::runtime`, `ambition::engine_core` and `ambition::audio` to say the
+// slices A-C bought: this file used to need `ambition_platformer2d::provider`,
+// `ambition_platformer2d::runtime`, `ambition_platformer2d::engine_core` and `ambition_platformer2d::audio` to say the
 // same thing.
 
 pub mod minimal_experience;

@@ -191,7 +191,7 @@ This campaign extends rather than forks the current architecture:
   assemble canonical actor data; they do not create player/enemy/boss runtime
   variants.
 - **Runtime still owns global schedule ordering:** construction planning does not
-  become a new god-system or move domain leaf systems into `ambition_runtime`.
+  become a new god-system or move domain leaf systems into `ambition_platformer2d_runtime`.
 - **The snapshot contract remains same-build unless deliberately expanded:** a
   content fingerprint closes same-name/different-definition holes without
   silently promising cross-version compatibility.
@@ -389,7 +389,7 @@ Under ADR 0027 the restore contract already holds where it is implemented:
 `PreparedContentIdentity` and the versioned, order-independent registration
 fingerprint, and `enforce_session_contract` invalidates the session before
 another GGRS frame can run when either changes
-(`crates/ambition_runtime/src/rollback/session.rs`). Restore itself is
+(`crates/ambition_platformer2d_runtime/src/rollback/session.rs`). Restore itself is
 transactional because `bevy_ggrs` `LoadWorld` is atomic by construction.
 
 The residual problem is the **envelope**: proving that every piece of mutable
@@ -407,7 +407,7 @@ written. Phase 5 closes exactly this list.
 Re-audited 2026-07-23 against HEAD; the first implementation pass should
 still re-verify rather than trust this list against a later HEAD:
 
-- `crates/ambition_runtime/src/rollback/{mod.rs,registry.rs,session.rs,codecs.rs}`
+- `crates/ambition_platformer2d_runtime/src/rollback/{mod.rs,registry.rs,session.rs,codecs.rs}`
   — the registration substrate, schema fingerprint, session contract, and
   canonical codecs (the deleted `snapshot/` subsystem's replacement);
 - `game/ambition_app/tests/rollback_coverage.rs` — the computed
@@ -420,8 +420,8 @@ still re-verify rather than trust this list against a later HEAD:
 - `crates/ambition_persistence/src/save.rs` — the separate persistence
   boundary (confirmed-frame-gated autosave; deliberately not a second
   rollback engine);
-- `crates/ambition_actors/src/construction/mod.rs` and
-  `crates/ambition_actors/src/features/ecs/spawn/mod.rs` — the construction
+- `crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs` and
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs` — the construction
   domain and the assembled room path (every authored family is a plan row as
   of Phase 4);
 - `game/ambition_app/src/app/dev_runtime.rs` — hot-reload preparation, the
@@ -722,10 +722,10 @@ Pin one immutable, fingerprinted content definition to every active session.
 
 ### Phase 3 — explicit provenance and construction-plan vertical slice — **LANDED 2026-07-22**
 
-`ambition_platformer_primitives::construction` is the content-free planner:
+`ambition_platformer2d_shared_tangle::construction` is the content-free planner:
 `RecipeId`, `SpawnOrigin`, `ConstructionRequest`/`Plan`/`PlannedEntity`/
 `PlannedRelation`, a registry on the Phase-1 lifecycle, and a canonical dump.
-`ambition_actors::construction` is the domain that puts three real families
+`ambition_platformer2d_actor_monolith::construction` is the domain that puts three real families
 through it — an authored `GroundItemSpec`, a provider-staged `SpawnActorRequest`,
 and a minion summoned by `Effect::Summon`.
 
@@ -752,9 +752,9 @@ Both are corrected.
    `SessionSpawnScope` at `lower_all` rather than at `plan_room`. It lives in the
    domain's `Services` instead. Putting it in the scope meant writing
    `UNSCOPED` into a field that was then ignored.
-3. **`ContentEpoch` moved down to `ambition_engine_core`.** The plan states the
+3. **`ContentEpoch` moved down to `ambition_platformer2d_core`.** The plan states the
    generation it was prepared against, and construction planning sits far below
-   `ambition_runtime`, which owns content identity. Allocation stayed put; only
+   `ambition_platformer2d_runtime`, which owns content identity. Allocation stayed put; only
    the stamp moved. Provider activation is the one site holding the exact
    prepared definition, so it is the one site that states a real epoch rather
    than defaulting.
@@ -935,7 +935,7 @@ four contributes a checksum projection either, since they use plain
 `rollback_component_clone` rather than the `_state` variant the registry
 documents for `Entity`-carrying components.
 
-**There are zero tests in `crates/ambition_runtime/src/rollback/` covering any of
+**There are zero tests in `crates/ambition_platformer2d_runtime/src/rollback/` covering any of
 the four.** Nothing currently pins that a reconstructed rig or mount link comes
 back with correct handles, which is the gap the migration closes.
 
@@ -1005,9 +1005,9 @@ until it lands the old paths remain the ones that run.
 episode reset, demo crony spawns) legitimately wants a message — but it is a
 second live path to the same helper and should shrink to that use alone.
 
-**Verification.** 20 domain tests (`ambition_actors::construction`), 25 planner
-tests (`ambition_platformer_primitives::construction`), 6 provenance tests
-(`ambition_runtime::rollback::provenance_tests`). The provenance file records
+**Verification.** 20 domain tests (`ambition_platformer2d_actor_monolith::construction`), 25 planner
+tests (`ambition_platformer2d_shared_tangle::construction`), 6 provenance tests
+(`ambition_platformer2d_runtime::rollback::provenance_tests`). The provenance file records
 which of its tests actually DISCRIMINATE between the old and new mechanisms —
 two do, four are behavioural regression protection that passes either way — and
 that was established by running the file against the pre-change implementation
@@ -1276,8 +1276,8 @@ rollback, and there isn't one. This is stated wherever the boundary is.
 *behaviour* changed, so its `SCHEMA` id moved to `actor-construction-v2`, which
 is what carries the change into the prepared-content fingerprint.
 
-**Verification.** 48 domain tests (`ambition_actors::construction`), 68 planner
-tests (`ambition_platformer_primitives::construction`), 7 reconcile tests, 6
+**Verification.** 48 domain tests (`ambition_platformer2d_actor_monolith::construction`), 68 planner
+tests (`ambition_platformer2d_shared_tangle::construction`), 7 reconcile tests, 6
 provenance tests, 15 provider tests. Discriminating vs regression-only is noted
 per test; the mismatch-is-unrepresentable and registration-order tests are
 compile-shape and end-to-end proofs respectively, not poison tests, and say so.
@@ -1337,8 +1337,8 @@ legacy-family list emptied. Still outside the planner:
 | 9 | ~~portal gun pickup (`cfg`)~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row |
 | — | `apply_spawn_actor_requests` | message applier | **SCOPED 2026-07-23 (Phase 4e)** — the ONE sanctioned out-of-plan path, programmatic scene setup only; never room content |
 
-**Verification.** 52 domain tests (`ambition_actors::construction`, +4 for the
-giant migration), 908 `ambition_actors` lib tests. The giant tests are
+**Verification.** 52 domain tests (`ambition_platformer2d_actor_monolith::construction`, +4 for the
+giant migration), 908 `ambition_platformer2d_actor_monolith` lib tests. The giant tests are
 discriminating: the row-count/relation-shape test and the committed-rig test both
 fail against the pre-migration helper (which built the hands invisibly).
 
@@ -1816,19 +1816,19 @@ could never see, in layers:
 > C/D/E hardening → Matchbox.
 >
 > **Landed pieces (commits `c76497d63`, `9b1f5da98`, `e60089189`):**
-> - `ambition_actors::session::lifecycle_commit`: `LifecycleIntent` +
+> - `ambition_platformer2d_actor_monolith::session::lifecycle_commit`: `LifecycleIntent` +
 >   `PendingLifecycleCommit` (rollback-registered resource, earliest-sticky slot).
 > - `detect_room_transition_system`: under a rollback host, records a
 >   `Transition{target_room, arrival, edge_exit}` intent instead of firing
 >   `RoomTransitionRequested` (the eager path is unchanged on non-rollback hosts).
-> - `ambition_runtime::lifecycle_commit::commit_confirmed_lifecycle`: exclusive
+> - `ambition_platformer2d_runtime::lifecycle_commit::commit_confirmed_lifecycle`: exclusive
 >   `PreUpdate.after(RunGgrsSystems)` system — on a confirmed intent it runs
 >   `RoomConstructionPlan::prepare` + `apply_to_world` + body-transit, then
 >   `start_sync_test_session` rebases (generation bump + ring overwrite). Gated to
 >   `LocalSyncTest`; `External` is the documented Matchbox seam.
 
 **The problem (mapped 2026-07-23).** Under the GGRS host `app.sim_schedule()`
-IS `bevy_ggrs::GgrsSchedule` (`ambition_runtime/src/lib.rs:185`), and every
+IS `bevy_ggrs::GgrsSchedule` (`ambition_platformer2d_runtime/src/lib.rs:185`), and every
 `SandboxSet` phase registers into it. So **all five room-lifecycle operations
 execute inside the rollback schedule and mutate the authoritative world via
 Commands / direct writes on speculative frames.** No lifecycle path consults
@@ -2003,7 +2003,7 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 
 > **Account.** `fixtures/external_consumer` ("Outlander", `e9bb2499a`) is a
 > consumer game excluded from the workspace — own `[workspace]`, own
-> lockfile — depending on `ambition` + `bevy` only. It authors one room
+> lockfile — depending on `ambition_platformer2d` + `bevy` only. It authors one room
 > (`RoomSpec` in code), one character (catalog RON), one enemy (roster
 > fragment + content-staging stager, lowered by Phase 4 as a REAL
 > construction plan row through `ambition.staged-actor` — task 5's "consume,
@@ -2069,7 +2069,7 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > gap) and the walkthrough's timeout diagnostics dumping the router state.
 >
 > **Visible half:** `outlander_visible` (feature `visible` =
-> `ambition/visible` + `basic_shell_presentation` + `ambition/input`) shares
+> `ambition_platformer2d/visible` + `basic_shell_presentation` + `ambition_platformer2d/input`) shares
 > `compose_outlander_shell` with the headless binary — one provider, one
 > route table, two host faces. It compiles and links the full render chain
 > through the umbrella; the interactive run needs a display (this VM has
@@ -2080,7 +2080,7 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > binary ships without it and honestly draws colored primitives (leak #8).
 >
 > **BOTH CLOSED 2026-07-27, and neither was a missing capability.** Leak #8 is
-> `ambition::game_assets::PlatformerAssetsPlugin` — the ~90 lines each in-repo
+> `ambition_platformer2d::game_assets::PlatformerAssetsPlugin` — the ~90 lines each in-repo
 > demo hand-rolled, which both now call, so the helper an external consumer
 > depends on is exercised by the real games. Leak #3 is
 > `ambition_asset_manager::consumer_source::layered_asset_source`: the two-root
@@ -2321,7 +2321,7 @@ document's sketch and what each one bought.
   through both public authoring seams;
 - ✅ the same content runs visibly and headlessly from the same content: the
   visible binary composes the umbrella asset install
-  (`ambition::game_assets::PlatformerAssetsPlugin`) and registers its OWN
+  (`ambition_platformer2d::game_assets::PlatformerAssetsPlugin`) and registers its OWN
   `game://` source layered over the engine tree
   (`ambition_asset_manager::consumer_source`), which closes recorded leak #3;
 - ✅ evidence exists to design a public recipe/prefab API — the five

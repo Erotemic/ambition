@@ -7,7 +7,7 @@
 //! one process may use different catalogs and resolvers safely.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;
 
 /// Resolver signature: `(catalog, sprite_character_id, animation clip, body

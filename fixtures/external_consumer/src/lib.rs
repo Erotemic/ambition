@@ -1,14 +1,14 @@
 //! **Outlander** — the Phase-6 external-architecture proof.
 //!
 //! A complete (tiny) game authored from OUTSIDE the engine workspace, through
-//! the `ambition` umbrella alone: one room, one character, one enemy, one
+//! the `ambition_platformer2d` umbrella alone: one room, one character, one enemy, one
 //! construction recipe, one transition. The point is not the game — it is the
-//! evidence: every `ambition::` path this file imports is the de-facto SDK
+//! evidence: every `ambition_platformer2d::` path this file imports is the de-facto SDK
 //! surface, and every place it has to lean on an engine-internal assumption is
 //! recorded in the campaign doc's Phase 6 account as an API leak.
 //!
 //! What each § authors and through which seam:
-//! - §room     — `RoomSpec` in code (`ambition::world::rooms` + `engine_core`).
+//! - §room     — `RoomSpec` in code (`ambition_platformer2d::world::rooms` + `engine_core`).
 //! - §character— `CharacterCatalogFragment::from_ron` (the same catalog seam
 //!               every in-repo provider uses).
 //! - §enemy    — a `CharacterRosterFragment` archetype plus a
@@ -25,8 +25,8 @@
 
 use bevy::prelude::*;
 
-use ambition::world::prelude::*;
-use ambition::world::rooms::RoomSet;
+use ambition_platformer2d::world::prelude::*;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 /// This fixture's OWN asset tree — `fixtures/external_consumer/assets`.
 ///
@@ -106,7 +106,7 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
 /// 2026-07-28 the second half was expressible only by putting a RON in the
 /// ENGINE's asset tree and rebuilding the engine, which a third party cannot
 /// do: `manifest_target()` strips `_spritesheet.ron` to a name and that name was
-/// looked up in a table baked from `crates/ambition_actors/assets/sprites`. A
+/// looked up in a table baked from `crates/ambition_platformer2d_actor_monolith/assets/sprites`. A
 /// consumer could address its own PNG and had no way to describe it, so its
 /// character drew the placeholder rectangle whatever art it shipped.
 ///
@@ -186,8 +186,8 @@ pub const GATE_ENTRY_X: f32 = 840.0;
 pub const GATE_EXIT: Vec2 = Vec2::new(700.0, 180.0);
 
 // ── §enemy (staging half) ───────────────────────────────────────────────────
-fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actor::SpawnActorRequest> {
-    use ambition::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
+fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::SpawnActorRequest> {
+    use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
     vec![SpawnActorRequest {
         id: "outlander_sentry_0".to_string(),
         name: "Outlander Sentry".to_string(),
@@ -196,7 +196,7 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actor::SpawnActorRequest>
         faction: ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
-            brain: ambition::character::CharacterBrain::Custom(
+            brain: ambition_platformer2d::character::CharacterBrain::Custom(
                 OUTLANDER_ENEMY_BRAIN_KEY.to_string(),
             ),
         },
@@ -204,9 +204,9 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition::actor::SpawnActorRequest>
 }
 
 pub fn install_outlander_content(app: &mut App) {
-    use ambition::actor::{CharacterRosterFragment, RoomContentStagingRegistry};
-    use ambition::character::CharacterRosterAppExt;
-    use ambition::character::{
+    use ambition_platformer2d::actor::{CharacterRosterFragment, RoomContentStagingRegistry};
+    use ambition_platformer2d::character::CharacterRosterAppExt;
+    use ambition_platformer2d::character::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -228,7 +228,7 @@ pub fn install_outlander_content(app: &mut App) {
     // and WHAT THEY LOOK LIKE through two registrations, neither of which
     // requires touching the engine's asset tree (queue U1).
     {
-        use ambition::character::AuthoredSheetAppExt;
+        use ambition_platformer2d::character::AuthoredSheetAppExt;
         app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
     }
     // **The character-DEFINITION seam, exercised from outside the workspace.**
@@ -247,7 +247,7 @@ pub fn install_outlander_content(app: &mut App) {
     // through to the row — whose `playable_kit: HostCode` rebuilds the HOST
     // protagonist's kit — and hand a third party's wanderer Ambition's sword.
     {
-        use ambition::character::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::character::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(
                 OUTLANDER_CHARACTER_ID,
@@ -255,7 +255,7 @@ pub fn install_outlander_content(app: &mut App) {
                 OUTLANDER_EXPERIENCE,
             )
             .with_sheet("outlander")
-            .with_action_set(ambition::character::ActionSet::default()),
+            .with_action_set(ambition_platformer2d::character::ActionSet::default()),
         );
     }
     app.register_character_roster_fragment(
@@ -293,7 +293,7 @@ pub fn install_outlander_content(app: &mut App) {
 // feature-owned authoritative component and system are mechanically accounted,
 // run under the simulation gate, and survive real rewind/resimulation without
 // edits to a giant runtime list."* Everything below is authored in the CONSUMER
-// crate and reaches the engine only through `ambition::runtime::rollback`.
+// crate and reaches the engine only through `ambition_platformer2d::runtime::rollback`.
 //
 // The engine's own 246 registrations do live in one function. That is not what
 // the criterion is about: the question is whether a game the engine has never
@@ -329,13 +329,13 @@ impl BeaconCharge {
 // The snapshot codec, written by the consumer for the consumer's own type. The
 // engine cannot supply this: it has never seen `BeaconCharge`. `put_f32`
 // canonicalizes NaN so two peers that computed the same value byte-agree.
-impl ambition::rollback::SnapshotState for BeaconCharge {
+impl ambition_platformer2d::rollback::SnapshotState for BeaconCharge {
     fn encode(&self, out: &mut Vec<u8>) {
-        ambition::rollback::put_f32(out, self.seconds);
-        ambition::rollback::put_u32(out, self.ticks);
+        ambition_platformer2d::rollback::put_f32(out, self.seconds);
+        ambition_platformer2d::rollback::put_u32(out, self.ticks);
     }
 
-    fn decode(reader: &mut ambition::rollback::Reader<'_>) -> Option<Self> {
+    fn decode(reader: &mut ambition_platformer2d::rollback::Reader<'_>) -> Option<Self> {
         Some(Self {
             seconds: reader.f32()?,
             ticks: reader.u32()?,
@@ -349,13 +349,13 @@ impl ambition::rollback::SnapshotState for BeaconCharge {
 /// tick must add exactly what the original tick added, and wall-clock dt does
 /// not repeat.
 pub fn beacon_charge_system(
-    time: Res<ambition::sim::WorldTime>,
+    time: Res<ambition_platformer2d::sim::WorldTime>,
     mut bodies: Query<
         (
-            &ambition::actor::BodyKinematics,
+            &ambition_platformer2d::actor::BodyKinematics,
             &mut BeaconCharge,
         ),
-        With<ambition::actor::PrimaryPlayer>,
+        With<ambition_platformer2d::actor::PrimaryPlayer>,
     >,
 ) {
     for (kin, mut charge) in &mut bodies {
@@ -378,7 +378,7 @@ pub fn attach_beacon_charge(
     bodies: Query<
         Entity,
         (
-            With<ambition::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::actor::PrimaryPlayer>,
             Without<BeaconCharge>,
         ),
     >,
@@ -400,11 +400,11 @@ pub fn attach_beacon_charge(
 pub fn ridge_gate_system(
     mut bodies: Query<
         (
-            ambition::actor::BodyClusterQueryData,
-            &mut ambition::actor::MotionModel,
+            ambition_platformer2d::actor::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel,
             Option<&BeaconCharge>,
         ),
-        With<ambition::actor::PrimaryPlayer>,
+        With<ambition_platformer2d::actor::PrimaryPlayer>,
     >,
 ) {
     for (clusters, mut model, charge) in &mut bodies {
@@ -415,11 +415,11 @@ pub fn ridge_gate_system(
         let mut clusters = item.as_clusters_mut();
         let pos = clusters.kinematics.pos;
         if pos.x >= GATE_ENTRY_X && pos.y > 300.0 {
-            ambition::actor::transit_body(
+            ambition_platformer2d::actor::transit_body(
                 &mut model,
                 &mut clusters,
                 GATE_EXIT,
-                ambition::actor::TransitVelocity::Zero,
+                ambition_platformer2d::actor::TransitVelocity::Zero,
             );
         }
     }
@@ -436,7 +436,7 @@ impl Plugin for OutlanderExperiencePlugin {
         // names a literal schedule, so the same system runs under the fixed
         // tick and a GGRS host alike.
         {
-            use ambition::sim::{SandboxSet, SimScheduleExt};
+            use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
@@ -456,12 +456,12 @@ impl Plugin for OutlanderExperiencePlugin {
         }
         // The consumer's own authoritative state joins the rollback contract
         // through the public vocabulary. No engine file lists `BeaconCharge`;
-        // nothing in `ambition` could, because nothing in `ambition` has heard
+        // nothing in `ambition_platformer2d` could, because nothing in `ambition_platformer2d` has heard
         // of it. `rollback_component_canonical` is a no-op on a fixed-tick host
         // by design (the registration vocabulary gates installation on host
         // kind), so this one line is correct for BOTH Outlander hosts.
         {
-            use ambition::rollback::AmbitionRollbackApp;
+            use ambition_platformer2d::rollback::AmbitionRollbackApp;
             app.rollback_component_canonical::<BeaconCharge>(
                 "outlander::beacon",
                 "outlander.beacon_charge",
@@ -496,23 +496,23 @@ impl Plugin for OutlanderExperiencePlugin {
 ///
 /// A third party had to get all eight right by reading two in-repo demos. They
 /// are the engine's rules and the engine states them once now, in
-/// `ambition::app`. What is left here is what a consumer should still be
+/// `ambition_platformer2d::app`. What is left here is what a consumer should still be
 /// DECIDING: its id, its asset tree, its routes, its room, its content.
 #[derive(Default)]
 pub struct OutlanderModule;
 
-impl ambition::app::GameModule for OutlanderModule {
-    fn manifest(&self) -> ambition::app::ModuleManifest {
-        ambition::app::ModuleManifest::new(OUTLANDER_EXPERIENCE).asset_source(
+impl ambition_platformer2d::app::GameModule for OutlanderModule {
+    fn manifest(&self) -> ambition_platformer2d::app::ModuleManifest {
+        ambition_platformer2d::app::ModuleManifest::new(OUTLANDER_EXPERIENCE).asset_source(
             // This fixture's OWN art first, the engine's tree for everything it
             // did not author. Recorded SDK leak #3 said "consumer-owned art has
             // no home"; a fixture whose whole job is to be a third party has to
             // exercise the answer.
-            ambition::app::AssetSource::at("game", outlander_asset_root()),
+            ambition_platformer2d::app::AssetSource::at("game", outlander_asset_root()),
         )
     }
 
-    fn define(&self, module: &mut ambition::app::ModuleDraft) {
+    fn define(&self, module: &mut ambition_platformer2d::app::ModuleDraft) {
         module
             .experience(OUTLANDER_EXPERIENCE)
             .launcher_route(OUTLANDER_LAUNCHER_ROUTE)
@@ -534,7 +534,7 @@ impl ambition::app::GameModule for OutlanderModule {
 
 /// Outlander under a headless fixed-tick host. One `update()` is one sim tick.
 pub fn build_outlander_app() -> App {
-    ambition::app::PlatformerApp::headless()
+    ambition_platformer2d::app::PlatformerApp::headless()
         .mount(OutlanderModule)
         .build()
 }
@@ -574,12 +574,12 @@ pub fn build_outlander_app() -> App {
 /// compares the two hosts' timelines and went red on a change that looked
 /// unrelated to either. The canary earned its keep.
 ///
-/// `ambition::app` states the rule now, for both faces.
+/// `ambition_platformer2d::app` states the rule now, for both faces.
 pub fn build_outlander_rollback_app() -> Result<App, String> {
     // Rollback is a supported session mode as of slice F, and Outlander says
     // how many people are playing — one. The count is declared HERE, at
     // composition, so a restart reuses it instead of re-sampling live devices.
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
         .mount(OutlanderModule)
         .build();
@@ -593,12 +593,12 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
     // update #1, and watched GGRS report a checksum mismatch on frames 2, 3
     // and 4 forever.
     //
-    // `ambition::rollback::start` performs that sequence. What Outlander
+    // `ambition_platformer2d::rollback::start` performs that sequence. What Outlander
     // proves by no longer containing it is that the ordering is the ENGINE's
     // to get right — a consumer who has never seen this comment gets the same
     // startup, and the wrong orderings are unreachable rather than warned
     // about.
-    ambition::rollback::start(&mut app, ambition::rollback::RollbackPlan::new())
+    ambition_platformer2d::rollback::start(&mut app, ambition_platformer2d::rollback::RollbackPlan::new())
         .map_err(|refused| format!("Outlander could not start rollback: {refused}"))?;
     Ok(app)
 }
@@ -615,7 +615,7 @@ pub const OUTLANDER_WINDOW_TITLE: &str = "Outlander — external consumer proof"
 /// the test would be observing a composition nothing ships.
 #[cfg(feature = "visible")]
 pub fn build_windowed_app(gpu: bool) -> App {
-    let composed = ambition::app::PlatformerApp::windowed(OUTLANDER_WINDOW_TITLE);
+    let composed = ambition_platformer2d::app::PlatformerApp::windowed(OUTLANDER_WINDOW_TITLE);
     let composed = if gpu { composed } else { composed.without_gpu() };
     composed.mount(OutlanderModule).build()
 }
@@ -627,12 +627,12 @@ pub fn build_windowed_app(gpu: bool) -> App {
 /// running its game under both hosts had to know both, and writing the wrong one
 /// is silently ignored: the walk runs, the body never moves, nothing says why.
 /// That is a rule the engine can state once, and now does
-/// (`ambition::sim::drive_control_frame`).
+/// (`ambition_platformer2d::sim::drive_control_frame`).
 ///
 /// Kept as a one-line wrapper rather than deleted, because the binaries and the
 /// walkthrough all call it and the name says what it is FOR.
-pub fn drive_control_frame(app: &mut App, frame: ambition::sim::ControlFrame) {
-    ambition::sim::drive_control_frame(app.world_mut(), frame);
+pub fn drive_control_frame(app: &mut App, frame: ambition_platformer2d::sim::ControlFrame) {
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
 }
 
 /// What the acceptance walk proved, for the binary to print and tests to pin.
@@ -659,7 +659,7 @@ pub struct OutlanderRunReport {
 /// ridge gate transits the body onto the upper ledge. Errors name the first
 /// broken claim so the binary and the integration test fail identically.
 pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, String> {
-    use ambition::actor::PrimaryPlayer;
+    use ambition_platformer2d::actor::PrimaryPlayer;
     use bevy::prelude::With;
 
     // 1. The session activates: the shell prepares the route, the provider's
@@ -672,14 +672,14 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
     {
         let world = app.world_mut();
         let mut players = world
-            .query_filtered::<&ambition::actor::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<PrimaryPlayer>>();
         let player_count = players.iter(world).count();
         if player_count != 1 {
             return Err(format!(
                 "expected exactly one primary player after activation, found {player_count}"
             ));
         }
-        let mut actors = world.query::<&ambition::actor::ActorConfig>();
+        let mut actors = world.query::<&ambition_platformer2d::actor::ActorConfig>();
         if !actors
             .iter(world)
             .any(|config| config.id == OUTLANDER_SENTRY_ID)
@@ -717,15 +717,15 @@ pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
         // into the wrong room" is the whole diagnosis.
         //
         // This used to reach into `ShellRouter` and `ActiveGameplaySession`
-        // directly and format their fields by hand. `ambition::app::host_status`
+        // directly and format their fields by hand. `ambition_platformer2d::app::host_status`
         // is the supported answer now, and it says strictly more: a REFUSED host
         // carries the reasons preparation rejected it, which is exactly the
         // state this fixture's hand-rolled version reported as "pending: true"
         // and left the reader to guess about.
-        let status = ambition::app::host_status(app);
+        let status = ambition_platformer2d::app::host_status(app);
         let router = format!("{status:?}");
         let session = match &status {
-            ambition::app::HostStatus::Running { prepared, .. } => prepared.to_string(),
+            ambition_platformer2d::app::HostStatus::Running { prepared, .. } => prepared.to_string(),
             _ => "no active session".to_string(),
         };
         let world = app.world_mut();
@@ -747,7 +747,7 @@ fn walk_outlander_to_the_ledge(
     app: &mut App,
     ticks_to_activate: usize,
 ) -> Result<OutlanderRunReport, String> {
-    use ambition::actor::PrimaryPlayer;
+    use ambition_platformer2d::actor::PrimaryPlayer;
     use bevy::prelude::With;
 
     // 3. The ridge gate is load-bearing: hold right on the engine's input seam
@@ -756,7 +756,7 @@ fn walk_outlander_to_the_ledge(
     for tick in 0..1200 {
         drive_control_frame(
             app,
-            ambition::sim::ControlFrame {
+            ambition_platformer2d::sim::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
             },
@@ -764,7 +764,7 @@ fn walk_outlander_to_the_ledge(
         app.update();
         let world = app.world_mut();
         let mut players = world
-            .query_filtered::<&ambition::actor::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<PrimaryPlayer>>();
         let pos = players
             .single(world)
             .map(|kin| kin.pos)
@@ -784,7 +784,7 @@ fn walk_outlander_to_the_ledge(
 
     let world = app.world_mut();
     let mut players = world.query_filtered::<(
-        &ambition::actor::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         Option<&BeaconCharge>,
     ), With<PrimaryPlayer>>();
     let (player_pos, beacon) = players
@@ -811,7 +811,7 @@ fn walk_outlander_to_the_ledge(
 // The provider's authored source for the shared preparation lifecycle.
 // `outlander_prepared_session_world` stood here: RoomSet, RoomGeometry,
 // ActiveRoomMetadata, StartingCharacter and LdtkRuntimeIndex assembled by hand
-// out of `ambition::runtime::demo_fixture`. A module named `demo_fixture` in a
+// out of `ambition_platformer2d::runtime::demo_fixture`. A module named `demo_fixture` in a
 // shipped game's imports was the namespace mirror confessing.
 //
 // DELETED 2026-07-30. `ModuleDraft::playable` assembles it.

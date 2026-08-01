@@ -17,9 +17,9 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_platformer_primitives::gravity::gravity_upright_angle;
-use ambition_platformer_primitives::gravity::GravityCtx;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle;
+use ambition_platformer2d_shared_tangle::gravity::GravityCtx;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_projectiles::{
@@ -64,7 +64,7 @@ pub struct PlayerChargeVisual;
 
 /// Projectile sprites render just in front of the player plane.
 fn projectile_z() -> f32 {
-    ambition_engine_core::config::WORLD_Z_PLAYER + 2.0
+    ambition_platformer2d_core::config::WORLD_Z_PLAYER + 2.0
 }
 
 /// One resolved, ready-to-spawn sprite for a projectile, plus the per-frame
@@ -113,7 +113,7 @@ fn pommel_anchor(rect: &ambition_sprite_sheet::FrameRect) -> Anchor {
 /// Z-rotation that aligns a sprite's +X axis with `vel` (world, y-down).
 ///
 /// AMBITION_REVIEW(spatial): Bevy +Y is up, sim +Y is down — flip Y before atan2.
-fn velocity_aligned_angle(vel: ambition_engine_core::Vec2) -> f32 {
+fn velocity_aligned_angle(vel: ambition_platformer2d_core::Vec2) -> f32 {
     let (dx, dy) = (vel.x, -vel.y);
     if dx == 0.0 && dy == 0.0 {
         0.0
@@ -254,8 +254,8 @@ fn build_sheet_visual(
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     presentation_time: ambition_time::PresentationTime,
     gravity: GravityCtx,
@@ -294,7 +294,7 @@ pub fn sync_projectile_visuals(
         let art = visual_catalog.resolve(&view.visual_id);
         let built = build_visual(view, &art, &asset_server, &sheets, energy);
         let translation =
-            ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
         let mut visual = commands.spawn_session_scoped(
             session_scope,
             (
@@ -326,7 +326,7 @@ pub fn sync_projectile_visuals(
             continue;
         };
         transform.translation =
-            ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
 
         match visual_catalog.rotation(visual_id.as_str()) {
             ProjectileRotation::FlipToTravel => {
@@ -360,8 +360,8 @@ pub fn sync_projectile_visuals(
 /// Rebuilt each frame; player-only (it is not projectile art).
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     // Sim-built pose read-model (E4): charge tier + body geometry facts, no
@@ -371,7 +371,7 @@ pub fn sync_projectile_charge_visuals(
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
         ),
-        With<ambition_platformer_primitives::markers::PlayerEntity>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {
@@ -401,7 +401,7 @@ pub fn sync_projectile_charge_visuals(
         } else {
             pose.facing.signum()
         };
-        let charge_pos = ambition_engine_core::Vec2::new(
+        let charge_pos = ambition_platformer2d_core::Vec2::new(
             body_pos.x + facing * (pose.size.x * 0.5 + 6.0),
             body_pos.y - pose.size.y * 0.20,
         );
@@ -412,10 +412,10 @@ pub fn sync_projectile_charge_visuals(
                     Color::srgba(1.0, 0.74, 0.30, alpha),
                     Vec2::new(render_size.x, render_size.y),
                 ),
-                Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+                Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
                     &world.0,
                     charge_pos,
-                    ambition_engine_core::config::WORLD_Z_PLAYER + 1.5,
+                    ambition_platformer2d_core::config::WORLD_Z_PLAYER + 1.5,
                 )),
                 PlayerChargeVisual,
                 Name::new("Player projectile charge indicator"),

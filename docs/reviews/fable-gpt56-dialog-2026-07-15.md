@@ -10,7 +10,7 @@ Where I agree:
 
 * The content evictions are real and worth doing. In particular, provider-owned named items, projectile identities, asset catalogs, art bindings, fighting-game techniques, and other flagship-game instances should not be compiled into reusable engine crates.
 * `ambition_sim_harness` is a strong crate split. Programmatic reset/step, typed actions and observations, deterministic testing, RL, replay, fuzzing, and headless simulation form a coherent reusable engine face.
-* The provider implementation currently hidden in `crates/ambition/src/provider.rs` deserves its own crate. My preferred working name is `ambition_platformer_provider`, though the exact name is negotiable. I think the extraction should consolidate the repeated preparation, exact activation, session construction, and cleanup protocol used by the different providers, rather than only moving the file.
+* The provider implementation currently hidden in `crates/ambition_platformer2d/src/provider.rs` deserves its own crate. My preferred working name is `ambition_platformer2d_provider`, though the exact name is negotiable. I think the extraction should consolidate the repeated preparation, exact activation, session construction, and cleanup protocol used by the different providers, rather than only moving the file.
 * Explicit provider registration in the host composition root is fine. The two-line exception should be documented rather than replaced with opaque plugin discovery.
 * A boss carve should be deferred until boss attacks and phase behavior have converged onto the canonical moveset/action path. After that convergence, we should reassess whether a standalone boss crate is still justified.
 * Renaming `features` may eventually improve navigation, but `sim` may be too broad and the change is low priority until we can state precisely what that subtree owns.
@@ -74,14 +74,14 @@ On your three questions:
 
 On D2 (menu) — partial concession, sharpened. Your characterization and my grep are both correct and don't contradict: I verified zero named-content nouns in menu/; you're pointing at policy opinionation — fixed page composition, item/health/mana/equip semantics — which no noun grep sees. So: wholesale move is off. The genuinely reusable layer (page-model protocol, dispatcher, backend switch, the parity-test rig) is real but I now agree it should be extracted lazily, against the second consumer — Smash Siblings (pause/settings) and Hollow Lite (inventory) in P4 will force this seam with a real customer, which is when the reusable/opinionated line becomes measurable instead of speculative. Until then it stays in the app. This also honors the repo's grow-don't-mint rule.
 
-On shrine — mostly conceded. Agreed a shrine can be reusable platformer vocabulary; my complaint was really the scatter (halves in platformer_primitives and ambition_world, two foundation crates owning fragments of one concept). Fix = one owner for the vocabulary; healing/save/presentation policy stays provider-side.
+On shrine — mostly conceded. Agreed a shrine can be reusable platformer vocabulary; my complaint was really the scatter (halves in platformer_primitives and ambition_platformer2d_world, two foundation crates owning fragments of one concept). Fix = one owner for the vocabulary; healing/save/presentation policy stays provider-side.
 
-On your point 3 (runtime vs domain ownership): agreed, and worth noting it's already the documented target (architecture.md §3: domain crates own local schedule sets; the sim assembly maps sets into global order) — so this is drift-repair, not new doctrine. Concrete example of the drift: ambition_runtime init's ambition_dev_tools resources and schedules its leaf sync_live_player_dev_edits_system by name in the player pipeline. An audit of runtime's leaf-function knowledge belongs in your item 7.
+On your point 3 (runtime vs domain ownership): agreed, and worth noting it's already the documented target (architecture.md §3: domain crates own local schedule sets; the sim assembly maps sets into global order) — so this is drift-repair, not new doctrine. Concrete example of the drift: ambition_platformer2d_runtime init's ambition_dev_tools resources and schedules its leaf sync_live_player_dev_edits_system by name in the player pipeline. An audit of runtime's leaf-function knowledge belongs in your item 7.
 
 Merged priority order (your list, three adjustments — verified-first, evictions interleaved, dead-deps freebie):
 
 Placement-lowering unification (verified real; smallest correctness fix with the biggest oracle payoff) — with your item 2 and my N3.2 note folded together.
-Provider-lifecycle extraction + protocol consolidation (ambition_platformer_provider — name is Jon's call).
+Provider-lifecycle extraction + protocol consolidation (ambition_platformer2d_provider — name is Jon's call).
 Session-root exclusivity / retire process-global mirrors, run as part of the N3.2 exact-restore track.
 Content evictions, structural-shape-required, interleaved with 1–3 as capacity allows (plus the 10-minute render dead-dep removals whenever).
 Sim harness extraction.
@@ -206,7 +206,7 @@ Runtime should retain the global phase graph. Domain crates should own local imp
 I accept the merged priority order with one wording adjustment:
 
 1. Unify placement lowering through the installed registry as a small standalone correctness patch.
-2. Extract `ambition_platformer_provider` and consolidate the provider protocol.
+2. Extract `ambition_platformer2d_provider` and consolidate the provider protocol.
 3. Continue the broader N3.2/session-authority work: retire process-global mirrors and prove both second-session isolation and exact reconstruction.
 4. Interleave structurally complete content evictions where they do not conflict with 1–3.
 5. Extract `ambition_sim_harness`.

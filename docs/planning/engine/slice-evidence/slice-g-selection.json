@@ -32,7 +32,7 @@
       "route": "3b: Closeable + Owned -> SLICE G. It is the last structural question the campaign identified and did not answer, and every reason to defer it has now expired."
     },
     {
-      "leak": "no blind run has seen `ambition::rollback`",
+      "leak": "no blind run has seen `ambition_platformer2d::rollback`",
       "source": "2c",
       "cost": "The newest public surface is the likeliest to send an author into `crates/`, and §4.2 was satisfied by run 6, which predates it. The condition holds for the surface it examined; it does not hold for the surface that shipped after.",
       "closeable": "YES, cheaply — one run.",
@@ -50,14 +50,14 @@
   ],
   "slice_g": {
     "name": "the facade's edges, made optional",
-    "one_leak": "depending on `ambition` links 41 crates, 19 of which a movement-only game never asked for. A perfectly semantic API can hide this completely — no consumer names a forbidden path, the ratchet reads zero, and the footprint is still wrong.",
+    "one_leak": "depending on `ambition_platformer2d` links 41 crates, 19 of which a movement-only game never asked for. A perfectly semantic API can hide this completely — no consumer names a forbidden path, the ratchet reads zero, and the footprint is still wrong.",
     "why_now_and_not_earlier": [
       "Deferred from D because §2e is measured per sentinel consumer and there were two, both designed for the SDK. Measuring optional-dependency reduction against that population would have answered 'can a game I designed avoid linking menus'.",
       "Deferred through E and F because both had a closeable leak a consumer could FEEL, and §3a ranks by cost to a consumer.",
       "Neither reason survives. Six categories are proven, the counter has not moved, and there is no remaining leak a consumer has named."
     ],
     "exit_criteria_sketch": [
-      "a blind run over `ambition::rollback` FIRST, before the dependency graph changes underneath it;",
+      "a blind run over `ambition_platformer2d::rollback` FIRST, before the dependency graph changes underneath it;",
       "the facade's dependency edges become optional features, with the default feature set preserving today's behaviour exactly;",
       "`minimal_game` builds with a reduced feature set and its closure is MEASURED, not asserted;",
       "the capability-footprint ratchet's baseline is re-measured downward and PRUNED in the same commit (invariant 2), so the counter that never moved finally does;",
@@ -92,7 +92,7 @@
         "id": "c",
         "leak": "no consumer-visible session health; `RollbackSessionStatus` is not in the facade",
         "cost": "HIGH — a real desync would be exactly as invisible as the unreproducible one",
-        "state": "CLOSED 2026-07-30. `ambition::rollback::health(&app) -> RollbackHealth` — NoSession / Healthy{frame} / Desynced{frames} / Invalidated{reason}. ⚠ Its own docs state the limit a single sample cannot see: a frozen session reports Healthy forever, so liveness needs TWO observations, and the tests sample twice."
+        "state": "CLOSED 2026-07-30. `ambition_platformer2d::rollback::health(&app) -> RollbackHealth` — NoSession / Healthy{frame} / Desynced{frames} / Invalidated{reason}. ⚠ Its own docs state the limit a single sample cannot see: a frozen session reports Healthy forever, so liveness needs TWO observations, and the tests sample twice."
       },
       {
         "id": "g",
@@ -143,16 +143,16 @@
       "after": 38,
       "cut": [
         "ambition_inventory_ui",
-        "ambition_portal_presentation",
+        "ambition_portal2d_presentation",
         "ambition_touch_input"
       ],
       "never_asked_for": "19 -> 15"
     },
     "edges_that_resisted": {
       "ambition_render": "optional in the facade, NOT optional for this sentinel: `the_minimal_game_boots_windowed` is a slice-B exit criterion and the windowed face draws. The spec's failure-mode clause applies verbatim — minimal_game needs the feature to keep passing its tests, so it names it in its manifest and the closure keeps it. Outlander names it too, for the same reason. The edge is cuttable by a game with no windowed face; neither sentinel is one.",
-      "ambition_audio": "left unconditional: declaring silence IS an audio-catalog registration (`ModuleDraft::no_audio` -> `AudioCatalogFragment`), so the composition path compiles against the crate even for a soundless game. Gating it would also have cut nothing — it arrives via `ambition_actors`.",
-      "the_other_14": "cutscene, dialog, encounter, items, ldtk_map, menu, persistence, portal, projectiles, settings_menu, sfx, sfx_bank, ui_nav, vfx are now optional facade edges AND still in the closure, because `ambition_actors` links them all. Exactly the split the baseline predicted: these wait on the §4 carve, and no manifest can free them."
+      "ambition_audio": "left unconditional: declaring silence IS an audio-catalog registration (`ModuleDraft::no_audio` -> `AudioCatalogFragment`), so the composition path compiles against the crate even for a soundless game. Gating it would also have cut nothing — it arrives via `ambition_platformer2d_actor_monolith`.",
+      "the_other_14": "cutscene, dialog, encounter, items, ldtk_map, menu, persistence, portal, projectiles, settings_menu, sfx, sfx_bank, ui_nav, vfx are now optional facade edges AND still in the closure, because `ambition_platformer2d_actor_monolith` links them all. Exactly the split the baseline predicted: these wait on the §4 carve, and no manifest can free them."
     },
-    "ratchet_change": "the footprint ratchet now measures the sentinel's RESOLVED closure (`cargo tree` in fixtures/minimal_game) instead of a static manifest walk from `ambition` — the static walk counts optional edges the sentinel never enabled, so after this slice it measured the wrong subject and the counter could never have moved. Baseline pruned 41 -> 38 in the same commit."
+    "ratchet_change": "the footprint ratchet now measures the sentinel's RESOLVED closure (`cargo tree` in fixtures/minimal_game) instead of a static manifest walk from `ambition_platformer2d` — the static walk counts optional edges the sentinel never enabled, so after this slice it measured the wrong subject and the counter could never have moved. Baseline pruned 41 -> 38 in the same commit."
   }
 }

@@ -30,8 +30,8 @@ rebuilding a substrate that is already here under a different name. Surveyed
 |---|---|---|
 | A | authored RON catalog + parser + App-local fragment registry that MERGES across providers | `ambition_characters::actor::character_catalog` |
 | A | a 698-line cross-content validator (LDtk links, dialogue ids, quest conditions, encounter/boss ids, music refs) | `game/ambition_content/src/content_validation.rs` |
-| A | `UnresolvedRef` + `explain(id, declared_by)` — the resolution-diagnostic shape, twice | `ambition_platformer_primitives/src/binding.rs:451`, `ambition_render/.../item_visuals.rs:139` |
-| A | `PreparedCharacterDefinition`, `PhysicalRetraction`, `DisplacedPhysicals` — preparation/lowering already exists for ONE family | `ambition_actors/src/character_runtime/` |
+| A | `UnresolvedRef` + `explain(id, declared_by)` — the resolution-diagnostic shape, twice | `ambition_platformer2d_shared_tangle/src/binding.rs:451`, `ambition_render/.../item_visuals.rs:139` |
+| A | `PreparedCharacterDefinition`, `PhysicalRetraction`, `DisplacedPhysicals` — preparation/lowering already exists for ONE family | `ambition_platformer2d_actor_monolith/src/character_runtime/` |
 | B | `ParticipantId`, `InputParticipant`, `InputContextId`, `ContextClaim`, `ParticipantContexts`, `resolve_active_input_context` | `crates/ambition_input/src/participant.rs` |
 | B | `SeatMenuFrames` — seat-keyed menu input with per-seat repeat state | `crates/ambition_input/src/menu.rs` |
 | B | `UiCue`/`ActiveUiCues` — context-keyed prompt projection | `crates/ambition_input/src/cues.rs` |
@@ -56,7 +56,7 @@ pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_c
 ```
 
 and the public facade's content seam takes the same shape —
-`CharacterContent::Ron(&'static str)` in `crates/ambition/src/app.rs`.
+`CharacterContent::Ron(&'static str)` in `crates/ambition_platformer2d/src/app.rs`.
 
 **Editing a character therefore requires a Rust rebuild (~10 min in this repo).**
 The program's headline acceptance criterion — *"valid character addition →
@@ -126,7 +126,7 @@ helpers. The fighter's decisions are observable only as **printed lines** under
 
 ## Where this lands architecturally — the hole is already reserved
 
-`crates/ambition/src/app.rs:435`, written before this program existed:
+`crates/ambition_platformer2d/src/app.rs:435`, written before this program existed:
 
 > Slice A holds only what host assembly consumes. **`ContentPackDraft` and
 > everything under it is slice B**; a content method here would be a method
@@ -274,7 +274,7 @@ action + rollback registration + schedule participation + causal facts —
 **without editing a central character enum or actor monolith**. That last clause
 is the test.
 
-**Guard:** the capability lives outside `crates/ambition_actors`, its schema is
+**Guard:** the capability lives outside `crates/ambition_platformer2d_actor_monolith`, its schema is
 authored from content, and `explain_tick` reports its fact.
 
 ---

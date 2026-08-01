@@ -12,8 +12,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
-use ambition_engine_core::config::world_to_bevy;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::world_to_bevy;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::DynamicFeatureViews;
@@ -29,8 +29,8 @@ use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 /// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -194,8 +194,8 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// diagnosed (GPT 5.6, 2026-07-27).
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     views: Res<ambition_sim_view::FeatureViewIndex>,
@@ -217,7 +217,7 @@ pub fn draw_unclaimed_feature_views(
             continue;
         }
         bevy::log::warn!(
-            target: "ambition::render",
+            target: "ambition_platformer2d::render",
             "no render family claimed `{id}` ({:?}); drawing the unclaimed-body \
              placeholder. Some spawn path is missing its family marker.",
             view.kind
@@ -252,7 +252,7 @@ const UNCLAIMED_BODY_COLOR: Color = Color::srgba(1.0, 0.0, 0.85, 0.85);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::lifecycle::SessionRoot;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
     use ambition_sim_view::DynamicFeatureFact;
 
     fn app_with_a_room() -> App {
@@ -265,10 +265,10 @@ mod tests {
         app.insert_resource(active);
         app.world_mut().spawn((
             SessionRoot(scope),
-            ambition_engine_core::RoomGeometry(ambition_engine_core::World::new(
+            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
                 "probe",
-                ambition_engine_core::Vec2::new(320.0, 180.0),
-                ambition_engine_core::Vec2::new(40.0, 40.0),
+                ambition_platformer2d_core::Vec2::new(320.0, 180.0),
+                ambition_platformer2d_core::Vec2::new(40.0, 40.0),
                 Vec::new(),
             )),
         ));
@@ -280,9 +280,9 @@ mod tests {
             id: id.to_string(),
             label: id.to_string(),
             family: "probe",
-            pos: ambition_engine_core::Vec2::new(10.0, 10.0),
-            size: ambition_engine_core::Vec2::new(16.0, 24.0),
-            visual_kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind::Actor,
+            pos: ambition_platformer2d_core::Vec2::new(10.0, 10.0),
+            size: ambition_platformer2d_core::Vec2::new(16.0, 24.0),
+            visual_kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             fighting: false,
             sprite_key: None,
             prop_sheet: None,

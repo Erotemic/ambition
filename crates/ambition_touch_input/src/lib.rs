@@ -13,7 +13,7 @@
 //! binary. Track 7 split: the raw touch-state vocabulary ([`mod@state`]) is
 //! pure data on the `ambition_input` seam alone — no Bevy, no render stack;
 //! every PRESENTATION / virtual-device dependency (`bevy`, `ambition_render`,
-//! `ambition_actors`, `ambition_ui_nav`, `ambition_cutscene`,
+//! `ambition_platformer2d_actor_monolith`, `ambition_ui_nav`, `ambition_cutscene`,
 //! `ambition_persistence`, `virtual_joystick`) is optional and enabled only by
 //! the `mobile_touch` overlay feature, whose direct `ambition_render` edge is
 //! intentional: the overlay draws its own quads and text.

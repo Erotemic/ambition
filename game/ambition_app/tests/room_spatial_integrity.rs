@@ -7,15 +7,15 @@
 //! stuck). The `render_room_geometry -- report` example prints the same
 //! check for humans; this fails the build if a future room regresses.
 
-use ambition::actors as sb;
-use ambition::engine_core::{self as ae, AabbExt};
+use ambition_platformer2d::actors as sb;
+use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 
 /// Footprints of placement records of a given kind (families migrated to the
 /// single `placements` channel — fable audit F9.2).
 fn placement_aabbs(
     room: &sb::rooms::RoomSpec,
     label: &'static str,
-    kind: ambition::entity_catalog::placements::PlacementKind,
+    kind: ambition_platformer2d::entity_catalog::placements::PlacementKind,
 ) -> Vec<(&'static str, ae::Aabb)> {
     room.placements
         .iter()
@@ -25,7 +25,7 @@ fn placement_aabbs(
 }
 
 fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
-    use ambition::entity_catalog::placements::PlacementKind;
+    use ambition_platformer2d::entity_catalog::placements::PlacementKind;
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();
     v.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
     v.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
@@ -92,17 +92,17 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
         embeddable.extend(placement_aabbs(
             room,
             "pickup",
-            ambition::entity_catalog::placements::PlacementKind::Pickup,
+            ambition_platformer2d::entity_catalog::placements::PlacementKind::Pickup,
         ));
         embeddable.extend(placement_aabbs(
             room,
             "chest",
-            ambition::entity_catalog::placements::PlacementKind::Chest,
+            ambition_platformer2d::entity_catalog::placements::PlacementKind::Chest,
         ));
         embeddable.extend(placement_aabbs(
             room,
             "breakable",
-            ambition::entity_catalog::placements::PlacementKind::Breakable,
+            ambition_platformer2d::entity_catalog::placements::PlacementKind::Breakable,
         ));
         for (label, aabb) in embeddable {
             if point_in_solid(aabb.center()) {
@@ -127,8 +127,8 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
-fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String> {
+    ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(
         &ambition_content::worlds::world_manifest(),
     )
 }

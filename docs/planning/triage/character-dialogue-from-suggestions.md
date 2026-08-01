@@ -80,5 +80,5 @@ replace.
 - `tools/ambition_ldtk_tools/ambition_ldtk_tools/character_notes.py` — the
   existing target→catalog join; the dialogue generator is its sibling and should
   read the same normalized `CharacterNotes`.
-- `crates/ambition_actors/src/features/npcs.rs::npc_dialogue_request` — the one
+- `crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs::npc_dialogue_request` — the one
   routing decision to change.

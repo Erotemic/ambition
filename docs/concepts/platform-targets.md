@@ -5,8 +5,8 @@ status: current
 authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_runtime
-  - crates/ambition_host
+  - crates/ambition_platformer2d_runtime
+  - crates/ambition_platformer2d_host
   - crates/ambition_asset_manager
   - crates/ambition_input
   - crates/ambition_touch_input
@@ -24,10 +24,10 @@ out architecturally.
 
 ## Layering
 
-- `ambition_runtime` composes headless-safe simulation and schedule ordering.
+- `ambition_platformer2d_runtime` composes headless-safe simulation and schedule ordering.
 - provider crates contribute gameplay/content without assuming a windowing
   platform.
-- `ambition_host` adds window/device/presentation policy.
+- `ambition_platformer2d_host` adds window/device/presentation policy.
 - app crates choose product features and packaging.
 - `ambition_input` defines semantic device adapters and presets.
 - `ambition_touch_input` adds the mobile touch presentation/input adapter.

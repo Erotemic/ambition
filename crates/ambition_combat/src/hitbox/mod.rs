@@ -28,8 +28,8 @@
 
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, With};
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 
 use super::components::ActorAggression;
 use super::components::ActorFaction;
@@ -83,7 +83,7 @@ fn resolved_hitbox_knockback_magnitude(
 /// stops working, and it is why the fallback is keyed on the component's absence
 /// rather than on the list being empty.
 pub fn strike_reaches_victim(
-    world_volume: &ambition_engine_core::CombatVolume,
+    world_volume: &ambition_platformer2d_core::CombatVolume,
     victim_damageable: Option<&super::components::DamageableVolumes>,
     victim_aabb: &super::components::CenteredAabb,
 ) -> bool {
@@ -111,7 +111,7 @@ pub fn apply_hitbox_damage(
     owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
-    owner_kin: Query<&ambition_engine_core::BodyKinematics>,
+    owner_kin: Query<&ambition_platformer2d_core::BodyKinematics>,
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
@@ -136,12 +136,12 @@ pub fn apply_hitbox_damage(
         &ActorFaction,
         Option<&ambition_characters::brain::Brain>,
         (
-            &ambition_engine_core::BodyOffense,
-            &ambition_engine_core::BodyMotionFacts,
-            &ambition_engine_core::BodyShieldState,
+            &ambition_platformer2d_core::BodyOffense,
+            &ambition_platformer2d_core::BodyMotionFacts,
+            &ambition_platformer2d_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         ),
-        bevy::prelude::Has<ambition_platformer_primitives::markers::PlayerEntity>,
+        bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         // **The victim's published silhouette.** A body that publishes
         // `DamageableVolumes` is hit on THOSE volumes — an authored hurtbox
         // timeline, a boss's active head/hand parts, or its own coarse box when it
@@ -186,7 +186,7 @@ pub fn apply_hitbox_damage(
     // The victim's per-tick resolved frame (ADR 0024), for the local-frame
     // knockback side (§B11). Looked up by victim entity; a bare test hurtbox
     // without a body frame falls back to the engine default down.
-    victim_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
+    victim_frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     // CM8: hostile melee overlap no longer emits hit feedback here — the ONE
     // victim-side reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so
     // this system only needs the `VfxMessage` writer for the wielded-AOE landing

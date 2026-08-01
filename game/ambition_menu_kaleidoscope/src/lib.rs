@@ -750,7 +750,7 @@ pub fn rebuild_cube_faces<PageId, Action>(
     let version_changed = *last_version != Some(pages.version);
     let active_changed = last_active.as_ref() != pages.active.as_ref();
     debug!(
-        target: "ambition::kaleidoscope_rebuild",
+        target: "ambition_platformer2d::kaleidoscope_rebuild",
         "rebuilding cube faces version={} version_changed={} active_changed={} page_count={}",
         pages.version,
         version_changed,

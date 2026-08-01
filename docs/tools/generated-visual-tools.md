@@ -63,7 +63,7 @@ Generates and publishes 2D character/entity sprite sheets, optional independent 
   Publishing renders the gameplay bundle plus any supported portrait product,
   then installs the complete declared output set.
 - **`./regen_sprites.sh`** renders + installs everything: config targets and
-  standalone sheets into `crates/ambition_actors/assets/sprites/`, entity
+  standalone sheets into `crates/ambition_platformer2d_actor_monolith/assets/sprites/`, entity
   sprites (chest, breakable, door zone, …) into `…/assets/sprites/entities/`.
   `--target <name>` does just one. It fingerprints the renderer's `.py` + config
   sources, so a source edit invalidates the cache and forces a re-render.
@@ -85,9 +85,9 @@ Generates and publishes 2D character/entity sprite sheets, optional independent 
 - `tools/ambition_parallax_renderer/`
 
 `./regen_backgrounds.sh` runs both isolated producers: placeholder profile
-backgrounds go under `crates/ambition_actors/assets/backgrounds/<profile>/`,
+backgrounds go under `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/<profile>/`,
 and the active biome parallax layers go under
-`crates/ambition_actors/assets/backgrounds/parallax_layers/`. These
+`crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers/`. These
 deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
 `regen_sprites.sh` neither creates nor publishes them.
 

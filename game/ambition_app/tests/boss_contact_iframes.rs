@@ -23,14 +23,14 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
-use ambition::actors::combat::{HitEvent, HitSource};
-use ambition::actors::features::ecs::boss_clusters::BossConfig;
-use ambition::characters::actor::{BodyCombat, BodyHealth};
-use ambition::encounter::EncounterParticipants;
-use ambition::engine_core::{self as ae, AabbExt};
-use ambition::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
+use ambition_platformer2d::actors::combat::{HitEvent, HitSource};
+use ambition_platformer2d::actors::features::ecs::boss_clusters::BossConfig;
+use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+use ambition_platformer2d::encounter::EncounterParticipants;
+use ambition_platformer2d::engine_core::{self as ae, AabbExt};
+use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::ecs::message::Messages;
@@ -89,7 +89,7 @@ fn read_boss(world: &mut World) -> Option<BossSnapshot> {
     let mut q = world.query::<(
         &BodyKinematics,
         &BossConfig,
-        &ambition::characters::actor::BodyCombat,
+        &ambition_platformer2d::characters::actor::BodyCombat,
     )>();
     q.iter(world).next().map(|(kin, cfg, combat)| BossSnapshot {
         pos: kin.pos,
@@ -551,7 +551,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// `docs/planning/engine/encounter-orchestration.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
-    use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+    use ambition_platformer2d::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

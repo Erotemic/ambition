@@ -9,14 +9,14 @@
 //! (matching how the player pool keeps `PlayerProjectileState` for its
 //! controller state).
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;
 
 // `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved
-// down to `ambition_platformer_primitives::projectile` so the foundation
+// down to `ambition_platformer2d_shared_tangle::projectile` so the foundation
 // `ambition_vfx` vocabulary can reference it. Re-exported here at its
 // historical path.
-pub use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
+pub use ambition_platformer2d_shared_tangle::projectile::EnemyProjectileSpawn;
 
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
 /// entities; this type owns no `Vec` — it is a stable resource handle + the home

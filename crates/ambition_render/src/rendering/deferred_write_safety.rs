@@ -200,7 +200,7 @@ mod production_passes {
         // this the pass's outer loop is over an empty map, it never reaches the
         // insert, and the probe passes while proving nothing — which is exactly
         // what it did on the first run.
-        let mut registry = ambition_world::rooms::GatePortalRegistry::default();
+        let mut registry = ambition_platformer2d_world::rooms::GatePortalRegistry::default();
         registry.register("zone", "switch", "portal", "ring");
         app.insert_resource(registry);
         app.world_mut().spawn((
@@ -291,9 +291,9 @@ mod boss_pass {
 
     pub(super) fn a_feature_view() -> ambition_sim_view::FeatureView {
         ambition_sim_view::FeatureView {
-            pos: ambition_engine_core::Vec2::new(64.0, 64.0),
-            size: ambition_engine_core::Vec2::new(96.0, 128.0),
-            kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind::Actor,
+            pos: ambition_platformer2d_core::Vec2::new(64.0, 64.0),
+            size: ambition_platformer2d_core::Vec2::new(96.0, 128.0),
+            kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             visible: true,
             flash: false,
             breakable_state: None,

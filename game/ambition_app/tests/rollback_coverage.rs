@@ -66,7 +66,7 @@ const WAIVED: &[(&str, &str)] = &[
     ("ambition_vfx::", "presentation effects"),
     ("ambition_sfx::", "presentation audio"),
     ("ambition_audio::", "presentation audio"),
-    ("ambition_portal_presentation::", "presentation"),
+    ("ambition_portal2d_presentation::", "presentation"),
     ("ambition_load_presentation::", "presentation"),
     ("ambition_menu", "UI"),
     ("ambition_settings_menu::", "UI"),
@@ -106,19 +106,19 @@ const WAIVED: &[(&str, &str)] = &[
     // never written again — rewinding it could only change which session the sim
     // thinks it is in.
     (
-        "ambition_platformer_primitives::lifecycle::session::SessionRoot",
+        "ambition_platformer2d_shared_tangle::lifecycle::session::SessionRoot",
         "session activation identity; assigned at activation, never mutated",
     ),
     (
-        "ambition_runtime::content_identity::",
+        "ambition_platformer2d_runtime::content_identity::",
         "content identity; a change invalidates the session rather than moving inside it",
     ),
     (
-        "ambition_runtime::session_world::PlatformerSessionCatalogs",
+        "ambition_platformer2d_runtime::session_world::PlatformerSessionCatalogs",
         "which providers this session composed; fixed at activation",
     ),
     (
-        "ambition_actors::avatar::starting_character::StartingCharacter",
+        "ambition_platformer2d_actor_monolith::avatar::starting_character::StartingCharacter",
         "session activation input, resolved once at player spawn",
     ),
     // ── Authored geometry and identity on world props ────────────────────────
@@ -127,15 +127,15 @@ const WAIVED: &[(&str, &str)] = &[
     // index, and a portal's authored channel all sit on entities that carry
     // registered state, and none of the three is written after the room loads.
     (
-        "ambition_actors::shrine::HealShrine",
+        "ambition_platformer2d_actor_monolith::shrine::HealShrine",
         "authored shrine geometry; the heal reads it and never writes it",
     ),
     (
-        "ambition_actors::world::platforms::MovingPlatformVisual",
+        "ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformVisual",
         "presentation index for the platform's sprite",
     ),
     (
-        "ambition_portal::link::PortalLink",
+        "ambition_portal2d::link::PortalLink",
         "authored portal channel identity, hashed at spawn",
     ),
 ];
@@ -155,7 +155,7 @@ fn waiver(type_name: &str) -> Option<&'static str> {
 /// participates in, and therefore one whose every component has to be accounted for.
 fn rollback_vocabulary(sim: &mut SandboxSim) -> BTreeSet<String> {
     sim.world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -193,10 +193,10 @@ fn simulated_population(sim: &mut SandboxSim) -> Vec<Entity> {
     let world = sim.world_mut();
     let mut found: BTreeSet<Entity> = BTreeSet::new();
     let mut tagged =
-        world.query_filtered::<Entity, With<ambition::platformer::lifecycle::FeatureSimEntity>>();
+        world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     found.extend(tagged.iter(world));
     let mut bodies =
-        world.query_filtered::<Entity, With<ambition::actors::actor::BodyKinematics>>();
+        world.query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
     found.extend(bodies.iter(world));
 
     let all: Vec<Entity> = {
@@ -235,10 +235,10 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
     // kind here costs nothing and closes that hole.
     let known: BTreeSet<String> = sim
         .world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
-        .filter(|d| d.kind != ambition::runtime::rollback::RollbackEntryKind::RequiredRollback)
+        .filter(|d| d.kind != ambition_platformer2d::runtime::rollback::RollbackEntryKind::RequiredRollback)
         .map(|d| d.type_name.clone())
         .collect();
 
@@ -278,7 +278,7 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
 pub(crate) fn waived_components(sim: &mut SandboxSim) -> BTreeMap<String, &'static str> {
     let known: BTreeSet<String> = sim
         .world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -487,7 +487,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
         let live: Vec<Entity> = {
             let world = sim.world_mut();
             let mut volumes =
-                world.query_filtered::<Entity, With<ambition::combat::moveset::StrikeVolume>>();
+                world.query_filtered::<Entity, With<ambition_platformer2d::combat::moveset::StrikeVolume>>();
             volumes.iter(world).collect()
         };
         if live.is_empty() {
@@ -522,7 +522,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
                 .copied()
                 .filter(|volume| {
                     world
-                        .get::<ambition::platformer::sim_id::SimId>(*volume)
+                        .get::<ambition_platformer2d::platformer::sim_id::SimId>(*volume)
                         .is_none()
                 })
                 .collect()
@@ -564,19 +564,19 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
 /// waiting for one is how a population stays unswept.
 #[test]
 fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
-    use ambition::actors::features::{MountSlot, Mounted, RidingOn};
-    use ambition::characters::brain::Brain;
+    use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
+    use ambition_platformer2d::characters::brain::Brain;
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let home = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<Entity, ambition::actors::actor::PrimaryPlayerOnly>();
+        let mut q = world.query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         q.single(world).expect("one primary player")
     };
     let anchor = sim
         .world_mut()
-        .get::<ambition::actors::actor::BodyKinematics>(home)
+        .get::<ambition_platformer2d::actors::actor::BodyKinematics>(home)
         .expect("the player has a body")
         .pos;
 
@@ -585,7 +585,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         "Burning Flying Shark",
         (anchor.x + 120.0, anchor.y),
         (63.0, 26.0),
-        ambition::entity_catalog::placements::CharacterBrain::Custom(
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
             "burning_flying_shark".to_string(),
         ),
     );
@@ -594,11 +594,11 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         "Pirate Raider",
         (anchor.x + 120.0, anchor.y - 66.0),
         (22.0, 39.0),
-        ambition::entity_catalog::placements::CharacterBrain::Custom("pirate_raider".to_string()),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom("pirate_raider".to_string()),
     );
     let by_id = |sim: &mut SandboxSim, id: &str| {
         let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &ambition::actors::features::FeatureId)>();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::actors::features::FeatureId)>();
         q.iter(world)
             .find(|(_, feature)| feature.as_str() == id)
             .map(|(entity, _)| entity)
@@ -657,7 +657,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
 /// id, silently. The vacuity guard is what said so; the first version of this
 /// named the duelists and swept nothing.
 fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
-    use ambition::actors::character_runtime::{
+    use ambition_platformer2d::actors::character_runtime::{
         ControllerBinding, MatchParticipant, MatchParticipantRoster,
     };
 
@@ -689,7 +689,7 @@ fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
         sim.step(AgentAction::default());
         if sim
             .world()
-            .get_resource::<ambition::actors::character_runtime::ActiveMatch>()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
             .is_some()
         {
             return tick;
@@ -719,7 +719,7 @@ fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
 /// rewind crosses badly.
 #[test]
 fn every_component_in_a_live_match_is_registered_derived_or_waived() {
-    use ambition::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
@@ -763,15 +763,15 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
     }
     {
         let world = sim.world_mut();
-        let mut switches = world.query::<&ambition::actors::features::SwitchFeature>();
+        let mut switches = world.query::<&ambition_platformer2d::actors::features::SwitchFeature>();
         let activation = switches
             .iter(world)
             .map(|feature| feature.activation.clone())
             .find(|activation| activation.id == SAND_SWITCH)
             .unwrap_or_else(|| panic!("authored switch `{SAND_SWITCH}` exists in {ROOM_ID}"));
-        world.write_message(ambition::actors::features::SwitchActivated {
+        world.write_message(ambition_platformer2d::actors::features::SwitchActivated {
             activation,
-            pos: ambition::engine_core::Vec2::ZERO,
+            pos: ambition_platformer2d::engine_core::Vec2::ZERO,
         });
     }
     for _ in 0..60 {
@@ -808,7 +808,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // Waived rather than exempted: this sweep caught the localizer the moment it
     // was added, which is the sweep working correctly on its own author.
     (
-        "ambition_runtime::rollback::probes::",
+        "ambition_platformer2d_runtime::rollback::probes::",
         "rollback diagnostics: measures the rewind, is not reproduced by it",
     ),
     // The engine character-art load pipeline (§7.1). Which SHEETS have been
@@ -823,7 +823,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // gameplay consequence — art-derived hitboxes would be exactly that, and
     // §4.11 forbids it for this reason — this waiver becomes wrong.
     //
-    // ⚠ **NARROWED from the module family `ambition_actors::character_runtime::`
+    // ⚠ **NARROWED from the module family `ambition_platformer2d_actor_monolith::character_runtime::`
     // on 2026-07-29, and the widening was the whole bug.** That waiver was
     // written when the module held art-load bookkeeping and nothing else. The
     // module then grew SEATING — `ActiveMatch`, the latch that decides whether a
@@ -997,7 +997,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the registration contract itself",
     ),
     (
-        "ambition_runtime::SimulationHost",
+        "ambition_platformer2d_runtime::SimulationHost",
         "host composition mode, fixed for the session",
     ),
     (
@@ -1115,7 +1115,7 @@ fn unwrap_message_buffer(name: &str) -> &str {
 /// declared derived, nor waived.
 fn unaccounted_resources(world: &World) -> Vec<String> {
     let known: BTreeSet<String> = world
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -1227,9 +1227,9 @@ fn sim_with_a_stopped_clock() -> SandboxSim {
 
 /// Every RESTORED resource — not the derived ones — the registry knows about.
 pub(crate) fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
-    use ambition::runtime::rollback::RollbackEntryKind;
+    use ambition_platformer2d::runtime::rollback::RollbackEntryKind;
     world
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|descriptor| {
@@ -1422,13 +1422,13 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
 /// immediately, which is why the waiver names a marker rather than a module.
 const INERT_WAIVED: &[(&str, &str)] = &[
     (
-        "ambition_platformer_primitives::lifecycle::markers::RoomVisual",
+        "ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual",
         "presentation-only: a room visual carries a Transform the renderer reads \
          and the simulation never writes. It is rebuilt with its room, not \
          restored with the frame.",
     ),
     (
-        "ambition_portal::gun_pickup::PortalGunPickup",
+        "ambition_portal2d::gun_pickup::PortalGunPickup",
         "an authored world FIXTURE, placed by the room and never moved. Taking it \
          is a portal-gun grant, and THAT is rollback state on the taker \
          (`PlacedPortal` is anchored); the pedestal itself holds only its \
@@ -1447,10 +1447,10 @@ const INERT_WAIVED: &[(&str, &str)] = &[
 /// being a subset of this and the sweep speaks up. A waiver list would have grown
 /// one entry per prop and gone unread by the third.
 const PROVENANCE_ONLY: &[&str] = &[
-    "ambition_platformer_primitives::construction::SpawnOrigin",
-    "ambition_platformer_primitives::construction::TransactionId",
-    "ambition_platformer_primitives::sim_id::SimId",
-    "ambition_platformer_primitives::lifecycle::markers::RoomScopedEntity",
+    "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
+    "ambition_platformer2d_shared_tangle::construction::TransactionId",
+    "ambition_platformer2d_shared_tangle::sim_id::SimId",
+    "ambition_platformer2d_shared_tangle::lifecycle::markers::RoomScopedEntity",
     "bevy_ecs::name::Name",
 ];
 
@@ -1471,9 +1471,9 @@ fn inert_waiver(components: &BTreeSet<String>) -> Option<&'static str> {
 /// Type names registered as SNAPSHOT state for a component (not resources, not
 /// anchors, not derived declarations).
 fn component_state_registrations(sim: &mut SandboxSim) -> BTreeSet<String> {
-    use ambition::runtime::rollback::RollbackEntryKind as K;
+    use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
     sim.world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|d| {
@@ -1493,9 +1493,9 @@ fn component_state_registrations(sim: &mut SandboxSim) -> BTreeSet<String> {
 
 /// Type names whose PRESENCE puts an entity in the rollback envelope.
 fn rollback_anchors(sim: &mut SandboxSim) -> BTreeSet<String> {
-    use ambition::runtime::rollback::RollbackEntryKind as K;
+    use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
     sim.world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|d| matches!(d.kind, K::RequiredRollback | K::DynamicAnchor))
@@ -1574,7 +1574,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
     seat_a_two_cpu_match(&mut sim);
     let seated = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition::actors::character_runtime::MatchSeat>();
+        let mut q = world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
         q.iter(world).count()
     };
     assert_eq!(
@@ -1597,7 +1597,7 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
     // `MatchSeat` is registered canonical and is normally worn by a body, which
     // carries the `BodyKinematics` anchor. On a bare entity it is stranded.
     sim.world_mut()
-        .spawn(ambition::actors::character_runtime::MatchSeat(0));
+        .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
 
     let inert = inert_registrations(&mut sim);
     assert!(

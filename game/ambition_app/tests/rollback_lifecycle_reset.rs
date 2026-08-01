@@ -38,7 +38,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without, World};
 
@@ -58,15 +58,15 @@ fn repro_sim() -> SandboxSim {
 fn place_player_on_floor(world: &mut World, hp: i32) {
     let player = {
         let mut q =
-            world.query_filtered::<Entity, With<ambition::platformer::markers::PrimaryPlayer>>();
+            world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.single(world).expect("one primary player")
     };
     {
         let mut kin = world
-            .get_mut::<ambition::platformer::body::BodyKinematics>(player)
+            .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(player)
             .expect("player kinematics");
-        kin.pos = ambition::engine_core::Vec2::new(720.0, kin.pos.y);
-        kin.vel = ambition::engine_core::Vec2::ZERO;
+        kin.pos = ambition_platformer2d::engine_core::Vec2::new(720.0, kin.pos.y);
+        kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
     }
     if let Some(mut health) = world.get_mut::<BodyHealth>(player) {
         health.health.max = hp;
@@ -95,10 +95,10 @@ fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
         let mut q = world.query_filtered::<(
             Entity,
             &BodyHealth,
-            &ambition::platformer::body::BodyKinematics,
+            &ambition_platformer2d::platformer::body::BodyKinematics,
         ), (
-            With<ambition::platformer::lifecycle::FeatureSimEntity>,
-            Without<ambition::platformer::markers::PrimaryPlayer>,
+            With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>,
+            Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         )>();
         q.iter(world)
             .map(|(e, h, k)| (e, h.health.max, k.pos.x))
@@ -119,14 +119,14 @@ fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
 /// baseline). Returns its entity so the reset's restore-to-intact can be checked.
 fn smash_one_brick(world: &mut World) -> Entity {
     let brick = {
-        let mut q = world.query::<(Entity, &ambition::combat::components::BreakableFeature)>();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::combat::components::BreakableFeature)>();
         q.iter(world)
             .find(|(_, feature)| !feature.broken())
             .map(|(e, _)| e)
             .expect("the calibration lab authors a breakable brick")
     };
     let mut feature = world
-        .get_mut::<ambition::combat::components::BreakableFeature>(brick)
+        .get_mut::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
         .expect("breakable feature");
     feature.breakable.apply_damage(9999);
     assert!(feature.broken(), "the brick is broken after lethal damage");
@@ -142,7 +142,7 @@ fn enemy_hp(sim: &mut SandboxSim, enemy: Entity) -> i32 {
 
 fn brick_is_broken(sim: &mut SandboxSim, brick: Entity) -> bool {
     sim.world_mut()
-        .get::<ambition::combat::components::BreakableFeature>(brick)
+        .get::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
         .map(|f| f.broken())
         .expect("brick still exists after the in-place reset")
 }
@@ -150,16 +150,16 @@ fn brick_is_broken(sim: &mut SandboxSim, brick: Entity) -> bool {
 fn player_hp(sim: &mut SandboxSim) -> i32 {
     let world = sim.world_mut();
     let mut q =
-        world.query_filtered::<&BodyHealth, With<ambition::platformer::markers::PrimaryPlayer>>();
+        world.query_filtered::<&BodyHealth, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world).map(|h| h.health.current).unwrap_or(0)
 }
 
 fn living_enemies(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition::platformer::body::BodyKinematics,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
         &BodyHealth,
-    ), Without<ambition::platformer::markers::PrimaryPlayer>>();
+    ), Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(world)
         .filter(|(_, h)| h.health.current > 0)
         .map(|(kin, _)| (kin.pos.x, kin.pos.y))
@@ -248,7 +248,7 @@ fn a_player_death_reset_survives_the_rollback_window() {
         // stand in the melee strikers' reach so they whittle the 3 HP down).
         let px = {
             let world = sim.world_mut();
-            let mut q = world.query_filtered::<&ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+            let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
             q.single(world).map(|k| k.pos.x).unwrap_or(0.0)
         };
         let action = match living_enemies(&mut sim)

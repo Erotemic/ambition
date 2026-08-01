@@ -3,7 +3,7 @@
 //! One of two faction faces of a single idea — the PLAYER shot (Fireball /
 //! Hadouken) and the ENEMY volley ([`enemy`]) — sharing one reusable projectile
 //! PHYSICS primitive (spec / body / per-frame tick / world collision) that lives
-//! in [`ambition_platformer_primitives::projectile`] and is re-exported below, so
+//! in [`ambition_platformer2d_shared_tangle::projectile`] and is re-exported below, so
 //! both factions step through identical motion. This crate owns the VOCABULARY
 //! and the pieces with no victim/world/brain weave:
 //!
@@ -24,7 +24,7 @@
 //! - [`diagnostics`] — motion-press logging helper.
 //!
 //! The victim-side hit routing and the player charge/anim INPUT stepper stay in
-//! the game's sim heart (`ambition_actors`) because they are woven with
+//! the game's sim heart (`ambition_platformer2d_actor_monolith`) because they are woven with
 //! un-carved boss/actor/player-anim/world state; they consume this crate.
 
 pub mod collision_world;
@@ -58,10 +58,10 @@ pub use visual::{
 };
 
 // The generic projectile-physics primitive (spec / body / collision) lives in
-// `ambition_platformer_primitives::projectile`. Re-export it at the crate root so
+// `ambition_platformer2d_shared_tangle::projectile`. Re-export it at the crate root so
 // `ambition_projectiles::ProjectileBody` etc. resolve for every call site, and so
 // the enemy faction consumes the same reusable primitive through this facade.
-pub use ambition_platformer_primitives::projectile::{
+pub use ambition_platformer2d_shared_tangle::projectile::{
     resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileGameplay,
     ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };

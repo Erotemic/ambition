@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
 /// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
@@ -23,7 +23,7 @@ pub(crate) fn apply_character_frame(
     anim: ambition_sprite_sheet::character::CharacterAnim,
     dt: f32,
     facing: f32,
-    gravity_dir: ambition_engine_core::Vec2,
+    gravity_dir: ambition_platformer2d_core::Vec2,
     color: Color,
     // Body-mode stance compaction (crouch/crawl/slide/morph shrinks the AABB and
     // slides `pos` down to keep feet planted). `current AABB height / base height`,
@@ -62,7 +62,7 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    let flip = ambition_platformer_primitives::gravity::gravity_aware_flip_x(facing, gravity_dir);
+    let flip = ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir);
     sprite.flip_x = flip;
     sprite.color = color;
     // Self-capture the trim basis from the spawn-built sprite the first time we
@@ -172,7 +172,7 @@ pub fn animate_characters(
     anim_index: Res<ambition_sim_view::ActorAnimIndex>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
 ) {
     // ADR 0011 — per-entity proper time on the presentation frame clock.
     // SP today: no entity carries ProperTimeScale, so every actor ticks at
@@ -259,7 +259,7 @@ pub fn animate_feature_sprites(
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             dt,
             1.0,
-            ambition_engine_core::Vec2::Y,
+            ambition_platformer2d_core::Vec2::Y,
             Color::WHITE,
             1.0,
         );
@@ -325,7 +325,7 @@ pub fn animate_props(
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             dt,
             1.0,
-            ambition_engine_core::Vec2::Y,
+            ambition_platformer2d_core::Vec2::Y,
             Color::WHITE,
             // Props don't crouch — full standing height.
             1.0,

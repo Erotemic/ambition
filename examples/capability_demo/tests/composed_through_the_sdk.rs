@@ -6,12 +6,12 @@
 //! actually does — write ONE module that mounts the capability and declares
 //! what it brings, and have the composition install all of it.
 //!
-//! ⚠ **`ambition` is a DEV-dependency.** A mechanic must not depend on the
+//! ⚠ **`ambition_platformer2d` is a DEV-dependency.** A mechanic must not depend on the
 //! facade that mounts it; the capability's real closure is still EIGHT
 //! foundation crates. This file is the consumer, not the capability.
 
-use ambition::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
-use ambition::input::{GAMEPLAY_CONTEXT, InstalledActions, SemanticActionId};
+use ambition_platformer2d::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
+use ambition_platformer2d::input::{GAMEPLAY_CONTEXT, InstalledActions, SemanticActionId};
 use bevy::prelude::*;
 
 /// One character, so the composition has somebody to start as.
@@ -51,8 +51,8 @@ const ROSTER: &str = r#"(
 /// The composition refuses a mounted experience with no gameplay route, and it
 /// is right to — but that refusal is what the rollback test used to trip over,
 /// leaving it asserting on a rejected app.
-fn a_room_to_stand_in() -> ambition::world::rooms::RoomSpec {
-    use ambition::world::prelude::*;
+fn a_room_to_stand_in() -> ambition_platformer2d::world::rooms::RoomSpec {
+    use ambition_platformer2d::world::prelude::*;
     let size = Vec2::new(640.0, 360.0);
     let floor_top = 320.0;
     let world = AuthoredWorld::new(
@@ -175,7 +175,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
     // And the ROLLBACK state is really registered — not merely required.
     let registry = app
         .world()
-        .get_resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("a rollback composition builds a registry");
     assert!(
         registry
@@ -244,10 +244,10 @@ fn declaring_required_rollback_without_providing_it_is_refused() {
 ///
 /// The capability offers a schema; the game adds it to the engine's registry and
 /// validates its own authored file. No `ambition_content_pack` import here —
-/// only `ambition::content`.
+/// only `ambition_platformer2d::content`.
 #[test]
 fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
-    use ambition::content::{
+    use ambition_platformer2d::content::{
         AssetsUnchecked, ContentPackDraft, ContentPackManifest, ModuleNamespace, PackId,
         PackVersion, SchemaId, SchemaVersion, SourceDeclaration, compile, engine_schemas,
     };

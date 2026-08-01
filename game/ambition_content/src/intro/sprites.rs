@@ -15,7 +15,7 @@
 
 use ambition_asset_manager::AssetId;
 
-use ambition_actors::character_sprites::sheet_for_character_id_in;
+use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_character_id_in;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSheetSpec, SheetTuning};
 
@@ -35,7 +35,7 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
 /// intro's own tuning (Stage 20 / B3: the named `*_SHEET` statics in
 /// the machinery lib are gone; story content owns its named sheets).
 pub fn intro_npc_sprite_rows(
-    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
+    authored_sheets: &ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
     character_catalog: &CharacterCatalog,
 ) -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
     let t = &INTRO_NPC_TUNING;
@@ -265,7 +265,7 @@ use ambition_asset_manager::{
 pub fn extend_with_intro_sprite_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
-    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
+    authored_sheets: &ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
     character_catalog: &CharacterCatalog,
 ) {
     for (name, filename, _spec) in intro_npc_sprite_rows(authored_sheets, character_catalog) {

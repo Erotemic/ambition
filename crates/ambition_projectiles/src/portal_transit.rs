@@ -1,6 +1,6 @@
 //! Projectile portal transit — a small, fast in-flight shot threads a portal
 //! aperture (carrying rotated momentum) instead of detonating on the portal
-//! wall. This mirrors [`ambition_portal::portal_teleport_ground_items`] (the
+//! wall. This mirrors [`ambition_portal2d::portal_teleport_ground_items`] (the
 //! "small object passes through a portal pair" precedent) for the unified
 //! projectile pipeline, fixing Jon's report that fireballs/laser bolts explode
 //! on a portal as if it were a solid wall.
@@ -13,12 +13,12 @@
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_portal::{find_portal, portal_transform_velocity, PlacedPortal};
+use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_portal2d::{find_portal, portal_transform_velocity, PlacedPortal};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal
 /// plane and isn't immediately re-tested as "entering" the exit. Matches the
-/// spirit of `ambition_portal`'s (crate-private) `portal_exit_clearance`: the
+/// spirit of `ambition_portal2d`'s (crate-private) `portal_exit_clearance`: the
 /// body's half-size projected onto the exit normal, plus a hair of margin.
 const PROJECTILE_EXIT_MARGIN: f32 = 5.0;
 
@@ -61,7 +61,7 @@ pub fn try_projectile_portal_transit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_portal::{PortalChannel, PortalGunColor};
+    use ambition_portal2d::{PortalChannel, PortalGunColor};
 
     fn kin(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
         ae::BodyKinematics {

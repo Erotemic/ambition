@@ -138,13 +138,13 @@ It does not follow that every feature in every lower crate is independently a pe
 For example:
 
 * `ambition_app::portal_render` is a complete top-level selection that forwards portal simulation and presentation through the facade.
-* `ambition_host::portal_render` is documented as local host camera/observation wiring.
-* It does not independently enable `ambition_runtime/portal`.
+* `ambition_platformer2d_host::portal_render` is documented as local host camera/observation wiring.
+* It does not independently enable `ambition_platformer2d_runtime/portal`.
 
 Therefore:
 
 ```bash
-cargo test -p ambition_host --features portal_render
+cargo test -p ambition_platformer2d_host --features portal_render
 ```
 
 constructs a different and incomplete feature graph from the supported app persona. Its failure is real test/composition information, but it does not automatically prove that `HostCameraPlugin` must install `PortalPlugin`, or that every leaf capability must be independently runnable.
@@ -162,7 +162,7 @@ A one-time feature audit is fine. Delete the audit script when the audit is comp
 
 The portal failure needs a small decision:
 
-1. `ambition_host::portal_render` semantically requires the runtime portal stack. In that case its feature should forward `ambition_runtime/portal`, and the host feature becomes self-consistent.
+1. `ambition_platformer2d_host::portal_render` semantically requires the runtime portal stack. In that case its feature should forward `ambition_platformer2d_runtime/portal`, and the host feature becomes self-consistent.
 
 2. It is deliberately only host-side wiring. In that case the feature-gated demo fixture must explicitly assemble the matching runtime portal plugin/feature, or the test should move to the actual app/facade persona that owns the complete composition.
 

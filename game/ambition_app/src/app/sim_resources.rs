@@ -1,7 +1,7 @@
 //! App-side simulation-resource residue (E5 step 6 slimmed this file).
 //!
 //! The engine-generic sim messages + resource defaults moved to
-//! `ambition::runtime::SimCoreResourcesPlugin` (in the engine group), so a
+//! `ambition_platformer2d::runtime::SimCoreResourcesPlugin` (in the engine group), so a
 //! demo app gets a bootable sim without this crate. What remains here is
 //! genuinely Ambition-assembly:
 //!
@@ -16,8 +16,8 @@
 use bevy::prelude::*;
 
 use super::setup_systems::setup_simulation_system;
-use ambition::actors::session::data;
-use ambition::platformer::schedule::SimulationSetupSet;
+use ambition_platformer2d::actors::session::data;
+use ambition_platformer2d::platformer::schedule::SimulationSetupSet;
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -29,9 +29,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
         app.add_systems(
             Startup,
             (
-                ambition::dev_tools::profiling::phase_mark("startup_begin"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("startup_begin"),
                 data::load_data_asset_handle,
-                ambition::dev_tools::profiling::phase_mark("after_load_data_handle"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_load_data_handle"),
                 // `SimulationSetupSet` is the machinery-facing label for
                 // this slot: engine/host startup systems that need the sim
                 // world set up (e.g. the host's input-component attach)
@@ -42,7 +42,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 setup_simulation_system
                     .in_set(SimulationSetupSet)
                     .run_if(super::shell_host::direct_entry),
-                ambition::dev_tools::profiling::phase_mark("after_setup_simulation"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_simulation"),
             )
                 .chain(),
         )
@@ -54,9 +54,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
         .add_systems(
             PostStartup,
             (
-                ambition::dev_tools::profiling::phase_mark("post_startup_begin"),
-                ambition::dev_tools::profiling::report_startup_phases,
-                ambition::dev_tools::profiling::report_schedule_census,
+                ambition_platformer2d::dev_tools::profiling::phase_mark("post_startup_begin"),
+                ambition_platformer2d::dev_tools::profiling::report_startup_phases,
+                ambition_platformer2d::dev_tools::profiling::report_schedule_census,
             )
                 .chain(),
         )
@@ -67,7 +67,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
         // "Resource does not exist". Initialising it beside its own system is
         // what makes the pairing local; `init_resource` is a no-op when the
         // presentation side has already inserted it.
-        .init_resource::<ambition::render::asset_census::ImageCensus>()
+        .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
         // The steady-state counterparts of the one-shot reports above.
         // `Last` so the frame census measures the whole frame, render work
         // included, rather than the part of it that happens to precede
@@ -75,8 +75,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
         .add_systems(
             Last,
             (
-                ambition::dev_tools::profiling::report_frame_census,
-                ambition::render::asset_census::report_image_census,
+                ambition_platformer2d::dev_tools::profiling::report_frame_census,
+                ambition_platformer2d::render::asset_census::report_image_census,
             ),
         );
     }

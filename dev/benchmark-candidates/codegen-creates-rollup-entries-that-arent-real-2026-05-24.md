@@ -117,7 +117,7 @@ The agent has to:
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_actors --lib \
+~/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib \
     every_character_catalog_entry_resolves_a_load_path
 ```
 

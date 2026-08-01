@@ -383,7 +383,7 @@ def sentinel_closures() -> dict:
 
     ⚠ `cargo tree` on an out-of-workspace consumer hangs here — it re-resolves
     682 packages against a git-patched dependency — so the closure is taken from
-    the workspace manifest graph instead. Both sentinels declare `ambition` and
+    the workspace manifest graph instead. Both sentinels declare `ambition_platformer2d` and
     nothing else from this workspace, so the facade's reachable set IS their
     closure.
 
@@ -399,8 +399,8 @@ def sentinel_closures() -> dict:
 
     graph = workspace_graph(REPO)
     closure = sorted(
-        {c for c in reachable(graph, "ambition") if c.startswith("ambition")}
-        | {"ambition"}
+        {c for c in reachable(graph, "ambition_platformer2d") if c.startswith("ambition")}
+        | {"ambition_platformer2d"}
     )
     unasked = [
         c for c in closure if any(k in c for k in _UNASKED_BY_A_MOVEMENT_ONLY_GAME)
@@ -408,12 +408,12 @@ def sentinel_closures() -> dict:
     return {
         "outlander": {
             "manifest": "fixtures/external_consumer/Cargo.toml",
-            "declared_dependencies": ["ambition", "bevy"],
+            "declared_dependencies": ["ambition_platformer2d", "bevy"],
             "ambition_crates_linked": len(closure),
         },
         "minimal_game": {
             "manifest": "fixtures/minimal_game/Cargo.toml",
-            "declared_dependencies": ["ambition"],
+            "declared_dependencies": ["ambition_platformer2d"],
             "ambition_crates_linked": len(closure),
             "linked_but_never_asked_for": unasked,
             "unwanted_count": len(unasked),
@@ -469,7 +469,7 @@ def capability_footprint() -> dict:
     ambition_crates = sorted(
         p["name"] for p in full["packages"] if p["name"].startswith("ambition")
     )
-    # Direct edges per Ambition crate — §2e names `ambition_actors`' 27 direct
+    # Direct edges per Ambition crate — §2e names `ambition_platformer2d_actor_monolith`' 27 direct
     # `ambition_*` dependencies as the shape of the problem, so the number is
     # measured rather than quoted.
     direct = Counter()
@@ -494,7 +494,7 @@ def capability_footprint() -> dict:
         "direct_ambition_edges_per_crate": dict(direct.most_common()),
         "widest_fan_out": direct.most_common(3),
         "note": (
-            "The consumer declares two dependencies (`ambition`, `bevy`) and "
+            "The consumer declares two dependencies (`ambition_platformer2d`, `bevy`) and "
             "links the whole engine closure. A module allowlist cannot see this: "
             "slice A's ratchet went from 18 to 14 while this number did not move "
             "at all, which is precisely the blind spot §2e exists to record."

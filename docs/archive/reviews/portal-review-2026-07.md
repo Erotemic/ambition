@@ -1,7 +1,7 @@
 # Portal crates review — findings, fixes, and design decisions (2026-07-02)
 
-Scope: `ambition_portal` (backend), `ambition_portal_presentation` (renderer),
-the Ambition adapters (`ambition_actors::portal`,
+Scope: `ambition_portal2d` (backend), `ambition_portal2d_presentation` (renderer),
+the Ambition adapters (`ambition_platformer2d_actor_monolith::portal`,
 `ambition_content::portal`), and the movement-integration seams portals depend
 on. Goal per Jon: seamless portals, a reusable Bevy package with a natural
 parameterization, and the classic fall-through/re-enter fling puzzle working.
@@ -36,7 +36,7 @@ swapped texture dims automatically.
 
 ### F2. Horizontal portal flings were braked by held input (the fling puzzle killer)
 
-The player integrator (`ambition_engine_core::movement::integration`) treats
+The player integrator (`ambition_platformer2d_core::movement::integration`) treats
 the vertical fall cap as an equilibrium — the comment even says "never
 decelerate an over-cap fling like a portal exit" — but the horizontal axis had
 no such relax: `approach(along, run * max_run_speed, air_accel * dt)`.
@@ -179,7 +179,7 @@ is world-sized. See D12.
 
 ### F8. Dead duplicate modules deleted
 
-`src/shot.rs` and `src/pickup.rs` in `ambition_portal` were orphaned earlier
+`src/shot.rs` and `src/pickup.rs` in `ambition_portal2d` were orphaned earlier
 copies of `gun_projectile.rs` / `gun_pickup.rs` — never declared in `lib.rs`,
 never compiled. Deleted. (They both defined `PortalShot` /
 `portal_fire_system` etc.; any future grep would have found two "truths.")
@@ -190,7 +190,7 @@ never compiled. Deleted. (They both defined `PortalShot` /
 
 ### D1. The portal-map convention is a process-wide mutable global — remove it
 
-`ambition_platformer_primitives::math::PORTAL_MAP_ROTATION` is an
+`ambition_platformer2d_shared_tangle::math::PORTAL_MAP_ROTATION` is an
 `AtomicBool` read by `portal_map_vec` and everything built on it (transit
 position/velocity, pieces, carves, views, copies). Problems:
 
@@ -378,7 +378,7 @@ each pass faster, then redirect through a wall portal to launch":
    The remaining practical constraint is geometric — the exit must be
    positioned so re-entry is fallable (B above A / B on the ceiling). If a
    specific room still fails, dump `debug_traces` (OOB flight recorder) and
-   check whether the transfer fired (`ambition::portal` log target prints
+   check whether the transfer fired (`ambition_platformer2d::portal` log target prints
    "transferred through the portal pair" per crossing).
 
 Residual risks to playtest: D3 (cooldown blocking a *different* chained pair),
@@ -701,7 +701,7 @@ Fix: the standing "texture-accurate atlas clipping" TODO, implemented as a
 clip SHADER rather than `Sprite.rect` (Jon's suggestion, and the right one —
 `rect` would re-derive anchor/flip/trim per frame; a fragment-shader
 half-plane test against final world positions is exact for all of them for
-free). New `PortalClipMaterial` (`Material2d`) in `ambition_portal_presentation`
+free). New `PortalClipMaterial` (`Material2d`) in `ambition_portal2d_presentation`
 (`clip_material.rs` + embedded `shaders/portal_clip.wgsl`): it draws the
 sprite's current atlas frame on a mesh quad — the hit-flash overlay's proven
 sibling-mesh pattern — and discards fragments behind up to three world-space
@@ -730,7 +730,7 @@ registered the material (the system's asset params are `Option`al) → the old
 behavior exactly (visible real sprite + unclipped exit copy at
 `PORTAL_EXIT_COPY_Z` below the window).
 
-Verification: piece decomposition already pinned in `ambition_portal::pieces`;
+Verification: piece decomposition already pinned in `ambition_portal2d::pieces`;
 new unit tests pin the plane render-space conversion (y-flip), the
 anchor/size/rotation quad pose, the atlas UV basis, and three headless app
 tests pin transit → hidden sprite + 2 clip pieces at the correct poses /
@@ -1014,6 +1014,6 @@ wedge eye; the wormhole flag stays the discrete nearest end. This removes the
 one-frame wedge-shape jump when the nearer end flips — the thin-wall doorway
 crossing and the walk between a same-plane pair (where the direct and
 via-partner images are a full pair-separation apart). Pinned by two
-continuity sweeps in `ambition_portal::view` tests (same-plane pair: the old
+continuity sweeps in `ambition_portal2d::view` tests (same-plane pair: the old
 hard-pick's ~400px jump fails the bound; thin-wall doorway: centered and
 off-center walks stay smooth).

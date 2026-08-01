@@ -11,12 +11,12 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::brain::ActorControl;
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::markers::ControlledSubject;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// The controlled body's HUD meters, resolved sim-side (E4 slices 5+6+16):
 /// health / mana / wallet follow the [`ControlledSubject`] — while
@@ -78,7 +78,7 @@ pub fn rebuild_held_item_view(
     controlled: Option<Res<ControlledSubject>>,
     bodies: Query<(
         &BodyKinematics,
-        &ambition_actors::features::HeldItem,
+        &ambition_platformer2d_actor_monolith::features::HeldItem,
         &ActorControl,
     )>,
 ) {
@@ -156,7 +156,7 @@ pub struct GroundItemFact {
 
 pub fn rebuild_ground_items_view(
     mut view: ResMut<GroundItemsView>,
-    grounds: Query<&ambition_actors::items::pickup::GroundItem>,
+    grounds: Query<&ambition_platformer2d_actor_monolith::items::pickup::GroundItem>,
 ) {
     view.0.clear();
     view.0.extend(grounds.iter().map(|ground| GroundItemFact {
@@ -185,9 +185,9 @@ pub struct WorldItemFact {
 
 pub fn rebuild_world_items_view(
     mut view: ResMut<WorldItemsView>,
-    items: Query<&ambition_actors::items::world_item::WorldItem>,
+    items: Query<&ambition_platformer2d_actor_monolith::items::world_item::WorldItem>,
 ) {
-    use ambition_actors::items::world_item::WorldItemPayload;
+    use ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload;
     view.0.clear();
     view.0.extend(items.iter().map(|item| WorldItemFact {
         pos: item.pos,
@@ -216,7 +216,7 @@ pub fn rebuild_held_shots_view(
     mut view: ResMut<HeldShotsView>,
     projectiles: Query<(
         &BodyKinematics,
-        &ambition_actors::items::pickup::HeldProjectile,
+        &ambition_platformer2d_actor_monolith::items::pickup::HeldProjectile,
     )>,
 ) {
     view.0.clear();
@@ -234,7 +234,7 @@ pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
 
 pub fn rebuild_mark_beacons_view(
     mut view: ResMut<MarkBeaconsView>,
-    marks: Query<&ambition_actors::abilities::traversal::mark_recall::PlayerMark>,
+    marks: Query<&ambition_platformer2d_actor_monolith::abilities::traversal::mark_recall::PlayerMark>,
 ) {
     view.0.clear();
     view.0.extend(marks.iter().filter_map(|mark| mark.pos));
@@ -252,7 +252,7 @@ pub struct GravitySwitchFact {
 
 pub fn rebuild_gravity_switches_view(
     mut view: ResMut<GravitySwitchesView>,
-    switches: Query<&ambition_actors::gravity::GravityFlipSwitch>,
+    switches: Query<&ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>,
 ) {
     view.0.clear();
     view.0.extend(switches.iter().map(|sw| GravitySwitchFact {
@@ -273,7 +273,7 @@ pub struct ShrineFact {
 
 pub fn rebuild_shrines_view(
     mut view: ResMut<ShrinesView>,
-    shrines: Query<&ambition_actors::shrine::HealShrine>,
+    shrines: Query<&ambition_platformer2d_actor_monolith::shrine::HealShrine>,
 ) {
     view.0.clear();
     view.0.extend(shrines.iter().map(|shrine| ShrineFact {
@@ -287,7 +287,7 @@ pub fn rebuild_shrines_view(
 /// kills). Uses scaled time, so bullet-time slows the pulse with the world.
 pub fn tick_shrine_activation_pulse(
     world_time: Res<ambition_time::WorldTime>,
-    mut activation: ResMut<ambition_actors::shrine::ShrineActivationPulse>,
+    mut activation: ResMut<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>,
 ) {
     if activation.remaining > 0.0 {
         activation.remaining = (activation.remaining - world_time.scaled_dt).max(0.0);
@@ -313,8 +313,8 @@ pub struct HostileWieldedItemFact {
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
     wielders: Query<(
-        &ambition_actors::features::ActorDisposition,
-        &ambition_actors::features::HeldItem,
+        &ambition_platformer2d_actor_monolith::features::ActorDisposition,
+        &ambition_platformer2d_actor_monolith::features::HeldItem,
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
     )>,
@@ -337,7 +337,7 @@ pub fn rebuild_hostile_wielded_items_view(
         let wielder_height = kin.size.y;
         view.0.push(HostileWieldedItemFact {
             item_id: held_item.id().to_owned(),
-            hand_world: ambition_actors::features::rider_hand_world_pos(
+            hand_world: ambition_platformer2d_actor_monolith::features::rider_hand_world_pos(
                 kin.pos,
                 kin.facing,
                 wielder_height,
@@ -416,7 +416,7 @@ pub struct DynamicFeatureFact {
     pub family: &'static str,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub visual_kind: ambition_platformer_primitives::feature_kind::FeatureVisualKind,
+    pub visual_kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind,
     pub fighting: bool,
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
@@ -435,42 +435,42 @@ pub fn rebuild_dynamic_feature_views(
     mut view: ResMut<DynamicFeatureViews>,
     ecs_mobs: Query<
         (
-            &ambition_actors::features::FeatureId,
-            &ambition_actors::features::CenteredAabb,
-            &ambition_actors::features::ActorDisposition,
-            Option<&ambition_actors::features::ActorConfig>,
+            &ambition_platformer2d_actor_monolith::features::FeatureId,
+            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
         ),
-        With<ambition_actors::features::EncounterMob>,
+        With<ambition_platformer2d_actor_monolith::features::EncounterMob>,
     >,
     staged_actors: Query<
         (
-            &ambition_actors::features::FeatureId,
-            &ambition_actors::features::CenteredAabb,
-            &ambition_actors::features::ActorDisposition,
-            Option<&ambition_actors::features::ActorConfig>,
+            &ambition_platformer2d_actor_monolith::features::FeatureId,
+            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
         ),
-        With<ambition_actors::features::RuntimeStagedActor>,
+        With<ambition_platformer2d_actor_monolith::features::RuntimeStagedActor>,
     >,
     post_boss_npcs: Query<
         (
-            &ambition_actors::features::FeatureId,
-            &ambition_actors::features::FeatureName,
-            &ambition_actors::features::CenteredAabb,
-            &ambition_actors::features::ActorDisposition,
-            Option<&ambition_actors::features::ActorConfig>,
-            Option<&ambition_actors::features::ActorInteraction>,
+            &ambition_platformer2d_actor_monolith::features::FeatureId,
+            &ambition_platformer2d_actor_monolith::features::FeatureName,
+            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorInteraction>,
         ),
-        With<ambition_actors::features::PostBossNpc>,
+        With<ambition_platformer2d_actor_monolith::features::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
         (
-            &ambition_actors::features::FeatureId,
-            &ambition_actors::features::CenteredAabb,
-            &ambition_actors::features::ChestFeature,
+            &ambition_platformer2d_actor_monolith::features::FeatureId,
+            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_actor_monolith::features::ChestFeature,
         ),
         bevy::prelude::Or<(
-            With<ambition_actors::features::EncounterRewardChest>,
-            With<ambition_actors::features::BossRewardChest>,
+            With<ambition_platformer2d_actor_monolith::features::EncounterRewardChest>,
+            With<ambition_platformer2d_actor_monolith::features::BossRewardChest>,
         )>,
     >,
     // Loot the running simulation MINTED — Sanic's scattered rings, and every
@@ -481,19 +481,19 @@ pub fn rebuild_dynamic_feature_views(
     // pickup already has its visual and is filtered out below.
     dropped_pickups: Query<
         (
-            &ambition_actors::features::FeatureId,
-            &ambition_actors::features::FeatureName,
-            &ambition_actors::features::CenteredAabb,
-            &ambition_platformer_primitives::construction::SpawnOrigin,
-            Option<&ambition_actors::features::PickupArt>,
+            &ambition_platformer2d_actor_monolith::features::FeatureId,
+            &ambition_platformer2d_actor_monolith::features::FeatureName,
+            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
+            Option<&ambition_platformer2d_actor_monolith::features::PickupArt>,
         ),
         (
-            With<ambition_actors::features::PickupFeature>,
-            Without<ambition_actors::features::Collected>,
+            With<ambition_platformer2d_actor_monolith::features::PickupFeature>,
+            Without<ambition_platformer2d_actor_monolith::features::Collected>,
         ),
     >,
 ) {
-    use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
+    use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
@@ -572,7 +572,7 @@ pub fn rebuild_dynamic_feature_views(
     for (id, name, aabb, origin, art) in &dropped_pickups {
         if !matches!(
             origin,
-            ambition_platformer_primitives::construction::SpawnOrigin::Dynamic { .. }
+            ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { .. }
         ) {
             continue;
         }
@@ -621,19 +621,19 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
-    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
-    mode: Res<bevy::prelude::State<ambition_platformer_primitives::schedule::GameMode>>,
+    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    mode: Res<bevy::prelude::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The home avatar's raw input actions. Discovered by the primary-player
     // marker instead of a process-global scene-handle bag: `PlayerVisual` carries
     // the leafwing `ActionState`, `PrimaryPlayer` selects the one home body.
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
         (
-            With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
-            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
     // The blink reticle previews from the CONTROLLED SUBJECT (the body
@@ -643,11 +643,11 @@ pub fn rebuild_blink_preview_fact(
     controlled: Res<ControlledSubject>,
     player_q: Query<(
         &BodyKinematics,
-        &ambition_engine_core::BodyAbilities,
-        &ambition_engine_core::BodyMotionFacts,
+        &ambition_platformer2d_core::BodyAbilities,
+        &ambition_platformer2d_core::BodyMotionFacts,
     )>,
 ) {
-    use ambition_engine_core as ae;
+    use ambition_platformer2d_core as ae;
     use ambition_input::read_gameplay_control_frame;
 
     fact.active = false;
@@ -671,7 +671,7 @@ pub fn rebuild_blink_preview_fact(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        ambition_actors::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
+        ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
     let target = if motion_facts.blink_aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,
@@ -720,7 +720,7 @@ impl Plugin for SimViewPlugin {
         app.add_systems(
             sim,
             rebuild_blink_preview_fact
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
         );
         app.add_systems(
             sim,
@@ -739,7 +739,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }
@@ -790,12 +790,12 @@ mod tests {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
-        app.insert_resource(ambition_actors::shrine::ShrineActivationPulse { remaining: 0.25 });
+        app.insert_resource(ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse { remaining: 0.25 });
         app.add_systems(Update, tick_shrine_activation_pulse);
         app.update();
         let remaining = app
             .world()
-            .resource::<ambition_actors::shrine::ShrineActivationPulse>()
+            .resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>()
             .remaining;
         assert!((remaining - 0.15).abs() < 1e-6);
         for _ in 0..5 {
@@ -803,7 +803,7 @@ mod tests {
         }
         assert_eq!(
             app.world()
-                .resource::<ambition_actors::shrine::ShrineActivationPulse>()
+                .resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>()
                 .remaining,
             0.0,
             "pulse clamps at zero"

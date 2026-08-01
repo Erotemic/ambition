@@ -249,7 +249,7 @@ Remaining acceptance work
   in the same room.
 
   The readiness transaction, the one-shot authorization, and the commit now live
-  in `ambition_runtime::room_transition`, carried by `PlatformerEnginePlugins`
+  in `ambition_platformer2d_runtime::room_transition`, carried by `PlatformerEnginePlugins`
   into every host — the same move §2.5 made for `RoomReplayRequested`, stuck for
   the same kind of reason: not a dependency, ONE call. The commit DREW the new
   room (`spawn_room_visuals`), which named `ambition_render`. It now writes

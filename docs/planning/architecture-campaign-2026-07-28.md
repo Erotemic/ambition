@@ -321,19 +321,19 @@ Two reasons, one of them the review's own.
   and they say LEAVE IT DEFERRED — for a reason rather than by inertia.**
 
   The campaign's likely first restriction was *"internal content crates may not
-  depend on the full `ambition` facade."* Measured:
+  depend on the full `ambition_platformer2d` facade."* Measured:
 
   | measurement | value |
   |---|---:|
   | internal NON-app crates depending on the facade | **1** (`ambition_content`) |
   | facade modules that crate actually uses | 8 |
-  | of its 43 facade references, `ambition::platformer` | 36 |
+  | of its 43 facade references, `ambition_platformer2d::platformer` | 36 |
   | direct `ambition_*` dependencies it ALREADY declares | 36 |
   | `ambition_*` crates in the external consumer's graph | 41 of 528 total packages |
 
   **The restriction has exactly one subject**, and that subject already declares
   direct dependencies on nearly everything it reaches through the facade —
-  `ambition::platformer` is `ambition_platformer_primitives`, which is already a
+  `ambition_platformer2d::platformer` is `ambition_platformer2d_shared_tangle`, which is already a
   direct dep. So the rule is cheap to satisfy.
 
   ⛔ **And it would change nothing measurable.** `ambition_content` is co-built
@@ -387,9 +387,9 @@ character identity is half-migrated would make a bisect impossible.
   and a **first-party** provider beside Outlander, or the harness just encodes
   one fixture's assumptions.
 - **Facade restructuring** — blocked on measurements, deliberately. Likely first
-  restriction: *internal content crates may not depend on the full `ambition`
+  restriction: *internal content crates may not depend on the full `ambition_platformer2d`
   facade.*
-- **`ambition_actors` decomposition** — not during the authority campaigns. A
+- **`ambition_platformer2d_actor_monolith` decomposition** — not during the authority campaigns. A
   rename to `ambition_platformer_gameplay` may beat a speculative split.
 - **Match extraction** — only the deterministic presentation-free state machine,
   and only once seats/rounds/score/countdown/KO stop changing.
@@ -644,13 +644,13 @@ layer must not depend on GGRS session hosting.
 > **✔ ANSWERED 2026-07-31 — the extraction is DECLINED, on evidence.**
 >
 > 1. The vocabulary is already public and already used from outside the runtime:
->    `ambition::runtime::rollback::AmbitionRollbackApp` is re-exported by the
+>    `ambition_platformer2d::runtime::rollback::AmbitionRollbackApp` is re-exported by the
 >    facade, and `ambition_content` (bosses, portal), `ambition_demo_sanic` and
 >    `ambition_app` register through it today. Domain ownership is not blocked —
 >    it is demonstrated, and those are the only non-runtime rows in the schema.
 > 2. Every domain this campaign still names sits BELOW the runtime.
->    `ambition_actors`, `_combat`, `_portal`, `_characters` and `_projectiles`
->    carry no `ambition_runtime` dependency; the runtime depends on them. None
+>    `ambition_platformer2d_actor_monolith`, `_combat`, `_portal`, `_characters` and `_projectiles`
+>    carry no `ambition_platformer2d_runtime` dependency; the runtime depends on them. None
 >    can own an adapter without inverting the graph.
 > 3. Extraction relocates that problem rather than solving it. A registration
 >    installs `ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>`, generic
@@ -658,7 +658,7 @@ layer must not depend on GGRS session hosting.
 >    site, and "install for T" is a closure rather than data. An extracted
 >    schema crate would pull `bevy_ggrs` into every primitive that registers.
 >
-> **The shape that follows:** a module per domain inside `ambition_runtime` for
+> **The shape that follows:** a module per domain inside `ambition_platformer2d_runtime` for
 > the crates below it, and real crate-level ownership for anything above it.
 > That satisfies R4 — the central function aggregates rather than enumerates —
 > at no dependency cost. Reopen only if a crate below the runtime must register
@@ -817,11 +817,11 @@ exist. First measure clean external-consumer build time; incremental build after
 consumer-only source change; crates compiled by a minimal headless consumer;
 unconditional dependencies that provide no used surface; and use of the full
 umbrella by internal content crates. The likely first restriction is: *internal
-content crates may not depend on the full `ambition` facade.* Choose crate
+content crates may not depend on the full `ambition_platformer2d` facade.* Choose crate
 splitting or optional features only after the measurements identify a real build
 boundary.
 
-**`ambition_actors` decomposition.** Do not split the crate during the authority
+**`ambition_platformer2d_actor_monolith` decomposition.** Do not split the crate during the authority
 and lifecycle campaigns. After those migrations: measure its remaining
 responsibilities and dependencies; identify whether a coherent actor kernel
 exists; prove that kernel can compile without room, menu, persistence, shrine and

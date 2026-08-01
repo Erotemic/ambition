@@ -46,8 +46,8 @@ runtime behavior and do not contain a provider's closed named roster.
 
 | Role | Current crates | Owns |
 |---|---|---|
-| **Movement kernel** | `ambition_engine_core` | geometry, casts, reference frames, motion models, body stepping, contact laws, traversal mechanics |
-| **Platformer kinematic toolkit** | `ambition_platformer_primitives` | reusable ECS vocabulary around bodies, frames, lifecycle, transit, projectiles, and shared platformer state |
+| **Movement kernel** | `ambition_platformer2d_core` | geometry, casts, reference frames, motion models, body stepping, contact laws, traversal mechanics |
+| **Platformer kinematic toolkit** | `ambition_platformer2d_shared_tangle` | reusable ECS vocabulary around bodies, frames, lifecycle, transit, projectiles, and shared platformer state |
 | **Clock model** | `ambition_time` | simulation, wall, observer, and entity proper-time domains |
 
 These crates form one trusted mathematical foundation. They are not split merely
@@ -61,8 +61,8 @@ because geometry, frames, and movement can be named separately.
 | **Actor vocabulary and policy** | `ambition_characters` | actor/control types, perception, brains, action sets, boss decision policy |
 | **Combat/action execution** | `ambition_combat` | move playback, hit volumes, hit resolution, targeting, combat effects |
 | **Projectile kit** | `ambition_projectiles` | projectile vocabulary and reusable substrate behavior |
-| **World IR** | `ambition_world` | rooms, graph, authored placements, moving-platform math, collision composition, lowering registry |
-| **Authoring backend** | `ambition_ldtk_map` | LDtk import/runtime adaptation into the world IR |
+| **World IR** | `ambition_platformer2d_world` | rooms, graph, authored placements, moving-platform math, collision composition, lowering registry |
+| **Authoring backend** | `ambition_platformer2d_ldtk` | LDtk import/runtime adaptation into the world IR |
 | **Encounter kit** | `ambition_encounter` | participants, objectives, gates, lifecycle state, encounter facts |
 | **Items and inventory** | `ambition_items`, `ambition_inventory_ui` | reusable item/equipment/inventory machinery; provider item identities are being evicted |
 | **Dialogue and cutscenes** | `ambition_dialog`, `ambition_cutscene` | separate dialogue and scripted-sequence domains |
@@ -70,7 +70,7 @@ because geometry, frames, and movement can be named separately.
 | **Menu primitives** | `ambition_menu`, `ambition_settings_menu`, `ambition_ui_nav` | reusable navigation and menu rendering; Ambition's opinionated inventory host stays app-side until a second consumer proves a seam |
 | **Audio/assets/effects** | `ambition_audio`, `ambition_asset_manager`, `ambition_sfx`, `ambition_vfx` | reusable runtime and registration mechanisms; provider identities belong above them |
 | **Interaction** | `ambition_interaction` | generic interaction runtime vocabulary |
-| **Portal exemplar** | `ambition_portal`, `ambition_portal_presentation` | the reference simulation/presentation split |
+| **Portal exemplar** | `ambition_portal2d`, `ambition_portal2d_presentation` | the reference simulation/presentation split |
 | **Workbench** | `ambition_dev_tools` | development-only inspection and tuning; generic runtime should not own its leaf systems |
 
 **Cutscenes and encounters do not merge.** Cutscenes are scripted systems with
@@ -79,7 +79,7 @@ They may share small demonstrated primitives, not one universal sequence DSL.
 
 ### Tier 3 — simulation heart
 
-`ambition_actors` owns the authority-woven live platformer simulation: body
+`ambition_platformer2d_actor_monolith` owns the authority-woven live platformer simulation: body
 assembly, control routing, perception, integration, body/contact consequences,
 actor/world adapters, and publication of simulation facts.
 
@@ -93,7 +93,7 @@ after action convergence.
 | Role | Current crates | Owns |
 |---|---|---|
 | **Observation boundary** | `ambition_sim_view` | tick-tagged read models for presentation, headless agents, replay/netcode confirmation, and observer-relative views |
-| **Default picture** | `ambition_render`, `ambition_portal_presentation`, `ambition_load_presentation` | sprites, camera, HUD/UI, and other presentation consumers |
+| **Default picture** | `ambition_render`, `ambition_portal2d_presentation`, `ambition_load_presentation` | sprites, camera, HUD/UI, and other presentation consumers |
 
 Presentation consumes simulation/read-model facts and does not mutate simulation.
 Immutable authored world IR may be read directly when no observer-dependent or
@@ -103,11 +103,11 @@ mutable truth is being hidden.
 
 | Role | Current/future owner | Owns |
 |---|---|---|
-| **Simulation assembly** | `ambition_runtime` | headless-safe plugin composition and global schedule-set ordering |
-| **Platformer provider lifecycle** | `ambition_platformer_provider` | typed preparation, exact activation, session construction, cleanup |
-| **Windowed host** | `ambition_host` | device/window/presentation composition above the runtime |
+| **Simulation assembly** | `ambition_platformer2d_runtime` | headless-safe plugin composition and global schedule-set ordering |
+| **Platformer provider lifecycle** | `ambition_platformer2d_provider` | typed preparation, exact activation, session construction, cleanup |
+| **Windowed host** | `ambition_platformer2d_host` | device/window/presentation composition above the runtime |
 | **Programmatic harness** | `ambition_sim_harness` (landed) | reset/step, typed actions, observations, reward/termination adapters; `SandboxSim::build` takes a caller-supplied composition so it links no product shell |
-| **SDK facade** | `ambition` | curated re-exports and convenient composition, not substantive lifecycle implementation |
+| **SDK facade** | `ambition_platformer2d` | curated re-exports and convenient composition, not substantive lifecycle implementation |
 
 ### Tier 6 — games and providers
 
@@ -130,7 +130,7 @@ Each domain should have:
 4. typed commands/facts or narrow adapters at domain boundaries;
 5. an owner plugin that initializes and installs its local implementation.
 
-`ambition_runtime` owns the global phase graph. It orders domain sets rather than
+`ambition_platformer2d_runtime` owns the global phase graph. It orders domain sets rather than
 becoming the installation site for every leaf system. Multiple writers are fine
 for explicitly append-only or commutative registries; they are not a substitute
 for an owner of mutable state-machine truth.
@@ -143,7 +143,7 @@ complete only when the engine-owned closed table disappears and the obvious
 provider-owned seam exists.
 
 The host composition root may explicitly name every installed provider. Lower
-engine crates do not depend on game crates, and the `ambition` facade must not
+engine crates do not depend on game crates, and the `ambition_platformer2d` facade must not
 hide product implementation behind convenient re-exports.
 
 ## 4b. Authored world IR and lowering

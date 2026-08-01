@@ -57,7 +57,7 @@ manifests) and per frame where the question changes per frame (which items are o
 screen). Both go through the same types; the difference is whether the diagnostic
 is carried on a plan or gated behind `ReportedOnce`.
 
-Three types in `ambition_platformer_primitives::binding` carry it:
+Three types in `ambition_platformer2d_shared_tangle::binding` carry it:
 
 - **`Ref<N>`** — an authored id in namespace `N`. Deliberately inert: it has no
   lookup method, because a reference that can look itself up is one that can
@@ -104,9 +104,9 @@ behaviour wrongly.
 | Namespace | Owner | Resolver source |
 |---|---|---|
 | `AnimRow` | `ambition_sprite_sheet::binding` | the sheet's own rows |
-| `WorldItemSprite` / `HeldItemSprite` | `ambition_platformer_primitives` | the unioned provider manifests |
-| `KinematicPathId`, `CharacterId` | `ambition_actors::world::rooms::binding` | the room + the catalogs |
-| `HeldItemId` | `ambition_actors::construction` | the held-item registry |
+| `WorldItemSprite` / `HeldItemSprite` | `ambition_platformer2d_shared_tangle` | the unioned provider manifests |
+| `KinematicPathId`, `CharacterId` | `ambition_platformer2d_actor_monolith::world::rooms::binding` | the room + the catalogs |
+| `HeldItemId` | `ambition_platformer2d_actor_monolith::construction` | the held-item registry |
 
 Wired into the real paths, not offered beside them:
 

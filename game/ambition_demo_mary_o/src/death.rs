@@ -32,7 +32,7 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 
 /// How long the level holds on her death before it starts again.
 ///
@@ -108,10 +108,10 @@ impl MaryODeathSequence {
 /// way of dying — a hit that got past her armor, a pit, the clock — arrives
 /// here by the same door.
 pub fn begin_death_sequence(
-    mut deaths: MessageReader<ambition::actors::ActorDiedMessage>,
+    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
     mut sequences: Query<&mut MaryODeathSequence>,
-    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     // Drain unconditionally so a death that landed during a load cannot be
     // re-read and charged to the next attempt (the same rule the life counter
@@ -132,12 +132,12 @@ pub fn begin_death_sequence(
     // reads the CONTROLLED subject — the death beat only ever runs for the body the
     // player is driving, which is the same body the message came from.
     match subject.and_then(|s| s.0) {
-        Some(body) => sfx.write_for(body, ambition::sfx::SfxMessage::Reset { pos: death.pos }),
+        Some(body) => sfx.write_for(body, ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos }),
         // I3: the COURSE, not the session. A shell host's session provider is the
         // launcher, which does not author this cue.
         None => sfx.write_from(
             crate::provider::MARY_O_EXPERIENCE,
-            ambition::sfx::SfxMessage::Reset { pos: death.pos },
+            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
         ),
     }
 }
@@ -163,8 +163,8 @@ pub fn begin_death_sequence(
 pub fn play_death_music(
     sequences: Query<&MaryODeathSequence>,
     music: Option<
-        ambition::platformer::lifecycle::SessionWorldMut<
-            ambition::actors::encounter::EncounterMusicRequest,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_platformer2d::actors::encounter::EncounterMusicRequest,
         >,
     >,
 ) {
@@ -187,13 +187,13 @@ const DEATH_MUSIC_OWNER: &str = "mary_o_death";
 /// makes and for the same reason: a frozen body is still a body, and gravity
 /// would walk it out from under the pose.
 pub fn run_death_sequence(
-    time: Res<ambition::time::WorldTime>,
-    subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut commands: Commands,
     mut sequences: Query<&mut MaryODeathSequence>,
     mut bodies: Query<(
         &mut ae::BodyKinematics,
-        &mut ambition::actors::actor::BodyAnimFacts,
+        &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
     )>,
 ) {
     let Ok(mut sequence) = sequences.single_mut() else {
@@ -224,11 +224,11 @@ pub fn run_death_sequence(
     if sequence.remaining > 0.0 {
         commands
             .entity(entity)
-            .try_insert(ambition::characters::brain::ScriptedControl);
+            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
     } else {
         commands
             .entity(entity)
-            .remove::<ambition::characters::brain::ScriptedControl>();
+            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
     }
     // Re-armed every tick rather than set once: the engine's respawn calls
     // `BodyAnimFacts::reset()`, so a single arming would be wiped on the very
@@ -248,7 +248,7 @@ pub fn run_death_sequence(
 /// many times the frame is simulated.
 pub fn restart_level_after_death(
     mut sequences: Query<&mut MaryODeathSequence>,
-    mut replay: MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+    mut replay: MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
 ) {
     let Ok(mut sequence) = sequences.single_mut() else {
         return;
@@ -257,7 +257,7 @@ pub fn restart_level_after_death(
         return;
     }
     sequence.replay_pending = false;
-    replay.write(ambition::actors::session::reset::RoomReplayRequested);
+    replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
 }
 
 #[cfg(test)]

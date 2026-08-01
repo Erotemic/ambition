@@ -3,20 +3,20 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::BodyBaseSize;
-use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
-use ambition_actors::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
-use ambition_actors::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
+use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
+use ambition_platformer2d_actor_monolith::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_characters::brain::ActionSet;
-use ambition_engine_core::RoomGeometry;
-use ambition_engine_core::{self as ae};
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_core::{self as ae};
 use ambition_input::ControlFrame;
 
 #[allow(unused_imports)]
 use super::*;
-use ambition_actors::platformer_runtime::collision::raycast_solids;
-use ambition_portal::*;
+use ambition_platformer2d_actor_monolith::platformer_runtime::collision::raycast_solids;
+use ambition_portal2d::*;
 
 // Channel shorthands for the tests: the gun's pair (Blue/Orange) and two authored
 // pairs (Purple/Yellow). These map the old `PortalColor::X` literals onto the new
@@ -88,8 +88,8 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             // Opt the player into the generic transit core with the player
             // policy (re-orient + carry velocity), as the Ambition tagging
             // adapter does in the real app.
-            ambition_portal::PortalBody,
-            ambition_portal::PortalPolicy {
+            ambition_portal2d::PortalBody,
+            ambition_portal2d::PortalPolicy {
                 reorient: true,
                 carry_velocity: true,
             },
@@ -145,7 +145,7 @@ fn raycast_hits_nearest_solid_face_with_outward_normal() {
 
 #[test]
 fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
-    use ambition_engine_core::world::{Block, World};
+    use ambition_platformer2d_core::world::{Block, World};
     let world = World {
         name: "one-way".to_string(),
         size: Vec2::new(400.0, 400.0),
@@ -272,7 +272,7 @@ fn velocity_transform_rotates_through_perpendicular_portals() {
 #[test]
 fn in_flight_ground_item_travels_through_the_portal_pair() {
     use crate::portal::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
-    use ambition_actors::items::pickup::GroundItem;
+    use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
     let mut app = App::new();
     // The content adapter brackets the core teleport: attach + sync the
     // PortalTransitable body before, mirror it back to GroundItem after.
@@ -302,7 +302,7 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     let item = app
         .world_mut()
         .spawn(GroundItem {
-            spec: ambition_actors::items::pickup::axe_spec(),
+            spec: ambition_platformer2d_actor_monolith::items::pickup::axe_spec(),
             pos: Vec2::new(20.0, 200.0),
             vel: Vec2::new(-300.0, 0.0),
             half_extent: Vec2::splat(12.0),
@@ -348,14 +348,14 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
 
 #[test]
 fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
-    use ambition_actors::features::BodyKinematics;
+    use ambition_platformer2d_actor_monolith::features::BodyKinematics;
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Actor policy: carry velocity, no re-orient (facing follows AI).
-    let actor_policy = ambition_portal::PortalPolicy {
+    let actor_policy = ambition_portal2d::PortalPolicy {
         reorient: false,
         carry_velocity: true,
     };
@@ -380,7 +380,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
                 size: Vec2::new(24.0, 40.0),
                 facing: -1.0,
             },
-            ambition_portal::PortalBody,
+            ambition_portal2d::PortalBody,
             actor_policy,
         ))
         .id();
@@ -393,7 +393,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
                 size: Vec2::new(80.0, 200.0),
                 facing: -1.0,
             },
-            ambition_portal::PortalBody,
+            ambition_portal2d::PortalBody,
             actor_policy,
         ))
         .id();
@@ -554,7 +554,7 @@ fn portal_transit_roll_is_general_and_matches_on_screen_turn() {
 #[test]
 fn roll_eases_back_to_gravity_upright_in_air() {
     let mut app = App::new();
-    app.insert_resource(ambition_platformer_primitives::time::SimDt { dt: 1.0 / 60.0 });
+    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.init_resource::<GravityField>();
     app.add_systems(Update, update_actor_roll);
     // Start rolled 180° (just exited a floor↔floor portal), airborne. The
@@ -564,7 +564,7 @@ fn roll_eases_back_to_gravity_upright_in_air() {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer_primitives::body::BodyKinematics {
+            ambition_platformer2d_shared_tangle::body::BodyKinematics {
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
@@ -599,11 +599,11 @@ fn gravity_upright_angle_tracks_the_gravity_direction() {
 
 #[test]
 fn actors_get_an_aerial_roll_through_portals() {
-    use ambition_actors::features::BodyKinematics;
+    use ambition_platformer2d_actor_monolith::features::BodyKinematics;
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Floor portal (normal up) + right-wall portal (normal left): a
     // floor→wall pair, so transit imparts a -90° roll. Player and non-player
@@ -631,8 +631,8 @@ fn actors_get_an_aerial_roll_through_portals() {
                 facing: 1.0,
             },
             ActorRoll::default(),
-            ambition_portal::PortalBody,
-            ambition_portal::PortalPolicy {
+            ambition_portal2d::PortalBody,
+            ambition_portal2d::PortalPolicy {
                 reorient: false,
                 carry_velocity: true,
             },
@@ -654,11 +654,11 @@ fn actors_get_an_aerial_roll_through_portals() {
 #[test]
 fn portal_pair_teleports_player_carrying_momentum() {
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.insert_resource(ambition_time::WorldTime::default());
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(Update, portal_transit);
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal::fixed(
@@ -711,11 +711,11 @@ fn a_gunless_player_transits_an_authored_pair() {
     // the gun. Transit must still work — crossing a placed pair is independent
     // of holding the gun, and the cooldown lives on the body.
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.insert_resource(ambition_time::WorldTime::default());
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(Update, portal_transit);
     let he = portal_half_extent(Vec2::new(0.0, -1.0));
     app.world_mut().spawn(PlacedPortal::fixed(
@@ -745,8 +745,8 @@ fn a_gunless_player_transits_an_authored_pair() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             // No PortalGun on purpose.
-            ambition_portal::PortalBody,
-            ambition_portal::PortalPolicy {
+            ambition_portal2d::PortalBody,
+            ambition_portal2d::PortalPolicy {
                 reorient: true,
                 carry_velocity: true,
             },
@@ -785,21 +785,21 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         mut flag: ResMut<TeleportedThisFrame>,
         mut trail_flag: ResMut<TrailBreakThisFrame>,
         mut reader: MessageReader<BodyTeleported>,
-        mut trail_reader: MessageReader<ambition_actors::avatar::trail::TrailContinuityBreak>,
+        mut trail_reader: MessageReader<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>,
     ) {
         flag.0 = reader.read().next().is_some();
         trail_flag.0 = trail_reader.read().next().is_some();
     }
 
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
-    app.add_message::<ambition_actors::avatar::trail::TrailContinuityBreak>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
+    app.add_message::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
     app.init_resource::<TrailBreakThisFrame>();
     app.insert_resource(ambition_time::WorldTime::default());
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     // The player-input adapter now emits `BodyTeleported` from the core's
     // `PortalBodyTransited` event (the trace bit moved out of core), so include
     // it in the chain ahead of the recorder.
@@ -897,8 +897,8 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 
 /// The two host-side bridges the presentation chain needs, restated locally.
 ///
-/// They live in `ambition_host::portal` — a crate ABOVE this one, so a content
-/// test cannot call them. (They were once reachable as `ambition_portal::*`,
+/// They live in `ambition_platformer2d_host::portal` — a crate ABOVE this one, so a content
+/// test cannot call them. (They were once reachable as `ambition_portal2d::*`,
 /// which is where this test imported them from; the E-track carve moved them and
 /// never updated this `portal_render`-gated test, so it had not compiled since.
 /// Fixed while landing R3.) Each is a five-line field copy / marker insert, and
@@ -907,7 +907,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 #[cfg(feature = "portal_render")]
 mod host_bridges {
     use super::*;
-    use ambition_portal_presentation::{PortalBodyView, PortalSceneBody, PortalWorldFrame};
+    use ambition_portal2d_presentation::{PortalBodyView, PortalSceneBody, PortalWorldFrame};
     use ambition_render::rendering::PlayerVisual;
 
     /// Mirror of the host's read-model publisher: presentation reads
@@ -926,7 +926,7 @@ mod host_bridges {
     }
 
     pub fn sync_portal_world_frame(
-        world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+        world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
         mut frame: ResMut<PortalWorldFrame>,
     ) {
         if frame.size != world.0.size {
@@ -947,7 +947,7 @@ mod host_bridges {
 #[cfg(feature = "portal_render")]
 #[test]
 fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
-    use ambition_portal_presentation::{
+    use ambition_portal2d_presentation::{
         sync_portal_body_pieces, PortalBodyPiece, PortalWorldFrame,
     };
     use ambition_render::rendering::PlayerVisual;
@@ -955,7 +955,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         publish_portal_body_views, sync_portal_world_frame, tag_portal_scene_bodies,
     };
     let mut app = App::new();
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         world_with_two_walls(),
     );
@@ -966,7 +966,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
     app.init_resource::<PortalWorldFrame>();
     // The body-pieces system reads the live effect selection (for the legacy
     // mask mode); default = first compiled effect.
-    app.init_resource::<ambition_portal_presentation::PortalEffectSelection>();
+    app.init_resource::<ambition_portal2d_presentation::PortalEffectSelection>();
     app.add_systems(
         Update,
         (
@@ -1035,7 +1035,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     // Carve output is now the portal-owned `PortalCarves` resource (Phase 2
     // Seam 1); the Ambition bridge copies it into the host overlay. Portal core
     // (and this core test) reads the portal-owned resource directly.
-    app.init_resource::<ambition_portal::PortalCarves>();
+    app.init_resource::<ambition_portal2d::PortalCarves>();
     app.add_systems(Update, publish_portal_carves);
     // A lone portal must NOT carve (no exit → no bottomless hole).
     let blue = app
@@ -1050,7 +1050,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert!(
         app.world()
-            .resource::<ambition_portal::PortalCarves>()
+            .resource::<ambition_portal2d::PortalCarves>()
             .holes
             .is_empty(),
         "a lone portal does not carve"
@@ -1066,7 +1066,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert!(
         app.world()
-            .resource::<ambition_portal::PortalCarves>()
+            .resource::<ambition_portal2d::PortalCarves>()
             .holes
             .is_empty(),
         "a placed pair with no body transiting stays solid (no walk-in pocket)"
@@ -1080,7 +1080,7 @@ fn portal_carve_is_transient_and_pair_gated() {
     app.update();
     assert_eq!(
         app.world()
-            .resource::<ambition_portal::PortalCarves>()
+            .resource::<ambition_portal2d::PortalCarves>()
             .holes
             .len(),
         1,
@@ -1095,8 +1095,8 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     // `portal_fire_system` now emits the portal-owned `PortalShotFired` signal
     // (the FIRE/TRAVEL sfx moved to the `play_portal_sfx` adapter, Phase 5a).
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_portal::PortalShotFired>();
-    ambition::platformer::lifecycle::insert_session_world_component(
+    app.add_message::<ambition_portal2d::PortalShotFired>();
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         world_with_two_walls(),
     );
@@ -1110,7 +1110,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     // by the Ambition resolver (Phase 2 Seam 3) before the core fire system reads
     // it; the RoomGeometry-reading shot stepper is the Ambition world-seam adapter
     // (Phase 2 Seam 2). Portal core keeps the pure `step_portal_shot` helper.
-    app.add_message::<ambition_portal::PortalFireIntent>();
+    app.add_message::<ambition_portal2d::PortalFireIntent>();
     app.add_systems(
         Update,
         (
@@ -1153,7 +1153,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     let scoped = {
         let mut q = app.world_mut().query_filtered::<(), (
             With<PlacedPortal>,
-            With<ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity>,
+            With<ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomScopedEntity>,
         )>();
         q.iter(app.world()).count()
     };
@@ -1179,9 +1179,9 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
 /// instability, not physics.
 #[test]
 fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
-    use ambition_engine_core::body_clusters::BodyClusterScratch;
-    use ambition_engine_core::movement::{InputState, DEFAULT_TUNING};
-    use ambition_portal::{transit_step, TransitStep};
+    use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
+    use ambition_platformer2d_core::movement::{InputState, DEFAULT_TUNING};
+    use ambition_portal2d::{transit_step, TransitStep};
 
     // A floor at y ∈ [880, 920] with the two apertures ALREADY carved (three
     // segments): this isolates the integrator + transfer math from carve
@@ -1215,7 +1215,7 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
 
     let mut scratch = BodyClusterScratch::new_with_abilities(
         Vec2::new(254.0, 700.0),
-        ambition_engine_core::AbilitySet::default(),
+        ambition_platformer2d_core::AbilitySet::default(),
     );
     scratch.ground.on_ground = false;
     scratch.kinematics.vel = Vec2::new(0.0, 300.0); // falling straight down
@@ -1305,9 +1305,9 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
 /// height above the exit portal. Shared harness for the energy round-trip
 /// pins below.
 fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) -> f32 {
-    use ambition_engine_core::body_clusters::BodyClusterScratch;
-    use ambition_engine_core::movement::InputState;
-    use ambition_portal::{transit_step, TransitStep};
+    use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
+    use ambition_platformer2d_core::movement::InputState;
+    use ambition_portal2d::{transit_step, TransitStep};
 
     let floor_y = 3000.0;
     let world = ae::World::new(
@@ -1338,7 +1338,7 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
 
     let mut scratch = BodyClusterScratch::new_with_abilities(
         Vec2::new(254.0, floor_y - drop),
-        ambition_engine_core::AbilitySet::default(),
+        ambition_platformer2d_core::AbilitySet::default(),
     );
     scratch.ground.on_ground = false;
     let size = Vec2::new(24.0, 40.0);
@@ -1404,7 +1404,7 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
 /// the tower" promise at sub-terminal scale.
 #[test]
 fn floor_floor_round_trip_returns_to_drop_height_below_terminal() {
-    use ambition_engine_core::movement::DEFAULT_TUNING;
+    use ambition_platformer2d_core::movement::DEFAULT_TUNING;
     let drop = 400.0; // entry ≈ 1342 px/s < DEFAULT max_fall_speed 1900
     let apex = floor_floor_round_trip_apex(drop, DEFAULT_TUNING);
     assert!(
@@ -1423,7 +1423,7 @@ fn floor_floor_round_trip_returns_to_drop_height_below_terminal() {
 /// out of the way — the player's shipped tuning keeps it out of the way.
 #[test]
 fn floor_floor_round_trip_conserves_any_height_without_terminal_velocity() {
-    use ambition_engine_core::movement::DEFAULT_TUNING;
+    use ambition_platformer2d_core::movement::DEFAULT_TUNING;
     let tuning = ae::movement::MovementTuning {
         max_fall_speed: f32::INFINITY,
         ..DEFAULT_TUNING
@@ -1443,7 +1443,7 @@ fn floor_floor_round_trip_conserves_any_height_without_terminal_velocity() {
 /// (cap 950, gravity 2250) this apex was only ≈ 200px.
 #[test]
 fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
-    use ambition_engine_core::movement::DEFAULT_TUNING;
+    use ambition_platformer2d_core::movement::DEFAULT_TUNING;
     let tuning = ae::movement::MovementTuning {
         max_fall_speed: 950.0,
         ..DEFAULT_TUNING
@@ -1465,12 +1465,12 @@ fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
 #[test]
 fn a_portal_on_a_moving_platform_rides_its_host_face() {
     use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
-    use ambition_actors::world::platforms::MovingPlatformState;
-    use ambition_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformState;
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         RoomGeometry(ae::World::new(
             "cc6",

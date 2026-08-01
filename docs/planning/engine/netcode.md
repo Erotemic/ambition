@@ -30,13 +30,13 @@ Ambition owns:
 
 ## Current implementation
 
-`ambition_runtime::SimulationHost` is the construction-time simulation owner:
+`ambition_platformer2d_runtime::SimulationHost` is the construction-time simulation owner:
 `RenderFrame`, `Fixed60Hz`, or `Ggrs`. Only `Ggrs` installs rollback schedules,
 snapshot storage, checksum machinery, and session/request handling. Games that
 do not require rollback choose one of the lighter hosts before content plugins
 build and pay no GGRS runtime tax.
 
-`ambition_runtime::rollback::AmbitionRollbackSchemaPlugin` records the exact
+`ambition_platformer2d_runtime::rollback::AmbitionRollbackSchemaPlugin` records the exact
 typed component/resource contract for every host so prepared-content identity
 remains inspectable and stable. On non-GGRS hosts this is only a small descriptor
 registry. `AmbitionRollbackPlugin` is GGRS-only and installs
@@ -58,7 +58,7 @@ and submits one local `ControlFrame` per harness step. Instrumentation proves
 that GGRS issues real load and extra advance requests; mismatch events and
 content/schema invalidation are surfaced through `rollback_health()`.
 
-The retired `ambition_runtime::snapshot` tree is deleted. There is no blob
+The retired `ambition_platformer2d_runtime::snapshot` tree is deleted. There is no blob
 registry, manual snapshot queue, room-staging restore, dynamic respawn decoder,
 or compatibility wrapper behind the new API.
 

@@ -103,7 +103,7 @@ def test_canonical_repo_asset_paths_follow_content_split() -> None:
         repo / "game" / "ambition_content" / "assets" / "worlds" / "hall_of_characters.ldtk"
     )
     assert default_sprite_assets_dir(repo) == (
-        repo / "crates" / "ambition_actors" / "assets" / "sprites"
+        repo / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
     )
     content_sprite_mount = repo / "game" / "ambition_content" / "assets" / "sprites"
     assert content_sprite_mount.resolve() == default_sprite_assets_dir(repo).resolve()
@@ -120,7 +120,7 @@ def test_cross_crate_sprites_use_the_game_source_virtual_mount(tmp_path: Path) -
     sprite = (
         repo
         / "crates"
-        / "ambition_actors"
+        / "ambition_platformer2d_actor_monolith"
         / "assets"
         / "sprites"
         / "player_robot_v3_spritesheet.png"

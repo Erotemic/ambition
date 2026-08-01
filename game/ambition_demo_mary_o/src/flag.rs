@@ -34,7 +34,7 @@
 //! body's POSITION each tick — it drives, rather than pauses. That is also what
 //! makes it testable without a physics step.
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
 /// Where the pole is, how tall, and how thick. Mirrors the authored `goal_pole`
@@ -471,9 +471,9 @@ mod tests {
 /// sequence simply overrules them. Blanking the control frame is what stops a
 /// player mashing jump from fighting the slide.
 pub fn run_flag_sequence(
-    time: Res<ambition::time::WorldTime>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
     pole: Option<Res<FlagPole>>,
-    subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
     mut bodies: Query<&mut ae::BodyKinematics>,
@@ -495,11 +495,11 @@ pub fn run_flag_sequence(
     if matches!(sequence.phase, FlagPhase::Idle) {
         commands
             .entity(entity)
-            .remove::<ambition::characters::brain::ScriptedControl>();
+            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
     } else {
         commands
             .entity(entity)
-            .try_insert(ambition::characters::brain::ScriptedControl);
+            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
     }
 
     // Her LIVE half-height, so the slide plants the form she is actually wearing:
@@ -536,8 +536,8 @@ const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
 pub fn play_victory_music(
     sequences: Query<&FlagSequence>,
     music: Option<
-        ambition::platformer::lifecycle::SessionWorldMut<
-            ambition::actors::encounter::EncounterMusicRequest,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_platformer2d::actors::encounter::EncounterMusicRequest,
         >,
     >,
 ) {

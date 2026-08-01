@@ -270,7 +270,7 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     }
     profiler.reported = true;
     bevy::log::info!(
-        target: "ambition::profiling",
+        target: "ambition_platformer2d::profiling",
         "startup profiling disabled on wasm32 (std::time::Instant::now is unsupported); \
          use the browser devtools Performance panel for wall-clock measurement"
     );

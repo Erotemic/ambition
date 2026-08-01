@@ -16,7 +16,7 @@ Landed:
   the body's live authorities.
 - The **`ControlPrompt`** read-model (`ambition_sim_view`) the on-screen buttons
   render, following `ControlledSubject`.
-- **`MovementAction`** + enum-indexed **`ActionEdges`** in `ambition_engine_core`,
+- **`MovementAction`** + enum-indexed **`ActionEdges`** in `ambition_platformer2d_core`,
   and the movement kernel consuming them through typed accessors
   (`InputState` re-keyed).
 - Dedicated **`SandboxAction::Special`** slot; the `special_pressed =
@@ -138,7 +138,7 @@ could disagree with what actually fired.
   unregistered type is a review event, not a silent stream of resolved actions
   (the `ControlFrame`-is-POD invariant).
 - The scheme⇔behavior derivation guard (a slot is in the scheme iff the authority
-  that gates its behavior provides it) — `ambition_actors::action_scheme`.
+  that gates its behavior provides it) — `ambition_platformer2d_actor_monolith::action_scheme`.
 - The shared-resolver same-tick no-drift test: the real gate and the real prompt,
   run together across a kit swap, keep the visible slot and the executable verb in
   lockstep — `ambition_sim_view::control_prompt`.

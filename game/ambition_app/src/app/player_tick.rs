@@ -1,11 +1,11 @@
 //! Home/player body HOME-POLICY + PRESENTATION phases.
 //!
 //! Movement integration for the home body is NO LONGER here. It moved DOWN into
-//! the unified `ambition::actors::features::integrate_sim_bodies` phase
+//! the unified `ambition_platformer2d::actors::features::integrate_sim_bodies` phase
 //! (`WorldPrep`), which integrates every non-boss sim body — home and actor — in
 //! ONE scheduled system through the same engine entry. There is no `player_body_tick`
 //! gameplay-movement route anymore. What remains here are the two HOME-specific
-//! phases that read the [`ambition::actors::avatar::PlayerBodyFrameOutput`]
+//! phases that read the [`ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput`]
 //! hand-off the movement phase writes:
 //!
 //! - [`apply_home_reset_policy`] — HOME RESET POLICY. On a flagged body reset
@@ -18,17 +18,17 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::time::feel::SandboxFeelTuning;
-use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition::engine_core as ae;
-use ambition::engine_core::RoomGeometry;
+use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
 
 use super::feedback::SandboxEventWriters;
 use super::phases::sync_player_presentation as sync_player_presentation_phase;
-use ambition::runtime::reset_sandbox;
+use ambition_platformer2d::runtime::reset_sandbox;
 
-use ambition::runtime::room_transition::RoomClock;
+use ambition_platformer2d::runtime::room_transition::RoomClock;
 
 /// PHASE — home reset policy. The one thing the actor path does NOT do (an actor
 /// owns its own hazard reaction; it never teleports to the player spawn). Reads the
@@ -38,7 +38,7 @@ use ambition::runtime::room_transition::RoomClock;
 /// movement phase; this owns the SANDBOX/ROOM reset, which is home policy.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_home_reset_policy(
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
@@ -47,20 +47,20 @@ pub(crate) fn apply_home_reset_policy(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
-            &mut ambition::actors::actor::BodyAnimFacts,
-            &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::avatar::PlayerBlinkCameraState,
-            &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::avatar::PlayerSafetyState,
+            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::actors::actor::BodyMelee,
+            &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
             &PlayerBodyFrameOutput,
         ),
         (
-            With<ambition::actors::actor::PlayerEntity>,
-            With<ambition::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::actors::actor::PlayerEntity>,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         ),
     >,
-    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_platformer2d::actors::control::SlotInteractionState>,
 ) {
     let Ok((
         mut cluster_item,
@@ -110,23 +110,23 @@ pub(crate) fn apply_home_reset_policy(
 /// (the reset-policy phase already reset the presentation state).
 pub fn sync_player_presentation(
     mut event_writers: SandboxEventWriters,
-    mut shake: ResMut<ambition::platformer::camera_ease::CameraShakeState>,
+    mut shake: ResMut<ambition_platformer2d::platformer::camera_ease::CameraShakeState>,
     // The active route's shake ceiling (D14), published from its presentation
     // profile. Read once per system rather than per body: it is a fact about the
     // experience, not about a fighter.
-    shake_tuning: Res<ambition::platformer::camera_ease::CameraShakeTuning>,
+    shake_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraShakeTuning>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::actor::BodyAnimFacts,
-            &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
-            Option<&ambition::actors::actor::PrimaryPlayer>,
+            Option<&ambition_platformer2d::actors::actor::PrimaryPlayer>,
             // A13: whose cues this player body emits.
-            Option<&ambition::sfx::BodyPresentationSource>,
+            Option<&ambition_platformer2d::sfx::BodyPresentationSource>,
         ),
-        With<ambition::actors::actor::PlayerEntity>,
+        With<ambition_platformer2d::actors::actor::PlayerEntity>,
     >,
 ) {
     for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary, source) in
@@ -145,7 +145,7 @@ pub fn sync_player_presentation(
             &mut shake,
             *shake_tuning,
             is_primary,
-            source.map(ambition::sfx::BodyPresentationSource::id),
+            source.map(ambition_platformer2d::sfx::BodyPresentationSource::id),
         );
     }
 }

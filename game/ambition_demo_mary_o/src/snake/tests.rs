@@ -3,7 +3,7 @@
 //! without a running app — the one thing headless can't check is how it LOOKS.
 
 use super::*;
-use ambition::sprite_sheet::character::CharacterAnim;
+use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 const DT: f32 = 1.0 / 60.0;
 

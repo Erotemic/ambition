@@ -8,16 +8,16 @@
 //! primary player's input/trace side effects after a generic transit event so the
 //! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
-//! [`BodyKinematics`]: ambition_actors::platformer_runtime::body::BodyKinematics
-//! [`PortalBody`]: ambition_portal::PortalBody
-//! [`PortalPolicy`]: ambition_portal::PortalPolicy
+//! [`BodyKinematics`]: ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics
+//! [`PortalBody`]: ambition_portal2d::PortalBody
+//! [`PortalPolicy`]: ambition_portal2d::PortalPolicy
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_actors::avatar::trail::TrailContinuityBreak;
-use ambition_actors::features::{BodyKinematics, BossConfig};
-use ambition_portal::{
+use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
+use ambition_platformer2d_actor_monolith::features::{BodyKinematics, BossConfig};
+use ambition_portal2d::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
 };
@@ -164,17 +164,17 @@ pub fn ensure_projectile_portal_bodies(
 /// gravity-earned speed is world-imparted, so a genuine fling (fall in, wall
 /// out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
-    gravity: Option<Res<ambition_actors::platformer_runtime::gravity::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_actor_monolith::platformer_runtime::gravity::GravityField>>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         &BodyKinematics,
-        &mut ambition_actors::actor::BodyFlightState,
+        &mut ambition_platformer2d_actor_monolith::actor::BodyFlightState,
     )>,
 ) {
-    use ambition_portal::pieces::portal_map_vec;
+    use ambition_portal2d::pieces::portal_map_vec;
     let gravity_dir =
-        ambition_actors::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
-    let side = ambition_engine_core::AccelerationFrame::new(gravity_dir).side;
+        ambition_platformer2d_actor_monolith::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
+    let side = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).side;
     for ev in transited.read() {
         let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
             continue;
@@ -202,8 +202,8 @@ pub fn apply_portal_carried_momentum(
 pub fn reconcile_kernel_bodies_after_portal_transit(
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
-        ambition_engine_core::BodyClusterQueryData,
-        &mut ambition_actors::features::MotionModel,
+        ambition_platformer2d_core::BodyClusterQueryData,
+        &mut ambition_platformer2d_actor_monolith::features::MotionModel,
     )>,
 ) {
     for ev in transited.read() {
@@ -213,7 +213,7 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
             continue;
         };
         let mut clusters = cluster_item.as_clusters_mut();
-        ambition_engine_core::movement::reconcile_transit(&mut motion_model, &mut clusters);
+        ambition_platformer2d_core::movement::reconcile_transit(&mut motion_model, &mut clusters);
     }
 }
 
@@ -245,7 +245,7 @@ pub fn portal_player_input_adapter(
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     mut trail_breaks: MessageWriter<TrailContinuityBreak>,
-    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);

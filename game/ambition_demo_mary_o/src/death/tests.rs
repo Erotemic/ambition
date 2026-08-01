@@ -1,17 +1,17 @@
 //! The death beat, driven through the real systems on a bare app.
 
 use super::*;
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::IntoScheduleConfigs;
 
 const DT: f32 = 1.0 / 60.0;
 
 fn app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition::actors::ActorDiedMessage>();
-    app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.insert_resource(ambition::time::WorldTime {
+    app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
+    app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: DT,
         ..Default::default()
     });
@@ -36,20 +36,20 @@ fn spawn_owner_and_body(app: &mut App, at: ae::Vec2) -> bevy::prelude::Entity {
                 pos: at,
                 ..Default::default()
             },
-            ambition::characters::brain::ActorControl::default(),
-            ambition::actors::actor::BodyAnimFacts::default(),
+            ambition_platformer2d::characters::brain::ActorControl::default(),
+            ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
         ))
         .id();
-    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(body)));
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(body)));
     body
 }
 
 fn kill(app: &mut App, at: ae::Vec2) {
     app.world_mut()
-        .write_message(ambition::actors::ActorDiedMessage {
+        .write_message(ambition_platformer2d::actors::ActorDiedMessage {
             pos: at,
-            cause: ambition::actors::DeathCause {
-                source: ambition::actors::combat::HitSource::EnemyBody,
+            cause: ambition_platformer2d::actors::DeathCause {
+                source: ambition_platformer2d::actors::combat::HitSource::EnemyBody,
                 attacker: None,
             },
         });
@@ -58,7 +58,7 @@ fn kill(app: &mut App, at: ae::Vec2) {
 fn replays(app: &mut App) -> usize {
     app.world()
         .resource::<bevy::ecs::message::Messages<
-            ambition::actors::session::reset::RoomReplayRequested,
+            ambition_platformer2d::actors::session::reset::RoomReplayRequested,
         >>()
         .iter_current_update_messages()
         .count()
@@ -103,7 +103,7 @@ fn she_dies_in_place_holds_the_pose_and_then_the_level_restarts() {
         assert_eq!(kin.vel, ae::Vec2::ZERO, "and she does not slide or fall");
         let death_timer = app
             .world()
-            .get::<ambition::actors::actor::BodyAnimFacts>(body)
+            .get::<ambition_platformer2d::actors::actor::BodyAnimFacts>(body)
             .map(|anim| anim.death_anim_timer)
             .unwrap();
         assert!(
@@ -198,7 +198,7 @@ fn the_death_track_is_authorized_by_the_provider_fragment() {
     app.add_plugins(crate::provider::MaryOExperiencePlugin);
     let registry = app
         .world()
-        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
         .combined_music_registry(crate::provider::MARY_O_EXPERIENCE)
         .expect("Mary-O's audio fragment assembles");
     assert!(
@@ -221,8 +221,8 @@ fn the_death_music_claims_the_priority_tier_and_releases_it() {
     let root = app
         .world_mut()
         .spawn((
-            ambition::platformer::lifecycle::SessionRoot(session_scope_for_test()),
-            ambition::actors::encounter::EncounterMusicRequest::default(),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session_scope_for_test()),
+            ambition_platformer2d::actors::encounter::EncounterMusicRequest::default(),
         ))
         .id();
     // Same order as the shipped chain: the beat is armed before the music that
@@ -258,13 +258,13 @@ fn the_death_music_claims_the_priority_tier_and_releases_it() {
 }
 
 /// A session scope id for a bare test root.
-fn session_scope_for_test() -> ambition::platformer::lifecycle::SessionScopeId {
-    let mut scope = ambition::platformer::lifecycle::ActiveSessionScope::default();
+fn session_scope_for_test() -> ambition_platformer2d::platformer::lifecycle::SessionScopeId {
+    let mut scope = ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::default();
     scope.begin()
 }
 
 fn requested(app: &App, root: bevy::prelude::Entity) -> Option<String> {
     app.world()
-        .get::<ambition::actors::encounter::EncounterMusicRequest>(root)
+        .get::<ambition_platformer2d::actors::encounter::EncounterMusicRequest>(root)
         .and_then(|music| music.priority_track.clone())
 }

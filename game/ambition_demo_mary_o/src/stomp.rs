@@ -14,7 +14,7 @@
 //! Mary-O runs under screen gravity, so `+y` is DOWN: the player's feet are its
 //! `max.y`, and a body's head is its `min.y`.
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 
 /// Vertical tolerance (px) for "feet on its head": the band within which the
 /// player's feet count as landing on top rather than hitting a side.

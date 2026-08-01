@@ -30,7 +30,7 @@ PYTHONPATH=tools/ambition_ldtk_tools \
 
 WORLD=game/ambition_content/assets/worlds/sandbox.ldtk
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
-cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>
+cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- <ROOM_ID>
 python scripts/agent_query.py tests "<mechanic> <ROOM_ID>"
 ./run_tests.sh -k <focused_test_substring>
 ```

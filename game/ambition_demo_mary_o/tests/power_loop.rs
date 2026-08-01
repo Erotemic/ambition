@@ -20,18 +20,18 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::{BodyBaseSize, PrimaryPlayer};
-use ambition::actors::avatar::PlayerBodyFrameOutput;
-use ambition::actors::equipment::reconcile_equipment_grants;
-use ambition::actors::items::{WorldItem, collect_world_items};
-use ambition::characters::actor::WornCharacter;
-use ambition::characters::brain::ActorControl;
-use ambition::characters::brain::action_set::{ActionSet, IdentityKit};
-use ambition::characters::equipment::WornEquipment;
-use ambition::combat::moveset::{ActorMoveset, RANGED_VERB};
-use ambition::engine_core as ae;
-use ambition::engine_core::collision_semantics::{ContactKind, ContactSource};
-use ambition::platformer::markers::ControlledSubject;
+use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
+use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
+use ambition_platformer2d::actors::equipment::reconcile_equipment_grants;
+use ambition_platformer2d::actors::items::{WorldItem, collect_world_items};
+use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
+use ambition_platformer2d::characters::equipment::WornEquipment;
+use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::platformer::markers::ControlledSubject;
 
 use ambition_demo_mary_o::movement::{
     MaryOGait, MaryOSparkCooldown, WALK_THROTTLE, fire_spark_on_run_press, tick_spark_cooldown,
@@ -54,13 +54,13 @@ struct Loop {
 impl Loop {
     fn new() -> Self {
         let mut app = App::new();
-        app.insert_resource(ambition::time::WorldTime {
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 1.0 / 60.0,
             ..Default::default()
         });
         app.init_resource::<SpentPowerBlocks>();
         // `sync_grown_form` now voices a transform chime through `SfxWriter`.
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
 
         let size = ae::movement::default_player_body_size();
         let body = app
@@ -328,8 +328,8 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
 /// involved in the stepping — that is the point.
 #[test]
 fn the_authored_spark_arcs_bounces_and_expires() {
-    use ambition::characters::equipment::apply_equipment_grants;
-    use ambition::platformer::projectile::{ProjectileBody, ProjectileSpec, WorldHitPolicy};
+    use ambition_platformer2d::characters::equipment::apply_equipment_grants;
+    use ambition_platformer2d::platformer::projectile::{ProjectileBody, ProjectileSpec, WorldHitPolicy};
 
     // Take the shot exactly as the blossom grants it.
     let mut actions = ActionSet::peaceful();
@@ -400,17 +400,17 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
-    use ambition::actors::features::{
+    use ambition_platformer2d::actors::features::{
         ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
         SetFlagRequested, apply_feature_hit_events, spawn_encounter_mob,
     };
-    use ambition::actors::projectile::{ProjectileBody, step_projectiles};
-    use ambition::characters::actor::{BodyHealth, character_catalog::CharacterCatalog};
-    use ambition::characters::equipment::apply_equipment_grants;
-    use ambition::entity_catalog::placements::CharacterBrain;
-    use ambition::platformer::lifecycle::SessionSpawnScope;
-    use ambition::platformer::projectile::{ProjectileSpec, WorldHitPolicy};
-    use ambition::projectiles::{
+    use ambition_platformer2d::actors::projectile::{ProjectileBody, step_projectiles};
+    use ambition_platformer2d::characters::actor::{BodyHealth, character_catalog::CharacterCatalog};
+    use ambition_platformer2d::characters::equipment::apply_equipment_grants;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::platformer::projectile::{ProjectileSpec, WorldHitPolicy};
+    use ambition_platformer2d::projectiles::{
         LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter,
         ProjectileVisualCatalog, ProjectileVisualId,
     };
@@ -418,11 +418,11 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "spark_range",
@@ -435,26 +435,26 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ProjectileVisualCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
-    app.init_resource::<ambition::actors::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_platformer2d::actors::trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition::actors::features::ActorStimulus>();
-    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::actors::features::ActorStimulus>();
+    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
     // A body reaching zero says so through `BodyKnockedOut` whether or not a
     // stocks ruleset is listening. This fixture hand-picks its systems, so it
     // hand-registers their messages; `CombatSchedulePlugin` covers the apps that
     // install the whole schedule.
-    app.add_message::<ambition::actors::combat::stocks::BodyKnockedOut>();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::vfx::vfx::DebrisBurstMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_platformer2d::actors::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // Mary-O's OWN Solid Snake archetype, registered exactly as the demo registers it.
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -566,14 +566,14 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 /// off). Nothing here sets state by hand; it is the stomp, read from the world.
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
-    use ambition::actors::features::{
+    use ambition_platformer2d::actors::features::{
         ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner,
         HitEvent, spawn_encounter_mob,
     };
-    use ambition::characters::actor::character_catalog::CharacterCatalog;
-    use ambition::characters::actor::{BodyCombat, BodyHealth};
-    use ambition::entity_catalog::placements::CharacterBrain;
-    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     // Snake head sits at y = 300 - 16 = 284 (size.y = 32). Player feet land in the
@@ -581,11 +581,11 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "stomp_range",
@@ -598,12 +598,12 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -701,23 +701,23 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 /// shell and bounces you, proven in the pure state-machine tests.)
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
-    use ambition::actors::features::{
+    use ambition_platformer2d::actors::features::{
         ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
         HitSource, HitTarget, spawn_encounter_mob,
     };
-    use ambition::characters::actor::character_catalog::CharacterCatalog;
-    use ambition::entity_catalog::placements::CharacterBrain;
-    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "shell_range",
@@ -730,12 +730,12 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -830,24 +830,24 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 /// nothing at all and stops moving.
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
-    use ambition::actors::features::{
+    use ambition_platformer2d::actors::features::{
         ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
         spawn_encounter_mob,
     };
-    use ambition::characters::actor::BodyHealth;
-    use ambition::characters::actor::character_catalog::CharacterCatalog;
-    use ambition::entity_catalog::placements::CharacterBrain;
-    use ambition::platformer::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
             "corpse_range",
@@ -860,12 +860,12 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -969,18 +969,18 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 /// authored slide has run. Nothing here sets a position by hand.
 #[test]
 fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
-    use ambition::characters::actor::BodyCombat;
-    use ambition::characters::brain::ActorControl;
-    use ambition::engine_core::AabbExt;
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::characters::brain::ActorControl;
+    use ambition_platformer2d::engine_core::AabbExt;
     use ambition_demo_mary_o::pipe::{EMERGE_S, PipeTransit, SWALLOW_S};
     use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
 
     // A full body standing ON the entry pipe's mouth.
@@ -989,25 +989,25 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
         .world_mut()
         .spawn((
             PrimaryPlayer,
-            ambition::platformer::markers::PlayerEntity,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
             ae::BodyKinematics {
                 pos: mouth.center(),
                 vel: ae::Vec2::ZERO,
                 size: ae::movement::default_player_body_size(),
                 facing: 1.0,
             },
-            ambition::actors::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     mouth.center(),
                     ae::AbilitySet::sandbox_all(),
                 ),
             ),
-            ambition::actors::features::MotionModel::default(),
+            ambition_platformer2d::actors::features::MotionModel::default(),
             BodyCombat::default(),
             ActorControl::default(),
         ))
         .id();
-    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(body)));
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(body)));
     // Deliberately NOT adding `run_pipe_transits` by hand: the plugin must wire
     // the slide itself, or a warp starts and never finishes in the real game.
     app.update();
@@ -1032,13 +1032,13 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     // seam, on the demo's own authored id.
     let warps = app
         .world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>()
         .drain()
         .filter(|m| {
             matches!(
                 m.request,
-                ambition::sfx::SfxMessage::Play { id, .. }
-                    if id == ambition::sfx::SfxId::new(ambition_demo_mary_o::pipe::PIPE_WARP_SFX)
+                ambition_platformer2d::sfx::SfxMessage::Play { id, .. }
+                    if id == ambition_platformer2d::sfx::SfxId::new(ambition_demo_mary_o::pipe::PIPE_WARP_SFX)
             )
         })
         .count();

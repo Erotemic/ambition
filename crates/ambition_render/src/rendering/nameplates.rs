@@ -9,13 +9,13 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::NameplateIndex;
-use ambition_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
+use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
@@ -154,7 +154,7 @@ impl Plugin for ActorNameplatePresentationPlugin {
                 Update,
                 sync_actor_nameplates
                     .in_set(ActorNameplateSet)
-                    .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+                    .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
             );
     }
 }
@@ -197,13 +197,13 @@ impl ActorNameplateSettings {
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     settings: Res<ActorNameplateSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
     active_metadata: Option<
-        ambition_platformer_primitives::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
     >,
     camera: Option<Res<CameraViewState>>,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /

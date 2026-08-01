@@ -11,7 +11,7 @@
 // `sync_bubble_shield_visual` tints it with `Sprite.color` each frame so
 // no new image upload is needed for the parry-vs-held color switch.
 
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::asset::RenderAssetUsages;
@@ -93,7 +93,7 @@ fn new_ring_sprite(handle: Handle<Image>) -> impl Bundle {
         Transform::from_xyz(
             0.0,
             0.0,
-            ambition_engine_core::config::WORLD_Z_PLAYER - 0.05,
+            ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.05,
         ),
         Visibility::Hidden,
         BubbleShieldVisual,
@@ -142,8 +142,8 @@ pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     // Every raised shield, resolved sim-side into the pooled-ring read-model
     // (E4): render positions rings, it no longer queries the live clusters.
@@ -155,10 +155,10 @@ pub fn sync_bubble_shield_visual(
     let mut assigned = 0usize;
     for (mut transform, mut sprite, mut vis) in &mut rings {
         if let Some(ring) = active.get(assigned).copied() {
-            transform.translation = ambition_engine_core::config::world_to_bevy(
+            transform.translation = ambition_platformer2d_core::config::world_to_bevy(
                 &world.0,
                 ring.pos,
-                ambition_engine_core::config::WORLD_Z_PLAYER - 0.05,
+                ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.05,
             );
             // Slightly larger than the collider so it surrounds the body.
             sprite.custom_size = Some(bevy::math::Vec2::new(

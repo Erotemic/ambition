@@ -19,7 +19,7 @@
 //! (`SandboxAssetCatalog` + `GameAssets`) that no umbrella helper offers, so
 //! this binary ships WITHOUT it and draws the world as colored primitives — a
 //! faithful record of what a third party gets today". The helper exists now
-//! (`ambition::game_assets::PlatformerAssetsPlugin`) and this binary is its
+//! (`ambition_platformer2d::game_assets::PlatformerAssetsPlugin`) and this binary is its
 //! first external caller, which is the point of the fixture: the gap it
 //! recorded is the gap it now proves is gone.
 

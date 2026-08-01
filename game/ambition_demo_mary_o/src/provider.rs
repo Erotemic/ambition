@@ -2,11 +2,11 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
-use ambition::presentation::profiles;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::PreparedPlatformerSource;
-use ambition::runtime::demo_fixture::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
+use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
 
@@ -55,14 +55,14 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
         LEVEL_1_1_ROOM_ID,
         vec![room, crate::level_1_2::level_1_2()],
         vec![
-            ambition::world::rooms::RoomLink {
+            ambition_platformer2d::world::rooms::RoomLink {
                 from_room: LEVEL_1_1_ROOM_ID.to_string(),
                 from_zone: crate::level_1_2::DESCENT_ZONE_ID.to_string(),
                 to_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
                 to_zone: crate::level_1_2::ARRIVAL_ZONE_ID.to_string(),
                 bidirectional: false,
             },
-            ambition::world::rooms::RoomLink {
+            ambition_platformer2d::world::rooms::RoomLink {
                 from_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
                 from_zone: crate::level_1_2::EXIT_ZONE_ID.to_string(),
                 to_room: LEVEL_1_1_ROOM_ID.to_string(),
@@ -96,7 +96,7 @@ impl Plugin for MaryOExperiencePlugin {
         // image is published by regen_sprites.sh; until then the render falls back
         // to the quad.
         {
-            use ambition::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
+            use ambition_platformer2d::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
             app.register_world_item_art([
                 WorldItemArtEntry::new(
                     crate::powerups::MILK_SPRITE,
@@ -118,7 +118,7 @@ impl Plugin for MaryOExperiencePlugin {
             // action authors. One registration, zero render edits — and because
             // the id lives on the action, the projectile domain never learns what
             // a spark is.
-            use ambition::projectiles::visual::{
+            use ambition_platformer2d::projectiles::visual::{
                 ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
                 ProjectileVisualAppExt,
             };
@@ -142,17 +142,17 @@ impl Plugin for MaryOExperiencePlugin {
             );
         }
         {
-            use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+            use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
             app.register_audio_catalog_fragment(
                 AudioCatalogFragment::new(
                     MARY_O_EXPERIENCE,
                     // Mary-O runs on the "Support Theme" cue. Declaring it in the
                     // provider fragment is what authorizes the session to select
                     // and play it under provider-relative audio.
-                    Some(ambition::audio::spec::MusicRegistry {
+                    Some(ambition_platformer2d::audio::spec::MusicRegistry {
                         default_track: MARY_O_MUSIC_TRACK.to_string(),
                         tracks: vec![
-                            ambition::audio::spec::MusicTrack {
+                            ambition_platformer2d::audio::spec::MusicTrack {
                                 id: MARY_O_MUSIC_TRACK.to_string(),
                                 display_name: "Support Theme".to_string(),
                                 asset_path: Some(MARY_O_MUSIC_ASSET_PATH.to_string()),
@@ -163,13 +163,13 @@ impl Plugin for MaryOExperiencePlugin {
                             // only what its own fragment names, so a cue nobody
                             // declared is gated to silence no matter who asks
                             // for it.
-                            ambition::audio::spec::MusicTrack {
+                            ambition_platformer2d::audio::spec::MusicTrack {
                                 id: MARY_O_DEATH_MUSIC_TRACK.to_string(),
                                 display_name: "Mary O You Died".to_string(),
                                 asset_path: None,
                                 one_shot: true,
                             },
-                            ambition::audio::spec::MusicTrack {
+                            ambition_platformer2d::audio::spec::MusicTrack {
                                 id: MARY_O_VICTORY_MUSIC_TRACK.to_string(),
                                 display_name: "Mary O Flag Victory".to_string(),
                                 asset_path: None,
@@ -184,13 +184,13 @@ impl Plugin for MaryOExperiencePlugin {
                     // Jump cue (the classic run+jump grammar's one voice) is what
                     // makes her jump audible. Procedurally synthesized from this
                     // spec; no asset file needed.
-                    Some(ambition::audio::spec::SfxRegistry {
+                    Some(ambition_platformer2d::audio::spec::SfxRegistry {
                         sample_rate: 44_100,
                         sfx: vec![
-                            ambition::audio::spec::SfxSpec {
-                                cue: Some(ambition::audio::spec::SoundCueKey::Jump),
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Jump),
                                 id: None,
-                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
                                 frequency: 460.0,
                                 frequency_end: 720.0,
                                 duration: 0.085,
@@ -210,10 +210,10 @@ impl Plugin for MaryOExperiencePlugin {
                             // Swap this spec (or point the cue at a real sample)
                             // when the sound gets authored properly; the emit site
                             // does not change, because it names a cue, not a sound.
-                            ambition::audio::spec::SfxSpec {
-                                cue: Some(ambition::audio::spec::SoundCueKey::Hit),
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Hit),
                                 id: None,
-                                waveform: ambition::audio::spec::WaveformSpec::Square,
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
                                 frequency: 190.0,
                                 frequency_end: 70.0,
                                 duration: 0.11,
@@ -225,10 +225,10 @@ impl Plugin for MaryOExperiencePlugin {
                             // PLACEHOLDER: the stomp. A short descending square
                             // thud on the shared `Pogo` cue — the "you bounced off
                             // something" verb a head-stomp already is.
-                            ambition::audio::spec::SfxSpec {
-                                cue: Some(ambition::audio::spec::SoundCueKey::Pogo),
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Pogo),
                                 id: None,
-                                waveform: ambition::audio::spec::WaveformSpec::Square,
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
                                 frequency: 320.0,
                                 frequency_end: 120.0,
                                 duration: 0.09,
@@ -246,10 +246,10 @@ impl Plugin for MaryOExperiencePlugin {
                             // specs above: a first pass to make transforms audible
                             // (Jon bug #14). Retune freely — the emit site names the
                             // id, not the timbre.
-                            ambition::audio::spec::SfxSpec {
+                            ambition_platformer2d::audio::spec::SfxSpec {
                                 cue: None,
                                 id: Some("mary_o.transform".to_string()),
-                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
                                 frequency: 520.0,
                                 frequency_end: 1040.0,
                                 duration: 0.22,
@@ -266,10 +266,10 @@ impl Plugin for MaryOExperiencePlugin {
                             // tube actually points, the same way the classic warp
                             // cue does. Procedural like the rest; retune freely,
                             // the emit site names the id, not the timbre.
-                            ambition::audio::spec::SfxSpec {
+                            ambition_platformer2d::audio::spec::SfxSpec {
                                 cue: None,
                                 id: Some(crate::pipe::PIPE_WARP_SFX.to_string()),
-                                waveform: ambition::audio::spec::WaveformSpec::Sine,
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
                                 frequency: 880.0,
                                 frequency_end: 165.0,
                                 duration: 0.45,
@@ -299,7 +299,7 @@ impl Plugin for MaryOExperiencePlugin {
         // a 4:3 gameplay rectangle precisely so the HUD has somewhere to live
         // that is not over the level.
         .with_hud(
-            ambition::presentation::HudDeclaration::new()
+            ambition_platformer2d::presentation::HudDeclaration::new()
                 .slot(hud_slot(SCORE_HUD_SLOT))
                 .slot(hud_slot(COINS_HUD_SLOT))
                 .slot(hud_slot(TIME_HUD_SLOT))
@@ -308,7 +308,7 @@ impl Plugin for MaryOExperiencePlugin {
                 // on the flag. One slot for both, because they never overlap —
                 // you are either starting the level or finishing it.
                 .slot(
-                    ambition::presentation::HudSlotSpec::new(CARD_HUD_SLOT)
+                    ambition_platformer2d::presentation::HudSlotSpec::new(CARD_HUD_SLOT)
                         .with_order(99)
                         .with_font_size(34.0)
                         .with_color([1.0, 0.96, 0.72, 1.0])
@@ -342,9 +342,9 @@ pub const LIVES_HUD_SLOT: &str = "mary_o_lives";
 pub const CARD_HUD_SLOT: &str = "mary_o_card";
 
 /// One readout in Mary-O's house style: top surround, chunky, white.
-fn hud_slot(id: &str) -> ambition::presentation::HudSlotSpec {
-    ambition::presentation::HudSlotSpec::new(id)
-        .with_region(ambition::presentation::SurroundRegion::Top)
+fn hud_slot(id: &str) -> ambition_platformer2d::presentation::HudSlotSpec {
+    ambition_platformer2d::presentation::HudSlotSpec::new(id)
+        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
         .with_font_size(20.0)
         .with_color([0.97, 0.97, 0.99, 1.0])
 }
@@ -357,8 +357,8 @@ fn hud_slot(id: &str) -> ambition::presentation::HudSlotSpec {
 /// a ring are the same `currency` pickup wearing different art.
 fn publish_mary_o_readouts(
     level: bevy::prelude::Query<(&crate::MaryOLevelState, Option<&crate::flag::FlagSequence>)>,
-    facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
-    mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
+    facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let Ok((level, flag)) = level.single() else {
         return;
@@ -384,7 +384,7 @@ fn publish_mary_o_readouts(
     match card_text(level, flag) {
         Some(text) => readouts.set(
             CARD_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(text),
+            ambition_platformer2d::presentation::HudReadout::bare(text),
         ),
         None => readouts.clear_slot(CARD_HUD_SLOT),
     }

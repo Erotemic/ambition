@@ -5,23 +5,23 @@
 //! state for tuning and feel work.
 
 #![allow(unused_imports)]
-use ambition::engine_core as ae;
-use ambition::engine_core::AabbExt;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use ambition::actors::world::platforms;
-use ambition::dev_tools::dev_tools::DeveloperTools;
-use ambition::dev_tools::SandboxDevState;
-use ambition::engine_core::config::world_to_bevy;
-use ambition::engine_core::RoomGeometry;
+use ambition_platformer2d::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use ambition_platformer2d::actors::world::platforms;
+use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
+use ambition_platformer2d::dev_tools::SandboxDevState;
+use ambition_platformer2d::engine_core::config::world_to_bevy;
+use ambition_platformer2d::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
-use ambition::input::SandboxAction;
-use ambition::input::{read_gameplay_control_frame, ControlFrame};
-use ambition::platformer::schedule::GameMode;
-use ambition::render::rendering::CameraViewState;
+use ambition_platformer2d::input::SandboxAction;
+use ambition_platformer2d::input::{read_gameplay_control_frame, ControlFrame};
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::CameraViewState;
 #[cfg(feature = "input")]
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
@@ -34,7 +34,7 @@ pub use prims::*;
 // The engine-generic palette, primitives, and world layers live in the shared
 // debug-viz module now (`DebugVizPlugin` gives them to any game); this richer
 // overlay composes them with its game-specific layers below.
-pub(crate) use ambition::render::rendering::debug_viz::{
+pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
     blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_volume, draw_hitbox_volume,
     draw_micro_grid, draw_moving_platform_debug, draw_rebound_vectors, draw_room_bounds,
     draw_surface_chains, draw_world_blocks, draw_world_grid, engine_delta_to_bevy, gray, green,
@@ -52,7 +52,7 @@ pub struct DebugOverlayLabel;
 /// frame, so toggling the overlay off (no pushes) clears the labels next frame.
 pub(crate) fn render_debug_overlay_labels(
     mut commands: Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
     existing: Query<Entity, With<DebugOverlayLabel>>,
 ) {
@@ -85,19 +85,19 @@ pub(crate) fn draw_debug_overlay() {}
 #[cfg(feature = "input")]
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
-    platform_set: Res<ambition::world::collision::MovingPlatformSet>,
+    platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    ldtk_spine_index: Res<ambition::actors::ldtk_world::LdtkRuntimeSpineIndex>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    ldtk_spine_index: Res<ambition_platformer2d::actors::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     // Per-frame buffer of debug-box labels; filled below, rendered as Text2d by
     // `render_debug_overlay_labels`. (In-flight projectile queries moved into
     // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
     mut overlay_labels: ResMut<DebugOverlayLabels>,
-    action_query: Query<&ActionState<SandboxAction>, With<ambition::input::InputParticipant>>,
+    action_query: Query<&ActionState<SandboxAction>, With<ambition_platformer2d::input::InputParticipant>>,
     mut player_q: Query<
         (
             Entity,
@@ -105,14 +105,14 @@ pub(crate) fn draw_debug_overlay(
             // The movement policy: the overlay is a dev tool and draws the
             // policy's private internals (ledge anchor, blink aim) directly.
             &ae::MotionModel,
-            Option<&ambition::characters::actor::BodyHealth>,
-            &ambition::actors::actor::BodyMelee,
-            &ambition::characters::actor::WornCharacter,
+            Option<&ambition_platformer2d::characters::actor::BodyHealth>,
+            &ambition_platformer2d::actors::actor::BodyMelee,
+            &ambition_platformer2d::characters::actor::WornCharacter,
             // The frame-clock position the sprite is drawn at. The overlay must
             // sample the SAME clock as the camera it is drawn through, or the box
             // shakes against a world that looks perfectly stable — see
             // `draw_player_debug`'s `draw_pos`.
-            Option<&ambition::sim_view::PresentedPose>,
+            Option<&ambition_platformer2d::sim_view::PresentedPose>,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -121,12 +121,12 @@ pub(crate) fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition::actors::actor::PrimaryPlayerOnly,
-            Without<ambition::actors::features::FeatureSimEntity>,
+            ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+            Without<ambition_platformer2d::actors::features::FeatureSimEntity>,
         ),
     >,
     feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&ambition_platformer2d::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -199,7 +199,7 @@ pub(crate) fn draw_debug_overlay(
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
     let player_gravity =
-        ambition::actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
+        ambition_platformer2d::actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
     draw_player_debug(
         &mut gizmos,
         world,

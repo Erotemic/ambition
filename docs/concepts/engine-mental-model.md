@@ -47,12 +47,12 @@ The exact crate list will continue to change. These responsibilities should not.
 
 | Layer | Responsibility | Typical current owners |
 |---|---|---|
-| Foundations | Pure math, geometry, movement kernels, stable IDs, and content-free data contracts | `ambition_engine_core`, `ambition_entity_catalog` |
-| Shared platformer vocabulary | Lifecycle scopes, scheduling sets, gravity/orientation, world and interaction primitives | `ambition_platformer_primitives`, `ambition_world`, focused domain crates |
+| Foundations | Pure math, geometry, movement kernels, stable IDs, and content-free data contracts | `ambition_platformer2d_core`, `ambition_entity_catalog` |
+| Shared platformer vocabulary | Lifecycle scopes, scheduling sets, gravity/orientation, world and interaction primitives | `ambition_platformer2d_shared_tangle`, `ambition_platformer2d_world`, focused domain crates |
 | Domain services | Characters/brains, combat, input, dialogue, encounters, persistence, audio, portals, items, projectiles | one focused crate per domain |
-| Simulation heart | Assemble live actor bodies and world mechanics through one execution path | currently `ambition_actors` plus domain crates |
+| Simulation heart | Assemble live actor bodies and world mechanics through one execution path | currently `ambition_platformer2d_actor_monolith` plus domain crates |
 | Observation and presentation | Publish stable read models; render, animate, play audio, and show UI without owning simulation truth | `ambition_sim_view`, `ambition_render`, presentation crates |
-| Runtime, provider, and host | Order headless-safe plugins, prepare/activate providers, and add devices/windows/platform policy | `ambition_runtime`, `ambition_platformer_provider`, `ambition_host`, `ambition_sim_harness` |
+| Runtime, provider, and host | Order headless-safe plugins, prepare/activate providers, and add devices/windows/platform policy | `ambition_platformer2d_runtime`, `ambition_platformer2d_provider`, `ambition_platformer2d_host`, `ambition_sim_harness` |
 | Games/providers | Own named worlds, characters, art, audio, quests, dialogue, encounters, and product policy | `game/ambition_content`, demo providers, thin app crates |
 
 Use `python scripts/agent_query.py crate <name>` for the current package map.

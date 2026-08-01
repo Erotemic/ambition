@@ -1,7 +1,7 @@
 //! Faithful Bevy scene capture for a camera-follow snapshot.
 //!
 //! This is the render-stack counterpart to
-//! `ambition::actors/examples/render_room_geometry.rs capture`: it runs
+//! `ambition_platformer2d::actors/examples/render_room_geometry.rs capture`: it runs
 //! the real presentation plugins, forces the main camera to the same
 //! `CameraSnapshot2d` policy for an arbitrary focus point, renders into an
 //! offscreen image target, and asks Bevy's screenshot pipeline to write that
@@ -16,16 +16,16 @@
 
 use std::path::PathBuf;
 
-use ambition::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStates};
-use ambition::engine_core as ae;
-use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
-use ambition::platformer::schedule::GameMode;
-use ambition::render::rendering::{CameraViewState, camera_follow, sync_parallax_layers};
-use ambition::sim_view::camera_snapshot::{
+use ambition_platformer2d::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStates};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::{CameraViewState, camera_follow, sync_parallax_layers};
+use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraFocus2d, CameraSnapshotResolveInput, CameraSnapshotResolveMode,
     resolve_follow_camera_snapshot,
 };
-use ambition::sprite_sheet::game_assets::GameAssetConfig;
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 use ambition_app::app::{
     PresentationSetupSet, SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
     StartRoomOverride,
@@ -191,7 +191,7 @@ fn main() {
     if let Some(character_id) = config.character.clone() {
         eprintln!("capture_scene: player wears character '{character_id}'");
         app.insert_resource(ambition_app::app::StartingCharacterOverride(
-            ambition::actors::avatar::StartingCharacter::new(character_id),
+            ambition_platformer2d::actors::avatar::StartingCharacter::new(character_id),
         ));
     }
     // **THE SURFACE THIS RUN DRAWS TO.**
@@ -206,8 +206,8 @@ fn main() {
     // A capture that cannot show a layout is worse than no capture, because it
     // shows a DIFFERENT layout convincingly.
     app.insert_resource(
-        ambition::host::gameplay_presentation::HeadlessDisplaySurface(
-            ambition::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+        ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition_platformer2d::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
         ),
     );
     app.insert_resource(config);
@@ -232,12 +232,12 @@ fn main() {
     // because the two capture modes build their apps differently and only one of
     // them goes through `build_visible_app`.
     if !app
-        .is_plugin_added::<ambition::host::gameplay_presentation::HostGameplayPresentationPlugin>()
+        .is_plugin_added::<ambition_platformer2d::host::gameplay_presentation::HostGameplayPresentationPlugin>()
     {
-        app.add_plugins(ambition::host::gameplay_presentation::HostGameplayPresentationPlugin);
+        app.add_plugins(ambition_platformer2d::host::gameplay_presentation::HostGameplayPresentationPlugin);
     }
     app.add_plugins(
-        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_platformer2d::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
             &ambition_content::worlds::world_manifest(),
         ),
@@ -454,8 +454,8 @@ impl SceneCaptureConfig {
 /// not a special build that might diverge from one.
 fn silence_dev_overlays(
     config: Res<SceneCaptureConfig>,
-    mut settings: ResMut<ambition::persistence::settings::UserSettings>,
-    mut developer: Option<ResMut<ambition::dev_tools::dev_tools::DeveloperTools>>,
+    mut settings: ResMut<ambition_platformer2d::persistence::settings::UserSettings>,
+    mut developer: Option<ResMut<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
 ) {
     if config.dev_overlays {
         return;
@@ -492,11 +492,11 @@ fn silence_dev_overlays(
 /// as the gap between signal and noise. Pinning the clock makes a zero-diff
 /// evidence instead of a coincidence.
 ///
-/// 60 Hz, matching `ambition_runtime::SIM_TICK_HZ`, so a warmup frame is a sim
+/// 60 Hz, matching `ambition_platformer2d_runtime::SIM_TICK_HZ`, so a warmup frame is a sim
 /// tick and `--warmup N` reads as "N ticks in".
 fn pin_the_clock(app: &mut App) {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        Duration::from_secs_f64(1.0 / ambition::runtime::SIM_TICK_HZ),
+        Duration::from_secs_f64(1.0 / ambition_platformer2d::runtime::SIM_TICK_HZ),
     ));
 }
 
@@ -518,15 +518,15 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     // ⚠ the ROOM-mode builder below needs the same insert, and each mode builds
     // its own app — which is exactly how the first attempt at this missed.
     app.insert_resource(
-        ambition::host::gameplay_presentation::HeadlessDisplaySurface(
-            ambition::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+        ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition_platformer2d::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
         ),
     );
 
     let known: Vec<String> = {
         let catalog = app
             .world()
-            .get_resource::<ambition::game_shell::ShellRouteCatalog>();
+            .get_resource::<ambition_platformer2d::game_shell::ShellRouteCatalog>();
         catalog
             .map(|catalog| catalog.ids().map(|id| id.to_string()).collect())
             .unwrap_or_default()
@@ -582,7 +582,7 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
 fn go_to_route(
     config: Res<SceneCaptureConfig>,
     mut runtime: ResMut<SceneCaptureRuntime>,
-    router: Res<ambition::game_shell::ShellRouter>,
+    router: Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut commands: Commands,
 ) {
     if runtime.route_requested {
@@ -604,8 +604,8 @@ fn go_to_route(
         );
         return;
     }
-    commands.write_message(ambition::game_shell::ShellCommand::GoTo(
-        ambition::game_shell::ShellRouteId::new(route),
+    commands.write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+        ambition_platformer2d::game_shell::ShellRouteId::new(route),
     ));
 }
 
@@ -744,10 +744,10 @@ fn setup_capture_target(
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<ambition::engine_core::RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition::actors::rooms::RoomSet>,
-    user_settings: Res<ambition::persistence::settings::UserSettings>,
-    ease_tuning: Res<ambition::platformer::camera_ease::CameraEaseTuning>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::engine_core::RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::actors::rooms::RoomSet>,
+    user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
+    ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
     // **THE SIM BODY, not the render visual.**
     //
@@ -761,8 +761,8 @@ fn apply_capture_snapshot(
     // room stages fine (138 room visuals, a player body at (950, 904)) and the
     // camera sat at (0, 120). Measured, after three wrong guesses (2026-07-29).
     player_q: Query<
-        &ambition::platformer::body::BodyKinematics,
-        ambition::actors::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
 ) {
@@ -847,8 +847,8 @@ const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 /// removes the asynchrony rather than hoping it has passed.
 fn world_is_ready(
     player_q: &Query<
-        &ambition::platformer::body::BodyKinematics,
-        ambition::actors::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     follow_player: bool,
     art: Option<(&CharacterLoadDemand, &CharacterLoadStates)>,
@@ -858,7 +858,7 @@ fn world_is_ready(
     }
     match art {
         Some((demand, states)) => {
-            ambition::actors::character_runtime::character_reveal_ready(demand, states)
+            ambition_platformer2d::actors::character_runtime::character_reveal_ready(demand, states)
         }
         // A composition with no character-load seam has no art to wait for.
         None => true,
@@ -871,8 +871,8 @@ fn request_capture(
     target: Option<Res<SceneCaptureTarget>>,
     mut runtime: ResMut<SceneCaptureRuntime>,
     player_q: Query<
-        &ambition::platformer::body::BodyKinematics,
-        ambition::actors::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,
@@ -1087,7 +1087,7 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
 /// **THE Z′14 BUG, and it was one character.**
 ///
 /// This carried its own copy of the asset-root rule, and the copy said
-/// `crates/ambition::actors/assets` — a `::` where the crate name has a `_`. No
+/// `crates/ambition_platformer2d::actors/assets` — a `::` where the crate name has a `_`. No
 /// such directory can exist, `canonicalize` failed every time, and the fallback
 /// pointed the room composition at the workspace-root `assets/` tree, which
 /// holds IPFS metadata and none of the actor sprites, shaders or sounds.
@@ -1107,5 +1107,5 @@ fn desktop_asset_root() -> String {
     if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
         return "assets".to_string();
     }
-    ambition::asset_manager::actors_desktop_asset_root()
+    ambition_platformer2d::asset_manager::actors_desktop_asset_root()
 }

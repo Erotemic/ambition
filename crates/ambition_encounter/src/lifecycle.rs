@@ -287,7 +287,7 @@ pub struct EncounterLifecycleSet;
 /// Drain [`EncounterCommand`]s and reduce every encounter entity's lifecycle.
 /// The one ECS registration of the pure reducer.
 pub fn reduce_encounter_lifecycles(
-    dt: Res<ambition_platformer_primitives::time::SimDt>,
+    dt: Res<ambition_platformer2d_shared_tangle::time::SimDt>,
     mut commands_in: MessageReader<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     mut encounters: Query<(

@@ -4,7 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition_portal::arm_portal_pickups;
+use ambition_portal2d::arm_portal_pickups;
 
 fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
     app.world_mut()
@@ -80,7 +80,7 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     app.add_message::<DropPortalGun>();
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
-    app.insert_resource(ambition_platformer_primitives::time::SimDt { dt: 1.0 / 60.0 });
+    app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
     app.add_systems(
         Update,
         (

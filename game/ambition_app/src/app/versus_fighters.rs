@@ -29,13 +29,13 @@
 //! to `idle` on a sheet with no attack row — visibly plain, honestly plain, and
 //! not a placeholder pretending to be art.
 
-use ambition::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
-use ambition::characters::brain::ActionSet;
-use ambition::combat::moveset::{simple_melee, SimpleMeleeParams};
-use ambition::entity_catalog::{
+use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
+use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::combat::moveset::{simple_melee, SimpleMeleeParams};
+use ambition_platformer2d::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
-use ambition::entity_catalog::{MoveGates, MovesetContract};
+use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract};
 
 /// What makes one duelist different from another.
 ///
@@ -267,7 +267,7 @@ impl WithHealth for CharacterDefinition {
         // is the trade this stage is built on. `None` on `Vitals` means "the
         // author said nothing", which is the case a body must be able to
         // distinguish from an authored one-hit pool.
-        self.vitals = ambition::actors::character_runtime::Vitals {
+        self.vitals = ambition_platformer2d::actors::character_runtime::Vitals {
             max_health: Some(max_health),
             mass: Some(mass),
         };
@@ -342,7 +342,7 @@ pub const VERSUS_PROVIDER: &str = super::versus::VERSUS_EXPERIENCE;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition::entity_catalog::AttackDir;
+    use ambition_platformer2d::entity_catalog::AttackDir;
 
     #[test]
     fn a_duelist_answers_every_direction_and_the_smash_is_the_heavy_one() {

@@ -1,0 +1,600 @@
+//! Boss-encounter Bevy systems — the per-frame driver.
+//!
+//! `populate_boss_encounter_registry` (startup) loads the read-only profile
+//! catalog. `update_boss_encounters` (per sim-tick) seeds + wakes bosses in the
+//! active room, ticks each phase machine, publishes events, mirrors phase
+//! HP/phase onto the boss ECS clusters, manages the adaptive-music request
+//! lifetime, and syncs reward chests.
+//! `boss_phase_transition_feedback` diffs each boss's phase against a `Local`
+//! snapshot to fire camera shake + a `DamageBox` shockwave + scream VFX on
+//! dramatic transitions — decoupled from the event pipeline on purpose.
+
+use ambition_platformer2d_core as ae;
+use bevy::prelude::*;
+
+use crate::cutscene_trigger::CutsceneTriggerQueue;
+use ambition_persistence::quest::QuestRegistry;
+
+use super::{
+    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry, BossProfile,
+};
+
+/// This system's claim on the encounter layer's priority music tier.
+pub const BOSS_MUSIC_OWNER: &str = "boss_encounter";
+
+pub fn populate_boss_encounter_registry(
+    catalog: Res<BossCatalog>,
+    mut registry: ResMut<BossEncounterRegistry>,
+) {
+    if registry.specs_loaded {
+        return;
+    }
+    if catalog.is_empty() {
+        bevy::log::info!(
+            target: "ambition_platformer2d::boss_encounter",
+            "boss_encounter registry: App has no boss catalog fragments"
+        );
+        registry.specs_loaded = true;
+        return;
+    }
+    // Per ADR 0017: named boss encounter specs are authored in
+    // `ambition_content/assets/data/boss_encounters/<id>.ron` and assembled
+    // into the App-local catalog before the registry is populated. Log a one-time startup census so a
+    // missing provider composition or empty catalog is visible immediately.
+    let profiles = default_boss_profiles(&catalog);
+    let total = profiles.len();
+    bevy::log::info!(
+        target: "ambition_platformer2d::boss_encounter",
+        "boss_encounter registry: {total} App-local profile(s) loaded"
+    );
+    for profile in profiles {
+        registry.ensure_profile(profile);
+    }
+    // The registry is a read-only DATA CATALOG (profiles only). Persisted
+    // "cleared" is applied per-entity in `update_boss_encounters` against the
+    // boss's own state, not pre-seeded here.
+    registry.specs_loaded = true;
+}
+
+/// Drive every boss's entity-local phase mechanism: seed from the profile
+/// catalog, wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
+/// the adaptive-music request live, and sync reward chests.
+/// The body's `BodyHealth` (§A1) + `BossEncounter.encounter` ARE the source of truth.
+pub fn update_boss_encounters(
+    mut commands: Commands,
+    catalog: Res<BossCatalog>,
+    world_time: Res<ambition_time::WorldTime>,
+    registry: Res<BossEncounterRegistry>,
+    mut banner: ResMut<crate::features::GameplayBanner>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+        crate::encounter::EncounterMusicRequest,
+    >,
+    mut quests: ResMut<QuestRegistry>,
+    mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    reward_chests: Query<
+        (
+            Entity,
+            &crate::features::BossRewardChest,
+            &crate::features::FeatureId,
+            Option<&crate::features::Opened>,
+            Option<&crate::features::FallingChest>,
+        ),
+        With<crate::features::ChestFeature>,
+    >,
+    mut bosses: Query<
+        (
+            &crate::features::FeatureId,
+            crate::features::BossClusterQueryData,
+            // The boss's shared body components (§A1): HP authority + the
+            // hit-flash/reaction timers.
+            &mut ambition_characters::actor::BodyHealth,
+            &mut ambition_characters::actor::BodyCombat,
+            Option<&crate::features::BossOverrides>,
+        ),
+        With<crate::features::FeatureSimEntity>,
+    >,
+) {
+    let Some(session_scope) =
+        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
+
+    // Sim clock: phase pacing (intro / phase-change timers, death outro,
+    // reward grace) freezes alongside the player in bullet-time (ADR 0010); we
+    // don't want phase transitions to fire while the sim is stopped.
+    let dt = world_time.sim_dt();
+
+    // Active-fight music track (first fighting boss wins) + reward anchors,
+    // collected as we drive each boss. Anchors carry (placement_id,
+    // archetype_id, spawn): R4 keys "cleared" + rewards by PLACEMENT.
+    let mut active_music_track: Option<String> = None;
+    let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
+
+    for (_feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
+        let archetype_id = feature.config.behavior.id.clone();
+        let runtime_id = feature.config.id.clone();
+        let boss_name = feature.config.name.clone();
+
+        // Resolve the authored profile from the read-only catalog (or a generic
+        // stub). `behavior.id` is the canonical archetype id resolved at spawn
+        // from the brain's `PhaseScript:` payload.
+        let profile = registry
+            .profiles
+            .get(&archetype_id)
+            .cloned()
+            .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
+            .unwrap_or_else(|| {
+                BossProfile::generic(
+                    &catalog,
+                    archetype_id.clone(),
+                    boss_name.clone(),
+                    health.max(),
+                )
+            });
+        let spec = profile.encounter.clone();
+
+        // Seed entity-local state ONCE from the profile (phase triggers as data
+        // + HP + behavior). Two of the same boss seed independent state by
+        // construction. The per-spawn `BossOverrides` (hp / combat_size / phase
+        // triggers) are applied HERE so the profile application above can't
+        // clobber them.
+        if feature.status.encounter.is_none() {
+            feature
+                .as_boss_mut()
+                .apply_behavior_profile(profile.behavior.clone());
+            if let Some(size) = overrides.and_then(|o| o.combat_size) {
+                feature.config.behavior.combat_size = Some(size);
+            }
+            let max_hp = overrides
+                .and_then(|o| o.max_hp)
+                .unwrap_or(spec.max_hp)
+                .max(1);
+            *health = ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(max_hp),
+            );
+            let triggers = overrides
+                .and_then(|o| o.phase_triggers.clone())
+                .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));
+            feature.status.encounter = Some(crate::boss_encounter::ActorPhaseState::new(triggers));
+        }
+
+        // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —
+        // a cleared placement renders defeated and is otherwise inert. Shared
+        // predicate (`boss_is_cleared`) with the room-load save-sync so they
+        // can't drift.
+        if crate::features::boss_is_cleared(&save, &feature.config) {
+            health.health.current = 0;
+            if let Some(phase) = feature.status.encounter.as_mut() {
+                phase.phase = crate::boss_encounter::BossEncounterPhase::Death;
+            }
+            continue;
+        }
+
+        // Wake (Dormant → start) while alive, then advance the phase mechanism.
+        // The phase ticks even when not alive so a dead boss's death OUTRO timer
+        // advances (so `death_outro_complete` can fire).
+        let alive = health.alive();
+        let hp_fraction = health.health.ratio();
+        let mut phase_events = Vec::new();
+        {
+            let phase = feature.status.encounter.as_mut().expect("seeded above");
+            if alive
+                && matches!(
+                    phase.phase,
+                    crate::boss_encounter::BossEncounterPhase::Dormant
+                )
+            {
+                phase_events.extend(phase.wake());
+            }
+            phase_events.extend(phase.tick(dt, hp_fraction));
+        }
+        for ev in &phase_events {
+            publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
+        }
+
+        // Read post-tick state for death resolution + music + invuln.
+        let (phase, death_done, invulnerable) = {
+            let p = feature.status.encounter.as_ref().expect("seeded");
+            (
+                p.phase,
+                p.death_outro_complete(spec.death_seconds),
+                p.boss_invulnerable(),
+            )
+        };
+
+        // Suppress the death-flash overlay during invulnerable beats.
+        if invulnerable && health.alive() {
+            combat.hit_flash = 0.0;
+        }
+
+        // Death resolution: once the outro elapses, record this PLACEMENT as
+        // Cleared (R4) + fire the quest event (idempotent — only the first time
+        // the placement flips to Cleared). The quest event still carries the
+        // ARCHETYPE id (quest objectives are about the boss kind, e.g. "defeat
+        // the Gradient Sentinel").
+        if matches!(phase, crate::boss_encounter::BossEncounterPhase::Death) && death_done {
+            // A scripted / environmental kill can reach Death with HP left —
+            // zero it so `alive()` (THE liveness authority, §A1) agrees.
+            if health.alive() {
+                health.health.current = 0;
+            }
+            if !crate::features::boss_is_cleared(&save, &feature.config) {
+                save.data_mut().set_boss(
+                    &runtime_id,
+                    ambition_persistence::save_data::PersistedEncounterState::Cleared,
+                );
+                quests.push_event(
+                    ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
+                        archetype_id.clone(),
+                    ),
+                );
+            }
+        }
+
+        // Collect the active-fight music + the reward anchor (placement_id,
+        // archetype_id, spawn): the reward sync keys the chest + looted flag by
+        // PLACEMENT and resolves the DropChest reward via the archetype profile.
+        if active_music_track.is_none() {
+            if let Some(track) = phase_music_track(&spec, phase) {
+                if !track.is_empty() {
+                    active_music_track = Some(track.to_string());
+                }
+            }
+        }
+        boss_anchors.push((
+            runtime_id.clone(),
+            archetype_id.clone(),
+            feature.config.spawn,
+        ));
+    }
+
+    // Music-request lifetime: keep the active boss's track up; clear it when no
+    // boss is in an active-fight phase (boss defeated, or player left the room
+    // so no boss entities exist) so room music resumes. Pinned by
+    // `boss_music_plays_during_the_fight` +
+    // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
+    //
+    // It releases only its OWN claim. This system has no run condition, so it
+    // reaches the "no boss is fighting" arm on every frame of every game — and
+    // when that arm cleared the tier outright it silenced every other claimant
+    // in the engine. A demo with no bosses at all could not hold priority music
+    // for a single frame.
+    match active_music_track {
+        Some(track) => music_request.claim_priority(BOSS_MUSIC_OWNER, track),
+        None => music_request.release_priority(BOSS_MUSIC_OWNER),
+    }
+
+    crate::features::sync_boss_reward_chests_ecs(
+        &mut commands,
+        session_scope,
+        save.data(),
+        &registry,
+        &world.0,
+        &boss_anchors,
+        &reward_chests,
+    );
+}
+
+/// Bridge a [`MountDied`](crate::features::MountDied) body fact into the rider's
+/// entity-local phase machine (ADR 0020; Q19a). A rider that both carries
+/// `BossConfig` (a boss) and holds an encounter phase state fires its
+/// `External("mount_died")` trigger — flipping a dismounted boss into its
+/// authored on-foot mini-phase. This is
+/// [`PhaseTriggerCondition::External`](crate::boss_encounter::PhaseTriggerCondition::External)'s
+/// first production caller.
+///
+/// A DIRECT bridge on purpose, never the `EncounterGate` script bus: this is a
+/// body fact crossing into encounter state, not script vocabulary (the script
+/// bus can subscribe to the same message later if a set-piece wants it).
+///
+/// No event publishing here: the swap lands on `BossEncounter.encounter`
+/// directly and the downstream reactions already track it —
+/// [`update_boss_encounters`] re-derives the active music from the CURRENT phase
+/// (level-triggered) and [`boss_phase_transition_feedback`] diffs the phase
+/// against its `Local` snapshot (edge-triggered). Registered just before
+/// `update_boss_encounters` in the Progression chain so the swap — from a
+/// `MountDied` written in the earlier `Combat` set — is visible the same frame.
+pub fn notify_bosses_on_mount_death(
+    mut mount_deaths: MessageReader<crate::features::MountDied>,
+    mut riders: Query<&mut crate::features::BossEncounter, With<crate::features::BossConfig>>,
+) {
+    for ev in mount_deaths.read() {
+        let Ok(mut encounter) = riders.get_mut(ev.rider) else {
+            // A non-boss rider (a pirate) has no phase state to notify.
+            continue;
+        };
+        if let Some(phase) = encounter.encounter.as_mut() {
+            let _ = phase.notify_external("mount_died");
+        }
+    }
+}
+
+/// The adaptive-music track a boss plays in `phase`, from its authored spec.
+/// `None` for `Dormant` / `Death` (no boss music — room music resumes).
+fn phase_music_track(
+    spec: &crate::boss_encounter::BossEncounterSpec,
+    phase: crate::boss_encounter::BossEncounterPhase,
+) -> Option<&str> {
+    use crate::boss_encounter::BossEncounterPhase as P;
+    let track = match phase {
+        P::Intro => &spec.music_intro,
+        P::Phase1 | P::Transition => &spec.music_phase1,
+        P::Phase2 | P::Stagger => &spec.music_phase2,
+        P::Enrage => &spec.music_enrage,
+        P::Dormant | P::Death => return None,
+    };
+    (!track.is_empty()).then_some(track.as_str())
+}
+
+/// Camera-shake amplitude (px) on a dramatic boss phase change. Capped to 14 by
+/// [`CameraShakeState::kick`].
+const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
+
+/// Boss phase-transition feedback (Jon: a boss should "scream" / "feel loud" on
+/// a phase change "without breaking the player's ears"). On a transition INTO a
+/// dramatic phase (Transition / Phase2 / Enrage / Stagger) we kick the camera
+/// shake and play a placeholder "cry" SFX — a feel layer that works for every
+/// boss. The dedicated per-boss scream SPRITE animation + a bespoke quiet "cry"
+/// SFX are follow-ups; this reuses the existing shake + a soft impact sound as
+/// placeholders.
+///
+/// Decoupled from the phase-advance / event pipeline on purpose: it diffs each
+/// boss's entity-local phase (`BossEncounter.encounter`) against a `Local`
+/// snapshot, so it needs no changes to `publish_events`.
+pub fn boss_phase_transition_feedback(
+    mut last_phase: Local<
+        std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
+    >,
+    mut sfx: ambition_sfx::SfxWriter,
+    // Optional: a headless / camera-less build may not insert the shake resource.
+    mut shake: Option<ResMut<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>>,
+    // The active route's shake ceiling (D14). Optional for the same reason, and
+    // absent it falls back to the historical cap rather than to no cap — an
+    // unclamped kick is a screen nobody can read.
+    shake_tuning: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>>,
+    // Boss entities — phase read from the entity-local state + the actor that
+    // emits the phase-transition shockwave.
+    bosses: Query<
+        (
+            Entity,
+            &crate::features::FeatureId,
+            &crate::features::BodyKinematics,
+            &crate::features::CenteredAabb,
+            &crate::features::ecs::boss_clusters::BossEncounter,
+        ),
+        With<crate::features::BossConfig>,
+    >,
+    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+) {
+    use crate::boss_encounter::BossEncounterPhase as P;
+    for (entity, feature_id, kin, aabb, status) in &bosses {
+        let Some(phase) = status.encounter.as_ref().map(|p| p.phase) else {
+            continue;
+        };
+        let id = feature_id.as_str();
+        let prev = last_phase.insert(id.to_string(), phase);
+        // React only to an actual change, and skip the first observation
+        // (`prev == None`) so a freshly-seeded boss doesn't shake on spawn.
+        if prev.is_none() || prev == Some(phase) {
+            continue;
+        }
+        if matches!(phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
+            if let Some(shake) = shake.as_deref_mut() {
+                shake.kick(
+                    BOSS_PHASE_SHAKE_PX,
+                    shake_tuning.as_deref().copied().unwrap_or_default(),
+                );
+            }
+            sfx.write(ambition_sfx::SfxMessage::Play {
+                id: ambition_sfx::ids::WORLD_ROCK_HIT,
+                pos: ae::Vec2::ZERO,
+            });
+            // The transition is a dodge-able GAMEPLAY beat, not just feel: the
+            // boss emits a `DamageBox` effect through the SAME generic
+            // `apply_effects` consumer the player's shockwave gauntlet uses.
+            // Resolved at the boss's own position + side (`HitSide::Boss`),
+            // so the shared `apply_hitbox_damage` lands it on the player — the
+            // literal "player and boss fire the same attack" unification, in-game.
+            effects.write(ambition_vfx::EffectRequest {
+                owner: entity,
+                effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
+                    center: aabb.center,
+                    faction: ambition_vfx::HitSide::Boss,
+                    half_extent: ae::Vec2::new(170.0, 80.0),
+                    damage: 2,
+                    knockback: 1.6,
+                    lifetime_s: 0.30,
+                    name: Some("Shockwave AOE"),
+                }),
+            });
+            // "Scream lines": a sharp radial spark burst FROM the boss, so the
+            // phase change reads as a dramatic beat instead of a silent state
+            // flip (#122 "transitions are not noticeable / too short").
+            vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
+                pos: kin.pos,
+                count: 24,
+                speed: 340.0,
+                color: [1.0, 0.92, 0.45, 0.95],
+                kind: ambition_vfx::vfx::ParticleKind::Spark,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod phase_feedback_tests {
+    use super::*;
+    use crate::boss_encounter::BossEncounterPhase;
+    use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
+    use crate::features::ecs::boss_clusters::BossEncounter;
+    use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState;
+
+    fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
+        let config = test_boss_config("gradient_sentinel", "Gradient Sentinel", "clockwork_warden");
+        let status = test_boss_status(100, phase);
+        app.world_mut()
+            .spawn((
+                FeatureId::new("gradient_sentinel"),
+                BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::splat(64.0),
+                    facing: 1.0,
+                },
+                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::splat(64.0)),
+                config,
+                status,
+            ))
+            .id()
+    }
+
+    fn set_phase(app: &mut App, entity: Entity, phase: BossEncounterPhase) {
+        let mut entity_mut = app.world_mut().entity_mut(entity);
+        let mut status = entity_mut.get_mut::<BossEncounter>().unwrap();
+        if let Some(p) = status.encounter.as_mut() {
+            p.phase = phase;
+        }
+    }
+
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_vfx::EffectRequest>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.init_resource::<CameraShakeState>();
+        app.add_systems(Update, boss_phase_transition_feedback);
+        app
+    }
+
+    fn shake_px(app: &App) -> f32 {
+        app.world().resource::<CameraShakeState>().amplitude_px
+    }
+
+    #[test]
+    fn dramatic_phase_change_kicks_the_camera_shake() {
+        let mut app = test_app();
+        let boss = spawn_boss(&mut app, BossEncounterPhase::Phase1);
+
+        // First observation (Phase1) — no shake.
+        app.update();
+        assert_eq!(shake_px(&app), 0.0, "no shake on first observation");
+
+        // Phase1 → Enrage (dramatic) → shake kicks.
+        set_phase(&mut app, boss, BossEncounterPhase::Enrage);
+        app.update();
+        assert!(shake_px(&app) > 0.0, "dramatic transition kicks the shake");
+    }
+
+    #[test]
+    fn non_dramatic_change_does_not_shake() {
+        let mut app = test_app();
+        let boss = spawn_boss(&mut app, BossEncounterPhase::Intro);
+        app.update(); // observe Intro
+                      // Intro → Phase1 (not dramatic) → no shake.
+        set_phase(&mut app, boss, BossEncounterPhase::Phase1);
+        app.update();
+        assert_eq!(shake_px(&app), 0.0, "Phase1 is not a dramatic transition");
+    }
+}
+
+#[cfg(test)]
+mod mount_death_bridge_tests {
+    //! Q19a: `MountDied` → the rider boss's `External("mount_died")` phase
+    //! trigger. `notify_bosses_on_mount_death` is
+    //! `PhaseTriggerCondition::External`'s first production caller.
+    use super::*;
+    use crate::boss_encounter::{BossEncounterPhase, PhaseTrigger};
+    use crate::features::ecs::boss_clusters::test_support::{
+        test_boss_config, test_boss_status_with,
+    };
+    use crate::features::ecs::boss_clusters::BossEncounter;
+    use crate::features::MountDied;
+
+    fn bridge_app() -> App {
+        let mut app = App::new();
+        app.add_message::<MountDied>();
+        app.add_systems(Update, notify_bosses_on_mount_death);
+        app
+    }
+
+    /// Spawn a boss carrying a `mount_died` external trigger from `Phase1`, at
+    /// `Phase1`. Returns its entity.
+    fn spawn_mounted_boss(app: &mut App) -> Entity {
+        let config = test_boss_config("gnu_ton_rider", "GNU-ton", "gnu_ton_rider");
+        let (status, health) = test_boss_status_with(
+            100,
+            BossEncounterPhase::Phase1,
+            vec![PhaseTrigger::external(
+                "mount_died",
+                BossEncounterPhase::Phase1,
+                BossEncounterPhase::Enrage,
+                0.0,
+            )],
+        );
+        app.world_mut().spawn((config, status, health)).id()
+    }
+
+    fn phase_of(app: &App, e: Entity) -> BossEncounterPhase {
+        app.world()
+            .entity(e)
+            .get::<BossEncounter>()
+            .unwrap()
+            .encounter
+            .as_ref()
+            .unwrap()
+            .phase
+    }
+
+    /// A `MountDied` naming the boss rider fires its `mount_died` trigger,
+    /// flipping it into the authored on-foot phase.
+    #[test]
+    fn mount_death_flips_the_rider_boss_into_its_on_foot_phase() {
+        let mut app = bridge_app();
+        let boss = spawn_mounted_boss(&mut app);
+        assert_eq!(phase_of(&app, boss), BossEncounterPhase::Phase1);
+
+        app.world_mut().write_message(MountDied {
+            mount: Entity::PLACEHOLDER,
+            rider: boss,
+        });
+        app.update();
+
+        assert_eq!(
+            phase_of(&app, boss),
+            BossEncounterPhase::Enrage,
+            "the dismounted boss should advance to its authored on-foot phase",
+        );
+    }
+
+    /// A `MountDied` for an unrelated entity leaves the boss's phase alone (no
+    /// spurious external fire).
+    #[test]
+    fn mount_death_for_another_entity_does_not_move_the_boss() {
+        let mut app = bridge_app();
+        let boss = spawn_mounted_boss(&mut app);
+
+        // A non-boss rider entity — the bridge's `riders.get_mut` misses it.
+        let bystander = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(MountDied {
+            mount: Entity::PLACEHOLDER,
+            rider: bystander,
+        });
+        app.update();
+
+        assert_eq!(
+            phase_of(&app, boss),
+            BossEncounterPhase::Phase1,
+            "an unrelated mount death must not phase this boss",
+        );
+    }
+}

@@ -31,7 +31,7 @@ invisible before the instrument was widened.
 
 2. **`PlayerVisual` was not rollback-registered.** bevy_ggrs destroys and
    recreates rollback entities, so the tag was simply absent afterwards, and
-   `ambition_host::portal` asks `With<PlayerVisual>, Without<PortalSceneBody>` to
+   `ambition_platformer2d_host::portal` asks `With<PlayerVisual>, Without<PortalSceneBody>` to
    decide what to stage as a portal body. Same reasoning as its already-registered
    sibling `RoomVisual`.
 
@@ -94,7 +94,7 @@ geometry. Candidates, in order:
 
 ## LOCALIZED 2026-07-26: `MovePlayback.landed_hit`
 
-The missing tool below was built (`crates/ambition_runtime/src/rollback/probes.rs`,
+The missing tool below was built (`crates/ambition_platformer2d_runtime/src/rollback/probes.rs`,
 driven by `which_component_does_the_rollback_divergence_live_in`). It answered in
 about three seconds what bisection had not answered in a day:
 

@@ -17,7 +17,7 @@ use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
 
-use ambition::encounter::{Encounter, EncounterLifecycle, EncounterPhase, SwitchActivation};
+use ambition_platformer2d::encounter::{Encounter, EncounterLifecycle, EncounterPhase, SwitchActivation};
 use ambition_content::encounters::{SYMMETRY_ATTUNEMENT_FLAG, SYMMETRY_ATTUNEMENT_ID};
 
 fn attunement_phase(sim: &mut SandboxSim) -> EncounterPhase {
@@ -33,13 +33,13 @@ fn attunement_phase(sim: &mut SandboxSim) -> EncounterPhase {
 
 fn flip_kernel_face(sim: &mut SandboxSim, switch_id: &str, action: &str) {
     sim.world_mut()
-        .write_message(ambition::actors::features::SwitchActivated {
+        .write_message(ambition_platformer2d::actors::features::SwitchActivated {
             activation: SwitchActivation {
                 id: switch_id.to_string(),
                 action: action.to_string(),
                 target_encounter: String::new(),
             },
-            pos: ambition::engine_core::Vec2::ZERO,
+            pos: ambition_platformer2d::engine_core::Vec2::ZERO,
         });
 }
 
@@ -85,7 +85,7 @@ fn the_noether_attunement_completes_through_the_generic_path() {
     assert_eq!(attunement_phase(&mut sim), EncounterPhase::Completed);
     let save = sim
         .world()
-        .resource::<ambition::persistence::save::SandboxSave>();
+        .resource::<ambition_platformer2d::persistence::save::SandboxSave>();
     assert!(
         save.data().flag(SYMMETRY_ATTUNEMENT_FLAG),
         "completion pays out through the generic Completed event"

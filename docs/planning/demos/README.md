@@ -19,7 +19,7 @@ anything else is scope drift. Priorities may shuffle; the designs do not.
 
 **LDtk is the preferred way to make a room — and for a DEMO, Rust is allowed.**
 Sanic's speedway comes from its own `.ldtk` through `ambition_ldtk_tools` (never
-hand-edited). Mary-O's 1-1 and 1-2 are constructed as `ambition_world` IR in Rust
+hand-edited). Mary-O's 1-1 and 1-2 are constructed as `ambition_platformer2d_world` IR in Rust
 (`RoomSpec` + `LoadingZone` values), and that is fine for a demo — ADR 0021 made
 the IR backend-agnostic so a programmatic source is not a special case.
 
@@ -61,7 +61,7 @@ not copy those mechanics or call low-level session setup directly.
 - **The `bevy` manifest line is expected, not a violation:** a content crate
   that defines its own `#[derive(Component)]`/`#[derive(Resource)]` must list
   `bevy` directly in its `Cargo.toml`, even though it reaches engine types
-  through `ambition::…`. Bevy's derive macros resolve `::bevy_ecs` via the
+  through `ambition_platformer2d::…`. Bevy's derive macros resolve `::bevy_ecs` via the
   consumer's own manifest, which the umbrella's re-export cannot satisfy. One
   line, version pinned by the workspace — authoring through the umbrella "alone"
   carries this asterisk.

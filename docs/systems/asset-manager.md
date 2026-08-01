@@ -59,7 +59,7 @@ Use targeted checks first:
 
 ```bash
 cargo test -p ambition_asset_manager
-cargo test -p ambition_actors --lib asset
+cargo test -p ambition_platformer2d_actor_monolith --lib asset
 ```
 
 For platform changes, also run the relevant build recipe under `docs/recipes/`.

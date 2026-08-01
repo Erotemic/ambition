@@ -5,9 +5,9 @@
 
 use super::*;
 use ambition_characters::actor::BodyCombat;
-use ambition_engine_core::BodyKinematics;
-use ambition_engine_core::{BodyBaseSize, BodyMotionFacts, BodyOffense, BodyShieldState};
-use ambition_platformer_primitives::markers::PlayerEntity;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::{BodyBaseSize, BodyMotionFacts, BodyOffense, BodyShieldState};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
 #[derive(Resource, Default)]
@@ -37,7 +37,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
         BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
-        ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
+        ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
     ));
 }
 
@@ -106,7 +106,7 @@ fn a_non_player_body_touching_a_hazard_takes_the_hit_too() {
     let victim = app
         .world_mut()
         .spawn((
-            ambition_platformer_primitives::lifecycle::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ae::CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 40.0)),
             BodyOffense::default(),
             BodyMotionFacts::default(),
@@ -163,7 +163,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
         BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
-        ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
+        ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
     ));
     spawn_hazard(&mut app, "spikes", ae::Vec2::new(100.0, 100.0));
     // Sanity: at the END position the player is CLEAR of the hazard, so a

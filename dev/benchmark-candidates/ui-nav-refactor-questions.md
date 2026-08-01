@@ -136,5 +136,5 @@ Run:
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_actors --lib
+cargo test -p ambition_platformer2d_actor_monolith --lib
 ```

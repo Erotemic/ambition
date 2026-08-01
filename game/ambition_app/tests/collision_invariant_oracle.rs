@@ -31,8 +31,8 @@
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
 //! `cargo run -p ambition_app --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
-use ambition::engine_core as ae;
-use ambition::engine_core::RoomGeometry;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
@@ -185,16 +185,16 @@ struct SolidBlock {
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
 fn solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
     let Some(room) =
-        ambition::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
         return Vec::new();
     };
     let carves: Vec<ae::Aabb> = sim
         .world()
-        .get_resource::<ambition::actors::features::FeatureEcsWorldOverlay>()
+        .get_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>()
         .map(|o| o.portal_carves.clone())
         .unwrap_or_default();
-    let composed = ambition::world::collision::world_with_portal_carves(&room.0, &carves);
+    let composed = ambition_platformer2d::world::collision::world_with_portal_carves(&room.0, &carves);
     composed
         .blocks
         .iter()
@@ -216,7 +216,7 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
 /// kinds are carved for a body's benefit, and a one-way is not a host).
 fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
     let Some(room) =
-        ambition::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
         return Vec::new();
     };
@@ -238,7 +238,7 @@ fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
 /// it is.
 fn authored_solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
     let Some(room) =
-        ambition::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
         return Vec::new();
     };
@@ -259,11 +259,11 @@ fn authored_solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
 }
 
 /// The player's entity, so the Class-B ledger can be read per body.
-fn player_entity(sim: &mut SandboxSim) -> Option<ambition::bevy::prelude::Entity> {
-    use ambition::bevy::prelude::{Entity, With};
+fn player_entity(sim: &mut SandboxSim) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
+    use ambition_platformer2d::bevy::prelude::{Entity, With};
     let mut q = sim
         .world_mut()
-        .query_filtered::<Entity, With<ambition::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
     let world = sim.world();
     q.iter(world).next()
 }
@@ -278,13 +278,13 @@ fn player_entity(sim: &mut SandboxSim) -> Option<ambition::bevy::prelude::Entity
 /// tests against the exact geometry the sim carved.
 #[cfg(feature = "portal")]
 fn straddled_carve(sim: &mut SandboxSim) -> Option<ae::Aabb> {
-    use ambition::bevy::prelude::With;
-    use ambition::portal::{find_portal, PlacedPortal, PortalTransit};
+    use ambition_platformer2d::bevy::prelude::With;
+    use ambition_platformer2d::portal::{find_portal, PlacedPortal, PortalTransit};
 
     let channel = {
         let mut q = sim
             .world_mut()
-            .query_filtered::<&PortalTransit, With<ambition::actors::actor::PrimaryPlayer>>();
+            .query_filtered::<&PortalTransit, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
         let world = sim.world();
         q.iter(world).next().map(|t| t.straddling)?
     };
@@ -294,7 +294,7 @@ fn straddled_carve(sim: &mut SandboxSim) -> Option<ae::Aabb> {
         q.iter(world).cloned().collect()
     };
     let enter = find_portal(&portals, channel)?;
-    Some(ambition::portal::pieces::carve_hole(&enter.aperture()))
+    Some(ambition_platformer2d::portal::pieces::carve_hole(&enter.aperture()))
 }
 
 #[cfg(not(feature = "portal"))]
@@ -310,11 +310,11 @@ fn straddled_carve(_sim: &mut SandboxSim) -> Option<ae::Aabb> {
 /// not "pop".
 fn class_b_remaps(
     sim: &SandboxSim,
-    body: Option<ambition::bevy::prelude::Entity>,
-) -> Vec<ambition::platformer::class_b::ClassBRemap> {
+    body: Option<ambition_platformer2d::bevy::prelude::Entity>,
+) -> Vec<ambition_platformer2d::platformer::class_b::ClassBRemap> {
     let (Some(log), Some(body)) = (
         sim.world()
-            .get_resource::<ambition::platformer::class_b::ClassBRemapLog>(),
+            .get_resource::<ambition_platformer2d::platformer::class_b::ClassBRemapLog>(),
         body,
     ) else {
         return Vec::new();
@@ -325,10 +325,10 @@ fn class_b_remaps(
 /// The player's live body: center, velocity, half-extent. The oracle needs the
 /// half-height to know where its FEET are, and the velocity for invariant 4.
 fn player_body(sim: &mut SandboxSim) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
-    use ambition::bevy::prelude::With;
+    use ambition_platformer2d::bevy::prelude::With;
     let mut q = sim.world_mut().query_filtered::<
-        &ambition::actors::actor::BodyKinematics,
-        With<ambition::actors::actor::PrimaryPlayer>,
+        &ambition_platformer2d::actors::actor::BodyKinematics,
+        With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
     >();
     let world = sim.world();
     q.iter(world).next().map(|k| (k.pos, k.vel, k.size * 0.5))
@@ -386,7 +386,7 @@ struct TransitContext<'a> {
     /// The carve volume of the portal the body straddles, if it straddles one.
     straddled_carve: Option<ae::Aabb>,
     /// The Class-B remaps applied to this body on this tick, in order.
-    remaps: &'a [ambition::platformer::class_b::ClassBRemap],
+    remaps: &'a [ambition_platformer2d::platformer::class_b::ClassBRemap],
 }
 
 /// Check one post-tick observation against the invariants. `teleport_from` is
@@ -1097,8 +1097,8 @@ fn collision_oracle_full_sweep() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
-fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String> {
+    ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(
         &ambition_content::worlds::world_manifest(),
     )
 }
@@ -1382,7 +1382,7 @@ fn a_straddling_body_inside_the_wall_but_outside_its_own_carve_is_invariant_2() 
 /// DETAIL line, which reads the pair's priority order and names the bug class.
 #[test]
 fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() {
-    use ambition::platformer::class_b::ClassBRemap;
+    use ambition_platformer2d::platformer::class_b::ClassBRemap;
     let world = (400.0, 400.0);
     let mut supp = 0;
 
@@ -1451,7 +1451,7 @@ fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() 
 /// transfer happened.
 #[test]
 fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
-    use ambition::platformer::class_b::ClassBRemap;
+    use ambition_platformer2d::platformer::class_b::ClassBRemap;
     let world = (4000.0, 4000.0);
     let mut supp = 0;
     let from = Some((100.0, 100.0));

@@ -2,17 +2,17 @@
 //! a `Health` resource. Toggled via
 //! `DeveloperTools::show_health_bars`.
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_characters::actor::Health;
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_platformer_primitives::feature_kind::FeatureVisualKind;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
@@ -156,8 +156,8 @@ pub fn sync_boss_health_bar_overlay(
 
 pub fn sync_health_overlays(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     dev_state: Res<ambition_dev_tools::SandboxDevState>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -171,7 +171,7 @@ pub fn sync_health_overlays(
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
         ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     feature_views: Res<FeatureViewIndex>,
     actor_render: Res<ActorRenderIndex>,

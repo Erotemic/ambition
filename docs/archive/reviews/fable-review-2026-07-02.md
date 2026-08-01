@@ -177,7 +177,7 @@ by reading code (no grep-only findings):
 1. **Actor unification forks** — remaining player/actor/boss bifurcations
 2. **Physics/gravity frame bugs** — relativity-principle violations
 3. **Engine/content separation** — what blocks the "second game as a content crate" oracle
-4. **Decomposition seams** — natural extractions inside the 95k-LOC `ambition_actors`
+4. **Decomposition seams** — natural extractions inside the 95k-LOC `ambition_platformer2d_actor_monolith`
 
 Cross-checked against `docs/planning/engine/unified-actors.md`,
 `docs/current/{state,next}.md`, and `dev/journals/code_smells.md` so already-known
@@ -847,7 +847,7 @@ player/actor asymmetry (the player path uses live tuning gravity).
 `tuning.surface_walker && on_ground`; reserve `surface_normal` for clung surfaces.
 
 ### B3. HIGH — Post-blink velocity damp/clamp is on world X/Y axes
-`ambition_engine_core/src/movement/blink.rs:37-42` (`complete_blink_clusters`):
+`ambition_platformer2d_core/src/movement/blink.rs:37-42` (`complete_blink_clusters`):
 `vel.x *= damping; if vel.y > max_downward { clamp } else { damp }`. Under
 gravity=left/right the actual fall axis is world X — damped but never clamped
 (chained blinks inherit unbounded fall speed) while the harmless perpendicular axis
@@ -857,14 +857,14 @@ wrongly is.
 clamp `.y`, `to_world` back.
 
 ### B4. HIGH — Slash recoil kicks along world X instead of the local side axis
-`ambition_engine_core/src/movement/control.rs:130`:
+`ambition_platformer2d_core/src/movement/control.rs:130`:
 `kinematics.vel.x -= kinematics.facing * tuning.slash_recoil`. Under
 gravity=left/right the side axis is world-vertical, so attacking shoves the body
 along the gravity axis — a slash pushes you off/onto your wall-floor.
 **Fix:** `vel -= frame.side * (facing * slash_recoil)`.
 
 ### B5. MED-HIGH — The spurious-graze guards in the player sweep are welded to world axes, not axis *roles*
-`ambition_engine_core/src/movement/collision.rs`: `body_is_side_contact`
+`ambition_platformer2d_core/src/movement/collision.rs`: `body_is_side_contact`
 (`:111-114`) is written in Y top/bottom terms, gated `role == AxisRole::Gravity`
 (`:279`); the X-sweep's counterpart protections (defer-to-other-axis, world-bounds,
 the motion-continuation at `:201-210`) run only in the X=Side role. Under
@@ -880,7 +880,7 @@ defer/bounds/continuation whenever the swept axis is the side axis) so the pair
 rotates with gravity.
 
 ### B6. MED — Wall-ability ordering differs between the two gravity-axis branches of the body tick
-`ambition_engine_core/src/movement/integration.rs:176-217`: vertical gravity runs
+`ambition_platformer2d_core/src/movement/integration.rs:176-217`: vertical gravity runs
 sweep-side → `apply_wall_abilities` → reset `on_ground` → sweep-gravity; horizontal
 gravity runs sweep-side → reset → sweep-gravity → stabilize → `apply_wall_abilities`.
 Under sideways gravity the wall-slide clamp applies *after* gravity-axis motion
@@ -892,7 +892,7 @@ not for this player path.
 (+ stabilize when gravity is on X), consistent `on_ground` snapshot.
 
 ### B7. MED — Body out-of-bounds reset only triggers past the world's *bottom* edge
-`ambition_engine_core/src/movement/mod.rs:315-317`: `pos.y > world.size.y + 200.0`.
+`ambition_platformer2d_core/src/movement/mod.rs:315-317`: `pos.y > world.size.y + 200.0`.
 Under gravity=up/left/right a body exits through the top or a side and never trips
 the reset — it falls forever (the exact symptom class the OOB flight recorder hunts).
 **Fix:** gravity-relative exit test —
@@ -909,7 +909,7 @@ body-relative-aim setting.
 **Fix:** route through the shared `ability_aim_world`/`resolve_aim_local` seam.
 
 ### B9. MED — Blink zero-stick fallback and default aim offset are world-X
-`ambition_engine_core/src/movement/blink.rs:53`, `control.rs:32,40,66-67,105`:
+`ambition_platformer2d_core/src/movement/blink.rs:53`, `control.rs:32,40,66-67,105`:
 fallback/default aim = `Vec2::new(blink_distance * facing, 0.0)`. The stick paths
 are correctly world-resolved; only the no-input fallback is raw. Under sideways
 gravity a no-direction quick blink teleports along the gravity axis instead of
@@ -933,7 +933,7 @@ is exactly when the projection is ~0 and the screen-frame fallback decides.
 
 ### B12. LOW — Query-iteration-order dependence without stable keys
 - Portal transit entry/rescue picks the **first** qualifying portal from a `Vec`
-  collected off a `Query<&PlacedPortal>` (`ambition_portal/src/placement.rs:482-540`;
+  collected off a `Query<&PlacedPortal>` (`ambition_portal2d/src/placement.rs:482-540`;
   same pattern `transit.rs:433-446`). Overlapping capture boxes (inside corner) →
   which pair you transit depends on archetype order. *(verify against latest)*
 - Nearest-foe targeting tie-break (`combat/targeting.rs:266`) keeps the
@@ -977,7 +977,7 @@ trace-conformance tests); `integrate_normal_spine` + flight/climb/jump-buffer/
 coyote/wall-jump/dodge/dash/jump-release (all frame-projected); ledge grab (fully
 `_in_frame`); **portal core as read today** (momentum via `portal_map_vec`,
 somersault-roll + `gravity_upright_angle`, normal-based eviction/pieces/exit-boost —
-no hardcoded up anywhere in `ambition_portal`); projectile primitive (all-cardinal
+no hardcoded up anywhere in `ambition_portal2d`); projectile primitive (all-cardinal
 tests, `ProjectileSeq`-sorted stepping); player combat (melee/knockback/shield/
 meteor/gravity-grenade frame-agnostic and mostly gravity-tested); gravity zones /
 per-body `gravity_dir_at` / `ActorRoll` righting.
@@ -1108,7 +1108,7 @@ data test-only; boss profiles/encounters identical); boss-special Techniques
 shape); `ambition_combat` (`DamageKind::Custom`, genuine vocabulary);
 `ambition_interaction` (`PickupKind::Custom(String)` etc. — exemplary); SFX
 (string-hash `SfxId`); yarn commands extensible from content; smash brain generic;
-`ambition_engine_core`/`ambition_platformer_primitives` clean; renderer's
+`ambition_platformer2d_core`/`ambition_platformer2d_shared_tangle` clean; renderer's
 `ProjectileArtSource` seam correct.
 
 ### ADR 0019 gap summary
@@ -1123,7 +1123,7 @@ those, remaining leaks are mostly one-file data migrations along existing seams.
 
 ---
 
-## D. Decomposition of `ambition_actors` (94.5k LOC)
+## D. Decomposition of `ambition_platformer2d_actor_monolith` (94.5k LOC)
 
 ### LOC map (top modules)
 | Module | LOC | What it is |
@@ -1169,7 +1169,7 @@ refs) — but ~90% of it re-exports engine_core Body* clusters; only three real 
 live there. Move them down and `crate::actor` becomes a pure facade → delete per D1.
 This one file is why "everything imports gameplay_core for vocabulary."
 
-### D3. Cut the `ambition_render → ambition_actors` edge (biggest compile-time win)
+### D3. Cut the `ambition_render → ambition_platformer2d_actor_monolith` edge (biggest compile-time win)
 Hot edits in `features/ecs` currently rebuild gameplay_core (95k) → render (10k) →
 portal_presentation → app. Render's imports are almost entirely read-model
 vocabulary: `actor` (dissolved by D2), `config`/`time` (dissolved by D1), and the
@@ -1192,7 +1192,7 @@ in parallel with gameplay_core.
 > sim-view crate is necessary but not sufficient; cutting the edge is multi-session.
 > **[fable 2026-07-03: CONFIRMED — see AD4.]**
 
-### D4. Extract `ambition_world` (10.2k — the narrowest big seam)
+### D4. Extract `ambition_platformer2d_world` (10.2k — the narrowest big seam)
 > `[opus-4.8[1m]]` **fable should re-check — outbound is NOT "mostly clean, 3
 > inversions" (measured 2026-07-03; see E25).** `world/` OUTBOUND (what it imports
 > from the rest of gameplay_core = the cycle surface a leaf crate must shed) spans
@@ -1342,8 +1342,8 @@ linearly on main; the tree is green (counts in the verify block below).
 
 **Verify before you start** (and after every change):
 ```bash
-~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
-~/.cargo/bin/cargo test -p ambition_actors --lib    # 1091
+~/.cargo/bin/cargo test -p ambition_platformer2d_core --lib      # 211, incl. the C4 harness
+~/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib    # 1091
 ~/.cargo/bin/cargo test -p ambition_characters --lib       # 250 (now hosts BodyHealth/BodyCombat/BodyWallet)
 # Compile ALL test targets too — a word-boundary facade sed silently skips
 # multi-line grouped `use x::{\n A, Moved, B\n}` imports (D2b bit us twice):
@@ -1368,7 +1368,7 @@ linearly on main; the tree is green (counts in the verify block below).
   tests proving the mechanics, not the feel.
 - Frame-agnostic always: any new reaction/effect code goes through
   `AccelerationFrame`; pin new frame fixes with a scenario in
-  `crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs`
+  `crates/ambition_platformer2d_core/src/movement/tests/c4_reaction_seams.rs`
   (author local-frame, assert all 4 gravity arms match — the pattern is in
   the file).
 - ONE BODY ONE PATH: before adding anything keyed to player/actor/boss, check
@@ -1430,7 +1430,7 @@ can resume from it cold. Working directly on main; commit = checkpoint.
 ## Done
 
 ### E1. C4 body-tick symmetry harness (synthesis item 0a) ✅
-`crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs` — a
+`crates/ambition_platformer2d_core/src/movement/tests/c4_reaction_seams.rs` — a
 local-frame scenario rig at the `update_player_with_tuning_clusters` level:
 author blocks/spawn/input in the body's local frame, rotate through all 4
 cardinal gravities, compare local-frame traces (pos/vel/on_ground/on_wall/
@@ -1723,9 +1723,9 @@ so adding the clusters is behavior-neutral cleanliness best done WITH the
 holistic boss→actor-archetype conversion + its query-aliasing audit, not before.
 
 ### E16. D1 — `crate::config` coordinate facade removed ✅ (first D1 slice)
-The `pub use ambition_engine_core::config::{world_to_bevy, WORLD_Z_*, GRID_STEP,
+The `pub use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_*, GRID_STEP,
 WINDOW_*}` re-export is DELETED from `gameplay_core/src/config.rs`; all 39 refs
-(27 in render/app/content, 12 internal) now name `ambition_engine_core::config`
+(27 in render/app/content, 12 internal) now name `ambition_platformer2d_core::config`
 directly — the foundation home of the coordinate transform + z-layer constants.
 render/app/content no longer route a pure-geometry symbol through gameplay_core:
 the ONLY remaining `gameplay_core::config` import anywhere is `render/fx.rs`'s
@@ -1782,7 +1782,7 @@ its real sandbox code: `time_control` (the feel-tuned clock authority —
 `ambition_time::WorldTime` for its own `Res` param). `ambition_time` added as a
 direct dep of render + content (app already had it). Also fixed a
 docs-describe-moved-thing: `platformer_primitives/src/time.rs` pointed at
-`ambition_actors::WorldTime::sim_dt` (now `ambition_time::`).
+`ambition_platformer2d_actor_monolith::WorldTime::sim_dt` (now `ambition_time::`).
 Compiler-verified behavior-neutral: gameplay-core 1091, all four crates build,
 the nine app integration suites green.
 
@@ -1847,12 +1847,12 @@ ten app integration suites green.
 ### E22. D3 — render→gameplay_core edge: scoped the cut + landed the foundation-vocab slice ✅ (D3.1); plan below
 Jon picked D3 (the compile-time lever). **Key finding: the payoff is binary** —
 render's rebuild only drops out of the hot path when it FULLY stops depending on
-`ambition_actors`; partial type-moves are prep, not payoff. And render
+`ambition_platformer2d_actor_monolith`; partial type-moves are prep, not payoff. And render
 couples across ~30 distinct gameplay_core paths, so the full cut is multi-session.
 Landed the safe prep slice and mapped the rest precisely.
 > `[opus-4.8[1m]]` **fable should re-check** — the D3 audit says render's imports
 > are "**almost entirely read-model vocabulary**." My enumeration
-> (`grep -oE 'ambition_actors::\w+(::\w+)?' | sort | uniq -c`) shows render
+> (`grep -oE 'ambition_platformer2d_actor_monolith::\w+(::\w+)?' | sort | uniq -c`) shows render
 > also imports **world/room types** (`RoomGeometry` ×27 — the single biggest) and
 > a category the audit didn't call out: **presentation *systems* render registers**
 > (`portal::sync_*`, `abilities::traversal`, `dev::dev_tools`, `physics::GravityCtx`,
@@ -1863,8 +1863,8 @@ Landed the safe prep slice and mapped the rest precisely.
 > **[fable 2026-07-03: CONFIRMED — see AD4. Surface is bigger; slice order stands; D3 unblocked by AD1.]**
 
 **D3.1 DONE (`111e8893`):** render's `gameplay_core::actor::Body*` imports were
-all pure foundation re-exports → render now names `ambition_platformer_primitives`
-(BodyKinematics + markers) and `ambition_engine_core` (the 18 clusters) directly.
+all pure foundation re-exports → render now names `ambition_platformer2d_shared_tangle`
+(BodyKinematics + markers) and `ambition_platformer2d_core` (the 18 clusters) directly.
 ~40 refs / 15 modules; `\b`-guarded so `PrimaryPlayerOnly` (a real gameplay_core
 query alias) stays. render lib 24 green.
 
@@ -1899,7 +1899,7 @@ query alias) stays. render lib 24 green.
     `ambition_sprite_sheet`, then render names it there.
 - **C. World/room vocab** — `RoomGeometry` (27, the single biggest render import!),
   `rooms::{Authored, RoomSet, RoomSpec, RoomMetadata, PortalSprite, CameraZoneSpec}`.
-  This is **§D4 (extract `ambition_world`)**; render names the world crate.
+  This is **§D4 (extract `ambition_platformer2d_world`)**; render names the world crate.
 - **D. Presentation SYSTEMS render registers** (not data — the subtle part):
   `portal::sync_*` (5 fns), `abilities::traversal` (7), `dev::dev_tools` (7),
   `shrine`, `session::{camera_layers, RespawnRoomVisualsRequested}`,
@@ -1916,14 +1916,14 @@ query alias) stays. render lib 24 green.
 {engine_core + bevy deps}, move the pure-data read-model core (FeatureView/
 FeatureVisualKind/BoundFeatureKind/FeatureCombatTuning + ActorSpriteData + the
 anim-state enums); gameplay_core's builder writes them, render reads them. →
-(D3.3) §D4 `ambition_world` for RoomGeometry + rooms (biggest single reducer). →
+(D3.3) §D4 `ambition_platformer2d_world` for RoomGeometry + rooms (biggest single reducer). →
 (D3.4) §D6 `character_sprites` down. → (D3.5) settings/camera → move
 CameraSnapshot2d. → (D3.6) untangle category-D systems. → (D3.7) drop the
-`ambition_actors` dep from render's Cargo.toml — the lever fires. This is
+`ambition_platformer2d_actor_monolith` dep from render's Cargo.toml — the lever fires. This is
 the same "move a family to its leaf home, then redirect" template D2 proved.
 
 ### E23. D3.2a — `ambition_sim_view` crate created; pure-data read-model core moved ⟲ REVERTED (see E24)
-Created the leaf crate (`crates/ambition_sim_view`, deps: `ambition_engine_core`
+Created the leaf crate (`crates/ambition_sim_view`, deps: `ambition_platformer2d_core`
 + `bevy` ECS-derive only) and moved the pure-data read-model core out of
 `combat/events.rs`: `FeatureVisualKind`, `FeatureView`, `BoundFeatureKind`,
 `FeatureCombatTuning` (+ `DEFAULT_*_ATTACK_*` consts). D2-style a/b split:
@@ -1973,7 +1973,7 @@ outbound but BOTH read `Res<RoomGeometry>`). **`RoomGeometry` (`lib.rs:235` —
 nothing in `world/` extracts until it has a foundation home, and it's ALSO
 render's single biggest gameplay_core import (×27 → the biggest D3 reducer). It's
 a trivial newtype over engine_core's `World`, and engine_core already carries
-`bevy_ecs` (derives `Component` for the Body* clusters) — so `ambition_engine_core`
+`bevy_ecs` (derives `Component` for the Body* clusters) — so `ambition_platformer2d_core`
 (next to `World`) is the obvious home, a clean D2-style value-type move.
 **HELD for a decision (D3.2a lesson): don't relocate a type into a FUNDAMENTAL
 crate without confirming the shape/naming.** Open Q for Jon/fable: is `RoomGeometry`
@@ -1985,12 +1985,12 @@ Once the home is set: D4.1 re-home `RoomGeometry` (unblocks all of `world/` +
 lands the biggest D3 render win), then platforms/physics extract cleanly, then the
 converter-extensibility + rooms inversions are the multi-session remainder.
 
-### E26. D4.1 — `RoomGeometry` re-homed to `ambition_engine_core` ✅ (`0eac4cfa`)
+### E26. D4.1 — `RoomGeometry` re-homed to `ambition_platformer2d_core` ✅ (`0eac4cfa`)
 Jon confirmed the home (engine_core, as-is). Moved the `Resource(World)` newtype
 next to `World` in `engine_core::world` (native `bevy_ecs::resource::Resource`
 derive — engine_core already derives the Body* Components). All ~99 consumer refs
 (gameplay_core 48, render 27, content 14, app 10) now name
-`ambition_engine_core::RoomGeometry` directly; the gameplay_core crate-root facade
+`ambition_platformer2d_core::RoomGeometry` directly; the gameplay_core crate-root facade
 is DELETED. Word-boundary sweep + 9 grouped-import splits (incl. a multi-line
 group in `combat/damage.rs` the sed skipped — the recurring lesson). Zero Cargo
 changes (all consumers already dep engine_core). **Payoff banked:** render shed
@@ -2368,7 +2368,7 @@ actor-cluster borrow was exactly two systems; both are now cut.
 Harvested every render→gameplay_core import that was really a FOUNDATION type
 behind a thin gameplay_core facade (the D3.1 `actor::Body*` pattern). Three landed,
 zero behavior change, render 24 green each:
-- **gravity** (`7e221004`): `crate::physics` is `pub use ambition_platformer_primitives::gravity::*`;
+- **gravity** (`7e221004`): `crate::physics` is `pub use ambition_platformer2d_shared_tangle::gravity::*`;
   render's `GravityCtx`/`gravity_aware_flip_x`/`GravityField`/`GravityZone` (7 sites)
   now name the foundation directly.
 - **PrimaryPlayerOnly** (`ffe88faa`): the alias `(With<PlayerEntity>, With<PrimaryPlayer>)`
@@ -2389,7 +2389,7 @@ still premature until the edge narrows), `rooms` (15, the entangled crux —
 `debug_label`; breaking that coupling is a design call for Jon, NOT a safe
 autonomous move — see the rooms-extraction map), `portal` (12, category-D: the
 sandbox portal-integration SYSTEMS are DEFINED in gameplay_core's `portal/mod.rs`,
-not the foundation `ambition_portal`/`_presentation` crates, so they need the
+not the foundation `ambition_portal2d`/`_presentation` crates, so they need the
 case-by-case system untangle, not a redirect), `assets` (12), `character_sprites`
 (9, §D6 carve), + the dev/abilities/session/persistence tail. So D3 is now blocked
 on the three genuinely-hard, non-autonomous fronts: the rooms crux, the value-type
@@ -2888,7 +2888,7 @@ Explore of the brain code confirmed they all read `target_pos` (directly or via
 
 ### E59. C4 app-thinness — 5 of 7 `sim_systems.rs` systems folded into owning gameplay_core plugins ✅
 The app binary held real gameplay-sim logic in `ambition_app::app::sim_systems` (7 systems). Moved the
-LOGIC down to its owning `ambition_actors` module; the host schedule
+LOGIC down to its owning `ambition_platformer2d_actor_monolith` module; the host schedule
 (`register_player_input_systems` / `register_presentation_sync_systems`) keeps owning the ordering +
 `run_if` gates and now references the moved `pub fn`s by their library path.
 - **Moved (render-free, app-only-free):** `apply_suspended_time_scale_system` →
@@ -2896,7 +2896,7 @@ LOGIC down to its owning `ambition_actors` module; the host schedule
   `time_control::tests`); `sync_live_player_dev_edits_system` → `gameplay_core::dev` (beside the dev
   STATE it reads); `input_timer_system` + `interaction_input_system` + `cleanup_timers_system` → a new
   `gameplay_core::player::input_systems` (+ the interaction-suppression tests). Mechanical, behavior-
-  preserving (`ambition_actors::` → `crate::` path rewrite only).
+  preserving (`ambition_platformer2d_actor_monolith::` → `crate::` path rewrite only).
 - **LEFT in the app (genuine host/reset concerns, cannot move):** `apply_player_reset_input_system` +
   `apply_cut_rope_room_replay_request_system` — both call the app-only `world_flow::reset_sandbox` AND
   write render `ambition_render::fx::VfxMessage`, and gameplay_core has NO render dep. The cut-rope one
@@ -2909,7 +2909,7 @@ LOGIC down to its owning `ambition_actors` module; the host schedule
   change snuck in).
 - **Pinned** by a new `architecture_boundaries_input_timer_systems_moved_to_gameplay_core` (mirrors the
   touch-input guard): `sim_systems.rs` no longer DEFINES the 5 moved systems, `plugins.rs` references
-  them via `ambition_actors::` paths, and the 2 host-bound ones DO stay defined in the app.
+  them via `ambition_platformer2d_actor_monolith::` paths, and the 2 host-bound ones DO stay defined in the app.
 - **Green:** gameplay_core --lib 1128; `architecture_boundaries`, `plugin_minimal_app`,
   `possession_end_to_end` all pass; app compiles `--all-targets`. **REMAINING C4:** the
   `PlatformerEnginePlugin` group (collect the ~30 engine plugins) — sprawly, deferred as noted in the

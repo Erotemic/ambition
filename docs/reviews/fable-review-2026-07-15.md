@@ -1,4 +1,4 @@
-Interesting - I see references to ambition_actors, ambition_portal, ambition_runtime which are NOT declared deps of render. Let me locate those and classify the seam-relevant deps.
+Interesting - I see references to ambition_platformer2d_actor_monolith, ambition_portal2d, ambition_platformer2d_runtime which are NOT declared deps of render. Let me locate those and classify the seam-relevant deps.
 
 Bash Find quoted proper-noun string literals suggesting named content
 IN
@@ -43,21 +43,21 @@ Read crate-remap-idea.md
 Read lib.rs
 Bash Locate undeclared-dep references in render
 IN
-cd /home/joncrall/code/ambition/crates/ambition_render && echo "=== ambition_actors refs (NOT a declared dep) ===" && grep -rn "ambition_actors" src && echo "=== ambition_portal (non-presentation) refs ===" && grep -rn "ambition_portal::" src && echo "=== ambition_runtime refs ===" && grep -rn "ambition_runtime" src && echo "=== ambition_interaction refs (0 counted) ===" && grep -rn "ambition_interaction" src
+cd /home/joncrall/code/ambition/crates/ambition_render && echo "=== ambition_platformer2d_actor_monolith refs (NOT a declared dep) ===" && grep -rn "ambition_platformer2d_actor_monolith" src && echo "=== ambition_portal2d (non-presentation) refs ===" && grep -rn "ambition_portal2d::" src && echo "=== ambition_platformer2d_runtime refs ===" && grep -rn "ambition_platformer2d_runtime" src && echo "=== ambition_interaction refs (0 counted) ===" && grep -rn "ambition_interaction" src
 
 OUT
-=== ambition_actors refs (NOT a declared dep) ===
-src/rendering/item_visuals.rs:191:/// Marks a sprite entity visualizing a [`WorldItem`] (ambition_actors::items::world_item::WorldItem).
-src/rendering/item_visuals.rs:196:/// id a [`WorldItem`] (ambition_actors::items::world_item::WorldItem) carries →
-=== ambition_portal (non-presentation) refs ===
-src/rendering/mod.rs:187:        // tag, gun art — see `ambition_portal::host_adapter`). Gravity visuals
-src/rendering/gravity_visuals.rs:2://! the presentation rendering plugin). Extracted from `ambition_portal::presentation`
-=== ambition_runtime refs ===
-src/platformer_presentation.rs:36://! app.add_plugins(ambition_runtime::PlatformerEnginePlugins::fixed_tick());
+=== ambition_platformer2d_actor_monolith refs (NOT a declared dep) ===
+src/rendering/item_visuals.rs:191:/// Marks a sprite entity visualizing a [`WorldItem`] (ambition_platformer2d_actor_monolith::items::world_item::WorldItem).
+src/rendering/item_visuals.rs:196:/// id a [`WorldItem`] (ambition_platformer2d_actor_monolith::items::world_item::WorldItem) carries →
+=== ambition_portal2d (non-presentation) refs ===
+src/rendering/mod.rs:187:        // tag, gun art — see `ambition_portal2d::host_adapter`). Gravity visuals
+src/rendering/gravity_visuals.rs:2://! the presentation rendering plugin). Extracted from `ambition_portal2d::presentation`
+=== ambition_platformer2d_runtime refs ===
+src/platformer_presentation.rs:36://! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::fixed_tick());
 === ambition_interaction refs (0 counted) ===
 Bash Extract platformer_primitives module docs
 IN
-cd /home/joncrall/code/ambition/crates/ambition_platformer_primitives/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_shared_tangle/src
 for f in body.rs gravity.rs kinematic.rs class_b.rs frame_env.rs schedule.rs camera_ease.rs camera_layers.rs world_item_art.rs math.rs orientation.rs physics.rs transit.rs feature_overlay.rs markers.rs sim_id.rs time.rs projectile/mod.rs lifecycle/mod.rs; do echo "##### $f #####"; awk '/^\/\/!/{print; next} {c++} c>0 && !/^\/\/!/{exit}' "$f" | head -8; done
 
 OUT
@@ -113,18 +113,18 @@ OUT
 ##### camera_ease.rs #####
 //! Smoothed camera scale + world-target state with tunable ease rates.
 //!
-//! Moved below `ambition_actors` during F1.5 so render/host can share camera
+//! Moved below `ambition_platformer2d_actor_monolith` during F1.5 so render/host can share camera
 //! presentation timing state without depending on the actor-domain crate.
 ##### camera_layers.rs #####
 //! Presentation camera markers shared by host, render, and app wiring.
 //!
 //! These are Bevy presentation vocabulary, not actor-domain state. Keeping them
 //! below the actor crate lets render/host systems agree on camera identity
-//! without depending on `ambition_actors`.
+//! without depending on `ambition_platformer2d_actor_monolith`.
 ##### world_item_art.rs #####
 //! Provider-contributed art declarations for walk-into world items.
 //!
-//! A `WorldItem` (in `ambition_actors`) carries a presentation `sprite` id (an art
+//! A `WorldItem` (in `ambition_platformer2d_actor_monolith`) carries a presentation `sprite` id (an art
 //! key, deliberately separate from the equipment it grants).
 //! The render layer draws that id as a real sprite through its `WorldItemArt`
 //! handle map — but a gameplay PROVIDER crate (which owns the asset knowledge:
@@ -151,7 +151,7 @@ OUT
 ##### physics.rs #####
 //! Shared secondary-physics settings resource.
 //!
-//! The Avian adapter stays in `ambition_actors::world::physics`; this tiny
+//! The Avian adapter stays in `ambition_platformer2d_actor_monolith::world::physics`; this tiny
 //! resource lives below render/app so presentation systems can receive the same
 //! settings value without depending on actor machinery.
 ##### transit.rs #####
@@ -170,7 +170,7 @@ OUT
 //! sandbox-internal dependencies. They live in the runtime crate so portal,
 //! gravity, and other extracted mechanics can query the player / simulated
 //! feature entities without depending on the sandbox's `player` or `features`
-//! modules. The host (`ambition_actors`) re-exports them from their original
+//! modules. The host (`ambition_platformer2d_actor_monolith`) re-exports them from their original
 //! paths so existing call sites compile unchanged.
 ##### sim_id.rs #####
 //! **`SimId` — the one identity vocabulary for snapshot, replay, and netcode.**
@@ -196,7 +196,7 @@ OUT
 //! This module is the brain-free physics core for projectiles in a 2D
 //! platformer: authored-intent specs, a per-frame kinematic body, and a
 //! world-vs-body collision resolver. It depends only on
-//! `ambition_engine_core` (geometry + world) — no spawn logic, no damage
+//! `ambition_platformer2d_core` (geometry + world) — no spawn logic, no damage
 //! routing, no actor roster, and no Ambition-specific content. Any
 //! platformer (or an agent building one) can drop it in and feed it a
 ##### lifecycle/mod.rs #####
@@ -250,7 +250,7 @@ src/cutscene/mod.rs:176:                        // `ambition_input::presets::Con
 src/fx.rs:15:use ambition_sfx::{SfxMessage, SfxWriter};
 Bash Extract dependencies from Cargo.toml for target crates
 IN
-for c in ambition_combat ambition_projectiles ambition_portal ambition_portal_presentation ambition_encounter ambition_interaction ambition_cutscene ambition_dialog ambition_dev_tools ambition_persistence ambition_load ambition_load_presentation; do
+for c in ambition_combat ambition_projectiles ambition_portal2d ambition_portal2d_presentation ambition_encounter ambition_interaction ambition_cutscene ambition_dialog ambition_dev_tools ambition_persistence ambition_load ambition_load_presentation; do
   echo "=== $c/Cargo.toml [dependencies] ==="
   awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&NF' /home/joncrall/code/ambition/crates/$c/Cargo.toml 2>/dev/null | grep -oE '^ambition_[a-z_]+|^[a-z_]+ ' | head -40
 done
@@ -258,37 +258,37 @@ done
 OUT
 === ambition_combat/Cargo.toml [dependencies] ===
 ambition_characters 
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_entity_catalog 
 ambition_interaction 
-ambition_platformer_primitives 
+ambition_platformer2d_shared_tangle 
 ambition_sfx 
 ambition_time 
 ambition_vfx 
 serde 
 bevy 
 === ambition_projectiles/Cargo.toml [dependencies] ===
-ambition_engine_core 
-ambition_platformer_primitives 
-ambition_portal 
-ambition_world 
+ambition_platformer2d_core 
+ambition_platformer2d_shared_tangle 
+ambition_portal2d 
+ambition_platformer2d_world 
 ambition_gameplay_trace 
 ambition_input 
 ambition_vfx 
 serde 
 bevy 
-=== ambition_portal/Cargo.toml [dependencies] ===
+=== ambition_portal2d/Cargo.toml [dependencies] ===
 serde 
 bevy 
-ambition_engine_core 
-ambition_platformer_primitives 
-=== ambition_portal_presentation/Cargo.toml [dependencies] ===
+ambition_platformer2d_core 
+ambition_platformer2d_shared_tangle 
+=== ambition_portal2d_presentation/Cargo.toml [dependencies] ===
 bevy 
-ambition_engine_core 
-ambition_platformer_primitives 
-ambition_portal 
+ambition_platformer2d_core 
+ambition_platformer2d_shared_tangle 
+ambition_portal2d 
 === ambition_encounter/Cargo.toml [dependencies] ===
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_interaction 
 ambition_persistence 
 bevy 
@@ -296,14 +296,14 @@ ron
 serde 
 === ambition_interaction/Cargo.toml [dependencies] ===
 ambition_characters 
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_entity_catalog 
 serde 
 === ambition_cutscene/Cargo.toml [dependencies] ===
 serde 
 bevy 
 === ambition_dialog/Cargo.toml [dependencies] ===
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_ui_nav 
 ambition_input 
 ambition_sfx 
@@ -311,15 +311,15 @@ ambition_persistence
 bevy 
 bevy_yarnspinner 
 === ambition_dev_tools/Cargo.toml [dependencies] ===
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_characters 
-ambition_platformer_primitives 
+ambition_platformer2d_shared_tangle 
 ambition_persistence 
 bevy 
 serde 
 ron 
 === ambition_persistence/Cargo.toml [dependencies] ===
-ambition_engine_core 
+ambition_platformer2d_core 
 ambition_input 
 bevy 
 ron 
@@ -390,13 +390,13 @@ cd /home/joncrall/code/ambition
 echo "=== workspace crates list ===" && ls crates/ | head -60
 echo "=== game/ dir ===" && ls game/ 2>/dev/null
 echo "=== ambition_content exists? ===" && find . -maxdepth 3 -type d -name 'ambition_content' 2>/dev/null
-echo "=== references to ambition_content in ambition_actors ==="
-grep -rn 'ambition_content' crates/ambition_actors/src --include='*.rs' | head
+echo "=== references to ambition_content in ambition_platformer2d_actor_monolith ==="
+grep -rn 'ambition_content' crates/ambition_platformer2d_actor_monolith/src --include='*.rs' | head
 
 OUT
 === workspace crates list ===
 ambition
-ambition_actors
+ambition_platformer2d_actor_monolith
 ambition_asset_manager
 ambition_audio
 ambition_characters
@@ -405,26 +405,26 @@ ambition_cutscene
 ambition_dev_tools
 ambition_dialog
 ambition_encounter
-ambition_engine_core
+ambition_platformer2d_core
 ambition_entity_catalog
 ambition_game_shell
 ambition_gameplay_trace
-ambition_host
+ambition_platformer2d_host
 ambition_input
 ambition_interaction
 ambition_inventory_ui
 ambition_items
-ambition_ldtk_map
+ambition_platformer2d_ldtk
 ambition_load
 ambition_load_presentation
 ambition_menu
 ambition_persistence
-ambition_platformer_primitives
-ambition_portal
-ambition_portal_presentation
+ambition_platformer2d_shared_tangle
+ambition_portal2d
+ambition_portal2d_presentation
 ambition_projectiles
 ambition_render
-ambition_runtime
+ambition_platformer2d_runtime
 ambition_settings_menu
 ambition_sfx
 ambition_sfx_bank
@@ -434,7 +434,7 @@ ambition_time
 ambition_touch_input
 ambition_ui_nav
 ambition_vfx
-ambition_world
+ambition_platformer2d_world
 === game/ dir ===
 ambition_app
 ambition_content
@@ -447,17 +447,17 @@ ambition_menu_kaleidoscope
 === ambition_content exists? ===
 ./game/ambition_content
 ./.tmp-ambition-agent-source-20260612T232700Z-75cb34e1798e-stage/crates/ambition_content
-=== references to ambition_content in ambition_actors ===
-crates/ambition_actors/src/character_roster.rs:13:        "../../../game/ambition_content/assets/data/character_catalog.ron"
-crates/ambition_actors/src/lib.rs:11://! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
-crates/ambition_actors/src/lib.rs:15://! content has been migrated out to `ambition_content`. Foundation crates
-crates/ambition_actors/src/audio/tests.rs:23:            .join("../../game/ambition_content/assets/worlds");
-crates/ambition_actors/src/audio/tests.rs:32:                embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
-crates/ambition_actors/src/audio/tests.rs:443:                "../../../../game/ambition_content/assets/data/character_catalog.ron"
-crates/ambition_actors/src/boss_encounter/roster.rs:5://! content: they live in `ambition_content/assets/data/boss_encounters/*.ron`
-crates/ambition_actors/src/boss_encounter/roster.rs:6://! and are contributed through `ambition_content::bosses::register` into the
-crates/ambition_actors/src/boss_encounter/systems.rs:38:    // `ambition_content/assets/data/boss_encounters/<id>.ron` and assembled
-crates/ambition_actors/src/boss_encounter/catalog.rs:676:            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
+=== references to ambition_content in ambition_platformer2d_actor_monolith ===
+crates/ambition_platformer2d_actor_monolith/src/character_roster.rs:13:        "../../../game/ambition_content/assets/data/character_catalog.ron"
+crates/ambition_platformer2d_actor_monolith/src/lib.rs:11://! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
+crates/ambition_platformer2d_actor_monolith/src/lib.rs:15://! content has been migrated out to `ambition_content`. Foundation crates
+crates/ambition_platformer2d_actor_monolith/src/audio/tests.rs:23:            .join("../../game/ambition_content/assets/worlds");
+crates/ambition_platformer2d_actor_monolith/src/audio/tests.rs:32:                embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
+crates/ambition_platformer2d_actor_monolith/src/audio/tests.rs:443:                "../../../../game/ambition_content/assets/data/character_catalog.ron"
+crates/ambition_platformer2d_actor_monolith/src/boss_encounter/roster.rs:5://! content: they live in `ambition_content/assets/data/boss_encounters/*.ron`
+crates/ambition_platformer2d_actor_monolith/src/boss_encounter/roster.rs:6://! and are contributed through `ambition_content::bosses::register` into the
+crates/ambition_platformer2d_actor_monolith/src/boss_encounter/systems.rs:38:    // `ambition_content/assets/data/boss_encounters/<id>.ron` and assembled
+crates/ambition_platformer2d_actor_monolith/src/boss_encounter/catalog.rs:676:            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
 This crate appears genuinely content-free (machinery). Data lives in game/ambition_content/assets/data/. Let me verify that and inspect the equipment/catalog/smash machinery.
 
 Read catalog.rs
@@ -593,12 +593,12 @@ OUT
 
 === content Cargo deps ===
 [dependencies]
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
 ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
-ambition_actors = { path = "../../crates/ambition_actors", default-features = false, features = [
+ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
     "ldtk_runtime",
     "input",
     "portal",
@@ -611,21 +611,21 @@ ambition_encounter = { path = "../../crates/ambition_encounter" }
 # N3.1: this crate's boss specials hold SIM STATE, so they register their own
 # snapshot codecs (`SnapshotRegistry` is a resource). netcode.md: "each sim crate
 # registers its components' serialization."
-ambition_runtime = { path = "../../crates/ambition_runtime" }
+ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
 ambition_sfx = { path = "../../crates/ambition_sfx" }
 ambition_vfx = { path = "../../crates/ambition_vfx" }
 ambition_time = { path = "../../crates/ambition_time" }
 ambition_audio = { path = "../../crates/ambition_audio" }
-ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 # `MovingPlatformSet` + `world_with_sandbox_solids` — the composited collision
 # world the portal host adapter and the arena-gate tests read (R3).
-ambition_world = { path = "../../crates/ambition_world" }
-ambition_portal = { path = "../../crates/ambition_portal" }
-ambition_portal_presentation = { path = "../../crates/ambition_portal_presentation", optional = true }
+ambition_platformer2d_world = { path = "../../crates/ambition_platformer2d_world" }
+ambition_portal2d = { path = "../../crates/ambition_portal2d" }
+ambition_portal2d_presentation = { path = "../../crates/ambition_portal2d_presentation", optional = true }
 ambition_input = { path = "../../crates/ambition_input" }
-ambition_engine_core = { path = "../../crates/ambition_engine_core" }
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_characters = { path = "../../crates/ambition_characters" }
 ambition_persistence = { path = "../../crates/ambition_persistence" }
@@ -671,7 +671,7 @@ OUT
    272 game/ambition_demo_mary_o/src/bricks.rs
    188 game/ambition_demo_mary_o/src/provider.rs
 --- Cargo deps ---
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 bevy = { version = "0.18.1", default-features = false }
 
 ===== game/ambition_demo_mary_o_app =====
@@ -679,7 +679,7 @@ bevy = { version = "0.18.1", default-features = false }
   330 game/ambition_demo_mary_o_app/src/lib.rs
   122 game/ambition_demo_mary_o_app/src/main.rs
 --- Cargo deps ---
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 bevy = { version = "0.18.1", default-features = false }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg"], optional = true }
@@ -692,7 +692,7 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg
    389 game/ambition_demo_sanic/src/ball_dash.rs
    132 game/ambition_demo_sanic/src/provider.rs
 --- Cargo deps ---
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 bevy = { version = "0.18.1", default-features = false }
 
 ===== game/ambition_demo_sanic_app =====
@@ -700,7 +700,7 @@ bevy = { version = "0.18.1", default-features = false }
   429 game/ambition_demo_sanic_app/src/lib.rs
   120 game/ambition_demo_sanic_app/src/main.rs
 --- Cargo deps ---
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 bevy = { version = "0.18.1", default-features = false }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg"], optional = true }
@@ -708,7 +708,7 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg
 ===== game/ambition_demo_pocket =====
 266 game/ambition_demo_pocket/src/lib.rs
 --- Cargo deps ---
-ambition = { path = "../../crates/ambition", default-features = false }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }
 bevy = { version = "0.18.1", default-features = false }
 Read lib.rs
 Let me look at the baked-in content and hardcoded named IDs across the crate.
@@ -716,13 +716,13 @@ Let me look at the baked-in content and hardcoded named IDs across the crate.
 Bash Module docs for world and input crates
 IN
 cd /home/joncrall/code/ambition
-echo "########## ambition_world modules ##########"
-for f in lib.rs collision.rs debug_label.rs placements.rs ron_room.rs platforms/mod.rs rooms/mod.rs rooms/graph.rs rooms/room_graph.rs rooms/metadata.rs rooms/spawn.rs rooms/specs.rs rooms/camera.rs rooms/gate_portal.rs rooms/loading_zone.rs; do echo "##### world/$f #####"; awk '/^\/\/!/{print; next} {c++} c>0 && !/^\/\/!/{exit}' "crates/ambition_world/src/$f" | head -6; done
+echo "########## ambition_platformer2d_world modules ##########"
+for f in lib.rs collision.rs debug_label.rs placements.rs ron_room.rs platforms/mod.rs rooms/mod.rs rooms/graph.rs rooms/room_graph.rs rooms/metadata.rs rooms/spawn.rs rooms/specs.rs rooms/camera.rs rooms/gate_portal.rs rooms/loading_zone.rs; do echo "##### world/$f #####"; awk '/^\/\/!/{print; next} {c++} c>0 && !/^\/\/!/{exit}' "crates/ambition_platformer2d_world/src/$f" | head -6; done
 echo; echo "########## ambition_input modules ##########"
 for f in lib.rs actions.rs active_input.rs control.rs menu.rs motion_input.rs presets.rs settings.rs; do echo "##### input/$f #####"; awk '/^\/\/!/{print; next} {c++} c>0 && !/^\/\/!/{exit}' "crates/ambition_input/src/$f" | head -6; done
 
 OUT
-########## ambition_world modules ##########
+########## ambition_platformer2d_world modules ##########
 ##### world/lib.rs #####
 //! Backend-agnostic authored world IR.
 //!
@@ -735,7 +735,7 @@ OUT
 //! per-frame dynamic contributions a running sim adds to it.
 //!
 //! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
-//! should reach for instead of `ambition_platformer_primitives::lifecycle::SessionWorldRef<RoomGeometry>`: it composites the authored
+//! should reach for instead of `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>`: it composites the authored
 //! room with moving platforms and the ECS overlay so player, NPC, enemy, and
 ##### world/debug_label.rs #####
 //! Generic room-object label for debug overlays and editor selection.
@@ -764,7 +764,7 @@ OUT
 //! Moving platforms remain sandbox-side as a design experiment, but they now
 //! contribute temporary solid blocks to the engine collision world each frame.
 //! That gives us rideable/collidable behavior without committing moving-solid
-//! semantics to `ambition_engine_core` before we have tests for carrying, crushing,
+//! semantics to `ambition_platformer2d_core` before we have tests for carrying, crushing,
 ##### world/rooms/mod.rs #####
 //! Room graph and authored room IR.
 ##### world/rooms/graph.rs #####
@@ -836,7 +836,7 @@ OUT
 //! Device adapters that build the engine-owned `ControlFrame` resource.
 //!
 //! The pure, brain-facing [`ControlFrame`] vocabulary lives in
-//! `ambition_engine_core`; this module is the input adapter that translates
+//! `ambition_platformer2d_core`; this module is the input adapter that translates
 //! Leafwing `SandboxAction`s, control settings, and trigger hysteresis into that
 //! frame. Headless/replay/netcode callers can construct `ControlFrame` directly
 ##### input/menu.rs #####
@@ -861,7 +861,7 @@ OUT
 //! is built so gameplay sees clean edges instead of analog jitter.
 Bash Find baked content and hardcoded IDs
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== include_str!/include_bytes! referencing content ==="
 grep -rnE 'include_str!|include_bytes!' --include='*.rs' . | grep -vi test | head -40
 echo
@@ -1109,33 +1109,33 @@ OUT
 //!
 Bash runtime, host, policy maps
 IN
-echo "=== runtime map ==="; find crates/ambition_runtime/src -type f -name "*.rs" | xargs wc -l | sort -rn | head -40; echo; echo "=== host map ==="; find crates/ambition_host/src -type f -name "*.rs" | xargs wc -l | sort -rn; echo; echo "=== policy tests map ==="; find tests/ambition_workspace_policy -type f | xargs wc -l 2>/dev/null | sort -rn | head -40
+echo "=== runtime map ==="; find crates/ambition_platformer2d_runtime/src -type f -name "*.rs" | xargs wc -l | sort -rn | head -40; echo; echo "=== host map ==="; find crates/ambition_platformer2d_host/src -type f -name "*.rs" | xargs wc -l | sort -rn; echo; echo "=== policy tests map ==="; find tests/ambition_workspace_policy -type f | xargs wc -l 2>/dev/null | sort -rn | head -40
 
 OUT
 === runtime map ===
   7702 total
-  1912 crates/ambition_runtime/src/snapshot/tests.rs
-  1402 crates/ambition_runtime/src/snapshot/codecs.rs
-  1192 crates/ambition_runtime/src/snapshot/mod.rs
-   709 crates/ambition_runtime/src/snapshot/registry.rs
-   492 crates/ambition_runtime/src/snapshot/restore.rs
-   368 crates/ambition_runtime/src/snapshot/motion_codec.rs
-   339 crates/ambition_runtime/src/lib.rs
-   285 crates/ambition_runtime/src/combat_schedule.rs
-   222 crates/ambition_runtime/src/player_schedule.rs
-   154 crates/ambition_runtime/src/sim_core_resources.rs
-   137 crates/ambition_runtime/src/input_stream.rs
-   131 crates/ambition_runtime/src/progression_schedule.rs
-   114 crates/ambition_runtime/src/mode_scope.rs
-   101 crates/ambition_runtime/src/portal_schedule.rs
-    80 crates/ambition_runtime/src/session_world.rs
-    49 crates/ambition_runtime/src/room_schedule.rs
-    15 crates/ambition_runtime/src/projectile_schedule.rs
+  1912 crates/ambition_platformer2d_runtime/src/snapshot/tests.rs
+  1402 crates/ambition_platformer2d_runtime/src/snapshot/codecs.rs
+  1192 crates/ambition_platformer2d_runtime/src/snapshot/mod.rs
+   709 crates/ambition_platformer2d_runtime/src/snapshot/registry.rs
+   492 crates/ambition_platformer2d_runtime/src/snapshot/restore.rs
+   368 crates/ambition_platformer2d_runtime/src/snapshot/motion_codec.rs
+   339 crates/ambition_platformer2d_runtime/src/lib.rs
+   285 crates/ambition_platformer2d_runtime/src/combat_schedule.rs
+   222 crates/ambition_platformer2d_runtime/src/player_schedule.rs
+   154 crates/ambition_platformer2d_runtime/src/sim_core_resources.rs
+   137 crates/ambition_platformer2d_runtime/src/input_stream.rs
+   131 crates/ambition_platformer2d_runtime/src/progression_schedule.rs
+   114 crates/ambition_platformer2d_runtime/src/mode_scope.rs
+   101 crates/ambition_platformer2d_runtime/src/portal_schedule.rs
+    80 crates/ambition_platformer2d_runtime/src/session_world.rs
+    49 crates/ambition_platformer2d_runtime/src/room_schedule.rs
+    15 crates/ambition_platformer2d_runtime/src/projectile_schedule.rs
 
 === host map ===
   997 total
-  743 crates/ambition_host/src/portal.rs
-  254 crates/ambition_host/src/lib.rs
+  743 crates/ambition_platformer2d_host/src/portal.rs
+  254 crates/ambition_platformer2d_host/src/lib.rs
 
 === policy tests map ===
   7418 total
@@ -1196,7 +1196,7 @@ Read refactor-chain.md
 Let me examine the reference-frame/relativity theme, the sandbox_assets content, and the movement modules that had no doc header.
 
 Read architecture.md
-Now let me examine ambition_actors (boss_encounter, brain paths) and the projectiles crate to find overlaps and parallel paths.
+Now let me examine ambition_platformer2d_actor_monolith (boss_encounter, brain paths) and the projectiles crate to find overlaps and parallel paths.
 
 Bash ambition_sprite_sheet Cargo + tree
 IN
@@ -1210,7 +1210,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free sprite-sheet metadata vocabulary: the SheetRecord / AnimationMetrics / PixelRect / FrameRect schema + the SheetRegistry resource that parses a baked `(filename_root, ron_text)` table. The host game owns where its sprite assets live and passes the baked table in. Extracted from ambition_actors."
+description = "Reusable, content-free sprite-sheet metadata vocabulary: the SheetRecord / AnimationMetrics / PixelRect / FrameRect schema + the SheetRegistry resource that parses a baked `(filename_root, ron_text)` table. The host game owns where its sprite assets live and passes the baked table in. Extracted from ambition_platformer2d_actor_monolith."
 
 [lib]
 crate-type = ["rlib"]
@@ -1241,11 +1241,11 @@ serde_json = "1"
 # Render-facing asset resource/model helpers moved below ambition_render.
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_combat = { path = "../ambition_combat" }
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_persistence = { path = "../ambition_persistence" }
-ambition_world = { path = "../ambition_world" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 
 # Logging facade (bevy logs through tracing); used for the load diagnostics.
 tracing = "0.1"
@@ -1278,20 +1278,20 @@ tracing = "0.1"
 ./Cargo.toml
 Let me verify whether the flagged types (Health, WornCharacter, FeatureView, DialogState) are sim components read directly vs read-models. Let me also read render's lib.rs and check sim_view's public API.
 
-Bash Map ambition_actors and boss_encounter
+Bash Map ambition_platformer2d_actor_monolith and boss_encounter
 IN
 cd /home/joncrall/code/ambition
-echo "=== ambition_actors module tree (top-level dirs + LOC) ==="
-find crates/ambition_actors/src -maxdepth 2 -name '*.rs' | while read f; do lc=$(wc -l < "$f"); printf "%6d  %s\n" "$lc" "${f#crates/ambition_actors/}"; done | sort -rn | head -50
+echo "=== ambition_platformer2d_actor_monolith module tree (top-level dirs + LOC) ==="
+find crates/ambition_platformer2d_actor_monolith/src -maxdepth 2 -name '*.rs' | while read f; do lc=$(wc -l < "$f"); printf "%6d  %s\n" "$lc" "${f#crates/ambition_platformer2d_actor_monolith/}"; done | sort -rn | head -50
 echo
 echo "=== boss_encounter dir ==="
-find crates/ambition_actors/src/boss_encounter -name '*.rs' 2>/dev/null | while read f; do lc=$(wc -l < "$f"); printf "%6d  %s\n" "$lc" "${f#crates/ambition_actors/}"; done | sort -rn
+find crates/ambition_platformer2d_actor_monolith/src/boss_encounter -name '*.rs' 2>/dev/null | while read f; do lc=$(wc -l < "$f"); printf "%6d  %s\n" "$lc" "${f#crates/ambition_platformer2d_actor_monolith/}"; done | sort -rn
 echo
-echo "=== ambition_actors total LOC ==="
-find crates/ambition_actors/src -name '*.rs' | xargs wc -l | tail -1
+echo "=== ambition_platformer2d_actor_monolith total LOC ==="
+find crates/ambition_platformer2d_actor_monolith/src -name '*.rs' | xargs wc -l | tail -1
 
 OUT
-=== ambition_actors module tree (top-level dirs + LOC) ===
+=== ambition_platformer2d_actor_monolith module tree (top-level dirs + LOC) ===
   1049  src/avatar/trail.rs
    893  src/boss_encounter/catalog.rs
    854  src/features/actor_movement_tests.rs
@@ -1369,92 +1369,92 @@ OUT
     12  src/boss_encounter/sprites/mod.rs
      5  src/boss_encounter/rewards.rs
 
-=== ambition_actors total LOC ===
+=== ambition_platformer2d_actor_monolith total LOC ===
   68709 total
 Bash Reference-frame theme spread
 IN
 cd /home/joncrall/code/ambition
 echo "=== reference-frame / relativity theme across target crates ==="
-grep -rniE 'proper.?time|reference.?frame|gravity.?relative|motion.?authorit|AccelerationFrame|MotionFrame|cognitive.?time|relativi|redshift|time.?dilation' crates/ambition_engine_core/src crates/ambition_platformer_primitives/src crates/ambition_time/src crates/ambition_world/src crates/ambition_input/src crates/ambition_gameplay_trace/src --include='*.rs' -l
+grep -rniE 'proper.?time|reference.?frame|gravity.?relative|motion.?authorit|AccelerationFrame|MotionFrame|cognitive.?time|relativi|redshift|time.?dilation' crates/ambition_platformer2d_core/src crates/ambition_platformer2d_shared_tangle/src crates/ambition_time/src crates/ambition_platformer2d_world/src crates/ambition_input/src crates/ambition_gameplay_trace/src --include='*.rs' -l
 echo
 echo "=== count of AccelerationFrame/MotionFrame/reference_frame refs by file (engine_core) ==="
-grep -rncE 'AccelerationFrame|MotionFrame|ReferenceFrame|reference_frame|LocalAxes|WorldVec2|MotionAuthority|carry_body|transit_body' crates/ambition_engine_core/src --include='*.rs' | grep -v ':0' | sort -t: -k2 -rn | head -30
+grep -rncE 'AccelerationFrame|MotionFrame|ReferenceFrame|reference_frame|LocalAxes|WorldVec2|MotionAuthority|carry_body|transit_body' crates/ambition_platformer2d_core/src --include='*.rs' | grep -v ':0' | sort -t: -k2 -rn | head -30
 
 OUT
 === reference-frame / relativity theme across target crates ===
-crates/ambition_engine_core/src/test_support.rs
-crates/ambition_engine_core/src/geometry.rs
-crates/ambition_engine_core/src/player_state.rs
-crates/ambition_engine_core/src/body_clusters.rs
-crates/ambition_engine_core/src/control_frame.rs
-crates/ambition_engine_core/src/volume_shape.rs
-crates/ambition_engine_core/src/reference_frame.rs
-crates/ambition_engine_core/src/lib.rs
-crates/ambition_engine_core/src/collision_semantics.rs
-crates/ambition_engine_core/src/movement/blink.rs
-crates/ambition_engine_core/src/movement/integration.rs
-crates/ambition_engine_core/src/movement/control.rs
-crates/ambition_engine_core/src/movement/input.rs
-crates/ambition_engine_core/src/movement/authority.rs
-crates/ambition_engine_core/src/movement/collision.rs
-crates/ambition_engine_core/src/movement/tuning.rs
-crates/ambition_engine_core/src/movement/mod.rs
-crates/ambition_engine_core/src/movement/simulation.rs
-crates/ambition_engine_core/src/movement/surface_momentum/tests.rs
-crates/ambition_engine_core/src/movement/adhesive_crawler.rs
-crates/ambition_engine_core/src/movement/kernel.rs
-crates/ambition_engine_core/src/movement/kernel/tests.rs
-crates/ambition_engine_core/src/movement/abilities.rs
-crates/ambition_engine_core/src/ledge_grab/runtime.rs
-crates/ambition_engine_core/src/movement/surface_momentum/mod.rs
-crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs
-crates/ambition_engine_core/src/reference_frame/tests.rs
-crates/ambition_engine_core/src/ledge_grab/mod.rs
-crates/ambition_engine_core/src/collision_semantics/tests.rs
-crates/ambition_platformer_primitives/src/frame_env.rs
-crates/ambition_engine_core/src/movement/tests/wall_collision.rs
-crates/ambition_platformer_primitives/src/gravity.rs
-crates/ambition_platformer_primitives/src/projectile/body.rs
-crates/ambition_platformer_primitives/src/kinematic/tests.rs
-crates/ambition_world/src/collision.rs
+crates/ambition_platformer2d_core/src/test_support.rs
+crates/ambition_platformer2d_core/src/geometry.rs
+crates/ambition_platformer2d_core/src/player_state.rs
+crates/ambition_platformer2d_core/src/body_clusters.rs
+crates/ambition_platformer2d_core/src/control_frame.rs
+crates/ambition_platformer2d_core/src/volume_shape.rs
+crates/ambition_platformer2d_core/src/reference_frame.rs
+crates/ambition_platformer2d_core/src/lib.rs
+crates/ambition_platformer2d_core/src/collision_semantics.rs
+crates/ambition_platformer2d_core/src/movement/blink.rs
+crates/ambition_platformer2d_core/src/movement/integration.rs
+crates/ambition_platformer2d_core/src/movement/control.rs
+crates/ambition_platformer2d_core/src/movement/input.rs
+crates/ambition_platformer2d_core/src/movement/authority.rs
+crates/ambition_platformer2d_core/src/movement/collision.rs
+crates/ambition_platformer2d_core/src/movement/tuning.rs
+crates/ambition_platformer2d_core/src/movement/mod.rs
+crates/ambition_platformer2d_core/src/movement/simulation.rs
+crates/ambition_platformer2d_core/src/movement/surface_momentum/tests.rs
+crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs
+crates/ambition_platformer2d_core/src/movement/kernel.rs
+crates/ambition_platformer2d_core/src/movement/kernel/tests.rs
+crates/ambition_platformer2d_core/src/movement/abilities.rs
+crates/ambition_platformer2d_core/src/ledge_grab/runtime.rs
+crates/ambition_platformer2d_core/src/movement/surface_momentum/mod.rs
+crates/ambition_platformer2d_core/src/movement/tests/c4_reaction_seams.rs
+crates/ambition_platformer2d_core/src/reference_frame/tests.rs
+crates/ambition_platformer2d_core/src/ledge_grab/mod.rs
+crates/ambition_platformer2d_core/src/collision_semantics/tests.rs
+crates/ambition_platformer2d_shared_tangle/src/frame_env.rs
+crates/ambition_platformer2d_core/src/movement/tests/wall_collision.rs
+crates/ambition_platformer2d_shared_tangle/src/gravity.rs
+crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs
+crates/ambition_platformer2d_shared_tangle/src/kinematic/tests.rs
+crates/ambition_platformer2d_world/src/collision.rs
 crates/ambition_time/src/lib.rs
-crates/ambition_platformer_primitives/src/projectile/collision/tests.rs
-crates/ambition_world/src/platforms/mod.rs
-crates/ambition_world/src/platforms/tests.rs
-crates/ambition_world/src/rooms/camera.rs
+crates/ambition_platformer2d_shared_tangle/src/projectile/collision/tests.rs
+crates/ambition_platformer2d_world/src/platforms/mod.rs
+crates/ambition_platformer2d_world/src/platforms/tests.rs
+crates/ambition_platformer2d_world/src/rooms/camera.rs
 crates/ambition_gameplay_trace/src/actor_trace.rs
 
 === count of AccelerationFrame/MotionFrame/reference_frame refs by file (engine_core) ===
-crates/ambition_engine_core/src/movement/surface_momentum/tests.rs:59
-crates/ambition_engine_core/src/reference_frame.rs:43
-crates/ambition_engine_core/src/reference_frame/tests.rs:27
-crates/ambition_engine_core/src/movement/kernel/tests.rs:23
-crates/ambition_engine_core/src/movement/tests/wall_collision.rs:16
-crates/ambition_engine_core/src/ledge_grab/tests.rs:13
-crates/ambition_engine_core/src/movement/surface_momentum/mod.rs:11
-crates/ambition_engine_core/src/movement/input.rs:11
-crates/ambition_engine_core/src/movement/authority.rs:11
-crates/ambition_engine_core/src/movement/tests/c4_reaction_seams.rs:10
-crates/ambition_engine_core/src/movement/integration.rs:10
-crates/ambition_engine_core/src/movement/tests/glide_and_air.rs:8
-crates/ambition_engine_core/src/movement/tests/blink.rs:8
-crates/ambition_engine_core/src/ledge_grab/runtime.rs:8
-crates/ambition_engine_core/src/movement/mod.rs:7
-crates/ambition_engine_core/src/movement/tests/climbing.rs:6
-crates/ambition_engine_core/src/movement/kernel.rs:5
-crates/ambition_engine_core/src/movement/adhesive_crawler.rs:5
-crates/ambition_engine_core/src/lib.rs:5
-crates/ambition_engine_core/src/movement/abilities.rs:4
-crates/ambition_engine_core/src/test_support.rs:3
-crates/ambition_engine_core/src/movement/control.rs:3
-crates/ambition_engine_core/src/body_clusters.rs:3
-crates/ambition_engine_core/src/volume_shape.rs:2
-crates/ambition_engine_core/src/player_state.rs:2
-crates/ambition_engine_core/src/movement/tuning.rs:2
-crates/ambition_engine_core/src/movement/tests/ledge_grab.rs:2
-crates/ambition_engine_core/src/movement/simulation.rs:2
-crates/ambition_engine_core/src/movement/blink.rs:2
-crates/ambition_engine_core/src/movement/tests/sweep_sample.rs:1
+crates/ambition_platformer2d_core/src/movement/surface_momentum/tests.rs:59
+crates/ambition_platformer2d_core/src/reference_frame.rs:43
+crates/ambition_platformer2d_core/src/reference_frame/tests.rs:27
+crates/ambition_platformer2d_core/src/movement/kernel/tests.rs:23
+crates/ambition_platformer2d_core/src/movement/tests/wall_collision.rs:16
+crates/ambition_platformer2d_core/src/ledge_grab/tests.rs:13
+crates/ambition_platformer2d_core/src/movement/surface_momentum/mod.rs:11
+crates/ambition_platformer2d_core/src/movement/input.rs:11
+crates/ambition_platformer2d_core/src/movement/authority.rs:11
+crates/ambition_platformer2d_core/src/movement/tests/c4_reaction_seams.rs:10
+crates/ambition_platformer2d_core/src/movement/integration.rs:10
+crates/ambition_platformer2d_core/src/movement/tests/glide_and_air.rs:8
+crates/ambition_platformer2d_core/src/movement/tests/blink.rs:8
+crates/ambition_platformer2d_core/src/ledge_grab/runtime.rs:8
+crates/ambition_platformer2d_core/src/movement/mod.rs:7
+crates/ambition_platformer2d_core/src/movement/tests/climbing.rs:6
+crates/ambition_platformer2d_core/src/movement/kernel.rs:5
+crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs:5
+crates/ambition_platformer2d_core/src/lib.rs:5
+crates/ambition_platformer2d_core/src/movement/abilities.rs:4
+crates/ambition_platformer2d_core/src/test_support.rs:3
+crates/ambition_platformer2d_core/src/movement/control.rs:3
+crates/ambition_platformer2d_core/src/body_clusters.rs:3
+crates/ambition_platformer2d_core/src/volume_shape.rs:2
+crates/ambition_platformer2d_core/src/player_state.rs:2
+crates/ambition_platformer2d_core/src/movement/tuning.rs:2
+crates/ambition_platformer2d_core/src/movement/tests/ledge_grab.rs:2
+crates/ambition_platformer2d_core/src/movement/simulation.rs:2
+crates/ambition_platformer2d_core/src/movement/blink.rs:2
+crates/ambition_platformer2d_core/src/movement/tests/sweep_sample.rs:1
 Bash Read render lib.rs and rendering mod head
 IN
 echo "=== render lib.rs ===" && cat crates/ambition_render/src/lib.rs && echo "=== render rendering/mod.rs head ===" && head -70 crates/ambition_render/src/rendering/mod.rs
@@ -1464,8 +1464,8 @@ OUT
 //! Ambition's Bevy presentation layer — the sandbox's default renderer.
 //!
 //! Everything here is downstream of the sim: no module on the gameplay critical
-//! path lives in this crate. It reads lower read-model crates (`ambition_sim_view`, `ambition_world`,
-//! `ambition_sprite_sheet`, `ambition_platformer_primitives`) and mirrors them
+//! path lives in this crate. It reads lower read-model crates (`ambition_sim_view`, `ambition_platformer2d_world`,
+//! `ambition_sprite_sheet`, `ambition_platformer2d_shared_tangle`) and mirrors them
 //! into Bevy sprites / UI; it never mutates the sim. The sim/render seam is now
 //! a CRATE boundary in both directions: render does not depend on
 //! actor machinery, and actor machinery cannot import render (enforced by
@@ -1576,7 +1576,7 @@ Bash Public API of undocumented movement modules
 IN
 cd /home/joncrall/code/ambition
 echo "=== movement modules without doc header - first 3 non-empty lines ==="
-for f in simulation.rs control.rs input.rs ops.rs events.rs integration.rs collision.rs blink.rs; do echo "##### movement/$f #####"; grep -nE 'pub (fn|struct|enum|trait|const)' crates/ambition_engine_core/src/movement/$f | head -5; done
+for f in simulation.rs control.rs input.rs ops.rs events.rs integration.rs collision.rs blink.rs; do echo "##### movement/$f #####"; grep -nE 'pub (fn|struct|enum|trait|const)' crates/ambition_platformer2d_core/src/movement/$f | head -5; done
 
 OUT
 === movement modules without doc header - first 3 non-empty lines ===
@@ -1616,7 +1616,7 @@ OUT
 Read ids.rs
 Bash Grep all ambition_ use-sites in sprite_sheet
 IN
-cd /home/joncrall/code/ambition/crates/ambition_sprite_sheet && echo "=== use ambition_ sites ===" && grep -rn "ambition_combat\|ambition_interaction\|ambition_persistence\|ambition_world\|ambition_entity_catalog\|ambition_engine_core\|ambition_asset_manager" --include=*.rs src build.rs | grep -v "^.*://" | head -80
+cd /home/joncrall/code/ambition/crates/ambition_sprite_sheet && echo "=== use ambition_ sites ===" && grep -rn "ambition_combat\|ambition_interaction\|ambition_persistence\|ambition_platformer2d_world\|ambition_entity_catalog\|ambition_platformer2d_core\|ambition_asset_manager" --include=*.rs src build.rs | grep -v "^.*://" | head -80
 
 OUT
 === use ambition_ sites ===
@@ -1632,26 +1632,26 @@ src/game_assets/entity_sprite.rs:226:                ambition_asset_manager::Ass
 src/game_assets/entity_sprite.rs:227:                ambition_asset_manager::AssetLocation::embedded(embedded_url.to_string()),
 src/game_assets/entity_sprite.rs:284:        ambition_asset_manager::sandbox_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
 src/game_assets/entity_sprite.rs:307:    use ambition_asset_manager::sandbox_assets::embedded_core;
-src/game_assets/resolvers.rs:4:use ambition_engine_core as ae;
+src/game_assets/resolvers.rs:4:use ambition_platformer2d_core as ae;
 src/game_assets/resolvers.rs:8:use ambition_combat::events::FeatureVisualKind;
-src/game_assets/resolvers.rs:9:use ambition_world::rooms::LoadingZoneActivation;
-src/game_assets/resolvers.rs:51:    _volume: &ambition_world::rooms::HazardVolumeSpec,
-src/game_assets/resolvers.rs:57:    pickup: &ambition_world::rooms::PickupSpec,
-src/game_assets/resolvers.rs:62:pub fn entity_sprite_for_chest(_chest: &ambition_world::rooms::ChestSpec) -> Option<EntitySprite> {
+src/game_assets/resolvers.rs:9:use ambition_platformer2d_world::rooms::LoadingZoneActivation;
+src/game_assets/resolvers.rs:51:    _volume: &ambition_platformer2d_world::rooms::HazardVolumeSpec,
+src/game_assets/resolvers.rs:57:    pickup: &ambition_platformer2d_world::rooms::PickupSpec,
+src/game_assets/resolvers.rs:62:pub fn entity_sprite_for_chest(_chest: &ambition_platformer2d_world::rooms::ChestSpec) -> Option<EntitySprite> {
 src/game_assets/resolvers.rs:71:    _chest: &ambition_interaction::Chest,
-src/game_assets/resolvers.rs:77:    _breakable: &ambition_world::rooms::BreakableSpec,
-src/game_assets/resolvers.rs:83:    interactable: &ambition_world::rooms::InteractableSpec,
-src/game_assets/resolvers.rs:87:        ambition_world::rooms::InteractionKindSpec::Npc { .. }
+src/game_assets/resolvers.rs:77:    _breakable: &ambition_platformer2d_world::rooms::BreakableSpec,
+src/game_assets/resolvers.rs:83:    interactable: &ambition_platformer2d_world::rooms::InteractableSpec,
+src/game_assets/resolvers.rs:87:        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc { .. }
 src/game_assets/resolvers.rs:100:    interactable: &ambition_interaction::Interactable,
 src/game_assets/resolvers.rs:104:        ambition_interaction::InteractionKind::Npc { .. }
 src/game_assets/resolvers.rs:113:    brain: &ambition_entity_catalog::placements::CharacterBrain,
 src/game_assets/resolvers.rs:127:fn character_brain_is_sandbag(brain: &ambition_entity_catalog::placements::CharacterBrain) -> bool {
 src/game_assets/resolvers.rs:130:        ambition_entity_catalog::placements::CharacterBrain::Custom(key)
 src/game_assets/resolvers.rs:136:    _brain: &ambition_entity_catalog::placements::BossBrain,
-src/game_assets/resolvers.rs:141:fn pickup_sprite(kind: &ambition_world::rooms::PickupKindSpec) -> EntitySprite {
-src/game_assets/resolvers.rs:143:        ambition_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
-src/game_assets/resolvers.rs:144:        ambition_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
-src/game_assets/resolvers.rs:145:        ambition_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
+src/game_assets/resolvers.rs:141:fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKindSpec) -> EntitySprite {
+src/game_assets/resolvers.rs:143:        ambition_platformer2d_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
+src/game_assets/resolvers.rs:144:        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
+src/game_assets/resolvers.rs:145:        ambition_platformer2d_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
 src/game_assets/resolvers.rs:153:pub fn breakable_state_sprite(state: ambition_interaction::BreakableState) -> EntitySprite {
 src/game_assets/resolvers.rs:155:        ambition_interaction::BreakableState::Intact => EntitySprite::BreakableIntact,
 src/game_assets/resolvers.rs:156:        ambition_interaction::BreakableState::Cracking => EntitySprite::BreakableCracked,
@@ -1659,7 +1659,7 @@ src/game_assets/resolvers.rs:157:        ambition_interaction::BreakableState::B
 src/game_assets/resolvers.rs:158:        | ambition_interaction::BreakableState::Respawning => EntitySprite::BreakableBroken,
 src/game_assets/mod.rs:34:use ambition_asset_manager::AssetProfile;
 src/game_assets/mod.rs:38:use ambition_persistence::settings::VisualQualityBudget;
-src/game_assets/mod.rs:39:use ambition_world::rooms::RoomMetadata;
+src/game_assets/mod.rs:39:use ambition_platformer2d_world::rooms::RoomMetadata;
 src/game_assets/mod.rs:307:        catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
 src/game_assets/mod.rs:388:    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
 src/game_assets/mod.rs:413:    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
@@ -1698,7 +1698,7 @@ Read mod.rs
 Read profile.rs
 Bash Inspect non-test hardcoded IDs and roster include
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== enemies/mod.rs 925-945 ==="; sed -n '925,945p' features/enemies/mod.rs
 echo "=== encounter/loading.rs 140-160 ==="; sed -n '140,160p' encounter/loading.rs
 echo "=== effect_bus.rs 85-100 ==="; sed -n '85,100p' features/ecs/effect_bus.rs
@@ -1792,7 +1792,7 @@ mod phase_feedback_tests {
     use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
     use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
-    use ambition_platformer_primitives::camera_ease::CameraShakeState;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
         let config = test_boss_config("gradient_sentinel", "Gradient Sentinel", "clockwork_warden");
@@ -1939,11 +1939,11 @@ echo "asset_publish:"; find crates/ambition_asset_manager/src/asset_publish -nam
 echo "core (rest):"; find crates/ambition_asset_manager/src -maxdepth 1 -name '*.rs' | xargs wc -l | tail -1
 echo
 echo "=== engine_core: total vs test LOC ==="
-echo "test files:"; find crates/ambition_engine_core/src -name '*.rs' \( -path '*/tests*' -o -name 'tests.rs' -o -name 'test_support.rs' \) | xargs wc -l | tail -1
-echo "non-test:"; find crates/ambition_engine_core/src -name '*.rs' ! -path '*/tests*' ! -name 'tests.rs' ! -name 'test_support.rs' ! -name '*_tests.rs' | xargs wc -l | tail -1
+echo "test files:"; find crates/ambition_platformer2d_core/src -name '*.rs' \( -path '*/tests*' -o -name 'tests.rs' -o -name 'test_support.rs' \) | xargs wc -l | tail -1
+echo "non-test:"; find crates/ambition_platformer2d_core/src -name '*.rs' ! -path '*/tests*' ! -name 'tests.rs' ! -name 'test_support.rs' ! -name '*_tests.rs' | xargs wc -l | tail -1
 echo
 echo "=== config.rs constants ==="
-grep -nE 'pub const|pub fn' crates/ambition_engine_core/src/config.rs | head -40
+grep -nE 'pub const|pub fn' crates/ambition_platformer2d_core/src/config.rs | head -40
 
 OUT
 === asset_manager subtree LOC ===
@@ -2028,7 +2028,7 @@ echo "=== ambition_characters/boss_encounter files ==="
 find crates/ambition_characters/src -path '*boss*' -name '*.rs' | while read f; do lc=$(wc -l < "$f"); printf "%6d  %s\n" "$lc" "${f#crates/ambition_characters/}"; done | sort -rn
 echo
 echo "=== boss_encounter/encounter_script.rs head ==="
-head -60 crates/ambition_actors/src/boss_encounter/encounter_script.rs
+head -60 crates/ambition_platformer2d_actor_monolith/src/boss_encounter/encounter_script.rs
 
 OUT
 === ambition_characters/boss_encounter files ===
@@ -2068,9 +2068,9 @@ use bevy::prelude::*;
 use crate::features::ecs::boss_clusters::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
@@ -2090,7 +2090,7 @@ pub fn tick_encounter_scripts(
     )>,
     session_owners: Query<&SessionScopedEntity>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut music: ambition_platformer_primitives::lifecycle::SessionWorldMut<crate::encounter::EncounterMusicRequest>,
+    mut music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<crate::encounter::EncounterMusicRequest>,
 ) {
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
@@ -2107,13 +2107,13 @@ pub fn tick_encounter_scripts(
 Read puppy_slug_gun.rs
 Now the runtime/host libs and content plugin/provider.
 
-The build.rs reaches into ../ambition_actors/assets/sprites*/. Let me check the EntitySprite enum, game_assets header, and hunt named content across sprite_sheet.
+The build.rs reaches into ../ambition_platformer2d_actor_monolith/assets/sprites*/. Let me check the EntitySprite enum, game_assets header, and hunt named content across sprite_sheet.
 
 Read lib.rs
 Read lib.rs
 Bash Inspect projectile and enemy_projectile modules
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== projectile/ files ==="; find projectile -name '*.rs' | xargs wc -l | sort -rn
 echo "=== projectile/mod.rs head ==="; sed -n '1,40p' projectile/mod.rs 2>/dev/null || sed -n '1,40p' projectile.rs
 echo "=== enemy_projectile/ files ==="; find enemy_projectile -name '*.rs' | xargs wc -l | sort -rn
@@ -2138,7 +2138,7 @@ OUT
 //!
 //! What STAYS here is the victim/world/anim-woven sim STEPPERS that cannot leave
 //! until the boss/actor/player domains carve (E6/E7) and the world overlay lands
-//! in `ambition_world` (W3): the unified [`systems::step_projectiles`] (queries
+//! in `ambition_platformer2d_world` (W3): the unified [`systems::step_projectiles`] (queries
 //! bosses/breakables/actors, emits `HitEvent`, parry-heals the player), the
 //! [`systems::charge_projectile_input`] player-input/anim driver, and the
 //! `ambition_projectiles::collision_world::ProjectileCollisionWorld` param, which
@@ -2167,7 +2167,7 @@ mod tests;
 //! unchanged. The canonical effect-request spawn executor now lives in
 //! [`ambition_projectiles::enemy::apply_enemy_projectile_effect_requests`]. This
 //! module keeps the legacy system name for actor-internal tests and transitional
-//! call sites only; runtime scheduling goes through `ambition_runtime`.
+//! call sites only; runtime scheduling goes through `ambition_platformer2d_runtime`.
 
 pub use ambition_projectiles::enemy::*;
 
@@ -2390,17 +2390,17 @@ OUT
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/session_world.rs:150:                    rationale: "live platformer world state exists only as components on the exact SessionRoot; process resources and synchronization bridges are forbidden"
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/module_size.rs:23:#[serde(deny_unknown_fields)]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/module_size.rs:39:#[serde(deny_unknown_fields)]
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:12:const FILE: &str = "crates/ambition_actors/src/features/ecs/actor_clusters.rs";
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:38:        owners: vec!["ambition_actors".to_string()],
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:53:                owners: vec!["ambition_actors".to_string()],
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:12:const FILE: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs";
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:38:        owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/content_ownership.rs:53:                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:1://! **The `ControlFrame` allowlist lint** — custom scanner (unified-actors step 5,
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:33:#[serde(deny_unknown_fields)]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:46:#[serde(deny_unknown_fields)]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:70:#[serde(deny_unknown_fields)]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:214:                    let boundary = line[..at]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:220:                    if boundary {
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:389:        |_marker: &str, t: &str| control_frame_holders(m, "crates/ambition_actors/src/x.rs", t);
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:394:        "crates/ambition_actors/src/features/ecs/actors/update.rs",
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:389:        |_marker: &str, t: &str| control_frame_holders(m, "crates/ambition_platformer2d_actor_monolith/src/x.rs", t);
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/control_frame.rs:394:        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/migration_matrix.rs:33:#[serde(deny_unknown_fields)]
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/determinism.rs:11://! CONFIG (sim roots + scope, excluded subpaths, review marker, forbidden RNG
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/determinism.rs:26:#[serde(deny_unknown_fields)]
@@ -2412,11 +2412,11 @@ OUT
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/determinism.rs:493:            "use bevy::platform::collections::HashMap;\nlet actors: HashMap<u8, u8> = q();"
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/determinism.rs:495:        .contains("actors"),
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:4://! The allowlist (path=count) is `docs/architecture/architecture-boundary-allowlist.txt`.
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:11:const SPAWN_DIR: &str = "crates/ambition_actors/src/features/ecs";
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:12:const CRATE_SRC: &str = "crates/ambition_actors/src";
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:11:const SPAWN_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs";
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:12:const CRATE_SRC: &str = "crates/ambition_platformer2d_actor_monolith/src";
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:13:const ALLOWLIST: &str = "docs/architecture/architecture-boundary-allowlist.txt";
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:45:        owners: vec!["ambition_actors".to_string()],
-/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:83:                owners: vec!["ambition_actors".to_string()],
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:45:        owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+/home/joncrall/code/ambition/tests/ambition_workspace_policy/src/custom/lifecycle.rs:83:                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/rules/source_reference.rs:1://! `forbidden-source-reference`: no `.rs` file under `roots` may name any
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/rules/source_reference.rs:2://! identifier in `forbid`. The workhorse of the architecture guards — it powers
 /home/joncrall/code/ambition/tests/ambition_workspace_policy/src/rules/source_reference.rs:12://!                         reviewed cross-boundary / string-data exceptions).
@@ -2427,24 +2427,24 @@ Bash Confirm boundary details and constant locations
 IN
 cd /home/joncrall/code/ambition
 echo "=== how platformer_primitives::kinematic uses engine_core ==="
-grep -nE 'use ambition_engine_core|collision_semantics|engine_core::' crates/ambition_platformer_primitives/src/kinematic.rs | head -20
+grep -nE 'use ambition_platformer2d_core|collision_semantics|engine_core::' crates/ambition_platformer2d_shared_tangle/src/kinematic.rs | head -20
 echo
 echo "=== gravity.rs: does it duplicate reference_frame concepts? ==="
-grep -nE 'AccelerationFrame|MotionFrame|gravity_dir|GravityField|reference|pub struct|pub fn' crates/ambition_platformer_primitives/src/gravity.rs | head -25
+grep -nE 'AccelerationFrame|MotionFrame|gravity_dir|GravityField|reference|pub struct|pub fn' crates/ambition_platformer2d_shared_tangle/src/gravity.rs | head -25
 echo
 echo "=== movement tuning constants (GRAVITY/JUMP_SPEED etc) — are they hardcoded consts? ==="
-grep -nE 'pub const (GRAVITY|JUMP_SPEED|DASH_SPEED|MAX_RUN_SPEED|BLINK_DISTANCE|WALL_JUMP_X)' crates/ambition_engine_core/src/movement/tuning.rs
+grep -nE 'pub const (GRAVITY|JUMP_SPEED|DASH_SPEED|MAX_RUN_SPEED|BLINK_DISTANCE|WALL_JUMP_X)' crates/ambition_platformer2d_core/src/movement/tuning.rs
 echo
 echo "=== world.rs BlinkWallTier / content vocabulary ==="
-grep -nE 'pub enum|pub struct|BlinkWallTier|Sanic|Tier' crates/ambition_engine_core/src/world.rs | head -30
+grep -nE 'pub enum|pub struct|BlinkWallTier|Sanic|Tier' crates/ambition_platformer2d_core/src/world.rs | head -30
 
 OUT
 === how platformer_primitives::kinematic uses engine_core ===
-34:use ambition_engine_core::collision_semantics::{
-41:use ambition_engine_core::Vec2;
-42:use ambition_engine_core::{Aabb, AabbExt};
-43:use ambition_engine_core::{BlockKind, World};
-279:    if let Some(hit) = ambition_engine_core::cast::body_sweep(world, start_body, delta, |block| {
+34:use ambition_platformer2d_core::collision_semantics::{
+41:use ambition_platformer2d_core::Vec2;
+42:use ambition_platformer2d_core::{Aabb, AabbExt};
+43:use ambition_platformer2d_core::{BlockKind, World};
+279:    if let Some(hit) = ambition_platformer2d_core::cast::body_sweep(world, start_body, delta, |block| {
 
 === gravity.rs: does it duplicate reference_frame concepts? ===
 3://! [`GravityField`] is the world's gravity state (a redirectable down). The
@@ -2455,8 +2455,8 @@ OUT
 36:impl Default for GravityField {
 45:impl GravityField {
 48:    pub fn gravity_accel(&self, magnitude: f32) -> Vec2 {
-54:    pub fn motion_frame(&self, magnitude: f32) -> ambition_engine_core::MotionFrame {
-55:        ambition_engine_core::MotionFrame::from_direction(self.dir, magnitude)
+54:    pub fn motion_frame(&self, magnitude: f32) -> ambition_platformer2d_core::MotionFrame {
+55:        ambition_platformer2d_core::MotionFrame::from_direction(self.dir, magnitude)
 60:    pub fn vertical_sign(&self) -> f32 {
 72:/// overlapping zone's direction) into the live [`GravityField`] each frame, so
 75:pub struct BaseGravity {
@@ -2507,7 +2507,7 @@ OUT
 1170:pub struct RoomGeometry(pub World);
 Bash content render/runtime usages and lib top
 IN
-echo "=== content: ambition_render usages ==="; grep -rn "ambition_render\|render::" game/ambition_content/src | grep -v "//" | head -30; echo; echo "=== content: ambition_runtime usages ==="; grep -rn "ambition_runtime\|runtime::" game/ambition_content/src | grep -v "^\s*//" | head -30; echo "=== content lib.rs top ==="; sed -n '1,60p' game/ambition_content/src/lib.rs
+echo "=== content: ambition_render usages ==="; grep -rn "ambition_render\|render::" game/ambition_content/src | grep -v "//" | head -30; echo; echo "=== content: ambition_platformer2d_runtime usages ==="; grep -rn "ambition_platformer2d_runtime\|runtime::" game/ambition_content/src | grep -v "^\s*//" | head -30; echo "=== content lib.rs top ==="; sed -n '1,60p' game/ambition_content/src/lib.rs
 
 OUT
 === content: ambition_render usages ===
@@ -2516,34 +2516,34 @@ game/ambition_content/src/portal/tests.rs:908:    use ambition_render::rendering
 game/ambition_content/src/portal/tests.rs:932:    use ambition_render::rendering::PlayerVisual;
 game/ambition_content/src/bosses/cut_rope/mod.rs:31:use ambition_render::rendering::PropVisual;
 
-=== content: ambition_runtime usages ===
-game/ambition_content/src/provider.rs:16:use ambition_runtime::PlatformerSessionWorld;
-game/ambition_content/src/falling_sand.rs:600:            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
-game/ambition_content/src/falling_sand.rs:1290:            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
-game/ambition_content/src/portal/shot_adapter.rs:4://! [`SolidWorldQuery`] (ambition_actors::platformer_runtime::collision::SolidWorldQuery)
-game/ambition_content/src/portal/shot_adapter.rs:13:use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
-game/ambition_content/src/portal/inventory_adapter.rs:25:use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
-game/ambition_content/src/portal/tests.rs:8:use ambition_actors::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
-game/ambition_content/src/portal/tests.rs:9:use ambition_actors::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
-game/ambition_content/src/portal/tests.rs:10:use ambition_actors::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-game/ambition_content/src/portal/tests.rs:18:use ambition_actors::platformer_runtime::collision::raycast_solids;
-game/ambition_content/src/portal/tests.rs:1132:            With<ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity>,
-game/ambition_content/src/portal/transit_body_adapter.rs:11://! [`BodyKinematics`]: ambition_actors::platformer_runtime::body::BodyKinematics
-game/ambition_content/src/portal/transit_body_adapter.rs:167:    gravity: Option<Res<ambition_actors::platformer_runtime::gravity::GravityField>>,
-game/ambition_content/src/portal/transit_body_adapter.rs:176:        ambition_actors::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
-game/ambition_content/src/portal/transit_body_adapter/projectile_transit_tests.rs:22:use ambition_actors::platformer_runtime::body::BodyKinematics;
-game/ambition_content/src/bosses/specials/mod.rs:93:        app.init_resource::<ambition_runtime::snapshot::SnapshotRegistry>();
-game/ambition_content/src/bosses/specials/mod.rs:96:            .resource_mut::<ambition_runtime::snapshot::SnapshotRegistry>();
-game/ambition_content/src/bosses/specials/snapshot.rs:10://! trait must live where `ambition_runtime` can implement it for `ambition_time` and
-game/ambition_content/src/bosses/specials/snapshot.rs:15:use ambition_runtime::snapshot::{
-game/ambition_content/src/bosses/specials/snapshot.rs:18:use ambition_runtime::{snapshot_pod, snapshot_unit_enum};
+=== content: ambition_platformer2d_runtime usages ===
+game/ambition_content/src/provider.rs:16:use ambition_platformer2d_runtime::PlatformerSessionWorld;
+game/ambition_content/src/falling_sand.rs:600:            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
+game/ambition_content/src/falling_sand.rs:1290:            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
+game/ambition_content/src/portal/shot_adapter.rs:4://! [`SolidWorldQuery`] (ambition_platformer2d_actor_monolith::platformer_runtime::collision::SolidWorldQuery)
+game/ambition_content/src/portal/shot_adapter.rs:13:use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
+game/ambition_content/src/portal/inventory_adapter.rs:25:use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
+game/ambition_content/src/portal/tests.rs:8:use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
+game/ambition_content/src/portal/tests.rs:9:use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
+game/ambition_content/src/portal/tests.rs:10:use ambition_platformer2d_actor_monolith::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+game/ambition_content/src/portal/tests.rs:18:use ambition_platformer2d_actor_monolith::platformer_runtime::collision::raycast_solids;
+game/ambition_content/src/portal/tests.rs:1132:            With<ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomScopedEntity>,
+game/ambition_content/src/portal/transit_body_adapter.rs:11://! [`BodyKinematics`]: ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics
+game/ambition_content/src/portal/transit_body_adapter.rs:167:    gravity: Option<Res<ambition_platformer2d_actor_monolith::platformer_runtime::gravity::GravityField>>,
+game/ambition_content/src/portal/transit_body_adapter.rs:176:        ambition_platformer2d_actor_monolith::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
+game/ambition_content/src/portal/transit_body_adapter/projectile_transit_tests.rs:22:use ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics;
+game/ambition_content/src/bosses/specials/mod.rs:93:        app.init_resource::<ambition_platformer2d_runtime::snapshot::SnapshotRegistry>();
+game/ambition_content/src/bosses/specials/mod.rs:96:            .resource_mut::<ambition_platformer2d_runtime::snapshot::SnapshotRegistry>();
+game/ambition_content/src/bosses/specials/snapshot.rs:10://! trait must live where `ambition_platformer2d_runtime` can implement it for `ambition_time` and
+game/ambition_content/src/bosses/specials/snapshot.rs:15:use ambition_platformer2d_runtime::snapshot::{
+game/ambition_content/src/bosses/specials/snapshot.rs:18:use ambition_platformer2d_runtime::{snapshot_pod, snapshot_unit_enum};
 === content lib.rs top ===
 //! THE named Ambition game content — everything that names this game's
 //! specific world: quests, bosses, items, dialogue, banter, the intro,
 //! the enemy roster, music cues, and the cross-content validator.
 //!
 //! This is the content crate, distinct from the reusable machinery crate
-//! `ambition_actors` it depends on. The dependency direction is strict and
+//! `ambition_platformer2d_actor_monolith` it depends on. The dependency direction is strict and
 //! one-way — content → machinery, never the reverse — so the named cast and
 //! data installed here build on top of the generic schemas/pipelines that
 //! live machinery-side. Registration flows through one seam,
@@ -2574,11 +2574,11 @@ pub mod duel_arena;
 #[cfg(feature = "falling_sand")]
 pub mod falling_sand;
 // `features` (the feature-ECS actor/boss world) was promoted to
-// `ambition_actors::features` (lib root): machinery presentation/dev still read
+// `ambition_platformer2d_actor_monolith::features` (lib root): machinery presentation/dev still read
 // its named bits (doc 20 B3/B4), so it stays in the sandbox lib when
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
-pub use ambition_actors::features;
+pub use ambition_platformer2d_actor_monolith::features;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod enemy_roster;
@@ -2590,7 +2590,7 @@ pub mod plugin;
 pub mod quest;
 pub mod quests;
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
-/// `ambition_actors::ldtk_world`).
+/// `ambition_platformer2d_actor_monolith::ldtk_world`).
 pub mod worlds;
 
 #[cfg(feature = "portal")]
@@ -2599,7 +2599,7 @@ pub mod portal;
 pub use plugin::AmbitionContentPlugin;
 Bash Read headers of items/world/session/schedule/control/affordances/encounter/body_mode
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 for f in items/mod.rs world/mod.rs session/mod.rs schedule/mod.rs control/mod.rs affordances/mod.rs encounter/mod.rs body_mode/mod.rs; do
   echo "===== $f ====="; sed -n '1,28p' "$f" 2>/dev/null
 done
@@ -2624,7 +2624,7 @@ pub use world_item::{spawn_world_item, WorldItem, WorldItemPayload};
 //! room builder, the LDtk hot-reloadable project loader, the Avian2D
 //! physics adapter, and LDtk-authored moving platforms.
 //!
-//! Long-term shape: this umbrella is the spine the future `ambition`
+//! Long-term shape: this umbrella is the spine the future `ambition_platformer2d`
 //! framework crate wraps. Module-internal `crate::rooms::…` paths still
 //! resolve via re-exports at the crate root so this reorg is a pure
 //! relocation.
@@ -2639,10 +2639,10 @@ pub mod rooms;
 //! Sandbox SESSION lifecycle: startup setup ([`setup`]), full
 //! reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue.
 //! Coarse `GameMode` state and camera layer markers now live in
-//! `ambition_platformer_primitives`.
+//! `ambition_platformer2d_shared_tangle`.
 //!
 //! Name overlap warning: this is the in-crate session runtime, NOT the
-//! separate `ambition_platformer_primitives` crate (re-exported here as
+//! separate `ambition_platformer2d_shared_tangle` crate (re-exported here as
 //! `crate::platformer_runtime`), which holds content-free engine
 //! primitives. This module is sim-side session glue that `app/` (the
 //! schedule wiring) calls into.
@@ -2651,7 +2651,7 @@ pub mod data;
 pub mod reset;
 pub mod setup;
 
-pub use ambition_world::rooms::RespawnRoomVisualsRequested;
+pub use ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested;
 ===== schedule/mod.rs =====
 //! Schedule + input-frame vocabulary shared by the machinery lib, the
 //! content crate, and the app crate.
@@ -2666,7 +2666,7 @@ pub use ambition_world::rooms::RespawnRoomVisualsRequested;
 mod input_systems;
 mod schedule;
 
-pub use ambition_platformer_primitives::schedule::{
+pub use ambition_platformer2d_shared_tangle::schedule::{
     BossSteerSlot, CombatSet, PresentationSetupSet, SandboxSet, SimulationSetupSet,
 };
 #[cfg(feature = "input")]
@@ -2697,7 +2697,7 @@ pub use schedule::configure_sandbox_sets;
 //! **Downstream of this module, nothing holds `Res<ControlFrame>`.** A body reads
 //! its own `PlayerInputFrame`, or its brain's `ActorControl`
 //! (`ambition_characters::actor::control` — the brain→body contract, the far end
-//! of this same wire). `ambition_runtime/tests/control_frame_lint.rs` enforces it,
+//! of this same wire). `ambition_platformer2d_runtime/tests/control_frame_lint.rs` enforces it,
 //! and its allowlist is almost exactly this module's contents.
 //!
 //! Extracted from `crate::avatar` in the S5/S6 fold (refactor-chain R6c): the
@@ -2750,7 +2750,7 @@ pub mod components;
 //! ECS spawning, player/body queries, feature overlays, banners, save/quest
 //! plumbing, and schedule sets.
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod events;
 mod loading;
 mod lock_walls;
@@ -2797,7 +2797,7 @@ Let me find the policy config that defines the render/actors boundary, and move 
 Read tracks.md
 Bash Find policy config and seam docs
 IN
-echo "=== policy config files ===" && find . -path ./target -prune -o \( -name '*.toml' -o -name '*.json' \) -print 2>/dev/null | xargs grep -l "forbid\|denylist\|ambition_render\|ambition_actors" 2>/dev/null | grep -iv target | grep -i "polic\|boundar\|architect" | head && echo "=== search docs for render seam ===" && find docs -iname '*.md' 2>/dev/null | xargs grep -ln "sim_view\|read-model\|read model\|seam" 2>/dev/null | head
+echo "=== policy config files ===" && find . -path ./target -prune -o \( -name '*.toml' -o -name '*.json' \) -print 2>/dev/null | xargs grep -l "forbid\|denylist\|ambition_render\|ambition_platformer2d_actor_monolith" 2>/dev/null | grep -iv target | grep -i "polic\|boundar\|architect" | head && echo "=== search docs for render seam ===" && find docs -iname '*.md' 2>/dev/null | xargs grep -ln "sim_view\|read-model\|read model\|seam" 2>/dev/null | head
 
 OUT
 === policy config files ===
@@ -2840,7 +2840,7 @@ OUT
 //! heart's live components (the boundary test in `ambition_render` pins
 //! that).
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod anim_index;
 pub mod camera_snapshot;
 mod facts;
@@ -2895,7 +2895,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // overlay ADVANCE mutates sim components, so it stays defined
                 // in the sim heart; this plugin only schedules it.
                 (
-                    ambition_actors::features::advance_actor_anim_overlays,
+                    ambition_platformer2d_actor_monolith::features::advance_actor_anim_overlays,
                     rebuild_actor_anim_index,
                 )
                     .chain(),
@@ -2904,13 +2904,13 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
             )
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }
-Bash LOC by subdir in ambition_actors
+Bash LOC by subdir in ambition_platformer2d_actor_monolith
 IN
-for d in crates/ambition_actors/src/*/; do loc=$(find "$d" -name '*.rs' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}'); echo "$loc $(basename $d)"; done | sort -rn; find crates/ambition_actors/src -maxdepth 1 -name '*.rs' | xargs wc -l | tail -1
+for d in crates/ambition_platformer2d_actor_monolith/src/*/; do loc=$(find "$d" -name '*.rs' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}'); echo "$loc $(basename $d)"; done | sort -rn; find crates/ambition_platformer2d_actor_monolith/src -maxdepth 1 -name '*.rs' | xargs wc -l | tail -1
 
 OUT
 27266 features
@@ -3006,7 +3006,7 @@ Bash Check dependency directions and planning docs
 IN
 cd /home/joncrall/code/ambition
 echo "=== does ldtk_map depend on world (adapter direction)? ==="
-grep -nE 'ambition_world|ambition_engine_core' crates/ambition_ldtk_map/Cargo.toml
+grep -nE 'ambition_platformer2d_world|ambition_platformer2d_core' crates/ambition_platformer2d_ldtk/Cargo.toml
 echo
 echo "=== who depends on ambition_time? ==="
 grep -rl 'ambition_time' crates/*/Cargo.toml game/*/Cargo.toml 2>/dev/null | sed 's#/Cargo.toml##;s#.*/##' | sort
@@ -3019,22 +3019,22 @@ ls docs/planning/engine/ 2>/dev/null | head; echo "---"; ls crate-remap-idea.md 
 
 OUT
 === does ldtk_map depend on world (adapter direction)? ===
-19:ambition_engine_core = { path = "../ambition_engine_core" }
-24:ambition_world = { path = "../ambition_world", default-features = false }
+19:ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+24:ambition_platformer2d_world = { path = "../ambition_platformer2d_world", default-features = false }
 
 === who depends on ambition_time? ===
 ambition
-ambition_actors
+ambition_platformer2d_actor_monolith
 ambition_combat
 ambition_content
 ambition_render
-ambition_runtime
+ambition_platformer2d_runtime
 ambition_sim_view
 ambition_time
-ambition_world
+ambition_platformer2d_world
 
 === who depends on ambition_gameplay_trace? ===
-ambition_actors
+ambition_platformer2d_actor_monolith
 ambition_gameplay_trace
 ambition_projectiles
 
@@ -3073,7 +3073,7 @@ OUT
 12:id = "engine.engine-core-is-foundation-clean"
 13:scope = "engine"
 14:kind = "forbidden-source-reference"
-17:rationale = "ambition_engine_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
+17:rationale = "ambition_platformer2d_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
 27:id = "engine.host-names-no-content"
 28:scope = "engine"
 29:kind = "dependency-denylist"
@@ -3089,15 +3089,15 @@ OUT
 81:id = "engine.render-no-actor-crate-dependency"
 82:scope = "engine"
 83:kind = "dependency-denylist"
-86:rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_actors. Render and the machinery meet only through lower view/vocabulary crates."
+86:rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_platformer2d_actor_monolith. Render and the machinery meet only through lower view/vocabulary crates."
 94:id = "engine.render-source-names-no-actors"
 95:scope = "engine"
 96:kind = "forbidden-source-reference"
-99:rationale = "F1.5 complete: render source must not name ambition_actors in code, even where the manifest dep is already gone."
+99:rationale = "F1.5 complete: render source must not name ambition_platformer2d_actor_monolith in code, even where the manifest dep is already gone."
 109:id = "engine.world-ir-dependency-allowlist"
 110:scope = "engine"
 111:kind = "dependency-allowlist"
-114:rationale = "ambition_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
+114:rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
 135:id = "engine.render-decoupled-member"
 136:scope = "engine"
 137:kind = "workspace-member"
@@ -3109,7 +3109,7 @@ OUT
 158:id = "engine.actor-source-no-render"
 159:scope = "engine"
 160:kind = "forbidden-source-reference"
-163:rationale = "ambition_actors must not reference the render crate in code either."
+163:rationale = "ambition_platformer2d_actor_monolith must not reference the render crate in code either."
 171:id = "engine.menu-crate-manifest-no-actors"
 172:scope = "engine"
 173:kind = "dependency-denylist"
@@ -3117,7 +3117,7 @@ OUT
 183:id = "engine.menu-crate-source-no-actors"
 184:scope = "engine"
 185:kind = "forbidden-source-reference"
-188:rationale = "ambition_menu must stay content-free — no ambition_actors references in code."
+188:rationale = "ambition_menu must stay content-free — no ambition_platformer2d_actor_monolith references in code."
 196:id = "engine.persistence-crate-member"
 197:scope = "engine"
 198:kind = "workspace-member"
@@ -3145,7 +3145,7 @@ OUT
 268:id = "engine.host-crate-member"
 269:scope = "engine"
 270:kind = "workspace-member"
-273:rationale = "ambition_host, the windowed-host face, must stay a registered workspace member."
+273:rationale = "ambition_platformer2d_host, the windowed-host face, must stay a registered workspace member."
 279:id = "engine.host-manifest-no-actors"
 280:scope = "engine"
 281:kind = "dependency-denylist"
@@ -3153,35 +3153,35 @@ OUT
 291:id = "engine.host-source-no-actors"
 292:scope = "engine"
 293:kind = "forbidden-source-reference"
-296:rationale = "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades, never name ambition_actors:: directly."
+296:rationale = "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades, never name ambition_platformer2d_actor_monolith:: directly."
 307:id = "engine.platformer-runtime-content-free"
 308:scope = "engine"
 309:kind = "forbidden-source-reference"
-312:rationale = "the platformer_runtime facade in ambition_actors must remain reusable and content-free"
-321:id = "engine.ambition_world-member"
+312:rationale = "the platformer_runtime facade in ambition_platformer2d_actor_monolith must remain reusable and content-free"
+321:id = "engine.ambition_platformer2d_world-member"
 322:scope = "engine"
 323:kind = "workspace-member"
-326:rationale = "ambition_world must stay a registered workspace member"
-332:id = "engine.ambition_world-manifest-deny"
+326:rationale = "ambition_platformer2d_world must stay a registered workspace member"
+332:id = "engine.ambition_platformer2d_world-manifest-deny"
 333:scope = "engine"
 334:kind = "dependency-denylist"
-337:rationale = "ambition_world is the backend-agnostic world IR"
-344:id = "engine.ambition_world-source-purity"
+337:rationale = "ambition_platformer2d_world is the backend-agnostic world IR"
+344:id = "engine.ambition_platformer2d_world-source-purity"
 345:scope = "engine"
 346:kind = "forbidden-source-reference"
-349:rationale = "ambition_world source stays free of forbidden refs"
+349:rationale = "ambition_platformer2d_world source stays free of forbidden refs"
 356:id = "engine.ldtk-map-member"
 357:scope = "engine"
 358:kind = "workspace-member"
-361:rationale = "ambition_ldtk_map registered"
+361:rationale = "ambition_platformer2d_ldtk registered"
 367:id = "engine.ldtk-map-manifest-deny"
 368:scope = "engine"
 369:kind = "dependency-denylist"
-372:rationale = "ambition_ldtk_map converts into world IR without depending on the sim heart"
+372:rationale = "ambition_platformer2d_ldtk converts into world IR without depending on the sim heart"
 379:id = "engine.ldtk-map-source-purity"
 380:scope = "engine"
 381:kind = "forbidden-source-reference"
-384:rationale = "ambition_ldtk_map source must not reach upward into sim/app/render/content (test fixture path string exempt)"
+384:rationale = "ambition_platformer2d_ldtk source must not reach upward into sim/app/render/content (test fixture path string exempt)"
 394:id = "engine.ambition_items-member"
 395:scope = "engine"
 396:kind = "workspace-member"
@@ -3415,7 +3415,7 @@ OUT
 466:id = "game.dev-consumers-use-dev-tools"
 467:scope = "game"
 468:kind = "forbidden-source-reference"
-471:rationale = "external consumers name ambition_dev_tools directly; ambition_actors::dev keeps only trace"
+471:rationale = "external consumers name ambition_dev_tools directly; ambition_platformer2d_actor_monolith::dev keeps only trace"
 480:id = "game.menu-map-state-home"
 481:scope = "game"
 482:kind = "required-path"
@@ -3512,16 +3512,16 @@ cd tests/ambition_workspace_policy; echo "=== remaining engine.toml policy ids (
 
 OUT
 === remaining engine.toml policy ids (from line 660) ===
-771:id = "engine.ambition_portal-manifest-allow"
-783:id = "engine.ambition_portal-source-purity"
+771:id = "engine.ambition_portal2d-manifest-allow"
+783:id = "engine.ambition_portal2d-source-purity"
 795:id = "engine.portal-exposes-plugin"
 807:id = "engine.portal-plugin-impl"
 819:id = "engine.actors-no-portal-facade"
-833:id = "engine.ambition_portal_presentation-member"
-844:id = "engine.ambition_portal_presentation-extracted-paths"
-855:id = "engine.ambition_portal_presentation-manifest-deny"
-867:id = "engine.ambition_portal_presentation-manifest-allow"
-879:id = "engine.ambition_portal_presentation-source-purity"
+833:id = "engine.ambition_portal2d_presentation-member"
+844:id = "engine.ambition_portal2d_presentation-extracted-paths"
+855:id = "engine.ambition_portal2d_presentation-manifest-deny"
+867:id = "engine.ambition_portal2d_presentation-manifest-allow"
+879:id = "engine.ambition_portal2d_presentation-source-purity"
 891:id = "engine.portal-presentation-plugin"
 903:id = "engine.portal-mechanic-no-renderer-dep"
 915:id = "engine.actors-no-portal-presentation-dep"
@@ -3701,7 +3701,7 @@ policies = ["engine.persistence-crate-member", "engine.persistence-crate-manifes
 [[entry]]
 old_test = "architecture_boundaries_world_ir_and_ldtk_backend_are_split"
 disposition = "declarative"
-policies = ["engine.ambition_world-member", "engine.ambition_world-manifest-deny", "engine.ambition_world-source-purity", "engine.ldtk-map-member", "engine.ldtk-map-manifest-deny", "engine.ldtk-map-source-purity"]
+policies = ["engine.ambition_platformer2d_world-member", "engine.ambition_platformer2d_world-manifest-deny", "engine.ambition_platformer2d_world-source-purity", "engine.ldtk-map-member", "engine.ldtk-map-manifest-deny", "engine.ldtk-map-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_projectiles_crate_is_model_only"
@@ -3849,7 +3849,7 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav
 Read events.rs
 Bash Analyze boss_encounter/features tangle and content leaks
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== what boss_encounter imports FROM features (crate::features::) ==="
 grep -rhoE 'crate::features::[a-z_:]+[A-Za-z_]+' boss_encounter | sort | uniq -c | sort -rn | head -30
 echo
@@ -3969,7 +3969,7 @@ OUT
 //! python3 tools/ambition_sfx_pack/pack.py --dump
 //! ```
 //!
-//! and grep `crates/ambition_actors/assets/audio/sfx.bank.txt`.
+//! and grep `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank.txt`.
 
 use crate::SfxId;
 
@@ -4097,7 +4097,7 @@ OUT
 ambition
 ambition_combat
 ambition_encounter
-ambition_actors
+ambition_platformer2d_actor_monolith
 ambition_interaction
 ambition_render
 ambition_sim_view
@@ -4105,49 +4105,49 @@ ambition_sprite_sheet
 
 === who depends on ambition_cutscene ===
 crates/ambition_cutscene
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 game/ambition_content
 crates/ambition_render
 crates/ambition_touch_input
 
 === who depends on ambition_combat ===
 crates/ambition_combat
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 crates/ambition_sim_view
 crates/ambition_sprite_sheet
-crates/ambition_runtime
+crates/ambition_platformer2d_runtime
 game/ambition_content
 crates/ambition_render
 
 === who depends on ambition_projectiles ===
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 crates/ambition_projectiles
-crates/ambition_runtime
+crates/ambition_platformer2d_runtime
 crates/ambition_sim_view
 crates/ambition_render
 game/ambition_content
 
 === who depends on ambition_encounter ===
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 crates/ambition_encounter
 crates/ambition_sim_view
-crates/ambition_runtime
+crates/ambition_platformer2d_runtime
 game/ambition_content
 
 === who depends on ambition_dialog / cutscene consumers ===
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 crates/ambition_dialog
-crates/ambition_runtime
+crates/ambition_platformer2d_runtime
 crates/ambition_render
 game/ambition_content
 Bash Check named sprite fields, dialog bindings, music, dep count
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith
 echo "=== count workspace path deps in Cargo.toml ==="
 grep -cE 'path = "\.\./ambition' Cargo.toml
 echo "--- list them ---"
@@ -4162,7 +4162,7 @@ OUT
 === count workspace path deps in Cargo.toml ===
 28
 --- list them ---
-ambition_asset_manager ambition_audio ambition_characters ambition_combat ambition_cutscene ambition_dev_tools ambition_dialog ambition_encounter ambition_engine_core ambition_entity_catalog ambition_gameplay_trace ambition_input ambition_interaction ambition_items ambition_ldtk_map ambition_menu ambition_persistence ambition_platformer_primitives ambition_portal ambition_projectiles ambition_settings_menu ambition_sfx ambition_sim_view ambition_sprite_sheet ambition_time ambition_ui_nav ambition_vfx ambition_world 
+ambition_asset_manager ambition_audio ambition_characters ambition_combat ambition_cutscene ambition_dev_tools ambition_dialog ambition_encounter ambition_platformer2d_core ambition_entity_catalog ambition_gameplay_trace ambition_input ambition_interaction ambition_items ambition_platformer2d_ldtk ambition_menu ambition_persistence ambition_platformer2d_shared_tangle ambition_portal2d ambition_projectiles ambition_settings_menu ambition_sfx ambition_sim_view ambition_sprite_sheet ambition_time ambition_ui_nav ambition_vfx ambition_platformer2d_world 
 
 === CharacterSpriteAssets named fields (content leak) ===
 === dialog/yarn_bindings.rs head ===
@@ -4271,7 +4271,7 @@ watch_paths = ["game/ambition_app/src/app/plugins.rs"]
 rationale = "app/plugins.rs must not reintroduce subsystem-owned registrations"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["fn register_portal_systems", "fn register_item_pickup_systems", "ambition_portal::portal_fire_system", "ambition_portal::portal_projectile_step", "ambition_portal::portal_transit", "ambition_actors::item_pickup::pickup_held_item_system", "ambition_actors::item_pickup::throw_held_item_system", "ambition_actors::item_pickup::ground_item_physics"]
+forbid = ["fn register_portal_systems", "fn register_item_pickup_systems", "ambition_portal2d::portal_fire_system", "ambition_portal2d::portal_projectile_step", "ambition_portal2d::portal_transit", "ambition_platformer2d_actor_monolith::item_pickup::pickup_held_item_system", "ambition_platformer2d_actor_monolith::item_pickup::throw_held_item_system", "ambition_platformer2d_actor_monolith::item_pickup::ground_item_physics"]
 file = "game/ambition_app/src/app/plugins.rs"
 
 
@@ -4293,12 +4293,12 @@ id = "game.engine-schedule-references-moved"
 scope = "game"
 kind = "file-contains"
 owners = ["ambition_app"]
-watch_paths = ["crates/ambition_runtime/src/player_schedule.rs"]
+watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
 rationale = "engine player schedule references the moved systems via library paths"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_dev_tools::sync_live_player_dev_edits_system", "ambition_actors::time::time_control::apply_suspended_time_scale_system", "ambition_actors::control::input_timer_system", "ambition_actors::control::interaction_input_system", "ambition_actors::control::cleanup_timers_system"]
-file = "crates/ambition_runtime/src/player_schedule.rs"
+contains = ["ambition_dev_tools::sync_live_player_dev_edits_system", "ambition_platformer2d_actor_monolith::time::time_control::apply_suspended_time_scale_system", "ambition_platformer2d_actor_monolith::control::input_timer_system", "ambition_platformer2d_actor_monolith::control::interaction_input_system", "ambition_platformer2d_actor_monolith::control::cleanup_timers_system"]
+file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
 
 [[policy]]
 id = "game.app-keeps-host-reset-systems"
@@ -4321,7 +4321,7 @@ While the agents work, let me measure where the last five days of growth actuall
 
 Bash Inspect named sprite slot struct
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== find named sprite slot struct fields ==="
 grep -nE '^\s*pub \w+:' character_sprites/assets.rs | head -30
 echo "=== the match arms mapping content ids to slots ==="
@@ -4347,8 +4347,8 @@ git log --since=2026-07-10 --numstat --format= -- 'crates/*/src/*' 'game/*/src/*
 
 OUT
   5099 +5733/-634 ambition_game_shell
-  4871 +8768/-3897 ambition_engine_core
-  4680 +20769/-16089 ambition_actors
+  4871 +8768/-3897 ambition_platformer2d_core
+  4680 +20769/-16089 ambition_platformer2d_actor_monolith
   2528 +3464/-936 ambition_audio
   1640 +1663/-23 ambition_load_presentation
   1628 +2836/-1208 ambition_demo_sanic
@@ -4356,9 +4356,9 @@ OUT
   1278 +2247/-969 ambition_render
   1274 +1586/-312 ambition_demo_smb1
   1226 +6294/-5068 ambition_characters
-  1163 +2124/-961 ambition_platformer_primitives
+  1163 +2124/-961 ambition_platformer2d_shared_tangle
   1158 +1161/-3 ambition_load
-   987 +4969/-3982 ambition_runtime
+   987 +4969/-3982 ambition_platformer2d_runtime
    854 +1209/-355 ambition
    698 +2878/-2180 ambition_content
    616 +765/-149 ambition_encounter
@@ -4369,14 +4369,14 @@ OUT
    231 +269/-38 ambition_demo_smb1_app
     82 +111/-29 ambition_sfx
     66 +329/-263 ambition_asset_manager
-    42 +95/-53 ambition_world
-    37 +47/-10 ambition_host
+    42 +95/-53 ambition_platformer2d_world
+    37 +47/-10 ambition_platformer2d_host
 Bash Grep game-specific proper names in target crates
 IN
 cd /home/joncrall/code/ambition
 echo "=== game-specific proper names in TARGET crates (combat, projectiles, portal(_pres), encounter, interaction, cutscene, dialog, dev_tools, persistence, load) ==="
 grep -rinE "mockingbird|clockwork_warden|gradient_sentinel|behemoth|spaghetti_monster|trex|mode_collapse|exploding_gradient|overflow_boss|gnu_ton|hadouken|mary_o|sanic|pocket|kaleidoscope|smirking|rope_cut|cut.rope" \
-  crates/ambition_combat/src crates/ambition_projectiles/src crates/ambition_portal/src crates/ambition_portal_presentation/src crates/ambition_encounter/src crates/ambition_interaction/src crates/ambition_cutscene/src crates/ambition_dialog/src crates/ambition_dev_tools/src crates/ambition_persistence/src crates/ambition_load/src crates/ambition_load_presentation/src \
+  crates/ambition_combat/src crates/ambition_projectiles/src crates/ambition_portal2d/src crates/ambition_portal2d_presentation/src crates/ambition_encounter/src crates/ambition_interaction/src crates/ambition_cutscene/src crates/ambition_dialog/src crates/ambition_dev_tools/src crates/ambition_persistence/src crates/ambition_load/src crates/ambition_load_presentation/src \
   --include=*.rs 2>/dev/null | grep -v "/tests" | grep -viE "test|assert" | head -50
 
 OUT
@@ -4435,7 +4435,7 @@ Key finding: ambition_sfx/ids.rs hardcodes named Ambition characters (DIALOGUE_B
 
 Bash Locate named sprite slot struct definition
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== struct with player/robot/goblin/sandbag fields ==="
 grep -rnE 'pub (player|robot|goblin|sandbag):' character_sprites/ | head
 echo "=== the enclosing struct def ==="
@@ -4468,7 +4468,7 @@ character_sprites/assets.rs:142:pub struct SpriteBodyCollision {
                 // display name so a hall pedestal with
 Bash entity_catalog, items, ldtk_map: Cargo/tree/LOC
 IN
-cd /home/joncrall/code/ambition/crates && for c in ambition_entity_catalog ambition_items ambition_ldtk_map; do echo "======== $c ========"; grep -E "^description" $c/Cargo.toml; echo "--- deps ---"; grep -E "path = " $c/Cargo.toml; echo "--- files + LOC ---"; find $c -name '*.rs' -not -path '*/target/*' | xargs wc -l | sort -rn | head -18; echo "--- non-rs data files ---"; find $c -type f -not -name '*.rs' -not -path '*/target/*' | grep -vE "MODULES.md|README" | head; echo ""; done
+cd /home/joncrall/code/ambition/crates && for c in ambition_entity_catalog ambition_items ambition_platformer2d_ldtk; do echo "======== $c ========"; grep -E "^description" $c/Cargo.toml; echo "--- deps ---"; grep -E "path = " $c/Cargo.toml; echo "--- files + LOC ---"; find $c -name '*.rs' -not -path '*/target/*' | xargs wc -l | sort -rn | head -18; echo "--- non-rs data files ---"; find $c -type f -not -name '*.rs' -not -path '*/target/*' | grep -vE "MODULES.md|README" | head; echo ""; done
 
 OUT
 ======== ambition_entity_catalog ========
@@ -4495,40 +4495,40 @@ ambition_persistence = { path = "../ambition_persistence" }
 --- non-rs data files ---
 ambition_items/Cargo.toml
 
-======== ambition_ldtk_map ========
+======== ambition_platformer2d_ldtk ========
 description = "LDtk backend adapter for Ambition authored world IR."
 --- deps ---
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-ambition_world = { path = "../ambition_world", default-features = false }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world", default-features = false }
 --- files + LOC ---
   5378 total
-   908 ambition_ldtk_map/src/conversion/mod.rs
-   763 ambition_ldtk_map/src/conversion/entity_converters.rs
-   445 ambition_ldtk_map/src/surfaces.rs
-   372 ambition_ldtk_map/src/intgrid.rs
-   330 ambition_ldtk_map/src/lib.rs
-   304 ambition_ldtk_map/src/project.rs
-   234 ambition_ldtk_map/src/loading.rs
-   232 ambition_ldtk_map/src/conversion/entity_converters/surface_ramp_winding_oracle.rs
-   230 ambition_ldtk_map/src/bevy_runtime/asset.rs
-   218 ambition_ldtk_map/src/fields.rs
-   203 ambition_ldtk_map/src/bevy_runtime/indices.rs
-   198 ambition_ldtk_map/src/manifest.rs
-   195 ambition_ldtk_map/src/bevy_runtime/systems.rs
-   164 ambition_ldtk_map/src/bevy_runtime/plugin.rs
-   149 ambition_ldtk_map/src/fields/tests.rs
-   146 ambition_ldtk_map/src/bevy_runtime/components.rs
-   142 ambition_ldtk_map/src/hot_reload.rs
+   908 ambition_platformer2d_ldtk/src/conversion/mod.rs
+   763 ambition_platformer2d_ldtk/src/conversion/entity_converters.rs
+   445 ambition_platformer2d_ldtk/src/surfaces.rs
+   372 ambition_platformer2d_ldtk/src/intgrid.rs
+   330 ambition_platformer2d_ldtk/src/lib.rs
+   304 ambition_platformer2d_ldtk/src/project.rs
+   234 ambition_platformer2d_ldtk/src/loading.rs
+   232 ambition_platformer2d_ldtk/src/conversion/entity_converters/surface_ramp_winding_oracle.rs
+   230 ambition_platformer2d_ldtk/src/bevy_runtime/asset.rs
+   218 ambition_platformer2d_ldtk/src/fields.rs
+   203 ambition_platformer2d_ldtk/src/bevy_runtime/indices.rs
+   198 ambition_platformer2d_ldtk/src/manifest.rs
+   195 ambition_platformer2d_ldtk/src/bevy_runtime/systems.rs
+   164 ambition_platformer2d_ldtk/src/bevy_runtime/plugin.rs
+   149 ambition_platformer2d_ldtk/src/fields/tests.rs
+   146 ambition_platformer2d_ldtk/src/bevy_runtime/components.rs
+   142 ambition_platformer2d_ldtk/src/hot_reload.rs
 --- non-rs data files ---
-ambition_ldtk_map/Cargo.toml
+ambition_platformer2d_ldtk/Cargo.toml
 Let me get the app's LOC grouped by subsystem and read the app entry module plus the RL/menu classification.
 
 Bash Find out struct fields
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 grep -rnE 'goblin:|robot:|sandbag:' character_sprites/*.rs
 echo "--- struct defs in character_sprites ---"
 grep -rnE 'pub struct \w+' character_sprites/mod.rs | head
@@ -4739,53 +4739,53 @@ pub enum ItemCategory {
 "sparebattery"
 Bash sim_view actor read sites
 IN
-echo "=== sim_view: what it reads from ambition_actors ===" && grep -rn "ambition_actors" crates/ambition_sim_view/src | head -40
+echo "=== sim_view: what it reads from ambition_platformer2d_actor_monolith ===" && grep -rn "ambition_platformer2d_actor_monolith" crates/ambition_sim_view/src | head -40
 
 OUT
-=== sim_view: what it reads from ambition_actors ===
-crates/ambition_sim_view/src/lib.rs:70:                    ambition_actors::features::advance_actor_anim_overlays,
-crates/ambition_sim_view/src/camera_snapshot.rs:13:use ambition_actors::rooms::{
-crates/ambition_sim_view/src/camera_snapshot.rs:545:    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
-crates/ambition_sim_view/src/camera_snapshot.rs:562:            &ambition_actors::avatar::PlayerBlinkCameraState,
-crates/ambition_sim_view/src/anim_index.rs:7:use ambition_actors::features::{
-crates/ambition_sim_view/src/anim_index.rs:20:/// [`ambition_actors::actor::AncillaryMovementBundle`] (the same bundle the player nests)
-crates/ambition_sim_view/src/anim_index.rs:35:    pub ground: &'static ambition_actors::actor::BodyGroundState,
-crates/ambition_sim_view/src/anim_index.rs:40:    pub flight: &'static ambition_actors::actor::BodyFlightState,
-crates/ambition_sim_view/src/anim_index.rs:41:    pub body_mode: &'static ambition_actors::actor::BodyModeState,
-crates/ambition_sim_view/src/anim_index.rs:42:    pub env_contact: &'static ambition_actors::actor::BodyEnvironmentContact,
-crates/ambition_sim_view/src/anim_index.rs:43:    pub abilities: &'static ambition_actors::actor::BodyAbilities,
-crates/ambition_sim_view/src/anim_index.rs:44:    pub shield: &'static ambition_actors::actor::BodyShieldState,
-crates/ambition_sim_view/src/anim_index.rs:49:    pub anim: Option<&'static ambition_actors::actor::BodyAnimFacts>,
-crates/ambition_sim_view/src/anim_index.rs:117:/// uses ([`ambition_actors::character_sprites::pick_actor_anim`] → `body_view_from_body`).
-crates/ambition_sim_view/src/anim_index.rs:127:        let anim = ambition_actors::character_sprites::pick_actor_anim(
-crates/ambition_sim_view/src/anim_index.rs:137:            ambition_actors::character_sprites::ActorAnimState {
-crates/ambition_sim_view/src/anim_index.rs:191:    pub anim: ambition_actors::boss_encounter::sprites::BossAnimState,
-crates/ambition_sim_view/src/anim_index.rs:199:    pub cursor_anim: ambition_actors::boss_encounter::sprites::BossAnim,
-crates/ambition_sim_view/src/anim_index.rs:252:        ambition_actors::features::BossClusterRef,
-crates/ambition_sim_view/src/anim_index.rs:262:        Option<&ambition_actors::boss_encounter::sprites::BossAnimFrame>,
-crates/ambition_sim_view/src/anim_index.rs:265:    use ambition_actors::boss_encounter::sprites::BossAnim;
-crates/ambition_sim_view/src/anim_index.rs:286:            ambition_actors::features::volumes_for_profile(
-crates/ambition_sim_view/src/view_index.rs:10:use ambition_actors::features::HazardFeature;
-crates/ambition_sim_view/src/view_index.rs:11:use ambition_actors::features::{
-crates/ambition_sim_view/src/view_index.rs:121:            Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
-crates/ambition_sim_view/src/view_index.rs:131:        Without<ambition_actors::features::BossConfig>,
-crates/ambition_sim_view/src/view_index.rs:136:        ambition_actors::features::BossClusterRef,
-crates/ambition_sim_view/src/view_index.rs:149:        Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,
-crates/ambition_sim_view/src/view_index.rs:579:    bosses: Query<(&FeatureId, ambition_actors::features::BossClusterRef)>,
-crates/ambition_sim_view/src/facts.rs:14:use ambition_actors::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
-crates/ambition_sim_view/src/facts.rs:81:        &ambition_actors::features::HeldItem,
-crates/ambition_sim_view/src/facts.rs:112:    grounds: Query<&ambition_actors::items::pickup::GroundItem>,
-crates/ambition_sim_view/src/facts.rs:141:    items: Query<&ambition_actors::items::world_item::WorldItem>,
-crates/ambition_sim_view/src/facts.rs:143:    use ambition_actors::items::world_item::WorldItemPayload;
-crates/ambition_sim_view/src/facts.rs:172:        &ambition_actors::items::pickup::HeldProjectile,
-crates/ambition_sim_view/src/facts.rs:190:    marks: Query<&ambition_actors::abilities::traversal::mark_recall::PlayerMark>,
-crates/ambition_sim_view/src/facts.rs:208:    switches: Query<&ambition_actors::gravity::GravityFlipSwitch>,
-crates/ambition_sim_view/src/facts.rs:229:    shrines: Query<&ambition_actors::shrine::HealShrine>,
-crates/ambition_sim_view/src/facts.rs:243:    mut activation: ResMut<ambition_actors::shrine::ShrineActivationPulse>,
-crates/ambition_sim_view/src/facts.rs:267:        &ambition_actors::features::ActorDisposition,
+=== sim_view: what it reads from ambition_platformer2d_actor_monolith ===
+crates/ambition_sim_view/src/lib.rs:70:                    ambition_platformer2d_actor_monolith::features::advance_actor_anim_overlays,
+crates/ambition_sim_view/src/camera_snapshot.rs:13:use ambition_platformer2d_actor_monolith::rooms::{
+crates/ambition_sim_view/src/camera_snapshot.rs:545:    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+crates/ambition_sim_view/src/camera_snapshot.rs:562:            &ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
+crates/ambition_sim_view/src/anim_index.rs:7:use ambition_platformer2d_actor_monolith::features::{
+crates/ambition_sim_view/src/anim_index.rs:20:/// [`ambition_platformer2d_actor_monolith::actor::AncillaryMovementBundle`] (the same bundle the player nests)
+crates/ambition_sim_view/src/anim_index.rs:35:    pub ground: &'static ambition_platformer2d_actor_monolith::actor::BodyGroundState,
+crates/ambition_sim_view/src/anim_index.rs:40:    pub flight: &'static ambition_platformer2d_actor_monolith::actor::BodyFlightState,
+crates/ambition_sim_view/src/anim_index.rs:41:    pub body_mode: &'static ambition_platformer2d_actor_monolith::actor::BodyModeState,
+crates/ambition_sim_view/src/anim_index.rs:42:    pub env_contact: &'static ambition_platformer2d_actor_monolith::actor::BodyEnvironmentContact,
+crates/ambition_sim_view/src/anim_index.rs:43:    pub abilities: &'static ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+crates/ambition_sim_view/src/anim_index.rs:44:    pub shield: &'static ambition_platformer2d_actor_monolith::actor::BodyShieldState,
+crates/ambition_sim_view/src/anim_index.rs:49:    pub anim: Option<&'static ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
+crates/ambition_sim_view/src/anim_index.rs:117:/// uses ([`ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim`] → `body_view_from_body`).
+crates/ambition_sim_view/src/anim_index.rs:127:        let anim = ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim(
+crates/ambition_sim_view/src/anim_index.rs:137:            ambition_platformer2d_actor_monolith::character_sprites::ActorAnimState {
+crates/ambition_sim_view/src/anim_index.rs:191:    pub anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimState,
+crates/ambition_sim_view/src/anim_index.rs:199:    pub cursor_anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim,
+crates/ambition_sim_view/src/anim_index.rs:252:        ambition_platformer2d_actor_monolith::features::BossClusterRef,
+crates/ambition_sim_view/src/anim_index.rs:262:        Option<&ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimFrame>,
+crates/ambition_sim_view/src/anim_index.rs:265:    use ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim;
+crates/ambition_sim_view/src/anim_index.rs:286:            ambition_platformer2d_actor_monolith::features::volumes_for_profile(
+crates/ambition_sim_view/src/view_index.rs:10:use ambition_platformer2d_actor_monolith::features::HazardFeature;
+crates/ambition_sim_view/src/view_index.rs:11:use ambition_platformer2d_actor_monolith::features::{
+crates/ambition_sim_view/src/view_index.rs:121:            Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
+crates/ambition_sim_view/src/view_index.rs:131:        Without<ambition_platformer2d_actor_monolith::features::BossConfig>,
+crates/ambition_sim_view/src/view_index.rs:136:        ambition_platformer2d_actor_monolith::features::BossClusterRef,
+crates/ambition_sim_view/src/view_index.rs:149:        Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
+crates/ambition_sim_view/src/view_index.rs:579:    bosses: Query<(&FeatureId, ambition_platformer2d_actor_monolith::features::BossClusterRef)>,
+crates/ambition_sim_view/src/facts.rs:14:use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
+crates/ambition_sim_view/src/facts.rs:81:        &ambition_platformer2d_actor_monolith::features::HeldItem,
+crates/ambition_sim_view/src/facts.rs:112:    grounds: Query<&ambition_platformer2d_actor_monolith::items::pickup::GroundItem>,
+crates/ambition_sim_view/src/facts.rs:141:    items: Query<&ambition_platformer2d_actor_monolith::items::world_item::WorldItem>,
+crates/ambition_sim_view/src/facts.rs:143:    use ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload;
+crates/ambition_sim_view/src/facts.rs:172:        &ambition_platformer2d_actor_monolith::items::pickup::HeldProjectile,
+crates/ambition_sim_view/src/facts.rs:190:    marks: Query<&ambition_platformer2d_actor_monolith::abilities::traversal::mark_recall::PlayerMark>,
+crates/ambition_sim_view/src/facts.rs:208:    switches: Query<&ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>,
+crates/ambition_sim_view/src/facts.rs:229:    shrines: Query<&ambition_platformer2d_actor_monolith::shrine::HealShrine>,
+crates/ambition_sim_view/src/facts.rs:243:    mut activation: ResMut<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>,
+crates/ambition_sim_view/src/facts.rs:267:        &ambition_platformer2d_actor_monolith::features::ActorDisposition,
 Bash Trace out struct type
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 grep -rn 'out.goblin\|\.goblin\b\|goblin:' character_sprites/ | head
 echo "--- what type is out ---"
 grep -rnB2 'out.player = Some' character_sprites/assets.rs | head
@@ -4861,12 +4861,12 @@ echo "=== engine.toml policy (render/actors/sim_view boundary) ===" && grep -n "
 OUT
 === engine.toml policy (render/actors/sim_view boundary) ===
 14:kind = "forbidden-source-reference"
-20:roots = ["crates/ambition_engine_core/src"]
-21:forbid = ["ambition_content", "ambition_app", "ambition_runtime"]
+20:roots = ["crates/ambition_platformer2d_core/src"]
+21:forbid = ["ambition_content", "ambition_app", "ambition_platformer2d_runtime"]
 29:kind = "dependency-denylist"
 42:kind = "forbidden-source-reference"
 45:rationale = "The moment the host moves a system that reaches for a content type, this fails instead of the boundary rotting. Docs deliberately MENTION the forbidden crate, so comments are exempt."
-48:roots = ["crates/ambition_host/src"]
+48:roots = ["crates/ambition_platformer2d_host/src"]
 49:forbid = ["ambition_content"]
 51:# ── migrated from crates/ambition_render/tests/observation_boundary.rs (Task 4) ──
 53:# was: render_never_names_live_sim_state (E4 observation boundary)
@@ -4882,17 +4882,17 @@ OUT
 83:kind = "dependency-denylist"
 84:owners = ["ambition_render"]
 85:watch_paths = ["crates/ambition_render/Cargo.toml"]
-86:rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_actors. Render and the machinery meet only through lower view/vocabulary crates."
+86:rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_platformer2d_actor_monolith. Render and the machinery meet only through lower view/vocabulary crates."
 89:manifest = "crates/ambition_render/Cargo.toml"
-90:deny = ["ambition_actors"]
+90:deny = ["ambition_platformer2d_actor_monolith"]
 92:# was: render_has_no_actor_crate_dependency_after_f15 (source half)
 94:id = "engine.render-source-names-no-actors"
 96:kind = "forbidden-source-reference"
 97:owners = ["ambition_render"]
 98:watch_paths = ["crates/ambition_render/src"]
-99:rationale = "F1.5 complete: render source must not name ambition_actors in code, even where the manifest dep is already gone."
+99:rationale = "F1.5 complete: render source must not name ambition_platformer2d_actor_monolith in code, even where the manifest dep is already gone."
 102:roots = ["crates/ambition_render/src"]
-103:forbid = ["ambition_actors"]
+103:forbid = ["ambition_platformer2d_actor_monolith"]
 127:# Repetitive crate-purity rules only (workspace-member / dependency-denylist /
 128:# forbidden-source-reference). Bespoke semantic assertions stay in the legacy
 131:# was: architecture_boundaries_render_and_actor_crates_are_decoupled
@@ -4904,22 +4904,22 @@ OUT
 143:members = ["ambition_render"]
 146:id = "engine.actor-manifest-no-render"
 148:kind = "dependency-denylist"
-149:owners = ["ambition_actors"]
-150:watch_paths = ["crates/ambition_actors/Cargo.toml"]
+149:owners = ["ambition_platformer2d_actor_monolith"]
+150:watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
 151:rationale = "The sim machinery must not depend on its renderer (render depends on the sim, never the reverse)."
-154:manifest = "crates/ambition_actors/Cargo.toml"
+154:manifest = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
 155:deny = ["ambition_render"]
 158:id = "engine.actor-source-no-render"
 160:kind = "forbidden-source-reference"
-161:owners = ["ambition_actors"]
-162:watch_paths = ["crates/ambition_actors/src"]
-163:rationale = "ambition_actors must not reference the render crate in code either."
-166:roots = ["crates/ambition_actors/src"]
+161:owners = ["ambition_platformer2d_actor_monolith"]
+162:watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+163:rationale = "ambition_platformer2d_actor_monolith must not reference the render crate in code either."
+166:roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 167:forbid = ["ambition_render"]
 171:id = "engine.menu-crate-manifest-no-actors"
 173:kind = "dependency-denylist"
 176:rationale = "ambition_menu is the reusable menu renderer; the game owns menu content, so it must not depend on the actor machinery."
-180:deny = ["ambition_actors"]
+180:deny = ["ambition_platformer2d_actor_monolith"]
 Bash Inspect combat on_hit and module headers
 IN
 cd /home/joncrall/code/ambition
@@ -4993,7 +4993,7 @@ OUT
 --- path_motion.rs ---
   //! `PathMotion`: waypoint-following used by moving hazards/platforms.
   //!
-  //! Walks a position along a `ambition_engine_core::KinematicPath` by `speed * dt`
+  //! Walks a position along a `ambition_platformer2d_core::KinematicPath` by `speed * dt`
 --- held_items.rs ---
   //! ECS-owned held item capability for actors.
   //!
@@ -5008,7 +5008,7 @@ OUT
   //! Enemy brain configs should be deterministic for a given authored actor id,
 Bash Peek at the ambition umbrella crate
 IN
-ls crates/ambition/src/ && head -60 crates/ambition/src/lib.rs
+ls crates/ambition_platformer2d/src/ && head -60 crates/ambition_platformer2d/src/lib.rs
 
 OUT
 lib.rs
@@ -5018,7 +5018,7 @@ session_world.rs
 //! Public facade for Ambition-derived platformer games.
 //!
 //! This crate is the E9 umbrella surface: a downstream game should depend on
-//! `ambition` plus its own content crate instead of copying the app shell's wall
+//! `ambition_platformer2d` plus its own content crate instead of copying the app shell's wall
 //! of lower `ambition_*` dependencies. It deliberately re-exports the engine,
 //! host, renderer, model, and vocabulary crates without depending on any named
 //! game content or the `ambition_app` shell.
@@ -5027,7 +5027,7 @@ pub mod prelude;
 pub mod provider;
 pub mod session_world;
 
-pub use ambition_actors as actors;
+pub use ambition_platformer2d_actor_monolith as actors;
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 pub use ambition_characters as characters;
@@ -5036,25 +5036,25 @@ pub use ambition_cutscene as cutscene;
 pub use ambition_dev_tools as dev_tools;
 pub use ambition_dialog as dialog;
 pub use ambition_encounter as encounter;
-pub use ambition_engine_core as engine_core;
+pub use ambition_platformer2d_core as engine_core;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
-pub use ambition_host as host;
+pub use ambition_platformer2d_host as host;
 pub use ambition_input as input;
 pub use ambition_interaction as interaction;
 pub use ambition_inventory_ui as inventory_ui;
 pub use ambition_items as items;
-pub use ambition_ldtk_map as ldtk_map;
+pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
 pub use ambition_menu as menu;
 pub use ambition_persistence as persistence;
-pub use ambition_platformer_primitives as platformer;
-pub use ambition_portal as portal;
-pub use ambition_portal_presentation as portal_presentation;
+pub use ambition_platformer2d_shared_tangle as platformer;
+pub use ambition_portal2d as portal;
+pub use ambition_portal2d_presentation as portal_presentation;
 pub use ambition_projectiles as projectiles;
 pub use ambition_render as render;
-pub use ambition_runtime as runtime;
+pub use ambition_platformer2d_runtime as runtime;
 pub use ambition_settings_menu as settings_menu;
 pub use ambition_sfx as sfx;
 pub use ambition_sfx_bank as sfx_bank;
@@ -5064,8 +5064,8 @@ pub use ambition_time as time;
 pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 pub use ambition_vfx as vfx;
-pub use ambition_world as world;
-// Re-exported so a game can name bevy TYPES through `ambition::bevy::…`. NOTE:
+pub use ambition_platformer2d_world as world;
+// Re-exported so a game can name bevy TYPES through `ambition_platformer2d::bevy::…`. NOTE:
 // this does NOT let a crate `#[derive(Component)]`/`#[derive(Resource)]` through
 // the umbrella alone — bevy's derive macros resolve `::bevy_ecs` via the
 // CONSUMER's own Cargo.toml (`BevyManifest`), which a re-export does not satisfy.
@@ -5119,11 +5119,11 @@ scope = "engine"
 kind = "dependency-denylist"
 owners = ["ambition_render"]
 watch_paths = ["crates/ambition_render/Cargo.toml"]
-rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_actors. Render and the machinery meet only through lower view/vocabulary crates."
+rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_platformer2d_actor_monolith. Render and the machinery meet only through lower view/vocabulary crates."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
 manifest = "crates/ambition_render/Cargo.toml"
-deny = ["ambition_actors"]
+deny = ["ambition_platformer2d_actor_monolith"]
 
 # was: render_has_no_actor_crate_dependency_after_f15 (source half)
 [[policy]]
@@ -5132,30 +5132,30 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_render"]
 watch_paths = ["crates/ambition_render/src"]
-rationale = "F1.5 complete: render source must not name ambition_actors in code, even where the manifest dep is already gone."
+rationale = "F1.5 complete: render source must not name ambition_platformer2d_actor_monolith in code, even where the manifest dep is already gone."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
 roots = ["crates/ambition_render/src"]
-forbid = ["ambition_actors"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
-# ── migrated from crates/ambition_world/src/lib.rs dependency ratchet (Task 4) ──
+# ── migrated from crates/ambition_platformer2d_world/src/lib.rs dependency ratchet (Task 4) ──
 
 # was: ambition_world_dependency_allowlist_ratchets_world_ir_purity
 [[policy]]
 id = "engine.world-ir-dependency-allowlist"
 scope = "engine"
 kind = "dependency-allowlist"
-owners = ["ambition_world"]
-watch_paths = ["crates/ambition_world/Cargo.toml"]
-rationale = "ambition_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
+owners = ["ambition_platformer2d_world"]
+watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
+rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
 source_doc = "docs/planning/engine/decomposition.md#W3"
 severity = "error"
 exact = true
-manifest = "crates/ambition_world/Cargo.toml"
+manifest = "crates/ambition_platformer2d_world/Cargo.toml"
 allow = [
-    "ambition_engine_core",
+    "ambition_platformer2d_core",
     "ambition_entity_catalog",
-    "ambition_platformer_primitives",
+    "ambition_platformer2d_shared_tangle",
     "ambition_time",
 ]
 
@@ -5182,24 +5182,24 @@ members = ["ambition_render"]
 id = "engine.actor-manifest-no-render"
 scope = "engine"
 kind = "dependency-denylist"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/Cargo.toml"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/Cargo.toml"]
 rationale = "The sim machinery must not depend on its renderer (render depends on the sim, never the reverse)."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
-manifest = "crates/ambition_actors/Cargo.toml"
+manifest = "crates/ambition_platformer2d_actor_monolith/Cargo.toml"
 deny = ["ambition_render"]
 
 [[policy]]
 id = "engine.actor-source-no-render"
 scope = "engine"
 kind = "forbidden-source-reference"
-owners = ["ambition_actors"]
-watch_paths = ["crates/ambition_actors/src"]
-rationale = "ambition_actors must not reference the render crate in code either."
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+rationale = "ambition_platformer2d_actor_monolith must not reference the render crate in code either."
 source_doc = "docs/planning/engine/decomposition.md#F1.5"
 severity = "error"
-roots = ["crates/ambition_actors/src"]
+roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["ambition_render"]
 
 # was: architecture_boundaries_menu_crate_stays_content_free
@@ -5213,7 +5213,7 @@ rationale = "ambition_menu is the reusable menu renderer; the game owns menu con
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 manifest = "crates/ambition_menu/Cargo.toml"
-deny = ["ambition_actors"]
+deny = ["ambition_platformer2d_actor_monolith"]
 
 [[policy]]
 id = "engine.menu-crate-source-no-actors"
@@ -5221,11 +5221,11 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_menu"]
 watch_paths = ["crates/ambition_menu/src"]
-rationale = "ambition_menu must stay content-free — no ambition_actors references in code."
+rationale = "ambition_menu must stay content-free — no ambition_platformer2d_actor_monolith references in code."
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 roots = ["crates/ambition_menu/src"]
-forbid = ["ambition_actors"]
+forbid = ["ambition_platformer2d_actor_monolith"]
 
 # was: architecture_boundaries_persistence_crate_owns_stored_shapes_only
 [[policy]]
@@ -5245,7 +5245,7 @@ OUT
 //! Game-side menu host stack: backend-agnostic page model, dispatcher, item
 //! effects, and the flat-grid / 3D-cube presentation hosts.
 //!
-//! `ambition::actors::menu` keeps the lib-coupled settings IR, Map tab, and
+//! `ambition_platformer2d::actors::menu` keeps the lib-coupled settings IR, Map tab, and
 //! backend selector; this crate owns app-level wiring and effects.
 
 pub mod dispatch;
@@ -5264,9 +5264,9 @@ mod parity_tests;
 === does the app menu name Ambition-specific content? (quests/bosses/specific rooms) ===
 --- menu/model.rs head ---
 //! The data seam between Ambition's live 24-item inventory and the reusable
-//! `ambition::menu` 3D-cube OoT pause menu (#31).
+//! `ambition_platformer2d::menu` 3D-cube OoT pause menu (#31).
 //!
-//! The game owns the item state (`ambition::actors::items`); this module builds the cube's
+//! The game owns the item state (`ambition_platformer2d::actors::items`); this module builds the cube's
 //! page MODELS from it via the lib's host-data seam (`ItemsOnlyPageSpec`, which is
 //! deliberately renderer-agnostic — it can feed the Lunex cube, a Bevy-UI grid
 //! fallback, or a test renderer). The cube RENDERER itself is the shared lib.
@@ -5290,7 +5290,7 @@ mod parity_tests;
 //! * the L/R page-turn buttons live in the *side margins* ([`EDGE_LEFT_RECT`] /
 //!   [`EDGE_RIGHT_RECT`]) OUTSIDE the grid, exactly like the demo.
 
-use ambition::menu::{
+use ambition_platformer2d::menu::{
     InventoryItemNode, ItemsOnlyPageSpec, MenuColor, MenuControlKind, MenuPageModel, MenuRect,
     MenuTextAlign,
 Read mod.rs
@@ -5423,7 +5423,7 @@ ambition_items/src/lib.rs:129:pub struct ItemCatalog {
 162:    ITEM_CATALOG_OVERRIDE
 Bash ldtk entity_converters header + named content
 IN
-cd /home/joncrall/code/ambition/crates && echo "=== ldtk entity_converters.rs header ===" && head -40 ambition_ldtk_map/src/conversion/entity_converters.rs && echo "" && echo "=== ldtk: named Ambition content? ===" && grep -rhoiE "goblin|mockingbird|sentinel|dark.?lord|alice|\bbob\b|architect|vault.?keeper|sandbag|mary.?o|sanic" ambition_ldtk_map/src | sort | uniq -c | sort -rn | head -20
+cd /home/joncrall/code/ambition/crates && echo "=== ldtk entity_converters.rs header ===" && head -40 ambition_platformer2d_ldtk/src/conversion/entity_converters.rs && echo "" && echo "=== ldtk: named Ambition content? ===" && grep -rhoiE "goblin|mockingbird|sentinel|dark.?lord|alice|\bbob\b|architect|vault.?keeper|sandbag|mary.?o|sanic" ambition_platformer2d_ldtk/src | sort | uniq -c | sort -rn | head -20
 
 OUT
 === ldtk entity_converters.rs header ===
@@ -5478,21 +5478,21 @@ The seam is explicitly enforced (Health-as-data and FeatureView are allowed voca
 
 Initial recon is done and the six deep-dive agents are still running. A quick interim picture of what I've established so far:
 
-The lay of the land. The workspace is 49 members. Heavyweights: ambition_actors 68.7k LOC, ambition_characters 23.4k, ambition_engine_core 23.3k, ambition_app 22.3k, ambition_content 14.3k. The planning stack (architecture.md's tiered end-state, decomposition.md's measured ledger, the 2026-07-10 ruling that no further actors split is owed) is far more developed than "last full audit" suggested — but it was last re-baselined 2026-07-09/10, and the code has moved a lot since.
+The lay of the land. The workspace is 49 members. Heavyweights: ambition_platformer2d_actor_monolith 68.7k LOC, ambition_characters 23.4k, ambition_platformer2d_core 23.3k, ambition_app 22.3k, ambition_content 14.3k. The planning stack (architecture.md's tiered end-state, decomposition.md's measured ledger, the 2026-07-10 ruling that no further actors split is owed) is far more developed than "last full audit" suggested — but it was last re-baselined 2026-07-09/10, and the code has moved a lot since.
 
 Fresh growth data (git, since 2026-07-10): game_shell +5.1k (essentially a new crate from the multi-game host work), engine_core +4.9k, actors +4.7k net with 20.8k/16.1k added/deleted churn (the melee/moveset unifications), audio +2.5k, load/load_presentation +2.8k combined. The decomposition ledger's destination-crate table is now stale — several "small" crates aren't small anymore.
 
 Suspects already visible from the dependency graph alone:
 
-ambition_touch_input depends on ambition_actors and ambition_render — architecture.md places it in Tier 2 (device→intent) with arrows only toward kernels. That's a documented-plan violation at HEAD.
+ambition_touch_input depends on ambition_platformer2d_actor_monolith and ambition_render — architecture.md places it in Tier 2 (device→intent) with arrows only toward kernels. That's a documented-plan violation at HEAD.
 ambition_render has 19 workspace deps; the doc permits Tier 0–2 vocabularies but the breadth deserves a per-dep audit (an agent is on it).
 ambition_sprite_sheet (Tier 0, "sprite-geometry authority") depends on combat, interaction, persistence, world — upward-looking for a Tier-0 vocabulary crate.
-ambition_sim_view depends on ambition_actors — legal per the tiers, but it makes the observation boundary rebuild whenever the sim heart changes.
+ambition_sim_view depends on ambition_platformer2d_actor_monolith — legal per the tiers, but it makes the observation boundary rebuild whenever the sim heart changes.
 Once the agents report, I'll synthesize a ranked opportunity list (respecting the binding rulings, flagging where new evidence justifies revisiting one) and write it into docs/planning/ as the recon deliverable.
 
 Bash Compute reverse dependency counts per module
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== REVERSE DEPS: how many OTHER top-level modules reference each (importers) ==="
 for target in features boss_encounter avatar abilities character_sprites affordances items projectile encounter dev world persistence audio time session control body_mode menu enemy_projectile assets schedule gravity dialog music shrine actor combat rooms ldtk_world; do
   importers=""
@@ -5576,7 +5576,7 @@ OUT
 //! want, so it lives beside the input/render seams rather than inside the app
 //! binary. The direct `ambition_render` edge is intentional: the crate draws its
 //! own overlay quads and text. The module has no app-only coupling — it
-//! reads/writes only the `ambition_input` / `ambition_actors` /
+//! reads/writes only the `ambition_input` / `ambition_platformer2d_actor_monolith` /
 //! `ambition_render` / `ambition_ui_nav` / `ambition_cutscene` library seams.
 //!
 //! Two layers:
@@ -5646,7 +5646,7 @@ pub mod bevy_plugin;
 #[cfg(feature = "mobile_touch")]
 pub use bevy_plugin::TouchControlsPlugin;
 === touch_input: dep usage by file ===
---- ambition_actors ---
+--- ambition_platformer2d_actor_monolith ---
 src/lib.rs
 src/bevy_plugin.rs
 --- ambition_render ---
@@ -5668,32 +5668,32 @@ src/state.rs
 src/menu_bridge.rs
 src/tests.rs
 src/bevy_plugin.rs
---- ambition_engine_core ---
+--- ambition_platformer2d_core ---
 src/bevy_plugin.rs
---- ambition_platformer_primitives ---
+--- ambition_platformer2d_shared_tangle ---
 src/tests.rs
 src/menu_bridge.rs
 src/bevy_plugin.rs
 Bash Locate named content in ldtk_map
 IN
-cd /home/joncrall/code/ambition/crates && echo "=== ldtk sanic/alice/goblin sites ===" && grep -rniE "sanic|alice|goblin" ambition_ldtk_map/src | head -20
+cd /home/joncrall/code/ambition/crates && echo "=== ldtk sanic/alice/goblin sites ===" && grep -rniE "sanic|alice|goblin" ambition_platformer2d_ldtk/src | head -20
 
 OUT
 === ldtk sanic/alice/goblin sites ===
-ambition_ldtk_map/src/fields/tests.rs:102:        parse_pickup_kind("flag:seen_alice"),
-ambition_ldtk_map/src/fields/tests.rs:104:            flag: "seen_alice".into()
-ambition_ldtk_map/src/fields/tests.rs:133:        parse_enemy_brain("Goblin"),
-ambition_ldtk_map/src/fields/tests.rs:134:        CharacterBrain::Custom(s) if s == "Goblin"
-ambition_ldtk_map/src/conversion/mod.rs:723:    // GeoId determinism contract, the W2 sanic IR proof, and the F7 fixes
-ambition_ldtk_map/src/conversion/mod.rs:858:    /// THE W2 IR PROOF, restored: the sanic area (richest IR surface — the
-ambition_ldtk_map/src/conversion/mod.rs:862:    fn the_sanic_area_round_trips_as_a_ron_room() {
-ambition_ldtk_map/src/conversion/mod.rs:865:        let sanic = room_set
-ambition_ldtk_map/src/conversion/mod.rs:868:            .find(|room| room.id == "sanic_sandbox")
-ambition_ldtk_map/src/conversion/mod.rs:869:            .expect("the sanic area exists in the sandbox world");
-ambition_ldtk_map/src/conversion/mod.rs:871:            !sanic.world.chains.is_empty(),
-ambition_ldtk_map/src/conversion/mod.rs:872:            "fixture: the sanic area exercises the chains channel"
-ambition_ldtk_map/src/conversion/mod.rs:875:            spec: sanic.clone(),
-ambition_ldtk_map/src/conversion/mod.rs:887:        assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
+ambition_platformer2d_ldtk/src/fields/tests.rs:102:        parse_pickup_kind("flag:seen_alice"),
+ambition_platformer2d_ldtk/src/fields/tests.rs:104:            flag: "seen_alice".into()
+ambition_platformer2d_ldtk/src/fields/tests.rs:133:        parse_enemy_brain("Goblin"),
+ambition_platformer2d_ldtk/src/fields/tests.rs:134:        CharacterBrain::Custom(s) if s == "Goblin"
+ambition_platformer2d_ldtk/src/conversion/mod.rs:723:    // GeoId determinism contract, the W2 sanic IR proof, and the F7 fixes
+ambition_platformer2d_ldtk/src/conversion/mod.rs:858:    /// THE W2 IR PROOF, restored: the sanic area (richest IR surface — the
+ambition_platformer2d_ldtk/src/conversion/mod.rs:862:    fn the_sanic_area_round_trips_as_a_ron_room() {
+ambition_platformer2d_ldtk/src/conversion/mod.rs:865:        let sanic = room_set
+ambition_platformer2d_ldtk/src/conversion/mod.rs:868:            .find(|room| room.id == "sanic_sandbox")
+ambition_platformer2d_ldtk/src/conversion/mod.rs:869:            .expect("the sanic area exists in the sandbox world");
+ambition_platformer2d_ldtk/src/conversion/mod.rs:871:            !sanic.world.chains.is_empty(),
+ambition_platformer2d_ldtk/src/conversion/mod.rs:872:            "fixture: the sanic area exercises the chains channel"
+ambition_platformer2d_ldtk/src/conversion/mod.rs:875:            spec: sanic.clone(),
+ambition_platformer2d_ldtk/src/conversion/mod.rs:887:        assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
 Bash items default catalog content
 IN
 cd /home/joncrall/code/ambition/crates && echo "=== items: default catalog def (hardcoded content?) ===" && sed -n '120,175p' ambition_items/src/lib.rs && echo "=== grep default_catalog / fn default ===" && grep -n "fn default_catalog\|impl Default for ItemCatalog\|fn builtin\|24 items\|ItemDef {" ambition_items/src/lib.rs | head
@@ -5767,44 +5767,44 @@ echo "=== who depends on ambition_dev_tools ==="
 grep -rln "ambition_dev_tools" crates/*/Cargo.toml game/*/Cargo.toml 2>/dev/null | sed 's|/Cargo.toml||'
 echo
 echo "=== dev_tools referenced in non-dev/non-app prod scheduling? (search host/runtime) ==="
-grep -rln "ambition_dev_tools\|DeveloperTools\|SandboxDevState" crates/ambition_host/src crates/ambition_runtime/src crates/ambition_game_shell/src 2>/dev/null
+grep -rln "ambition_dev_tools\|DeveloperTools\|SandboxDevState" crates/ambition_platformer2d_host/src crates/ambition_platformer2d_runtime/src crates/ambition_game_shell/src 2>/dev/null
 echo
 echo "=== portal core: any Sprite/Mesh/Material/Image (render) leakage? ==="
-grep -rinE "\bSprite\b|\bMesh\b|Material|Handle<Image>|ColorMaterial|render" crates/ambition_portal/src --include=*.rs | grep -v "//" | grep -viE "test|rendered|renderer|// " | head -15
+grep -rinE "\bSprite\b|\bMesh\b|Material|Handle<Image>|ColorMaterial|render" crates/ambition_portal2d/src --include=*.rs | grep -v "//" | grep -viE "test|rendered|renderer|// " | head -15
 echo
 echo "=== combat targeting.rs: actor coupling (imports) ==="
 grep -n "^use\|ambition_" crates/ambition_combat/src/targeting.rs | head -20
 
 OUT
 === who depends on ambition_dev_tools ===
-crates/ambition
-crates/ambition_actors
+crates/ambition_platformer2d
+crates/ambition_platformer2d_actor_monolith
 crates/ambition_dev_tools
-crates/ambition_runtime
+crates/ambition_platformer2d_runtime
 crates/ambition_sim_view
 crates/ambition_render
 
 === dev_tools referenced in non-dev/non-app prod scheduling? (search host/runtime) ===
-crates/ambition_host/src/portal.rs
-crates/ambition_runtime/src/progression_schedule.rs
-crates/ambition_runtime/src/sim_core_resources.rs
-crates/ambition_runtime/src/player_schedule.rs
-crates/ambition_runtime/src/lib.rs
+crates/ambition_platformer2d_host/src/portal.rs
+crates/ambition_platformer2d_runtime/src/progression_schedule.rs
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs
+crates/ambition_platformer2d_runtime/src/player_schedule.rs
+crates/ambition_platformer2d_runtime/src/lib.rs
 
 === portal core: any Sprite/Mesh/Material/Image (render) leakage? ===
-crates/ambition_portal/src/placement.rs:94:    let into_render = Vec2::new(-n_in.x, n_in.y);
-crates/ambition_portal/src/placement.rs:95:    let out_render = Vec2::new(n_out.x, -n_out.y);
-crates/ambition_portal/src/placement.rs:96:    let dot = into_render.dot(out_render);
-crates/ambition_portal/src/placement.rs:97:    let cross = into_render.x * out_render.y - into_render.y * out_render.x;
+crates/ambition_portal2d/src/placement.rs:94:    let into_render = Vec2::new(-n_in.x, n_in.y);
+crates/ambition_portal2d/src/placement.rs:95:    let out_render = Vec2::new(n_out.x, -n_out.y);
+crates/ambition_portal2d/src/placement.rs:96:    let dot = into_render.dot(out_render);
+crates/ambition_portal2d/src/placement.rs:97:    let cross = into_render.x * out_render.y - into_render.y * out_render.x;
 
 === combat targeting.rs: actor coupling (imports) ===
-11:use ambition_engine_core as ae;
+11:use ambition_platformer2d_core as ae;
 12:use bevy::prelude::*;
 14:use super::components::{
 17:use super::FeatureSimEntity;
 18:use ambition_characters::actor::BodyHealth;
-19:use ambition_engine_core::BodyKinematics;
-20:use ambition_platformer_primitives::markers::PlayerEntity;
+19:use ambition_platformer2d_core::BodyKinematics;
+20:use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 100:/// another module, so ownership travels with the types into `ambition_combat`.
 119:/// [`ambition_characters::brain::Brain::Player`]) fights as [`ActorFaction::Player`]
 127:    brain: Option<&ambition_characters::brain::Brain>,
@@ -5814,27 +5814,27 @@ crates/ambition_portal/src/placement.rs:97:    let cross = into_render.x * out_r
 247:        let player_controlled = brain.is_some_and(ambition_characters::brain::Brain::is_player);
 Bash touch_input actor/render/ui_nav usage detail
 IN
-cd /home/joncrall/code/ambition/crates/ambition_touch_input && echo "=== actors usage ===" && grep -n "ambition_actors" src/bevy_plugin.rs && echo "=== render usage ===" && grep -n "ambition_render" src/bevy_plugin.rs && echo "=== ui_nav usage ===" && grep -n "ambition_ui_nav" src/bevy_plugin.rs && echo "=== cutscene usage ===" && grep -n "ambition_cutscene" src/menu_bridge.rs
+cd /home/joncrall/code/ambition/crates/ambition_touch_input && echo "=== actors usage ===" && grep -n "ambition_platformer2d_actor_monolith" src/bevy_plugin.rs && echo "=== render usage ===" && grep -n "ambition_render" src/bevy_plugin.rs && echo "=== ui_nav usage ===" && grep -n "ambition_ui_nav" src/bevy_plugin.rs && echo "=== cutscene usage ===" && grep -n "ambition_cutscene" src/menu_bridge.rs
 
 OUT
 === actors usage ===
-158:                        .after(ambition_actors::schedule::populate_menu_control_frame_from_actions)
-168:                        .before(ambition_actors::schedule::apply_menu_frame_to_cutscene_request)
-176:                        .before(ambition_actors::schedule::MenuNavConsume),
-190:                        .after(ambition_actors::schedule::populate_control_frame_from_actions)
-210:                        .before(ambition_actors::control::populate_slot_controls)
-216:                        .before(ambition_actors::schedule::MenuNavConsume),
-233:                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
-235:                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
-237:                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
-390:    gravity: Option<Res<ambition_actors::physics::GravityField>>,
-395:    let gdir = ambition_actors::physics::gravity_dir_or_default(gravity.as_deref());
-785:/// [`ambition_actors::affordances::PlayerAffordances`] table. Held as
-819:    affordances: Res<ambition_actors::affordances::PlayerAffordances>,
-822:    use ambition_actors::affordances::{InteractVariant, VariantLabel};
-935:    active: Res<ambition_actors::affordances::ActiveInputMethod>,
-947:        let next = ambition_actors::affordances::glyph_for(sa, &preset, active.0);
-969:        With<ambition_actors::actor::PrimaryPlayer>,
+158:                        .after(ambition_platformer2d_actor_monolith::schedule::populate_menu_control_frame_from_actions)
+168:                        .before(ambition_platformer2d_actor_monolith::schedule::apply_menu_frame_to_cutscene_request)
+176:                        .before(ambition_platformer2d_actor_monolith::schedule::MenuNavConsume),
+190:                        .after(ambition_platformer2d_actor_monolith::schedule::populate_control_frame_from_actions)
+210:                        .before(ambition_platformer2d_actor_monolith::control::populate_slot_controls)
+216:                        .before(ambition_platformer2d_actor_monolith::schedule::MenuNavConsume),
+233:                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
+235:                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
+237:                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
+390:    gravity: Option<Res<ambition_platformer2d_actor_monolith::physics::GravityField>>,
+395:    let gdir = ambition_platformer2d_actor_monolith::physics::gravity_dir_or_default(gravity.as_deref());
+785:/// [`ambition_platformer2d_actor_monolith::affordances::PlayerAffordances`] table. Held as
+819:    affordances: Res<ambition_platformer2d_actor_monolith::affordances::PlayerAffordances>,
+822:    use ambition_platformer2d_actor_monolith::affordances::{InteractVariant, VariantLabel};
+935:    active: Res<ambition_platformer2d_actor_monolith::affordances::ActiveInputMethod>,
+947:        let next = ambition_platformer2d_actor_monolith::affordances::glyph_for(sa, &preset, active.0);
+969:        With<ambition_platformer2d_actor_monolith::actor::PrimaryPlayer>,
 === render usage ===
 30:use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 146:                    .after(ambition_render::ui_fonts::load_ui_fonts),
@@ -5860,17 +5860,17 @@ ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_menu = { path = "../ambition_menu", default-features = false, optional = true }
 ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_load = { path = "../ambition_load" }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_sfx = { path = "../ambition_sfx" }
 # un-configures `bevy::input::gamepad` (same pairing as ambition_input).
 # unify them in — `cargo test -p ambition_game_shell` alone did not build.
 ========== ambition_dialog ==========
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_input = { path = "../ambition_input" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
-# ambition_actors's base bevy dep so feature unification stays headless.
+# ambition_platformer2d_actor_monolith's base bevy dep so feature unification stays headless.
 # winit, which needs a display backend to compile at all (mirrors ambition_audio).
 ========== game/ambition_menu_kaleidoscope ==========
 ambition_menu = { path = "../../crates/ambition_menu" }
@@ -5888,26 +5888,26 @@ Bash Check runtime dev_tools usage and interaction contents
 IN
 cd /home/joncrall/code/ambition
 echo "=== what runtime imports from dev_tools ==="
-grep -rn "dev_tools\|DeveloperTools\|SandboxDevState\|Editable\|sync_live_player_dev" crates/ambition_runtime/src/progression_schedule.rs crates/ambition_runtime/src/player_schedule.rs crates/ambition_runtime/src/sim_core_resources.rs crates/ambition_runtime/src/lib.rs 2>/dev/null | head -20
+grep -rn "dev_tools\|DeveloperTools\|SandboxDevState\|Editable\|sync_live_player_dev" crates/ambition_platformer2d_runtime/src/progression_schedule.rs crates/ambition_platformer2d_runtime/src/player_schedule.rs crates/ambition_platformer2d_runtime/src/sim_core_resources.rs crates/ambition_platformer2d_runtime/src/lib.rs 2>/dev/null | head -20
 echo
 echo "=== interaction PickupKind / what interaction owns (enum decls) ==="
 grep -n "pub enum\|pub struct\|pub fn" crates/ambition_interaction/src/lib.rs | head -40
 
 OUT
 === what runtime imports from dev_tools ===
-crates/ambition_runtime/src/player_schedule.rs:14://!   `.after(sync_live_player_dev_edits_system).before(input_timer_system)`
-crates/ambition_runtime/src/player_schedule.rs:95:                ambition_dev_tools::sync_live_player_dev_edits_system,
-crates/ambition_runtime/src/player_schedule.rs:103:        // Ordered after part A's tail (`sync_live_player_dev_edits_system`).
-crates/ambition_runtime/src/player_schedule.rs:158:                .after(ambition_dev_tools::sync_live_player_dev_edits_system),
-crates/ambition_runtime/src/sim_core_resources.rs:65:            .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
-crates/ambition_runtime/src/sim_core_resources.rs:80:            .init_resource::<ambition_dev_tools::SandboxDevState>()
-crates/ambition_runtime/src/sim_core_resources.rs:140:            .init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>()
-crates/ambition_runtime/src/sim_core_resources.rs:141:            .init_resource::<ambition_dev_tools::dev_tools::EditablePlayerStats>()
-crates/ambition_runtime/src/sim_core_resources.rs:142:            .init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>()
-crates/ambition_runtime/src/sim_core_resources.rs:143:            .init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
-crates/ambition_runtime/src/progression_schedule.rs:81:                ambition_dev_tools::dev_tools::sync_player_stats_with_inspector,
-crates/ambition_runtime/src/lib.rs:92:    pub use ambition_dev_tools::SandboxDevState;
-crates/ambition_runtime/src/lib.rs:105:    pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+crates/ambition_platformer2d_runtime/src/player_schedule.rs:14://!   `.after(sync_live_player_dev_edits_system).before(input_timer_system)`
+crates/ambition_platformer2d_runtime/src/player_schedule.rs:95:                ambition_dev_tools::sync_live_player_dev_edits_system,
+crates/ambition_platformer2d_runtime/src/player_schedule.rs:103:        // Ordered after part A's tail (`sync_live_player_dev_edits_system`).
+crates/ambition_platformer2d_runtime/src/player_schedule.rs:158:                .after(ambition_dev_tools::sync_live_player_dev_edits_system),
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:65:            .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:80:            .init_resource::<ambition_dev_tools::SandboxDevState>()
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:140:            .init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>()
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:141:            .init_resource::<ambition_dev_tools::dev_tools::EditablePlayerStats>()
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:142:            .init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>()
+crates/ambition_platformer2d_runtime/src/sim_core_resources.rs:143:            .init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+crates/ambition_platformer2d_runtime/src/progression_schedule.rs:81:                ambition_dev_tools::dev_tools::sync_player_stats_with_inspector,
+crates/ambition_platformer2d_runtime/src/lib.rs:92:    pub use ambition_dev_tools::SandboxDevState;
+crates/ambition_platformer2d_runtime/src/lib.rs:105:    pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 
 === interaction PickupKind / what interaction owns (enum decls) ===
 13:pub struct Interactable {
@@ -5942,11 +5942,11 @@ description = "Reusable Bevy inventory/menu UI data model and interaction primit
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_input = { path = "../ambition_input" }
 -- description --
-description = "The renderer-agnostic settings + system menu IR (E1e): SettingsMenuModel / SettingsOption / apply_settings_option built from ambition_persistence::settings::UserSettings, and the System-menu layer (Radio / Video / Audio / Controls / Gameplay / Language / Reset / Quit / Developer) on top of it. Pure logic — no bevy, no renderer — so both the bevy-UI grid and the lunex cube render the same model. Depends only on the persistence settings vocabulary. Carved out of ambition_actors (dissolves the settings-IR god-dep)."
+description = "The renderer-agnostic settings + system menu IR (E1e): SettingsMenuModel / SettingsOption / apply_settings_option built from ambition_persistence::settings::UserSettings, and the System-menu layer (Radio / Video / Audio / Controls / Gameplay / Language / Reset / Quit / Developer) on top of it. Pure logic — no bevy, no renderer — so both the bevy-UI grid and the lunex cube render the same model. Depends only on the persistence settings vocabulary. Carved out of ambition_platformer2d_actor_monolith (dissolves the settings-IR god-dep)."
 ========== ambition_ui_nav ==========
 ambition_input = { path = "../ambition_input" }
 -- description --
-description = "Reusable, content-free UI/menu navigation primitives: windowed list math (visible window + discrete scroll-to-row), pointer row-activation resolution, and drag-scroll accumulation. Keeps the keyboard/gamepad/touch menu paths from drifting apart. Pure over the input foundation; extracted from ambition_actors."
+description = "Reusable, content-free UI/menu navigation primitives: windowed list math (visible window + discrete scroll-to-row), pointer row-activation resolution, and drag-scroll accumulation. Keeps the keyboard/gamepad/touch menu paths from drifting apart. Pure over the input foundation; extracted from ambition_platformer2d_actor_monolith."
 ========== ambition_inventory_ui ==========
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 -- description --
@@ -5955,22 +5955,22 @@ description = "Reusable inventory menu-navigation state for Ambition-style platf
 ambition_menu = { path = "../ambition_menu", default-features = false, optional = true }
 ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_load = { path = "../ambition_load" }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_sfx = { path = "../ambition_sfx" }
 # un-configures `bevy::input::gamepad` (same pairing as ambition_input).
 # unify them in — `cargo test -p ambition_game_shell` alone did not build.
 -- description --
 description = "Renderer-independent routing and scoped lifecycle for top-level game experiences, plus neutral sequences and a minimal launcher."
 ========== ambition_dialog ==========
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_input = { path = "../ambition_input" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
-# ambition_actors's base bevy dep so feature unification stays headless.
+# ambition_platformer2d_actor_monolith's base bevy dep so feature unification stays headless.
 # winit, which needs a display backend to compile at all (mirrors ambition_audio).
 -- description --
-description = "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner↔DialogState bridge plus the generic Yarn binding-installer seam. Content-free — a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_actors (E1c)."
+description = "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner↔DialogState bridge plus the generic Yarn binding-installer seam. Content-free — a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_platformer2d_actor_monolith (E1c)."
 ========== menu_kaleidoscope ==========
 ambition_menu = { path = "../../crates/ambition_menu" }
 description = "The bevy_lunex 3D OoT-style cube renderer for the ambition_menu page model — the FIRST engine extension crate (E1e). Optional for any game: a host installs KaleidoscopeMenuPlugin to render the same backend-agnostic MenuPageModel as a rotating cube instead of the flat bevy_ui grid. Engine-only deps (ambition_menu + bevy + bevy_lunex); names no game content."
@@ -6020,7 +6020,7 @@ OUT
  2024 total
 Bash ldtk test fixture provenance
 IN
-cd /home/joncrall/code/ambition/crates && echo "=== ldtk sanic test fixture source ===" && sed -n '855,890p' ambition_ldtk_map/src/conversion/mod.rs && echo "=== where does the test load the project from? ===" && grep -rn "include_str\|read_to_string\|\.ldtk\|fixture\|assets/" ambition_ldtk_map/src/conversion/mod.rs | head
+cd /home/joncrall/code/ambition/crates && echo "=== ldtk sanic test fixture source ===" && sed -n '855,890p' ambition_platformer2d_ldtk/src/conversion/mod.rs && echo "=== where does the test load the project from? ===" && grep -rn "include_str\|read_to_string\|\.ldtk\|fixture\|assets/" ambition_platformer2d_ldtk/src/conversion/mod.rs | head
 
 OUT
 === ldtk sanic test fixture source ===
@@ -6043,15 +6043,15 @@ OUT
             !sanic.world.chains.is_empty(),
             "fixture: the sanic area exercises the chains channel"
         );
-        let doc = ambition_world::ron_room::RonRoomDoc {
+        let doc = ambition_platformer2d_world::ron_room::RonRoomDoc {
             spec: sanic.clone(),
             links: Vec::new(),
         };
-        let baked = ambition_world::ron_room::room_doc_to_ron(&doc).expect("bakes");
-        let reloaded = ambition_world::ron_room::room_doc_from_ron(&baked).expect("parses");
-        let rebaked = ambition_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
+        let baked = ambition_platformer2d_world::ron_room::room_doc_to_ron(&doc).expect("bakes");
+        let reloaded = ambition_platformer2d_world::ron_room::room_doc_from_ron(&baked).expect("parses");
+        let rebaked = ambition_platformer2d_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
         assert_eq!(baked, rebaked, "serialize∘parse is a fixed point");
-        let twin_set = ambition_world::rooms::RoomSet::from_parts(
+        let twin_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
             reloaded.spec.id.clone(),
             vec![reloaded.spec],
             reloaded.links,
@@ -6061,13 +6061,13 @@ OUT
 
     #[test]
 === where does the test load the project from? ===
-ambition_ldtk_map/src/conversion/mod.rs:59:        // project without that area (synthetic fixtures, partial checkouts)
-ambition_ldtk_map/src/conversion/mod.rs:872:            "fixture: the sanic area exercises the chains channel"
+ambition_platformer2d_ldtk/src/conversion/mod.rs:59:        // project without that area (synthetic fixtures, partial checkouts)
+ambition_platformer2d_ldtk/src/conversion/mod.rs:872:            "fixture: the sanic area exercises the chains channel"
 Now let me examine portal_presentation contents, game_shell structure, and hunt for Ambition-specific hardcoded content across the presentation/UI stack.
 
 Bash Find item enum + ldtk dev loader source path
 IN
-cd /home/joncrall/code/ambition/crates && echo "=== find the item roster enum ===" && grep -nE "pub enum [A-Z]" ambition_items/src/lib.rs && echo "--- the enum with 24 variants (context around ITEM_COUNT usage) ---" && grep -n "repr\|discriminant\|Item::" ambition_items/src/lib.rs | head -5 && echo "=== load_default_for_dev source ===" && grep -rn "fn load_default_for_dev" -A 15 ambition_ldtk_map/src/*.rs ambition_ldtk_map/src/**/*.rs 2>/dev/null | head -25
+cd /home/joncrall/code/ambition/crates && echo "=== find the item roster enum ===" && grep -nE "pub enum [A-Z]" ambition_items/src/lib.rs && echo "--- the enum with 24 variants (context around ITEM_COUNT usage) ---" && grep -n "repr\|discriminant\|Item::" ambition_items/src/lib.rs | head -5 && echo "=== load_default_for_dev source ===" && grep -rn "fn load_default_for_dev" -A 15 ambition_platformer2d_ldtk/src/*.rs ambition_platformer2d_ldtk/src/**/*.rs 2>/dev/null | head -25
 
 OUT
 === find the item roster enum ===
@@ -6080,26 +6080,26 @@ OUT
 168:/// One row per [`Item`], in discriminant order — the engine's built-in default
 356:        Item::PortalGun,
 === load_default_for_dev source ===
-ambition_ldtk_map/src/loading.rs:127:    pub fn load_default_for_dev() -> Result<Self, String> {
-ambition_ldtk_map/src/loading.rs-128-        let config = SandboxAssetConfig {
-ambition_ldtk_map/src/loading.rs-129-            sprite_folder: "sprites".to_string(),
-ambition_ldtk_map/src/loading.rs-130-            asset_profile: AssetProfile::DesktopDevLoose,
-ambition_ldtk_map/src/loading.rs-131-        };
-ambition_ldtk_map/src/loading.rs-132-        let inputs = SandboxCatalogInputs {
-ambition_ldtk_map/src/loading.rs-133-            worlds: world_manifest()
-ambition_ldtk_map/src/loading.rs-134-                .worlds
-ambition_ldtk_map/src/loading.rs-135-                .iter()
-ambition_ldtk_map/src/loading.rs-136-                .map(|source| WorldCatalogRow {
-ambition_ldtk_map/src/loading.rs-137-                    id: source.id.clone(),
-ambition_ldtk_map/src/loading.rs-138-                    asset_path: source.asset_path.clone(),
-ambition_ldtk_map/src/loading.rs-139-                    required: source.required,
-ambition_ldtk_map/src/loading.rs-140-                    loose_path: source.loose_path.clone(),
-ambition_ldtk_map/src/loading.rs-141-                    embedded_bevy_path: source.embedded_bevy_path,
-ambition_ldtk_map/src/loading.rs-142-                })
+ambition_platformer2d_ldtk/src/loading.rs:127:    pub fn load_default_for_dev() -> Result<Self, String> {
+ambition_platformer2d_ldtk/src/loading.rs-128-        let config = SandboxAssetConfig {
+ambition_platformer2d_ldtk/src/loading.rs-129-            sprite_folder: "sprites".to_string(),
+ambition_platformer2d_ldtk/src/loading.rs-130-            asset_profile: AssetProfile::DesktopDevLoose,
+ambition_platformer2d_ldtk/src/loading.rs-131-        };
+ambition_platformer2d_ldtk/src/loading.rs-132-        let inputs = SandboxCatalogInputs {
+ambition_platformer2d_ldtk/src/loading.rs-133-            worlds: world_manifest()
+ambition_platformer2d_ldtk/src/loading.rs-134-                .worlds
+ambition_platformer2d_ldtk/src/loading.rs-135-                .iter()
+ambition_platformer2d_ldtk/src/loading.rs-136-                .map(|source| WorldCatalogRow {
+ambition_platformer2d_ldtk/src/loading.rs-137-                    id: source.id.clone(),
+ambition_platformer2d_ldtk/src/loading.rs-138-                    asset_path: source.asset_path.clone(),
+ambition_platformer2d_ldtk/src/loading.rs-139-                    required: source.required,
+ambition_platformer2d_ldtk/src/loading.rs-140-                    loose_path: source.loose_path.clone(),
+ambition_platformer2d_ldtk/src/loading.rs-141-                    embedded_bevy_path: source.embedded_bevy_path,
+ambition_platformer2d_ldtk/src/loading.rs-142-                })
 Bash Compute total and test LOC per target crate
 IN
 cd /home/joncrall/code/ambition
-for c in ambition_combat ambition_projectiles ambition_portal ambition_portal_presentation ambition_encounter ambition_interaction ambition_cutscene ambition_dialog ambition_dev_tools ambition_persistence ambition_load ambition_load_presentation; do
+for c in ambition_combat ambition_projectiles ambition_portal2d ambition_portal2d_presentation ambition_encounter ambition_interaction ambition_cutscene ambition_dialog ambition_dev_tools ambition_persistence ambition_load ambition_load_presentation; do
   tot=$(find crates/$c/src -name '*.rs' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
   testtot=$(find crates/$c/src -name '*.rs' \( -path '*test*' -o -name 'tests.rs' \) | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
   printf "%-32s total=%6s  tests=%6s\n" "$c" "$tot" "${testtot:-0}"
@@ -6108,8 +6108,8 @@ done
 OUT
 ambition_combat                  total=  9960  tests=  3237
 ambition_projectiles             total=  2244  tests=   594
-ambition_portal                  total=  5246  tests=  1524
-ambition_portal_presentation     total=  6505  tests=  1573
+ambition_portal2d                  total=  5246  tests=  1524
+ambition_portal2d_presentation     total=  6505  tests=  1573
 ambition_encounter               total=  1698  tests=     0
 ambition_interaction             total=   298  tests=     0
 ambition_cutscene                total=   399  tests=     0
@@ -6120,11 +6120,11 @@ ambition_load                    total=  1158  tests=   241
 ambition_load_presentation       total=  1640  tests=   495
 Bash portal_presentation lib and deps
 IN
-echo "=== portal_presentation lib.rs ===" && cat /home/joncrall/code/ambition/crates/ambition_portal_presentation/src/lib.rs && echo "=== portal_presentation deps ===" && awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&/ambition_/{print}' /home/joncrall/code/ambition/crates/ambition_portal_presentation/Cargo.toml
+echo "=== portal_presentation lib.rs ===" && cat /home/joncrall/code/ambition/crates/ambition_portal2d_presentation/src/lib.rs && echo "=== portal_presentation deps ===" && awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f&&/ambition_/{print}' /home/joncrall/code/ambition/crates/ambition_portal2d_presentation/Cargo.toml
 
 OUT
 === portal_presentation lib.rs ===
-//! Default renderer for the headless [`ambition_portal`] mechanic.
+//! Default renderer for the headless [`ambition_portal2d`] mechanic.
 //!
 //! Provides placed-portal visuals, mid-transit body pieces, disorientation
 //! indicators, through-portal view windows, and a sequestered compatibility
@@ -6133,13 +6133,13 @@ OUT
 //! [`PortalGunArt`], [`PortalAimHint`]) and may replace any visual by disabling
 //! that [`PortalPresentationPlugin`] flag and registering an alternative system.
 //!
-//! Depends only on `bevy`, `ambition_engine_core`,
-//! `ambition_platformer_primitives`, and `ambition_portal`; it never names a host
+//! Depends only on `bevy`, `ambition_platformer2d_core`,
+//! `ambition_platformer2d_shared_tangle`, and `ambition_portal2d`; it never names a host
 //! crate.
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 mod camera_continuity;
 mod clip_material;
@@ -6230,7 +6230,7 @@ pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 /// The host-world half of the render transform: the world's size, copied from
 /// the host each frame. Engine coordinates are top-left-origin y-down; Bevy's
 /// 2D camera is centered y-up; [`Self::to_render`] is the one adapter between
-/// them (delegating to `ambition_engine_core::config::world_size_to_bevy` so
+/// them (delegating to `ambition_platformer2d_core::config::world_size_to_bevy` so
 /// the math is defined exactly once).
 ///
 /// Host seam: keep `size` synced (e.g. from Ambition's `RoomGeometry`). A zero
@@ -6280,12 +6280,12 @@ pub struct PortalAimHint {
     pub aim: Vec2,
 }
 === portal_presentation deps ===
-# `ambition_portal` mechanic refuses to own): the 2D render pipeline for
-ambition_engine_core = { path = "../ambition_engine_core" }
-# roll reads. Same stack position as `ambition_portal` (ADR 0019).
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-# host crate (ambition_actors / ambition_content).
-ambition_portal = { path = "../ambition_portal" }
+# `ambition_portal2d` mechanic refuses to own): the 2D render pipeline for
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# roll reads. Same stack position as `ambition_portal2d` (ADR 0019).
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# host crate (ambition_platformer2d_actor_monolith / ambition_content).
+ambition_portal2d = { path = "../ambition_portal2d" }
 Bash game_shell structure
 IN
 echo "=== game_shell src tree LOC ===" && find /home/joncrall/code/ambition/crates/ambition_game_shell/src -name '*.rs' | xargs wc -l | sort -n | tail -20 && echo "=== game_shell lib.rs head ===" && head -40 /home/joncrall/code/ambition/crates/ambition_game_shell/src/lib.rs
@@ -6352,46 +6352,46 @@ pub use basic_presentation::{BasicSequenceRoot, BasicShellPresentationPlugin, Ba
 Read lib.rs (lines 63-102)
 Bash Item enum variants + ldtk world_manifest
 IN
-cd /home/joncrall/code/ambition/crates && echo "=== world_manifest source (does ldtk hardcode game world paths?) ===" && grep -rn "fn world_manifest" -A 30 ambition_ldtk_map/src/manifest.rs | head -40
+cd /home/joncrall/code/ambition/crates && echo "=== world_manifest source (does ldtk hardcode game world paths?) ===" && grep -rn "fn world_manifest" -A 30 ambition_platformer2d_ldtk/src/manifest.rs | head -40
 
 OUT
 === world_manifest source (does ldtk hardcode game world paths?) ===
-ambition_ldtk_map/src/manifest.rs:91:pub fn world_manifest() -> &'static WorldManifest {
-ambition_ldtk_map/src/manifest.rs-92-    #[cfg(test)]
-ambition_ldtk_map/src/manifest.rs-93-    {
-ambition_ldtk_map/src/manifest.rs-94-        // Test fixture = the game's REAL worlds, read cross-crate (the
-ambition_ldtk_map/src/manifest.rs-95-        // explicit cross-crate fixture pattern) so this crate's conversion /
-ambition_ldtk_map/src/manifest.rs-96-        // ron-room contract tests exercise real data without shipping any.
-ambition_ldtk_map/src/manifest.rs-97-        // Restored by the fable final audit (F7): the W3 carve dropped it,
-ambition_ldtk_map/src/manifest.rs-98-        // which is what orphaned the ruled contract tests.
-ambition_ldtk_map/src/manifest.rs-99-        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
-ambition_ldtk_map/src/manifest.rs-100-    }
-ambition_ldtk_map/src/manifest.rs-101-    #[cfg(not(test))]
-ambition_ldtk_map/src/manifest.rs-102-    {
-ambition_ldtk_map/src/manifest.rs-103-        WORLD_MANIFEST.get().unwrap_or_else(|| {
-ambition_ldtk_map/src/manifest.rs-104-            panic!(
-ambition_ldtk_map/src/manifest.rs-105-                "world manifest not installed — the game's content must call \
-ambition_ldtk_map/src/manifest.rs-106-                 install_world_manifest() before any world load \
-ambition_ldtk_map/src/manifest.rs-107-                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
-ambition_ldtk_map/src/manifest.rs-108-            )
-ambition_ldtk_map/src/manifest.rs-109-        })
-ambition_ldtk_map/src/manifest.rs-110-    }
-ambition_ldtk_map/src/manifest.rs-111-}
-ambition_ldtk_map/src/manifest.rs-112-
-ambition_ldtk_map/src/manifest.rs-113-/// The cross-crate test fixture: the game's real worlds under
-ambition_ldtk_map/src/manifest.rs-114-/// `game/ambition_content/assets/worlds`, entry room = the hub.
-ambition_ldtk_map/src/manifest.rs-115-#[cfg(test)]
-ambition_ldtk_map/src/manifest.rs-116-fn test_fixture_manifest() -> WorldManifest {
-ambition_ldtk_map/src/manifest.rs-117-    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-ambition_ldtk_map/src/manifest.rs-118-        .join("../../game/ambition_content/assets/worlds");
-ambition_ldtk_map/src/manifest.rs-119-    let source = |id: &str, file: &str, required: bool| WorldSource {
-ambition_ldtk_map/src/manifest.rs-120-        id: AssetId::new(id),
-ambition_ldtk_map/src/manifest.rs-121-        asset_path: format!("game://worlds/{file}"),
+ambition_platformer2d_ldtk/src/manifest.rs:91:pub fn world_manifest() -> &'static WorldManifest {
+ambition_platformer2d_ldtk/src/manifest.rs-92-    #[cfg(test)]
+ambition_platformer2d_ldtk/src/manifest.rs-93-    {
+ambition_platformer2d_ldtk/src/manifest.rs-94-        // Test fixture = the game's REAL worlds, read cross-crate (the
+ambition_platformer2d_ldtk/src/manifest.rs-95-        // explicit cross-crate fixture pattern) so this crate's conversion /
+ambition_platformer2d_ldtk/src/manifest.rs-96-        // ron-room contract tests exercise real data without shipping any.
+ambition_platformer2d_ldtk/src/manifest.rs-97-        // Restored by the fable final audit (F7): the W3 carve dropped it,
+ambition_platformer2d_ldtk/src/manifest.rs-98-        // which is what orphaned the ruled contract tests.
+ambition_platformer2d_ldtk/src/manifest.rs-99-        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
+ambition_platformer2d_ldtk/src/manifest.rs-100-    }
+ambition_platformer2d_ldtk/src/manifest.rs-101-    #[cfg(not(test))]
+ambition_platformer2d_ldtk/src/manifest.rs-102-    {
+ambition_platformer2d_ldtk/src/manifest.rs-103-        WORLD_MANIFEST.get().unwrap_or_else(|| {
+ambition_platformer2d_ldtk/src/manifest.rs-104-            panic!(
+ambition_platformer2d_ldtk/src/manifest.rs-105-                "world manifest not installed — the game's content must call \
+ambition_platformer2d_ldtk/src/manifest.rs-106-                 install_world_manifest() before any world load \
+ambition_platformer2d_ldtk/src/manifest.rs-107-                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
+ambition_platformer2d_ldtk/src/manifest.rs-108-            )
+ambition_platformer2d_ldtk/src/manifest.rs-109-        })
+ambition_platformer2d_ldtk/src/manifest.rs-110-    }
+ambition_platformer2d_ldtk/src/manifest.rs-111-}
+ambition_platformer2d_ldtk/src/manifest.rs-112-
+ambition_platformer2d_ldtk/src/manifest.rs-113-/// The cross-crate test fixture: the game's real worlds under
+ambition_platformer2d_ldtk/src/manifest.rs-114-/// `game/ambition_content/assets/worlds`, entry room = the hub.
+ambition_platformer2d_ldtk/src/manifest.rs-115-#[cfg(test)]
+ambition_platformer2d_ldtk/src/manifest.rs-116-fn test_fixture_manifest() -> WorldManifest {
+ambition_platformer2d_ldtk/src/manifest.rs-117-    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+ambition_platformer2d_ldtk/src/manifest.rs-118-        .join("../../game/ambition_content/assets/worlds");
+ambition_platformer2d_ldtk/src/manifest.rs-119-    let source = |id: &str, file: &str, required: bool| WorldSource {
+ambition_platformer2d_ldtk/src/manifest.rs-120-        id: AssetId::new(id),
+ambition_platformer2d_ldtk/src/manifest.rs-121-        asset_path: format!("game://worlds/{file}"),
 Now let me hunt for Ambition-game-specific hardcoded content across the presentation/UI stack.
 
 Bash Hunt Ambition-specific content in presentation/UI
 IN
-echo "=== named characters in content ===" && ls game/ambition_content/ 2>/dev/null && find game/ambition_content -name '*.rs' | head && echo "=== grep for likely character/story names across presentation+UI crates ===" && grep -rniE "mary|pirate|sanic|pocket|kaleidoscope|\bboss[a-z_]*name|hero|protagonist" crates/ambition_render/src crates/ambition_portal_presentation/src crates/ambition_menu/src crates/ambition_dialog/src crates/ambition_game_shell/src crates/ambition_touch_input/src crates/ambition_settings_menu/src crates/ambition_inventory_ui/src crates/ambition_ui_nav/src 2>/dev/null | grep -vi "primary\|binary\|summary\|boundary" | head -40
+echo "=== named characters in content ===" && ls game/ambition_content/ 2>/dev/null && find game/ambition_content -name '*.rs' | head && echo "=== grep for likely character/story names across presentation+UI crates ===" && grep -rniE "mary|pirate|sanic|pocket|kaleidoscope|\bboss[a-z_]*name|hero|protagonist" crates/ambition_render/src crates/ambition_portal2d_presentation/src crates/ambition_menu/src crates/ambition_dialog/src crates/ambition_game_shell/src crates/ambition_touch_input/src crates/ambition_settings_menu/src crates/ambition_inventory_ui/src crates/ambition_ui_nav/src 2>/dev/null | grep -vi "primary\|binary\|summary\|boundary" | head -40
 
 OUT
 === named characters in content ===
@@ -6475,7 +6475,7 @@ Let me quickly confirm the banter/npc content and music goblin cue.
 
 Bash Check banter and music content
 IN
-cd /home/joncrall/code/ambition/crates/ambition_actors/src
+cd /home/joncrall/code/ambition/crates/ambition_platformer2d_actor_monolith/src
 echo "=== banter.rs ==="; sed -n '1,63p' features/banter.rs
 echo "=== music/intent.rs goblin refs ==="; grep -n 'goblin\|Goblin' music/intent.rs | head
 
@@ -6601,8 +6601,8 @@ use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::WieldedGunSwordsView;
@@ -6648,7 +6648,7 @@ const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 //! systems used to live INSIDE the sim crate and matched render entities by
 --- gravity_visuals ---
 //! Gravity-zone / gravity-switch visuals (visible build only — registered by
-//! the presentation rendering plugin). Extracted from `ambition_portal::presentation`
+//! the presentation rendering plugin). Extracted from `ambition_portal2d::presentation`
 //! (Stage 6 follow-up): these visualize a *gravity mechanic*, not a portal, and
 --- pirate_weapon ---
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
@@ -6846,7 +6846,7 @@ I have gathered comprehensive data. Here is the full recon report.
 Crate-Decomposition Recon: Foundation Layer
 Oracle used throughout: "could another platformer be built by ADDING a content crate without editing core?" LOC figures below are per-file source lines; each crate's headline LOC includes co-located #[cfg(test)] files (engine_core is ~13.8k source + ~9.4k test).
 
-1. ambition_engine_core — module map (source LOC)
+1. ambition_platformer2d_core — module map (source LOC)
 Zero workspace deps; deps are bevy_ecs (derive-only), bevy_math, parry2d, serde. lib.rs doc explicitly frames this as "the pure, content-free movement/physics MODEL." It is broadly a coherent kernel, not a grab-bag, but it has grown into ~6 distinguishable sub-clusters and carries a few content-flavored constants.
 
 Cluster A — Geometry & collision primitives (pure math, no ECS state):
@@ -6907,8 +6907,8 @@ Reference frame: the PURE frame math is in engine_core::reference_frame + frame;
 Portal math: engine_core::frame owns aperture GEOMETRY; platformer_primitives::math.rs + transit.rs own the reflect/rotate-between-normals VECTOR math and dispatch the game-wide map convention. Two files, one concept, cleanly layered (core = geometry, primitives = the convention flag).
 Things on the arguably-wrong side / worth scrutiny in platformer_primitives:
 
-shrine.rs (8) — ShrineActivationPulse, a save/heal-shrine presentation pulse. This is a specific game feature, not a reusable primitive. Content leak. (And note ambition_world::rooms::specs.rs also has ShrineSpec → the "shrine" concept is scattered across two foundation crates; see §3.)
-camera_ease.rs (191) + camera_layers.rs (35) — Bevy camera presentation state/markers. Not "physics primitives"; they were parked here during an F1.5 move so render/host could share them without depending on ambition_actors. Legitimate home problem, but they make the crate name ("primitives") a partial misnomer.
+shrine.rs (8) — ShrineActivationPulse, a save/heal-shrine presentation pulse. This is a specific game feature, not a reusable primitive. Content leak. (And note ambition_platformer2d_world::rooms::specs.rs also has ShrineSpec → the "shrine" concept is scattered across two foundation crates; see §3.)
+camera_ease.rs (191) + camera_layers.rs (35) — Bevy camera presentation state/markers. Not "physics primitives"; they were parked here during an F1.5 move so render/host could share them without depending on ambition_platformer2d_actor_monolith. Legitimate home problem, but they make the crate name ("primitives") a partial misnomer.
 world_item_art.rs (108) — provider→renderer art-contribution seam; doc example hardcodes super_mary_o_milk_carton.png. Generic mechanism, content-flavored doc.
 schedule.rs (394) — GameMode { Cutscene, Dialogue, … } and per-boss schedule slots. Runtime schedule vocabulary naming content phases; generic but leans app-specific.
 Net: the crate is really "reusable runtime seams + a few presentation/feature bits," broader than its "primitives" name. The engine_core↔primitives boundary itself is sound; no concept is duplicated across the two, and no dependency edge points the wrong way.
@@ -6916,7 +6916,7 @@ Net: the crate is really "reusable runtime seams + a few presentation/feature bi
 3. The smaller crates — coherence, naming, merge/leak
 ambition_time (326, single file): Coherent and well-named. ClockObserver / ClockDomain / WorldTime / ClockState / TimePlugin — content-free by construction (ClockObserver is a bare u8 newtype specifically to avoid coupling to a game's player type). 9 dependents. Too small to be a crate? No — keep it. It is a legitimate narrow-waist leaf: nearly everything reads dt through it, and folding it into engine_core would drag a bevy (app/plugin) dependency into the deliberately-thin core. Standalone is correct.
 
-ambition_world (3,480): Coherent "backend-agnostic authored world IR" — room graph (petgraph), placements, metadata, moving-platform math, and the composited CollisionWorld. Well-named. Does it belong with ldtk_map? No, keep separate: ambition_ldtk_map depends DOWN on ambition_world as an adapter (ldtk→IR). Merging would invert the "IR is backend-neutral, LDtk is one backend" design and pull the LDtk parser into everyone who wants room data. Content leak: rooms/specs.rs::ShrineSpec resolves to platformer_primitives::HealShrine; rooms/metadata.rs carries biome/music_track (authored-content fields, but genuinely data, acceptable); rooms/camera.rs doc references Mary-O. The shrine coupling is the one real cross-crate content concept (see §5 note).
+ambition_platformer2d_world (3,480): Coherent "backend-agnostic authored world IR" — room graph (petgraph), placements, metadata, moving-platform math, and the composited CollisionWorld. Well-named. Does it belong with ldtk_map? No, keep separate: ambition_platformer2d_ldtk depends DOWN on ambition_platformer2d_world as an adapter (ldtk→IR). Merging would invert the "IR is backend-neutral, LDtk is one backend" design and pull the LDtk parser into everyone who wants room data. Content leak: rooms/specs.rs::ShrineSpec resolves to platformer_primitives::HealShrine; rooms/metadata.rs carries biome/music_track (authored-content fields, but genuinely data, acceptable); rooms/camera.rs doc references Mary-O. The shrine coupling is the one real cross-crate content concept (see §5 note).
 
 ambition_input (2,340): Coherent device→ControlFrame adapter; correct downward dep on engine_core. Naming smells: the leafwing action enum is SandboxAction and lib.rs says "for the sandbox" — content-flavored naming for what should be a generic action set. Content leak: motion_input.rs bakes fighting-game move names — "upgrade a plain Fireball press into Hadouken / HadoukenSuper." Specific moves in a foundation input crate; a different platformer would have to edit this to add gestures.
 
@@ -6944,7 +6944,7 @@ sim_id.rs:29,65,125-142 boss/minion (test fixtures + doc)
 schedule.rs:172-173 "the cut-rope boss," :257-259,325 Cutscene/Dialogue modes
 projectile/collision.rs:14 "the player-robot boss"; kinematic/tests.rs:134 mockingbird regression
 shrine.rs — ShrineActivationPulse (production type; feature-specific)
-ambition_world:
+ambition_platformer2d_world:
 
 rooms/camera.rs:61-64 Mary-O level-scroll doc; rooms/metadata.rs:137 in_mode("sanic") doc
 rooms/graph.rs:130 "blink / dash / Sanic"; rooms/specs.rs:111-120 ShrineSpec → HealShrine
@@ -6981,7 +6981,7 @@ Split-planning takeaways (against the oracle)
 Cleanest extractable units from engine_core: (a) geometry+cast+collision_semantics+combat/volume shapes; (b) reference_frame+frame (+frame_env from primitives); (c) control_frame+input_stream (netcode vocabulary). The movement kernel + body clusters + world IR are the irreducible core.
 Biggest content leaks to evict (oracle-critical): asset_manager::sandbox_assets (1,129 LOC of hardcoded LDtk/boss/font/music ids), input::motion_input Hadouken/Fireball gestures + SandboxAction naming, and the shrine concept split across platformer_primitives::shrine + world::ShrineSpec. These are the places a second platformer would be forced to edit core rather than add a crate.
 Tooling misfit: asset_manager::asset_publish (889 LOC) is build tooling in a runtime crate.
-Keep-as-is: ambition_time (correct narrow-waist leaf), ambition_world vs ldtk_map (correct adapter direction), ambition_gameplay_trace (clean, content-free).
+Keep-as-is: ambition_time (correct narrow-waist leaf), ambition_platformer2d_world vs ldtk_map (correct adapter direction), ambition_gameplay_trace (clean, content-free).
 Let me confirm a few final details: the game_shell "Ambition" title context, settings menu labels, and verify ui_nav/inventory_ui purity.
 
 Foundation-layer report is in — headline findings: engine_core is a genuinely coherent kernel (not a grab-bag) with three cleanly extractable sub-units if wanted; the real oracle violations in the foundation are asset_manager::sandbox_assets (~1.1k LOC of hardcoded Ambition asset wiring inside a supposedly generic crate), Hadouken/Fireball gesture vocabulary baked into ambition_input, and the shrine concept scattered across platformer_primitives + world. Relativity machinery (reference frames, motion authorities, time domains) is among the cleanest parts of the codebase. Five agents still running; I'll synthesize once they report.
@@ -7121,25 +7121,25 @@ echo "=== render/world.rs: reads world IR directly (no read-model) ===" && grep 
 OUT
 === render/world.rs: reads world IR directly (no read-model) ===
 31:/// reads the active room from [`RoomSet`] and rebuilds its static visuals +
-38:    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-39:        ambition_world::rooms::RoomSet,
-41:    physics_settings: Res<ambition_platformer_primitives::physics::PhysicsSandboxSettings>,
+38:    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+39:        ambition_platformer2d_world::rooms::RoomSet,
+41:    physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
 42:    assets: Option<Res<GameAssets>>,
 43:    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
 44:    active_session: Option<Res<ActiveSessionScope>>,
-76:    spec: &ambition_world::rooms::RoomSpec,
+76:    spec: &ambition_platformer2d_world::rooms::RoomSpec,
 102:    // Per-family authored visuals. Each family carries an Authored<T>
 108:        if let ambition_entity_catalog::placements::PlacementSchema::Hazard(hazard) = &record.schema
-110:            let authored = ambition_world::rooms::Authored {
+110:            let authored = ambition_platformer2d_world::rooms::Authored {
 121:        if let ambition_entity_catalog::placements::PlacementSchema::Pickup(pickup) = &record.schema
 138:        if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
-139:            let authored = ambition_world::rooms::Authored {
+139:            let authored = ambition_platformer2d_world::rooms::Authored {
 150:        if let ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) =
 201:        if let ambition_entity_catalog::placements::PlacementSchema::Interactable(spec_i) =
-204:            let authored = ambition_world::rooms::Authored {
+204:            let authored = ambition_platformer2d_world::rooms::Authored {
 520:    assets: Option<Res<GameAssets>>,
 564:    // (no-asset mode, missing file). Authored entity-derived blocks
-757:    authored: &ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
+757:    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
 === confirm render leafwing usage ===
 Bash touch_input render coupling and menu_bridge purpose
 IN
@@ -7175,12 +7175,12 @@ use bevy::prelude::*;
 I have thorough data now. Here is the full recon report.
 
 Crate-Decomposition Recon: Ambition Gameplay Midlayer
-Workspace has ~48 crates. All 10 targets sit above the foundation layer (ambition_engine_core, ambition_platformer_primitives, ambition_characters, ambition_entity_catalog, ambition_vfx, ambition_sfx, ambition_time) and below the sim heart (ambition_actors, 68.7k LOC) and the host/runtime/app layer. Dependency edges confirm the intended arrows: combat/projectiles/encounter/etc. are consumed BY ambition_actors, never the reverse. LOC (source incl. tests):
+Workspace has ~48 crates. All 10 targets sit above the foundation layer (ambition_platformer2d_core, ambition_platformer2d_shared_tangle, ambition_characters, ambition_entity_catalog, ambition_vfx, ambition_sfx, ambition_time) and below the sim heart (ambition_platformer2d_actor_monolith, 68.7k LOC) and the host/runtime/app layer. Dependency edges confirm the intended arrows: combat/projectiles/encounter/etc. are consumed BY ambition_platformer2d_actor_monolith, never the reverse. LOC (source incl. tests):
 
 crate	total	test LOC	note
 ambition_combat	9,960	3,237	
-ambition_portal_presentation	6,505	1,573	bigger than portal core
-ambition_portal	5,246	1,524	
+ambition_portal2d_presentation	6,505	1,573	bigger than portal core
+ambition_portal2d	5,246	1,524	
 ambition_persistence	3,688	330	
 ambition_projectiles	2,244	594	
 ambition_dialog	2,024	191	
@@ -7211,9 +7211,9 @@ authored_volumes.rs 175  App-local authored attack-polygon resolution seam
 falling_chest.rs  151    reward-chest fall physics
 components/features.rs 203
 variation.rs 67, held_items.rs 26, banner.rs 22
-Combat deps: ambition_characters, engine_core, entity_catalog, interaction, platformer_primitives, sfx, time, vfx. Notably does NOT depend on ambition_actors or ambition_projectiles.
+Combat deps: ambition_characters, engine_core, entity_catalog, interaction, platformer_primitives, sfx, time, vfx. Notably does NOT depend on ambition_platformer2d_actor_monolith or ambition_projectiles.
 
-ambition_portal (5,246) — crates/ambition_portal/src/
+ambition_portal2d (5,246) — crates/ambition_portal2d/src/
 
 placement.rs      728 (+533 tests)  portal fit/facing/transit-roll geometry
 transit.rs        548    portal_transit, carves, PortalBody/PortalPolicy, teleport
@@ -7241,8 +7241,8 @@ lib.rs                  35     PersistenceSchedulePlugin
 Deps: engine_core, input, bevy, ron, serde.
 
 Smaller-crate one-paragraph identities
-ambition_projectiles (2,244) — the reusable, content-free projectile MODEL/vocabulary. Owns the player-shot charge/gesture state machine (PlayerProjectileState), per-projectile ECS components, named shot kinds + art descriptors, spawn gating/pooling, and pure portal-aperture transit. It re-exports the actual projectile PHYSICS primitive from ambition_platformer_primitives::projectile — it is a combat-content crate, not a physics crate (see §3).
-ambition_portal (5,246) — the reusable content-free portal MECHANIC: topology, placement/fit, transit math, view-cone/view-map geometry, carves, eviction, lifecycle, events. The Ambition portal-GUN workflow is sequestered in named gun_* modules and is explicitly not the conceptual core; static/scripted/moving portals work without a gun.
+ambition_projectiles (2,244) — the reusable, content-free projectile MODEL/vocabulary. Owns the player-shot charge/gesture state machine (PlayerProjectileState), per-projectile ECS components, named shot kinds + art descriptors, spawn gating/pooling, and pure portal-aperture transit. It re-exports the actual projectile PHYSICS primitive from ambition_platformer2d_shared_tangle::projectile — it is a combat-content crate, not a physics crate (see §3).
+ambition_portal2d (5,246) — the reusable content-free portal MECHANIC: topology, placement/fit, transit math, view-cone/view-map geometry, carves, eviction, lifecycle, events. The Ambition portal-GUN workflow is sequestered in named gun_* modules and is explicitly not the conceptual core; static/scripted/moving portals work without a gun.
 ambition_encounter (1,698) — generic wave/lockdown encounter vocabulary + headless phase machine + the ONE unified encounter-timeline authority (EncounterScript). Owns authored data (EncounterSpec/waves/mobs/lock-wall), the EncounterPhase reducer, participants, objective, registry/switch-activation, music request, reward math, and the neutral timeline (beats/triggers/effects).
 ambition_interaction (298) — tiny pure-data building-block crate: Interactable/InteractionKind (Door/Npc/Chest…), Pickup/PickupKind, Chest/ChestState, Breakable/BreakableState/BreakableTrigger/BreakableCollision. No systems, no Bevy. Just serde components.
 ambition_cutscene (399) — single-file pure-data cutscene scripting: CutsceneBeat (Wait/Dialogue/CameraPan/Fade/SetFlag/Banner) + CutsceneScript. Bevy-imported but logic-free/headless-testable; presentation lives in the host.
@@ -7258,18 +7258,18 @@ advance_move_playback is the ONE system turning the authored timeline into simul
 dispatch_move_events (line ~718) is content-free and bridges back to the pre-existing seams rather than forking: Effect(key) writes the SAME ActorActionMessage::Special(SpecialActionSpec::Special(key)) the brain special path emits; Ranged writes the SAME ActorActionMessage::Ranged that the mature enemy-projectile consumer already handles. So specials and shots reuse existing plumbing with zero parallel hit code.
 The old flat BodyMelee driver is gone; comments state "the ONLY melee path." project_moveset_melee_to_body_melee keeps BodyMelee alive purely as a read-model for the anim/HUD/telegraph consumers.
 lib.rs still carries the OLD directional-attack helpers (AttackIntent, AttackSpec, resolve_attack_intent_from_view, attack_spec_from_view, attack_hitbox_from_view, ~lines 159-482). These are legacy-shaped but are now consumed by moveset::prefabs to synthesize MoveSpecs — a lowering step, not a live parallel path. Their own inline tests still exercise them directly. prefabs.rs also imports AttackIntent/AttackSpec, confirming they feed the moveset builder. This is the most obvious "loose thread" for the planning session: two attack-authoring shapes coexist (the AttackSpec struct and MoveSpec), with AttackSpec demoted to a prefab input.
-Parallel paths still outside combat: the BOSS attack code is NOT on the moveset yet. ambition_actors/src/boss_encounter/ carries its own attack_geometry/ (590 LOC mod + 964 LOC sprite-metadata-derivation tests + frame/aabb) and ambition_characters/src/brain/boss_pattern/ (1,213 mod + 714 tick + validator + seeds + control_flow, ~4k LOC) — a separate boss-pattern schedule/DSL. The moveset code comments explicitly anticipate this: "the exact seam the boss's Special(key) profiles reuse once the boss folds onto the moveset." So melee+ranged+special are unified for player/enemy actors; boss patterns remain a second combat vocabulary pending fold-in.
+Parallel paths still outside combat: the BOSS attack code is NOT on the moveset yet. ambition_platformer2d_actor_monolith/src/boss_encounter/ carries its own attack_geometry/ (590 LOC mod + 964 LOC sprite-metadata-derivation tests + frame/aabb) and ambition_characters/src/brain/boss_pattern/ (1,213 mod + 714 tick + validator + seeds + control_flow, ~4k LOC) — a separate boss-pattern schedule/DSL. The moveset code comments explicitly anticipate this: "the exact seam the boss's Special(key) profiles reuse once the boss folds onto the moveset." So melee+ranged+special are unified for player/enemy actors; boss patterns remain a second combat vocabulary pending fold-in.
 
-Overlap with ambition_actors: combat owns several enemy-AI concerns that are conceptually actor-sim: targeting.rs (per-frame ActorTarget selection, imports ambition_characters::brain::Brain + actor::BodyHealth), slots.rs (anti-clump attack-slot arbitration), and hazards.rs/breakables.rs/falling_chest.rs (feature ticks). These run ON actor bodies through the shared ambition_characters vocabulary (combat does not depend on actors), but they blur the "combat = damage" seam. The victim-side hit ROUTING and the player charge/anim input stepper deliberately live UP in ambition_actors (stated in projectiles' lib doc) because they're woven with un-carved boss/world state.
+Overlap with ambition_platformer2d_actor_monolith: combat owns several enemy-AI concerns that are conceptually actor-sim: targeting.rs (per-frame ActorTarget selection, imports ambition_characters::brain::Brain + actor::BodyHealth), slots.rs (anti-clump attack-slot arbitration), and hazards.rs/breakables.rs/falling_chest.rs (feature ticks). These run ON actor bodies through the shared ambition_characters vocabulary (combat does not depend on actors), but they blur the "combat = damage" seam. The victim-side hit ROUTING and the player charge/anim input stepper deliberately live UP in ambition_platformer2d_actor_monolith (stated in projectiles' lib doc) because they're woven with un-carved boss/world state.
 
 Overlap with ambition_projectiles: minimal and one-directional. Combat's events.rs defines the attribution enum HitSource::{PlayerProjectile, EnemyProjectile} and comments reference "Fireball/Hadouken," but combat does not depend on the projectiles crate — projectiles depends on combat conceptually via the shared HitSource/damage vocabulary. The two meet only at the HitEvent channel.
 
 3. projectiles: why separate from combat?
-It exists as a combat-content/vocabulary crate, not a physics crate. Its lib doc (crates/ambition_projectiles/src/lib.rs) is explicit: the generic projectile PHYSICS primitive (spec/body/per-frame tick/world collision — ProjectileBody, ProjectileSpec, resolve_world_collision, WorldHitPolicy) lives DOWN in ambition_platformer_primitives::projectile and is merely re-exported at the crate root. This crate owns the two faction faces of one idea (player Fireball/Hadouken shot + enemy volley) sharing that one primitive, plus the named ProjectileKind content (kind.rs openly labels itself "named game content — the Fireball/Hadouken tier and the numbers behind it"), the charge/gesture state machine, ECS components, art descriptors, spawn pooling, and pure portal transit.
+It exists as a combat-content/vocabulary crate, not a physics crate. Its lib doc (crates/ambition_projectiles/src/lib.rs) is explicit: the generic projectile PHYSICS primitive (spec/body/per-frame tick/world collision — ProjectileBody, ProjectileSpec, resolve_world_collision, WorldHitPolicy) lives DOWN in ambition_platformer2d_shared_tangle::projectile and is merely re-exported at the crate root. This crate owns the two faction faces of one idea (player Fireball/Hadouken shot + enemy volley) sharing that one primitive, plus the named ProjectileKind content (kind.rs openly labels itself "named game content — the Fireball/Hadouken tier and the numbers behind it"), the charge/gesture state machine, ECS components, art descriptors, spawn pooling, and pure portal transit.
 
-Why separate from combat rather than a combat::projectiles module: (a) it needs ambition_portal, ambition_world, ambition_input, and ambition_gameplay_trace as deps that combat does not want; (b) it is content (named kinds + tuning tables) whereas combat aims to be the content-free kit; (c) the motion-gesture buffer is reused beyond projectiles (lives in ambition_input).
+Why separate from combat rather than a combat::projectiles module: (a) it needs ambition_portal2d, ambition_platformer2d_world, ambition_input, and ambition_gameplay_trace as deps that combat does not want; (b) it is content (named kinds + tuning tables) whereas combat aims to be the content-free kit; (c) the motion-gesture buffer is reused beyond projectiles (lives in ambition_input).
 
-Duplication risk: the actual firing/victim-routing is split — ambition_actors/src/projectile/systems.rs (832 LOC) holds the woven player-charge/anim input stepper and hit routing that the crate deliberately left in the sim heart. And ranged fire is ALSO expressible via the moveset (fire_move_from_ranged in combat + the MoveEventKind::Ranged bridge). So a shot can originate from two authoring surfaces (a moveset "ranged" move vs. the direct frame.fire path), both funneling into the same ActorActionMessage::Ranged consumer — convergent, not duplicated, but two front doors. No genuine second projectile-physics implementation was found.
+Duplication risk: the actual firing/victim-routing is split — ambition_platformer2d_actor_monolith/src/projectile/systems.rs (832 LOC) holds the woven player-charge/anim input stepper and hit routing that the crate deliberately left in the sim heart. And ranged fire is ALSO expressible via the moveset (fire_move_from_ranged in combat + the MoveEventKind::Ranged bridge). So a shot can originate from two authoring surfaces (a moveset "ranged" move vs. the direct frame.fire path), both funneling into the same ActorActionMessage::Ranged consumer — convergent, not duplicated, but two front doors. No genuine second projectile-physics implementation was found.
 
 4. portal vs portal_presentation split
 Clean, and inverted from what the LOC labels suggest — presentation (6,505) is LARGER than core (5,246), dominated by the view-cone rendering: portal_presentation/src/view_cones.rs 1,145 + view_cones/debug.rs 1,078 + view_cones/geometry.rs 897 (+945 geometry tests) + mesh.rs. Those are feature-gated behind effect_view_cones.
@@ -7287,7 +7287,7 @@ EncounterSpec / EncounterWaveSpec / EncounterMobSpec / LockWallSpec — authored
 EncounterPhase (Inactive → Starting{remaining} → Active{wave_index, remaining_mobs} → Cleared/Failed) + EncounterState reducer — the WAVE state machine.
 EncounterParticipants/EncounterRole/Ownership, EncounterObjective, EncounterRegistry/SwitchActivation, EncounterMusicRequest, reward math.
 The unified timeline — timeline.rs declares itself "the ONE timeline authority": EncounterScript/EncounterBeat/EncounterTrigger(Gate/MemberDied/AllMembersDead/Timer)/EncounterEffect(ForceKill/Banner/SetMusic/CommandMoveTo/DropHazard) + the generic EncounterScript::advance.
-What ambition_actors/src/boss_encounter uses (a DIFFERENT phase schema):
+What ambition_platformer2d_actor_monolith/src/boss_encounter uses (a DIFFERENT phase schema):
 
 Phase state comes from ambition_characters::boss_encounter: BossEncounterSpec, BossEncounterPhase (Dormant → Intro → Phase1 → Transition → Phase2 → Stagger → Enrage → Death), ActorPhaseState, PhaseTrigger/PhaseTriggerCondition(HpBelow/TimeInPhase/External). HP-fraction/threshold driven, entity-local.
 It ADDS its own encounter-entity model: EncounterDef, EncounterProgress, MemberProgress, ReleaseOnDeath, CommandedMove, FallingHazard, plus catalog.rs (893), behavior.rs (667), systems.rs (587), attack_geometry/ (~2k incl. tests), sprites/.
@@ -7296,8 +7296,8 @@ Confirmation of the current unification boundary: boss_encounter/mod.rs re-expor
 6. interaction (298) and cutscene (399): too small, or clean seams?
 Both are clean seams, not premature splits, but for different reasons.
 
-interaction (298) is a pure-data leaf that many crates share: depended on by ambition_combat, ambition_encounter, ambition_actors, ambition_render, ambition_sim_view, ambition_sprite_sheet (6 consumers). It defines the PickupKind/Breakable*/Chest*/Interactable vocabulary that combat's DamageVolume/breakables and encounter's rewards both build on (e.g. EncounterSpec.reward: ambition_interaction::PickupKind). Small LOC but high fan-in and zero Bevy/system weight — exactly the kind of foundational vocabulary crate that SHOULD be tiny. Keep.
-cutscene (399) is a single-file pure-data script type (CutsceneBeat/CutsceneScript), Bevy-imported but logic-free. Consumers: ambition_actors (runtime playback in ambition_actors/src/cutscene.rs, 197 LOC), ambition_render, ambition_touch_input, game/ambition_content. Its presentation deliberately lives in the host. It's a thin seam; the only question for planning is whether it should merge with ambition_dialog (they overlap on the Dialogue{speaker,text} beat) or ambition_encounter's timeline — currently cutscene is a THIRD scripting vocabulary alongside EncounterScript and Yarn dialogue.
+interaction (298) is a pure-data leaf that many crates share: depended on by ambition_combat, ambition_encounter, ambition_platformer2d_actor_monolith, ambition_render, ambition_sim_view, ambition_sprite_sheet (6 consumers). It defines the PickupKind/Breakable*/Chest*/Interactable vocabulary that combat's DamageVolume/breakables and encounter's rewards both build on (e.g. EncounterSpec.reward: ambition_interaction::PickupKind). Small LOC but high fan-in and zero Bevy/system weight — exactly the kind of foundational vocabulary crate that SHOULD be tiny. Keep.
+cutscene (399) is a single-file pure-data script type (CutsceneBeat/CutsceneScript), Bevy-imported but logic-free. Consumers: ambition_platformer2d_actor_monolith (runtime playback in ambition_platformer2d_actor_monolith/src/cutscene.rs, 197 LOC), ambition_render, ambition_touch_input, game/ambition_content. Its presentation deliberately lives in the host. It's a thin seam; the only question for planning is whether it should merge with ambition_dialog (they overlap on the Dialogue{speaker,text} beat) or ambition_encounter's timeline — currently cutscene is a THIRD scripting vocabulary alongside EncounterScript and Yarn dialogue.
 7. persistence + load + load_presentation: coherent or scattered?
 Two SEPARATE and coherent stories that don't overlap — the naming ("persistence" vs "load") is the only source of confusion.
 
@@ -7311,10 +7311,10 @@ Contents (crates/ambition_dev_tools/src/): dev_tools/editable.rs (526 — reflec
 
 Does it leak into prod paths? Partially, by design, but state-only. The egui overlay UI is correctly kept out (stated to live in ambition_app). However the STATE + live-edit SYSTEMS are wired into the core runtime schedule, not gated behind a dev feature:
 
-ambition_runtime/src/sim_core_resources.rs init_resources SandboxDevState, DeveloperTools, EditablePlayerStats, EditableMovementTuning, EditableAbilitySet, and StartupProfiler.
-ambition_runtime/src/player_schedule.rs schedules sync_live_player_dev_edits_system as an ordering anchor in the player pipeline; progression_schedule.rs schedules sync_player_stats_with_inspector.
-ambition_runtime/src/lib.rs re-exports SandboxDevState/EditableAbilitySet/EditableMovementTuning from its prelude.
-So a shipped/headless build still carries the dev-tools resources and runs the live-edit sync each frame (the sync is written to be cheap and no-op when the inspector resource is unchanged, with an equality guard). Consumers: ambition_actors, ambition_runtime, ambition_sim_view, ambition_render. For the planning oracle this is the one crate whose "dev" identity bleeds into the always-on runtime — a candidate for a dev feature gate.
+ambition_platformer2d_runtime/src/sim_core_resources.rs init_resources SandboxDevState, DeveloperTools, EditablePlayerStats, EditableMovementTuning, EditableAbilitySet, and StartupProfiler.
+ambition_platformer2d_runtime/src/player_schedule.rs schedules sync_live_player_dev_edits_system as an ordering anchor in the player pipeline; progression_schedule.rs schedules sync_player_stats_with_inspector.
+ambition_platformer2d_runtime/src/lib.rs re-exports SandboxDevState/EditableAbilitySet/EditableMovementTuning from its prelude.
+So a shipped/headless build still carries the dev-tools resources and runs the live-edit sync each frame (the sync is written to be cheap and no-op when the inspector resource is unchanged, with an equality guard). Consumers: ambition_platformer2d_actor_monolith, ambition_platformer2d_runtime, ambition_sim_view, ambition_render. For the planning oracle this is the one crate whose "dev" identity bleeds into the always-on runtime — a candidate for a dev feature gate.
 
 9. Ambition-game-specific identifiers found in these crates
 The target crates are mostly clean of hard-coded named content; game names appear almost entirely in DOC COMMENTS and one named-content enum. Concrete findings:
@@ -7330,7 +7330,7 @@ ambition_combat/src/hazards.rs:97 — "Sanic run" (comment, refers to the ambiti
 ambition_combat/src/events.rs, on_hit.rs — "Fireball / Hadouken", "pirate volley" in comments.
 ambition_encounter/src/state.rs — "goblin encounter" in a doc comment; ambition_persistence — "goblin_encounter", "goblin encounter" in comments only; save schema itself is string-id generic.
 ambition_encounter/src/timeline.rs + boss_encounter/encounter_script.rs — the "cut-rope boss fight" and gate "rope_cut" are used as the WORKED EXAMPLE in docs; the effect vocabulary is generic (the actual cut-rope content lives in game/ambition_content).
-Named bosses (for context — these live in ambition_actors/src/boss_encounter, NOT in the 10 target crates, and are DATA-resolved, no lib constructors): mockingbird, clockwork_warden (legacy alias gradient_sentinel), smirking_behemoth_boss, flying_spaghetti_monster_boss, gnu_ton_rider, trex_boss, mode_collapse_boss, exploding_gradient_boss, overflow_boss. These appear in profile.rs only inside #[cfg(test)] assertions; the shipping code resolves every boss from boss_encounters/<id>.ron + boss_profiles.ron with no hard-coded roster (ADR 0017). Demo protagonists mary_o, sanic, pocket live in game/ crates, not the targets.
+Named bosses (for context — these live in ambition_platformer2d_actor_monolith/src/boss_encounter, NOT in the 10 target crates, and are DATA-resolved, no lib constructors): mockingbird, clockwork_warden (legacy alias gradient_sentinel), smirking_behemoth_boss, flying_spaghetti_monster_boss, gnu_ton_rider, trex_boss, mode_collapse_boss, exploding_gradient_boss, overflow_boss. These appear in profile.rs only inside #[cfg(test)] assertions; the shipping code resolves every boss from boss_encounters/<id>.ron + boss_profiles.ron with no hard-coded roster (ADR 0017). Demo protagonists mary_o, sanic, pocket live in game/ crates, not the targets.
 
 Bottom line for the oracle: among the 10 targets, only ambition_projectiles hard-codes named content (the Fireball/Hadouken enum), and it flags itself as such — a candidate to push down into ambition_content once the ControlFrame→actor-intent extraction lands (noted in its own doc). All other named-content references are doc comments or test fixtures; the runtime vocabulary is generic and data-resolved, consistent with the "add a content crate without editing core" north-star. The two remaining cross-core seams flagged for the planning session are (a) boss attack patterns/phase-state not yet folded onto the moveset+encounter vocabularies (§2, §5), and (b) dev-tools state living in the always-on runtime (§8).
 
@@ -7338,10 +7338,10 @@ Midlayer report is in. Highlights: the moveset really is the single combat vocab
 
 I have a comprehensive picture. Here is the full recon report.
 
-ambition_actors — Crate-Decomposition Recon
+ambition_platformer2d_actor_monolith — Crate-Decomposition Recon
 Crate total: 68,709 LOC across 31 top-level modules. 28 workspace path-deps. Cargo self-description already claims "content-free simulation systems … and compatibility facades" — but the reality is a hub crate that owns the entire actor/boss/ability simulation and still bakes in named content in a handful of places.
 
-The crate has already undergone heavy extraction (combat→ambition_combat, projectiles→ambition_projectiles, portal→ambition_portal, render→ambition_render, time→ambition_time, most content→game/ambition_content). Many top-level modules are now thin facades re-exporting an external crate plus a few sim-woven steppers that "can't leave yet." The residual mass is concentrated in one place.
+The crate has already undergone heavy extraction (combat→ambition_combat, projectiles→ambition_projectiles, portal→ambition_portal2d, render→ambition_render, time→ambition_time, most content→game/ambition_content). Many top-level modules are now thin facades re-exporting an external crate plus a few sim-woven steppers that "can't leave yet." The residual mass is concentrated in one place.
 
 1. Module map (LOC + what each actually does)
 Read from mod.rs/key files, not names.
@@ -7386,7 +7386,7 @@ Forward use crate::X reference counts (parenthesized) map the internal graph:
 The hubs (high fan-in, hard to move):
 
 features — fan-in from 17 modules (abilities 60, boss_encounter 53, items 30, enemy_projectile 25, encounter 24, avatar 19, projectile 16, session 13, gravity 9…). It also has high fan-out (combat 165, boss_encounter 96, rooms 88, actor 70). This is the classic god-hub: everything depends on it and it depends on everything.
-actor (actor.rs) — fan-in from 19 modules (features 70, avatar 42, character_sprites 30, abilities 29, affordances 25, control 14, body_mode 14, gravity 12, projectile 12, audio 10, session 9). But it is a pure re-export facade of ambition_engine_core / ambition_characters / ambition_platformer_primitives / ambition_combat body types. Cheap to satisfy — it's a vocabulary keystone, not a real code tangle.
+actor (actor.rs) — fan-in from 19 modules (features 70, avatar 42, character_sprites 30, abilities 29, affordances 25, control 14, body_mode 14, gravity 12, projectile 12, audio 10, session 9). But it is a pure re-export facade of ambition_platformer2d_core / ambition_characters / ambition_platformer2d_shared_tangle / ambition_combat body types. Cheap to satisfy — it's a vocabulary keystone, not a real code tangle.
 combat (= ambition_combat, aliased at crate root) — fan-in 11 (features 165!). Already an external crate; the direction is clean.
 control (fan-in 10), rooms/world (10), schedule (9), boss_encounter (9), avatar (9), time (5), persistence (5).
 The leaves (0 reverse-deps — clean to extract): dev, menu, gravity, dialog.
@@ -7437,7 +7437,7 @@ Candidate	LOC	Depends on	Depended on by	Tangle blocking split
 ambition_boss (boss_encounter/ + features/ecs/boss_clusters.rs + features/ecs/bosses/ + features/bosses/)	~9,600	characters, encounter, engine_core, platformer_primitives, sprite_sheet, combat	features (via boss_is_cleared, damage routing)	The single blocker is that boss cluster ECS components (boss_clusters.rs, 429) live in features/ecs while catalog/behavior/sprites live in boss_encounter. Move the cluster components down with the boss code and the bidirectional edge collapses to one-way (boss depends on the actor spine, not vice-versa). Damage routing (features/ecs/damage/boss_hit.rs) would need a HitEvent seam (combat already provides it).
 D. The actor-sim core (the real prize, hardest)
 Candidate	LOC	Notes
-ambition_actor_sim (features/ecs + features/enemies + features/mod schedule)	~24,000	This is the north-star "core" — the content-free enemy/NPC/boss/prop simulation. For "add a content crate without editing core" to be true, this must be the crate content plugs into. Blockers: (1) it imports avatar/control for the home body (the "player is an actor" weld — needs the home body to be spawned by content and integrated through a generic body query, which is partly done via integrate_sim_bodies); (2) it imports boss_encounter (resolve via C); (3) it imports rooms/world overlay (needs ambition_world runtime to own the overlay — noted as pending "W3" in comments); (4) abilities imports it (60) rather than the reverse, so abilities must sit above it.
+ambition_actor_sim (features/ecs + features/enemies + features/mod schedule)	~24,000	This is the north-star "core" — the content-free enemy/NPC/boss/prop simulation. For "add a content crate without editing core" to be true, this must be the crate content plugs into. Blockers: (1) it imports avatar/control for the home body (the "player is an actor" weld — needs the home body to be spawned by content and integrated through a generic body query, which is partly done via integrate_sim_bodies); (2) it imports boss_encounter (resolve via C); (3) it imports rooms/world overlay (needs ambition_platformer2d_world runtime to own the overlay — noted as pending "W3" in comments); (4) abilities imports it (60) rather than the reverse, so abilities must sit above it.
 E. Player cluster
 Candidate	LOC	Notes
 ambition_player (avatar/ + control/ + affordances/ + body_mode/)	~8,280	Cohesive (control→avatar→affordances all cluster). Depends on actor vocab + features sim. Blocker: bidirectional with features (features→avatar 19 for home-body integration). Would sit above ambition_actor_sim, consuming it.
@@ -7464,12 +7464,12 @@ music/mod.rs doc + music/intent.rs	—	Doc mentions "authored goblin cue data"; 
 Net: the only production-code content leaks are (a) boss_encounter/catalog.rs default sprite-filename tables, and (b) character_sprites/assets.rs named content-id match arms. Everything else is test-fixture coupling to the game/ambition_content/ path. features/banter.rs is correctly generic (registry type here, lines in content).
 
 6. Overlap / duplication with sibling crates
-Investigated ambition_combat, ambition_encounter, ambition_projectiles, ambition_platformer_primitives. Verdict: no true logic duplication — the crate is a thin ECS-woven consumer of each. The overlaps are all "facade + sim-stepper" seams, deliberate and documented:
+Investigated ambition_combat, ambition_encounter, ambition_projectiles, ambition_platformer2d_shared_tangle. Verdict: no true logic duplication — the crate is a thin ECS-woven consumer of each. The overlaps are all "facade + sim-stepper" seams, deliberate and documented:
 
 ambition_combat — Aliased as crate::combat at the crate root (pub use ambition_combat as combat). features/ecs/mod.rs re-exports banner, breakables, falling_chest, hazards, held_items, hitbox, targeting, variation straight from it. The generic combat mechanics (HitEvent vocabulary, hitbox, targeting matrix, hazard runtime) are already in ambition_combat; features/ecs/damage/ (2,312 LOC) is the actor-side application of those events (routes hits to actor/boss/breakable clusters, drops loot, respawns). Not duplication — but damage/ is large and could be re-examined for logic that belongs down in combat.
 ambition_encounter — crate::encounter is an explicit facade ("Authored data, registry resources, event vocabulary, reward math, and the headless state machine live in ambition_encounter"). Local keeps only LDtk/ECS/save/banner adapters. boss_encounter reuses ambition_encounter's timeline (EncounterBeat/EncounterScript) rather than defining its own. Clean.
 ambition_projectiles — projectile/mod.rs and enemy_projectile/mod.rs are pub use ambition_projectiles::* facades; the model (shot vocabulary, components, spawn pool, portal transit) is fully in the crate. Only the world/actor/boss-woven steppers remain here (they consume the model — legal direction). Zero duplication.
-ambition_platformer_primitives — schedule (SandboxSet/CombatSet), markers (ControlledSubject/PlayerEntity), lifecycle (FeatureSimEntity/SessionScopedEntity), frame_env, camera_ease all come from it. crate::platformer_runtime and crate::actor are re-export facades over it. No duplication — this is the foundation the crate is built on.
+ambition_platformer2d_shared_tangle — schedule (SandboxSet/CombatSet), markers (ControlledSubject/PlayerEntity), lifecycle (FeatureSimEntity/SessionScopedEntity), frame_env, camera_ease all come from it. crate::platformer_runtime and crate::actor are re-export facades over it. No duplication — this is the foundation the crate is built on.
 One thing to flag: crate::encounter vs crate::boss_encounter are two separate encounter systems in this same crate (generic enemy-wave lockdown vs. scripted single-boss phases). That's intentional per the docs, but if a future ambition_boss crate (seam C) forms, the boss-side should consume ambition_encounter's timeline directly and the crate::encounter facade's boss-adjacent bits (rebuild_encounter_switch_index, lock walls) should be examined for whether they belong to the generic encounter crate.
 
 One-paragraph answer to the north-star
@@ -7495,7 +7495,7 @@ Generated vs hand-written vs data
 Zero generated code. Zero embedded data. No build.rs, no .ron/.json files in the crate (only Cargo.toml, MODULES.md, brain/README.md).
 All 23,351 LOC is hand-written. Test code is heavy: the */tests.rs files alone total 8,014 LOC (~34%), plus 53 additional inline #[cfg(test)] modules — realistically ~40% of the crate is tests. So roughly ~14k LOC of hand-written machinery logic.
 Is it misplaced game content?
-No. This is machinery, correctly placed. It self-describes as "the content-free vocabulary that makes an entity controllable" and states named content lives in ambition_content (crates/ambition_characters/src/lib.rs:19-21). A grep for the game's named cast (bosses/heroes) in src/ returns nothing but test placeholders ("Robot", "Sniper", "Alpha/Beta"). The Smash brain module (brain/smash/mod.rs, "SSBB Subspace-Emissary feel") is a generic brawler-AI template, not Super-Smash content. The character catalog is schema only: CharacterCatalog parses a RON string the host passes in (CharacterCatalogPlugin { catalog_ron: &'static str }), and the actual roster tests were explicitly moved out to ambition_actors::character_roster (comment at character_catalog/mod.rs:229-233).
+No. This is machinery, correctly placed. It self-describes as "the content-free vocabulary that makes an entity controllable" and states named content lives in ambition_content (crates/ambition_characters/src/lib.rs:19-21). A grep for the game's named cast (bosses/heroes) in src/ returns nothing but test placeholders ("Robot", "Sniper", "Alpha/Beta"). The Smash brain module (brain/smash/mod.rs, "SSBB Subspace-Emissary feel") is a generic brawler-AI template, not Super-Smash content. The character catalog is schema only: CharacterCatalog parses a RON string the host passes in (CharacterCatalogPlugin { catalog_ron: &'static str }), and the actual roster tests were explicitly moved out to ambition_platformer2d_actor_monolith::character_roster (comment at character_catalog/mod.rs:229-233).
 
 Generic machinery mixed in with data
 Machinery present (all reusable): the equipment system (equipment.rs — pure resolved_param fold), the ability/action sets (brain/action_set/), the moveset params (delegated to ambition_entity_catalog::EffectRef/ParamValue), the boss-pattern move DSL + validator (brain/boss_pattern/), the character-catalog schema/validator/resolver.
@@ -7520,17 +7520,17 @@ Why it depends on combat / interaction / persistence / world (actual use sites)
 The three "gameplay" deps come entirely from one file, src/game_assets/resolvers.rs, which reverse-maps gameplay entity-specs → EntitySprite:
 
 ambition_combat::events::FeatureVisualKind (resolvers.rs:8)
-ambition_world::rooms::{LoadingZoneActivation, HazardVolumeSpec, PickupSpec, ChestSpec, BreakableSpec, InteractableSpec, InteractionKindSpec, PickupKindSpec} (resolvers.rs:9,51-145) + RoomMetadata in game_assets/mod.rs:39
+ambition_platformer2d_world::rooms::{LoadingZoneActivation, HazardVolumeSpec, PickupSpec, ChestSpec, BreakableSpec, InteractableSpec, InteractionKindSpec, PickupKindSpec} (resolvers.rs:9,51-145) + RoomMetadata in game_assets/mod.rs:39
 ambition_interaction::{Chest, Interactable, InteractionKind, BreakableState} (resolvers.rs:71,100,104,153-158)
 ambition_entity_catalog::placements::{CharacterBrain, BossBrain} (resolvers.rs:113-136, incl. a character_brain_is_sandbag special-case)
 The ambition_persistence dep is different in character: it is settings::{VisualQualityBudget, TextureResolutionScale} used in boss.rs:17,927 and game_assets/{mod,entity_sprite}.rs to pick a resolution tier. That one is a defensible asset-pipeline concern (quality scaling), unlike the combat/world/interaction/entity_catalog deps, which are pure gameplay→art binding that belongs above this crate.
 
-Verdict: it is a sprite-metadata pipeline with a gameplay-presentation resolver bolted on. The clean split is: keep (A) as the reusable ambition_sprite_sheet; move game_assets/resolvers.rs + the EntitySprite roster + boss.rs's named-boss knowledge out to the content/presentation layer (ambition_actors or ambition_content). That single move drops the ambition_combat, ambition_interaction, ambition_world, and ambition_entity_catalog edges.
+Verdict: it is a sprite-metadata pipeline with a gameplay-presentation resolver bolted on. The clean split is: keep (A) as the reusable ambition_sprite_sheet; move game_assets/resolvers.rs + the EntitySprite roster + boss.rs's named-boss knowledge out to the content/presentation layer (ambition_platformer2d_actor_monolith or ambition_content). That single move drops the ambition_combat, ambition_interaction, ambition_platformer2d_world, and ambition_entity_catalog edges.
 
 The build.rs
 build.rs embeds sprite sheets into the binary so Android/wasm builds (where the dev-machine asset path doesn't exist) don't get an empty index and panic on first load_spec("goblin"). It:
 
-Reaches cross-crate into ../ambition_actors/assets/sprites{,_0_5x,_0_25x,_potato}/ (note: not its own assets), scans root + one subdir level for *_spritesheet.ron, and emits OUT_DIR/baked_sheet_rons.rs = pub static BAKED_SHEET_RONS: &[(&str, &str)] via include_str! (keyed root or root.<tier> for quality variants).
+Reaches cross-crate into ../ambition_platformer2d_actor_monolith/assets/sprites{,_0_5x,_0_25x,_potato}/ (note: not its own assets), scans root + one subdir level for *_spritesheet.ron, and emits OUT_DIR/baked_sheet_rons.rs = pub static BAKED_SHEET_RONS: &[(&str, &str)] via include_str! (keyed root or root.<tier> for quality variants).
 bake_pack_catalogs() embeds each assets/sprite_packs/<tier>/ultrapack.json as BAKED_PACK_CATALOGS: &[(&str,&str)].
 So the crate physically bakes the game's actual sprite data (goblin, robot, bosses) from a sibling crate's asset tree at compile time — another way content is entangled here.
 
@@ -7542,7 +7542,7 @@ ambition_audio	5,381	Authored-audio stack: catalog/registry (catalog.rs, spec.rs
 Are three crates justified?
 Two of the three splits are well-justified; the sfx_bank↔sfx split is the one worth questioning.
 
-ambition_audio separate: yes, clearly. It carries the heavy bevy_kira_audio (optional kira feature) + the whole music director. Keeping it separate lets headless/RL builds compile ambition_sfx (for SfxId event enqueuing) without any audio backend — ambition_actors' Cargo.toml explicitly relies on this ("ambition_sfx stays in the dep graph regardless of the audio feature… no audio backend deps").
+ambition_audio separate: yes, clearly. It carries the heavy bevy_kira_audio (optional kira feature) + the whole music director. Keeping it separate lets headless/RL builds compile ambition_sfx (for SfxId event enqueuing) without any audio backend — ambition_platformer2d_actor_monolith' Cargo.toml explicitly relies on this ("ambition_sfx stays in the dep graph regardless of the audio feature… no audio backend deps").
 ambition_sfx_bank separate: defensible. Its whole reason to exist is to be Bevy-free and audio-free so the Python packer's consumers and tooling can read banks (tools/ambition_sfx_pack/pack.py). Merging it into ambition_sfx would pull the SfxId/SfxProvider/Bevy-adjacent surface onto pure format-reading code. It's small (539) and the boundary is real, so the split is reasonable, though a merge into ambition_sfx behind a feature would also be tenable — this is the one merge candidate.
 Recommendation: keep all three; if pressure to reduce crate count exists, fold sfx_bank into sfx (feature-gated) — but not audio.
 
@@ -7554,7 +7554,7 @@ ambition_characters::CharacterCatalog (character_catalog/mod.rs:47) — the acto
 ambition_items::ItemCatalog (lib.rs:129) — see §below; this one is a content-override wrapper over a hardcoded default.
 Relationship: entity_catalog = the primitives; characters = who-an-actor-becomes over those primitives; items = a pickup roster. No real duplication of machinery — the three "Catalog" names denote three different tiers of the same data-driven pipeline. The one genuine overlap worth flagging is that entity_catalog::placements::CharacterBrain/BossBrain and characters' brain presets both name "who a spawned actor becomes"; placements.rs:34 documents that its DamageTeam is deliberately distinct from characters::ActorFaction, so this is a managed, intentional separation rather than accidental dup.
 
-5. ambition_ldtk_map (5,378 LOC) — clean adapter
+5. ambition_platformer2d_ldtk (5,378 LOC) — clean adapter
 Description: "LDtk backend adapter for Ambition authored world IR." It holds the line well.
 
 The core is a generic converter registry: conversion/entity_converters.rs has one convert_* per generic platformer LDtk entity type (PlayerStart, Solid, OneWayPlatform, BlinkWall, HazardBlock, PogoOrb, ReboundPad, BreakablePlatform, LoadingZone, EncounterTrigger, LockWall) → RoomEmission. Plus intgrid.rs, surfaces.rs, fields.rs, project.rs, bevy_runtime/*, hot_reload.rs. None of these encode named Ambition content.
@@ -7584,9 +7584,9 @@ crates/ambition_sprite_sheet/ — named content in production code (detailed in 
 game_assets/entity_sprite.rs EntitySprite enum: Ambition's fixed sprite roster (BossCore, SandbagDummy, PogoOrb, ReboundPad, ProjectileEnergy = "Fireball + Hadouken", LockWallTile, SoftBlinkWall/HardBlinkWall, NpcTerminal, …) with baked PNG paths.
 boss.rs doc/comments name specific bosses: gradient sentinel, mockingbird; game_assets/mod.rs:5 names character sheets "robot/goblin/boss."
 game_assets/resolvers.rs special-cases character_brain_is_sandbag.
-build.rs bakes the game's real goblin/boss sheets from ../ambition_actors/assets/sprites*/.
+build.rs bakes the game's real goblin/boss sheets from ../ambition_platformer2d_actor_monolith/assets/sprites*/.
 Soft violations (named content confined to #[cfg(test)])
-crates/ambition_ldtk_map/ — tests only: sanic_sandbox (conversion/mod.rs:862-887), seen_alice / Goblin brain (fields/tests.rs:102,133), and a cross-crate fixture into game/ambition_content/assets/worlds (manifest.rs:116-121). Production code is clean.
+crates/ambition_platformer2d_ldtk/ — tests only: sanic_sandbox (conversion/mod.rs:862-887), seen_alice / Goblin brain (fields/tests.rs:102,133), and a cross-crate fixture into game/ambition_content/assets/worlds (manifest.rs:116-121). Production code is clean.
 crates/ambition_audio/ — tests only: provider id "sanic", sanic.ring, boss.shatter, ambition_boss_theme, you_are_too_slow, "a Sanic session may only play Sanic-authored tracks" (selection.rs:470-495, catalog.rs:559-638, bank_asset.rs:429, music/director/{simple,mod}.rs). Production audio machinery is content-free.
 Clean (no game-content identifiers found)
 crates/ambition_characters/ — machinery only; named cast explicitly lives in ambition_content (only test-placeholder names like "Robot"/"Sniper" appear). The boss_pattern/smash archetype names (Sweep, Slam, BodyNova, FloorSlam) are generic move-geometry vocabulary, not named bosses.
@@ -7598,20 +7598,20 @@ ambition_sprite_sheet — half clean metadata pipeline, half leaked gameplay→s
 ambition_sfx_bank / ambition_sfx / ambition_audio — well-layered (pure format → contract → Kira/music); keep audio separate; sfx_bank is the only merge candidate. But ambition_sfx/ids.rs smuggles the named dialogue cast into engine space.
 ambition_entity_catalog — clean Tier-0 schema; the shared spine the other catalogs build on.
 ambition_items — not an engine crate at all; a hardcoded 24-item game roster (enum Item) that belongs in game/ambition_content.
-ambition_ldtk_map — clean adapter with a proper install_world_manifest() seam; content only in tests.
+ambition_platformer2d_ldtk — clean adapter with a proper install_world_manifest() seam; content only in tests.
 I have gathered comprehensive data. Here is the full recon report.
 
 Crate-Decomposition Recon: Ambition App/Content/Facade/Orchestration Layer
 Orientation: the dependency spine
-bevy → crates/ambition_engine_core (foundation) → ~40 crates/ambition_* engine crates → crates/ambition (facade/umbrella) → game/ambition_content + game/ambition_demo_* (content/providers) → game/ambition_app (multi-game host). The workspace Cargo.toml registers 48 members. run_game.sh defaults to target_pkg="ambition_app" / target_bin="ambition_game_bin" (the host title screen); mode aliases sanic/mary-o retarget it to ambition_demo_*_app standalone shells (windowed by default via --features visible).
+bevy → crates/ambition_platformer2d_core (foundation) → ~40 crates/ambition_* engine crates → crates/ambition_platformer2d (facade/umbrella) → game/ambition_content + game/ambition_demo_* (content/providers) → game/ambition_app (multi-game host). The workspace Cargo.toml registers 48 members. run_game.sh defaults to target_pkg="ambition_app" / target_bin="ambition_game_bin" (the host title screen); mode aliases sanic/mary-o retarget it to ambition_demo_*_app standalone shells (windowed by default via --features visible).
 
-1. crates/ambition facade — clean prelude that ALSO carries a provider engine (943 LOC)
+1. crates/ambition_platformer2d facade — clean prelude that ALSO carries a provider engine (943 LOC)
 Four files:
 
-crates/ambition/src/lib.rs (87) — pure re-export. pub use ambition_actors as actors; … 38 ambition_* crate aliases, plus pub use bevy;. Also three curated helper modules that only re-export: engine (add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SandboxSetsPlugin, SimCoreResourcesPlugin), windowed_host (HostCameraPlugin, PlatformerHostPlugins, HostInputBindingsPlugin), renderer, presentation (PlatformerPresentationPlugin).
-crates/ambition/src/prelude.rs (14) — pure curated re-export set.
-crates/ambition/src/session_world.rs (14) — pure re-export of SessionRoot/SessionWorldRef/SessionWorldMut + PlatformerSession*.
-crates/ambition/src/provider.rs (828 — NOT a re-export; this is real logic).
+crates/ambition_platformer2d/src/lib.rs (87) — pure re-export. pub use ambition_platformer2d_actor_monolith as actors; … 38 ambition_* crate aliases, plus pub use bevy;. Also three curated helper modules that only re-export: engine (add_headless_foundation, init_engine_states, PlatformerEnginePlugins, SandboxSetsPlugin, SimCoreResourcesPlugin), windowed_host (HostCameraPlugin, PlatformerHostPlugins, HostInputBindingsPlugin), renderer, presentation (PlatformerPresentationPlugin).
+crates/ambition_platformer2d/src/prelude.rs (14) — pure curated re-export set.
+crates/ambition_platformer2d/src/session_world.rs (14) — pure re-export of SessionRoot/SessionWorldRef/SessionWorldMut + PlatformerSession*.
+crates/ambition_platformer2d/src/provider.rs (828 — NOT a re-export; this is real logic).
 provider.rs is the authoring/orchestration engine every provider (demo AND Ambition itself) is built on. It owns:
 
 AuthoredCatalogFragments (builder: with_music/with_procedural_sfx/with_adaptive_cues/with_packed_sfx) + validate().
@@ -7676,7 +7676,7 @@ portal/tests.rs (1551), falling_sand.rs (1354), bosses/specials/gradient_sentine
 
 This is cleanly content: named cast (bosses, enemy roster), quests, dialogue/cutscenes, the intro story, level/world manifests, music cues, item catalog data, the cross-content validator. lib.rs states the strict one-way rule: "content → machinery, never the reverse." Registration flows through one seam, AmbitionContentPlugin (plugin.rs).
 
-Why it depends on ambition_render and ambition_runtime
+Why it depends on ambition_render and ambition_platformer2d_runtime
 ambition_render (4 real usages) — a genuine boundary smell but narrow:
 
 intro/plugin.rs:30 use ambition_render::quality::ResolvedVisualQuality — reads a render resource.
@@ -7684,12 +7684,12 @@ bosses/cut_rope/mod.rs:31 use ambition_render::rendering::PropVisual — content
 portal/tests.rs:908,932 ambition_render::rendering::PlayerVisual — test-only.
 So content does reach two presentation types (PropVisual, PlayerVisual in production via cut_rope). These are the exact "content registers presentation it shouldn't" cases — small, but real; a second game's content crate would inherit the same render coupling.
 
-ambition_runtime — mostly legitimate, one architectural reason:
+ambition_platformer2d_runtime — mostly legitimate, one architectural reason:
 
 provider.rs:16 PlatformerSessionWorld — needed to author sessions (unavoidable given provider pattern).
 bosses/specials/mod.rs + bosses/specials/snapshot.rs — SnapshotRegistry / snapshot_pod! / snapshot_unit_enum!. The Cargo.toml comment (N3.1) justifies it: "this crate's boss specials hold SIM STATE, so they register their own snapshot codecs … each sim crate registers its components' serialization." This is defensible — netcode determinism requires content-owned sim state to register its own codec — but it means content depends on the runtime composition tier for snapshotting, not just vocabulary.
-Much of what looks like runtime is actually ambition_actors::platformer_runtime::* (the reusable facade in the actors crate — gravity, collision, transit, body), not the ambition_runtime crate.
-Net: content is ~95% clean content. The leaks are (a) two render presentation types (PropVisual/PlayerVisual) and ResolvedVisualQuality, and (b) the snapshot-codec registration coupling to ambition_runtime. The render dep is the one worth flagging for the decomposition session.
+Much of what looks like runtime is actually ambition_platformer2d_actor_monolith::platformer_runtime::* (the reusable facade in the actors crate — gravity, collision, transit, body), not the ambition_platformer2d_runtime crate.
+Net: content is ~95% clean content. The leaks are (a) two render presentation types (PropVisual/PlayerVisual) and ResolvedVisualQuality, and (b) the snapshot-codec registration coupling to ambition_platformer2d_runtime. The render dep is the one worth flagging for the decomposition session.
 
 4. Demo crates — what a game implements, and how much is boilerplate
 What a demo game must implement (the provider contract)
@@ -7701,7 +7701,7 @@ A zero-size *ProviderMarker + type Prepared*Sessions = PreparedPlatformerSession
 impl Plugin::build: install content (character/audio catalog fragments), call PlatformerExperienceAuthoring::new(...).register(app), init_resource::<Prepared*Sessions>(), add *_prepare_session (in AmbitionLoadSet::Contributors) + cleanup_prepared_platformer_sessions::<Marker>, add *_activate_session (in GameplaySessionSet::Providers).
 *_prepare_session — filters ShellEvent::PreparationRequested by experience id, builds PlatformerSessionWorld::new(...), calls preparation.prepare(...).
 *_activate_session — filters GameplaySessionEvent::Activated, takes the prepared world, calls builder.build(activation, scope, live_world, CHARACTER_ID).
-That is the entire hook surface: two systems + one plugin + a room + a catalog fragment. No trait to implement — it is a data + plugin convention on top of ambition::provider::*. The traits/exts a demo touches: GameplaySessionAppExt (register_gameplay_experience, via .register()), AudioCatalogAppExt, CharacterCatalogAppExt, WorldItemArtAppExt (Mary-O only).
+That is the entire hook surface: two systems + one plugin + a room + a catalog fragment. No trait to implement — it is a data + plugin convention on top of ambition_platformer2d::provider::*. The traits/exts a demo touches: GameplaySessionAppExt (register_gameplay_experience, via .register()), AudioCatalogAppExt, CharacterCatalogAppExt, WorldItemArtAppExt (Mary-O only).
 
 Duplication (the boilerplate is heavy on the _app side, light on the provider side)
 Provider crates: sanic/provider.rs (132) and mary_o/provider.rs (188) and pocket (the whole prepare/activate pair) are near-verbatim — the prepare_session/activate_session bodies differ only in the experience-id string and character const. ~100 lines of prepare/activate logic is copy-pasted per game.
@@ -7716,17 +7716,17 @@ game/ambition_app/Cargo.toml — add the ambition_demo_<x> path dep.
 game/ambition_app/src/app/shell_host.rs:90-95 — add the plugin to the app.add_plugins((AmbitionExperiencePlugin, SanicExperiencePlugin, MaryOExperiencePlugin, PocketExperiencePlugin)) tuple.
 The launcher entries derive from registrations (no per-game match arms), so it is only those two lines — but they are hand-edited in the app crate. There is no dynamic/registry-driven provider discovery. So the north-star oracle ("build another platformer by ADDING a content crate without editing core") is TRUE for a standalone game and FALSE for adding a game to the shared host.
 
-5. ambition_runtime vs ambition_host — clear boundary, minimal duplication
-ambition_runtime (7,702 LOC) — the headless, content-free SIM composition tier.
+5. ambition_platformer2d_runtime vs ambition_platformer2d_host — clear boundary, minimal duplication
+ambition_platformer2d_runtime (7,702 LOC) — the headless, content-free SIM composition tier.
 
 lib.rs (339): PlatformerEnginePlugins PluginGroup (the ~25 content-free sim plugins: sets, sim-core resources, snapshot registry, world-prep, brain, abilities, trail, gravity, item pickup, features, LDtk spine, encounter/cutscene, effects, sim-view, reset, trace, affordances, camera observation, combat, player schedule, room-transition, progression, mode-scope, portal), SandboxSetsPlugin, add_headless_foundation, init_engine_states, SIM_TICK_HZ, the two-clock (frame-stepped vs fixed_tick) machinery. Plus facade modules demo_fixture, host_input, host_seams.
 The bulk is snapshot/ (~6,000 LOC: codecs 1402, mod 1192, registry 709, restore 492, motion_codec 368, tests 1912) — the N3.1 netcode serialization tier. Plus the schedule plugins (combat_schedule, player_schedule, progression_schedule, portal_schedule, room_schedule, projectile_schedule, mode_scope, sim_core_resources, input_stream, session_world).
-Explicit self-declaration: "This is the demo gate: a demo app depends on ambition_runtime, never on ambition_app… Presentation, audio, windowing, dev tools, and CONTENT are never in this group."
-ambition_host (997 LOC) — the windowed presentation companion.
+Explicit self-declaration: "This is the demo gate: a demo app depends on ambition_platformer2d_runtime, never on ambition_app… Presentation, audio, windowing, dev tools, and CONTENT are never in this group."
+ambition_platformer2d_host (997 LOC) — the windowed presentation companion.
 
 lib.rs (254): PlatformerHostPlugins group = HostCameraPlugin (camera follow/shake, viewport publish, CameraViewState) + HostInputBindingsPlugin (feature input: leafwing input map, device→ControlFrame/MenuControlFrame bridge, frame→tick latch for fixed-tick, headless-safe InputPlugin/CursorMoved registration).
 portal.rs (743, feature portal_render): portal camera-continuity + observation glue.
-Declares its own boundary: "The host MAY dep ambition_render/ambition_input/ambition_runtime; it must NEVER dep ambition_actors or ambition_content" — enforced by engine.host-* policies.
+Declares its own boundary: "The host MAY dep ambition_render/ambition_input/ambition_platformer2d_runtime; it must NEVER dep ambition_platformer2d_actor_monolith or ambition_content" — enforced by engine.host-* policies.
 Boundary clarity: excellent and explicitly documented. Runtime = "what headless/RL also runs"; host = "what only a window needs." The split is enforced by engine.runtime-manifest-{allow,deny}, engine.runtime-source-no-upper, engine.host-manifest-no-actors, engine.host-source-no-actors, engine.host-names-no-content.
 
 Duplication with ambition_app wiring: low and intentional. app/plugins.rs::add_simulation_plugins calls runtime::PlatformerEnginePlugins; add_presentation_plugins calls host::PlatformerHostPlugins. The app composes ON TOP of both rather than reimplementing them. The residual app-local sim systems (register_app_local_sim_systems) are the deliberate E5 "slots" (reset/replay consumers, home-reset policy, room-transition APPLY, player clone) — pinned into engine ordering, not duplicated. The genuine duplication is elsewhere: the _app demo crates re-implement windowed-host asset/audio composition (see §4) that neither runtime nor host provides.
@@ -7751,7 +7751,7 @@ engine.platformer-runtime-content-free — the platformer_runtime facade stays c
 engine.runtime-{member,required-deps,manifest-allow,manifest-deny,source-no-upper} — runtime is the headless composition tier, names nothing above it.
 engine.sim-no-presentation-import — sim imports no presentation.
 engine.machinery-imports-no-content, engine.combat-kit-content-free, engine.characters-content-free, engine.enemy-sim-reads-data, engine.presentation-no-archetype-enum — machinery/combat/characters stay content-free.
-Per-crate purity triplets (member + manifest allow/deny + source purity) for: ambition_world, ambition_ldtk_map, ambition_items, ambition_inventory_ui, ambition_settings_menu, ambition_dev_tools, ambition_dialog, ambition_interaction, ambition_vfx, ambition_projectiles, ambition_portal, ambition_portal_presentation, ambition_time, ambition_input, ambition_touch_input, ambition_encounter, ambition_persistence, ambition_menu, ambition_asset_manager.
+Per-crate purity triplets (member + manifest allow/deny + source purity) for: ambition_platformer2d_world, ambition_platformer2d_ldtk, ambition_items, ambition_inventory_ui, ambition_settings_menu, ambition_dev_tools, ambition_dialog, ambition_interaction, ambition_vfx, ambition_projectiles, ambition_portal2d, ambition_portal2d_presentation, ambition_time, ambition_input, ambition_touch_input, ambition_encounter, ambition_persistence, ambition_menu, ambition_asset_manager.
 engine.menu-crate-{manifest,source}-no-actors — reusable menu renderer stays content-free.
 engine.asset-manager-no-{audio,backend-providers,sfx-adapter,sfx-feature} — asset manager is backend-generic.
 engine.load-shell-core-members, engine.load-core-dependency-purity, engine.game-shell-dependency-purity, engine.load-presentation-dependency-direction, engine.load-shell-source-content-free — the load/shell tier is content-free.
@@ -7783,8 +7783,8 @@ Migration matrix status: grep for legacy-pending/retained/removed in migration_m
 The 22k ambition_app is not size-gated meaningfully. engine.module-size limit is 5000 and only fires per-FILE; no policy caps a CRATE's total, and no policy forbids the menu/ (10k), rl_sim/ (1.7k), or dev/ (2.7k) engine-machinery subsystems from living in the app. The app-thinness policies (app-*-no-reown, -no-redefine, -no-inline-content) are all narrow file-omits denylists targeting SPECIFIC identifiers in SPECIFIC files — they stop named-content regressions but do NOT enforce that the app is thin overall. A policy that forbids new engine-generic subsystems (menu host, RL env, dev overlays) in game/ambition_app/src is the gap.
 game.providers-are-host-ignorant is enforced, but there is no positive "the host discovers providers dynamically" policy — the two-line manual edit in shell_host.rs to register a provider is unguarded, so the "add a game to the host without editing the host" property is neither achieved nor enforced.
 Content→render coupling is only partially locked. engine.render-never-names-live-sim-state guards render, but there is no symmetric "content-names-no-render-presentation-types" policy — hence bosses/cut_rope/mod.rs naming ambition_render::rendering::PropVisual and intro/plugin.rs naming ResolvedVisualQuality pass unflagged (see §3).
-crates/ambition (facade) has no policy preventing it from owning logic — provider.rs (828 LOC of orchestration) is allowed. Only "exposes engine surface / not app-shell" is checked.
-7. Engine-worthy machinery locked inside ambition_app / ambition_runtime
+crates/ambition_platformer2d (facade) has no policy preventing it from owning logic — provider.rs (828 LOC of orchestration) is allowed. Only "exposes engine surface / not app-shell" is checked.
+7. Engine-worthy machinery locked inside ambition_app / ambition_platformer2d_runtime
 Things a second real game needs but currently can only get by depending on ambition_app (which the demo-gate policy forbids):
 
 In game/ambition_app (the big ones):
@@ -7796,11 +7796,11 @@ The room-transition APPLY composer — app/world_flow/room_flow.rs (494). E5 lef
 The windowed-host assembly recipe — currently NOT in the app at all but COPY-PASTED across game/ambition_demo_*_app/src/lib.rs (~330–430 LOC each): build_windowed_demo_app(RenderMode) (DefaultPlugins + no-backend WgpuSettings CI recipe), install_*_asset_resources, load_*_game_assets, install_*_audio/setup_*_audio_library. This "PlatformerDemoHost / windowed-shell" scaffolding is engine-worthy and should be a shared crate rather than duplicated per demo (and re-derived a third time inside ambition_app's visible composition).
 The multi-game host composition itself — app/shell_host.rs (316). compose_ambition_shell_host (title-screen launcher hosting a provider tuple), install_ambition_shell_visuals (provider-agnostic per-session room presentation), startup vanity, Quit-to-Home. A second title-screen host for a different game set would copy this file wholesale.
 HUD (app/hud.rs 357), player-clone (app/player_clone.rs 262), CLI/composition harness (app/cli.rs 987), scene/setup assembly (scene_setup.rs, setup_systems.rs).
-In crates/ambition_runtime: this crate is already the clean, reusable content-free tier — nothing engine-worthy is trapped ABOVE its consumers; it is correctly positioned as "the demo gate." The one nuance: snapshot/ (~6,000 LOC of netcode codecs) lives here and is depended on by CONTENT (ambition_content registers boss-special codecs against ambition_runtime::snapshot::SnapshotRegistry), which is arguably a vocabulary tier (the SnapshotContribution trait) that could sit lower so content doesn't reach the composition tier for it — but this is a fine-grained call, not trapped machinery.
+In crates/ambition_platformer2d_runtime: this crate is already the clean, reusable content-free tier — nothing engine-worthy is trapped ABOVE its consumers; it is correctly positioned as "the demo gate." The one nuance: snapshot/ (~6,000 LOC of netcode codecs) lives here and is depended on by CONTENT (ambition_content registers boss-special codecs against ambition_platformer2d_runtime::snapshot::SnapshotRegistry), which is arguably a vocabulary tier (the SnapshotContribution trait) that could sit lower so content doesn't reach the composition tier for it — but this is a fine-grained call, not trapped machinery.
 
-Bottom line for the planning session: ambition_runtime/ambition_host are exemplary — clean, documented, enforced boundaries. The decomposition debt is concentrated in ambition_app, which is ~60% engine-generic machinery (menu host, RL env, dev overlays, windowed-host recipe, room-transition composer) rather than thin wiring. Extracting menu/, rl_sim/, dev/, and a shared windowed-demo-host crate would move ~10,000+ LOC of reusable machinery below the demo gate, and adding a policy that forbids new engine-generic subsystems in game/ambition_app/src (plus a provider-discovery mechanism replacing the manual shell_host.rs tuple edit) would make the north-star oracle true and enforced.
+Bottom line for the planning session: ambition_platformer2d_runtime/ambition_platformer2d_host are exemplary — clean, documented, enforced boundaries. The decomposition debt is concentrated in ambition_app, which is ~60% engine-generic machinery (menu host, RL env, dev overlays, windowed-host recipe, room-transition composer) rather than thin wiring. Extracting menu/, rl_sim/, dev/, and a shared windowed-demo-host crate would move ~10,000+ LOC of reusable machinery below the demo gate, and adding a policy that forbids new engine-generic subsystems in game/ambition_app/src (plus a provider-discovery mechanism replacing the manual shell_host.rs tuple edit) would make the north-star oracle true and enforced.
 
-The ambition_actors anatomy is in — and it's the most decision-relevant report yet. Key tension: the agent found real seams (a ~9.6k boss carve blocked only by boss_clusters.rs living in features/ecs; ~5k of free leaf extractions; two production content leaks — hardcoded boss sprite tables and a named character-id match), but the 2026-07-10 ruling says no further actors split is owed. My synthesis will separate what's compatible with that ruling (content eviction, intra-crate de-tangling, facade collapse) from what would require Jon to revisit it (the boss/actor-sim/player carves). Three agents left.
+The ambition_platformer2d_actor_monolith anatomy is in — and it's the most decision-relevant report yet. Key tension: the agent found real seams (a ~9.6k boss carve blocked only by boss_clusters.rs living in features/ecs; ~5k of free leaf extractions; two production content leaks — hardcoded boss sprite tables and a named character-id match), but the 2026-07-10 ruling says no further actors split is owed. My synthesis will separate what's compatible with that ruling (content eviction, intra-crate de-tangling, facade collapse) from what would require Jon to revisit it (the boss/actor-sim/player carves). Three agents left.
 
 The content-data cluster report lands some of the strongest findings yet: ambition_items is a closed 24-variant enum Item game roster living in crates/ (a hard oracle violation by construction), ambition_sfx/ids.rs bakes Ambition's named dialogue cast into engine space, and ambition_sprite_sheet is half clean metadata pipeline, half leaked gameplay→art binding — one file (game_assets/resolvers.rs) creates its four suspicious deps. Notably this contradicts the decomposition playbook's exit criterion #2 ("named-content grep over engine crates hits zero") — the enforcement grep evidently has a narrower net than the reality. ambition_characters meanwhile is confirmed clean machinery (~40% tests). Two agents remaining.
 
@@ -7815,7 +7815,7 @@ Method note: LOC from wc -l on src/**/*.rs; dep classification from actual use/p
 engine.toml pins the render/sim seam with two policy families:
 
 engine.render-never-names-live-sim-state (whole-identifier forbid list): render source may NOT name live sim clusters — BodyKinematics, BodyGroundState, …, BodyCombat, BodyMana, …, BossClusterRef, ActorDisposition, HeldItem, GroundItem, PlayerMark, HealShrine, GravityFlipSwitch, LiveProjectile, etc. The rationale text explicitly says "vocabulary/data types (FeatureView, CharacterAnim, Health-as-data) are deliberately NOT forbidden."
-engine.render-no-actor-crate-dependency + engine.render-source-names-no-actors: render must not depend on or name ambition_actors at all (manifest + source). Verified clean: the only ambition_actors strings in render src are two doc-comment [WorldItem] intra-doc links in item_visuals.rs.
+engine.render-no-actor-crate-dependency + engine.render-source-names-no-actors: render must not depend on or name ambition_platformer2d_actor_monolith at all (manifest + source). Verified clean: the only ambition_platformer2d_actor_monolith strings in render src are two doc-comment [WorldItem] intra-doc links in item_visuals.rs.
 So the seam question is not "does render touch actors" (it doesn't) — it's "which sibling vocabulary/IR crates does render still name, and could those be folded into the read-model."
 
 1. ambition_render (10,895 LOC, 20 workspace deps: 19 required + 1 optional)
@@ -7827,16 +7827,16 @@ src/rendering/ (the bulk, ~7.8k): world.rs 1109, actors/mod.rs 586, nameplates.r
 Per-dep classification (use-site count → verdict)
 Dep	sites	What render names	Class
 ambition_sim_view	45	BodyPoseView, FeatureViewIndex, ActorRenderIndex, BossRenderIndex, BossFrameIndex, NameplateIndex, PlayerHudFacts, ShrinesView, GroundItemsView, WorldItemsView, WieldedGunSwordsView, ProjectileView, camera_snapshot::*, BlinkPreviewFact…	(a) read-model — the seam. Correct.
-ambition_platformer_primitives	101	lifecycle::{SessionWorldRef, SessionSpawnScope, ActiveSessionScope…}, physics::PhysicsSandboxSettings, markers::{MainCamera, PrimaryPlayer, PlayerEntity}, schedule::SandboxSet, gravity::GravityCtx, camera_layers::MainCamera	Engine primitive vocabulary. Fine (shared lifecycle/schedule/marker types).
-ambition_engine_core	95	RoomGeometry, config::world_to_bevy, config::WORLD_Z_*, Vec2/AabbExt	Core math/config vocabulary. Fine.
+ambition_platformer2d_shared_tangle	101	lifecycle::{SessionWorldRef, SessionSpawnScope, ActiveSessionScope…}, physics::PhysicsSandboxSettings, markers::{MainCamera, PrimaryPlayer, PlayerEntity}, schedule::SandboxSet, gravity::GravityCtx, camera_layers::MainCamera	Engine primitive vocabulary. Fine (shared lifecycle/schedule/marker types).
+ambition_platformer2d_core	95	RoomGeometry, config::world_to_bevy, config::WORLD_Z_*, Vec2/AabbExt	Core math/config vocabulary. Fine.
 ambition_sprite_sheet	33	game_assets::GameAssets, character::CharacterAnimator/CharacterAnim, boss::BossAnimator, SheetRegistry/FrameRect	Render-facing asset/art vocabulary. Fine.
-ambition_world	24	rooms::{RoomSet, RoomSpec, Authored<T>, HazardVolumeSpec, ChestSpec, InteractableSpec, GatePortalRegistry, LoadingZone…}	(b/c) Authoring/IR read directly. world.rs::spawn_room_visuals pulls SessionWorldRef<RoomSet> and iterates RoomSpec placements to build static visuals — this path bypasses sim_view entirely. Legal-ish (authored static data, not live sim), but it is why this dep can't be cut.
+ambition_platformer2d_world	24	rooms::{RoomSet, RoomSpec, Authored<T>, HazardVolumeSpec, ChestSpec, InteractableSpec, GatePortalRegistry, LoadingZone…}	(b/c) Authoring/IR read directly. world.rs::spawn_room_visuals pulls SessionWorldRef<RoomSet> and iterates RoomSpec placements to build static visuals — this path bypasses sim_view entirely. Legal-ish (authored static data, not live sim), but it is why this dep can't be cut.
 ambition_time	15	WorldTime, ProperTimeScale	Time vocabulary. Fine.
-ambition_portal_presentation	13	PortalPresentationPlugin/Set, PortalCameraContinuity*, PortalViewRig, PortalCaptureQualityBudget	Optional (portal_render feature). Presentation sub-renderer. Fine.
+ambition_portal2d_presentation	13	PortalPresentationPlugin/Set, PortalCameraContinuity*, PortalViewRig, PortalCaptureQualityBudget	Optional (portal_render feature). Presentation sub-renderer. Fine.
 ambition_combat	7	events::{FeatureView, FeatureVisualKind, BoundFeatureKind}	Vocabulary type — FeatureView is the shape of the read-model, but its home crate is combat, and render reads instances via sim_view::FeatureViewIndex. Explicitly allow-listed. Severable only if the type moved to sim_view.
 ambition_dev_tools	7	DeveloperTools, SandboxDevState	Dev-overlay gating. Fine.
 ambition_characters	5	actor::Health (as data), actor::WornCharacter (query filter Without<WornCharacter>), actor::BodyCombat (doc only)	(b-adjacent) "Health-as-data" is explicitly allowed, but WornCharacter is used as a live query filter in actors/mod.rs. Borderline: it names a characters ECS component directly. Severable if folded into a pose/identity view.
-ambition_entity_catalog	5	placements::PlacementSchema::{Hazard,Pickup,Chest,Breakable,Interactable}	Paired with ambition_world: world.rs pattern-matches placement schema directly. Authoring IR.
+ambition_entity_catalog	5	placements::PlacementSchema::{Hazard,Pickup,Chest,Breakable,Interactable}	Paired with ambition_platformer2d_world: world.rs pattern-matches placement schema directly. Authoring IR.
 ambition_persistence	5	settings::{UserSettings, VisualQualityBudget, ParallaxBudget, ScreenShaderSettings, TextureResolutionScale}	Settings/config vocabulary. Fine.
 ambition_asset_manager	5	AssetId, sandbox_assets::{ids, SandboxAssetCatalog}	Font/asset-id resolution (ui_fonts). Fine.
 ambition_vfx	3	vfx::{VfxMessage, SlashKind} (re-exported by fx)	Message vocabulary. Fine.
@@ -7854,7 +7854,7 @@ With modest read-model work:
 ambition_combat — move FeatureView/FeatureVisualKind/BoundFeatureKind into ambition_sim_view (where the index that carries them already lives).
 ambition_characters — replace the Health-as-data reads and the Without<WornCharacter> query filter with sim_view facts (a worn/identity field already partly exists in ActorRenderIndex).
 ambition_dialog — introduce a DialogView read-model so dialog_ui.rs stops reading DialogState directly.
-Structurally harder (the static-world path): ambition_world + ambition_entity_catalog are only severable if room/placement visual facts are mirrored into a view (e.g. a RoomVisualsView). Today world.rs reads the authoring IR directly — the single largest "render reads non-view data" surface (1,109 LOC).
+Structurally harder (the static-world path): ambition_platformer2d_world + ambition_entity_catalog are only severable if room/placement visual facts are mirrored into a view (e.g. a RoomVisualsView). Today world.rs reads the authoring IR directly — the single largest "render reads non-view data" surface (1,109 LOC).
 Genuine vocabulary, keep: sim_view, platformer_primitives, engine_core, sprite_sheet, time, persistence, asset_manager, vfx, sfx, cutscene, projectiles, dev_tools, portal_presentation.
 Net: render's 20 deps could realistically drop to ~13-15, and 2 are removable this afternoon.
 
@@ -7869,16 +7869,16 @@ Fact resources (facts.rs): PlayerHudFacts, HeldItemView, GroundItemsView, WorldI
 Camera (camera_snapshot.rs): CameraSnapshot2d, SceneCaptureRequest, CameraFocus2d, ResolvedCameraSnapshot, CameraViewport, CameraObservationPlugin.
 All are plain-data, rebuilt once per tick in SandboxSet::FeatureViewSync by FeatureViewSyncSchedulePlugin. The doc frames render, RL observation, netcode, and shaders as the same kind of consumer.
 
-Why it depends on ambition_actors (and the inversion question)
+Why it depends on ambition_platformer2d_actor_monolith (and the inversion question)
 sim_view is the extraction / pull side of the seam. The rebuild_* systems query the sim heart's live components to produce the snapshots:
 
-facts.rs: Query<&ambition_actors::features::HeldItem>, items::pickup::GroundItem, items::world_item::WorldItem, abilities::traversal::mark_recall::PlayerMark, gravity::GravityFlipSwitch, shrine::HealShrine, features::ActorDisposition, actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer}.
+facts.rs: Query<&ambition_platformer2d_actor_monolith::features::HeldItem>, items::pickup::GroundItem, items::world_item::WorldItem, abilities::traversal::mark_recall::PlayerMark, gravity::GravityFlipSwitch, shrine::HealShrine, features::ActorDisposition, actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer}.
 view_index.rs: features::{HazardFeature, BossConfig, BossClusterRef}, platformer_runtime::orientation::ActorRoll.
 anim_index.rs: reads the full Body* cluster (BodyGroundState, BodyFlightState, BodyModeState, BodyShieldState, BodyAnimFacts…) and calls character_sprites::pick_actor_anim, boss_encounter::sprites::*.
-lib.rs even schedules ambition_actors::features::advance_actor_anim_overlays (an actor-owned mutation).
+lib.rs even schedules ambition_platformer2d_actor_monolith::features::advance_actor_anim_overlays (an actor-owned mutation).
 So sim_view depends on actors because it reads actors — that is inherent to a pull model, and it correctly quarantines that dependency to ONE crate so render never touches actors.
 
-On the inversion ("could actors publish into a view vocabulary instead?"): yes, in principle — a ambition_sim_view_vocab crate could own the plain-data view types (with no actor dep), and ambition_actors would depend on it and populate the resources. That would flip the arrow (actors → view-vocab, view-vocab ⊥ actors), letting the view types sit below actors. But note the cost/benefit: the extraction logic (which knows actor cluster shapes) must live somewhere that can see both; today that's sim_view. Inversion buys you a vocab crate below actors at the price of splitting types from their builders. Worth flagging for the planning session as a "types-vs-builders" tradeoff rather than a clear win — the current arrangement already achieves the north-star property (render adds nothing to actors, and a new game reuses the same view types).
+On the inversion ("could actors publish into a view vocabulary instead?"): yes, in principle — a ambition_sim_view_vocab crate could own the plain-data view types (with no actor dep), and ambition_platformer2d_actor_monolith would depend on it and populate the resources. That would flip the arrow (actors → view-vocab, view-vocab ⊥ actors), letting the view types sit below actors. But note the cost/benefit: the extraction logic (which knows actor cluster shapes) must live somewhere that can see both; today that's sim_view. Inversion buys you a vocab crate below actors at the price of splitting types from their builders. Worth flagging for the planning session as a "types-vs-builders" tradeoff rather than a clear win — the current arrangement already achieves the north-star property (render adds nothing to actors, and a new game reuses the same view types).
 
 3. ambition_touch_input (2,899 LOC) — input? overlay? both. Should split.
 Module map
@@ -7889,29 +7889,29 @@ The crate itself documents the split: an always-built pure fold (state.rs: Touch
 
 Why the actors + render deps (both live only in the gated plugin layer)
 ambition_render — fonts only. The entire render coupling is ambition_render::ui_fonts::{UiFonts, UiFontWeight} plus .after(load_ui_fonts) ordering in bevy_plugin.rs. That's it. A dedicated ambition_ui_fonts (or moving ui_fonts down) would sever render from touch_input completely.
-ambition_actors — schedule ordering + affordance glyphs + gravity + player marker. In bevy_plugin.rs: .after/.before on schedule::{populate_menu_control_frame_from_actions, apply_menu_frame_to_cutscene_request, MenuNavConsume, populate_control_frame_from_actions}, control::populate_slot_controls, affordances::AffordancesSystemSet::Compute; reads affordances::{PlayerAffordances, ActiveInputMethod, glyph_for, InteractVariant, VariantLabel} (to label the context button), physics::{GravityField, gravity_dir_or_default} (to orient the stick under flipped gravity), and actor::PrimaryPlayer (query filter). This is the overlay HUD reaching into gameplay to render the right button prompt — exactly the kind of read that should go through sim_view/affordance read-models, not actors.
+ambition_platformer2d_actor_monolith — schedule ordering + affordance glyphs + gravity + player marker. In bevy_plugin.rs: .after/.before on schedule::{populate_menu_control_frame_from_actions, apply_menu_frame_to_cutscene_request, MenuNavConsume, populate_control_frame_from_actions}, control::populate_slot_controls, affordances::AffordancesSystemSet::Compute; reads affordances::{PlayerAffordances, ActiveInputMethod, glyph_for, InteractVariant, VariantLabel} (to label the context button), physics::{GravityField, gravity_dir_or_default} (to orient the stick under flipped gravity), and actor::PrimaryPlayer (query filter). This is the overlay HUD reaching into gameplay to render the right button prompt — exactly the kind of read that should go through sim_view/affordance read-models, not actors.
 Recommendation
 Split along the seam the crate already draws:
 
 ambition_touch_input (pure): keep state.rs (fold to ControlFrame). Dep: ambition_input only. Reusable by RL/tests/any host, no Bevy.
-ambition_touch_hud (or fold into a presentation crate): the mobile_touch overlay. Its actor reads should be re-pointed at read-models (affordance/glyph facts, gravity direction) and its font dep at a low ui_fonts crate — after which the overlay depends on ambition_input + sim_view + a ui/nav crate, and drops both ambition_actors and ambition_render. That makes an "input crate that depends on render+actors" stop being suspicious, because the input half no longer does.
-4. ambition_portal_presentation (6,505 LOC > portal's 5,246) — what's in it
+ambition_touch_hud (or fold into a presentation crate): the mobile_touch overlay. Its actor reads should be re-pointed at read-models (affordance/glyph facts, gravity direction) and its font dep at a low ui_fonts crate — after which the overlay depends on ambition_input + sim_view + a ui/nav crate, and drops both ambition_platformer2d_actor_monolith and ambition_render. That makes an "input crate that depends on render+actors" stop being suspicious, because the input half no longer does.
+4. ambition_portal2d_presentation (6,505 LOC > portal's 5,246) — what's in it
 Module map
 view_cones.rs 1145, view_cones/debug.rs 1078, view_cones/geometry/tests.rs 945, view_cones/geometry.rs 897, visuals.rs 439 (+visuals/tests.rs 342), gun_visuals.rs 355, camera_continuity.rs 351, clip_material.rs 164 (+tests 128), lib.rs 155, plugin.rs 138, effects.rs 108, view_cones/mesh.rs 102 (+tests 158).
 
 Why it's bigger than the mechanic
-The mechanic (ambition_portal) is headless geometry/state; the rendering of "you can see through a portal" is genuinely more code than the mechanic. The weight is concentrated in through-portal view windows (view_cones family = ~4,325 LOC, i.e. two-thirds of the crate): visibility cones, per-pane z-sorting with hysteresis, aperture LOS quality budgets, render-layer capture, and a very large debug.rs (1,078) + geometry test suite (945). The rest is texture-clip material for mid-transit body/gun pieces (clip_material, visuals, gun_visuals), and camera_continuity (roll/transit easing). The crate is a legitimately hard visual problem (wormhole compositing), not bloat — but note ~1,573 LOC is tests and 1,078 LOC is debug overlay, so "live" presentation is ~3,850 LOC. It cleanly depends on only bevy + engine_core + platformer_primitives + portal and "never names a host crate."
+The mechanic (ambition_portal2d) is headless geometry/state; the rendering of "you can see through a portal" is genuinely more code than the mechanic. The weight is concentrated in through-portal view windows (view_cones family = ~4,325 LOC, i.e. two-thirds of the crate): visibility cones, per-pane z-sorting with hysteresis, aperture LOS quality budgets, render-layer capture, and a very large debug.rs (1,078) + geometry test suite (945). The rest is texture-clip material for mid-transit body/gun pieces (clip_material, visuals, gun_visuals), and camera_continuity (roll/transit easing). The crate is a legitimately hard visual problem (wormhole compositing), not bloat — but note ~1,573 LOC is tests and 1,078 LOC is debug overlay, so "live" presentation is ~3,850 LOC. It cleanly depends on only bevy + engine_core + platformer_primitives + portal and "never names a host crate."
 
 Content coupling: the lib doc admits "a sequestered compatibility module for Ambition's portal-gun sprites" — gun_visuals.rs + the PortalGunArt{blue,orange} seam. Art paths are pushed to the host (host loads the resource), so this is a seam, not hardcoded content.
 
 5. UI cluster — 7 crates mapped
 Crate	LOC	Role	ambition_* deps	Notes
-ambition_ui_nav	728	Nav primitives (bottom layer): windowed-list math (list.rs), pointer row-activation (pointer.rs: MenuFocusState/Owner, resolve_selectable_row_interaction), drag-scroll accumulation (drag.rs). Pure over input.	ambition_input	Extracted from ambition_actors. Content-free. The shared substrate keyboard/gamepad/touch all fold into.
+ambition_ui_nav	728	Nav primitives (bottom layer): windowed-list math (list.rs), pointer row-activation (pointer.rs: MenuFocusState/Owner, resolve_selectable_row_interaction), drag-scroll accumulation (drag.rs). Pure over input.	ambition_input	Extracted from ambition_platformer2d_actor_monolith. Content-free. The shared substrate keyboard/gamepad/touch all fold into.
 ambition_inventory_ui	149	Inventory navigation state only (InventoryUiState: selection/tab/scroll/focus; InventoryTab{Items,Map,Quests}). Holds no items (store is OwnedItems in ambition_items).	ambition_ui_nav	Tiny. Really just one model + enum on top of ui_nav.
 ambition_menu	2,442	Menu framework: renderer-agnostic MenuPageModel/ItemsOnlyPageSpec data model + the flat render::bevy_ui tabbed renderer + a backend.rs switch for the kaleidoscope. Emits MenuActionActivated/MenuClosedRequested.	none (bevy only)	Content-free by policy (engine.menu-crate-*-no-actors). lib.rs 1074, render/bevy_ui/mod.rs 551.
-ambition_settings_menu	2,243	Specific menu (settings): pure SettingsMenuModel/SettingsOption/apply_settings_option over persistence::settings::UserSettings, plus the System-menu layer (Radio/Video/Audio/Controls/Gameplay/Language/Reset/Quit/Developer). No bevy, no renderer.	ambition_persistence, ambition_input	Carved out of ambition_actors. system/mod.rs 665, settings/build.rs 555.
-ambition_dialog	2,024	Dialogue runtime: DialogState view-model (typewriter reveal + option select), typewriter-SFX rules, input/reveal Bevy systems, bevy_yarnspinner ↔ DialogState bridge + generic Yarn binding installer.	ambition_engine_core, ambition_ui_nav, ambition_input, ambition_sfx, ambition_persistence	Extracted from ambition_actors (E1c). Content-free (host registers Yarn commands via installer). runtime.rs 511, bridge.rs 345. Consumed by render's dialog_ui.rs.
-ambition_game_shell	5,099	Shell / routing (not really a "menu"): route graph, scoped experience lifecycle, neutral sequences, launcher, pause-menu (basic_presentation feature). Renderer-independent, no game-specific route names.	ambition_menu(opt), ambition_audio, ambition_load, ambition_platformer_primitives, ambition_sfx	tests.rs 611, basic_presentation.rs 646, router.rs 563, session.rs 560.
+ambition_settings_menu	2,243	Specific menu (settings): pure SettingsMenuModel/SettingsOption/apply_settings_option over persistence::settings::UserSettings, plus the System-menu layer (Radio/Video/Audio/Controls/Gameplay/Language/Reset/Quit/Developer). No bevy, no renderer.	ambition_persistence, ambition_input	Carved out of ambition_platformer2d_actor_monolith. system/mod.rs 665, settings/build.rs 555.
+ambition_dialog	2,024	Dialogue runtime: DialogState view-model (typewriter reveal + option select), typewriter-SFX rules, input/reveal Bevy systems, bevy_yarnspinner ↔ DialogState bridge + generic Yarn binding installer.	ambition_platformer2d_core, ambition_ui_nav, ambition_input, ambition_sfx, ambition_persistence	Extracted from ambition_platformer2d_actor_monolith (E1c). Content-free (host registers Yarn commands via installer). runtime.rs 511, bridge.rs 345. Consumed by render's dialog_ui.rs.
+ambition_game_shell	5,099	Shell / routing (not really a "menu"): route graph, scoped experience lifecycle, neutral sequences, launcher, pause-menu (basic_presentation feature). Renderer-independent, no game-specific route names.	ambition_menu(opt), ambition_audio, ambition_load, ambition_platformer2d_shared_tangle, ambition_sfx	tests.rs 611, basic_presentation.rs 646, router.rs 563, session.rs 560.
 ambition_menu_kaleidoscope (game/)	2,500	Alternate menu renderer: bevy_lunex 3D OoT-style rotating-cube renderer for the same MenuPageModel. "The FIRST engine extension crate (E1e)."	ambition_menu	Deps: only ambition_menu + bevy + bevy_lunex. Names no game content.
 Interdependency shape (already fairly layered)
 
@@ -7944,7 +7944,7 @@ Doc comments naming content: world.rs "Sanic-specific drawing" (chain), "Mary-O'
 Ability-visual modules that are mechanic-generic but still always-compiled: bubble_shield.rs, morph_ball.rs, gravity_visuals.rs, gate_portal_visuals.rs. Less content-specific than pirate/puppy-slug, but still concrete mechanics a different platformer wouldn't have.
 These directly threaten the oracle: a new platformer that adds a content crate still drags in the pirate gun-sword and puppy-slug shader systems. They read the seam correctly (sim_view / read-models), so they're seam-clean — they're just in the wrong crate. Candidate for extraction into per-mechanic presentation crates (like portal_presentation already is) or a game content-presentation crate.
 
-ambition_portal_presentation: gun_visuals.rs + PortalGunArt — "Ambition's portal-gun sprites." Sequestered behind a host-loaded resource seam (paths are host-supplied), so this is a seam, not hardcoded content. Acceptable.
+ambition_portal2d_presentation: gun_visuals.rs + PortalGunArt — "Ambition's portal-gun sprites." Sequestered behind a host-loaded resource seam (paths are host-supplied), so this is a seam, not hardcoded content. Acceptable.
 
 ambition_game_shell: ShellLauncherPresentation::default() hardcodes title: "Ambition" — but it's an overridable field (a default string, not a structural coupling). All "sanic"/"Sanic" occurrences in experience.rs are inside #[test] fixtures, not shipping code.
 
@@ -7953,10 +7953,10 @@ ambition_dialog: clean. The only content-ish string, "Shadow Oni Leader" in spee
 ambition_menu / ambition_settings_menu / ambition_ui_nav / ambition_inventory_ui / ambition_menu_kaleidoscope: clean. Settings labels ("Radio", "Quit to Title", "Developer") are generic system-menu vocabulary; the menu crates carry no character/story/Ambition-specific data (menu policy enforces content-freedom). Kaleidoscope "names no game content."
 
 Content-coupling summary for the oracle
-The UI cluster and portal_presentation largely pass the "add a content crate, don't edit core" test. ambition_render fails it: named-content modules (pirate_weapon, deep_dream/Puppy-Slug) and a spray of hardcoded sprites/... paths mean the shared renderer knows about specific Ambition entities. The cleanest lever for the decomposition session is to pull mechanic/content visuals out of ambition_render into content-owned presentation crates (mirroring how ambition_portal_presentation already sits outside the core renderer), leaving ambition_render as pure sim-view→Bevy plumbing.
+The UI cluster and portal_presentation largely pass the "add a content crate, don't edit core" test. ambition_render fails it: named-content modules (pirate_weapon, deep_dream/Puppy-Slug) and a spray of hardcoded sprites/... paths mean the shared renderer knows about specific Ambition entities. The cleanest lever for the decomposition session is to pull mechanic/content visuals out of ambition_render into content-owned presentation crates (mirroring how ambition_portal2d_presentation already sits outside the core renderer), leaving ambition_render as pure sim-view→Bevy plumbing.
 
 Content-coupling summary for the oracle
-The UI cluster and portal_presentation largely pass the "add a content crate, don't edit core" test. ambition_render fails it: named-content modules (pirate_weapon, deep_dream/Puppy-Slug) and a spray of hardcoded sprites/... paths mean the shared renderer knows about specific Ambition entities. The cleanest lever for the decomposition session is to pull mechanic/content visuals out of ambition_render into content-owned presentation crates (mirroring how ambition_portal_presentation already sits outside the core renderer), leaving ambition_render as pure sim-view→Bevy plumbing.
+The UI cluster and portal_presentation largely pass the "add a content crate, don't edit core" test. ambition_render fails it: named-content modules (pirate_weapon, deep_dream/Puppy-Slug) and a spray of hardcoded sprites/... paths mean the shared renderer knows about specific Ambition entities. The cleanest lever for the decomposition session is to pull mechanic/content visuals out of ambition_render into content-owned presentation crates (mirroring how ambition_portal2d_presentation already sits outside the core renderer), leaving ambition_render as pure sim-view→Bevy plumbing.
 
 All six recon agents have reported. Before writing the plan doc, let me verify the highest-impact claims with quick spot checks (dead render deps, the ambition_items enum, and the repo's own doc-check scripts).
 

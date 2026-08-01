@@ -14,7 +14,7 @@ withdrawn without argument:
   `session/setup.rs`; runtime schedules against `DevEditApplySet` /
   `DevInspectorMirrorSet` (`player_schedule.rs:100-173`,
   `progression_schedule.rs:86-89`). Dep deletion is the K1 completion
-  criterion, not K1a's oracle. And `ambition_engine_core::MovementTuning` +
+  criterion, not K1a's oracle. And `ambition_platformer2d_core::MovementTuning` +
   `AuthoredMovementTuning` already exist — K1a builds on them, no new type.
   K1a's static exit is yours verbatim: *no simulation system imports or
   accepts `EditableMovementTuning`.*
@@ -77,10 +77,10 @@ tests (full gate re-running now):
   could run different presets). Field deleted; the persisted setting is
   the one authority; the dev poll now makes a menu change re-map the live
   player, which is the synchronization that never existed.
-- **`e4edd4acb`** — portal composition: `ambition_host/portal` forwards
-  `ambition_runtime/portal` (the truth the facade already states),
+- **`e4edd4acb`** — portal composition: `ambition_platformer2d_host/portal` forwards
+  `ambition_platformer2d_runtime/portal` (the truth the facade already states),
   `demo_shell_smoke` under `portal_render` went 5-red → **6/6 green with
-  zero test edits**, and `ambition_host` left `SKIP_FEATURE_JOB` with the
+  zero test edits**, and `ambition_platformer2d_host` left `SKIP_FEATURE_JOB` with the
   same-commit rule written at the site.
 - **Assist** — pending Jon, as you specified. The three dispositions are
   queued for his call: honest rename (damage mitigation), honest behavior

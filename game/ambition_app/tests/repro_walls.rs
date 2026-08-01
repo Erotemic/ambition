@@ -2,8 +2,8 @@
 //! collision routines.
 
 use ae::{AbilitySet, Block, BodyClusterScratch, InputState, World, DEFAULT_TUNING};
-use ambition::actors as sb;
-use ambition::engine_core as ae;
+use ambition_platformer2d::actors as sb;
+use ambition_platformer2d::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
     sb::avatar::primary_player_scratch(spawn, AbilitySet::sandbox_all())
@@ -296,7 +296,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented =
-        ambition::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
     let mut player = scratch_at(world.spawn);
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
@@ -366,7 +366,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented =
-        ambition::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
     let mut player = scratch_at(world.spawn);
     player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
@@ -634,7 +634,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let platforms = room.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let mut augmented =
-        ambition::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
     // Append the runtime lock wall last (matches sync_lock_walls insert
     // order). Trace coords: LDtk px (480,400) size (224,208).
@@ -736,7 +736,7 @@ fn goblin_encounter_real_walljump_repro() {
     let platforms = room.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let mut augmented =
-        ambition::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
     augmented.blocks.push(ae::Block::solid(
         "lockwall:goblin_encounter",
         ae::Vec2::new(480.0, 400.0),
@@ -796,8 +796,8 @@ fn goblin_encounter_real_walljump_repro() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
-fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
-    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev(
+fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String> {
+    ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(
         &ambition_content::worlds::world_manifest(),
     )
 }

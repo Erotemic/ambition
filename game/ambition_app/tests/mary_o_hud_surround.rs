@@ -31,12 +31,12 @@ use bevy::transform::TransformPlugin;
 use bevy::window::{PrimaryWindow, WindowResolution};
 use bevy::MinimalPlugins;
 
-use ambition::engine_core as ae;
-use ambition::game_shell::{ActiveGameplaySession, ShellCommand};
-use ambition::platformer::gameplay_presentation::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::game_shell::{ActiveGameplaySession, ShellCommand};
+use ambition_platformer2d::platformer::gameplay_presentation::{
     GameplayViewportPolicy, ResolvedGameplayPresentation, ScreenRect, SurroundRegion,
 };
-use ambition::render::hud::{
+use ambition_platformer2d::render::hud::{
     place_player_hud, spawn_player_hud, PlayerHudRoot, HUD_MARGIN, OVERLAY_ANCHOR,
 };
 use ambition_app::app::shell_host;
@@ -73,7 +73,7 @@ fn mary_o_hud_app(display: ae::Vec2) -> App {
     // The real layout pass, so the final HUD rectangle is one taffy computed.
     app.add_plugins(bevy::ui::UiPlugin);
 
-    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
@@ -81,7 +81,7 @@ fn mary_o_hud_app(display: ae::Vec2) -> App {
 
     // The visible-host presentation cluster: this is what resolves Mary O's
     // declared 4:3 profile against the window.
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
 
     // The two real HUD systems, in the order and ordering the flagship uses.
     app.add_systems(
@@ -89,7 +89,7 @@ fn mary_o_hud_app(display: ae::Vec2) -> App {
         (
             spawn_player_hud,
             place_player_hud
-                .after(ambition::platformer::gameplay_presentation::GameplayPresentationSet),
+                .after(ambition_platformer2d::platformer::gameplay_presentation::GameplayPresentationSet),
         )
             .chain(),
     );
@@ -115,7 +115,7 @@ fn enter_mary_o(app: &mut App) {
         app.update();
     }
     app.world_mut()
-        .write_message(ShellCommand::GoTo(ambition::game_shell::ShellRouteId::new(
+        .write_message(ShellCommand::GoTo(ambition_platformer2d::game_shell::ShellRouteId::new(
             ambition_demo_mary_o::provider::MARY_O_GAMEPLAY_ROUTE,
         )));
     for _ in 0..24 {

@@ -27,13 +27,13 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition::actors::actor::PrimaryPlayer;
-use ambition::actors::rooms::RoomSet;
-use ambition::audio::selection::ActiveAudioSelection;
-use ambition::game_shell::{
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::audio::selection::ActiveAudioSelection;
+use ambition_platformer2d::game_shell::{
     ActiveGameplaySession, ShellCommand, ShellLauncherCommand, ShellRouter,
 };
-use ambition::platformer::lifecycle::{
+use ambition_platformer2d::platformer::lifecycle::{
     session_world_component, session_world_entity, ActiveSessionScope, SessionRoot, SessionScopeId,
     SessionScopedEntity, SessionWorldMut,
 };
@@ -46,7 +46,7 @@ fn shell_host_app() -> App {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     // Host configuration FIRST: the startup constructors consult it.
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
@@ -95,13 +95,13 @@ fn live_room_set(app: &App) -> &RoomSet {
 }
 
 fn sim_tick(app: &App) -> u64 {
-    app.world().resource::<ambition::runtime::SimTick>().0
+    app.world().resource::<ambition_platformer2d::runtime::SimTick>().0
 }
 
 fn worn_character(app: &mut App) -> Option<String> {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()
@@ -139,13 +139,13 @@ fn assert_home(app: &mut App, context: &str) {
     );
     assert!(
         app.world()
-            .resource::<ambition::game_shell::PreparedSessionRegistry>()
+            .resource::<ambition_platformer2d::game_shell::PreparedSessionRegistry>()
             .is_empty(),
         "{context}: no prepared-session publication remains"
     );
     assert!(
         app.world()
-            .resource::<ambition::load::LoadCoordinator>()
+            .resource::<ambition_platformer2d::load::LoadCoordinator>()
             .is_empty(),
         "{context}: no provider load transaction remains"
     );
@@ -160,7 +160,7 @@ fn assert_home(app: &mut App, context: &str) {
     assert!(
         matches!(
             selection.owner(),
-            Some(ambition::sfx::AudioContextOwner::Frontend(_))
+            Some(ambition_platformer2d::sfx::AudioContextOwner::Frontend(_))
         ),
         "{context}: the exact launcher activation owns frontend audio"
     );
@@ -176,7 +176,7 @@ fn assert_home(app: &mut App, context: &str) {
     assert!(
         selection
             .sfx_authority()
-            .allows(ambition::sfx::ids::UI_MENU_MOVE),
+            .allows(ambition_platformer2d::sfx::ids::UI_MENU_MOVE),
         "{context}: frontend menu SFX are authorized without granting gameplay SFX"
     );
     // The simulation — its tick timeline included — sleeps at the title.
@@ -196,7 +196,7 @@ fn assert_home(app: &mut App, context: &str) {
 /// Launcher rows = registered experience entries + built-in host actions (the
 /// Exit row, when the host shows it). Derived, never a literal.
 fn launcher_row_count(app: &App) -> usize {
-    use ambition::game_shell::{ShellLaunchCatalog, ShellLauncherPresentation};
+    use ambition_platformer2d::game_shell::{ShellLaunchCatalog, ShellLauncherPresentation};
     let experiences = app.world().resource::<ShellLaunchCatalog>().entries.len();
     let exit = app
         .world()
@@ -233,7 +233,7 @@ fn select_entry(app: &mut App, index: usize) {
     // presses to index 0 (wrapping), so compute walk from current selection.
     let current = app
         .world()
-        .resource::<ambition::game_shell::ShellLauncherState>()
+        .resource::<ambition_platformer2d::game_shell::ShellLauncherState>()
         .selected;
     // Derive the row count from the registered entries plus the built-in host
     // actions (the Exit row), never a hard-coded literal — adding a provider or
@@ -246,7 +246,7 @@ fn select_entry(app: &mut App, index: usize) {
     }
     assert_eq!(
         app.world()
-            .resource::<ambition::game_shell::ShellLauncherState>()
+            .resource::<ambition_platformer2d::game_shell::ShellLauncherState>()
             .selected,
         index,
         "launcher cursor reached entry {index}"
@@ -298,13 +298,13 @@ fn assert_in_game(
         .clone();
     let prepared = app
         .world()
-        .get::<ambition::runtime::PreparedContent>(world_entity)
+        .get::<ambition_platformer2d::runtime::PreparedContent>(world_entity)
         .unwrap_or_else(|| {
             panic!("{context}: the live root owns exact immutable prepared content")
         });
     let prepared_identity = app
         .world()
-        .get::<ambition::runtime::PreparedContentIdentity>(world_entity)
+        .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(world_entity)
         .copied()
         .unwrap_or_else(|| panic!("{context}: the live root exposes exact content identity"));
     assert_eq!(
@@ -320,7 +320,7 @@ fn assert_in_game(
     assert_eq!(
         prepared.snapshot_schema(),
         app.world()
-            .resource::<ambition::runtime::rollback::RollbackRegistry>()
+            .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
             .schema_fingerprint(),
         "{context}: prepared content is bound to the active GGRS rollback schema",
     );
@@ -408,7 +408,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     // The launcher derives its entries from provider registrations.
     let entries: Vec<String> = app
         .world()
-        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
         .entries
         .iter()
         .map(|entry| entry.label.clone())
@@ -431,7 +431,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     // platform with nobody to fight.
     let smash_row = app
         .world()
-        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
         .entries
         .iter()
         .find(|entry| entry.label == "Smash")
@@ -439,7 +439,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .clone();
     assert_eq!(
         smash_row.route_id,
-        ambition::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_SELECT_ROUTE),
         "the Smash row must open the select screen, not the stage"
     );
 
@@ -470,7 +470,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .expect("sanic #1 owns a canonical world entity");
     let sanic_content_1 = *app
         .world()
-        .get::<ambition::runtime::PreparedContentIdentity>(sanic_world_1)
+        .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(sanic_world_1)
         .expect("sanic #1 owns exact content identity");
     assert_eq!(
         live_room_set(&app).active_spec().metadata.mode.as_deref(),
@@ -551,7 +551,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .expect("Ambition owns a canonical world entity");
     let ambition_identity_before_room_change = *app
         .world()
-        .get::<ambition::runtime::PreparedContentIdentity>(ambition_world_entity)
+        .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(ambition_world_entity)
         .expect("Ambition root owns exact prepared identity");
     let alternate_room = live_room_set(&app)
         .rooms
@@ -563,8 +563,8 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     app.world_mut()
         .run_system_once(
             move |mut room_set: SessionWorldMut<RoomSet>,
-                  mut geometry: SessionWorldMut<ambition::engine_core::RoomGeometry>,
-                  mut active_room: SessionWorldMut<ambition::actors::rooms::ActiveRoomMetadata>| {
+                  mut geometry: SessionWorldMut<ambition_platformer2d::engine_core::RoomGeometry>,
+                  mut active_room: SessionWorldMut<ambition_platformer2d::actors::rooms::ActiveRoomMetadata>| {
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
                     .expect("alternate authored room exists");
@@ -597,7 +597,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     );
     assert_eq!(
         app.world()
-            .get::<ambition::runtime::PreparedContentIdentity>(live_entity)
+            .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(live_entity)
             .copied(),
         Some(ambition_identity_before_room_change),
         "ordinary room movement must retain the exact prepared fingerprint and epoch",
@@ -633,7 +633,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .expect("sanic #2 owns a canonical world entity");
     let sanic_content_2 = *app
         .world()
-        .get::<ambition::runtime::PreparedContentIdentity>(sanic_world_2)
+        .get::<ambition_platformer2d::runtime::PreparedContentIdentity>(sanic_world_2)
         .expect("sanic #2 owns exact content identity");
     assert_eq!(
         sanic_content_1.fingerprint, sanic_content_2.fingerprint,
@@ -679,7 +679,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     // the symptom and not the cause.
     let exit_index = app
         .world()
-        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
         .entries
         .len();
     select_entry(&mut app, exit_index);
@@ -716,7 +716,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
 /// Every live encounter authority, as `(encounter id, owning session scope)`.
 fn encounter_authorities(app: &mut App) -> Vec<(String, Option<SessionScopeId>)> {
     let mut query = app.world_mut().query::<(
-        &ambition::encounter::Encounter,
+        &ambition_platformer2d::encounter::Encounter,
         Option<&SessionScopedEntity>,
     )>();
     let mut rows: Vec<_> = query
@@ -743,7 +743,7 @@ fn rollback_contract_inputs_never_leak_across_sessions() {
     let scope_a = live_scope(&app).expect("Ambition session A is live");
     let identity_a = {
         let world = app.world_mut();
-        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
         query
             .single(world)
             .copied()
@@ -754,7 +754,7 @@ fn rollback_contract_inputs_never_leak_across_sessions() {
     settle(&mut app);
     let prepared_identity_is_gone = {
         let world = app.world_mut();
-        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
         query.iter(world).next().is_none()
     };
     assert!(
@@ -767,7 +767,7 @@ fn rollback_contract_inputs_never_leak_across_sessions() {
     let scope_b = live_scope(&app).expect("Ambition session B is live");
     let identity_b = {
         let world = app.world_mut();
-        let mut query = world.query::<&ambition::runtime::PreparedContentIdentity>();
+        let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
         query
             .single(world)
             .copied()

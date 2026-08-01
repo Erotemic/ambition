@@ -277,7 +277,7 @@ impl CharacterCatalog {
     pub fn momentum_params(
         &self,
         character_id: &str,
-    ) -> Option<ambition_engine_core::MomentumParams> {
+    ) -> Option<ambition_platformer2d_core::MomentumParams> {
         self.get(character_id)?
             .momentum
             .as_ref()
@@ -290,7 +290,7 @@ impl CharacterCatalog {
     /// the shared editable tuning. The axis analogue of [`momentum_params`].
     ///
     /// [`momentum_params`]: Self::momentum_params
-    pub fn axis_tuning(&self, character_id: &str) -> Option<ambition_engine_core::MovementTuning> {
+    pub fn axis_tuning(&self, character_id: &str) -> Option<ambition_platformer2d_core::MovementTuning> {
         self.get(character_id)?
             .axis_tuning
             .as_ref()
@@ -300,9 +300,9 @@ impl CharacterCatalog {
     /// The authored capability set for `character_id`'s playable body: the
     /// `union` of the grants the row lists. `None` means the row declared no
     /// grants, so "use the session's shared `EditableAbilitySet`".
-    pub fn ability_set(&self, character_id: &str) -> Option<ambition_engine_core::AbilitySet> {
+    pub fn ability_set(&self, character_id: &str) -> Option<ambition_platformer2d_core::AbilitySet> {
         let grants = self.get(character_id)?.abilities.as_deref()?;
-        Some(ambition_engine_core::AbilitySet::compose(grants))
+        Some(ambition_platformer2d_core::AbilitySet::compose(grants))
     }
 
     /// The authored health pool for `character_id`'s playable body. `None` means
@@ -355,7 +355,7 @@ pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
 
 // The roster-data tests (catalog parses, validator passes over the real
 // roster, every entry's presets resolve, renderer coverage, display
-// names, plugin install) live in `ambition_actors::character_roster` —
+// names, plugin install) live in `ambition_platformer2d_actor_monolith::character_roster` —
 // they pin the GAME's data, which lives there. This crate keeps only
 // the synthetic resolver-math tests below.
 #[cfg(test)]

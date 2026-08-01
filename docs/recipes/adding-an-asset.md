@@ -19,7 +19,7 @@ resolves nothing.
 
 | Root | Directory (dev checkout) | Load path | Holds |
 | --- | --- | --- | --- |
-| Default (no scheme) | `crates/ambition_actors/assets/` | `"sprites/foo.png"` | Shared/generated engine assets: sprite sheets, fonts, audio |
+| Default (no scheme) | `crates/ambition_platformer2d_actor_monolith/assets/` | `"sprites/foo.png"` | Shared/generated engine assets: sprite sheets, fonts, audio |
 | `game://` | `game/ambition_content/assets/` | `"game://worlds/foo.ldtk"` | Provider-owned named content: worlds, dialogue, data, per-game art |
 
 The default root is the `AssetPlugin { file_path }` the app sets from
@@ -32,7 +32,7 @@ source is registered before `DefaultPlugins` in
 content crate first, then the shared generated tree
 (`ProviderGameAssetReader`, `cli.rs:52`). That is why LDtk worlds under
 `game://` can name relative `sprites/...` paths that only exist in
-`ambition_actors/assets` — no copying, no misleading `Path not found`.
+`ambition_platformer2d_actor_monolith/assets` — no copying, no misleading `Path not found`.
 
 Both roots collapse to a plain `assets` directory when `BEVY_ASSET_ROOT` is set
 and in shipped builds, so never hardcode an absolute path.
@@ -45,7 +45,7 @@ or another game could reuse → default root.**
 Usually **no**, and that is intended. The root `.gitignore` excludes binaries by
 pattern — `*.png`, `*.ogg`, `*.wav`, `*.mid`, `*.flac`, `*.mp3` — plus whole
 payload directories (`assets/concept_art`, `assets/backgrounds`,
-`assets/vanity_card`, `crates/ambition_actors/assets/fonts/`, …).
+`assets/vanity_card`, `crates/ambition_platformer2d_actor_monolith/assets/fonts/`, …).
 
 So a new png needs **no gitignore edit**; it is already ignored. Confirm rather
 than assume:

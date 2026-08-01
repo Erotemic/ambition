@@ -5,20 +5,20 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::{BossClusterRef, FeatureSimEntity};
+use ambition_platformer2d_actor_monolith::features::{BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::enemy::EnemyProjectileSpawn;
 use ambition_time::WorldTime;
 
 // ===================================================================
-// Migrated boss-special Techniques (from ambition_actors brain_effects).
+// Migrated boss-special Techniques (from ambition_platformer2d_actor_monolith brain_effects).
 // Each owns its key + per-boss state + params + behavior; the engine
 // names none of them. Tuning consts (APPLE_RAIN_*, OVERFIT_VOLLEY_*, …)
-// still live in ambition_actors::features::bosses for now (just numbers).
+// still live in ambition_platformer2d_actor_monolith::features::bosses for now (just numbers).
 // ===================================================================
 
 const APPLE_RAIN_KEY: &str = "apple_rain";
@@ -129,7 +129,7 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_core::RoomGeometry>,
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut bosses: Query<
@@ -304,7 +304,7 @@ pub struct GradientCascadeState {
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
-/// `ambition_actors::features::bosses` — these are local mirrors.
+/// `ambition_platformer2d_actor_monolith::features::bosses` — these are local mirrors.
 const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
@@ -335,8 +335,8 @@ pub fn spawn_overfit_volley_from_special_messages(
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
     player_query: Query<
-        &ambition_actors::actor::BodyKinematics,
-        With<ambition_actors::actor::PlayerEntity>,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -345,7 +345,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             &ambition_characters::actor::BodyHealth,
             &BossAttackState,
             &mut OverfitVolleyState,
-            Option<&ambition_actors::features::ActorTarget>,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -496,8 +496,8 @@ pub fn spawn_minima_trap_from_special_messages(
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
     player_query: Query<
-        &ambition_actors::actor::BodyKinematics,
-        With<ambition_actors::actor::PlayerEntity>,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -505,7 +505,7 @@ pub fn spawn_minima_trap_from_special_messages(
             BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &mut MinimaTrapState,
-            Option<&ambition_actors::features::ActorTarget>,
+            Option<&ambition_platformer2d_actor_monolith::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,

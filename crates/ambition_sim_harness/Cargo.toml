@@ -14,7 +14,7 @@ crate-type = ["rlib"]
 # vocabulary. The harness reaches these through the facade exactly as the moved
 # code did; the facade does NOT depend on ambition_app/ambition_content, so the
 # harness stays below the product shell.
-ambition = { path = "../ambition" }
+ambition_platformer2d = { path = "../ambition_platformer2d" }
 # Bevy App/World/Time — the sim the harness owns and steps.
 bevy = { version = "0.18.1", default-features = false }
 
@@ -22,5 +22,5 @@ bevy = { version = "0.18.1", default-features = false }
 # The exit-gate test composes a minimal sim (a one-room session) through the
 # harness using only the reusable engine surface — proving a sim runs through the
 # harness WITHOUT linking `ambition_app` (the product shell).
-ambition = { path = "../ambition" }
+ambition_platformer2d = { path = "../ambition_platformer2d" }
 bevy = { version = "0.18.1", default-features = false }

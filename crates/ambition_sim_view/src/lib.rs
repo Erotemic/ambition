@@ -20,7 +20,7 @@
 //! heart's live components (the boundary test in `ambition_render` pins
 //! that).
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod anim_index;
 pub mod camera_snapshot;
 mod control_prompt;
@@ -102,7 +102,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // overlay ADVANCE mutates sim components, so it stays defined
                 // in the sim heart; this plugin only schedules it.
                 (
-                    ambition_actors::features::advance_actor_anim_overlays,
+                    ambition_platformer2d_actor_monolith::features::advance_actor_anim_overlays,
                     rebuild_actor_anim_index,
                 )
                     .chain(),
@@ -117,7 +117,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt,
             )
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

@@ -21,8 +21,8 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::engine_core::{ControlFrame, InputStream};
-use ambition::runtime::InputStreamRecorder;
+use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
+use ambition_platformer2d::runtime::InputStreamRecorder;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::SandboxSim;

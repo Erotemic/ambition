@@ -1,6 +1,6 @@
 //! Super Mary-O demo content home — the M-track's world half.
 //!
-//! This crate names only `ambition` and `bevy`. It is the E9
+//! This crate names only `ambition_platformer2d` and `bevy`. It is the E9
 //! engine-for-other-games ORACLE, run a SECOND time: if authoring a second
 //! platformer's level, roster, and rules needs a type the umbrella does not
 //! re-export, that is a real engine leak — and it fails to compile HERE, which is
@@ -36,9 +36,9 @@ pub use provider::{
     MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
 };
 
-use ambition::engine_core as ae;
-use ambition::prelude::*;
-use ambition::world::rooms::{PropSpec, RoomSpec};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::prelude::*;
+use ambition_platformer2d::world::rooms::{PropSpec, RoomSpec};
 
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
@@ -46,7 +46,7 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition can host this demo alongside its own rooms; [`MaryORulesPlugin`] gates
-/// its systems on `ambition::runtime::in_mode(MARY_O_MODE)` so the level clock never
+/// its systems on `ambition_platformer2d::runtime::in_mode(MARY_O_MODE)` so the level clock never
 /// ticks in a room that is not Mary-O's.
 pub const MARY_O_MODE: &str = "mary_o";
 
@@ -347,7 +347,7 @@ pub fn vault_exit() -> ae::Aabb {
     mouth_of(EXIT_PIPE_NAME)
 }
 
-/// Build Mary-O's level 1-1 through the `ambition` umbrella surface ONLY.
+/// Build Mary-O's level 1-1 through the `ambition_platformer2d` umbrella surface ONLY.
 ///
 /// The grammar, left to right:
 ///
@@ -658,11 +658,11 @@ pub fn level_1_1() -> RoomSpec {
         // inside the 18-tile vault.
         let x = vault.min.x + (1.0 + i as f32 * 2.0) * T;
         room.placements
-            .push(ambition::world::placements::PlacementRecord::new(
+            .push(ambition_platformer2d::world::placements::PlacementRecord::new(
                 format!("vault_coin_{i}"),
-                ambition::entity_catalog::placements::PlacementSchema::Pickup(
-                    ambition::entity_catalog::placements::PickupSpec::new(
-                        ambition::entity_catalog::placements::PickupKindSpec::Currency {
+                ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(
+                    ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
+                        ambition_platformer2d::entity_catalog::placements::PickupKindSpec::Currency {
                             amount: 1,
                         },
                     ),
@@ -688,14 +688,14 @@ pub fn level_1_1() -> RoomSpec {
 /// its own band (`cbc6902d2`) and its test passed anyway by probing a point
 /// inside solid rock, so "does this thing meet the floor" is now something both
 /// rooms assert.
-pub fn descent_to_1_2() -> ambition::world::rooms::LoadingZone {
+pub fn descent_to_1_2() -> ambition_platformer2d::world::rooms::LoadingZone {
     let vault = vault_bounds();
     let size = ae::Vec2::new(T, 1.5 * T);
     let center = ae::Vec2::new(vault.max.x - 1.5 * T, vault.max.y - size.y * 0.5);
-    ambition::world::rooms::LoadingZone {
+    ambition_platformer2d::world::rooms::LoadingZone {
         id: level_1_2::DESCENT_ZONE_ID.to_string(),
         name: "Down to 1-2".to_string(),
-        activation: ambition::world::rooms::LoadingZoneActivation::Walk,
+        activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(center, size * 0.5),
     }
 }
@@ -703,14 +703,14 @@ pub fn descent_to_1_2() -> ambition::world::rooms::LoadingZone {
 /// Where 1-2 puts you back on the surface: past pit B, on the long run before
 /// the stair pyramid. Going underground is a SHORTCUT — you skip two pits — so
 /// the route competes with the surface run instead of merely detouring from it.
-pub fn surface_return_from_1_2() -> ambition::world::rooms::LoadingZone {
+pub fn surface_return_from_1_2() -> ambition_platformer2d::world::rooms::LoadingZone {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
     let size = ae::Vec2::new(T, 1.5 * T);
     let center = ae::Vec2::new(57.0 * T, ground_top - size.y * 0.5);
-    ambition::world::rooms::LoadingZone {
+    ambition_platformer2d::world::rooms::LoadingZone {
         id: level_1_2::SURFACE_RETURN_ZONE_ID.to_string(),
         name: "Back to the surface".to_string(),
-        activation: ambition::world::rooms::LoadingZoneActivation::Walk,
+        activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(center, size * 0.5),
     }
 }
@@ -1031,14 +1031,14 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
 )"#;
 
 /// Content plugin: registers Mary-O's App-local character fragment, installs
-/// the level, and adds the engine's sim-world setup. The shape `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes.
+/// the level, and adds the engine's sim-world setup. The shape `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes.
 pub struct MaryODemoContentPlugin;
 
 /// Register Mary-O's immutable authored character fragment in one Bevy `App`.
 /// Shared by the historical [`MaryODemoContentPlugin`] (Startup construction) and
 /// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
 pub fn install_mary_o_content(app: &mut App) {
-    use ambition::characters::actor::character_catalog::{
+    use ambition_platformer2d::characters::actor::character_catalog::{
         CharacterCatalogAppExt, CharacterCatalogFragment,
     };
 
@@ -1059,7 +1059,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // character definition, not a mode of this one (§4.3), and it needs its own art
     // demanded or the grown Mary-O draws a placeholder.
     {
-        use ambition::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `super_mary_o_spritesheet.ron`
         // declares `target: "super_mary_o"`, and the registry is keyed by the target.
         // A VOICE apiece — see the same note in the Sanic provider. Without one a
@@ -1101,7 +1101,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // the same provider, so the per-enemy `register_*_roster` helpers (used by
     // single-enemy tests) are folded here.
     {
-        use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(
                 provider::MARY_O_EXPERIENCE,
@@ -1115,11 +1115,11 @@ pub fn install_mary_o_content(app: &mut App) {
             .expect("Mary-O enemy roster should be valid"),
         );
     }
-    app.init_resource::<ambition::actors::features::RoomContentStagingRegistry>();
+    app.init_resource::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
     {
         let mut registry = app
             .world_mut()
-            .resource_mut::<ambition::actors::features::RoomContentStagingRegistry>();
+            .resource_mut::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
         snake::register_snake_content_staging(&mut registry);
         ai_slop::register_ai_slop_content_staging(&mut registry);
     }
@@ -1145,7 +1145,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // fingerprints the App, so the schema fingerprint (part of the content
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
-        use ambition::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
         // The ANCHOR comes first: the mode owner is a bare state-holder entity
         // — no body, no projectile, no feature marker — so none of the
         // engine's rollback anchors reach it, and a registered-but-unanchored
@@ -1210,28 +1210,28 @@ pub fn install_mary_o_content(app: &mut App) {
 
 impl Plugin for MaryODemoContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
+        use ambition_platformer2d::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
         install_mary_o_content(app);
         let room = level_1_1();
-        let source = ambition::runtime::PreparedPlatformerSource::new(
+        let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,
             RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
-            ambition::runtime::demo_fixture::StartingCharacter::new(provider::MARY_O_CHARACTER_ID),
-            ambition::runtime::demo_fixture::LdtkRuntimeIndex::default(),
+            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(provider::MARY_O_CHARACTER_ID),
+            ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
-        let content = ambition::provider::prepare_platformer_content_for_app(
+        let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
             app,
             source,
             &provider::mary_o_authored_catalogs(),
         )
         .expect("Mary-O direct prepared-content assembly must succeed");
         app.world_mut().spawn((
-            ambition::platformer::lifecycle::SessionRoot(
-                ambition::platformer::lifecycle::SessionScopeId(0),
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(
+                ambition_platformer2d::platformer::lifecycle::SessionScopeId(0),
             ),
             content.source().instantiate_live(),
             content.identity(),
@@ -1239,7 +1239,7 @@ impl Plugin for MaryODemoContentPlugin {
         ));
         app.add_systems(
             bevy::app::Startup,
-            mary_o_setup.in_set(ambition::runtime::demo_fixture::SimulationSetupSet),
+            mary_o_setup.in_set(ambition_platformer2d::runtime::demo_fixture::SimulationSetupSet),
         );
     }
 }
@@ -1247,42 +1247,42 @@ impl Plugin for MaryODemoContentPlugin {
 #[allow(clippy::too_many_arguments)]
 fn mary_o_setup(
     mut commands: bevy::prelude::Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::RoomSet,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::RoomSet,
     >,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::LdtkRuntimeIndex,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
-    editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
-    tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::ActiveMovementTuning>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::runtime::demo_fixture::StartingCharacter,
+    editable_abilities: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet>,
+    tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
+    starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::StartingCharacter,
     >,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
-        ambition::characters::actor::character_catalog::CharacterCatalog,
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     prepared_characters: Option<
-        bevy::prelude::Res<ambition::actors::character_runtime::PreparedCharacterRegistry>,
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
-    authored_sheets: bevy::prelude::Res<ambition::actors::character_sprites::AuthoredSheets>,
-    character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
-    boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
+    authored_sheets: bevy::prelude::Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::PlacementLoweringRegistry,
+        ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
     >,
     content_staging: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::RoomContentStagingRegistry,
+        ambition_platformer2d::runtime::demo_fixture::RoomContentStagingRegistry,
     >,
     construction_recipes: bevy::prelude::Res<
-        ambition::runtime::demo_fixture::ActorConstructionRegistry,
+        ambition_platformer2d::runtime::demo_fixture::ActorConstructionRegistry,
     >,
 ) {
-    ambition::runtime::demo_fixture::simulation_world(
+    ambition_platformer2d::runtime::demo_fixture::simulation_world(
         &mut commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        ambition::runtime::demo_fixture::SimulationSetup {
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
             ldtk_index: &ldtk_index,
@@ -1297,7 +1297,7 @@ fn mary_o_setup(
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,
             // so it has no prepared-content generation to state.
-            construction: ambition::runtime::demo_fixture::ActorConstructionContext::new(
+            construction: ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
                 &construction_recipes,
                 Default::default(),
             ),
@@ -1369,43 +1369,43 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
-        let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.insert_resource(goal_pole());
         app.init_resource::<powerups::SpentPowerBlocks>();
         app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app
         // inserts it (features/render plugins), but a thin rules-only harness may
         // not, and `init_resource` is idempotent — a no-op when already present.
-        app.init_resource::<ambition::actors::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
         // The cycle emitter writes this; the host's replay consumer drains it. The
         // engine registers it too (`SandboxResetSchedulePlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
-        app.add_message::<ambition::actors::session::reset::RoomReplayRequested>();
+        app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
         // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
         // engine registers it in `SimCoreResourcesPlugin`; a rules-only harness
         // does not, and a missing message is a hard system-param panic rather
         // than a skip. Idempotent, same as the rest of this block.
-        app.add_message::<ambition::actors::ActorDiedMessage>();
+        app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
         // The snake stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
-        app.add_message::<ambition::actors::rooms::RoomLoaded>();
-        app.add_message::<ambition::actors::features::SpawnActorRequest>();
+        app.add_message::<ambition_platformer2d::actors::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d::actors::features::SpawnActorRequest>();
         // The snake reset listens to the engine's ONE "put this room back"
         // signal, which a full host emits and a rules-only harness does not.
-        app.add_message::<ambition::actors::features::ResetRoomFeaturesEvent>();
+        app.add_message::<ambition_platformer2d::actors::features::ResetRoomFeaturesEvent>();
         // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
-        app.add_message::<ambition::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         // Same story for the cue queue: the brick-break voices through the shared
         // sfx seam, a full app registers this via the audio plugins, and a thin
         // rules-only harness may not. `add_message` is idempotent.
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         // A sliding snake shell deals damage through the shared `HitEvent` pipeline
         // (`run_snake_shells`); the full app registers this via the engine's damage
         // plugin, but a thin rules-only harness may not. `add_message` is idempotent.
-        app.add_message::<ambition::actors::features::HitEvent>();
+        app.add_message::<ambition_platformer2d::actors::features::HitEvent>();
         // Level progression lives in the canonical gameplay-effects phase. The
         // flag runs before the clock; the cycle emitter runs last so it sees the
         // settled tally and its clock reset is not immediately decremented.
@@ -1429,7 +1429,7 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
@@ -1438,8 +1438,8 @@ impl Plugin for MaryORulesPlugin {
         app.add_systems(
             sim,
             powerups::ensure_transform_beat_policy
-                .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-                .run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+                .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+                .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
         );
         // Mary-O's half of a body reset, answered wherever a body is restarted.
         // Outside the mode gate for the same reason Sanic's is: the observer is
@@ -1447,13 +1447,13 @@ impl Plugin for MaryORulesPlugin {
         // no-op in any stage that seats her outside her own level.
         app.add_observer(movement::clear_spark_cooldown_on_restart);
         let pipe_input = pipe::ensure_pipe_entry_latch
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-            .after(ambition::actors::avatar::tick_player_brains)
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition_platformer2d::actors::avatar::tick_player_brains)
             .before(warp_through_secret_pipe);
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerSimulation)
-            .after(ambition::actors::features::ecs::damage_apply::apply_player_hit_events);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerSimulation)
+            .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction
@@ -1487,8 +1487,8 @@ impl Plugin for MaryORulesPlugin {
             .chain()
             // Both edges are PHASES now, which is the same statement without a
             // game crate reaching for two engine function names.
-            .in_set(ambition::platformer::schedule::WorldPrepSet::AfterIntegrate)
-            .before(ambition::platformer::schedule::WorldPrepSet::ContactDamage);
+            .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
+            .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
         // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
         // wearing the cap. The engine's `collect_world_items` (touch → equip) sits
@@ -1500,7 +1500,7 @@ impl Plugin for MaryORulesPlugin {
             powerups::tag_mary_o_sparks,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::FeatureInteraction);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
         // so they sit after the brain tick and before the shared movement phase
@@ -1514,8 +1514,8 @@ impl Plugin for MaryORulesPlugin {
             movement::sync_run_action_scheme,
         )
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
-            .after(ambition::actors::avatar::tick_player_brains);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition_platformer2d::actors::avatar::tick_player_brains);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
         // collision overlay's `removed_block_names` so they stop colliding (and, via
@@ -1524,30 +1524,30 @@ impl Plugin for MaryORulesPlugin {
         // takes — so the removals survive the per-frame clean slate.
         let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks)
             .chain()
-            .in_set(ambition::platformer::schedule::SandboxSet::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::FeatureInteraction);
         let brick_overlay = bricks::contribute_broken_bricks_to_overlay
-            .in_set(ambition::platformer::schedule::SandboxSet::WorldPrep)
-            .after(ambition::actors::features::rebuild_feature_ecs_world_overlay);
+            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::WorldPrep)
+            .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(
                 sim,
-                pipe_input.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+                pipe_input.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
             app.add_systems(
                 sim,
-                pipe_rules.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+                pipe_rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
-            app.add_systems(sim, cronies.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, cronies.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(
                 sim,
-                powerups.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+                powerups.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
-            app.add_systems(sim, bricks.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
-            app.add_systems(sim, gait.run_if(ambition::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, bricks.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(sim, gait.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
             app.add_systems(
                 sim,
-                brick_overlay.run_if(ambition::runtime::in_mode(MARY_O_MODE)),
+                brick_overlay.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
         } else {
             app.add_systems(sim, rules);
@@ -1565,9 +1565,9 @@ impl Plugin for MaryORulesPlugin {
 fn spawn_mary_o_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<MaryOLevelState>>,
-    session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
+    session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
 ) {
-    use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+    use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep once a session-scoped host has retired the live session (at the
     // launcher), so the level state is not resurrected from stale "mary_o" room
     // metadata. Inert when no `ActiveSessionScope` exists (Startup path / D-C
@@ -1591,7 +1591,7 @@ fn spawn_mary_o_mode_owner(
                     death::MaryODeathSequence::default(),
                 ),
             )
-            .insert(ambition::platformer::lifecycle::ModeScopedEntity(
+            .insert(ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
                 MARY_O_MODE.to_string(),
             ));
     }
@@ -1600,7 +1600,7 @@ fn spawn_mary_o_mode_owner(
 /// The level clock runs on the SIM clock, so pause and bullet-time slow it exactly
 /// as they slow everything else. It clamps at zero rather than going negative.
 fn tick_level_clock(
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut level: bevy::prelude::Query<(
         &mut MaryOLevelState,
         &flag::FlagSequence,
@@ -1663,11 +1663,11 @@ fn spend_lives_on_death(
     bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            Option<&ambition::engine_core::BodyKinematics>,
+            Option<&ambition_platformer2d::engine_core::BodyKinematics>,
         ),
-        ambition::platformer::markers::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
-    mut deaths: bevy::prelude::MessageReader<ambition::actors::ActorDiedMessage>,
+    mut deaths: bevy::prelude::MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
 ) {
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
@@ -1760,16 +1760,16 @@ fn spend_lives_on_death(
 /// re-triggered from inside itself.
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
             &ae::BodyKinematics,
-            &ambition::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::brain::ActorControl,
             &mut pipe::PipeEntryLatch,
         ),
         (
-            ambition::platformer::markers::PrimaryPlayerOnly,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
             bevy::prelude::Without<pipe::PipeTransit>,
         ),
     >,
@@ -1810,8 +1810,8 @@ fn warp_through_secret_pipe(
         // H2: the warp is the entering BODY's — she is the one sliding down it.
         sfx.write_for(
             entity,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::new(pipe::PIPE_WARP_SFX),
                 pos: kin.pos,
             },
         );
@@ -1867,12 +1867,12 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 /// carried the body clear of the pole's grab band, so the freshly-`Idle` sequence
 /// cannot immediately re-grab in the one frame before the host warps the body home.
 ///
-/// [`RoomReplayRequested`]: ambition::actors::session::reset::RoomReplayRequested
+/// [`RoomReplayRequested`]: ambition_platformer2d::actors::session::reset::RoomReplayRequested
 fn cycle_level_on_flag_tally(
-    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
-    mut replay: bevy::prelude::MessageWriter<ambition::actors::session::reset::RoomReplayRequested>,
+    mut replay: bevy::prelude::MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
 ) {
     let Ok((mut sequence, mut level)) = owners.single_mut() else {
         *dwell = 0.0;
@@ -1896,7 +1896,7 @@ fn cycle_level_on_flag_tally(
     *sequence = flag::FlagSequence::default();
     level.time_remaining = STARTING_TIME;
     level.intro_card = INTRO_CARD_SECONDS;
-    replay.write(ambition::actors::session::reset::RoomReplayRequested);
+    replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
 }
 
 /// Install the Mary-O demo content layer into an engine app.
@@ -1913,12 +1913,12 @@ mod tests {
         let mut app = App::new();
         // See the note in `movement::tests`: authored placements require the
         // engine foundation's lowering registry.
-        ambition::engine::add_headless_foundation(&mut app);
-        app.add_plugins(ambition::actors::features::WorldPrepSchedulePlugin);
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        app.add_plugins(ambition_platformer2d::actors::features::WorldPrepSchedulePlugin);
         add_demo_content(&mut app);
         let catalog = app
             .world()
-            .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
+            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
         // Her three power forms are all catalog characters — the small starting
         // sheet, the grown (milk/cap) sheet, and the fire (spark-blossom) sheet.
@@ -1942,7 +1942,7 @@ mod tests {
             .expect("Solid Snake is a catalog row");
         assert_eq!(snake.display_name, snake::SNAKE_DISPLAY_NAME);
         assert!(
-            ambition::actors::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
                 catalog,
                 "solid_snake"
@@ -1955,7 +1955,7 @@ mod tests {
         let ai_slop_row = catalog.get("ai_slop").expect("AI Slop is a catalog row");
         assert_eq!(ai_slop_row.display_name, ai_slop::AI_SLOP_DISPLAY_NAME);
         assert!(
-            ambition::actors::character_sprites::sheet_for_character_id_in(
+            ambition_platformer2d::actors::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
                 catalog,
                 "ai_slop"
@@ -1971,8 +1971,8 @@ mod tests {
             .expect("Mary-O authors a grant list");
         assert_eq!(
             mary_o_kit,
-            ambition::engine_core::AbilitySet::compose(&[
-                ambition::engine_core::AbilityGrant::RunJump,
+            ambition_platformer2d::engine_core::AbilitySet::compose(&[
+                ambition_platformer2d::engine_core::AbilityGrant::RunJump,
             ]),
             "Mary-O Classic composes to ordinary horizontal movement + one variable jump"
         );
@@ -1993,7 +1993,7 @@ mod tests {
             .axis_tuning(provider::MARY_O_CHARACTER_ID)
             .expect("Mary-O authors an axis tuning");
         let horizontal = match mary_o_tuning.horizontal_law {
-            ambition::engine_core::AxisHorizontalLaw::Momentum(params) => params,
+            ambition_platformer2d::engine_core::AxisHorizontalLaw::Momentum(params) => params,
             other => panic!("Mary-O must use the momentum law, got {other:?}"),
         };
         assert_eq!(mary_o_tuning.max_run_speed, 300.0);
@@ -2009,7 +2009,7 @@ mod tests {
         assert_eq!(horizontal.air_coast_decel, 0.0);
 
         let jump = match mary_o_tuning.jump_law {
-            ambition::engine_core::AxisJumpLaw::PhasedGravity(params) => params,
+            ambition_platformer2d::engine_core::AxisJumpLaw::PhasedGravity(params) => params,
             other => panic!("Mary-O must use phased gravity, got {other:?}"),
         };
         assert_eq!(jump.speed_thresholds, [120.0, 187.5, 210.0]);
@@ -2064,7 +2064,7 @@ mod tests {
         );
         let defaults = app
             .world()
-            .resource::<ambition::characters::actor::character_catalog::CharacterCatalogDefaults>(
+            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogDefaults>(
         );
         assert_eq!(
             defaults.for_provider(provider::MARY_O_EXPERIENCE),
@@ -2222,7 +2222,7 @@ mod tests {
     /// timer, for a completely different game — which is the D-C pattern's claim.
     #[test]
     fn hosted_rules_tick_the_level_clock_only_in_mary_o_rooms() {
-        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn remaining(app: &mut App) -> Option<f32> {
             let mut q = app.world_mut().query::<&MaryOLevelState>();
@@ -2230,15 +2230,15 @@ mod tests {
         }
         fn shell(rules: MaryORulesPlugin, mode: Option<&str>, dt: f32) -> App {
             let mut app = App::new();
-            ambition::engine::add_headless_foundation(&mut app);
-            ambition::platformer::lifecycle::insert_session_world_component(
+            ambition_platformer2d::engine::add_headless_foundation(&mut app);
+            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
                 app.world_mut(),
                 ActiveRoomMetadata(RoomMetadata {
                     mode: mode.map(str::to_string),
                     ..Default::default()
                 }),
             );
-            app.insert_resource(ambition::time::WorldTime {
+            app.insert_resource(ambition_platformer2d::time::WorldTime {
                 scaled_dt: dt,
                 ..Default::default()
             });
@@ -2319,7 +2319,7 @@ mod tests {
 
     #[test]
     fn the_pipe_leads_into_a_sealed_vault_and_back_out() {
-        use ambition::engine_core::AabbExt;
+        use ambition_platformer2d::engine_core::AabbExt;
 
         let vault = vault_bounds();
         let arrival = vault_arrival();
@@ -2645,34 +2645,34 @@ mod tests {
     /// regression the old oracle could not express.
     #[test]
     fn a_death_or_a_timeout_spends_a_life_and_zero_lives_restarts_the_run() {
-        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn shell(dt: f32) -> App {
             let mut app = App::new();
-            ambition::engine::add_headless_foundation(&mut app);
-            ambition::platformer::lifecycle::insert_session_world_component(
+            ambition_platformer2d::engine::add_headless_foundation(&mut app);
+            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
                 app.world_mut(),
                 ActiveRoomMetadata(RoomMetadata::default()),
             );
-            app.insert_resource(ambition::time::WorldTime {
+            app.insert_resource(ambition_platformer2d::time::WorldTime {
                 scaled_dt: dt,
                 ..Default::default()
             });
-            app.add_message::<ambition::actors::ActorDiedMessage>();
+            app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
             app.add_plugins(MaryORulesPlugin::global());
             app.world_mut().spawn((
-                ambition::engine_core::BodyLifetime::default(),
-                ambition::platformer::markers::PlayerEntity,
-                ambition::platformer::markers::PrimaryPlayer,
+                ambition_platformer2d::engine_core::BodyLifetime::default(),
+                ambition_platformer2d::platformer::markers::PlayerEntity,
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
             ));
             app
         }
         fn kill(app: &mut App) {
             app.world_mut()
-                .write_message(ambition::actors::ActorDiedMessage {
-                    pos: ambition::engine_core::Vec2::ZERO,
-                    cause: ambition::actors::DeathCause {
-                        source: ambition::combat::HitSource::Hazard,
+                .write_message(ambition_platformer2d::actors::ActorDiedMessage {
+                    pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    cause: ambition_platformer2d::actors::DeathCause {
+                        source: ambition_platformer2d::combat::HitSource::Hazard,
                         attacker: None,
                     },
                 });
@@ -2753,26 +2753,26 @@ mod tests {
     /// hosted end-to-end proof is still open — see the demo's planning doc.
     #[test]
     fn a_replay_reset_is_not_a_death_so_lives_cannot_drain() {
-        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         let mut app = App::new();
-        ambition::engine::add_headless_foundation(&mut app);
-        ambition::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
             ActiveRoomMetadata(RoomMetadata::default()),
         );
-        app.insert_resource(ambition::time::WorldTime {
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 0.0,
             ..Default::default()
         });
-        app.add_message::<ambition::actors::ActorDiedMessage>();
+        app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
         app.add_plugins(MaryORulesPlugin::global());
         let body = app
             .world_mut()
             .spawn((
-                ambition::engine_core::BodyLifetime::default(),
-                ambition::platformer::markers::PlayerEntity,
-                ambition::platformer::markers::PrimaryPlayer,
+                ambition_platformer2d::engine_core::BodyLifetime::default(),
+                ambition_platformer2d::platformer::markers::PlayerEntity,
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
             ))
             .id();
         app.update();
@@ -2787,7 +2787,7 @@ mod tests {
         // rebuild. None of them is a death.
         for _ in 0..8 {
             app.world_mut()
-                .get_mut::<ambition::engine_core::BodyLifetime>(body)
+                .get_mut::<ambition_platformer2d::engine_core::BodyLifetime>(body)
                 .unwrap()
                 .resets += 1;
             app.update();
@@ -2817,16 +2817,16 @@ mod tests {
     /// emit ran), and it must NOT fire early or the tally would never be seen.
     #[test]
     fn a_settled_tally_rearms_the_level_after_a_dwell() {
-        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         let mut app = App::new();
-        ambition::engine::add_headless_foundation(&mut app);
-        ambition::platformer::lifecycle::insert_session_world_component(
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
             ActiveRoomMetadata(RoomMetadata::default()),
         );
         // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
-        app.insert_resource(ambition::time::WorldTime {
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
             ..Default::default()
         });

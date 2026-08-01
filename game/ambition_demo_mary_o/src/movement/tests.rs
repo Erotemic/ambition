@@ -1,8 +1,8 @@
 //! Walk/run, the latch, and the shared movement kernel's response to the throttle.
 
 use super::*;
-use ambition::characters::equipment::WornEquipment;
-use ambition::engine_core::ControlFrame;
+use ambition_platformer2d::characters::equipment::WornEquipment;
+use ambition_platformer2d::engine_core::ControlFrame;
 
 use crate::powerups::{grow_cap, spark_blossom};
 
@@ -25,7 +25,7 @@ fn body(app: &mut App) -> Entity {
 
 fn app_with_policy() -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
@@ -96,7 +96,7 @@ fn the_walk_throttle_is_symmetric() {
 /// the modifier must be carried as a LEVEL (retained) and not as an EDGE (consumed).
 #[test]
 fn the_held_run_survives_the_frame_to_tick_latch() {
-    use ambition::engine_core::ControlFrameLatch;
+    use ambition_platformer2d::engine_core::ControlFrameLatch;
 
     let mut latch = ControlFrameLatch::default();
     latch.accumulate(ControlFrame {
@@ -137,12 +137,12 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     // refuses a room carrying placements no interpreter claims — so this
     // harness needs the engine foundation that registers the standard lowering
     // families, not a bare `App`.
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::actors::features::WorldPrepSchedulePlugin);
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::actors::features::WorldPrepSchedulePlugin);
     crate::add_demo_content(&mut app);
     let catalog = app
         .world()
-        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
+        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
     let tuning = catalog
         .axis_tuning(crate::provider::MARY_O_CHARACTER_ID)
         .expect("Mary-O authors her gait");
@@ -269,7 +269,7 @@ fn the_run_policy_never_adds_velocity_or_amplifies_intent() {
 
 fn app_with_fire(worn: WornEquipment) -> (App, Entity) {
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
@@ -362,8 +362,8 @@ fn holding_run_does_not_repeat_fire() {
 /// doing two things.
 #[test]
 fn the_slot_label_follows_the_power_state() {
-    use ambition::characters::action_scheme::ActorTechniques;
-    use ambition::entity_catalog::action_scheme::ControlSlot;
+    use ambition_platformer2d::characters::action_scheme::ActorTechniques;
+    use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
 
     let mut app = App::new();
     let body = body(&mut app);

@@ -15,7 +15,7 @@
     "",
     "⚠ Do not mark a row proven because the code exists somewhere. The question is",
     "whether the CATEGORY exercised the public API — Sanic existing in-tree is not",
-    "the same fact as Sanic standing up through `ambition::app` standalone AND",
+    "the same fact as Sanic standing up through `ambition_platformer2d::app` standalone AND",
     "embedded with matching identities.",
     "",
     "The ORDER these are attacked stays evidence-driven (§3 selects each slice from",
@@ -35,11 +35,11 @@
       "consumer": "fixtures/minimal_game",
       "proves": "optional-capability closure — does a small game link menus, persistence, audio, bosses?",
       "proven": true,
-      "proof": "fixtures/minimal_game/tests/boots.rs — 7 tests: one module boots BOTH faces, reaches a RUNNING host via `ambition::app::host_status`, and a game that can never start REFUSES promptly and names the cause. Ratcheted by `minimal-game-names-only-the-public-sdk`, baseline ZERO.",
+      "proof": "fixtures/minimal_game/tests/boots.rs — 7 tests: one module boots BOTH faces, reaches a RUNNING host via `ambition_platformer2d::app::host_status`, and a game that can never start REFUSES promptly and names the cause. Ratcheted by `minimal-game-names-only-the-public-sdk`, baseline ZERO.",
       "slice": "B",
       "note": "The blind run showed a minimal module cannot even reach the windowed face: it panics without a CharacterCatalog. This category is what turns §2e's '41 ambition crates from 2 declared dependencies' from a number into a felt constraint or a non-issue. RESULT: it names 4 modules to Outlander's 14, and all four are one hole — PlatformerExperienceAuthoring + PreparedPlatformerSource + RoomSpec + engine_core geometry. A minimal game can COMPOSE through the SDK and still cannot DECLARE a room or an experience through it.",
       "answers_optional_capability_closure": "PARTLY, and the partly is the finding. A movement-only game links and must DECLARE audio it does not have — preparation validation refuses an experience with no audio fragment, so silence is mandatory paperwork. It needs no menus, persistence, LDtk or bosses of its own, and no `bevy` dependency at all. Five modules total: four are the room/experience declaration path, the fifth is the silent audio fragment.",
-      "ratchet": "ZERO — names only ambition::app, ambition::world, and the documented bevy re-export"
+      "ratchet": "ZERO — names only ambition_platformer2d::app, ambition_platformer2d::world, and the documented bevy re-export"
     },
     {
       "id": "noncombat-actor",
@@ -63,7 +63,7 @@
       "standalone_half": {
         "proven": true,
         "proof": "game/ambition_demo_sanic/tests/stands_up_through_the_sdk.rs — Sanic mounts through `PlatformerApp` and reaches a RUNNING host (not merely composes), on the first attempt with NO engine changes.",
-        "why_it_matters": "Sanic PREDATES the SDK. Outlander and the minimal game were written or rewritten against `ambition::app`; Sanic was not, and it carries presentation profiles, a declared HUD, music, procedural SFX and packed SFX. It is the closest thing to an independent consumer available, which is what §4's carve decision needs — a footprint measured only against games the API author designed answers a weaker question.",
+        "why_it_matters": "Sanic PREDATES the SDK. Outlander and the minimal game were written or rewritten against `ambition_platformer2d::app`; Sanic was not, and it carries presentation profiles, a declared HUD, music, procedural SFX and packed SFX. It is the closest thing to an independent consumer available, which is what §4's carve decision needs — a footprint measured only against games the API author designed answers a weaker question.",
         "what_it_says_about_playable": "Sanic mounts as a `capability`, not through `playable()`, because `playable` carries no presentation profiles or HUD declaration. That is recorded as evidence about where `playable` stops rather than patched by inventing parameters from one caller."
       },
       "no_ratchet_note": "⚠ Sanic gets NO allowlist ratchet, deliberately. The allowlist is scoped to `fixtures/` (Jon, 2026-07-30); extending it to `game/` would answer the deferred `ambition_content`-depends-on-the-facade question by accident, in a row about something else. In-tree consumers are measured when that question is actually taken.",
@@ -80,7 +80,7 @@
       "consumer": "game/ambition_app versus stage",
       "proves": "participants, character selection, atomic match lifecycle, scoped rules, rollback",
       "proven": true,
-      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` covers the fifth (rollback): the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count. `the_match_has_two_distinct_seats_and_simulates_with_both` adds the seating, with its limit stated in the test.",
+      "proof": "game/ambition_app/tests/versus_through_the_sdk.rs (`--test app_it -- versus_through_the_sdk`) — two tests. `the_versus_stage_composes_and_seats_two_participants` covers participants, character selection (both fighters asserted by id), atomic match lifecycle and scoped rules (its OWN route). `the_versus_stage_rolls_back_with_two_participants` covers the fifth (rollback): the stage composes with `PlatformerApp::rollback(2)`, reaches a running session through `ambition_platformer2d::rollback::start`, seats TWO participants, and survives 120 rollback frames with a non-vacuity guard on the registration count. `the_match_has_two_distinct_seats_and_simulates_with_both` adds the seating, with its limit stated in the test.",
       "slice": "F",
       "note": "Closed by slice F, which built the rollback slice ADR 0031 reserved. The six properties have their own acceptance tests in fixtures/external_consumer/tests/rollback_is_a_promise.rs.",
       "blocked_on": "rollback as a public knob — ADR 0031's own deferral, the same blocker as §4.1",

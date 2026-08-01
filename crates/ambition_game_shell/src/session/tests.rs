@@ -10,7 +10,7 @@ use crate::{
     ShellRouteCatalog, ShellRouter,
 };
 use ambition_audio::catalog::AudioCatalogAppExt;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::ecs::system::RunSystemOnce;

@@ -50,7 +50,7 @@ python scripts/agent_query.py "room transition loading"
 python scripts/agent_query.py symbol GroundContactTransition
 python scripts/agent_query.py ecs "room transition" --crate ambition_app
 python scripts/agent_query.py tests "ground contact"
-python scripts/agent_query.py crate ambition_runtime
+python scripts/agent_query.py crate ambition_platformer2d_runtime
 ```
 
 The drill-down workflow and raw shard locations are documented in

@@ -8,8 +8,8 @@
 "hard-won rule" below (measure OUTWARD deps) remains binding wisdom.
 
 0. **Monolith breakup (active direction).** The Stage-20 bisection landed
-   (foundations ← machinery `ambition_actors` ← content `ambition_content` ←
-   app `ambition_app`); the work now is shrinking `ambition_actors` (~90k LOC).
+   (foundations ← machinery `ambition_platformer2d_actor_monolith` ← content `ambition_content` ←
+   app `ambition_app`); the work now is shrinking `ambition_platformer2d_actor_monolith` (~90k LOC).
 
    **Hard-won rule:** measure a module's *outward* dependency count, not its line
    size or content-guard status. "Names no content" (passes the guard) is NOT
@@ -35,7 +35,7 @@
      quick crate; pre-invert its inbound deps incrementally instead.
    - **`dev` state/systems split (partial).** ~1.3k of presentation-only dev
      overlays already moved up; the dev STATE + systems split is deferred.
-   - **Render-boundary polish / `world`+LDtk (~9k).** Presentation has moved to `ambition_render` / `ambition_portal_presentation`; the remaining work is policing residual sim→presentation leaks and measuring `world`+LDtk outward deps before promising any extraction.
+   - **Render-boundary polish / `world`+LDtk (~9k).** Presentation has moved to `ambition_render` / `ambition_portal2d_presentation`; the remaining work is policing residual sim→presentation leaks and measuring `world`+LDtk outward deps before promising any extraction.
 1. Keep ADRs and concept pages modern enough that agents can trust them.
 2. Continue shifting runtime integration toward data-driven Bevy ECS instead of parallel code-owned world state.
 3. Replace obsolete migration docs with current systems/concepts or archive them.

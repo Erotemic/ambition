@@ -138,7 +138,7 @@ New (2026-07-05):
 
 ## Uncertainty register (watch-items, updated)
 
-- **U1 (stands):** the post-carve `ambition_actors` may or may not split
+- **U1 (stands):** the post-carve `ambition_platformer2d_actor_monolith` may or may not split
   further — re-measure, don't pre-commit.
 - **U3 (stands):** LDtk at scale; W4/ADR-0021 keeps the backend swappable.
 - **U4 (stands):** Bevy churn taxes 25 crates; the runtime group owning
@@ -155,7 +155,7 @@ New (2026-07-05):
 ## QUESTIONS FOR JON (open; answer tersely in place)
 
 - **Q1/Q3 (carried):** who is 1.0 for; engine name/repo split timing.
-- **Q2-name (carried):** endorse `ambition_actors` as the gameplay_core
+- **Q2-name (carried):** endorse `ambition_platformer2d_actor_monolith` as the gameplay_core
   residue rename, or supply a name (E7 blocks on nothing else).
 - **Q4 (✅ ANSWERED 2026-07-06):** determinism = **level 2, same-build
   now, cross-platform later.** Same binary/platform/input-stream is

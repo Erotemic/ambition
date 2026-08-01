@@ -21,7 +21,7 @@
 //! this file red under `cargo test --workspace` for as long as that command has
 //! existed. The cfg reads THIS crate's `input` feature, but what actually
 //! decides whether the participant pipeline owns `ControlFrame` is
-//! `ambition/input` — and workspace feature unification turns that on from
+//! `ambition_platformer2d/input` — and workspace feature unification turns that on from
 //! `ambition_app`'s defaults no matter what this crate asked for. So the guard
 //! silently stopped guarding: the file compiled, the pipeline ran in `Update`
 //! and overwrote every `PreUpdate` write, and Mary-O simply never moved.
@@ -32,10 +32,10 @@
 //! by construction rather than by composition luck, so this proof holds under
 //! `-p` and `--workspace` alike.
 
-use ambition::engine_core::AabbExt;
-use ambition::input::ControlFrame;
-use ambition::platformer::markers::PrimaryPlayer;
-use ambition::world::rooms::RoomSet;
+use ambition_platformer2d::engine_core::AabbExt;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_demo_mary_o_app::build_demo_app;
@@ -64,8 +64,8 @@ fn boot() -> App {
     app.add_systems(
         Update,
         apply_scripted_stick
-            .after(ambition::input::InputSet::Route)
-            .before(ambition::engine_core::accumulate_control_frame_latch),
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
     );
     // Settle activation: the provider publishes its world over several frames.
     for _ in 0..90 {
@@ -95,7 +95,7 @@ fn press_down() -> ControlFrame {
 fn player_pos(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()
@@ -114,8 +114,8 @@ fn active_room(app: &mut App) -> String {
 
 fn place_player(app: &mut App, pos: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
-        ambition::engine_core::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        ambition_platformer2d::engine_core::BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query
@@ -123,11 +123,11 @@ fn place_player(app: &mut App, pos: Vec2) {
         .next()
         .expect("gameplay has a primary player");
     let mut clusters = cluster_item.as_clusters_mut();
-    ambition::engine_core::movement::transit_body(
+    ambition_platformer2d::engine_core::movement::transit_body(
         &mut motion_model,
         &mut clusters,
         pos,
-        ambition::engine_core::movement::TransitVelocity::Zero,
+        ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
     );
 }
 
@@ -234,7 +234,7 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
     let feet_offset = {
         let mut query = app
             .world_mut()
-            .query_filtered::<&ambition::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
         let size = query
             .iter(app.world())
             .next()
@@ -275,7 +275,7 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
 fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let set = app
         .world()
-        .resource::<ambition::world::collision::MovingPlatformSet>();
+        .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
     let platform = set
         .0
         .iter()
@@ -360,7 +360,7 @@ fn the_run_survives_the_crossing() {
 fn wallet(app: &mut App) -> i32 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition::characters::actor::BodyWallet, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::characters::actor::BodyWallet, With<PrimaryPlayer>>();
     query
         .iter(app.world())
         .next()

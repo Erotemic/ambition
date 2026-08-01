@@ -40,11 +40,11 @@ pub mod versus_rules;
 pub(crate) mod world_flow;
 
 #[cfg(feature = "input")]
-pub use ambition::actors::schedule::{
+pub use ambition_platformer2d::actors::schedule::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions, MenuNavConsume,
 };
-pub use ambition::actors::schedule::{
+pub use ambition_platformer2d::actors::schedule::{
     configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet,
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -60,10 +60,10 @@ pub use cli::{
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
-// `PlayerBodyFrameOutput` moved to `ambition::actors::avatar` (the movement
+// `PlayerBodyFrameOutput` moved to `ambition_platformer2d::actors::avatar` (the movement
 // phase that writes it is now the unified `integrate_sim_bodies`). Re-exported here
 // so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep working.
-pub use ambition::actors::avatar::PlayerBodyFrameOutput;
+pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,

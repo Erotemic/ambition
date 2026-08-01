@@ -15,7 +15,7 @@ the narrowed queue. Answers to your five asks, receipts inline.
 ## 1. SimId and feature-persona corrections: confirmed
 
 **SimId — confirmed, withdrawn.** [observed] `ensure_sim_id` queries
-`With<BodyKinematics>` only (`crates/ambition_runtime/src/rollback/codecs.rs:1621-1633`),
+`With<BodyKinematics>` only (`crates/ambition_platformer2d_runtime/src/rollback/codecs.rs:1621-1633`),
 and `mint_spawned_sim_ids` covers only `LiveProjectile` newborns
 (`codecs.rs:1670-1682`). Identity's intended domain is bodies + projectiles —
 things that act, observe, target, and spawn. The anchor families you list
@@ -60,19 +60,19 @@ policy for everything below.
 
 ## 2. Portal contract: Option 1, and here is why it is the intended one
 
-Recommendation: **the host `portal` feature forwards `ambition_runtime/portal`.**
+Recommendation: **the host `portal` feature forwards `ambition_platformer2d_runtime/portal`.**
 One manifest line, no code, no test edits. The receipts:
 
-- [observed] `ambition_host` already depends on `ambition_runtime`
-  (`crates/ambition_host/Cargo.toml:16`), and its charter says "MAY dep
+- [observed] `ambition_platformer2d_host` already depends on `ambition_platformer2d_runtime`
+  (`crates/ambition_platformer2d_host/Cargo.toml:16`), and its charter says "MAY dep
   render/input/runtime/sim_view/leafwing."
-- [observed] `ambition_runtime/portal` is precisely "the portal simulation
-  assembly": `PortalSchedulePlugin` installs `ambition_portal::PortalPlugin`
+- [observed] `ambition_platformer2d_runtime/portal` is precisely "the portal simulation
+  assembly": `PortalSchedulePlugin` installs `ambition_portal2d::PortalPlugin`
   and places its sets, "Part of `PlatformerEnginePlugins` when the `portal`
-  feature is on" (`crates/ambition_runtime/src/portal_schedule.rs:23-30`).
+  feature is on" (`crates/ambition_platformer2d_runtime/src/portal_schedule.rs:23-30`).
 - [observed] The facade already asserts this exact coupling at the
-  composition root: `ambition/portal` forwards `ambition_runtime/portal` AND
-  `ambition_host/portal` **together** (`crates/ambition/Cargo.toml:39-42`).
+  composition root: `ambition_platformer2d/portal` forwards `ambition_platformer2d_runtime/portal` AND
+  `ambition_platformer2d_host/portal` **together** (`crates/ambition_platformer2d/Cargo.toml:39-42`).
   So "host portal wiring ⇒ runtime portal sim" is already a truth of every
   supported persona; Option 1 pushes the same truth one level down so the
   host crate's own test graph states it too. It cannot create a composition
@@ -80,7 +80,7 @@ One manifest line, no code, no test edits. The receipts:
   leaf plugin — it is a manifest fact ("this wiring is meaningless without
   that sim"), not an `is_plugin_added` assertion.
 - [observed] All four `demo_shell_smoke` fixtures already install
-  `PlatformerEnginePlugins` (`crates/ambition_host/tests/demo_shell_smoke.rs:147,218,297,318`),
+  `PlatformerEnginePlugins` (`crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs:147,218,297,318`),
   so with the feature forwarded, the fixtures' engine group installs
   `PortalPlugin`, the messages register, and the five red tests should go
   green with zero fixture changes. **[suspected until run]** — the failure
@@ -89,11 +89,11 @@ One manifest line, no code, no test edits. The receipts:
   information rather than a doctrine problem.
 - Against Option 2: there is no persona, real or plausible, that wants
   portal camera-continuity wiring against no portal sim — the wiring reads
-  `ambition_portal` types the runtime schedule places. Fixture-side assembly
+  `ambition_portal2d` types the runtime schedule places. Fixture-side assembly
   would restate per-test what the manifest can state once.
 
 R1 then finishes exactly as you wrote it: make the composition green, and
-have the runner actually run it (drop `ambition_host` from
+have the runner actually run it (drop `ambition_platformer2d_host` from
 `SKIP_FEATURE_JOB`, whose "gates no test code" justification is already
 false).
 
@@ -197,7 +197,7 @@ Answering this honestly, including against proposals of mine and of yours:
    exercise the LDtk-authored encounter Switch — a real game path. It must
    NOT synthesize a `GravityFlipSwitch`: [observed] `GravityPlugin` says
    nothing spawns one in-game and its system is deliberately unregistered
-   (`crates/ambition_actors/src/gravity/plugin.rs:87-92`). Your §2 argument
+   (`crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs:87-92`). Your §2 argument
    generalizes: oracles exercise game-reachable state only.
 4. **`GravityFlipSwitch` itself is a deletion candidate** — a component +
    unregistered system + rollback anchor registration existing "for the
@@ -224,7 +224,7 @@ correspondence) is hygiene with an end state, not a program.
 
 ## 6. The queue as I will execute it, on Jon's go
 
-- **R1** Portal: forward `ambition_runtime/portal` from `ambition_host/portal`;
+- **R1** Portal: forward `ambition_platformer2d_runtime/portal` from `ambition_platformer2d_host/portal`;
   run `demo_shell_smoke` under `portal_render`; un-skip the host feature
   job. Exit: the composition is green in the gate.
 - **R2** GGRS oracle: extend the sync-test to the Track-0 exit list (melee

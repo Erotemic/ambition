@@ -1,18 +1,18 @@
 //! Unit tests for the reusable projectile primitives.
 //!
-//! These used to live under `ambition_actors::projectile::engine_tests` when the
+//! These used to live under `ambition_platformer2d_actor_monolith::projectile::engine_tests` when the
 //! actor crate was also the projectile facade.  Their subject is the projectile
 //! kit itself now: motion-buffer gesture recognition, spawner cooldown/resource
 //! gating, kind tuning, and `ProjectileBody` flight + world-collision behavior
-//! re-exported from `ambition_platformer_primitives::projectile`.
+//! re-exported from `ambition_platformer2d_shared_tangle::projectile`.
 
-use ambition_engine_core::Vec2;
+use ambition_platformer2d_core::Vec2;
 
 use crate::spawn::{ProjectileSpawner, SpawnFailure};
 use crate::{FireballChargeTuning, ProjectileKind};
 use crate::{MotionDirection, MotionInputBuffer, MotionTechnique};
 use crate::{ProjectileBody, ProjectileSolidHit};
-use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
+use ambition_platformer2d_core::{aabb_from_min_size, Aabb, AabbExt};
 
 // The named gesture patterns now live in content; these mirror
 // `ambition_content::input_techniques` so the recognizer mechanics stay tested

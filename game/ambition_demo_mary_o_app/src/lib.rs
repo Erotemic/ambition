@@ -22,9 +22,9 @@ pub fn build_demo_app() -> App {
 /// `QuitToHome` resolves relative to whichever home this host declared.
 pub fn build_demo_app_with_home(home_route: &str) -> App {
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     compose_mary_o_shell(&mut app, home_route);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -44,7 +44,7 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
     // is a decision this demo makes. Mary-O authors no frontend sound, so the
     // default profile keeps the launcher deliberately silent rather than
     // inheriting another provider's cached audio.
-    ambition::provider::ShellComposition::new(
+    ambition_platformer2d::provider::ShellComposition::new(
         ambition_demo_mary_o::MARY_O_EXPERIENCE,
         home_route,
         MARY_O_GAMEPLAY_ROUTE,
@@ -78,7 +78,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     let mut app = App::new();
     let plugins = DefaultPlugins
         // Point the AssetServer file root at the engine's on-disk asset tree
-        // (`crates/ambition_actors/assets`, where the generated sprite sheets
+        // (`crates/ambition_platformer2d_actor_monolith/assets`, where the generated sprite sheets
         // live), exactly as the hosted app does — via the SHARED umbrella helper,
         // so the two apps cannot diverge. Without this the default cwd-relative
         // `"assets"` root has no `sprites/` tree and every character renders as a
@@ -86,7 +86,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
         // reads its `file_path` when it builds and a later host plugin is too
         // late to change it.
         .set(bevy::asset::AssetPlugin {
-            file_path: ambition::asset_manager::actors_desktop_asset_root(),
+            file_path: ambition_platformer2d::asset_manager::actors_desktop_asset_root(),
             ..default()
         })
         .set(WindowPlugin {
@@ -128,9 +128,9 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                 .disable::<bevy::winit::WinitPlugin>(),
         ),
     };
-    ambition::engine::init_engine_states(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
-    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    ambition_platformer2d::engine::init_engine_states(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
+    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // Visible and headless hosts share one provider/shell/session lifecycle.
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
@@ -144,7 +144,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // Level 1-1 is authored in code rather than LDtk, so no world manifest: a
     // world-less catalog contributes no world rows and every other entry lands.
     app.add_plugins(
-        ambition::game_assets::PlatformerAssetsPlugin::for_experience(
+        ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_mary_o::MARY_O_EXPERIENCE,
         )
         // Startup asset binding precedes gameplay activation, so the theme comes
@@ -159,11 +159,11 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // `GameAssets` to draw from and every actor and block renders as a colored
     // rectangle — the exact divergence that made this demo assetless standalone
     // while it rendered fine inside the hosted app.
-    app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
+    app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
     // The engine's opt-in F1 debug visualizations (collision blocks, surface
     // chains + normals, read-model body/feature boxes). Shapes only — no dev
     // HUD. Starts OFF; press F1 in-game.
-    app.add_plugins(ambition::render::rendering::debug_viz::DebugVizPlugin::default());
+    app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
 
     // The windowed host uses the physical Kira backend. Mary-O's provider authors
     // a run+jump SFX voice and the "Support Theme" music cue; this wires the same
@@ -187,17 +187,17 @@ fn install_mary_o_audio(app: &mut App) {
     // standalone app contributes only its provider catalogs and resident asset
     // library; selection, intent priority, playback state, channels, and the
     // director are installed once by `SandboxAudioPlugin`.
-    app.add_plugins(ambition::actors::audio::SandboxAudioPlugin)
+    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin)
         .add_systems(
             Startup,
-            setup_mary_o_audio_library.in_set(ambition::actors::schedule::PresentationSetupSet),
+            setup_mary_o_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
         );
 }
 
 #[cfg(feature = "visible")]
 fn setup_mary_o_audio_library(
     mut commands: Commands,
-    catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    catalogs: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
 ) {
     let music = catalogs
@@ -206,7 +206,7 @@ fn setup_mary_o_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local SFX catalog");
-    let (library, music_state) = ambition::audio::library::AudioLibrary::new_with_playback_state(
+    let (library, music_state) = ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
         &mut audio_sources,
         sfx,
         music,

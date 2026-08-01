@@ -20,17 +20,17 @@
 //! [`AiSlop`] marker keeps this stomp from ever touching a snake (which owns its own
 //! shell rule); the two enemies never share a code path.
 //!
-//! Every type it names comes through the `ambition` umbrella — the E9 oracle.
+//! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::actors::combat::components::ActorFaction;
-use ambition::actors::features::FeatureName;
-use ambition::actors::features::{SpawnActorKind, SpawnActorRequest};
-use ambition::characters::actor::BodyHealth;
-use ambition::engine_core as ae;
-use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d::actors::combat::components::ActorFaction;
+use ambition_platformer2d::actors::features::FeatureName;
+use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
 use crate::stomp::{player_touch, PlayerTouch};
 use crate::{LEVEL_1_1_ROOM_ID, T};
@@ -83,7 +83,7 @@ pub(crate) const AI_SLOP_ROSTER_ROWS: &str = r#"
 /// Register the demo's AI Slop roster fragment. Shares the Mary-O provider id so its
 /// brain key namespaces under this experience.
 pub fn register_ai_slop_roster(app: &mut App) {
-    use ambition::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron(
             crate::provider::MARY_O_EXPERIENCE,
@@ -105,8 +105,8 @@ pub fn register_ai_slop_roster(app: &mut App) {
 /// the lean sandbox catalog), self-healing across a `GameAssets` rebuild and a
 /// no-op headless / `--no-assets`.
 pub fn register_ai_slop_sheet(
-    game_assets: Option<ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    game_assets: Option<ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
 ) {
@@ -118,12 +118,12 @@ pub fn register_ai_slop_sheet(
     if config.no_assets || game_assets.characters.sheet(AI_SLOP_DISPLAY_NAME).is_some() {
         return;
     }
-    if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+    if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
         &asset_server,
         &mut layouts,
         &config.sprite_folder,
         AI_SLOP_SHEET_TARGET,
-        &ambition::sprite_sheet::character::SheetTuning::new(1.0, 0),
+        &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
     ) {
         // Double-keyed exactly like the eager loader: the render resolves an actor
         // by its display name, and other seams by the catalog id.
@@ -166,7 +166,7 @@ fn ai_slop_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
 /// contents are staged (initial load, every cyclic replay — the walkers
 /// `respawn: OnRoomReenter` — and a snapshot restore), the walkers stage with them.
 pub fn register_ai_slop_content_staging(
-    registry: &mut ambition::actors::features::RoomContentStagingRegistry,
+    registry: &mut ambition_platformer2d::actors::features::RoomContentStagingRegistry,
 ) {
     registry
         .register(
@@ -211,12 +211,12 @@ pub fn tag_mary_o_ai_slop(
 /// the contact pass runs THIS frame and would hurt the stomper. And it has no score
 /// value and no drop table, so there is nothing for the shared path to carry. The
 /// one thing a silent despawn would drop is the visible pop, so we emit a dust
-/// [`ambition::vfx::VfxMessage::Burst`] at the corpse through the engine's own vfx
+/// [`ambition_platformer2d::vfx::VfxMessage::Burst`] at the corpse through the engine's own vfx
 /// seam — a squash reads as a squash without adopting a wrong-ordered pipeline.
 pub fn bounce_squash_ai_slop(
     mut commands: Commands,
-    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>,
     mut mobs: Query<
         (Entity, &ae::BodyKinematics, &mut BodyHealth),
@@ -239,12 +239,12 @@ pub fn bounce_squash_ai_slop(
         ae::movement::set_jump_velocity(&mut player.vel, ae::DEFAULT_GRAVITY_DIR, BOUNCE_SPEED);
         // The squash pops a low, tan dust burst through the engine's shared particle
         // seam, so the mob leaves a mark instead of blinking out.
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: mob_kin.pos,
             count: 12,
             speed: 130.0,
             color: [0.80, 0.68, 0.48, 1.0],
-            kind: ambition::vfx::ParticleKind::Dust,
+            kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
         // ...and the stomp thuds on the shared `Pogo` cue (the "you bounced off
         // something" verb a head-stomp is), voiced by the provider's own spec.
@@ -253,7 +253,7 @@ pub fn bounce_squash_ai_slop(
         // not what made the sound.
         sfx.write_for(
             player_entity,
-            ambition::sfx::SfxMessage::Pogo { pos: mob_kin.pos },
+            ambition_platformer2d::sfx::SfxMessage::Pogo { pos: mob_kin.pos },
         );
         // Neutralize before the contact pass runs THIS frame, then remove the body.
         health.health.current = 0;

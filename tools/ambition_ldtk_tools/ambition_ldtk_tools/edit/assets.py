@@ -69,7 +69,7 @@ def classify_png(rel: str) -> str:
 
 def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) -> dict[str, Any]:
     repo = repo_root_from_ldtk(ldtk)
-    root = assets_root or (repo / "crates" / "ambition_actors" / "assets")
+    root = assets_root or (repo / "crates" / "ambition_platformer2d_actor_monolith" / "assets")
     pngs = []
     if root.exists():
         for path in sorted(root.rglob("*.png")):

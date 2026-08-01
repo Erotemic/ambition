@@ -1,6 +1,6 @@
 //! Agent-facing action vocabulary and conversion into the engine-owned `ControlFrame`.
 
-use ambition::input::ControlFrame;
+use ambition_platformer2d::input::ControlFrame;
 
 /// Action emitted by an RL agent / scripted driver every tick.
 ///

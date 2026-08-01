@@ -28,7 +28,7 @@ const HEAVY_OBJECT_KEY: &str = "cut_rope_heavy_object";
 /// link and this command records the choice as a save flag for traceability.
 pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
     info!(
-        target: "ambition_actors::dialog::yarn",
+        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
     effects.write(SetFlagRequested {
@@ -46,7 +46,7 @@ pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
 pub fn cmd_reset_cut_rope_room(mut pending: ResMut<PendingCutRopeRoomReplay>) {
     pending.requested = true;
     info!(
-        target: "ambition_actors::dialog::yarn",
+        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
         "reset_cut_rope_room: latched Smirking Behemoth room replay until dialogue closes",
     );
 }

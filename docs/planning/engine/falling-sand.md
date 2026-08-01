@@ -82,10 +82,10 @@ A falling-sand spout (a source that emits matter) is an **authored PLACEMENT
 in the map**, not a hardcoded runtime spawn — it rides the same
 world→sim lowering seam as any other contentful placement (architecture
 §4b): the map author drops a `spout` placement (a Tier-0 authored schema:
-material, rate, direction), `ambition_world` carries it as an authored
+material, rate, direction), `ambition_platformer2d_world` carries it as an authored
 record, and the falling-sand CONTENT plugin registers the interpreter that
 lowers it into the runtime emitter at room-load. So the same-tier deps hold:
-`ambition_world` never names the falling-sand runtime; the content plugin
+`ambition_platformer2d_world` never names the falling-sand runtime; the content plugin
 depends on world + reads the schema. **✅ RULED (fable, 2026-07-06 night, closing the last open schema
 question):** the spout schema is **falling-sand-SPECIFIC** —
 `SpoutSpec { material: String, rate: f32, direction: [f32; 2] }` as a

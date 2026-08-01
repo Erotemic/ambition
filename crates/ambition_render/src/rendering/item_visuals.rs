@@ -3,14 +3,14 @@
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
-use ambition_platformer_primitives::binding::{
+use ambition_platformer2d_shared_tangle::binding::{
     log_unresolved, Namespace, ReportedOnce, Resolver, UnresolvedRef,
 };
-use ambition_platformer_primitives::held_item_art::HeldItemSprite;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::held_item_art::HeldItemSprite;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer_primitives::world_item_art::WorldItemSprite;
+use ambition_platformer2d_shared_tangle::world_item_art::WorldItemSprite;
 use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -48,7 +48,7 @@ pub const LASERSWORD_SHEET: &str = LASERSWORD_SHEET_PATH;
 /// rotation; the pommel anchor is normalized from frame-local px (y negated).
 pub fn lasersword_projectile_sprite(
     texture: Handle<Image>,
-    vel: ambition_engine_core::Vec2,
+    vel: ambition_platformer2d_core::Vec2,
 ) -> (Sprite, Anchor, Quat) {
     let bevy_dx = vel.x;
     let bevy_dy = -vel.y;
@@ -301,7 +301,7 @@ pub fn report_unloadable_item_art(
 pub struct GroundItemVisual;
 
 /// Loaded held/inventory item art, resolved from every provider's
-/// [`HeldItemArtManifest`](ambition_platformer_primitives::held_item_art::HeldItemArtManifest):
+/// [`HeldItemArtManifest`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest):
 /// held-item spec id → `(image, on-screen display size)`. The engine owns the
 /// SEAM (this resource + [`build_held_item_art`] + the resolve in the sync
 /// systems); each game contributes its own props' images (axe / javelin /
@@ -312,7 +312,7 @@ pub struct GroundItemVisual;
 pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 
 /// Resolve every provider-contributed
-/// [`HeldItemArtEntry`](ambition_platformer_primitives::held_item_art::HeldItemArtEntry)
+/// [`HeldItemArtEntry`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtEntry)
 /// (pure `id → path + size` data) into loaded image handles at startup, filling
 /// [`HeldItemArt`]. The render half of the contribution seam: games declare their
 /// held-item art without a render dependency; the resolution — and the
@@ -322,7 +322,7 @@ pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 pub fn build_held_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    manifest: Option<Res<ambition_platformer_primitives::held_item_art::HeldItemArtManifest>>,
+    manifest: Option<Res<ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest>>,
 ) {
     let art = match manifest {
         Some(manifest) => HeldItemArt(ArtBindings::new(
@@ -341,8 +341,8 @@ pub fn build_held_item_art(
 
 pub fn sync_ground_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
     failed_art: Option<Res<FailedItemArt>>,
@@ -367,7 +367,7 @@ pub fn sync_ground_item_visuals(
         reported.clear();
     }
     for ground in &grounds.0 {
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
@@ -398,12 +398,12 @@ pub fn sync_ground_item_visuals(
     }
 }
 
-/// Marks a sprite entity visualizing a [`WorldItem`](ambition_actors::items::world_item::WorldItem).
+/// Marks a sprite entity visualizing a [`WorldItem`](ambition_platformer2d_actor_monolith::items::world_item::WorldItem).
 #[derive(Component)]
 pub struct WorldItemVisual;
 
 /// Game-supplied art for walk-into world items, keyed by the presentation `sprite`
-/// id a [`WorldItem`](ambition_actors::items::world_item::WorldItem) carries →
+/// id a [`WorldItem`](ambition_platformer2d_actor_monolith::items::world_item::WorldItem) carries →
 /// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
 /// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
 /// own pickups' images (e.g. Mary-O's milk carton), keeping asset knowledge out of
@@ -412,7 +412,7 @@ pub struct WorldItemVisual;
 pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 
 /// Resolve the provider-contributed
-/// [`WorldItemArtManifest`](ambition_platformer_primitives::world_item_art::WorldItemArtManifest)
+/// [`WorldItemArtManifest`](ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest)
 /// (pure `id → path + size` data every game registered at build time) into loaded
 /// image handles, filling [`WorldItemArt`]. This is the render half of the
 /// contribution seam: games declare their pickup art without a render dependency;
@@ -422,7 +422,7 @@ pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 pub fn build_world_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    manifest: Option<Res<ambition_platformer_primitives::world_item_art::WorldItemArtManifest>>,
+    manifest: Option<Res<ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest>>,
 ) {
     let art = match manifest {
         Some(manifest) => WorldItemArt(ArtBindings::new(
@@ -446,8 +446,8 @@ pub fn build_world_item_art(
 /// [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     art: Option<Res<WorldItemArt>>,
@@ -468,7 +468,7 @@ pub fn sync_world_item_visuals(
         reported.clear();
     }
     for item in &items.0 {
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, item.pos, 8.0);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, 8.0);
         // A real bound sprite wins; otherwise the row-tinted quad. An item that
         // declares NO sprite id is authored that way and reports nothing; an item
         // that declares one nobody registered is reported, once.
@@ -524,8 +524,8 @@ pub struct HeldItemVisual;
 /// input, so a possessed body's ranged item points where THAT body aims.
 pub fn sync_held_item_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     art: Option<Res<HeldItemArt>>,
     failed_art: Option<Res<FailedItemArt>>,
@@ -548,7 +548,7 @@ pub fn sync_held_item_visual(
     let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the subject's hand: just in front at hand height (y-down → small +y).
     let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
-    let translation = ambition_engine_core::config::world_to_bevy(&world.0, hand, 12.0);
+    let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
 
     // A ranged held item (the gun-sword) points where you're AIMING — the same
     // direction it fires — just like the pirates' wielded gun-sword. Melee /
@@ -634,8 +634,8 @@ pub struct HeldProjectileVisual;
 pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
@@ -652,7 +652,7 @@ pub fn sync_held_projectile_visuals(
     };
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for shot in &shots.0 {
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
         if shot.fireball {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.

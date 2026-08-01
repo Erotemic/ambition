@@ -137,14 +137,14 @@ resolved frame + selected MotionModel
       integrate_actor_body
                │
                ▼
- ambition_engine_core::step_motion
+ ambition_platformer2d_core::step_motion
 ```
 
 Brains do not directly move bodies. Controlled-subject resolution is separate from the home-player identity. Bodies select motion behavior rather than implicitly being divided into player and enemy physics classes.
 
 That is exactly the kind of unification the engine needs.
 
-`ambition_actors` is large, but much of its size is the orchestration surrounding this shared law:
+`ambition_platformer2d_actor_monolith` is large, but much of its size is the orchestration surrounding this shared law:
 
 * Perception preparation.
 * Brain intent production.
@@ -156,7 +156,7 @@ That is exactly the kind of unification the engine needs.
 * Read-model publication.
 * Feature-specific adapters.
 
-Splitting these by vertical game mechanic could recreate parallel movement and lifecycle systems. `ambition_actors` should be reorganized and purified where needed, but it should not be divided merely because it is large.
+Splitting these by vertical game mechanic could recreate parallel movement and lifecycle systems. `ambition_platformer2d_actor_monolith` should be reorganized and purified where needed, but it should not be divided merely because it is large.
 
 ## The action timeline
 
@@ -238,9 +238,9 @@ These tests should increasingly complement compiler-enforced boundaries rather t
 
 # Highest-value crate split
 
-## Extract `ambition_platformer_provider`
+## Extract `ambition_platformer2d_provider`
 
-The clearest subsystem currently hidden in the wrong crate is `crates/ambition/src/provider.rs`.
+The clearest subsystem currently hidden in the wrong crate is `crates/ambition_platformer2d/src/provider.rs`.
 
 It is not merely facade glue. It owns substantive engine behavior, including:
 
@@ -258,13 +258,13 @@ It is not merely facade glue. It owns substantive engine behavior, including:
 This belongs in a crate such as:
 
 ```text
-ambition_platformer_provider
+ambition_platformer2d_provider
 ```
 
 The public SDK can preserve the ergonomic path:
 
 ```rust
-ambition::provider::PlatformerExperienceAuthoring
+ambition_platformer2d::provider::PlatformerExperienceAuthoring
 ```
 
 by reexporting the new crate.
@@ -660,7 +660,7 @@ The source architecture looks more modular than the Cargo feature graph.
 
 ## The umbrella facade is broad even with empty default features
 
-The `ambition` crate exposes feature selection, but its internal engine dependencies are largely unconditional. A consumer that expects a minimal facade configuration may still compile:
+The `ambition_platformer2d` crate exposes feature selection, but its internal engine dependencies are largely unconditional. A consumer that expects a minimal facade configuration may still compile:
 
 * Rendering.
 * Audio.
@@ -674,9 +674,9 @@ The public API says “modular engine,” while Cargo may still see “compile m
 
 ## The runtime is not truly headless-minimal
 
-`ambition_runtime` unconditionally includes portal and LDtk-related actor machinery in places where the named feature suggests optional behavior.
+`ambition_platformer2d_runtime` unconditionally includes portal and LDtk-related actor machinery in places where the named feature suggests optional behavior.
 
-Similarly, `ambition_actors` has a broad `desktop_dev` default feature and persona-style features combining:
+Similarly, `ambition_platformer2d_actor_monolith` has a broad `desktop_dev` default feature and persona-style features combining:
 
 * Visibility.
 * Platform integration.
@@ -971,7 +971,7 @@ Unsupported state should fail preflight or report debt; it should not silently p
 
 ---
 
-# Refine `ambition_engine_core`; do not split it
+# Refine `ambition_platformer2d_core`; do not split it
 
 The core owns a cohesive set of trusted concepts:
 
@@ -1104,7 +1104,7 @@ As with actions, convergence should end by deleting the competing boss or wave l
 
 | Candidate                       | Recommendation        | Reason                                                                                                             |
 | ------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `ambition_platformer_provider`  | **Create now**        | A real preparation/session subsystem is hidden inside the SDK facade                                               |
+| `ambition_platformer2d_provider`  | **Create now**        | A real preparation/session subsystem is hidden inside the SDK facade                                               |
 | `ambition_sim_harness`          | **Possible later**    | Could own deterministic stepping, input streams, observations, snapshots, and replay after session/SimView cleanup |
 | `ambition_spatial`              | **Do not create now** | Geometry, frame, contact, and motion invariants are cohesive                                                       |
 | `ambition_brain`                | **Do not create**     | Actor, control, perception, intent, and brain vocabulary form a meaningful domain                                  |
@@ -1114,7 +1114,7 @@ As with actions, convergence should end by deleting the competing boss or wave l
 | More tiny presentation crates   | **Defer**             | First establish plugin/projection boundaries inside existing presentation crates                                   |
 | `ambition_inventory_ui` removal | **Not important**     | Small but coherent navigation state is not architectural bloat                                                     |
 
-## `ambition_actors`
+## `ambition_platformer2d_actor_monolith`
 
 Do not split it by LOC.
 
@@ -1296,7 +1296,7 @@ Compiler privacy, crate topology, typed commands, and narrow plugin APIs are str
 
 ## Curate the public SDK
 
-The `ambition` facade should provide a batteries-included experience, but its prelude should contain stable extension concepts rather than every internal implementation detail.
+The `ambition_platformer2d` facade should provide a batteries-included experience, but its prelude should contain stable extension concepts rather than every internal implementation detail.
 
 Useful public surfaces include:
 
@@ -1384,9 +1384,9 @@ No major move begins until a test would detect accidental preservation or creati
 
 ## Phase 1: extract provider infrastructure mechanically
 
-Create `ambition_platformer_provider`.
+Create `ambition_platformer2d_provider`.
 
-Move provider preparation and session-builder implementation without changing behavior. Reexport it from `ambition`.
+Move provider preparation and session-builder implementation without changing behavior. Reexport it from `ambition_platformer2d`.
 
 Then introduce a reusable typed provider lifecycle plugin to remove repeated preparation/activation/cleanup glue.
 
@@ -1459,7 +1459,7 @@ Then introduce a reusable typed provider lifecycle plugin to remove repeated pre
 * Move persona bundles upward.
 * Separate portal simulation from presentation.
 * Separate code-authored world support from LDtk support.
-* Audit `ambition_actors` and runtime feature gates.
+* Audit `ambition_platformer2d_actor_monolith` and runtime feature gates.
 * Add the full feature-matrix CI.
 
 ### Gate
@@ -1531,7 +1531,7 @@ Measure:
 | -------: | ------------------------------------------------------------- | ------------------: | ----------: |
 |        1 | Unify all room-materialization paths                          |           Very high |  Low–medium |
 |        2 | Finish session-root authority and remove global scene handles |           Very high |      Medium |
-|        3 | Extract `ambition_platformer_provider`                        |           Very high |  Low–medium |
+|        3 | Extract `ambition_platformer2d_provider`                        |           Very high |  Low–medium |
 |        4 | Consolidate provider lifecycle boilerplate                    |                High |      Medium |
 |        5 | Complete action convergence                                   |           Very high |        High |
 |        6 | Make `SimView` canonical for RL and observers                 |           Very high |      Medium |

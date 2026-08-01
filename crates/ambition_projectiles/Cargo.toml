@@ -4,23 +4,23 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_actors (E2)."
+description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_platformer2d_actor_monolith (E2)."
 
 [lib]
 crate-type = ["rlib"]
 
 [dependencies]
 # Geometry (Vec2 / Aabb / AabbExt / World) + the shared BodyKinematics body.
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The generic projectile-physics primitive (spec / body / collision) the model
 # steps through, plus lifecycle/gravity/marker vocabulary.
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # Portal-aperture transit hooks (PlacedPortal + transit math).
-ambition_portal = { path = "../ambition_portal" }
+ambition_portal2d = { path = "../ambition_portal2d" }
 # The composited collision world a shot flies through (gate solids + portal
 # carves). R3 moved that builder into the space IR, which is what let
 # `ProjectileCollisionWorld` come home (fable F2).
-ambition_world = { path = "../ambition_world" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # The flight-recorder event schema PlayerProjectileState emits into.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Motion-gesture recognition (Hadouken input buffer) — pure input logic.

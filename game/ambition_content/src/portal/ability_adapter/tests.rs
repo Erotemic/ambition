@@ -9,9 +9,9 @@
 //! drive the REAL adapters + the portal-owned marker components.
 use bevy::prelude::*;
 
-use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_input::ControlFrame;
-use ambition_portal::{
+use ambition_portal2d::{
     PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
     PortalTransit, PortalTuning,
 };
@@ -92,7 +92,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
 
 #[test]
 fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-    use ambition_actors::actor::BodyAbilities;
+    use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
     // Stand in for the per-frame loadout reset that clobbered the old
@@ -163,7 +163,7 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
 /// latch is removed. Without the restore the actor stays stripped forever.
 #[test]
 fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
-    use ambition_actors::actor::BodyAbilities;
+    use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
     app.add_systems(
@@ -183,7 +183,7 @@ fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
         .world_mut()
         .spawn((
             authored.clone(),
-            ambition_engine_core::AbilityBase::new(authored.abilities),
+            ambition_platformer2d_core::AbilityBase::new(authored.abilities),
             PortalTransit {
                 straddling: BLUE,
                 crossed: false,
@@ -220,7 +220,7 @@ fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
 #[test]
 fn emission_guard_follows_the_possessed_body() {
     use crate::portal::{apply_movement_intent_to_control, sync_movement_intent_from_control};
-    use ambition_platformer_primitives::markers::ControlledSubject;
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
     let mut app = App::new();
     app.insert_resource(ControlFrame::default());
     app.init_resource::<PlayerMovementIntent>();

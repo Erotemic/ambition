@@ -1,7 +1,7 @@
 //! Shared **body vocabulary** components — the health, combat-status, and wallet
 //! every actor carries (the player, enemies, NPCs, and bosses alike).
 //!
-//! These re-homed down from `ambition_actors::actor` (unified-actors
+//! These re-homed down from `ambition_platformer2d_actor_monolith::actor` (unified-actors
 //! keystone, D2): they are leaf actor vocabulary — a body's hit points, its
 //! combat/reaction status, and its coin balance — with no gameplay-shell deps,
 //! so they belong beside [`super::Health`] on the reusable actor crate rather
@@ -343,7 +343,7 @@ impl BodyCombat {
 /// **Body vocabulary, not player-only** — despite the anim rows it gates being
 /// authored on the player's sheet first, every brain-driven body that plays a
 /// slash, a landing, or a dash pre-roll carries one. It re-homed here from
-/// `ambition_actors::avatar::components` (the S5/S6 player fold, refactor-chain
+/// `ambition_platformer2d_actor_monolith::avatar::components` (the S5/S6 player fold, refactor-chain
 /// R6): it was the single biggest reason `crate::avatar` was still a universal
 /// dependency sink — 18 non-player modules imported that module solely to name
 /// this component.

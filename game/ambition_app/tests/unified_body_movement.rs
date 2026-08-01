@@ -12,10 +12,10 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::control::PlayerInputFrame;
-use ambition::actors::features::FeatureId;
-use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::control::PlayerInputFrame;
+use ambition_platformer2d::actors::features::FeatureId;
+use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
@@ -144,7 +144,7 @@ fn player_body_tick_is_not_the_gameplay_movement_route() {
 /// NOT move it; driving the SLOT (real input) does.
 #[test]
 fn player_input_frame_is_not_brain_player_authority() {
-    use ambition::input::ControlFrame;
+    use ambition_platformer2d::input::ControlFrame;
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

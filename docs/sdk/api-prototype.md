@@ -46,7 +46,7 @@ consumer re-derive.*
 ### 2a. A minimal visible game
 
 ```rust
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 fn main() {
     PlatformerApp::windowed("Outlander — external consumer proof")
@@ -60,7 +60,7 @@ That is the whole `main`. Every rule in §1 is inside it.
 ### 2b. The same game, headless
 
 ```rust
-use ambition::app::prelude::*;
+use ambition_platformer2d::app::prelude::*;
 
 let mut app = PlatformerApp::headless()
     .mount(OutlanderModule::default())
@@ -216,7 +216,7 @@ boundaries. Its own slice, its own acceptance tests.
 > mode, no second composition. The alternative — leaving the rollback app on
 > raw paths — is a fork, and calling it "deferred" would not make it one.
 >
-> Cost of the resolution: `ambition::runtime::rollback` stays in the allowlist
+> Cost of the resolution: `ambition_platformer2d::runtime::rollback` stays in the allowlist
 > baseline through slice A. That is correct and should not be hidden; the
 > ratchet is supposed to still show it.
 
@@ -227,15 +227,15 @@ boundaries. Its own slice, its own acceptance tests.
 Per ADR 0031, this is an **output**. Everything §2 and §3 name:
 
 ```text
-ambition::app          PlatformerApp, SessionMode, AssetSource,
+ambition_platformer2d::app          PlatformerApp, SessionMode, AssetSource,
                        GameModule, ModuleManifest, ModuleDraft,
                        HostStatus, host_status
-ambition::app::prelude all of the above, plus RoomSpec/RoomMetadata
+ambition_platformer2d::app::prelude all of the above, plus RoomSpec/RoomMetadata
 ```
 
-> ⚠ **Corrected 2026-07-30.** This listed a separate `ambition::experience`
+> ⚠ **Corrected 2026-07-30.** This listed a separate `ambition_platformer2d::experience`
 > holding `GameModule`/`ModuleManifest`/`ModuleDraft`. **That module does not
-> exist** — they are in `ambition::app`, beside `PlatformerApp`, because
+> exist** — they are in `ambition_platformer2d::app`, beside `PlatformerApp`, because
 > splitting three types away from the builder that consumes them bought nothing.
 >
 > Blind run 3 caught it and its complaint is the right one: §5 is explicitly
@@ -243,14 +243,14 @@ ambition::app::prelude all of the above, plus RoomSpec/RoomMetadata
 > trustworthy list in the SDK, and it was wrong. A list that claims to be
 > measured has to be measured.
 
-**Domain preludes, not one root prelude** (campaign §A2). `ambition::app::prelude`
+**Domain preludes, not one root prelude** (campaign §A2). `ambition_platformer2d::app::prelude`
 carries what a `main` needs.
 
-> ⚠ **Corrected 2026-07-30.** This paragraph said `ambition::world::prelude` and
-> `ambition::character::prelude` "are slice-B surfaces and are not invented
-> here." `ambition::world::prelude` was invented in slice C, has been the
+> ⚠ **Corrected 2026-07-30.** This paragraph said `ambition_platformer2d::world::prelude` and
+> `ambition_platformer2d::character::prelude` "are slice-B surfaces and are not invented
+> here." `ambition_platformer2d::world::prelude` was invented in slice C, has been the
 > documented home of the room vocabulary since, and blind run 4 opened TWO
-> engine crates because this sentence pointed away from it. `ambition::character`
+> engine crates because this sentence pointed away from it. `ambition_platformer2d::character`
 > also exists now.
 >
 > Written in slice A, made false in slice C, read by a consumer in slice F. The
@@ -316,7 +316,7 @@ Listed because the campaign's first draft absorbed all of it:
   robot lineage all still stage through the old mechanism, which is process-global);
 * `PreparedCapabilityPlan`, rollback schema fragments (**C**);
 * `ContentRevision` (**D**);
-* any `ambition_actors` decomposition (authorised only by
+* any `ambition_platformer2d_actor_monolith` decomposition (authorised only by
   [the growth method §4](../planning/engine/api-growth-method.md)).
 
 ---
@@ -327,7 +327,7 @@ Listed because the campaign's first draft absorbed all of it:
    accept that the rollback fixture keeps a raw composition and record the fork
    in `dev/journals/code_smells.md` with `BIFURCATION:` as the first word.
 2. **Where `PlatformerApp` lives.** A3 is *over current machinery, no crate
-   moves*. `crates/ambition` is a facade that owns no behavior (ADR 0031:
+   moves*. `crates/ambition_platformer2d` is a facade that owns no behavior (ADR 0031:
    *"if the facade ever grows a leaf system, it has become the next monolith"*).
    A builder that sequences plugin groups is assembly, not a leaf system — but
    the line is thin enough to be worth naming out loud before it is crossed.

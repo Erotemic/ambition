@@ -16,18 +16,18 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use ambition::load::{LoadCommand, LoadCoordinator, LoadEvent};
-use ambition::load_presentation::{
+use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadEvent};
+use ambition_platformer2d::load_presentation::{
     LoadExperienceSpec, LoadPresentationCommand, LoadPresentationEvent, LoadPresentationModel,
     LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
 };
-use ambition::platformer::schedule::GameMode;
+use ambition_platformer2d::platformer::schedule::GameMode;
 
 use super::room_transition_assets::{
     contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
     prefetch_neighbor_room_preparation_system, RoomPreparationPrefetchState,
 };
-use ambition::runtime::room_transition::{
+use ambition_platformer2d::runtime::room_transition::{
     RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
 };
 
@@ -132,7 +132,7 @@ impl RoomTransitionTelemetry {
             .or(sample.commit_enqueue);
         if observed_commit.is_some_and(|duration| duration > budget) {
             bevy::log::warn!(
-                target: "ambition::room_transition::performance",
+                target: "ambition_platformer2d::room_transition::performance",
                 "room transition {} {} -> {} commit-to-first-frame {:.3} ms exceeded {:.3} ms budget (covered={}, prefetch_hit={}, loading_visible={})",
                 sample.sequence,
                 sample.source_room,
@@ -147,7 +147,7 @@ impl RoomTransitionTelemetry {
             );
         }
         bevy::log::info!(
-            target: "ambition::room_transition::performance",
+            target: "ambition_platformer2d::room_transition::performance",
             "room transition {} {} -> {}: construction_preflight_ms={:?} asset_manifest_ms={:?} asset_wait_ms={:?} ready_ms={:?} cover_present_ms={:?} commit_enqueue_ms={:?} commit_to_first_frame_ms={:?} loading_visible_ms={:.3} covered={} prefetch_hit={} loading_visible={}",
             sample.sequence,
             sample.source_room,
@@ -208,7 +208,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
     // installs the engine's contributor marker and owns resolving that work
     // item. A demo host that installs neither marker gets a barrier that
     // honestly skips the contributor.
-    app.init_resource::<ambition::runtime::room_transition::RoomTransitionAssetContributor>()
+    app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionAssetContributor>()
         .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
         .init_resource::<RoomTransitionPresentationAvailable>()
         .init_resource::<RoomTransitionPresentationConfig>()
@@ -229,7 +229,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             Update,
             prefetch_neighbor_room_preparation_system
                 .after(LoadPresentationSet::Finalize)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
             Update,
@@ -256,7 +256,7 @@ fn drive_room_transition_presentation(
     covers: Query<(Entity, &RoomTransitionCoverRoot)>,
     // Features the sim published that no render family has drawn yet. The cover
     // waits on these: see the retirement block below.
-    unclaimed: Query<(), With<ambition::render::rendering::UnclaimedBodyPlaceholder>>,
+    unclaimed: Query<(), With<ambition_platformer2d::render::rendering::UnclaimedBodyPlaceholder>>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -410,7 +410,7 @@ fn drive_room_transition_presentation(
             return;
         }
         bevy::log::warn!(
-            target: "ambition::room_transition::performance",
+            target: "ambition_platformer2d::room_transition::performance",
             "room transition {} {} -> {} revealed with {unsettled} unclaimed body \
              placeholder(s) still drawn after {:.0} ms — the cover gave up waiting. \
              Those are features the sim published and no render family claimed, so \
@@ -496,7 +496,7 @@ fn handle_room_transition_presentation_events(
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
-    mut room_requests: MessageWriter<ambition::actors::rooms::RoomTransitionRequested>,
+    mut room_requests: MessageWriter<ambition_platformer2d::actors::rooms::RoomTransitionRequested>,
     mut next_mode: ResMut<NextState<GameMode>>,
 ) {
     for event in events.read() {

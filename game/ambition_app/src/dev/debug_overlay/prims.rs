@@ -2,7 +2,7 @@
 //!
 //! The palette + low-level gizmo primitives (AABB/arrow draws, world<->bevy
 //! coord helpers) moved to the engine-generic
-//! `ambition::render::rendering::debug_viz` module (any game opts into them
+//! `ambition_platformer2d::render::rendering::debug_viz` module (any game opts into them
 //! via `DebugVizPlugin`); this overlay imports them back through the parent
 //! module's re-export. What stays here is the LABEL machinery — world-space
 //! `Text2d` identities for the debug boxes — which the shared shapes-only

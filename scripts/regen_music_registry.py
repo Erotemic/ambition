@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ASSETS_ROOT = REPO_ROOT / "crates" / "ambition_actors" / "assets"
+ASSETS_ROOT = REPO_ROOT / "crates" / "ambition_platformer2d_actor_monolith" / "assets"
 GENERATED_DIR = ASSETS_ROOT / "audio" / "music" / "generated"
 ACTIVE_SCORES_DIR = (
     REPO_ROOT / "tools" / "ambition_music_renderer" / "scores" / "active"

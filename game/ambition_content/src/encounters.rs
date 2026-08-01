@@ -20,7 +20,7 @@ use ambition_encounter::{
     EncounterLifecycle, EncounterObjective, EncounterParticipants, EncounterPhase, Objective,
 };
 use ambition_persistence::save_data::PersistedEncounterState;
-use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt};
 
 /// The puzzle's stable encounter id (and save-flag namespace).
 pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
@@ -54,7 +54,7 @@ const KERNEL_FACES: [(&str, &str); 4] = [
 /// 2026-07-16). A shell host at a non-gameplay route sleeps; a headless app
 /// without session lifecycle gets the unscoped legacy mode.
 pub fn spawn_symmetry_attunement(
-    mut commands: ambition_platformer_primitives::lifecycle::SessionCommands,
+    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     existing: Query<&Encounter>,
     save: Res<ambition_persistence::save::SandboxSave>,
 ) {
@@ -70,7 +70,7 @@ pub fn spawn_symmetry_attunement(
     }
     let mut entity = commands.spawn((
         Encounter::new(SYMMETRY_ATTUNEMENT_ID),
-        ambition_platformer_primitives::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),
+        ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),
         lifecycle,
         EncounterObjective::win(Objective::All(
             KERNEL_FACES
@@ -88,11 +88,11 @@ pub fn spawn_symmetry_attunement(
 /// generic objective (`All` of the four signals) completes it — this adapter
 /// never touches the phase.
 pub fn drive_symmetry_attunement(
-    room_set: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_actors::rooms::RoomSet,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
     >,
     encounters: Query<(&Encounter, &EncounterLifecycle)>,
-    mut switches: MessageReader<ambition_actors::features::SwitchActivated>,
+    mut switches: MessageReader<ambition_platformer2d_actor_monolith::features::SwitchActivated>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
 ) {
     let Some((_, lifecycle)) = encounters
@@ -124,13 +124,13 @@ pub fn drive_symmetry_attunement(
 /// here; the reducer already decided.
 pub fn celebrate_symmetry_attunement(
     mut events: MessageReader<EncounterEventMsg>,
-    mut banners: MessageWriter<ambition_actors::features::GameplayBannerRequested>,
+    mut banners: MessageWriter<ambition_platformer2d_actor_monolith::features::GameplayBannerRequested>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
 ) {
     for msg in events.read() {
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
-            banners.write(ambition_actors::features::GameplayBannerRequested::new(
+            banners.write(ambition_platformer2d_actor_monolith::features::GameplayBannerRequested::new(
                 "NOETHER ATTUNEMENT — every symmetry conserved".to_string(),
                 4.0,
             ));

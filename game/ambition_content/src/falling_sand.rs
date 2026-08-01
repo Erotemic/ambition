@@ -26,8 +26,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 use bevy_falling_sand::prelude::*;
 
@@ -111,9 +111,9 @@ impl Plugin for FallingSandRoomPlugin {
                     // overlay, which the rebuild clears each frame — run after
                     // it, and after the sim half so spout state is synced and
                     // the settled ledger is current for the tile exclusion.
-                    .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
+                    .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
                     .after(FallingSandSimSet)
-                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
                 sim,
@@ -124,7 +124,7 @@ impl Plugin for FallingSandRoomPlugin {
                 // back off, which inverts the player's mental model.
                 sync_falling_sand_switch_visuals
                     .after(crate::falling_sand_sim::capture_falling_sand_switch_interactions)
-                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::GameplayEffects),
             )
             // `bevy_falling_sand` inits `ParticleSimulationRun` unconditionally,
             // so its chunk scan (`par_handle_movement_by_chunks` over the full
@@ -254,7 +254,7 @@ fn setup_particle_types(mut commands: Commands) {
 /// not survive a room change" rule onto the bfs world.
 fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     particles: Query<Entity, With<Particle>>,
     mut last_room_id: Local<Option<String>>,
 ) {
@@ -269,7 +269,7 @@ fn despawn_bfs_particles_when_the_room_changes(
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
 ) {
@@ -407,10 +407,10 @@ fn emit_particle_rect(
 /// sprite stays "on" (green) while the spout is actually off.
 fn sync_falling_sand_switch_visuals(
     state: Res<FallingSandRoomState>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     mut switches: Query<(
-        &ambition_actors::features::SwitchFeature,
-        &mut ambition_actors::features::SwitchOn,
+        &ambition_platformer2d_actor_monolith::features::SwitchFeature,
+        &mut ambition_platformer2d_actor_monolith::features::SwitchOn,
     )>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
@@ -432,7 +432,7 @@ fn sync_falling_sand_switch_visuals(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
@@ -482,20 +482,20 @@ fn sync_falling_sand_spout_nozzles(
                 792.0,
                 90.0,
                 86.0,
-                ambition_actors::config::rgba(0.92, 0.80, 0.38, 0.90),
+                ambition_platformer2d_actor_monolith::config::rgba(0.92, 0.80, 0.38, 0.90),
             ),
             _ => continue,
         };
         commands.spawn((
             Name::new(format!("falling sand open spout {id}")),
             Sprite::from_color(color, Vec2::new(width, 8.0)),
-            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+            Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
                 &room.world,
                 ae::Vec2::new(x, y - 8.0),
-                ambition_engine_core::config::WORLD_Z_FX + 1.0,
+                ambition_platformer2d_core::config::WORLD_Z_FX + 1.0,
             )),
             FallingSandSpoutNozzle { id },
-            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
@@ -517,7 +517,7 @@ fn sync_falling_sand_spout_nozzles(
 /// `bevy_falling_sand`'s own `render` feature draws the falling matter, and
 /// `sync_material_visuals` draws what has settled. One owner, two views of it.
 fn emit_falling_sand_spouts(
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
@@ -717,10 +717,10 @@ fn tally_particles<'a>(
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<ambition_engine_core::RoomGeometry>,
-    mut overlay: ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_core::RoomGeometry>,
+    mut overlay: ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     sand: Res<FallingSandWorld>,
@@ -928,7 +928,7 @@ fn project_liquid(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     particles: Query<(&Particle, &GridPosition)>,
     // Component-presence query: every particle that has Particle should
     // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited
@@ -1139,9 +1139,9 @@ impl MaterialKind {
 
     fn visual_color(self) -> Color {
         match self {
-            Self::Sand => ambition_actors::config::rgba(0.95, 0.74, 0.28, 0.72),
-            Self::Water => ambition_actors::config::rgba(0.18, 0.55, 1.0, 0.48),
-            Self::Oil => ambition_actors::config::rgba(0.20, 0.13, 0.06, 0.66),
+            Self::Sand => ambition_platformer2d_actor_monolith::config::rgba(0.95, 0.74, 0.28, 0.72),
+            Self::Water => ambition_platformer2d_actor_monolith::config::rgba(0.18, 0.55, 1.0, 0.48),
+            Self::Oil => ambition_platformer2d_actor_monolith::config::rgba(0.20, 0.13, 0.06, 0.66),
         }
     }
 }
@@ -1190,13 +1190,13 @@ fn sync_material_visuals(
                 tile.0, tile.1
             )),
             Sprite::from_color(kind.visual_color(), Vec2::splat(TILE_SIZE as f32)),
-            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+            Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
                 world,
                 center,
-                ambition_engine_core::config::WORLD_Z_PLAYER + 4.0,
+                ambition_platformer2d_core::config::WORLD_Z_PLAYER + 4.0,
             )),
             FallingSandMaterialVisual { tile, kind },
-            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
         ));
     }
 }
@@ -1208,7 +1208,7 @@ fn sync_material_visuals(
 /// a paused game costs nothing.
 fn sync_sand_grid_texture(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<ambition_actors::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
     mut images: ResMut<Assets<Image>>,
@@ -1250,18 +1250,18 @@ fn sync_sand_grid_texture(
                 custom_size: Some(Vec2::new(room.world.size.x, room.world.size.y)),
                 ..default()
             },
-            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+            Transform::from_translation(ambition_platformer2d_core::config::world_to_bevy(
                 &room.world,
                 center,
                 // Just under the per-tile water/oil settle sprites so the two
                 // presentations never z-fight.
-                ambition_engine_core::config::WORLD_Z_PLAYER + 3.5,
+                ambition_platformer2d_core::config::WORLD_Z_PLAYER + 3.5,
             )),
             FallingSandGridVisual {
                 image: handle,
                 drawn_tick: None,
             },
-            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
         ));
         return;
     };

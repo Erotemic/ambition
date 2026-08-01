@@ -1,4 +1,4 @@
-"""Schema pins for `crates/ambition_actors/assets/data/boss_encounters/*.ron`.
+"""Schema pins for `crates/ambition_platformer2d_actor_monolith/assets/data/boss_encounters/*.ron`.
 
 These files mirror `ae::BossEncounterSpec` and are loaded at runtime by
 `load_boss_specs_from_disk` (per ADR 0017). The Rust side already pins

@@ -5,7 +5,7 @@
 //!
 //! - [`crate::ProjectileGameplay`] — the projectile gameplay marker
 //!   + state (kind / faction / lifetime / gravity / damage / bounces).
-//! - [`ambition_engine_core::BodyKinematics`] — the SHARED kinematic body. Carrying the
+//! - [`ambition_platformer2d_core::BodyKinematics`] — the SHARED kinematic body. Carrying the
 //!   exact component the player / enemy / boss carry is what lets Phase 4 plug
 //!   projectiles into the generic portal-transit machine "tag + go".
 //! - [`ProjectileOwner`] — the firing player entity (attacker attribution +

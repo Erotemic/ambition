@@ -4,25 +4,25 @@ use bevy_ecs_ldtk::prelude::LdtkPlugin;
 #[cfg(feature = "ui")]
 use bevy_material_ui::MaterialUiPlugin;
 
-use ambition::actors::assets::loading;
-use ambition::actors::ldtk_world;
-use ambition::actors::rooms;
-use ambition::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::assets::loading;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
-use ambition::actors::world::physics;
+use ambition_platformer2d::actors::world::physics;
 #[cfg(feature = "physics_debris")]
-use ambition::actors::world::physics::physics_spawn_debris_messages;
-use ambition::dev_tools::dev_tools::{
+use ambition_platformer2d::actors::world::physics::physics_spawn_debris_messages;
+use ambition_platformer2d::dev_tools::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
-use ambition::inventory_ui;
-use ambition::platformer::schedule::{
+use ambition_platformer2d::inventory_ui;
+use ambition_platformer2d::platformer::schedule::{
     gameplay_allowed, PresentationSetupSet, SandboxSet, SimScheduleExt,
 };
-use ambition::render::fx::{self, vfx_spawn_messages};
-use ambition::render::rendering::{camera_follow, sync_visuals};
-use ambition::render::ui_fonts;
+use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
+use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
+use ambition_platformer2d::render::ui_fonts;
 
 use crate::dev::debug_overlay;
 use crate::host::windowing;
@@ -48,10 +48,10 @@ use super::sim_systems::apply_player_reset_input_system;
 /// arity limit. New simulation systems should go into the matching
 /// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
-    app.add_message::<ambition::platformer::developer_hotkeys::DeveloperAction>();
+    app.add_message::<ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction>();
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
-    // the player controller is custom via parry2d in ambition::engine_core.
+    // the player controller is custom via parry2d in ambition_platformer2d::engine_core.
     // Avian's collider backend needs `SceneSpawner` (from ScenePlugin in
     // DefaultPlugins), which headless doesn't have. Until Avian's debris
     // role is migrated to presentation events end-to-end (or Avian gains
@@ -62,12 +62,12 @@ pub fn add_simulation_plugins(app: &mut App) {
     // hosts. Install the contributor-neutral coordinator at the simulation
     // boundary; shell composition later adds only its route adapter and
     // presentation. The plugin is idempotent, so this needs no order guard.
-    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
     // `RoomTransitionLoadState` / `RoomTransitionContentEpoch` are the engine's
     // now — `RoomTransitionComposerPlugin` owns them.
 
     // The canonical simulation-phase sets + engine resources now live in
-    // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
+    // `ambition_platformer2d::runtime::SandboxSetsPlugin` (first in the engine group below).
     // Host configuration overrides are consumed before simulation plugins
     // build. Live gameplay-world values are already components on the exact
     // direct/session root; no canonical world value is initialized as a resource.
@@ -76,7 +76,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // plugin. Missing means the lightweight render-frame host.
     let simulation_host = app
         .world()
-        .get_resource::<ambition::runtime::SimulationHost>()
+        .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
         .copied()
         .unwrap_or_default();
 
@@ -92,8 +92,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     #[cfg(feature = "ui")]
     {
         app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
-        app.add_plugins(ambition::actors::dialog::YarnBridgePlugin);
-        app.add_plugins(ambition::actors::dialog::YarnBindingsPlugin);
+        app.add_plugins(ambition_platformer2d::actors::dialog::YarnBridgePlugin);
+        app.add_plugins(ambition_platformer2d::actors::dialog::YarnBindingsPlugin);
     }
 
     // The content-free engine SIMULATION plugins (E5): the SAME
@@ -103,7 +103,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition::runtime::PlatformerEnginePlugins::new(
+    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(
         simulation_host,
     ));
 
@@ -113,7 +113,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // schedule, progression); these systems wrap app-only concerns
     // (`reset_sandbox`, `load_room` + render spawns, the player clone) and
     // pin themselves into the documented ordering SLOTS between engine
-    // systems (see `ambition::runtime::PlayerSchedulePlugin` /
+    // systems (see `ambition_platformer2d::runtime::PlayerSchedulePlugin` /
     // `RoomTransitionSchedulePlugin` module docs).
     register_app_local_sim_systems(app);
 
@@ -125,7 +125,7 @@ pub fn add_simulation_plugins(app: &mut App) {
 
 /// The app-LOCAL per-frame systems, pinned into the ordering SLOTS the engine
 /// chains leave for the host (E5 step 5). Everything engine-generic that used
-/// to be registered here lives in `ambition::runtime::{PlayerSchedulePlugin,
+/// to be registered here lives in `ambition_platformer2d::runtime::{PlayerSchedulePlugin,
 /// RoomTransitionSchedulePlugin, PortalSchedulePlugin,
 /// ProgressionSchedulePlugin}`.
 fn register_app_local_sim_systems(app: &mut App) {
@@ -148,9 +148,9 @@ fn register_app_local_sim_systems(app: &mut App) {
         apply_player_reset_input_system
             .run_if(gameplay_allowed)
             .in_set(SandboxSet::PlayerInput)
-            .after(ambition::dev_tools::DevEditApplySet)
-            .before(ambition::actors::control::input_timer_system)
-            .before(ambition::runtime::apply_room_replay_request_system),
+            .after(ambition_platformer2d::dev_tools::DevEditApplySet)
+            .before(ambition_platformer2d::actors::control::input_timer_system)
+            .before(ambition_platformer2d::runtime::apply_room_replay_request_system),
     );
 
     // ── Brain-driven player clone (press K) ────────────────────────────────
@@ -190,7 +190,7 @@ fn register_app_local_sim_systems(app: &mut App) {
                 .in_set(SandboxSet::ResetProcessing)
                 // AFTER, not before: the processor is the only system that may
                 // decline a reset, and this one waits for its commitment.
-                .after(ambition::actors::session::reset::process_sandbox_reset_request),
+                .after(ambition_platformer2d::actors::session::reset::process_sandbox_reset_request),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───
@@ -214,11 +214,11 @@ fn register_app_local_sim_systems(app: &mut App) {
             // settled, before the frame's damage lands. It used to be two leaf
             // names a host had to trust stayed true — the position was documented
             // in the engine's module docs and enforced nowhere.
-            .in_set(ambition::platformer::schedule::PlayerSimulationSet::PostPossession),
+            .in_set(ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession),
     );
 
     // The RoomTransition gap — readiness transaction + authorized commit — is
-    // filled by the ENGINE now (`ambition::runtime::room_transition`), carried
+    // filled by the ENGINE now (`ambition_platformer2d::runtime::room_transition`), carried
     // by `PlatformerEnginePlugins` so a demo host gets it too. This app keeps
     // only its two optional CONTRIBUTORS: the asset manifest/readiness half
     // (`world_flow::room_transition_assets`) and the cover
@@ -271,7 +271,7 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
                 // gameplay frame; cheap and idempotent.
                 ldtk_world::sync_ldtk_world_transform,
             )
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         );
 }
 
@@ -281,15 +281,15 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
 pub(super) fn spawn_ldtk_world_root(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
     world_manifest: Res<ldtk_world::WorldManifest>,
 ) {
     spawn_ldtk_world_roots_scoped(
         &mut commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         &asset_server,
         &ldtk_index,
         &room_set,
@@ -304,7 +304,7 @@ pub(super) fn spawn_ldtk_world_root(
 /// the session sweep retires the visual spine roots with the session).
 pub(crate) fn spawn_ldtk_world_roots_scoped(
     commands: &mut Commands,
-    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     asset_server: &AssetServer,
     ldtk_index: &ldtk_world::LdtkRuntimeIndex,
     room_set: &rooms::RoomSet,
@@ -353,30 +353,30 @@ pub fn add_presentation_plugins(app: &mut App) {
     // Generic load presentation is a presentation-tier service, not a shell
     // service. Install it for direct entry, shell-hosted play, and no-window
     // presentation harnesses alike; the shell contributes only its adapter.
-    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadPresentationPlugin>() {
-        app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
+    if !app.is_plugin_added::<ambition_platformer2d::load_presentation::AmbitionLoadPresentationPlugin>() {
+        app.add_plugins(ambition_platformer2d::load_presentation::MinimalLoadPresentationPlugins);
     }
     super::world_flow::install_room_transition_presentation(app);
     // The windowed-host face (E5 step 5): leafwing input bindings + the
     // camera follow/shake cluster (+ portal camera continuity). The SAME
     // group a windowed demo adds; the app-local presentation below layers
     // Ambition's HUD/menu/dev stack on top.
-    app.add_plugins(ambition::host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     install_presentation_resources_and_subplugins(app);
     app.add_plugins((
-        ambition::persistence::PersistenceSchedulePlugin,
-        ambition::dev_tools::DeveloperPersistenceSchedulePlugin,
+        ambition_platformer2d::persistence::PersistenceSchedulePlugin,
+        ambition_platformer2d::dev_tools::DeveloperPersistenceSchedulePlugin,
     ));
     install_menu_setup_and_hotkeys(app);
-    app.add_plugins(ambition::render::rendering::PresentationVisualAnimationPlugin);
+    app.add_plugins(ambition_platformer2d::render::rendering::PresentationVisualAnimationPlugin);
     // Ambition's named presentation passes (puppy-slug deep-dream) compose onto
     // the renderer's public `ActorOverlaySet` seam the plugin above positions.
     app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
     install_camera_and_debug_overlay_systems(app);
-    app.add_plugins(ambition::render::rendering::ActorNameplatePresentationPlugin);
+    app.add_plugins(ambition_platformer2d::render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
-    app.add_plugins(ambition::render::rendering::PlayerVisualSchedulePlugin);
+    app.add_plugins(ambition_platformer2d::render::rendering::PlayerVisualSchedulePlugin);
     install_projectile_and_vfx_systems(app);
 }
 
@@ -385,7 +385,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 /// FPS overlay, font loader).
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
-        .init_resource::<ambition::render::asset_census::ImageCensus>()
+        .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()
@@ -394,26 +394,26 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>()
-        .register_type::<ambition::portal::PortalConvention>()
-        .register_type::<ambition::portal::PortalTuning>();
+        .register_type::<ambition_platformer2d::portal::PortalConvention>()
+        .register_type::<ambition_platformer2d::portal::PortalTuning>();
 
     #[cfg(feature = "portal_render")]
-    app.register_type::<ambition::portal_presentation::PortalVisualEffect>()
-        .register_type::<ambition::portal_presentation::PortalEffectSelection>()
-        .register_type::<ambition::portal_presentation::PortalCameraTransitMode>()
-        .register_type::<ambition::portal_presentation::PortalCameraContinuitySelection>()
-        .register_type::<ambition::portal_presentation::PortalCameraContinuityConfig>()
-        .register_type::<ambition::portal_presentation::PortalCameraContinuityState>()
-        .register_type::<ambition::portal_presentation::PortalViewConeConfig>();
+    app.register_type::<ambition_platformer2d::portal_presentation::PortalVisualEffect>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalEffectSelection>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalCameraTransitMode>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalCameraContinuityConfig>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalCameraContinuityState>()
+        .register_type::<ambition_platformer2d::portal_presentation::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
-    app.add_plugins(ambition::render::screen_effects::ScreenEffectsPlugin);
+    app.add_plugins(ambition_platformer2d::render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
-    app.add_plugins(ambition::sprite_sheet::SheetRegistryPlugin);
+    app.add_plugins(ambition_platformer2d::sprite_sheet::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
-    // Input bindings/bridge live in `ambition::host::HostInputBindingsPlugin`
+    // Input bindings/bridge live in `ambition_platformer2d::host::HostInputBindingsPlugin`
     // (E5 step 5). The app-local residue: the dev preset-input-map sync.
     #[cfg(feature = "input")]
     app.add_systems(
@@ -443,15 +443,15 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         // would run the despawn/respawn twice in one frame.
         (
             reload_visual_quality_assets_on_scale_change,
-            ambition::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
+            ambition_platformer2d::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
         )
             .chain()
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
     #[cfg(feature = "portal_render")]
     app.add_systems(
         Update,
-        ambition::render::quality::sync_portal_quality_budget,
+        ambition_platformer2d::render::quality::sync_portal_quality_budget,
     );
 }
 
@@ -461,28 +461,28 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory_ui::InventoryUiState::default())
-        .init_resource::<ambition::actors::items::persist::InventoryRestored>()
+        .init_resource::<ambition_platformer2d::actors::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save
         // (the existing autosave writes the dirtied save to disk).
         .add_systems(
             Update,
             (
-                ambition::actors::items::persist::restore_inventory_from_save,
-                ambition::actors::items::persist::persist_inventory_to_save,
+                ambition_platformer2d::actors::items::persist::restore_inventory_from_save,
+                ambition_platformer2d::actors::items::persist::persist_inventory_to_save,
             )
                 .chain(),
         )
         .add_systems(
             Update,
-            (ambition::actors::menu::map::sync_map_menu,)
+            (ambition_platformer2d::actors::menu::map::sync_map_menu,)
                 .after(SandboxSet::CoreSimulation)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
             Startup,
             (
-                ambition::dev_tools::profiling::phase_mark("before_setup_presentation"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("before_setup_presentation"),
                 // `PresentationSetupSet` is the machinery-facing label for
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
@@ -497,10 +497,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                             super::shell_host::AmbitionShellHosted,
                         >,
                     ),
-                ambition::dev_tools::profiling::phase_mark("after_setup_presentation"),
-                ambition::actors::menu::map::populate_map_rooms,
-                ambition::actors::menu::map::spawn_map_menu.run_if(super::shell_host::direct_entry),
-                ambition::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_presentation"),
+                ambition_platformer2d::actors::menu::map::populate_map_rooms,
+                ambition_platformer2d::actors::menu::map::spawn_map_menu.run_if(super::shell_host::direct_entry),
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
                 .after(setup_simulation_system)
@@ -509,16 +509,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                ambition::dialog::dialog_input,
+                ambition_platformer2d::dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 dev_tools::sync_developer_body_profile,
-                ambition::actors::trace::handle_trace_hotkey,
-                ambition::actors::menu::map::handle_map_menu_hotkeys,
+                ambition_platformer2d::actors::trace::handle_trace_hotkey,
+                ambition_platformer2d::actors::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
                 .after(SandboxSet::CoreSimulation)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
 
@@ -533,18 +533,18 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // needed, and conflating them is what made the web build fail to compile the
     // FLAT menu.
     #[cfg(feature = "kaleidoscope_menu")]
-    if ambition::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+    if ambition_platformer2d::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
         crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
     }
     #[cfg(feature = "bevy_ui_menu")]
-    if ambition::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
+    if ambition_platformer2d::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
         crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     // The camera cluster itself (viewport publish, shake, follow, portal
-    // continuity) is `ambition::host::HostCameraPlugin` (E5 step 5). What
+    // continuity) is `ambition_platformer2d::host::HostCameraPlugin` (E5 step 5). What
     // stays here is the Ambition DEBUG OVERLAY, drawn once the camera has
     // landed this frame.
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
@@ -559,7 +559,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     )
         .chain()
         .after(camera_follow)
-        .after(ambition::host::portal::tag_portal_camera_continuity_camera);
+        .after(ambition_platformer2d::host::portal::tag_portal_camera_continuity_camera);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
@@ -569,7 +569,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         .after(camera_follow);
     app.add_systems(
         Update,
-        overlay.run_if(ambition::platformer::lifecycle::session_world_exists),
+        overlay.run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -585,38 +585,38 @@ fn install_fx_and_hud_systems(app: &mut App) {
         )
             .chain()
             .after(debug_overlay::draw_debug_overlay)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     .add_systems(
         Update,
         (
             update_hud,
-            ambition::render::rendering::sync_boss_health_bar_overlay,
-            ambition::dialog::dialog_reveal_tick,
-            ambition::render::cutscene::sync_cutscene_ui,
+            ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay,
+            ambition_platformer2d::dialog::dialog_reveal_tick,
+            ambition_platformer2d::render::cutscene::sync_cutscene_ui,
         )
             .chain()
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Always-on *during gameplay* player HUD overlay (health / mana /
     // money bars). The title route owns no gameplay HUD authority.
     .add_systems(
         Update,
         (
-            ambition::actors::avatar::regen_player_mana,
-            ambition::render::hud::spawn_player_hud,
-            ambition::render::hud::update_player_hud,
+            ambition_platformer2d::actors::avatar::regen_player_mana,
+            ambition_platformer2d::render::hud::spawn_player_hud,
+            ambition_platformer2d::render::hud::update_player_hud,
             // Ambition's built-in HP/MP/$ row hides whenever the active game
             // declared its OWN HUD (Sanic rings, Mary-O score), so vitals never
             // overlay a game that has no health/mana (Jon bug #36).
-            ambition::render::hud::toggle_builtin_hud_for_declared_games,
+            ambition_platformer2d::render::hud::toggle_builtin_hud_for_declared_games,
             // Consumes THIS frame's resolved HUD regions, so a profile that
             // reserves surround for HUD actually gets the HUD put there.
-            ambition::render::hud::place_player_hud
-                .after(ambition::presentation::gameplay_presentation::GameplayPresentationSet),
+            ambition_platformer2d::render::hud::place_player_hud
+                .after(ambition_platformer2d::presentation::gameplay_presentation::GameplayPresentationSet),
         )
             .chain()
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -628,23 +628,23 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     #[cfg(feature = "portal_render")]
     app.add_systems(
         Update,
-        ambition::render::rendering::sync_portal_capture_parallax_layers
-            .after(ambition::portal_presentation::PortalPresentationSet)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+        ambition_platformer2d::render::rendering::sync_portal_capture_parallax_layers
+            .after(ambition_platformer2d::portal_presentation::PortalPresentationSet)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 
     app.add_systems(
         Update,
-        ambition::render::rendering::sync_health_overlays
+        ambition_platformer2d::render::rendering::sync_health_overlays
             .after(sync_visuals)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Idle barks fire on a 5-10s cadence while the boss is in an
     // attacking phase, so the scholar feels alive between strikes.
     .add_systems(
         Update,
         ambition_content::bosses::tick_boss_idle_barks
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Portal presentation: read GatePortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
@@ -656,13 +656,13 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition::render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
-            ambition::render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
-            ambition::render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
-            ambition::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
+            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
+            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
+            ambition_platformer2d::render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
+            ambition_platformer2d::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
         )
             .after(sync_visuals)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // ⚠ `sync_parallax_layers` left this list on 2026-07-31, with the theme
     // load and the refresh: `SessionRoomVisualsPlugin` registers it
@@ -677,9 +677,9 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // after the WorldPrep contributor has populated `gate_solids`.
     .add_systems(
         Update,
-        ambition::render::rendering::sync_lock_wall_visuals
-            .after(ambition::actors::encounter::drive_wave_encounters)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+        ambition_platformer2d::render::rendering::sync_lock_wall_visuals
+            .after(ambition_platformer2d::actors::encounter::drive_wave_encounters)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
@@ -693,28 +693,28 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition::render::rendering::apply_placeholder_sprites_override,
-            ambition::render::rendering::apply_hide_sprites_override,
+            ambition_platformer2d::render::rendering::apply_placeholder_sprites_override,
+            ambition_platformer2d::render::rendering::apply_hide_sprites_override,
         )
             .chain()
             .after(sync_visuals)
-            .after(ambition::render::rendering::morph_ball::sync_morph_ball_visual)
-            .after(ambition::render::rendering::bubble_shield::sync_bubble_shield_visual)
-            .after(ambition::render::rendering::projectile_visuals::sync_projectile_visuals)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .after(ambition_platformer2d::render::rendering::morph_ball::sync_morph_ball_visual)
+            .after(ambition_platformer2d::render::rendering::bubble_shield::sync_bubble_shield_visual)
+            .after(ambition_platformer2d::render::rendering::projectile_visuals::sync_projectile_visuals)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Mouse / touch dismissal for the map menu.
     .add_systems(
         Update,
-        ambition::actors::menu::map::map_menu_pointer_dismiss
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+        ambition_platformer2d::actors::menu::map::map_menu_pointer_dismiss
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
         Update,
         update_quest_panel
-            .after(ambition::render::dialog_ui::DialogPresentationSet)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .after(ambition_platformer2d::render::dialog_ui::DialogPresentationSet)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -728,7 +728,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // otherwise newly-fired projectiles would only become visible
     // one frame late.
     // ⚠ the projectile visual passes left this file on 2026-07-31:
-    // `ambition_host::HostProjectileVisualsPlugin` registers them, with their
+    // `ambition_platformer2d_host::HostProjectileVisualsPlugin` registers them, with their
     // two ordering edges intact, for every composition. Until then this app was
     // the only one that DREW a projectile it had fired.
     app
@@ -747,13 +747,13 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
                 .chain()
                 .after(SandboxSet::CoreSimulation)
                 .before(vfx_spawn_messages)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
             Update,
             vfx_spawn_messages
                 .after(fx::process_explosion_requests)
-                .run_if(ambition::platformer::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         );
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
@@ -763,7 +763,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         Update,
         fx::update_blink_preview
             .after(SandboxSet::CoreSimulation)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -778,7 +778,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
         Update,
         physics_spawn_debris_messages
             .after(SandboxSet::CoreSimulation)
-            .run_if(ambition::platformer::lifecycle::session_world_exists),
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
 
@@ -803,24 +803,24 @@ pub(super) fn add_ui_plugins(app: &mut App) {
 pub(super) fn add_ui_plugins(_app: &mut App) {}
 
 // The leafwing input bindings + the device→ControlFrame bridge live in
-// `ambition::host::HostInputBindingsPlugin` (E5 step 5); the dev
+// `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5); the dev
 // preset-input-map sync stays registered app-side (dev_runtime).
 
-/// Register the [`TouchControlsPlugin`](ambition::touch_input::TouchControlsPlugin)
+/// Register the [`TouchControlsPlugin`](ambition_platformer2d::touch_input::TouchControlsPlugin)
 /// (`virtual_joystick` stick + on-screen action buttons). The touch overlay is
 /// a VIRTUAL DEVICE: its state is exposed to leafwing as registered input
 /// kinds and bound in the persistent participant's `InputMap`, so touch
 /// resolves through the same bindings/context pipeline as the keyboard and
 /// gamepad — there is no second `ControlFrame` writer. The adapter lives in
-/// the sibling `ambition::touch_input` crate (app-thinness); the app's
-/// `mobile_touch` feature forwards to `ambition::touch_input/mobile_touch`,
+/// the sibling `ambition_platformer2d::touch_input` crate (app-thinness); the app's
+/// `mobile_touch` feature forwards to `ambition_platformer2d::touch_input/mobile_touch`,
 /// which pulls the optional `virtual_joystick` dep. Added UNCONDITIONALLY
 /// whenever `mobile_touch` is compiled — no runtime boolean gates it. To rip
 /// the touch controls out, remove the single `add_plugins(TouchControlsPlugin)`
 /// line below. On builds compiled without `mobile_touch` this is a no-op.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
-    app.add_plugins(ambition::touch_input::TouchControlsPlugin);
+    app.add_plugins(ambition_platformer2d::touch_input::TouchControlsPlugin);
 }
 
 #[cfg(not(feature = "mobile_touch"))]
@@ -832,7 +832,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition::actors::audio::SandboxAudioPlugin);
+    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin);
     // Once the resident SFX bank lands, publish its ids as Ambition's
     // provider-relative SFX authority (bank = storage, selection = permission).
     app.add_systems(

@@ -10,7 +10,7 @@
 //! sites. This file asks the other question, of the only composition that can
 //! answer it honestly: **a third party builds its app the documented way and the
 //! pictures are there.** Outlander is not a fixture of the engine's assumptions;
-//! it is a real out-of-workspace crate whose only dependency is `ambition`.
+//! it is a real out-of-workspace crate whose only dependency is `ambition_platformer2d`.
 
 #![cfg(feature = "visible")]
 
@@ -31,7 +31,7 @@ fn settle_until(app: &mut App, frames: usize, ready: impl Fn(&App) -> bool) -> b
 
 fn parallax_layer_positions(app: &mut App) -> Vec<(f32, f32)> {
     let world = app.world_mut();
-    let mut query = world.query_filtered::<&Transform, With<ambition::view::ParallaxLayerVisual>>();
+    let mut query = world.query_filtered::<&Transform, With<ambition_platformer2d::view::ParallaxLayerVisual>>();
     query
         .iter(world)
         .map(|transform| (transform.translation.x, transform.translation.y))
@@ -51,7 +51,7 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
 
     let spawned = settle_until(&mut app, 600, |app| {
         app.world()
-            .try_query_filtered::<(), With<ambition::view::ParallaxLayerVisual>>()
+            .try_query_filtered::<(), With<ambition_platformer2d::view::ParallaxLayerVisual>>()
             .map(|mut query| query.iter(app.world()).next().is_some())
             .unwrap_or(false)
     });
@@ -69,7 +69,7 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
     for _ in 0..180 {
         outlander::drive_control_frame(
             &mut app,
-            ambition::sim::ControlFrame {
+            ambition_platformer2d::sim::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
             },
@@ -96,7 +96,7 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
 // ⚠ **The quality-budget half of this file does not belong here, and finding
 // that out was worth the attempt.** `ResolvedVisualQuality` reads
 // `UserSettings`, and this consumer is built `default-features = false` — it
-// never asked for the `ambition_persistence` capability, so `ambition::
+// never asked for the `ambition_persistence` capability, so `ambition_platformer2d::
 // persistence` does not exist for it and there is no settings resource to read.
 // The quality resolve is inert in this composition BY CONSTRUCTION rather than
 // by omission, which is slice H working as intended.

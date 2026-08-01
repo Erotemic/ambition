@@ -27,17 +27,17 @@ fn act_elapsed(app: &mut App) -> Option<f32> {
     q.iter(app.world()).next().map(|s| s.elapsed)
 }
 
-fn player_body(app: &mut App) -> Option<ambition::actors::actor::BodyKinematics> {
+fn player_body(app: &mut App) -> Option<ambition_platformer2d::actors::actor::BodyKinematics> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition::actors::actor::BodyKinematics, With<
-            ambition::actors::actor::PrimaryPlayer,
+        .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics, With<
+            ambition_platformer2d::actors::actor::PrimaryPlayer,
         >>();
     q.iter(app.world()).next().copied()
 }
 
 fn sim_tick(app: &App) -> u64 {
-    app.world().resource::<ambition::runtime::SimTick>().get()
+    app.world().resource::<ambition_platformer2d::runtime::SimTick>().get()
 }
 
 /// Bevy's fixed-time accumulator can expend the activation frame before the
@@ -60,7 +60,7 @@ fn align_post_activation_fixed_timeline(app: &mut App) {
     panic!("the fixed timeline did not advance after gameplay activation");
 }
 
-fn activate_player(app: &mut App) -> ambition::actors::actor::BodyKinematics {
+fn activate_player(app: &mut App) -> ambition_platformer2d::actors::actor::BodyKinematics {
     for _ in 0..16 {
         app.update();
         if let Some(body) = player_body(app) {
@@ -77,7 +77,7 @@ fn the_demo_shell_boots_from_the_engine_and_host_groups_alone() {
 
     assert!(
         app.world()
-            .resource::<ambition::game_shell::ActiveGameplaySession>()
+            .resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
             .0
             .is_some(),
         "the standalone shell must authorize the prepared gameplay session"

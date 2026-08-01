@@ -33,7 +33,7 @@ VIOLATING_LINE = {
     # The shortest path back to a 1,870-line function: adding a registration
     # where all the others used to be. Campaign 2 R5.
     "central-rollback-does-not-enumerate-domains":
-        '    app.rollback_component_clone::<ambition_portal::PortalBody>(ENGINE, "portal.body");',
+        '    app.rollback_component_clone::<ambition_portal2d::PortalBody>(ENGINE, "portal.body");',
     "registration-does-not-demand-art": "    CharacterLoadDemand::request(&mut demand, id);",
     "no-string-keyed-sheet-row-lookup": "    let row = sheet.row_index_of(name)?;",
     "rollback-exit-oracle-is-not-quarantined": "#[ignore]",
@@ -43,7 +43,7 @@ VIOLATING_LINE = {
     # tidying: it installed the WINDOWED host in a HEADLESS dump, and nothing
     # noticed, because the registries the dump prints do not come from the host.
     "outlander-does-not-hand-order-its-own-composition":
-        "    app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);",
+        "    app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);",
     "the-catalog-default-action-set-is-confined-to-one-file":
         "    let authored = catalog.build_default_action_set(id);",
     "the-provider-resolver-is-confined-to-one-file":
@@ -162,32 +162,32 @@ def test_a_transitive_edge_is_a_violation_not_just_a_direct_one():
     matters.
     """
     graph = {
-        "ambition_platformer_primitives": {"innocent_helper"},
-        "innocent_helper": {"ambition_actors"},
-        "ambition_actors": set(),
+        "ambition_platformer2d_shared_tangle": {"innocent_helper"},
+        "innocent_helper": {"ambition_platformer2d_actor_monolith"},
+        "ambition_platformer2d_actor_monolith": set(),
     }
     contract = {
         "id": "test",
-        "crate": "ambition_platformer_primitives",
-        "forbidden": ["ambition_actors"],
+        "crate": "ambition_platformer2d_shared_tangle",
+        "forbidden": ["ambition_platformer2d_actor_monolith"],
         "reason": "",
     }
     found = dependency_violations(contract, graph)
     assert found == [
-        "ambition_platformer_primitives -> innocent_helper -> ambition_actors"
+        "ambition_platformer2d_shared_tangle -> innocent_helper -> ambition_platformer2d_actor_monolith"
     ], f"the two-hop inversion was not reported: {found}"
 
 
 def test_the_floor_contract_rejects_any_workspace_edge():
-    graph = {"ambition_engine_core": {"anything_at_all"}, "anything_at_all": set()}
+    graph = {"ambition_platformer2d_core": {"anything_at_all"}, "anything_at_all": set()}
     contract = {
         "id": "test",
-        "crate": "ambition_engine_core",
+        "crate": "ambition_platformer2d_core",
         "forbidden": "*",
         "reason": "",
     }
     assert dependency_violations(contract, graph) == [
-        "ambition_engine_core -> anything_at_all"
+        "ambition_platformer2d_core -> anything_at_all"
     ]
 
 
@@ -254,22 +254,22 @@ def modules_in(source: str) -> set[str]:
     snippet that would be reported there.
     """
     stripped = "\n".join(_strip("some/file.rs", line) for line in source.splitlines())
-    return {module for _, module in facade_modules(stripped, "ambition")}
+    return {module for _, module in facade_modules(stripped, "ambition_platformer2d")}
 
 
 def test_the_allowlist_sees_an_ordinary_import():
-    assert modules_in("use ambition::runtime::rollback::put_f32;") == {"runtime"}
+    assert modules_in("use ambition_platformer2d::runtime::rollback::put_f32;") == {"runtime"}
 
 
 def test_the_allowlist_sees_a_brace_grouped_import():
     """The evasion that a line regex misses, silently.
 
-    `\\bambition::([a-z_]+)` matches neither name below — it reaches `{` and
+    `\\bambition_platformer2d::([a-z_]+)` matches neither name below — it reaches `{` and
     stops. The fixture contains no braced facade import today, so a line regex
     would have been green, and wrong the first time somebody wrote idiomatic
     Rust. This is the probe that the parser is not decoration.
     """
-    assert modules_in("use ambition::{time::Clock, audio::Bank};") == {
+    assert modules_in("use ambition_platformer2d::{time::Clock, audio::Bank};") == {
         "time",
         "audio",
     }
@@ -277,7 +277,7 @@ def test_the_allowlist_sees_a_brace_grouped_import():
 
 def test_the_allowlist_sees_through_nesting_and_across_lines():
     source = """
-    use ambition::{
+    use ambition_platformer2d::{
         world::prelude::*,
         actors::{features::Body, ecs::Damage},
         input::Action,
@@ -287,17 +287,17 @@ def test_the_allowlist_sees_through_nesting_and_across_lines():
 
 
 def test_the_allowlist_does_not_count_self_as_a_module():
-    assert modules_in("use ambition::{self, world::Room};") == {"world"}
+    assert modules_in("use ambition_platformer2d::{self, world::Room};") == {"world"}
 
 
 def test_the_allowlist_does_not_confuse_a_crate_name_with_the_facade():
-    """`ambition_actors::` is an engine crate, not the facade.
+    """`ambition_platformer2d_actor_monolith::` is an engine crate, not the facade.
 
-    An engine developer may name it; a consumer depending only on `ambition`
+    An engine developer may name it; a consumer depending only on `ambition_platformer2d`
     cannot reach it. Matching it here would report leaks that do not exist and
     the contract would be waived within a week.
     """
-    assert modules_in("use ambition_actors::features::Body;") == set()
+    assert modules_in("use ambition_platformer2d_actor_monolith::features::Body;") == set()
 
 
 def test_the_allowlist_stays_silent_on_prose_naming_a_module():
@@ -305,12 +305,12 @@ def test_the_allowlist_stays_silent_on_prose_naming_a_module():
 
     Three absence checks in this repo went red on the docstring explaining the
     removal. The allowlist has the same exposure and more of it — the campaign
-    documents are FULL of `ambition::runtime` — so it gets the same probe.
+    documents are FULL of `ambition_platformer2d::runtime` — so it gets the same probe.
     """
     for comment in (
-        "/// Outlander used to reach for `ambition::runtime::rollback`.",
-        "//! LEAK CLOSED: no longer names ambition::time.",
-        "    // was ambition::{audio, presentation}",
+        "/// Outlander used to reach for `ambition_platformer2d::runtime::rollback`.",
+        "//! LEAK CLOSED: no longer names ambition_platformer2d::time.",
+        "    // was ambition_platformer2d::{audio, presentation}",
     ):
         assert modules_in(comment) == set(), f"fired on prose: {comment!r}"
 
@@ -423,7 +423,7 @@ def test_the_wire_format_is_encoded_where_the_types_live():
     """The carve's shape, asserted — not just its output count.
 
     Before slice F every `impl SnapshotState` was in ONE file in
-    `ambition_runtime`, forced there by the orphan rule because the trait sat
+    `ambition_platformer2d_runtime`, forced there by the orphan rule because the trait sat
     above every crate whose types it encoded. After the carve the impls live
     beside their types, and the count alone cannot tell those two worlds apart:
     63 impls in one file and 63 spread across nine crates both satisfy the
@@ -440,11 +440,11 @@ def test_the_wire_format_is_encoded_where_the_types_live():
     assert len(crates) >= 5, (
         f"the rollback wire format has re-centralised into {sorted(crates)}. "
         "Slice F federated it across nine crates by moving `SnapshotState` into "
-        "`ambition_engine_core::snapshot`; a trait that moves back above the "
+        "`ambition_platformer2d_core::snapshot`; a trait that moves back above the "
         "domains drags every impl with it."
     )
-    assert "ambition_runtime" not in crates, (
-        "`ambition_runtime` is encoding types again. It sits above twenty "
+    assert "ambition_platformer2d_runtime" not in crates, (
+        "`ambition_platformer2d_runtime` is encoding types again. It sits above twenty "
         "domain crates, so anything it encodes is a type some other crate owns "
         "— which is exactly the arrangement slice F removed."
     )
@@ -453,7 +453,7 @@ def test_the_wire_format_is_encoded_where_the_types_live():
 def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monkeypatch):
     """Invariant 1: central ownership may not GROW.
 
-    Federating rollback means moving schema OUT of `ambition_runtime`. A new
+    Federating rollback means moving schema OUT of `ambition_platformer2d_runtime`. A new
     stable name appearing there is the migration running backwards.
     """
     import json

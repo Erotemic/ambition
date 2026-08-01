@@ -9,7 +9,7 @@ wholesale from the catalog), not in sandbox.ldtk.
 Reads:
   - `game/ambition_content/assets/data/character_catalog.ron`
   - `game/ambition_content/assets/worlds/hall_of_characters.ldtk`
-  - `crates/ambition_actors/assets/sprites/`
+  - `crates/ambition_platformer2d_actor_monolith/assets/sprites/`
 
 For each NpcSpawn in `hall_of_characters`:
   - "ok"          — catalog entry + manifest on disk (sheet will load)
@@ -51,7 +51,7 @@ SPRITES_DIR = default_sprite_assets_dir()
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with
-# `crates/ambition_actors/src/presentation/character_sprites/anim.rs`.
+# `crates/ambition_platformer2d_actor_monolith/src/presentation/character_sprites/anim.rs`.
 IDLE_ALIASES = {"idle", "opening", "rest", "front_idle", "side_idle"}
 
 

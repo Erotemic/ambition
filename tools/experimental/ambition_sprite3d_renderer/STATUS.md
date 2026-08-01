@@ -24,4 +24,4 @@ must not be committed.
    production layout (`tools/ambition_sprite3d_renderer`).
 2. Update `tools/README.md` and the renderer conventions section.
 3. Add explicit `install` / `render-publish` modes that copy into
-   `crates/ambition_actors/assets/...` in lockstep with the 2D renderer.
+   `crates/ambition_platformer2d_actor_monolith/assets/...` in lockstep with the 2D renderer.

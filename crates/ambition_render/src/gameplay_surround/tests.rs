@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
-use ambition_platformer_primitives::gameplay_presentation::{
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     profiles, resolve_gameplay_presentation, ControlFootprints, GameplayPresentationInput,
     GameplayPresentationProfile, PresentationEnvironment, ScreenInsets,
 };

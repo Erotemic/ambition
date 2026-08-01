@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::data::MusicRegistry;
-use ambition_actors::ldtk_world::{field_string, LdtkProject};
+use ambition_platformer2d_actor_monolith::ldtk_world::{field_string, LdtkProject};
 use ambition_encounter::encounter_reward_looted_flag;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -414,7 +414,7 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    let loaded_encounters = ambition_actors::encounter::load_encounter_specs_from_ldtk(
+    let loaded_encounters = ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
         project,
         &ambition_persistence::save_data::SandboxSaveData::default(),
     );
@@ -491,7 +491,7 @@ fn validate_quest_conditions(
 
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
-    boss_catalog: &ambition_actors::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog,
     report: &mut ContentValidationReport,
 ) {
     let tracks = music
@@ -499,7 +499,7 @@ fn validate_boss_music_tracks(
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
-    for spec in ambition_actors::boss_encounter::default_boss_specs(boss_catalog) {
+    for spec in ambition_platformer2d_actor_monolith::boss_encounter::default_boss_specs(boss_catalog) {
         for (field, track) in [
             ("music_intro", spec.music_intro.as_str()),
             ("music_phase1", spec.music_phase1.as_str()),
@@ -562,7 +562,7 @@ fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .map(|name| name.trim().to_string())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| entity.iid.clone());
-                ids.insert(ambition_actors::boss_encounter::encounter_id_from_name(
+                ids.insert(ambition_platformer2d_actor_monolith::boss_encounter::encounter_id_from_name(
                     &name,
                 ));
             }

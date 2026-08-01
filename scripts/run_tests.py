@@ -128,7 +128,7 @@ DENY_EXACT = {
     # single test, so `--list` and a filter matching nothing fail identically.
     # Nothing in the repo gates a test on it, so denying it loses no coverage.
     #
-    # Added 2026-07-31 when `ambition_actors` left SKIP_FEATURE_JOB (it gained
+    # Added 2026-07-31 when `ambition_platformer2d_actor_monolith` left SKIP_FEATURE_JOB (it gained
     # `#[cfg(feature = "causal")]` tests). That set's own comment predicted this
     # exact requirement: "if you remove this skip, expect to deny `profile` in
     # the same commit."
@@ -145,11 +145,11 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 #
 # RULE: adding a `#[cfg(feature = ...)]` test to a skipped crate must remove
 # the skip in the same commit -- a stale entry here silently un-runs tests.
-# ambition_host left this set 2026-07-19: its portal_render seam tests are
-# feature-gated, and the portal feature now forwards ambition_runtime/portal
+# ambition_platformer2d_host left this set 2026-07-19: its portal_render seam tests are
+# feature-gated, and the portal feature now forwards ambition_platformer2d_runtime/portal
 # so the composition is complete.
 #
-# `ambition` JOINED it 2026-07-31 on the reasoning that its 17 extra features
+# `ambition_platformer2d` JOINED it 2026-07-31 on the reasoning that its 17 extra features
 # are all FORWARDERS and "the facade's own tests gate on no feature".
 #
 # ⛔ It LEFT again 2026-08-01, because that last clause stopped being true: the
@@ -158,7 +158,7 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # own rule names. The cost was MEASURED rather than assumed, because the comment
 # above implied it would be ruinous: **6m59s and 2.1 GB** for the 17-feature
 # variant. Real, and not the "tens of GB" that phrase suggests — that figure
-# belonged to `ambition_actors`' `profile` feature, which is denied above.
+# belonged to `ambition_platformer2d_actor_monolith`' `profile` feature, which is denied above.
 #
 # It appeared at all only because the facade gained its first `#[cfg(test)]`
 # module that day — `crate_has_tests` is what admits a crate to this pass — and
@@ -173,12 +173,12 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # Nothing in the repo gates a test on `profile`. If you remove this skip, expect
 # to deny `profile` (or set `TRACY_NO_INVARIANT_CHECK=1`) in the same commit —
 # and to pay a full-graph feature-variant rebuild, measured at 488s.
-# `ambition_actors` LEFT this set 2026-07-31 for the same reason and by the same
+# `ambition_platformer2d_actor_monolith` LEFT this set 2026-07-31 for the same reason and by the same
 # rule: it gained `#[cfg(feature = "causal")]` tests (`actors::causal`, the
 # movement-intent publisher). Its `profile` feature is denied above rather than
 # built, which is what the entry below always said would be needed.
 #
-# `ambition_runtime` LEFT this set 2026-07-31, under the rule stated above: it
+# `ambition_platformer2d_runtime` LEFT this set 2026-07-31, under the rule stated above: it
 # gained `#[cfg(feature = "causal")]` tests (`runtime::causal`, the ECS side of
 # the causal recorder), so the entry stopped being "no added coverage" and
 # became "silently un-runs three tests". Removing it is what the rule requires;
@@ -335,7 +335,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset
-        # paths that moved out of `crates/ambition_actors/assets` -- and the
+        # paths that moved out of `crates/ambition_platformer2d_actor_monolith/assets` -- and the
         # tools themselves defaulted to the same dead path, so a bare
         # `ldtk level set-field` opened a file that had not existed for weeks.
         # The lesson is the same one the job above records: a suite nobody
@@ -403,7 +403,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # The external-consumer fixture (Phase 6): its own [workspace], lockfile,
     # and target dir, driven through --manifest-path so its INDEPENDENT
     # dependency resolution is exactly what a third party gets from the
-    # `ambition` umbrella. Whole-suite, non-fast only — an umbrella API break
+    # `ambition_platformer2d` umbrella. Whole-suite, non-fast only — an umbrella API break
     # can land while every in-repo job stays green (workspace feature
     # unification hides it), and this job is the only gate that can see it.
     if not only and not fast:
@@ -438,7 +438,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         #
         # ⛔ moving it also broke it, which is the argument for the job: an
         # outside workspace does not inherit the engine's `[patch.crates-io]`,
-        # so `ambition_runtime` compiled against the RELEASED `bevy_ggrs` and
+        # so `ambition_platformer2d_runtime` compiled against the RELEASED `bevy_ggrs` and
         # failed on a missing `GgrsFrameTiming`. Invisible for as long as the
         # crate lived inside and inherited the patch for free.
         jobs.append(Job("external consumer: capability demo",

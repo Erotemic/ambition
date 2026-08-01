@@ -16,7 +16,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::gameplay_presentation::{
+use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ControlFootprint, ControlFootprints, ResolvedGameplayPresentation, ScreenRect,
 };
 
@@ -139,7 +139,7 @@ impl TouchPresentationSet {
     /// own corner position, over gameplay, whatever the touch-controls setting
     /// says.
     pub fn configure(app: &mut bevy::prelude::App) {
-        use ambition_platformer_primitives::gameplay_presentation::GameplayPresentationSet;
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet;
         use bevy::prelude::{IntoScheduleConfigs as _, Update};
         app.configure_sets(
             Update,
@@ -320,7 +320,7 @@ mod tests {
     use super::*;
     use crate::bevy_plugin::{apply_touch_control_placement, TouchSurface};
     use crate::layout::{touch_action_at_position, touch_action_circle, touch_action_layout};
-    use ambition_platformer_primitives::gameplay_presentation::{
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions,
     };
 
@@ -503,7 +503,7 @@ mod tests {
     /// session actually gets rather than a hand-made resolved value.
     #[test]
     fn a_visible_touch_stick_is_placed_at_the_bottom_left_corner() {
-        use ambition_platformer_primitives::gameplay_presentation::{
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
             resolve_gameplay_presentation, GameplayPresentationInput, GameplayPresentationProfile,
             ScreenInsets,
         };
@@ -614,7 +614,7 @@ mod tests {
     /// arithmetic would just restate the implementation.
     #[test]
     fn a_compacted_cluster_reserves_what_it_covers() {
-        use ambition_platformer_primitives::gameplay_presentation::{
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
             resolve_gameplay_presentation, ControlPlacementPolicy, GameplayPresentationInput,
             GameplayPresentationProfile, ScreenInsets, ScreenOcclusionPurpose, SoftFramingProfile,
         };

@@ -49,7 +49,7 @@ and both roots merge into it, content last:
 
 | Source | Checkout root | In the APK |
 | --- | --- | --- |
-| default | `crates/ambition_actors/assets` | `app/src/main/assets/` |
+| default | `crates/ambition_platformer2d_actor_monolith/assets` | `app/src/main/assets/` |
 | `game://` | `game/ambition_content/assets` | the same dir, overlaid |
 
 Merging in that order reproduces the precedence `ProviderGameAssetReader`

@@ -8,7 +8,7 @@ Original path: `docs/systems/ldtk-runtime-spine.md`
 
 # LDtk runtime-spine migration
 
-`ambition_actors` is moving from a custom LDtk JSON adapter toward
+`ambition_platformer2d_actor_monolith` is moving from a custom LDtk JSON adapter toward
 `bevy_ecs_ldtk` as the runtime spine. This file tracks promoted
 categories, the parity overlay, and what's left.
 
@@ -48,7 +48,7 @@ the JSON adapter path until parity is proven.**
 world against the sizes of the matching runtime indices.
 
 A mismatch logs a single tracing warning at
-`ambition::ldtk_runtime_spine` (deduped against the previous summary
+`ambition_platformer2d::ldtk_runtime_spine` (deduped against the previous summary
 string) so the parity bug is visible in logs without spamming every
 frame. When counts converge again the warning is cleared.
 
@@ -82,11 +82,11 @@ identifiers; the typed-component spawn handles all three so legacy
 maps with `HazardBlock` continue to register damage volumes.
 
 ```bash
-python tools/repair_ambition_ldtk.py --in-place crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
-python tools/check_ldtk_editor_roundtrip.py crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
-python tools/validate_ambition_ldtk.py crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
+python tools/repair_ambition_ldtk.py --in-place crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/sandbox.ldtk
+python tools/check_ldtk_editor_roundtrip.py crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/sandbox.ldtk
+python tools/validate_ambition_ldtk.py crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/sandbox.ldtk
 python tools/validate_ambition_ldtk.py \
   --schema tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema \
-  crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_platformer2d_actor_monolith/assets/ambition/worlds/sandbox.ldtk
 ```

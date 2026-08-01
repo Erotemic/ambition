@@ -1,0 +1,30 @@
+//! Schedule + input-frame vocabulary shared by the machinery lib, the
+//! content crate, and the app crate.
+//!
+//! The Bevy app ASSEMBLY (plugins, resources, sim systems, HUD, CLI)
+//! moved to the `ambition_app` crate (Stage 20 / A3). What stays here
+//! is the vocabulary other layers order against: the `SandboxSet`
+//! schedule labels (+ the content/machinery slot sets) and the
+//! device -> ControlFrame populate systems the menu/host layers anchor
+//! to.
+
+mod input_systems;
+mod schedule;
+
+pub use ambition_platformer2d_shared_tangle::schedule::{
+    BossSteerSlot, CombatSet, PlayerInputSet, PlayerSimulationSet, PresentationSetupSet,
+    RoomTransitionSet, SandboxSet, SimulationSetupSet, WorldPrepSet,
+};
+pub use input_systems::declare_gameplay_input_context;
+#[cfg(feature = "input")]
+pub use input_systems::declare_in_session_input_contexts;
+#[cfg(feature = "input")]
+pub use input_systems::{
+    apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
+    decode_menu_frame, populate_menu_control_frame_from_actions, populate_seat_menu_frames,
+    populate_secondary_slot_controls,
+    publish_latched_slot_controls,
+    seat_input_participants_for_roster, spawn_primary_input_participant,
+    toggle_player_trail_emission_from_actions, MenuNavConsume, SeatDashTriggerState,
+};
+pub use schedule::configure_sandbox_sets;

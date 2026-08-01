@@ -12,7 +12,7 @@ related_docs:
 `scripts/package_asset_guard.py` is the package boundary for installed asset
 trees. Desktop development exposes two roots:
 
-- `crates/ambition_actors/assets`
+- `crates/ambition_platformer2d_actor_monolith/assets`
 - `game/ambition_content/assets`
 
 Android and installed desktop builds expose one `assets/` directory. The guard

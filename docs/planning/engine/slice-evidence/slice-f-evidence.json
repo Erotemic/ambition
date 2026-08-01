@@ -22,8 +22,8 @@
       "after": 0
     },
     "what_closed": [
-      "`ambition::runtime` — all of it rollback. 10 uses across src/ and bin/: SnapshotState, Reader, put_f32, put_u32, RollbackRegistry, AmbitionRollbackApp, SyncTestSettings, start_sync_test_session.",
-      "`ambition::runtime::demo_fixture::ActorConstructionRegistry` — the last non-rollback use, and a separate leak wearing the loudest possible name. A module called `demo_fixture` in a shipped game's imports was the namespace mirror confessing. Re-published as `ambition::actor::ActorConstructionRegistry`: construction provenance is an ACTOR concept (ADR 0030), and that is where a consumer looks for it."
+      "`ambition_platformer2d::runtime` — all of it rollback. 10 uses across src/ and bin/: SnapshotState, Reader, put_f32, put_u32, RollbackRegistry, AmbitionRollbackApp, SyncTestSettings, start_sync_test_session.",
+      "`ambition_platformer2d::runtime::demo_fixture::ActorConstructionRegistry` — the last non-rollback use, and a separate leak wearing the loudest possible name. A module called `demo_fixture` in a shipped game's imports was the namespace mirror confessing. Re-published as `ambition_platformer2d::actor::ActorConstructionRegistry`: construction provenance is an ACTOR concept (ADR 0030), and that is where a consumer looks for it."
     ],
     "what_was_ADDED_to_the_allowed_set": {
       "module": "rollback",
@@ -40,25 +40,25 @@
     "why_this_is_the_measurement_that_matters": "The line count is a proxy. What the deletion proves is that the ordering is the ENGINE's to get right: a consumer who has never read that comment now gets the same startup. A third party could not have derived those two steps from anything published — they were learned by desyncing.",
     "still_open": [
       "`SyncTestSettings` is no longer named by Outlander at all; `RollbackPlan` covers the two fields it actually set. The remaining fields (`players`) moved to composition, which is the point.",
-      "Prose in three fixture comments still SAYS `ambition::runtime::rollback` while describing history. Left deliberately: the SDK guards check CODE BLOCKS, and rewriting accurate history to satisfy a grep is how `api-prototype.md` §5 came to deny that a real module existed."
+      "Prose in three fixture comments still SAYS `ambition_platformer2d::runtime::rollback` while describing history. Left deliberately: the SDK guards check CODE BLOCKS, and rewriting accurate history to satisfy a grep is how `api-prototype.md` §5 came to deny that a real module existed."
     ]
   },
   "2c_blind_agent_run": {
     "latest": "run 6 — zero engine files opened, 23 tool calls, first compile clean",
     "status_after_slice_F": "NOT re-run. §4.2 was satisfied by run 6 and slice F adds public surface, so the honest position is that the condition holds for the surface run 6 saw and the rollback surface is UNTESTED by a blind author.",
-    "⚠": "This is recorded as a gap rather than assumed closed. A blind run over `ambition::rollback` is the first thing a slice G would do — see `after_the_terminal_condition`."
+    "⚠": "This is recorded as a gap rather than assumed closed. A blind run over `ambition_platformer2d::rollback` is the first thing a slice G would do — see `after_the_terminal_condition`."
   },
   "2d_deletion_criteria": {
     "deleted_in_this_slice": [
       "`PlatformerApp::unstable_rollback_session` — the `#[doc(hidden)]` knob that existed so the engine's own rollback fixture could compose through the same builder as everything else. Replaced by `rollback(participants)`, which asks the question the hidden version could not.",
       "`INTENTIONALLY_UNDOCUMENTED` in `test_sdk_api_reference_is_current.py` — its single entry was `unstable_rollback_session`. A waiver outliving its subject is precisely the stale entry the sibling ratchets forbid, so it went to an empty set rather than being left as a convenient home for the next awkward method.",
-      "`ambition_runtime/src/rollback/motion_codec.rs` — moved whole to the floor.",
+      "`ambition_platformer2d_runtime/src/rollback/motion_codec.rs` — moved whole to the floor.",
       "2348 lines of `codecs.rs` (2688 → 340), which were never a design decision: the orphan rule forced them into one file."
     ],
     "became_deletable_and_was_NOT_deleted": [
       {
-        "thing": "`CanonicalCodecStrategy` staying in `ambition_runtime`",
-        "verdict": "NOT deletable, and the reason is a constraint rather than a preference. It implements `bevy_ggrs::Strategy`. Pulling `bevy_ggrs` into `ambition_engine_core` would put the patched fork underneath every domain crate — and the floor's entire value is that a domain can reach it, which is true because it is small (zero workspace deps, `bevy_ecs` + `bevy_math` rather than the `bevy` umbrella)."
+        "thing": "`CanonicalCodecStrategy` staying in `ambition_platformer2d_runtime`",
+        "verdict": "NOT deletable, and the reason is a constraint rather than a preference. It implements `bevy_ggrs::Strategy`. Pulling `bevy_ggrs` into `ambition_platformer2d_core` would put the patched fork underneath every domain crate — and the floor's entire value is that a domain can reach it, which is true because it is small (zero workspace deps, `bevy_ecs` + `bevy_math` rather than the `bevy` umbrella)."
       },
       {
         "thing": "`RollbackRefused::NoAuthoritativeState`",
@@ -79,7 +79,7 @@
     "ambition_closure": 41,
     "unwanted_by_a_movement_only_game": 19,
     "change_from_slice_F": 0,
-    "note": "Unchanged, as expected: slice F moved code between crates and added a facade module, neither of which alters what depending on `ambition` links. The floor gained one inbound edge (`ambition_time` → `ambition_engine_core`) and that crate was already in the closure.",
+    "note": "Unchanged, as expected: slice F moved code between crates and added a facade module, neither of which alters what depending on `ambition_platformer2d` links. The floor gained one inbound edge (`ambition_time` → `ambition_platformer2d_core`) and that crate was already in the closure.",
     "⚠": "This counter has not moved across the whole campaign, and it is the one §4 decomposition trigger that never fired. Recorded plainly rather than framed as stable: 19 crates a movement-only game never asked for is a real cost, it is measured, and no consumer has yet been unable to do something because of it."
   },
   "§4_terminal_conditions": {
@@ -109,7 +109,7 @@
     "⚠": "§4 holding is not the same fact as the API being finished, and the campaign's own instruction is that a slice looking done means the next one needs deriving. What §4 says is that the three things the campaign chose to measure are satisfied — it does not say the measurements were sufficient.",
     "known_gaps_that_a_slice_G_would_rank": [
       {
-        "gap": "no blind run has seen `ambition::rollback`",
+        "gap": "no blind run has seen `ambition_platformer2d::rollback`",
         "cost": "The newest public surface is the one most likely to send an author into `crates/`, and it is the only surface never put to the test §4.2 exists for. Cheapest of the three and the most likely to find something.",
         "route": "§3b: closeable + owned → the strongest slice-G candidate."
       },

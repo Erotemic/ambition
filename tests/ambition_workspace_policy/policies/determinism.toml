@@ -39,10 +39,10 @@ why = "OS entropy"
 
 # ── engine sim roots ──────────────────────────────────────────────────────────
 [[root]]
-path = "crates/ambition_engine_core"
+path = "crates/ambition_platformer2d_core"
 scope = "engine"
 [[root]]
-path = "crates/ambition_platformer_primitives"
+path = "crates/ambition_platformer2d_shared_tangle"
 scope = "engine"
 [[root]]
 path = "crates/ambition_time"
@@ -51,7 +51,7 @@ scope = "engine"
 path = "crates/ambition_entity_catalog"
 scope = "engine"
 [[root]]
-path = "crates/ambition_world"
+path = "crates/ambition_platformer2d_world"
 scope = "engine"
 [[root]]
 path = "crates/ambition_characters"
@@ -63,7 +63,7 @@ scope = "engine"
 path = "crates/ambition_projectiles"
 scope = "engine"
 [[root]]
-path = "crates/ambition_portal"
+path = "crates/ambition_portal2d"
 scope = "engine"
 [[root]]
 path = "crates/ambition_encounter"
@@ -81,10 +81,10 @@ scope = "engine"
 path = "crates/ambition_sim_view"
 scope = "engine"
 [[root]]
-path = "crates/ambition_actors"
+path = "crates/ambition_platformer2d_actor_monolith"
 scope = "engine"
 [[root]]
-path = "crates/ambition_runtime"
+path = "crates/ambition_platformer2d_runtime"
 scope = "engine"
 
 # ── game sim roots (content + demo rules that drive BodyKinematics) ────────────

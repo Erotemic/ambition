@@ -890,7 +890,7 @@ asserted the state a body is in, and the defects were about what a body DOES.**
 - ✔ **L6 nothing gates a character against the geometry it will be played in.**
   L1 and L2 are the same shape: a motion model and a level, each correct alone,
   broken together, and discovered by a human running the binary.
-  → `probe_containment` + `walled_box` in `ambition_engine_core`, and
+  → `probe_containment` + `walled_box` in `ambition_platformer2d_core`, and
   `no_registered_character_can_leave_a_plain_walled_room` in the app. **149
   characters × 2 directions in 0.6s.** Split on purpose: the engine owns the
   probe (a game embedding it runs the probe over its OWN cast — the interesting
@@ -1643,10 +1643,10 @@ cross-check added in the same commit printed their names on every run.
   follows the demos doctrine and runs their game saw untextured boxes. **The most
   visible way "an engine another game can be built on" can fail, and it failed for
   want of a function.**
-  → `ambition::game_assets::PlatformerAssetsPlugin`. It lives in the UMBRELLA
+  → `ambition_platformer2d::game_assets::PlatformerAssetsPlugin`. It lives in the UMBRELLA
   because it spans two layers that may not depend on each other: the catalog
-  builders are `ambition_actors`, the `Startup` anchor is `ambition_render`, and
-  `ambition_host` — the obvious home — is forbidden from naming `ambition_actors`
+  builders are `ambition_platformer2d_actor_monolith`, the `Startup` anchor is `ambition_render`, and
+  `ambition_platformer2d_host` — the obvious home — is forbidden from naming `ambition_platformer2d_actor_monolith`
   by its own docs and an enforcing test.
   → missing catalogs PANIC rather than defaulting to empty. The workspace policy
   `engine.character-authority-is-app-local` says so, and caught an
@@ -1721,7 +1721,7 @@ checked from the outside. A repo grep for "can the engine do X" answered yes in
 every case.
 
 ◐ **R4 the honest remainder of Milestone E:** — **the narrow candidate below is
-BUILT (2026-07-28).** `ambition::provider::ShellComposition` takes the three ids
+BUILT (2026-07-28).** `ambition_platformer2d::provider::ShellComposition` takes the three ids
 and the experience plugin and performs the seven steps; the fixture and both
 standalone demo shells are its callers, which is the point — an SDK seam with no
 production consumer is the pattern this queue's own T-section is about. What a
@@ -1915,7 +1915,7 @@ findings are that sentence in different clothes.
   `ambition_sprite_sheet::character::sheets::try_load_spec_for_target`, whose
   `record_index()` is a `OnceLock` built from `BAKED_SHEET_RONS` — a table
   emitted by `crates/ambition_sprite_sheet/build.rs`, which scans the ENGINE's
-  own `crates/ambition_actors/assets/sprites`. Frame rects, rows, body metrics
+  own `crates/ambition_platformer2d_actor_monolith/assets/sprites`. Frame rects, rows, body metrics
   and feet anchors all come from there.
 
   So a consumer can now ADDRESS its own PNG (T2) and still cannot describe it.
@@ -1990,7 +1990,7 @@ findings are that sentence in different clothes.
   would make `ambition_combat` name sprite metadata, the one thing its module
   doc says it must not.
   → the resolver holds an `Arc<dyn Fn>` now. The COMPOSITION ROOT
-  (`ambition_runtime::combat_schedule`, which links both crates and may name
+  (`ambition_platformer2d_runtime::combat_schedule`, which links both crates and may name
   both) builds a closure CAPTURING the sheets, and combat calls something it
   cannot see inside. `file_root_registry()` — the second baked index, the one
   holding the attack polygons — is consulted authored-first like every other
@@ -2011,7 +2011,7 @@ findings are that sentence in different clothes.
   ~80 lines of `std` writing a genuine PNG (signature, IHDR, an IDAT holding a
   zlib stream of STORED deflate blocks, IEND, each with its CRC) into the
   crate's own asset tree, gitignored. No new dependency, because the fixture's
-  `ambition` + `bevy` rule IS the evidence it exists to produce and spending it
+  `ambition_platformer2d` + `bevy` rule IS the evidence it exists to produce and spending it
   on an encoder for a rectangle would be a poor trade.
   ✔ verified from outside the encoder: `file` reports "PNG image data, 32 x 48,
   8-bit/color RGBA", Python's `zlib` inflates the stored blocks independently,
@@ -2138,11 +2138,11 @@ with no name and no instrument.
   intermediary at all. `DEPENDENCY_CONTRACTS` reads `cargo metadata` instead, and
   reads it **transitively** — the claim is that a foundation cannot REACH
   gameplay, and a layering inversion almost never arrives as a direct line.
-  Four edges, all green: `ambition_engine_core` depends on NOTHING in the
-  workspace (it is the floor); `ambition_platformer_primitives` reaches no
-  gameplay crate; `ambition_characters` cannot reach `ambition_actors` (the
+  Four edges, all green: `ambition_platformer2d_core` depends on NOTHING in the
+  workspace (it is the floor); `ambition_platformer2d_shared_tangle` reaches no
+  gameplay crate; `ambition_characters` cannot reach `ambition_platformer2d_actor_monolith` (the
   reverse edge exists, so this one is a cycle waiting to be found by the
-  compiler at the worst moment); no engine crate consumes the `ambition` umbrella.
+  compiler at the worst moment); no engine crate consumes the `ambition_platformer2d` umbrella.
   ⚠ **`ambition_content` DOES depend on the facade, deliberately not guarded.**
   Whether that should stop is a MEASUREMENT question the campaign defers, and
   writing a rule ahead of the measurement is how a guard gets waived.

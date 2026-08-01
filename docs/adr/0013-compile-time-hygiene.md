@@ -94,8 +94,8 @@ is not part of the current feature graph.
 ### Workspace structure
 
 The earlier monolith has since been split into focused crates. Reusable engine
-semantics live in `crates/ambition_engine_core/`; content-free gameplay systems
-and runtime state live in `crates/ambition_actors/`; presentation lives
+semantics live in `crates/ambition_platformer2d_core/`; content-free gameplay systems
+and runtime state live in `crates/ambition_platformer2d_actor_monolith/`; presentation lives
 in `crates/ambition_render/`; named authored content lives in
 `game/ambition_content/`; and runnable binaries/app assembly live in
 `game/ambition_app/`. Keep new dependencies at the lowest layer that actually
@@ -128,7 +128,7 @@ machines. It is significantly faster than `cargo test` and integrates
 cleanly with CI.
 
 ```bash
-cargo nextest run -p ambition_actors
+cargo nextest run -p ambition_platformer2d_actor_monolith
 ```
 
 ### Periodic audits

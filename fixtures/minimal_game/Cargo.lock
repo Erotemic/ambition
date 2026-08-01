@@ -107,86 +107,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition"
-version = "0.1.0"
-dependencies = [
- "ambition_actors",
- "ambition_asset_manager",
- "ambition_audio",
- "ambition_characters",
- "ambition_combat",
- "ambition_dev_tools",
- "ambition_engine_core",
- "ambition_entity_catalog",
- "ambition_game_shell",
- "ambition_host",
- "ambition_input",
- "ambition_interaction",
- "ambition_load",
- "ambition_load_presentation",
- "ambition_platformer_primitives",
- "ambition_platformer_provider",
- "ambition_render",
- "ambition_runtime",
- "ambition_sim_view",
- "ambition_sprite_sheet",
- "ambition_time",
- "ambition_world",
- "bevy",
-]
-
-[[package]]
-name = "ambition_actors"
-version = "0.2.0"
-dependencies = [
- "ambition_asset_manager",
- "ambition_audio",
- "ambition_characters",
- "ambition_combat",
- "ambition_cutscene",
- "ambition_dev_tools",
- "ambition_dialog",
- "ambition_encounter",
- "ambition_engine_core",
- "ambition_entity_catalog",
- "ambition_gameplay_trace",
- "ambition_input",
- "ambition_interaction",
- "ambition_items",
- "ambition_ldtk_map",
- "ambition_menu",
- "ambition_persistence",
- "ambition_platformer_primitives",
- "ambition_portal",
- "ambition_projectiles",
- "ambition_settings_menu",
- "ambition_sfx",
- "ambition_sprite_sheet",
- "ambition_time",
- "ambition_ui_nav",
- "ambition_vfx",
- "ambition_world",
- "avian2d",
- "bevy",
- "bevy_asset_loader",
- "bevy_common_assets",
- "bevy_ecs",
- "bevy_ecs_ldtk",
- "bevy_framepace",
- "bevy_kira_audio",
- "bevy_material_ui",
- "bevy_math",
- "bevy_yarnspinner",
- "leafwing-input-manager",
- "parry2d 0.26.1",
- "petgraph",
- "ron 0.11.0",
- "serde",
- "serde_json",
- "yarnspinner",
-]
-
-[[package]]
 name = "ambition_asset_manager"
 version = "0.1.0"
 dependencies = [
@@ -211,8 +131,8 @@ dependencies = [
 name = "ambition_characters"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_entity_catalog",
+ "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -223,10 +143,10 @@ name = "ambition_combat"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
- "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_interaction",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "ambition_sfx",
  "ambition_time",
  "ambition_vfx",
@@ -247,9 +167,9 @@ name = "ambition_dev_tools"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
- "ambition_engine_core",
  "ambition_persistence",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -259,9 +179,9 @@ dependencies = [
 name = "ambition_dialog"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_input",
  "ambition_persistence",
+ "ambition_platformer2d_core",
  "ambition_sfx",
  "ambition_ui_nav",
  "bevy",
@@ -272,22 +192,12 @@ dependencies = [
 name = "ambition_encounter"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_interaction",
  "ambition_persistence",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "bevy",
  "ron 0.11.0",
- "serde",
-]
-
-[[package]]
-name = "ambition_engine_core"
-version = "0.1.0"
-dependencies = [
- "bevy_ecs",
- "bevy_math",
- "parry2d 0.26.1",
  "serde",
 ]
 
@@ -308,7 +218,7 @@ dependencies = [
  "ambition_load",
  "ambition_menu",
  "ambition_persistence",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_shared_tangle",
  "ambition_settings_menu",
  "ambition_sfx",
  "bevy",
@@ -319,33 +229,19 @@ dependencies = [
 name = "ambition_gameplay_trace"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_input",
+ "ambition_platformer2d_core",
  "bevy",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "ambition_host"
-version = "0.1.0"
-dependencies = [
- "ambition_engine_core",
- "ambition_input",
- "ambition_platformer_primitives",
- "ambition_render",
- "ambition_runtime",
- "ambition_sim_view",
- "ambition_sprite_sheet",
- "bevy",
-]
-
-[[package]]
 name = "ambition_input"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_entity_catalog",
+ "ambition_platformer2d_core",
  "bevy",
  "bevy_window",
  "leafwing-input-manager",
@@ -357,8 +253,8 @@ name = "ambition_interaction"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
- "ambition_engine_core",
  "ambition_entity_catalog",
+ "ambition_platformer2d_core",
  "serde",
 ]
 
@@ -371,23 +267,6 @@ dependencies = [
  "bevy",
  "ron 0.11.0",
  "serde",
-]
-
-[[package]]
-name = "ambition_ldtk_map"
-version = "0.1.0"
-dependencies = [
- "ambition_asset_manager",
- "ambition_engine_core",
- "ambition_entity_catalog",
- "ambition_platformer_primitives",
- "ambition_world",
- "bevy",
- "bevy_asset_loader",
- "bevy_ecs_ldtk",
- "ron 0.11.0",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -404,7 +283,7 @@ dependencies = [
  "ambition_game_shell",
  "ambition_input",
  "ambition_load",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_shared_tangle",
  "bevy",
 ]
 
@@ -419,48 +298,213 @@ dependencies = [
 name = "ambition_persistence"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_input",
+ "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
  "serde",
 ]
 
 [[package]]
-name = "ambition_platformer_primitives"
+name = "ambition_platformer2d"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
+ "ambition_asset_manager",
+ "ambition_audio",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_dev_tools",
+ "ambition_entity_catalog",
+ "ambition_game_shell",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_load",
+ "ambition_load_presentation",
+ "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_host",
+ "ambition_platformer2d_provider",
+ "ambition_platformer2d_runtime",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_render",
+ "ambition_sim_view",
+ "ambition_sprite_sheet",
+ "ambition_time",
  "bevy",
- "tracing",
 ]
 
 [[package]]
-name = "ambition_platformer_provider"
+name = "ambition_platformer2d_actor_monolith"
+version = "0.2.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_audio",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_cutscene",
+ "ambition_dev_tools",
+ "ambition_dialog",
+ "ambition_encounter",
+ "ambition_entity_catalog",
+ "ambition_gameplay_trace",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_items",
+ "ambition_menu",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_ldtk",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_portal2d",
+ "ambition_projectiles",
+ "ambition_settings_menu",
+ "ambition_sfx",
+ "ambition_sprite_sheet",
+ "ambition_time",
+ "ambition_ui_nav",
+ "ambition_vfx",
+ "avian2d",
+ "bevy",
+ "bevy_asset_loader",
+ "bevy_common_assets",
+ "bevy_ecs",
+ "bevy_ecs_ldtk",
+ "bevy_framepace",
+ "bevy_kira_audio",
+ "bevy_material_ui",
+ "bevy_math",
+ "bevy_yarnspinner",
+ "leafwing-input-manager",
+ "parry2d 0.26.1",
+ "petgraph",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
+ "yarnspinner",
+]
+
+[[package]]
+name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
- "ambition_actors",
+ "bevy_ecs",
+ "bevy_math",
+ "parry2d 0.26.1",
+ "serde",
+]
+
+[[package]]
+name = "ambition_platformer2d_host"
+version = "0.1.0"
+dependencies = [
+ "ambition_input",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_runtime",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_render",
+ "ambition_sim_view",
+ "ambition_sprite_sheet",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_platformer2d_ldtk"
+version = "0.1.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_entity_catalog",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "bevy",
+ "bevy_asset_loader",
+ "bevy_ecs_ldtk",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ambition_platformer2d_provider"
+version = "0.1.0"
+dependencies = [
  "ambition_audio",
  "ambition_characters",
  "ambition_dev_tools",
- "ambition_engine_core",
  "ambition_game_shell",
  "ambition_load",
  "ambition_load_presentation",
- "ambition_platformer_primitives",
- "ambition_runtime",
+ "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_runtime",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_sprite_sheet",
- "ambition_world",
  "bevy",
  "ron 0.11.0",
 ]
 
 [[package]]
-name = "ambition_portal"
+name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_dev_tools",
+ "ambition_dialog",
+ "ambition_encounter",
+ "ambition_input",
+ "ambition_items",
+ "ambition_load",
+ "ambition_menu",
+ "ambition_persistence",
+ "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_portal2d",
+ "ambition_projectiles",
+ "ambition_sfx",
+ "ambition_sim_view",
+ "ambition_time",
+ "ambition_vfx",
+ "bevy",
+ "bevy_common_assets",
+ "bevy_ggrs",
+ "blake3",
+]
+
+[[package]]
+name = "ambition_platformer2d_shared_tangle"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d_core",
+ "bevy",
+ "tracing",
+]
+
+[[package]]
+name = "ambition_platformer2d_world"
+version = "0.1.0"
+dependencies = [
+ "ambition_entity_catalog",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "bevy_app",
+ "bevy_ecs",
+ "petgraph",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
+name = "ambition_portal2d"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "bevy",
  "serde",
 ]
@@ -469,14 +513,14 @@ dependencies = [
 name = "ambition_projectiles"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
  "ambition_gameplay_trace",
  "ambition_input",
- "ambition_platformer_primitives",
- "ambition_portal",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_portal2d",
  "ambition_sfx",
  "ambition_vfx",
- "ambition_world",
  "bevy",
  "serde",
 ]
@@ -489,10 +533,11 @@ dependencies = [
  "ambition_characters",
  "ambition_cutscene",
  "ambition_dev_tools",
- "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_persistence",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_projectiles",
  "ambition_sfx",
  "ambition_sim_view",
@@ -500,38 +545,7 @@ dependencies = [
  "ambition_time",
  "ambition_ui_nav",
  "ambition_vfx",
- "ambition_world",
  "bevy",
-]
-
-[[package]]
-name = "ambition_runtime"
-version = "0.1.0"
-dependencies = [
- "ambition_actors",
- "ambition_characters",
- "ambition_combat",
- "ambition_dev_tools",
- "ambition_dialog",
- "ambition_encounter",
- "ambition_engine_core",
- "ambition_input",
- "ambition_items",
- "ambition_load",
- "ambition_menu",
- "ambition_persistence",
- "ambition_platformer_primitives",
- "ambition_portal",
- "ambition_projectiles",
- "ambition_sfx",
- "ambition_sim_view",
- "ambition_time",
- "ambition_vfx",
- "ambition_world",
- "bevy",
- "bevy_common_assets",
- "bevy_ggrs",
- "blake3",
 ]
 
 [[package]]
@@ -563,22 +577,22 @@ dependencies = [
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
- "ambition_actors",
  "ambition_characters",
  "ambition_combat",
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
- "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_input",
  "ambition_interaction",
  "ambition_persistence",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_projectiles",
  "ambition_sprite_sheet",
  "ambition_time",
- "ambition_world",
  "bevy",
  "bevy_math",
  "leafwing-input-manager",
@@ -589,12 +603,12 @@ name = "ambition_sprite_sheet"
 version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
- "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_persistence",
- "ambition_platformer_primitives",
- "ambition_world",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -606,7 +620,7 @@ dependencies = [
 name = "ambition_time"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
+ "ambition_platformer2d_core",
  "bevy",
 ]
 
@@ -622,24 +636,10 @@ dependencies = [
 name = "ambition_vfx"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "ambition_sfx",
  "bevy",
-]
-
-[[package]]
-name = "ambition_world"
-version = "0.1.0"
-dependencies = [
- "ambition_engine_core",
- "ambition_entity_catalog",
- "ambition_platformer_primitives",
- "bevy_app",
- "bevy_ecs",
- "petgraph",
- "ron 0.11.0",
- "serde",
 ]
 
 [[package]]
@@ -4289,7 +4289,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal_game"
 version = "0.1.0"
 dependencies = [
- "ambition",
+ "ambition_platformer2d",
 ]
 
 [[package]]

@@ -15,10 +15,10 @@
 //! raw `ControlFrame` is no longer consulted inside the player
 //! simulation phases.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 use super::PlayerSlot;
-use ambition_engine_core::ControlFrame;
+use ambition_platformer2d_core::ControlFrame;
 
 use super::snapshot::BrainSnapshot;
 
@@ -69,7 +69,7 @@ pub fn tick_player_brain_from_control(
     let frame = ae::AccelerationFrame::new(snapshot.control_down);
     let resolved = frame.resolve_control(
         snapshot.movement_frame_mode,
-        ambition_engine_core::ScreenAxes::new(c.axis_x, c.axis_y),
+        ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
     );
     let local_axis = resolved.local_axes.vec();
     let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
@@ -77,7 +77,7 @@ pub fn tick_player_brain_from_control(
         frame
             .resolve_input(
                 snapshot.aim_frame_mode,
-                ambition_engine_core::ScreenAxes::new(c.aim_x, c.aim_y),
+                ambition_platformer2d_core::ScreenAxes::new(c.aim_x, c.aim_y),
             )
             .vec()
             .normalize_or_zero()
@@ -188,7 +188,7 @@ pub fn tick_player_brain_from_control(
         frame
             .resolve_input(
                 snapshot.aim_frame_mode,
-                ambition_engine_core::ScreenAxes::new(c.axis_x, c.axis_y),
+                ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
             )
             .vec(),
     );

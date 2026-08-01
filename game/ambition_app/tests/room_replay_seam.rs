@@ -5,7 +5,7 @@
 //! `apply_room_replay_request_system` used to be registered right here, by
 //! `ambition_app`. It now rides `PlatformerEnginePlugins`, because content in
 //! EVERY host emits `RoomReplayRequested` and the standalone demo binaries —
-//! which depend on `ambition` but never on `ambition_app` — were draining it
+//! which depend on `ambition_platformer2d` but never on `ambition_app` — were draining it
 //! with nothing.
 //!
 //! Two things have to hold on this side of that move. Ambition must not have
@@ -15,9 +15,9 @@
 
 use crate::common::{base, fixed_60hz_sim};
 
-use ambition::combat::ResetRoomFeaturesEvent;
-use ambition::engine_core as ae;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::combat::ResetRoomFeaturesEvent;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_app::SandboxSim;
 use bevy::prelude::*;
 
@@ -35,7 +35,7 @@ fn player_pos(sim: &mut SandboxSim) -> Vec2 {
 fn room_spawn(sim: &mut SandboxSim) -> Vec2 {
     let mut q = sim
         .world_mut()
-        .query_filtered::<&ae::RoomGeometry, With<ambition::platformer::lifecycle::SessionRoot>>();
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
     let world = sim.world();
     q.iter(world)
         .next()
@@ -47,7 +47,7 @@ fn room_spawn(sim: &mut SandboxSim) -> Vec2 {
 fn displace(sim: &mut SandboxSim, to: Vec2) {
     let mut q = sim.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition::actors::features::MotionModel,
+        &mut ambition_platformer2d::actors::features::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = sim.world_mut();
     let (mut cluster_item, mut motion_model) = q
@@ -80,7 +80,7 @@ fn a_replay_request_returns_the_hosted_body_to_spawn() {
     );
 
     sim.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     sim.step(base());
 
     let home = player_pos(&mut sim);
@@ -125,7 +125,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
     );
 
     sim.world_mut()
-        .write_message(ambition::actors::session::reset::RoomReplayRequested);
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
     sim.step(base());
 
     assert_eq!(

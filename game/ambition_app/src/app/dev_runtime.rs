@@ -3,18 +3,18 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use ambition::actors::ldtk_world;
-use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
-use ambition::actors::rooms;
-use ambition::actors::world::physics;
-use ambition::dev_tools::dev_tools::DeveloperTools;
-use ambition::dev_tools::SandboxDevState;
-use ambition::engine_core as ae;
-use ambition::engine_core::RoomGeometry;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::actors::world::physics;
+use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
+use ambition_platformer2d::dev_tools::SandboxDevState;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
-use ambition::input::{KeyboardPreset, SandboxAction};
-use ambition::platformer::developer_hotkeys::DeveloperAction;
-use ambition::render::rendering::spawn_room_visuals;
+use ambition_platformer2d::input::{KeyboardPreset, SandboxAction};
+use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+use ambition_platformer2d::render::rendering::spawn_room_visuals;
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -55,14 +55,14 @@ pub(super) fn handle_debug_hotkeys(
 /// owns leafwing components.
 #[cfg(feature = "input")]
 pub(super) fn sync_preset_input_map(
-    settings: Res<ambition::persistence::settings::UserSettings>,
+    settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     mut last_preset: Local<Option<usize>>,
     mut player_input: Query<
         (
             &mut ActionState<SandboxAction>,
             &mut InputMap<SandboxAction>,
         ),
-        With<ambition::input::InputParticipant>,
+        With<ambition_platformer2d::input::InputParticipant>,
     >,
 ) {
     let current = settings.controls.keyboard_preset_index;
@@ -77,13 +77,13 @@ pub(super) fn sync_preset_input_map(
 }
 
 fn local_ggrs_restart_policy(
-    ownership: Option<ambition::runtime::rollback::RollbackSessionOwnership>,
-) -> Result<Option<ambition::runtime::rollback::SyncTestSettings>, &'static str> {
+    ownership: Option<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>,
+) -> Result<Option<ambition_platformer2d::runtime::rollback::SyncTestSettings>, &'static str> {
     match ownership {
-        Some(ambition::runtime::rollback::RollbackSessionOwnership::External) => Err(
+        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::External) => Err(
             "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
         ),
-        Some(ambition::runtime::rollback::RollbackSessionOwnership::LocalSyncTest(settings)) => {
+        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::LocalSyncTest(settings)) => {
             // THE SAME SESSION, RESTARTED — so it inherits from the session it
             // replaces, and only the deliberate override is spelled out.
             //
@@ -99,7 +99,7 @@ fn local_ggrs_restart_policy(
             // `..settings` inverts it: preservation is the default and dropping
             // something is the thing you have to type. `check_distance: 0` is
             // that thing — a rebase is not a proof pulse.
-            Ok(Some(ambition::runtime::rollback::SyncTestSettings {
+            Ok(Some(ambition_platformer2d::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
                 ..settings
             }))
@@ -109,57 +109,57 @@ fn local_ggrs_restart_policy(
 }
 
 pub(super) fn handle_ldtk_hot_reload(
-    mut commands: ambition::platformer::lifecycle::SessionCommands<'_, '_>,
+    mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
-    mut world: ambition::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
-    mut room_set: ambition::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
+    mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
+    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
-    mut sim_state: ResMut<ambition::actors::SandboxSimState>,
-    mut dialogue: ResMut<ambition::dialog::DialogState>,
-    mut ldtk_index: ambition::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
+    mut sim_state: ResMut<ambition_platformer2d::actors::SandboxSimState>,
+    mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
+    mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
-        Res<ambition::engine_core::ActiveMovementTuning>,
+        Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
         Res<physics::PhysicsSandboxSettings>,
     ),
-    mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     visual_assets: (
-        Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
-        Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+        Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+        Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
     ),
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
-            &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::avatar::PlayerSafetyState,
+            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+            &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
-        ambition::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     catalogs: (
-        Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
-        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition::actors::character_sprites::AuthoredSheets>,
-        Res<ambition::actors::features::CharacterRoster>,
-        Res<ambition::actors::boss_encounter::BossCatalog>,
-        Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
-        Res<ambition::actors::features::RoomContentStagingRegistry>,
-        Res<ambition::actors::construction::ActorConstructionRegistry>,
+        Res<ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+        Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+        Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+        Res<ambition_platformer2d::actors::features::CharacterRoster>,
+        Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+        Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
+        Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
+        Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Res<ldtk_world::WorldManifest>,
     ),
     mut content_identity: (
-        ambition::platformer::lifecycle::SessionWorldMut<ambition::runtime::PreparedContent>,
-        ambition::platformer::lifecycle::SessionWorldMut<
-            ambition::runtime::PreparedContentIdentity,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ambition_platformer2d::runtime::PreparedContent>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_platformer2d::runtime::PreparedContentIdentity,
         >,
-        ResMut<ambition::runtime::ContentEpochSequence>,
-        Option<Res<ambition::runtime::rollback::RollbackRegistry>>,
-        Option<Res<ambition::runtime::rollback::RollbackSessionOwnership>>,
+        ResMut<ambition_platformer2d::runtime::ContentEpochSequence>,
+        Option<Res<ambition_platformer2d::runtime::rollback::RollbackRegistry>>,
+        Option<Res<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>>,
     ),
 ) {
     let mut requested = false;
@@ -211,7 +211,7 @@ pub(super) fn handle_ldtk_hot_reload(
     };
 
     if let Some(settings) = restart_local_ggrs {
-        ambition::runtime::rollback::stop_session_deferred(&mut commands);
+        ambition_platformer2d::runtime::rollback::stop_session_deferred(&mut commands);
         commands.insert_resource(RestartLocalGgrsAfterLdtkReload { settings });
     }
     if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
@@ -280,7 +280,7 @@ pub(super) fn handle_ldtk_hot_reload(
 
 #[derive(Resource, Clone, Copy, Debug)]
 struct RestartLocalGgrsAfterLdtkReload {
-    settings: ambition::runtime::rollback::SyncTestSettings,
+    settings: ambition_platformer2d::runtime::rollback::SyncTestSettings,
 }
 
 /// Rebind the cheap local baseline after the Update-stage content transaction
@@ -292,10 +292,10 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
 
     #[cfg(feature = "dev_tools")]
     crate::dev::rollback_observatory::reset_for_content_reload(world);
-    if ambition::runtime::rollback::session_is_active(world) {
-        ambition::runtime::rollback::stop_session(world);
+    if ambition_platformer2d::runtime::rollback::session_is_active(world) {
+        ambition_platformer2d::runtime::rollback::stop_session(world);
     }
-    match ambition::runtime::rollback::start_sync_test_session(world, restart.settings) {
+    match ambition_platformer2d::runtime::rollback::start_sync_test_session(world, restart.settings) {
         Ok(()) => {
             #[cfg(feature = "dev_tools")]
             crate::dev::rollback_observatory::mark_baseline_restarted(world);
@@ -321,7 +321,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog,
     manifest: &ldtk_world::WorldManifest,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
@@ -353,7 +353,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
         if warning.contains("references missing") {
             hard_errors.push(format!("LDtk reload graph error: {warning}"));
         } else {
-            bevy::log::debug!(target: "ambition::room_layout", "LDtk reload: {warning}");
+            bevy::log::debug!(target: "ambition_platformer2d::room_layout", "LDtk reload: {warning}");
         }
     }
     if !hard_errors.is_empty() {
@@ -376,32 +376,32 @@ pub(super) fn reload_ldtk_world_from_disk(
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
-    sim_state: &mut ambition::actors::SandboxSimState,
-    safety: &mut ambition::actors::avatar::PlayerSafetyState,
-    dialogue: &mut ambition::dialog::DialogState,
-    combat: &mut ambition::characters::actor::BodyCombat,
+    sim_state: &mut ambition_platformer2d::actors::SandboxSimState,
+    safety: &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
+    dialogue: &mut ambition_platformer2d::dialog::DialogState,
+    combat: &mut ambition_platformer2d::characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition::actors::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<ambition_platformer2d::actors::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    assets: Option<&ambition::sprite_sheet::game_assets::GameAssets>,
-    quality: Option<&ambition::render::quality::ResolvedVisualQuality>,
+    assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
+    quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
-    catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
-    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
-    authored_sheets: &ambition::actors::character_sprites::AuthoredSheets,
-    character_roster: &ambition::actors::features::CharacterRoster,
-    boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
-    placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
-    content_staging: &ambition::actors::features::RoomContentStagingRegistry,
-    construction_recipes: &ambition::actors::construction::ActorConstructionRegistry,
+    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_platformer2d::actors::character_sprites::AuthoredSheets,
+    character_roster: &ambition_platformer2d::actors::features::CharacterRoster,
+    boss_catalog: &ambition_platformer2d::actors::boss_encounter::BossCatalog,
+    placement_lowering: &ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,
+    content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
+    construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
     world_manifest: &ldtk_world::WorldManifest,
-    prepared_content: &mut ambition::runtime::PreparedContent,
-    prepared_identity: &mut ambition::runtime::PreparedContentIdentity,
-    epochs: &mut ambition::runtime::ContentEpochSequence,
-    snapshot_schema: ambition::runtime::SnapshotSchemaFingerprint,
-    session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
+    prepared_identity: &mut ambition_platformer2d::runtime::PreparedContentIdentity,
+    epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
+    snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
+    session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;
@@ -422,7 +422,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
         candidate_index.clone(),
     );
-    let candidate_content = ambition::provider::prepare_world_replacement_candidate(
+    let candidate_content = ambition_platformer2d::provider::prepare_world_replacement_candidate(
         prepared_content,
         candidate_source,
         snapshot_schema,
@@ -439,7 +439,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         character_roster,
         boss_catalog,
         session_scope,
-        ambition::actors::features::ActorConstructionContext::new(
+        ambition_platformer2d::actors::features::ActorConstructionContext::new(
             construction_recipes,
             // The generation currently live. A materially changed definition
             // allocates a new one below, AFTER every preflight has succeeded —
@@ -476,7 +476,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // after `commit_deferred`, so this transaction still verifies against the
     // binding it was prepared under (the epoch that existed at preflight);
     // every LATER transaction must state the new one or be refused as stale.
-    commands.insert_resource(ambition::actors::rooms::ActiveContentBinding::content(
+    commands.insert_resource(ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
         committed_content.epoch(),
     ));
 
@@ -507,7 +507,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     *prepared_identity = committed_content.identity();
     *prepared_content = committed_content;
 
-    ambition::render::rendering::spawn_parallax_layers(
+    ambition_platformer2d::render::rendering::spawn_parallax_layers(
         commands,
         session_scope,
         &world.0,
@@ -528,14 +528,14 @@ pub(super) fn reload_ldtk_world_from_disk(
 #[cfg(test)]
 mod hot_reload_session_tests {
     use super::*;
-    use ambition::runtime::rollback::{RollbackSessionOwnership, SyncTestSettings};
+    use ambition_platformer2d::runtime::rollback::{RollbackSessionOwnership, SyncTestSettings};
 
     #[test]
     fn f1_action_toggles_the_app_debug_overlay_both_directions() {
-        let bindings = ambition::platformer::developer_hotkeys::DeveloperHotkeyBindings::default();
+        let bindings = ambition_platformer2d::platformer::developer_hotkeys::DeveloperHotkeyBindings::default();
         assert_eq!(
             bindings.chord_for(DeveloperAction::ToggleDebugOverlay),
-            Some(ambition::platformer::developer_hotkeys::DeveloperKeyChord::key(KeyCode::F1,))
+            Some(ambition_platformer2d::platformer::developer_hotkeys::DeveloperKeyChord::key(KeyCode::F1,))
         );
 
         let mut app = App::new();

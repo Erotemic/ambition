@@ -13,7 +13,7 @@
 //!
 //! ## Why a PNG encoder lives in a fixture
 //!
-//! Because the fixture's dependency rule is `ambition` + `bevy` and nothing
+//! Because the fixture's dependency rule is `ambition_platformer2d` + `bevy` and nothing
 //! else — that rule is the evidence it exists to produce, and reaching for
 //! `image` to draw a rectangle would spend it. A build script may use `std`
 //! alone, and a PNG of one uncompressed block is about eighty lines: signature,

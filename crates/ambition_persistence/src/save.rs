@@ -105,7 +105,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
             // the next attempt might succeed, and it cannot if this session
             // replaced the file with a blank one.
             warn!(
-                target: "ambition::save",
+                target: "ambition_platformer2d::save",
                 "could not read save file {}: {error}; playing on a fresh sandbox \
                  and NOT writing over the existing file",
                 path.display()
@@ -122,7 +122,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
             },
             SaveCompatibility::Migrated { from } => {
                 info!(
-                    target: "ambition::save",
+                    target: "ambition_platformer2d::save",
                     "migrated save file {} from version {from} to {CURRENT_SAVE_VERSION}",
                     path.display(),
                 );
@@ -139,7 +139,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
                 // save they made in the newer one. Their progress is still on
                 // disk after this session; it just is not loaded.
                 warn!(
-                    target: "ambition::save",
+                    target: "ambition_platformer2d::save",
                     "save file {} is version {found}, newer than this build's \
                      {CURRENT_SAVE_VERSION}; playing on a fresh sandbox and \
                      leaving the file untouched",
@@ -150,7 +150,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
         },
         Err(error) => {
             warn!(
-                target: "ambition::save",
+                target: "ambition_platformer2d::save",
                 "could not parse save file {}: {error}; playing on a fresh sandbox \
                  and NOT writing over the existing file",
                 path.display()
@@ -248,7 +248,7 @@ pub fn load_save_at_startup(
     last.0 = if upgraded { None } else { Some(save.0.clone()) };
     if loaded.writable {
         info!(
-            target: "ambition::save",
+            target: "ambition_platformer2d::save",
             "loaded sandbox save from {}",
             path.display()
         );
@@ -257,7 +257,7 @@ pub fn load_save_at_startup(
         // explains WHY; this says what it costs the player for the rest of the
         // session, which is the part they need.
         warn!(
-            target: "ambition::save",
+            target: "ambition_platformer2d::save",
             "this session will not write to {} — progress made now is NOT being saved",
             path.display()
         );
@@ -311,7 +311,7 @@ pub fn autosave_sandbox_save(
     match write_save(&path, &save.0) {
         Ok(()) => last.0 = Some(save.0.clone()),
         Err(error) => warn!(
-            target: "ambition::save",
+            target: "ambition_platformer2d::save",
             "failed to write save file {}: {error}",
             path.display()
         ),
@@ -388,7 +388,7 @@ mod tests {
     }
 
     fn speculating(app: &mut App, current: i32, confirmed: i32) {
-        app.insert_resource(ambition_engine_core::ConfirmedFrameBoundary {
+        app.insert_resource(ambition_platformer2d_core::ConfirmedFrameBoundary {
             current,
             confirmed,
             session: 0,

@@ -1,6 +1,6 @@
 //! Debug view/art modes + player body / movement profile presets.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

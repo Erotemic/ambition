@@ -27,7 +27,7 @@
     "docs/sdk/api-reference.md",
     "docs/sdk/api-prototype.md",
     "repo root (listing) + du -sh target",
-    "crates/ambition (existence check via `ls -d`; no file inside was read)"
+    "crates/ambition_platformer2d (existence check via `ls -d`; no file inside was read)"
   ],
   "elapsed_context": {
     "subagent_tokens": 59252,

@@ -11,7 +11,7 @@
 //!
 //! This ran in `PreUpdate` behind `#![cfg(not(feature = "input"))]`, and that
 //! cfg reads THIS crate's `input` feature while the thing that erases a scripted
-//! write is `ambition/input` — the participant pipeline in the dependency, which
+//! write is `ambition_platformer2d/input` — the participant pipeline in the dependency, which
 //! workspace feature unification turns on regardless. The first test grew a
 //! runtime SKIP for it; the second never did, and failed in the gate the moment
 //! the earlier `two_rooms` failure stopped masking it.
@@ -23,9 +23,9 @@
 //! fixed-tick host. The SKIP is gone with the guard — a skipped proof is a
 //! silent pass, which is what let this rot.
 
-use ambition::engine_core as ae;
-use ambition::input::ControlFrame;
-use ambition::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_sanic::{SanicActPhase, SanicActState, GOAL_X};
 use ambition_demo_sanic_app::build_demo_app;
 use bevy::prelude::*;
@@ -66,8 +66,8 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     app.add_systems(
         Update,
         apply_scripted_stick
-            .after(ambition::input::InputSet::Route)
-            .before(ambition::engine_core::accumulate_control_frame_latch),
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
     );
     for _ in 0..8 {
         app.update();
@@ -181,8 +181,8 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     app.add_systems(
         Update,
         apply_scripted_stick
-            .after(ambition::input::InputSet::Route)
-            .before(ambition::engine_core::accumulate_control_frame_latch),
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
     );
     for _ in 0..8 {
         app.update();

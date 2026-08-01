@@ -48,7 +48,7 @@ resources must be non-optional in prod.)
 - **`cargo check -p <one_crate>` is not the gate** — `cargo check -p
   ambition_app` is; and the inverse trap is real too (a crate that only
   compiles when co-built siblings unify features in — declare what you use;
-  see `ambition_game_shell`'s and `ambition_platformer_primitives`' manifest
+  see `ambition_game_shell`'s and `ambition_platformer2d_shared_tangle`' manifest
   comments). AGENTS.md §Verification.
 - **App tests build into ONE `app_it` target** — `cargo test -p ambition_app
   --test app_it -- <module>`. AGENTS.md §Verification, ADR 0025.

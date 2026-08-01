@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, RoomScopedEntity, SessionSpawnScope,
 };
 
@@ -31,7 +31,7 @@ pub fn apply_player_spawn_projectile_messages(
     // boundary, and the boundary must not have to know that a projectile is one
     // of the things in flight (Campaign 3A). `None` outside a match, where the
     // round lifetime does not exist and a shot is session-scoped only.
-    active_round: Option<Res<ambition_platformer_primitives::lifecycle::ActiveRoundScope>>,
+    active_round: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope>>,
     // Stamped at materialization, like the enemy pool. A player shot first steps
     // NEXT frame, so the engine's inheritance pass would reach it in time — but
     // depending on that is depending on a schedule edge nobody declared, and the

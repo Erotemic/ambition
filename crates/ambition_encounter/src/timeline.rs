@@ -16,7 +16,7 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 use crate::participants::EncounterParticipants;
 

@@ -13,12 +13,12 @@ use super::*;
 /// behavior use the existing ECS actor path.
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_actors::character_sprites::AuthoredSheets>,
-    character_roster: Res<ambition_actors::features::CharacterRoster>,
-    mut released: MessageReader<ambition_actors::boss_encounter::PayloadReleased>,
+    authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
+    mut released: MessageReader<ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
@@ -75,8 +75,8 @@ fn victory_npc_size() -> ae::Vec2 {
 fn spawn_victory_npc_entity(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    authored_sheets: &ambition_actors::character_sprites::AuthoredSheets,
-    character_roster: &ambition_actors::features::CharacterRoster,
+    authored_sheets: &ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+    character_roster: &ambition_platformer2d_actor_monolith::features::CharacterRoster,
     pos: ae::Vec2,
 ) -> Entity {
     let size = victory_npc_size();
@@ -97,7 +97,7 @@ fn spawn_victory_npc_entity(
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
-    let (mut seed, _render) = ambition_actors::features::ActorClusterSeed::new_peaceful_npc_in(
+    let (mut seed, _render) = ambition_platformer2d_actor_monolith::features::ActorClusterSeed::new_peaceful_npc_in(
         authored_sheets,
         character_catalog,
         character_roster,
@@ -108,19 +108,19 @@ fn spawn_victory_npc_entity(
         &[],
     );
     seed.kin.facing = -1.0;
-    let combat_kit = ambition_actors::features::CombatKit::default();
+    let combat_kit = ambition_platformer2d_actor_monolith::features::CombatKit::default();
     let facing = seed.kin.facing;
     // Dialogue is a SHARED actor capability — carried on `ActorInteraction` so the
     // interact / proximity systems (which key off the component, not an NPC type
     // tag) still offer "Talk" on this runtime-spawned victory NPC.
-    let interaction = ambition_actors::features::ActorInteraction {
+    let interaction = ambition_platformer2d_actor_monolith::features::ActorInteraction {
         interactable: interactable.clone(),
-        talk_radius: ambition_actors::features::NPC_TALK_RADIUS,
+        talk_radius: ambition_platformer2d_actor_monolith::features::NPC_TALK_RADIUS,
     };
     let (identity, disposition, combat, intent, cooldowns) =
-        ambition_actors::features::actor_component_snapshot(
+        ambition_platformer2d_actor_monolith::features::actor_component_snapshot(
             &seed,
-            ambition_actors::features::ActorDisposition::Peaceful,
+            ambition_platformer2d_actor_monolith::features::ActorDisposition::Peaceful,
         );
     let cluster_bundle = seed.into_components();
     commands
@@ -136,12 +136,12 @@ fn spawn_victory_npc_entity(
                 ),
                 identity,
                 disposition,
-                faction: ambition_actors::features::ActorFaction::Npc,
-                target: ambition_actors::features::ActorTarget::default(),
+                faction: ambition_platformer2d_actor_monolith::features::ActorFaction::Npc,
+                target: ambition_platformer2d_actor_monolith::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
-                motion_model: ambition_actors::features::MotionModel::default(),
+                motion_model: ambition_platformer2d_actor_monolith::features::MotionModel::default(),
                 combat_kit,
-                aggression: ambition_actors::features::ActorAggression::passive(),
+                aggression: ambition_platformer2d_actor_monolith::features::ActorAggression::passive(),
                 combat,
                 intent,
                 cooldowns,

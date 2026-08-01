@@ -3,7 +3,7 @@
 //! the EXACT same movement integration the human player uses.
 //!
 //! This is the live, in-game counterpart to the headless proof in
-//! `ambition::actors::avatar::clone_probe_tests`. It demonstrates the
+//! `ambition_platformer2d::actors::avatar::clone_probe_tests`. It demonstrates the
 //! universal-brain seam: the clone runs / jumps / dashes / flies entirely from
 //! brain-emitted `ActorControlFrame` verbs.
 //!
@@ -18,15 +18,15 @@
 
 use bevy::prelude::*;
 
-use ambition::characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
-use ambition::engine_core as ae;
-use ambition::engine_core::RoomGeometry;
-use ambition::render::rendering::{PlayerSpriteBaseline, PlayerVisual};
-use ambition::sprite_sheet::character::{
+use ambition_platformer2d::characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::render::rendering::{PlayerSpriteBaseline, PlayerVisual};
+use ambition_platformer2d::sprite_sheet::character::{
     CharacterAnimator, build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size,
 };
-use ambition::sprite_sheet::game_assets::GameAssets;
+use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
 /// Marks a brain-driven player-body clone (NOT the human player).
 #[derive(Component)]
@@ -59,7 +59,7 @@ pub fn request_player_clone_on_key(
 pub fn spawn_requested_player_clone(
     mut commands: Commands,
     mut request: ResMut<SpawnPlayerCloneRequest>,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     // Optional: the headless RL harness has no loaded character sheets. Absent →
     // the clone falls back to a tinted rectangle (movement still works).
     game_assets: Option<Res<GameAssets>>,
@@ -70,10 +70,10 @@ pub fn spawn_requested_player_clone(
     // protagonist. `Option` because a bare test/demo body may wear nothing.
     player_q: Query<
         (
-            &ambition::actors::actor::BodyKinematics,
-            Option<&ambition::characters::actor::WornCharacter>,
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
         ),
-        ambition::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
 ) {
     if !request.0 {
@@ -88,10 +88,10 @@ pub fn spawn_requested_player_clone(
     let scratch = ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
-    let transform = Transform::from_translation(ambition::engine_core::config::world_to_bevy(
+    let transform = Transform::from_translation(ambition_platformer2d::engine_core::config::world_to_bevy(
         &world.0,
         spawn,
-        ambition::engine_core::config::WORLD_Z_PLAYER,
+        ambition_platformer2d::engine_core::config::WORLD_Z_PLAYER,
     ));
 
     // The clone carries the IDENTICAL movement component set as the player and
@@ -100,7 +100,7 @@ pub fn spawn_requested_player_clone(
     // player's `PlayerSimulationBundle` and `ActorClusterSeed::into_components`
     // nest — the convergence the ActorBody-unwrap bought.
     let kinematics = scratch.kinematics;
-    let movement = ambition::actors::actor::AncillaryMovementBundle::from_scratch(scratch);
+    let movement = ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(scratch);
     // The published combat footprint every body carries (§A6); kept live by
     // `integrate_home_body` like the primary's.
     let hurtbox = ae::CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
@@ -109,7 +109,7 @@ pub fn spawn_requested_player_clone(
         movement,
         hurtbox,
         Brain::StateMachine(StateMachineCfg::PlayerDemo {
-            cfg: ambition::characters::brain::state_machine::PlayerDemoCfg::default(),
+            cfg: ambition_platformer2d::characters::brain::state_machine::PlayerDemoCfg::default(),
             state: Default::default(),
         }),
         ActorControl::default(),
@@ -119,9 +119,9 @@ pub fn spawn_requested_player_clone(
         // through the IDENTICAL player picker — `animate_player` now iterates every
         // `PlayerVisual` body, not just the primary.
         (
-            ambition::actors::actor::BodyAnimFacts::default(),
-            ambition::characters::actor::BodyCombat::default(),
-            ambition::actors::avatar::PlayerBlinkCameraState::default(),
+            ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
+            ambition_platformer2d::characters::actor::BodyCombat::default(),
+            ambition_platformer2d::actors::avatar::PlayerBlinkCameraState::default(),
         ),
         // The clone IS a `PlayerEntity` (3c-ii): the iterating
         // `player_control_system` / `player_simulation_system` move it through the
@@ -132,17 +132,17 @@ pub fn spawn_requested_player_clone(
         // NOT a `PlayerSlot` (so the device-input `tick_player_brains` skips it — its
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
-        ambition::actors::actor::PlayerEntity,
+        ambition_platformer2d::actors::actor::PlayerEntity,
         // Every integrated body carries one explicit movement policy from
         // spawn, and every player body carries the movement→policy hand-off —
         // the unified integration phase requires both.
-        ambition::actors::features::MotionModel::default(),
-        ambition::actors::avatar::PlayerBodyFrameOutput::default(),
+        ambition_platformer2d::actors::features::MotionModel::default(),
+        ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput::default(),
         (
-            ambition::actors::body_mode::BodyModeCapabilities::full(),
-            ambition::actors::actor::BodyMelee::default(),
-            ambition::actors::avatar::PlayerSafetyState::default(),
-            ambition::actors::control::PlayerInputFrame::default(),
+            ambition_platformer2d::actors::body_mode::BodyModeCapabilities::full(),
+            ambition_platformer2d::actors::actor::BodyMelee::default(),
+            ambition_platformer2d::actors::avatar::PlayerSafetyState::default(),
+            ambition_platformer2d::actors::control::PlayerInputFrame::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),
@@ -201,9 +201,9 @@ pub fn tick_player_clone_brains(
     mut clock: ResMut<PlayerCloneClock>,
     mut clones: Query<
         (
-            &ambition::actors::actor::BodyKinematics,
-            &ambition::actors::actor::BodyGroundState,
-            &ambition::actors::physics::ResolvedMotionFrame,
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &ambition_platformer2d::actors::actor::BodyGroundState,
+            &ambition_platformer2d::actors::physics::ResolvedMotionFrame,
             &mut Brain,
             &mut ActorControl,
         ),
@@ -230,7 +230,7 @@ pub fn tick_player_clone_brains(
         snapshot.sim_time = clock.0;
         snapshot.dt = dt;
 
-        let mut frame = ambition::characters::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
     }
@@ -247,7 +247,7 @@ pub fn tick_player_clone_brains(
 /// a refused reset still deleted the player's clones — a teardown for a reset
 /// that never happened.
 pub fn despawn_player_clones_on_reset(
-    mut committed: MessageReader<ambition::actors::session::reset::SandboxResetCommitted>,
+    mut committed: MessageReader<ambition_platformer2d::actors::session::reset::SandboxResetCommitted>,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {
@@ -261,17 +261,17 @@ pub fn despawn_player_clones_on_reset(
 
 /// Keep the clone's sprite on its simulated body.
 pub fn sync_player_clone_transform(
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut clones: Query<
-        (&ambition::actors::actor::BodyKinematics, &mut Transform),
+        (&ambition_platformer2d::actors::actor::BodyKinematics, &mut Transform),
         With<PlayerClone>,
     >,
 ) {
     for (kin, mut transform) in &mut clones {
-        transform.translation = ambition::engine_core::config::world_to_bevy(
+        transform.translation = ambition_platformer2d::engine_core::config::world_to_bevy(
             &world.0,
             kin.pos,
-            ambition::engine_core::config::WORLD_Z_PLAYER,
+            ambition_platformer2d::engine_core::config::WORLD_Z_PLAYER,
         );
     }
 }

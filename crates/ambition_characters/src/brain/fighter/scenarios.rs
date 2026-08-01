@@ -20,7 +20,7 @@
 //! survive and deal damage, and no brain exists above L1. FB4 brings the profiles
 //! and the rig; these scenarios are what it will run.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 use super::situation::Situation;
 use crate::actor::ActorFaction;

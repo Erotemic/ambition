@@ -27,8 +27,8 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::characters::actor::BodyHealth;
-use ambition::characters::equipment::{EquipmentRow, OnHit, WornEquipment};
+use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::equipment::{EquipmentRow, OnHit, WornEquipment};
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without};
 
@@ -55,7 +55,7 @@ fn wear_oracle_armor(sim: &mut SandboxSim) {
     let world = sim.world_mut();
     let player = {
         let mut q =
-            world.query_filtered::<Entity, With<ambition::platformer::markers::PrimaryPlayer>>();
+            world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.single(world)
             .expect("the sim boots exactly one primary player")
     };
@@ -102,12 +102,12 @@ fn wear_oracle_armor(sim: &mut SandboxSim) {
 /// a setup mutation folded into rollback frame zero by the rebase that follows.
 fn stage_player_on_arena_floor(sim: &mut SandboxSim) {
     let world = sim.world_mut();
-    let mut q = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+    let mut q = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = q
         .single_mut(world)
         .expect("the sim boots exactly one primary player");
-    kin.pos = ambition::engine_core::Vec2::new(720.0, kin.pos.y);
-    kin.vel = ambition::engine_core::Vec2::ZERO;
+    kin.pos = ambition_platformer2d::engine_core::Vec2::new(720.0, kin.pos.y);
+    kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
     sim.rebase_rollback_history()
         .expect("arena-floor staging becomes the rollback baseline");
 }
@@ -171,9 +171,9 @@ fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
     // the entity.
     let bricks: Vec<(String, String, bool)> = {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::combat::components::FeatureName,
-            &ambition::combat::components::BreakableFeature,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::combat::components::FeatureName,
+            &ambition_platformer2d::combat::components::BreakableFeature,
         )>();
         q.iter(world)
             .map(|(id, name, feature)| (id.0.clone(), name.0.clone(), feature.broken()))
@@ -181,8 +181,8 @@ fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
     };
     let switches: Vec<(String, bool)> = {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::actors::encounter::SwitchOn,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::actors::encounter::SwitchOn,
         )>();
         q.iter(world).map(|(id, on)| (id.0.clone(), on.0)).collect()
     };
@@ -232,7 +232,7 @@ fn observe(
 
     let enemy_health: i32 = {
         let mut q = world
-            .query_filtered::<&BodyHealth, Without<ambition::platformer::markers::PrimaryPlayer>>();
+            .query_filtered::<&BodyHealth, Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.iter(world).map(|body| body.health.current).sum()
     };
     if enemy_health < enemy_health_baseline {
@@ -241,7 +241,7 @@ fn observe(
 
     {
         let mut q = world
-            .query_filtered::<&WornEquipment, With<ambition::platformer::markers::PrimaryPlayer>>();
+            .query_filtered::<&WornEquipment, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         if let Ok(worn) = q.single(world) {
             if !worn.wears(ORACLE_ARMOR_ID) {
                 events.armor_spent = true;
@@ -254,8 +254,8 @@ fn observe(
     // would satisfy for free.
     {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::combat::components::BreakableFeature,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::combat::components::BreakableFeature,
         )>();
         if q.iter(world)
             .any(|(id, feature)| id.0 == targets.brick && feature.broken())
@@ -266,8 +266,8 @@ fn observe(
 
     {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::actors::encounter::SwitchOn,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::actors::encounter::SwitchOn,
         )>();
         if q.iter(world).any(|(id, on)| id.0 == targets.switch && on.0) {
             events.switch_flipped = true;
@@ -284,9 +284,9 @@ fn observe(
 fn enemy_positions(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition::platformer::body::BodyKinematics,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
         &BodyHealth,
-    ), Without<ambition::platformer::markers::PrimaryPlayer>>();
+    ), Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(world)
         .filter(|(_, health)| health.health.current > 0)
         .map(|(kin, _)| {
@@ -345,9 +345,9 @@ fn target_positions(
     // another is how a route can walk past its objective and still report it done.
     let brick = {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::combat::components::BreakableFeature,
-            &ambition::engine_core::geometry::CenteredAabb,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::combat::components::BreakableFeature,
+            &ambition_platformer2d::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
             .find(|(id, feature, _)| id.0 == targets.brick && !feature.broken())
@@ -359,9 +359,9 @@ fn target_positions(
 
     let switch = {
         let mut q = world.query::<(
-            &ambition::combat::components::FeatureId,
-            &ambition::actors::encounter::SwitchFeature,
-            &ambition::engine_core::geometry::CenteredAabb,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::actors::encounter::SwitchFeature,
+            &ambition_platformer2d::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
             .find(|(id, _, _)| id.0 == targets.switch)
@@ -398,10 +398,10 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
     let sim = oracle_sim();
     let registry = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackRegistry>();
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>();
     let probed = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackChecksumProbes>()
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
         .type_names();
 
     let mut state_bearing = 0usize;
@@ -476,87 +476,87 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // promise is actually written down instead.
     const PRESENCE_ONLY: &[(&str, &str)] = &[
         (
-            "ambition_actors::avatar::components::PlayerBlinkCameraState",
+            "ambition_platformer2d_actor_monolith::avatar::components::PlayerBlinkCameraState",
             "presentation camera state, republished from the blink clock",
         ),
         (
-            "ambition_actors::boss_encounter::encounter_entity::EncounterDef",
+            "ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::EncounterDef",
             "authored encounter definition; immutable at runtime",
         ),
         (
-            "ambition_actors::character_runtime::hurtbox::AuthoredHurtboxes",
+            "ambition_platformer2d_actor_monolith::character_runtime::hurtbox::AuthoredHurtboxes",
             "authored hurtbox document; immutable at runtime",
         ),
         (
-            "ambition_actors::character_sprites::posed_body::SpritePosedBody",
+            "ambition_platformer2d_actor_monolith::character_sprites::posed_body::SpritePosedBody",
             "authored per-pose body table; immutable at runtime",
         ),
         (
-            "ambition_actors::encounter::switches::SwitchActivationQueue",
+            "ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivationQueue",
             "queued activations are (id, action, target) STRINGS — already stable identities, no handle to remap",
         ),
         (
-            "ambition_actors::encounter::switches::SwitchFeature",
+            "ambition_platformer2d_actor_monolith::encounter::switches::SwitchFeature",
             "authored switch payload; the mutable half is SwitchOn, value-probed",
         ),
         (
-            "ambition_actors::features::ecs::actor_clusters::ActorAnimOverride",
+            "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride",
             "republished from the move clock by the moveset animator",
         ),
         (
-            "ambition_actors::features::ecs::actor_clusters::ActorConfig",
+            "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig",
             "authored actor definition; nothing writes it after spawn",
         ),
                 (
-            "ambition_actors::features::ecs::actors::limbs::LimbIntents",
+            "ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbIntents",
             "republished every tick by the limb router",
         ),
                 (
-            "ambition_actors::features::ecs::actors::limbs::LimbRouteState",
+            "ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRouteState",
             "republished every tick by the limb router",
         ),
         (
-            "ambition_actors::features::ecs::boss_clusters::BossConfig",
+            "ambition_platformer2d_actor_monolith::features::ecs::boss_clusters::BossConfig",
             "authored boss definition; nothing writes it after spawn",
         ),
         (
-            "ambition_actors::features::ecs::mount::CanPilot",
+            "ambition_platformer2d_actor_monolith::features::ecs::mount::CanPilot",
             "authored capability payload; immutable at runtime",
         ),
         (
-            "ambition_actors::features::ecs::mount::Mass",
+            "ambition_platformer2d_actor_monolith::features::ecs::mount::Mass",
             "authored mass; immutable at runtime",
         ),
                 (
-            "ambition_actors::features::ecs::mount::Mountable",
+            "ambition_platformer2d_actor_monolith::features::ecs::mount::Mountable",
             "authored capability payload; immutable at runtime",
         ),
         (
-            "ambition_actors::features::ecs::mount::MountedBrainCache",
+            "ambition_platformer2d_actor_monolith::features::ecs::mount::MountedBrainCache",
             "a cached Brain + ActionSet; holds no entity handle (checked 2026-07-27)",
         ),
         (
-            "ambition_actors::features::ecs::mount::MountedSize",
+            "ambition_platformer2d_actor_monolith::features::ecs::mount::MountedSize",
             "authored size; immutable at runtime",
         ),
         (
-            "ambition_actors::features::ecs::pickups::PickupArt",
+            "ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupArt",
             "authored art id; immutable at runtime",
         ),
         (
-            "ambition_actors::features::ecs::spawn_actors::BossOverrides",
+            "ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::BossOverrides",
             "authored spawn overrides; immutable at runtime",
         ),
         (
-            "ambition_actors::gravity::lifecycle::GravityFlipSwitch",
+            "ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch",
             "authored switch payload; immutable at runtime",
         ),
         (
-            "ambition_actors::items::pickup::GroundItem",
+            "ambition_platformer2d_actor_monolith::items::pickup::GroundItem",
             "authored item spec; immutable while it lies on the ground",
         ),
         (
-            "ambition_actors::items::pickup::StashedActionSet",
+            "ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet",
             "authored action set held across a possession",
         ),
         (
@@ -700,11 +700,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored track reference; immutable at runtime",
         ),
         (
-            "ambition_engine_core::body_clusters::AbilityBase",
+            "ambition_platformer2d_core::body_clusters::AbilityBase",
             "refreshed every tick from the ability set",
         ),
         (
-            "ambition_engine_core::world::RoomGeometry",
+            "ambition_platformer2d_core::world::RoomGeometry",
             "authored room geometry; immutable while the room is loaded",
         ),
         (
@@ -720,47 +720,47 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "the whole save document; rewritten wholesale, never edited in place",
         ),
         (
-            "ambition_portal::eviction::PortalFrameHistory",
+            "ambition_portal2d::eviction::PortalFrameHistory",
             "channel -> aperture geometry; holds no entity handle (checked 2026-07-27)",
         ),
         (
-            "ambition_portal::gun::PortalGun",
+            "ambition_portal2d::gun::PortalGun",
             "an active flag and the next channel colour; holds no entity handle",
         ),
         (
-            "ambition_portal::gun_pickup::PortalGunPickup",
+            "ambition_portal2d::gun_pickup::PortalGunPickup",
             "position, half-extent and an arm timer; holds no entity handle",
         ),
         (
-            "ambition_portal::gun_projectile::PortalShot",
+            "ambition_portal2d::gun_projectile::PortalShot",
             "channel plus shot kinematics; holds no entity handle",
         ),
         (
-            "ambition_portal::transit::PortalEmission",
+            "ambition_portal2d::transit::PortalEmission",
             "an exit normal and a protection timer; holds no entity handle",
         ),
         (
-            "ambition_portal::transit::PortalPolicy",
+            "ambition_portal2d::transit::PortalPolicy",
             "authored policy; immutable at runtime",
         ),
         (
-            "ambition_portal::transit::PortalTransit",
+            "ambition_portal2d::transit::PortalTransit",
             "the straddled CHANNEL plus a crossed flag; a channel is a stable identity, not a handle",
         ),
         (
-            "ambition_portal::types::PlacedPortal",
+            "ambition_portal2d::types::PlacedPortal",
             "hosted on a `GeoFaceRef` (a stable `GeoId` + face), which is the stable identity G2b asks for — deliberately never an entity handle",
         ),
         (
-            "ambition_runtime::input_stream::InputStreamRecorder",
+            "ambition_platformer2d_runtime::input_stream::InputStreamRecorder",
             "the recorded input stream itself; grows every frame by design",
         ),
         (
-            "ambition_world::rooms::metadata::ActiveRoomMetadata",
+            "ambition_platformer2d_world::rooms::metadata::ActiveRoomMetadata",
             "authored room metadata; replaced on room load",
         ),
         (
-            "ambition_world::rooms::metadata::RoomMusicRequest",
+            "ambition_platformer2d_world::rooms::metadata::RoomMusicRequest",
             "authored music request; immutable at runtime",
         ),
         (
@@ -776,10 +776,10 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     let sim = oracle_sim();
     let registry = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackRegistry>();
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>();
     let probes = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackChecksumProbes>();
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>();
     let presence_only = probes.presence_only_type_names();
     let derived: std::collections::BTreeSet<&str> = probes
         .probes()
@@ -813,7 +813,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // declaration makes. Empty or perfunctory is a declaration nobody wrote.
     let declared_reason: std::collections::BTreeMap<&str, &str> = registry
         .descriptors()
-        .filter(|d| d.kind == ambition::runtime::rollback::RollbackEntryKind::Derived)
+        .filter(|d| d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::Derived)
         .map(|d| (d.type_name.as_str(), d.detail.as_str()))
         .collect();
     let mut unpromised: Vec<&str> = derived
@@ -891,8 +891,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         .filter(|d| {
             matches!(
                 d.kind,
-                ambition::runtime::rollback::RollbackEntryKind::EntityMapping
-                    | ambition::runtime::rollback::RollbackEntryKind::ResourceEntityMapping
+                ambition_platformer2d::runtime::rollback::RollbackEntryKind::EntityMapping
+                    | ambition_platformer2d::runtime::rollback::RollbackEntryKind::ResourceEntityMapping
             )
         })
         .map(|d| d.type_name.as_str())
@@ -1003,7 +1003,7 @@ fn enemy_death_and_inplace_revive_survive_rollback() {
             .min_by(|a, b| a.2.total_cmp(&b.2));
         let (hp, count) = {
             let world = sim.world_mut();
-            let mut q = world.query_filtered::<&BodyHealth, Without<ambition::platformer::markers::PrimaryPlayer>>();
+            let mut q = world.query_filtered::<&BodyHealth, Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
             // One pass: this runs every frame for 900 frames, and the two
             // values only feed the change-triggered log line below.
             q.iter(world)
@@ -1078,7 +1078,7 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 #[allow(dead_code)]
 struct GgrsStall {
     frame: usize,
-    stats: Option<ambition::runtime::rollback::RollbackExecutionStats>,
+    stats: Option<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>,
     session_active: bool,
 }
 
@@ -1098,7 +1098,7 @@ fn walk_the_combat_route(sim: &mut SandboxSim) -> RouteWalk {
     let enemy_health_baseline: i32 = {
         let world = sim.world_mut();
         let mut q = world
-            .query_filtered::<&BodyHealth, Without<ambition::platformer::markers::PrimaryPlayer>>();
+            .query_filtered::<&BodyHealth, Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         let total = q.iter(world).map(|body| body.health.current).sum();
         assert!(
             total > 0,
@@ -1502,24 +1502,24 @@ fn which_population_does_the_rollback_divergence_need() {
                 "no_enemies" => {
                     let mut q = world.query_filtered::<Entity, (
                         With<BodyHealth>,
-                        Without<ambition::platformer::markers::PrimaryPlayer>,
+                        Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
                     )>();
                     q.iter(world).collect()
                 }
                 "no_brick" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition::combat::components::BreakableFeature>>();
+                        .query_filtered::<Entity, With<ambition_platformer2d::combat::components::BreakableFeature>>();
                     q.iter(world).collect()
                 }
                 "no_switch" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition::actors::encounter::SwitchFeature>>(
+                        .query_filtered::<Entity, With<ambition_platformer2d::actors::encounter::SwitchFeature>>(
                         );
                     q.iter(world).collect()
                 }
                 "no_pickups" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition::combat::components::PickupFeature>>();
+                        .query_filtered::<Entity, With<ambition_platformer2d::combat::components::PickupFeature>>();
                     q.iter(world).collect()
                 }
                 _ => Vec::new(),
@@ -1589,13 +1589,13 @@ fn which_population_does_the_rollback_divergence_need() {
 fn which_component_does_the_rollback_divergence_live_in() {
     let mut sim = oracle_sim();
     sim.world_mut()
-        .insert_resource(ambition::runtime::rollback::RollbackRestoreAudit::enabled());
+        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
     wear_oracle_armor(&mut sim);
     stage_player_on_arena_floor(&mut sim);
 
     let probes = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackChecksumProbes>()
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
         .len();
     assert!(
         probes > 0,
@@ -1608,7 +1608,7 @@ fn which_component_does_the_rollback_divergence_live_in() {
 
     let audit = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackRestoreAudit>();
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
     // Vacuity guard FIRST. A localizer that reports "nothing diverged" while never
     // comparing anything launders an absence of evidence into evidence of absence,
     // which is the single most useless thing a diagnostic can do.
@@ -1670,19 +1670,19 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "the same coordinator's outbound channel, read by the loading UI",
         ),
         (
-            "ambition_platformer_primitives::developer_hotkeys::DeveloperAction",
+            "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction",
             "developer hotkeys: shell, trace and debug-viz consumers, none in the sim",
         ),
         (
-            "bevy_asset::event::AssetEvent<ambition_actors::session::data::SandboxDataSpec>",
+            "bevy_asset::event::AssetEvent<ambition_platformer2d_actor_monolith::session::data::SandboxDataSpec>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (
-            "bevy_asset::event::AssetLoadFailedEvent<ambition_actors::session::data::SandboxDataSpec>",
+            "bevy_asset::event::AssetLoadFailedEvent<ambition_platformer2d_actor_monolith::session::data::SandboxDataSpec>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (
-            "bevy_state::state::transitions::StateTransitionEvent<ambition_platformer_primitives::schedule::GameMode>",
+            "bevy_state::state::transitions::StateTransitionEvent<ambition_platformer2d_shared_tangle::schedule::GameMode>",
             "bevy's state machinery; a mode transition is a frame-level fact the sim              never reads",
         ),
     ];
@@ -1690,9 +1690,9 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     let mut sim = oracle_sim();
     let registered: std::collections::BTreeSet<String> = sim
         .world()
-        .resource::<ambition::runtime::rollback::RollbackRegistry>()
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .descriptors()
-        .filter(|d| d.kind == ambition::runtime::rollback::RollbackEntryKind::MessageClear)
+        .filter(|d| d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::MessageClear)
         .map(|d| d.type_name.clone())
         .collect();
 

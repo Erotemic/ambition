@@ -18,7 +18,7 @@
 //! So this test composes `SandboxSimulationPlugin` — the same plugin the game
 //! boots — and asks the world.
 
-use ambition::combat::rules::{DeclaredCombatRules, ResolvedCombatTuning};
+use ambition_platformer2d::combat::rules::{DeclaredCombatRules, ResolvedCombatTuning};
 use ambition_app::app::{SandboxSimulationPlugin, StartRoomOverride};
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::asset::AssetPlugin;
@@ -44,7 +44,7 @@ fn composed_app() -> App {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::sim::GameMode>();
+    app.init_state::<ambition_platformer2d::sim::GameMode>();
     app.insert_resource(TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
@@ -82,10 +82,10 @@ fn the_shipped_composition_installs_the_resolution() {
 fn an_undeclared_world_resolves_to_the_tuning_it_authored() {
     let mut app = composed_app();
     app.world_mut()
-        .resource_mut::<ambition::actors::time::feel::SandboxFeelTuning>()
+        .resource_mut::<ambition_platformer2d::actors::time::feel::SandboxFeelTuning>()
         .di_max_angle = AUTHORED_BASELINE_DI;
     app.world_mut()
-        .resource_mut::<ambition::combat::targeting::FriendlyFire>()
+        .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
         .enabled = true;
     app.update();
 
@@ -111,10 +111,10 @@ fn an_undeclared_world_resolves_to_the_tuning_it_authored() {
 fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
     let mut app = composed_app();
     app.world_mut()
-        .resource_mut::<ambition::actors::time::feel::SandboxFeelTuning>()
+        .resource_mut::<ambition_platformer2d::actors::time::feel::SandboxFeelTuning>()
         .di_max_angle = AUTHORED_BASELINE_DI;
     app.world_mut()
-        .resource_mut::<ambition::combat::targeting::FriendlyFire>()
+        .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
         .enabled = true;
 
     app.world_mut().insert_resource(DeclaredCombatRules {
@@ -133,7 +133,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
     assert!(!resolved(&app).friendly_fire);
     assert_eq!(
         app.world()
-            .resource::<ambition::actors::time::feel::SandboxFeelTuning>()
+            .resource::<ambition_platformer2d::actors::time::feel::SandboxFeelTuning>()
             .di_max_angle,
         AUTHORED_BASELINE_DI,
         "a declared match rule was written into the world's tuning — the borrow \
@@ -141,7 +141,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
     );
     assert!(
         app.world()
-            .resource::<ambition::combat::targeting::FriendlyFire>()
+            .resource::<ambition_platformer2d::combat::targeting::FriendlyFire>()
             .enabled,
         "same for friendly fire: the baseline is not a match's to write"
     );

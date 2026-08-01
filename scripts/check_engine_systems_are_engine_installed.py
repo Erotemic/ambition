@@ -85,33 +85,33 @@ ENGINE_ROOTS = ["crates"]
 # read what comes back before deciding the rest is signal.
 RENDER_PATH_PREFIXES = (
     "ambition_render::",
-    "ambition::render::",
+    "ambition_platformer2d::render::",
 )
 
 # The broad form, kept for `--all`: every engine crate, umbrella included.
 ENGINE_PATH_ROOTS = (
-    "ambition",
-    "ambition_actors",
+    "ambition_platformer2d",
+    "ambition_platformer2d_actor_monolith",
     "ambition_audio",
     "ambition_combat",
     "ambition_encounter",
-    "ambition_engine_core",
+    "ambition_platformer2d_core",
     "ambition_game_shell",
-    "ambition_host",
+    "ambition_platformer2d_host",
     "ambition_input",
     "ambition_interaction",
     "ambition_items",
-    "ambition_ldtk_map",
+    "ambition_platformer2d_ldtk",
     "ambition_load_presentation",
     "ambition_menu",
     "ambition_persistence",
-    "ambition_platformer_primitives",
-    "ambition_platformer_provider",
-    "ambition_portal",
-    "ambition_portal_presentation",
+    "ambition_platformer2d_shared_tangle",
+    "ambition_platformer2d_provider",
+    "ambition_portal2d",
+    "ambition_portal2d_presentation",
     "ambition_projectiles",
     "ambition_render",
-    "ambition_runtime",
+    "ambition_platformer2d_runtime",
     "ambition_settings_menu",
     "ambition_sfx",
     "ambition_sim_view",
@@ -119,7 +119,7 @@ ENGINE_PATH_ROOTS = (
     "ambition_touch_input",
     "ambition_ui_nav",
     "ambition_vfx",
-    "ambition_world",
+    "ambition_platformer2d_world",
 )
 
 # ── The waivers ──

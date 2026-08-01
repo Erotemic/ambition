@@ -5,10 +5,10 @@ status: current
 authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
-  - crates/ambition_ldtk_map
-  - crates/ambition_world
+  - crates/ambition_platformer2d_ldtk
+  - crates/ambition_platformer2d_world
   - crates/ambition_load
-  - crates/ambition_platformer_provider
+  - crates/ambition_platformer2d_provider
   - game/ambition_content/src/worlds.rs
 related_adrs:
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
@@ -26,8 +26,8 @@ typed authored world records and lowering contracts, not LDtk JSON internals.
 
 ```text
 provider-owned .ldtk
-    -> ambition_ldtk_map import/conversion
-    -> ambition_world typed records
+    -> ambition_platformer2d_ldtk import/conversion
+    -> ambition_platformer2d_world typed records
     -> validation + lowering/content-staging registries
     -> immutable room construction plan
     -> load/readiness transaction
@@ -43,8 +43,8 @@ superseded transition must not leak partial target entities.
 - Do not hand-edit `.ldtk` JSON for semantic changes; use LDtk or
   `ambition_ldtk_tools`.
 - Provider crates own world payloads, room IDs, and named content.
-- `ambition_ldtk_map` owns backend adaptation and schema-specific conversion.
-- `ambition_world` owns reusable room/world vocabulary and canonical lowering
+- `ambition_platformer2d_ldtk` owns backend adaptation and schema-specific conversion.
+- `ambition_platformer2d_world` owns reusable room/world vocabulary and canonical lowering
   seams.
 - Lowering produces session-scoped canonical ECS state through one registry.
 - Stable IDs, not `Entity`, cross save/snapshot/content boundaries.
@@ -57,8 +57,8 @@ superseded transition must not leak partial target entities.
 
 ```bash
 python -m ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk
-./run_tests.sh -p ambition_ldtk_map
-./run_tests.sh -p ambition_world
+./run_tests.sh -p ambition_platformer2d_ldtk
+./run_tests.sh -p ambition_platformer2d_world
 ./run_tests.sh -k room_transition
 ./run_tests.sh -k construction_plan
 ```

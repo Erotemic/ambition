@@ -30,7 +30,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_render::rendering::{
@@ -63,7 +63,7 @@ pub struct PuppySlugDreamSettings {
 pub fn install(app: &mut App) {
     // `embedded_asset!` needs the AssetPlugin's registry; a headless app
     // without an asset/render stack simply doesn't get the dream pass — the
-    // same guard `ambition_portal_presentation`'s clip material uses.
+    // same guard `ambition_portal2d_presentation`'s clip material uses.
     if app
         .world()
         .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()

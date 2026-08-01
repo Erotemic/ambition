@@ -29,7 +29,7 @@ World docs should point to `docs/systems/ldtk-world-composition.md`, `docs/recip
 
 ## Refined by ADR 0021: LDtk is PREFERRED, and required where it matters most
 
-This ADR predates the backend-agnostic world IR. ADR 0021 made `ambition_world`
+This ADR predates the backend-agnostic world IR. ADR 0021 made `ambition_platformer2d_world`
 the model and LDtk one backend that converts into it, so a generated / RON /
 programmatic source is not a special case. That does **not** demote LDtk. It
 remains the preferred way to make a room and the one that gets the investment:

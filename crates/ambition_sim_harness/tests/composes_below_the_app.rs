@@ -1,5 +1,5 @@
 //! Track 4 exit gate: a test drives a real sim **through the harness** while
-//! linking only the reusable engine surface (the `ambition` facade) — never
+//! linking only the reusable engine surface (the `ambition_platformer2d` facade) — never
 //! `ambition_app`, the product shell. If this compiles and runs, the harness is
 //! genuinely below the app: any demo/provider can compose its own sim into it.
 //!
@@ -9,10 +9,10 @@
 //! exercise the same `SandboxSim` with the full Ambition composition (via
 //! `ambition_app::rl_sim::AmbitionSim`).
 
-use ambition::engine_core as ae;
-use ambition::input::ControlFrame;
-use ambition::platformer::lifecycle::insert_session_world_component;
-use ambition::world::rooms::{RoomSet, RoomSpec};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::lifecycle::insert_session_world_component;
+use ambition_platformer2d::world::rooms::{RoomSet, RoomSpec};
 
 use ambition_sim_harness::{AgentAction, SandboxSim, SandboxSimOptions};
 

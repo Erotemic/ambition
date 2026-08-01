@@ -17,7 +17,7 @@ the mount/gnuton/moveset/brain surfaces.
 [`fable-review-2026-07-04.md`](fable-review-2026-07-04.md). That doc remains
 live for R1–R6 (R1–R3 landed; R4–R6 stand). This doc adds adjudications
 AJ8–AJ12 and phases **R7–R10** in the same numbering space, and **reshapes
-R4b** (the `ambition_world` carve) — see AJ9. Jon's design input is captured
+R4b** (the `ambition_platformer2d_world` carve) — see AJ9. Jon's design input is captured
 verbatim in
 [`../planning/engine/spatial-model.md`](../planning/engine/spatial-model.md)
 (binding, ADR-0020-style); this doc turns it into slices.
@@ -69,7 +69,7 @@ reaction seam, keep this doc's log current.
   and an end-to-end sim test (`player_pilots_mount_end_to_end.rs`: possess-style
   brain handover → `move_x` drives the MOUNT, home avatar stays put, rider stays
   welded). The R10.6 payoff is now unblocked.
-- The R3 exit greps and R4a-1 stand as logged in the 07-04 doc. `ambition_world`
+- The R3 exit greps and R4a-1 stand as logged in the 07-04 doc. `ambition_platformer2d_world`
   still does not exist; R4b remains scouted-not-started — which is exactly the
   luck this review needs (AJ9 reshapes it before anyone carves).
 - One correction to the standing folklore: **gnuton does not run the smash
@@ -132,14 +132,14 @@ not new invention. Decisions (binding):
   stay backend-side. A future Tiled backend ships its own ctx + registry that
   emits the same emission type.
 - **R4b is reshaped: the carve produces TWO crates, not one.**
-  `ambition_world` = the canonical spatial model + room graph + staging +
+  `ambition_platformer2d_world` = the canonical spatial model + room graph + staging +
   platforms + manifest core + validators (Tier 2, no LDtk dep).
-  `ambition_ldtk_map` = the LDtk backend (parser, converter registry impl,
+  `ambition_platformer2d_ldtk` = the LDtk backend (parser, converter registry impl,
   IntGrid emitters, hot-reload, the `bevy_ecs_ldtk` render spine, LDtk-source
   manifest rows) — an optional crate the GAME brings in (content/app dep,
-  never an `ambition_world` dep). This is the manifesto's
-  `ambition_ldtk_map / ambition_tiled_map / ambition_godot_map` shape with
-  only the first implemented. **Do not carve `ambition_world` to the old
+  never an `ambition_platformer2d_world` dep). This is the manifesto's
+  `ambition_platformer2d_ldtk / ambition_tiled_map / ambition_godot_map` shape with
+  only the first implemented. **Do not carve `ambition_platformer2d_world` to the old
   one-crate shape and split later — carve once, to this shape**
   (reorganize-don't-adapt).
 - **`WorldManifest` generalizes by one notch, no more.** `WorldSource` today
@@ -166,7 +166,7 @@ not new invention. Decisions (binding):
   hot-reload"), `assets/*` (manifest iteration — fine once the manifest is
   backend-keyed), plus the schedule-set name `LdtkRuntimeSpine`. Each is a
   bounded inversion; the exit grep is `rg -i 'ldtk'` over engine crates
-  hitting only `ambition_ldtk_map` + install sites.
+  hitting only `ambition_platformer2d_ldtk` + install sites.
 - **ADR:** this adjudication + the manifesto spawn **ADR 0021 —
   authoring-backend-agnostic space** (refines ADR 0017's "LDtk is for space"
   to "map authoring backends are sources of spatial content; Ambition owns
@@ -278,8 +278,8 @@ motion); they queue behind this arc on the `PortalFrame` FIXME seam, not
 inside it.
 
 **Compile-time note for executors:** all three layers live in
-`ambition_engine_core` — the Tier-1 crate everything rebuilds on. Iterate
-with `cargo test -p ambition_engine_core` (fast, doesn't rebuild the world);
+`ambition_platformer2d_core` — the Tier-1 crate everything rebuilds on. Iterate
+with `cargo test -p ambition_platformer2d_core` (fast, doesn't rebuild the world);
 touch gameplay_core integration only when the kernel suite is green.
 
 ### AJ11. Movement identity is body DATA: the `MotionModel` policy
@@ -416,17 +416,17 @@ here blocks R4c–R4g, R5, or R6.
   `"ldtk "` name-sniff with it. Make `RoomSpec` serde-round-trippable and add
   the `ron-room` manifest format (importer registry, two entries — see AJ9).
   Gate: full workspace + a new round-trip test (RoomSpec → RON → RoomSpec).
-- **R7.3 [opus]** The carve, to the TWO-crate shape: `ambition_world` (IR,
+- **R7.3 [opus]** The carve, to the TWO-crate shape: `ambition_platformer2d_world` (IR,
   rooms, staging, platforms, physics adapter, gravity zones, manifest core,
-  validators) + `ambition_ldtk_map` (parser, converter registry impl, IntGrid,
+  validators) + `ambition_platformer2d_ldtk` (parser, converter registry impl, IntGrid,
   hot-reload, `bevy_ecs_ldtk` spine, LDtk manifest rows). Repoint the
   139-inbound spine (D2 facade-then-delete template); content/app take the
-  `ambition_ldtk_map` dep; `ambition_world` must not. Record compile-time
+  `ambition_platformer2d_ldtk` dep; `ambition_platformer2d_world` must not. Record compile-time
   before/after (the carve's purchase).
 - **R7.4 [opus]** The leakage ratchet (AJ9 list): encounter loading consumes
   emissions not `LdtkProject`; menu-map/session/settings inversions;
   schedule-set rename. Exit: `rg -i 'ldtk'` over engine crates → only
-  `ambition_ldtk_map` + install sites. Then **[opus]** write ADR 0021 citing
+  `ambition_platformer2d_ldtk` + install sites. Then **[opus]** write ADR 0021 citing
   `spatial-model.md` + this doc.
 
 ### R8 — the contact/surface kernel [★fable core, ~2 sessions]
@@ -535,7 +535,7 @@ Everything else in R7/R9/R10 is opus-executable from this doc.
 
 - **R8 lives entirely in Tier 1** (`engine_core` + a `platformer_primitives`
   touch) — BELOW the gameplay_core carve; zero file overlap with R4 slices.
-  It helps R7/R4: `ambition_world` is born speaking `Contact`/`SurfaceChain`
+  It helps R7/R4: `ambition_platformer2d_world` is born speaking `Contact`/`SurfaceChain`
   instead of being carved and then re-plumbed.
 - **R7 IS R4b done right** — same dep-inversion prep, same 139-inbound
   repoint, better target shape. The 07-04 doc's R4b section now carries a
@@ -547,7 +547,7 @@ Everything else in R7/R9/R10 is opus-executable from this doc.
   it ACCELERATES the 07-04 A1 tail and the R4e sprite-metadata carve
   (gnuton's sheets go through the ONE pipeline like everyone else's).
 - **Compile discipline:** R8/R9 kernel iteration stays in-crate
-  (`cargo test -p ambition_engine_core`); R7's carve is measured
+  (`cargo test -p ambition_platformer2d_core`); R7's carve is measured
   before/after like every R4 slice.
 
 ## 7. JON'S OPEN DECISIONS
@@ -702,7 +702,7 @@ whole world carve defeats the promotion. So:
 
 1. **A Sanic DEMO scope** (Q13 promotion): Sanic is no longer just R9's sandbox
    proof — it needs a demo-clone scope like R6 (a content crate + a thin app
-   against `ambition_runtime`, momentum zones/enemies/rings-analog). Fable to
+   against `ambition_platformer2d_runtime`, momentum zones/enemies/rings-analog). Fable to
    spec it as the first R6 target beside SMB1 (the oracle: does the momentum
    demo build by ADDING content, editing no core?).
 2. **The home-path momentum branch** (Q16): the R9.2 kernel-adjacent slice above.

@@ -77,7 +77,7 @@ pub fn fixed_60hz_room_sim(room: &str) -> SandboxSim {
 }
 
 #[cfg(feature = "portal")]
-use ambition::portal::PlacedPortal;
+use ambition_platformer2d::portal::PlacedPortal;
 
 /// Return all currently-live authored portal pairs, after any link resolution.
 ///

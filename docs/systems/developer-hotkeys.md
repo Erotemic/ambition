@@ -3,7 +3,7 @@
 Developer keyboard policy has one owner:
 
 ```text
-crates/ambition_platformer_primitives/src/developer_hotkeys.rs
+crates/ambition_platformer2d_shared_tangle/src/developer_hotkeys.rs
 ```
 
 That module maps exact physical chords to semantic `DeveloperAction` messages.

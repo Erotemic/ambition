@@ -26,7 +26,7 @@
 //! Passing here means the policy is non-degenerate; in-engine feel is verified
 //! separately.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 use super::super::action_set::ActionSet;
 use super::super::snapshot::BrainSnapshot;

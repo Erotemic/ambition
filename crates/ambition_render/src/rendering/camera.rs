@@ -16,11 +16,11 @@
 //!
 //! The observer facts the resolver consumes (`CameraViewport`,
 //! `CameraScreenFraming`) are published by
-//! `ambition_host::gameplay_presentation`: they are answers about the physical
+//! `ambition_platformer2d_host::gameplay_presentation`: they are answers about the physical
 //! display and the active presentation profile, and render does not select
 //! policy.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 #[cfg(feature = "portal_render")]
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -75,9 +75,9 @@ impl From<&CameraSnapshot2d> for CameraViewState {
 #[cfg(feature = "portal_render")]
 #[derive(SystemParam)]
 pub struct PortalCameraContinuityParams<'w> {
-    selection: Option<Res<'w, ambition_portal_presentation::PortalCameraContinuitySelection>>,
-    state: Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuityState>>,
-    host_view: Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuityHostView>>,
+    selection: Option<Res<'w, ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
+    state: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityState>>,
+    host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
 }
 
 /// Bridge the portal-continuity clamp pad into the sim resolver's generic
@@ -86,12 +86,12 @@ pub struct PortalCameraContinuityParams<'w> {
 /// visibly step the camera at transit clear).
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
-    selection: Option<Res<ambition_portal_presentation::PortalCameraContinuitySelection>>,
-    state: Option<Res<ambition_portal_presentation::PortalCameraContinuityState>>,
+    selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
+    state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
     mut extra_clamp: ResMut<CameraExtraClamp>,
 ) {
     let enabled = selection.as_deref().is_some_and(|selection| {
-        selection.mode == ambition_portal_presentation::PortalCameraTransitMode::Continuous
+        selection.mode == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
     });
     extra_clamp.0 = enabled
         .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
@@ -102,11 +102,11 @@ pub fn publish_portal_camera_clamp(
 /// presentation-only deltas (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
     resolved: Res<ResolvedCameraSnapshot>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut view_state: ResMut<CameraViewState>,
-    shake: Res<ambition_platformer_primitives::camera_ease::CameraShakeState>,
+    shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
     mut extra_clamp: ResMut<CameraExtraClamp>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
@@ -116,7 +116,7 @@ pub fn camera_follow(
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
-            With<ambition_platformer_primitives::camera_layers::MainCamera>,
+            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,
@@ -145,7 +145,7 @@ pub fn camera_follow(
                 .as_deref()
                 .is_some_and(|selection| {
                     selection.mode
-                        == ambition_portal_presentation::PortalCameraTransitMode::Continuous
+                        == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
                 });
         let ordinary_center_world = snapshot.center_world;
         let portal_clamp_padding_still_needed =

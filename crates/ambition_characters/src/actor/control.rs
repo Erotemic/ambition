@@ -13,7 +13,7 @@
 //! - brains are pure functions of a snapshot plus their local state;
 //! - integration code reads only the frame, not the brain implementation.
 
-use ambition_engine_core::{AccelerationFrame, GameplayFramePolicy, InputState, Vec2};
+use ambition_platformer2d_core::{AccelerationFrame, GameplayFramePolicy, InputState, Vec2};
 
 /// The body→controller half of the intent-in seam.
 ///
@@ -145,7 +145,7 @@ impl ActorFireRequest {
                     "screen-space fire directions must be resolved before gameplay"
                 );
                 bevy::log::error!(
-                    target: "ambition::control",
+                    target: "ambition_platformer2d::control",
                     "a screen-space fire direction reached gameplay unresolved; \
                      it is being used as a WORLD direction, which is wrong under \
                      any rotated gravity"
@@ -334,50 +334,50 @@ impl ActorControlFrame {
     /// presentation concern, so both are left at their defaults.
     pub fn to_input_state(&self) -> InputState {
         InputState {
-            movement: ambition_engine_core::ActionEdges::EMPTY
+            movement: ambition_platformer2d_core::ActionEdges::EMPTY
                 .with(
-                    ambition_engine_core::MovementAction::Jump,
-                    ambition_engine_core::Edge {
+                    ambition_platformer2d_core::MovementAction::Jump,
+                    ambition_platformer2d_core::Edge {
                         pressed: self.jump_pressed,
                         held: self.jump_held,
                         released: self.jump_released,
                     },
                 )
                 .with(
-                    ambition_engine_core::MovementAction::Dash,
-                    ambition_engine_core::Edge {
+                    ambition_platformer2d_core::MovementAction::Dash,
+                    ambition_platformer2d_core::Edge {
                         pressed: self.dash_pressed,
                         held: false,
                         released: false,
                     },
                 )
                 .with(
-                    ambition_engine_core::MovementAction::Blink,
-                    ambition_engine_core::Edge {
+                    ambition_platformer2d_core::MovementAction::Blink,
+                    ambition_platformer2d_core::Edge {
                         pressed: self.blink_pressed,
                         held: self.blink_held,
                         released: self.blink_released,
                     },
                 )
                 .with(
-                    ambition_engine_core::MovementAction::FlyToggle,
-                    ambition_engine_core::Edge {
+                    ambition_platformer2d_core::MovementAction::FlyToggle,
+                    ambition_platformer2d_core::Edge {
                         pressed: self.fly_toggle_pressed,
                         held: false,
                         released: false,
                     },
                 )
                 .with(
-                    ambition_engine_core::MovementAction::FastFall,
-                    ambition_engine_core::Edge {
+                    ambition_platformer2d_core::MovementAction::FastFall,
+                    ambition_platformer2d_core::Edge {
                         pressed: self.fast_fall_pressed,
                         held: false,
                         released: false,
                     },
                 ),
-            axes: ambition_engine_core::LocalAxes::from_vec(self.locomotion),
-            blink_quick_dir: ambition_engine_core::WorldVec2(self.blink_quick_dir),
-            blink_aim_step: ambition_engine_core::WorldVec2(self.blink_aim_step),
+            axes: ambition_platformer2d_core::LocalAxes::from_vec(self.locomotion),
+            blink_quick_dir: ambition_platformer2d_core::WorldVec2(self.blink_quick_dir),
+            blink_aim_step: ambition_platformer2d_core::WorldVec2(self.blink_aim_step),
             attack_pressed: self.melee_pressed,
             pogo_pressed: self.pogo_pressed,
             interact_pressed: self.interact_pressed,

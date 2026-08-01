@@ -8,13 +8,13 @@
 //! ⚠ **They live in the CONSUMER, not the engine.** Every one of these is a
 //! claim about what a third party can and cannot do, and an engine-side test
 //! would be the engine asking itself. Outlander is a real external crate whose
-//! only dependency is `ambition`; if a property here needed an engine internal
+//! only dependency is `ambition_platformer2d`; if a property here needed an engine internal
 //! to observe, that would be evidence the property is not actually public.
 //!
 //! What is ENFORCED and what is DEMONSTRATED are marked separately, because a
 //! guard whose limits are unstated gets trusted past them.
 
-use ambition::rollback::{RollbackPlan, RollbackRefused};
+use ambition_platformer2d::rollback::{RollbackPlan, RollbackRefused};
 
 /// Property 4: **deterministic activation.**
 ///
@@ -31,7 +31,7 @@ fn the_engine_activates_the_host_before_frame_zero() {
     let app = outlander::build_outlander_rollback_app().expect("rollback host");
     // The session exists, which is only true if activation completed first.
     assert!(
-        ambition::app::host_status(&app).is_running(),
+        ambition_platformer2d::app::host_status(&app).is_running(),
         "the rollback host is not running after `start` returned Ok"
     );
 }
@@ -44,12 +44,12 @@ fn the_engine_activates_the_host_before_frame_zero() {
 /// into `crates/`, which is the failure ADR 0031's blind-agent gate measures.
 #[test]
 fn a_host_that_never_activates_names_what_it_was_doing() {
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
         .mount(outlander::OutlanderModule)
         .build();
 
-    let refused = ambition::rollback::start(&mut app, RollbackPlan::new().activation_budget(0))
+    let refused = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new().activation_budget(0))
         .expect_err("a zero-tick budget cannot reach a running host");
 
     let RollbackRefused::NeverActivated { ticks, status } = &refused else {
@@ -81,11 +81,11 @@ fn a_host_that_never_activates_names_what_it_was_doing() {
 /// to the declaration.
 #[test]
 fn the_participant_count_comes_from_the_composition() {
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
         .mount(outlander::OutlanderModule)
         .build();
-    let session = ambition::rollback::start(&mut app, RollbackPlan::new()).expect("session");
+    let session = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new()).expect("session");
     assert_eq!(
         session.participants(),
         1,
@@ -102,7 +102,7 @@ fn the_participant_count_comes_from_the_composition() {
 #[test]
 fn a_fixed_step_host_refuses_rather_than_pretending() {
     let mut app = outlander::build_outlander_app();
-    let refused = ambition::rollback::start(&mut app, RollbackPlan::new())
+    let refused = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())
         .expect_err("a fixed-step host has no rollback session to start");
     assert!(
         matches!(refused, RollbackRefused::NotComposedForRollback),
@@ -129,11 +129,11 @@ fn a_fixed_step_host_refuses_rather_than_pretending() {
 /// which is the version that lets a third party's state silently not roll back.
 #[test]
 fn the_baseline_includes_state_the_engine_never_heard_of() {
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
         .mount(outlander::OutlanderModule)
         .build();
-    let session = ambition::rollback::start(&mut app, RollbackPlan::new()).expect("session");
+    let session = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new()).expect("session");
 
     assert!(
         session.encoded_types() > 1,
@@ -143,13 +143,13 @@ fn the_baseline_includes_state_the_engine_never_heard_of() {
 
     let registry = app
         .world()
-        .get_resource::<ambition::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("a rollback host has a registry");
     let dump = registry.deterministic_dump();
     assert!(
         dump.contains("outlander.beacon_charge"),
         "the consumer's own authoritative state is not in the rollback \
-         baseline. No engine file lists `BeaconCharge`; nothing in `ambition` \
+         baseline. No engine file lists `BeaconCharge`; nothing in `ambition_platformer2d` \
          has heard of it. If registration through the public vocabulary does \
          not reach the baseline, a third party's state silently does not roll \
          back. Registry:\n{dump}"
@@ -176,7 +176,7 @@ fn a_restarted_session_rebases_onto_the_live_world() {
         app.update();
     }
 
-    let restarted = ambition::rollback::start(&mut app, RollbackPlan::new())
+    let restarted = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())
         .expect("a running host can be rebased");
     assert_eq!(
         restarted.participants(),
@@ -185,7 +185,7 @@ fn a_restarted_session_rebases_onto_the_live_world() {
          frozen declaration"
     );
     assert!(
-        ambition::app::host_status(&app).is_running(),
+        ambition_platformer2d::app::host_status(&app).is_running(),
         "the host stopped running across a rebase"
     );
 
@@ -194,11 +194,11 @@ fn a_restarted_session_rebases_onto_the_live_world() {
     // `Running { prepared: true }` — the run watched it do so for 4300
     // updates. So the rebase is checked by whether the session still ADVANCES,
     // which is the fact the assertion above only looked like it was making.
-    let before = ambition::rollback::health(&app).frame().expect("a frame");
+    let before = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
     for _ in 0..30 {
         app.update();
     }
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(
         health.frame().expect("a frame") > before,
         "the session did not advance after the rebase: {health:?}"
@@ -222,12 +222,12 @@ fn a_restarted_session_rebases_onto_the_live_world() {
 /// docs say raising it is supported and zero is not.
 #[test]
 fn the_plan_settles_past_activation_before_frame_zero() {
-    let mut app = ambition::app::PlatformerApp::headless()
+    let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
         .mount(outlander::OutlanderModule)
         .build();
     let session =
-        ambition::rollback::start(&mut app, RollbackPlan::new().settle_ticks(32)).expect("session");
+        ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new().settle_ticks(32)).expect("session");
 
     // Activation is reported separately from settling, so a reader can tell
     // which of the two a slow start spent its ticks in.
@@ -236,7 +236,7 @@ fn the_plan_settles_past_activation_before_frame_zero() {
         "a host that activated in zero ticks was already running, which would \
          mean this test is not exercising activation at all"
     );
-    assert!(ambition::app::host_status(&app).is_running());
+    assert!(ambition_platformer2d::app::host_status(&app).is_running());
 }
 
 /// Property 1: **frozen schema.**
@@ -254,9 +254,9 @@ fn the_schema_is_identical_across_two_compositions() {
     let first = outlander::build_outlander_rollback_app().expect("rollback host");
     let second = outlander::build_outlander_rollback_app().expect("rollback host");
 
-    let dump = |app: &ambition::bevy::prelude::App| {
+    let dump = |app: &ambition_platformer2d::bevy::prelude::App| {
         app.world()
-            .get_resource::<ambition::rollback::RollbackRegistry>()
+            .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
             .expect("a rollback host has a registry")
             .deterministic_dump()
     };
@@ -278,18 +278,18 @@ fn the_schema_is_identical_across_two_compositions() {
 /// unconditional in either direction.
 #[test]
 fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
-    use ambition::rollback::RollbackHealth;
+    use ambition_platformer2d::rollback::RollbackHealth;
 
     // A host with no session must say so, rather than reporting healthy.
     let fixed = outlander::build_outlander_app();
     assert_eq!(
-        ambition::rollback::health(&fixed),
+        ambition_platformer2d::rollback::health(&fixed),
         RollbackHealth::NoSession,
         "a fixed-step host reported a rollback health other than NoSession"
     );
 
     let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(
         health.is_healthy(),
         "a freshly started session is not healthy: {health:?}"
@@ -299,11 +299,11 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
     // `Healthy` forever — liveness is a property of TWO observations, which is
     // why `RollbackHealth::frame` says to sample it twice and why this test
     // does.
-    let before = ambition::rollback::health(&app).frame().expect("a frame");
+    let before = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
     for _ in 0..60 {
         app.update();
     }
-    let after = ambition::rollback::health(&app).frame().expect("a frame");
+    let after = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
     assert!(
         after > before,
         "the session did not advance across 60 updates ({before} -> {after}), \
@@ -311,9 +311,9 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
          diagnose from outside"
     );
     assert!(
-        ambition::rollback::health(&app).is_healthy(),
+        ambition_platformer2d::rollback::health(&app).is_healthy(),
         "the session desynced while simulating: {:?}",
-        ambition::rollback::health(&app)
+        ambition_platformer2d::rollback::health(&app)
     );
 }
 
@@ -335,17 +335,17 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
 /// beacon must not out-count the frames the session actually advanced.
 #[test]
 fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
-    use ambition::bevy::prelude::*;
+    use ambition_platformer2d::bevy::prelude::*;
 
     let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
-    let before_frame = ambition::rollback::health(&app).frame().expect("a frame");
+    let before_frame = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
 
     // Walk the body onto the beacon so the counter is actually ticking — a
     // counter that never increments passes any ratio.
     for _ in 0..240 {
         outlander::drive_control_frame(
             &mut app,
-            ambition::sim::ControlFrame {
+            ambition_platformer2d::sim::ControlFrame {
                 axis_x: 1.0,
                 ..Default::default()
             },
@@ -353,7 +353,7 @@ fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
         app.update();
     }
 
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(health.is_healthy(), "the session desynced: {health:?}");
     let frames = health.frame().expect("a frame") - before_frame;
 
@@ -392,10 +392,10 @@ fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
 /// ENFORCED: `session_is_active` decides before any read model is consulted.
 #[test]
 fn a_stopped_session_is_not_healthy_and_a_restart_is_a_new_timeline() {
-    use ambition::rollback::RollbackHealth;
+    use ambition_platformer2d::rollback::RollbackHealth;
 
     let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
-    let started = ambition::rollback::health(&app);
+    let started = ambition_platformer2d::rollback::health(&app);
     assert!(
         started.is_healthy(),
         "a freshly started session is not healthy: {started:?}"
@@ -409,25 +409,25 @@ fn a_stopped_session_is_not_healthy_and_a_restart_is_a_new_timeline() {
     for _ in 0..30 {
         app.update();
     }
-    let last_frame = ambition::rollback::health(&app).frame().expect("a frame");
+    let last_frame = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
     assert!(last_frame > 0, "the session never advanced");
 
-    ambition::rollback::stop(&mut app);
+    ambition_platformer2d::rollback::stop(&mut app);
     assert_eq!(
-        ambition::rollback::health(&app),
+        ambition_platformer2d::rollback::health(&app),
         RollbackHealth::NoSession,
         "a stopped host still reports a session; the frame it would have \
          claimed is {last_frame}"
     );
 
-    let restarted = ambition::rollback::start(&mut app, RollbackPlan::new())
+    let restarted = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())
         .expect("a stopped host must be restartable");
     assert_eq!(
         restarted.participants(),
         1,
         "the restart re-seated a different topology"
     );
-    let health = ambition::rollback::health(&app);
+    let health = ambition_platformer2d::rollback::health(&app);
     assert!(
         health.is_healthy(),
         "the restarted session is not healthy: {health:?}"

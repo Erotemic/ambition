@@ -94,7 +94,7 @@ The fix is a `--route <SHELL_ROUTE_ID>` mode that composes the shell host
 (`build_visible_app(NoWindow, ..)`, which every rendered test already uses),
 settles to the route, and hands the same offscreen target to the same readback.
 The readback half is done and route-agnostic; only the app build differs.
-The sibling capture is `ambition_actors/examples/render_room_geometry.rs capture`
+The sibling capture is `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`
 (geometry only, no render stack).
 
 ## Pointers

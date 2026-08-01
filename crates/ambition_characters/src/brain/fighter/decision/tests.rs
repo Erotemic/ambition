@@ -11,7 +11,7 @@ use crate::brain::fighter::options::UtilityWeights;
 use crate::brain::fighter::options::{AttackBinding, AttackVerb};
 use crate::brain::fighter::profile::FighterBrainProfile;
 use crate::perception::{PerceivedActor, SelfView, StageView, WorldView};
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 fn stage() -> StageView {
     StageView {

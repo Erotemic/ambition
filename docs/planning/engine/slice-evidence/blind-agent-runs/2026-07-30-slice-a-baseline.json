@@ -45,8 +45,8 @@
   "engine_api_surfaces_read": [
     {"crate": "ambition", "via": "cargo doc", "looking_for": "the real signatures of mount/build/run/without_gpu/with_game_assets — docs/sdk/ shows call sites but no method list"},
     {"crate": "ambition_characters", "via": "cargo doc", "looking_for": "how to satisfy `PlatformerAssetsPlugin found no CharacterCatalog`"},
-    {"crate": "ambition_platformer_provider", "via": "cargo doc", "looking_for": "whether an empty default catalog provider ships (it does not)"},
-    {"crate": "ambition_world", "via": "cargo doc", "looking_for": "how to construct the RoomMetadata that ModuleDraft::room wants"},
+    {"crate": "ambition_platformer2d_provider", "via": "cargo doc", "looking_for": "whether an empty default catalog provider ships (it does not)"},
+    {"crate": "ambition_platformer2d_world", "via": "cargo doc", "looking_for": "how to construct the RoomMetadata that ModuleDraft::room wants"},
     {"crate": "ambition_sprite_sheet", "via": "cargo doc", "looking_for": "whether the sprite side needs its own registration before a visible host builds"},
     {"crate": "ambition_game_shell", "via": "cargo doc", "looking_for": "what makes a route REAL, after finding the headless host had zero entities"},
     {"crate": "ambition_audio", "via": "cargo doc", "looking_for": "how to satisfy `frontend audio provider registered no audio fragment`"},
@@ -65,8 +65,8 @@
       "severity": "blocks everything",
       "closeable": true,
       "owned": true,
-      "summary": "The engine does not compile for an outside consumer at all without copying `[patch.crates-io] bevy_ggrs = { git = ..., rev = ... }` out of the engine's workspace-root Cargo.toml. A fresh lockfile resolves bevy_ggrs 0.21.0 from crates.io and ambition_runtime fails with `cannot find type GgrsFrameTiming in crate bevy_ggrs`.",
-      "why_it_matters": "It precedes every API question. No amount of work on `ambition::app` reaches a third party who cannot get past `cargo check`. The fixture's own Cargo.toml records this as a known leak; docs/sdk/ never mentions it, so the knowledge existed and was not where a consumer would look.",
+      "summary": "The engine does not compile for an outside consumer at all without copying `[patch.crates-io] bevy_ggrs = { git = ..., rev = ... }` out of the engine's workspace-root Cargo.toml. A fresh lockfile resolves bevy_ggrs 0.21.0 from crates.io and ambition_platformer2d_runtime fails with `cannot find type GgrsFrameTiming in crate bevy_ggrs`.",
+      "why_it_matters": "It precedes every API question. No amount of work on `ambition_platformer2d::app` reaches a third party who cannot get past `cargo check`. The fixture's own Cargo.toml records this as a known leak; docs/sdk/ never mentions it, so the knowledge existed and was not where a consumer would look.",
       "agents_words": "the single highest-value missing paragraph in the whole SDK"
     },
     {
@@ -74,7 +74,7 @@
       "severity": "overclaim in shipped docs",
       "closeable": true,
       "owned": true,
-      "summary": "`ambition::app`'s module docs say 'Rule 7 is not enforced by ordering but by TYPE ... the empty host is unreachable rather than merely documented.' What is enforced is that a STRING was supplied. `gameplay_route(\"blind_run/gameplay\")` naming a route no experience registered builds clean, runs 60 ticks, and spawns ZERO entities — exactly the failure rule 7 describes.",
+      "summary": "`ambition_platformer2d::app`'s module docs say 'Rule 7 is not enforced by ordering but by TYPE ... the empty host is unreachable rather than merely documented.' What is enforced is that a STRING was supplied. `gameplay_route(\"blind_run/gameplay\")` naming a route no experience registered builds clean, runs 60 ticks, and spawns ZERO entities — exactly the failure rule 7 describes.",
       "why_it_matters": "A doc that overclaims its own headline guarantee is worse than one that claims nothing: the agent only found the empty host because it independently counted entities. This is the campaign's own rule 2 violated in the campaign's own code — a doc marker standing where a check should be.",
       "fix_named_by_the_agent": "validate declared routes against the ShellRouteCatalog at try_build"
     },
@@ -100,7 +100,7 @@
       "closeable": true,
       "owned": true,
       "summary": "There is no supported read-model for 'did my game actually start?'. The agent fell back to `app.world().entities().len()`, which is raw Bevy and says nothing about routes.",
-      "why_it_matters": "Four of the eight rules `ambition::app` owns fail SILENTLY. An API with silent failure modes and no assertion surface makes every consumer invent the same smoke test — badly."
+      "why_it_matters": "Four of the eight rules `ambition_platformer2d::app` owns fail SILENTLY. An API with silent failure modes and no assertion surface makes every consumer invent the same smoke test — badly."
     },
     {
       "id": "the-prototypes-own-example-is-not-runnable",
@@ -122,7 +122,7 @@
       "severity": "doc gap",
       "closeable": true,
       "owned": true,
-      "summary": "docs/sdk/ never shows a Cargo.toml: not where the `ambition` crate lives, not what bevy version to pin, not the patch table. The README also tells a consumer to add `bevy` themselves, which is wrong — `ambition` already does `pub use bevy;`."
+      "summary": "docs/sdk/ never shows a Cargo.toml: not where the `ambition_platformer2d` crate lives, not what bevy version to pin, not the patch table. The README also tells a consumer to add `bevy` themselves, which is wrong — `ambition_platformer2d` already does `pub use bevy;`."
     }
   ],
 

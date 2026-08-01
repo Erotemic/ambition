@@ -33,7 +33,7 @@
     {
       "leak": "no supported way to ask whether the host actually started",
       "source": "2c",
-      "cost": "HIGH and SILENT, which §3a triples. Four of the eight rules ambition::app owns fail quietly; the blind agent fell back to counting raw Bevy entities. Every consumer invents the same smoke test, badly.",
+      "cost": "HIGH and SILENT, which §3a triples. Four of the eight rules ambition_platformer2d::app owns fail quietly; the blind agent fell back to counting raw Bevy entities. Every consumer invents the same smoke test, badly.",
       "closeable": "YES — a read-model over the router/session the shell already holds.",
       "owned": "YES.",
       "route": "3b: Closeable + Owned -> slice N+1 candidate. Small enough to ride inside a slice rather than be one."

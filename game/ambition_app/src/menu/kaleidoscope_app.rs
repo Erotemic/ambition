@@ -9,8 +9,8 @@
 //! world camera for text readability. Routing nav/selection input to it is the
 //! next step — see `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
-use ambition::menu::{
+use ambition_platformer2d::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
+use ambition_platformer2d::menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
 };
@@ -31,27 +31,27 @@ use crate::menu::model::{
     SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::actors::avatar::PlayerHealRequested;
-use ambition::engine_core::Vec2;
-use ambition::input::MenuControlFrame;
-use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
-use ambition::settings_menu::settings::{
+use ambition_platformer2d::actors::avatar::PlayerHealRequested;
+use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::input::MenuControlFrame;
+use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
-use ambition::settings_menu::system::{
+use ambition_platformer2d::settings_menu::system::{
     DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
-use ambition::sfx::{SfxMessage, SfxWriter};
+use ambition_platformer2d::sfx::{SfxMessage, SfxWriter};
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
-/// `Play` is non-spatialized (see `ambition::audio::audio_play_sfx_messages` — it
+/// `Play` is non-spatialized (see `ambition_platformer2d::audio::audio_play_sfx_messages` — it
 /// looks the id up in the bank and plays it full-volume; the `pos` is unused for
 /// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
 /// isn't packed into the runtime bank yet the play just no-ops (safe).
 #[inline]
-pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition::sfx::SfxId) {
+pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition_platformer2d::sfx::SfxId) {
     sfx.write(SfxMessage::Play {
         id,
         pos: Vec2::ZERO,
@@ -68,7 +68,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // The pointer-hover handlers read `ActiveInputKind`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition::input::ActiveInputKind>()
+        .init_resource::<ambition_platformer2d::input::ActiveInputKind>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()
@@ -95,17 +95,17 @@ pub fn install_unified_menu_shared(app: &mut App) {
 /// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
 /// producer→consumer edge is explicit, not incidental.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
-    use ambition::platformer::schedule::{SandboxSet, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{SandboxSet, SimScheduleExt};
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
     // Idempotent: the shell presentation and host input plugin init it too;
     // a direct-entry app without either still needs the cue store to exist.
-    app.init_resource::<ambition::input::ActiveUiCues>();
+    app.init_resource::<ambition_platformer2d::input::ActiveUiCues>();
     app.add_systems(
         sim,
         publish_menu_confirm_prompt
             .in_set(SandboxSet::FeatureViewSync)
-            .before(ambition::sim_view::rebuild_control_prompt),
+            .before(ambition_platformer2d::sim_view::rebuild_control_prompt),
     );
 }
 
@@ -127,7 +127,7 @@ fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
@@ -142,7 +142,7 @@ fn kaleidoscope_menu_visible(
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
@@ -267,15 +267,15 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                     // (session exists AND it is Ambition's own mode), the mirror of
                     // the Grid backend gate — so the menu cannot open on the title
                     // screen or inside a hosted Sanic/Mary-O session.
-                    .run_if(ambition::platformer::lifecycle::simulation_authorized)
-                    .run_if(ambition::runtime::in_base_mode)
-                    .in_set(ambition::actors::schedule::MenuNavConsume),
+                    .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
+                    .run_if(ambition_platformer2d::runtime::in_base_mode)
+                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition::actors::schedule::MenuNavConsume),
+                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
@@ -321,7 +321,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
-/// [`ambition::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
+/// [`ambition_platformer2d::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
 /// it until the pointer moves to a DIFFERENT control. A stationary hover must not
 /// keep reasserting itself over newer directional navigation (the "can't move away
 /// from the hovered option" bug).
@@ -402,7 +402,7 @@ pub(crate) struct KaleidoscopePointerPress {
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
 /// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
-/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition::menu::MenuScrollDragged`]
+/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_platformer2d::menu::MenuScrollDragged`]
 /// signal) or the MOUSE WHEEL (Feature D). Keyboard navigation clears the override so
 /// the window resumes following the cursor. This is the host-side meaning of the
 /// lib's backend-agnostic scroll signal — the lib never knows about rows/window_start.
@@ -422,11 +422,11 @@ pub(crate) struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
-    dev_tools: ResMut<'w, ambition::dev_tools::dev_tools::DeveloperTools>,
+    dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, ambition::dev_tools::SandboxDevState>,
-    ldtk_reload: ResMut<'w, ambition::actors::ldtk_world::LdtkHotReloadState>,
+    dev_state: ResMut<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
+    ldtk_reload: ResMut<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
     backend: ResMut<'w, InventoryUiBackend>,
@@ -434,36 +434,36 @@ pub(crate) struct SystemMenuParams<'w> {
     // Option: absent in non-portal personas / minimal fixtures — the row then
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<ResMut<'w, ambition::portal_presentation::PortalEffectSelection>>,
+    portal_effect: Option<ResMut<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
     portal_camera:
-        Option<ResMut<'w, ambition::portal_presentation::PortalCameraContinuitySelection>>,
+        Option<ResMut<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>>,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
-    base_gravity: Option<ResMut<'w, ambition::actors::physics::BaseGravity>>,
-    reset: ResMut<'w, ambition::actors::session::reset::SandboxResetRequested>,
+    base_gravity: Option<ResMut<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
+    reset: ResMut<'w, ambition_platformer2d::actors::session::reset::SandboxResetRequested>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
-    editable_tuning: ResMut<'w, ambition::dev_tools::dev_tools::EditableMovementTuning>,
+    editable_tuning: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
     // `audio` so non-audio builds carry none of the types.
     #[cfg(feature = "audio")]
-    library: Option<ResMut<'w, ambition::audio::library::AudioLibrary>>,
+    library: Option<ResMut<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
     asset_server: Option<Res<'w, AssetServer>>,
     #[cfg(feature = "audio")]
-    music_state: Option<ResMut<'w, ambition::audio::library::MusicPlaybackState>>,
+    music_state: Option<ResMut<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<ResMut<'w, ambition::audio::library::RadioStationState>>,
+    radio: Option<ResMut<'w, ambition_platformer2d::audio::library::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
-        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition::audio::library::MusicChannel>>,
+        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_platformer2d::audio::library::MusicChannel>>,
     >,
     #[cfg(feature = "audio")]
-    audio_output: Option<Res<'w, ambition::audio::AudioOutputMode>>,
+    audio_output: Option<Res<'w, ambition_platformer2d::audio::AudioOutputMode>>,
 }
 
 impl SystemMenuParams<'_> {
@@ -480,7 +480,7 @@ impl SystemMenuParams<'_> {
     /// Radio auditions a station (keeps the menu open); Locale is a no-op stub
     /// (only English exists); Dev toggles/cycles mutate `DeveloperTools`.
     /// Returns the SFX id to play for feedback.
-    pub(crate) fn apply_option(&mut self, opt: SystemOptionId) -> ambition::sfx::SfxId {
+    pub(crate) fn apply_option(&mut self, opt: SystemOptionId) -> ambition_platformer2d::sfx::SfxId {
         match opt {
             SystemOptionId::Radio(index) => {
                 #[cfg(feature = "audio")]
@@ -498,7 +498,7 @@ impl SystemMenuParams<'_> {
                     self.music_channel.as_deref(),
                 ) {
                     if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
-                        ambition::audio::library::set_radio_track(
+                        ambition_platformer2d::audio::library::set_radio_track(
                             library,
                             asset_server,
                             radio,
@@ -507,19 +507,19 @@ impl SystemMenuParams<'_> {
                             self.audio_output.as_deref().copied().unwrap_or_default(),
                             &track_id,
                         );
-                        return ambition::sfx::ids::UI_MENU_ACCEPT;
+                        return ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT;
                     }
                 }
                 let _ = index;
-                ambition::sfx::ids::UI_MENU_ERROR
+                ambition_platformer2d::sfx::ids::UI_MENU_ERROR
             }
             SystemOptionId::Locale(id) => {
                 // Language is a stub: only English is selectable. Selecting it is a
                 // confirm; anything else is an error beep.
                 if id.is_available() {
-                    ambition::sfx::ids::UI_MENU_ACCEPT
+                    ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT
                 } else {
-                    ambition::sfx::ids::UI_MENU_ERROR
+                    ambition_platformer2d::sfx::ids::UI_MENU_ERROR
                 }
             }
             SystemOptionId::Dev(id) => {
@@ -539,9 +539,9 @@ impl SystemMenuParams<'_> {
                     0,
                 );
                 if id.is_cycle() {
-                    ambition::sfx::ids::UI_SLIDER_TICK
+                    ambition_platformer2d::sfx::ids::UI_SLIDER_TICK
                 } else {
-                    ambition::sfx::ids::UI_TOGGLE_ON
+                    ambition_platformer2d::sfx::ids::UI_TOGGLE_ON
                 }
             }
         }
@@ -549,7 +549,7 @@ impl SystemMenuParams<'_> {
 
     /// Step a value-style screen option in place (radio prev/next station, dev
     /// cycle prev/next). Toggles + locales ignore stepping (handled by select).
-    fn step_option(&mut self, opt: SystemOptionId, dir: i32) -> Option<ambition::sfx::SfxId> {
+    fn step_option(&mut self, opt: SystemOptionId, dir: i32) -> Option<ambition_platformer2d::sfx::SfxId> {
         match opt {
             SystemOptionId::Dev(id) if id.is_cycle() => {
                 apply_dev_toggle(
@@ -567,7 +567,7 @@ impl SystemMenuParams<'_> {
                     id,
                     dir,
                 );
-                Some(ambition::sfx::ids::UI_SLIDER_TICK)
+                Some(ambition_platformer2d::sfx::ids::UI_SLIDER_TICK)
             }
             _ => None,
         }
@@ -586,8 +586,8 @@ impl SystemMenuParams<'_> {
     /// it has no live player to poke); the persisted resources still reset fully.
     pub(crate) fn reset_all_settings(&mut self, settings: &mut UserSettings) {
         *settings = UserSettings::default();
-        *self.dev_tools = ambition::dev_tools::dev_tools::DeveloperTools::default();
-        ambition::dev_tools::dev_tools::apply_movement_profile(
+        *self.dev_tools = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
+        ambition_platformer2d::dev_tools::dev_tools::apply_movement_profile(
             &mut self.editable_tuning,
             self.dev_tools.movement_profile,
             None,
@@ -636,8 +636,8 @@ impl SystemMenuParams<'_> {
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<ambition::platformer::schedule::GameMode>>,
-    next: ResMut<'w, NextState<ambition::platformer::schedule::GameMode>>,
+    state: Res<'w, State<ambition_platformer2d::platformer::schedule::GameMode>>,
+    next: ResMut<'w, NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
 }
 
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
@@ -645,21 +645,21 @@ pub(crate) struct GameModeIo<'w> {
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
-    dev_tools: Res<'w, ambition::dev_tools::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, ambition::dev_tools::SandboxDevState>,
-    ldtk_reload: Res<'w, ambition::actors::ldtk_world::LdtkHotReloadState>,
+    dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
+    dev_state: Res<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
+    ldtk_reload: Res<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<Res<'w, ambition::portal_presentation::PortalEffectSelection>>,
+    portal_effect: Option<Res<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera: Option<Res<'w, ambition::portal_presentation::PortalCameraContinuitySelection>>,
-    base_gravity: Option<Res<'w, ambition::actors::physics::BaseGravity>>,
+    portal_camera: Option<Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>>,
+    base_gravity: Option<Res<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
-    library: Option<Res<'w, ambition::audio::library::AudioLibrary>>,
+    library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    music_state: Option<Res<'w, ambition::audio::library::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_platformer2d::audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<Res<'w, ambition::audio::library::RadioStationState>>,
+    radio: Option<Res<'w, ambition_platformer2d::audio::library::RadioStationState>>,
 }
 
 impl SystemMenuSnapshotParams<'_> {
@@ -695,9 +695,9 @@ impl SystemMenuSnapshotParams<'_> {
 /// single place that maps the audio runtime onto the SYSTEM IR's station list.
 #[cfg(feature = "audio")]
 fn radio_snapshot_from(
-    library: &ambition::audio::library::AudioLibrary,
-    music_state: &ambition::audio::library::MusicPlaybackState,
-    radio: Option<&ambition::audio::library::RadioStationState>,
+    library: &ambition_platformer2d::audio::library::AudioLibrary,
+    music_state: &ambition_platformer2d::audio::library::MusicPlaybackState,
+    radio: Option<&ambition_platformer2d::audio::library::RadioStationState>,
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())
@@ -747,7 +747,7 @@ fn kaleidoscope_focus_nav(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
-    mut overlay: ResMut<ambition::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so thread the game mode through to
     // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
@@ -893,7 +893,7 @@ fn kaleidoscope_focus_nav(
             });
         }
         if menu.back {
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
             quality_confirm.cancel();
             overlay.visible = false;
         }
@@ -924,7 +924,7 @@ fn kaleidoscope_focus_nav(
     }
 
     if menu.back {
-        play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+        play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
         quality_confirm.cancel();
         overlay.visible = false;
         return;
@@ -962,7 +962,7 @@ fn kaleidoscope_focus_nav(
             }
         } else {
             // Selecting an empty / unowned item slot is a no-op: error feedback.
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_ERROR);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR);
         }
     }
 
@@ -988,7 +988,7 @@ fn emit_move_sfx(
     page_after: Option<MenuPage>,
 ) {
     if page_before == page_after && focus_before != focus_after {
-        play_ui(sfx, ambition::sfx::ids::UI_MENU_MOVE);
+        play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_MOVE);
     }
 }
 
@@ -1017,9 +1017,9 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    overlay: &mut ambition::inventory_ui::InventoryUiState,
-    mode: &ambition::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition::platformer::schedule::GameMode>,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
@@ -1072,11 +1072,11 @@ pub(crate) fn system_focus_nav(
         // Inside an entry, Back drills OUT to the entry list; at the top level Back
         // closes the menu (matching the items face).
         if system_nav.open_entry.is_some() {
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_BACK);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
             quality_confirm.cancel();
             close_system_entry(system_nav, cursor);
         } else {
-            play_ui(sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+            play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
             overlay.visible = false;
         }
         return;
@@ -1223,7 +1223,7 @@ fn apply_system_option_step(
     } else {
         apply_settings_option(option, dx, settings);
     }
-    play_ui(sfx, ambition::sfx::ids::UI_SLIDER_TICK);
+    play_ui(sfx, ambition_platformer2d::sfx::ids::UI_SLIDER_TICK);
 }
 
 /// Outcome of a spatial cursor move on the items page.
@@ -1335,11 +1335,11 @@ pub(crate) fn menu_confirm_label(
 /// consumption still rides the in-session menu path); minted here so the
 /// published verb joins the shared cue vocabulary instead of a bespoke
 /// menu bridge.
-pub(crate) const INVENTORY_CUE_CONTEXT: ambition::input::InputContextId =
-    ambition::input::InputContextId("ambition.inventory");
+pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputContextId =
+    ambition_platformer2d::input::InputContextId("ambition.inventory");
 
 /// P4b (GPT-5.6 review gate 6): publish the focused inventory item's verb as
-/// this surface's [`ambition::input::UiCue`], so runtime inventory controls
+/// this surface's [`ambition_platformer2d::input::UiCue`], so runtime inventory controls
 /// read "Equip" / "Use" instead of a generic "Select".
 ///
 /// The tier-safe seam: `ControlPrompt` (sim_view, lower tier) can't see the app
@@ -1350,14 +1350,14 @@ pub(crate) const INVENTORY_CUE_CONTEXT: ambition::input::InputContextId =
 /// Self-gates on the inventory overlay being open (backend-agnostic
 /// `InventoryUiState.visible`), so a closed menu retracts the cue.
 fn publish_menu_confirm_prompt(
-    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     cursor: Res<KaleidoscopeCursor>,
     owned: Option<Res<OwnedItems>>,
-    mut cues: ResMut<ambition::input::ActiveUiCues>,
+    mut cues: ResMut<ambition_platformer2d::input::ActiveUiCues>,
 ) {
     let menu_open = ui_state.map(|s| s.visible).unwrap_or(false);
     let label = menu_confirm_label(menu_open, cursor.focus(), owned.as_deref());
-    let cue = ambition::input::UiCue {
+    let cue = ambition_platformer2d::input::UiCue {
         context: INVENTORY_CUE_CONTEXT,
         priority: 150,
         submit_label: label.clone().unwrap_or_default(),
@@ -1489,10 +1489,10 @@ fn turn_page(
 /// The directional page-turn sound for a rotation `from` → `to`: rotating to the
 /// page that sits on the viewer-LEFT of `from` plays the left rotate, otherwise the
 /// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
-pub(crate) fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition::sfx::SfxId {
+pub(crate) fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition_platformer2d::sfx::SfxId {
     match from {
-        Some(from) if from.on_viewer_left() == to => ambition::sfx::ids::UI_MENU_ROTATE,
-        _ => ambition::sfx::ids::UI_MENU_ROTATE,
+        Some(from) if from.on_viewer_left() == to => ambition_platformer2d::sfx::ids::UI_MENU_ROTATE,
+        _ => ambition_platformer2d::sfx::ids::UI_MENU_ROTATE,
     }
 }
 
@@ -1594,19 +1594,19 @@ pub(crate) use pointer::*;
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
-    mut map: ResMut<ambition::menu::map::MapMenuState>,
+    mut map: ResMut<ambition_platformer2d::menu::map::MapMenuState>,
     mut sfx: SfxWriter,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1639,16 +1639,16 @@ fn kaleidoscope_menu_open_routing(
             // consume the co-firing `menu.back` just above, so the nav systems can't
             // see this Esc at all.
             if system_nav.open_entry.is_some() {
-                play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_BACK);
+                play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
                 quality_confirm.cancel();
                 close_system_entry(&mut system_nav, &mut cursor);
             } else {
-                play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+                play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
                 quality_confirm.cancel();
                 close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
             }
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_OPEN);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             // SHARED entry→tab mapping: Esc/Start lands on the System face.
             // Keep this mapping local to the backend-agnostic menu vocabulary so
             // the cube can compile without the Bevy-UI/Grid backend feature.
@@ -1672,12 +1672,12 @@ fn kaleidoscope_menu_open_routing(
             // Closing: leave the active page alone so the fold-close animation plays
             // out from whatever face was shown (re-seeding to Items here snapped the
             // cube to the Items face mid-close — the "I" close-animation glitch).
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_CLOSE);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
             quality_confirm.cancel();
             close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_OPEN);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
                 MenuPage::Items,
                 &mut overlay,
@@ -1699,7 +1699,7 @@ fn kaleidoscope_menu_open_routing(
             pages.active = Some(map_page);
             cursor.mark_keyboard(MenuFocus::EdgeLeft);
         } else {
-            play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_OPEN);
+            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
                 map_page,
                 &mut overlay,
@@ -1722,15 +1722,15 @@ fn kaleidoscope_menu_open_routing(
 #[allow(clippy::too_many_arguments)]
 fn open_kaleidoscope_menu(
     page: MenuPage,
-    overlay: &mut ambition::inventory_ui::InventoryUiState,
-    mode: &ambition::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition::platformer::schedule::GameMode>,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut ambition::menu::map::MapMenuState,
+    map: &mut ambition_platformer2d::menu::map::MapMenuState,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
@@ -1754,11 +1754,11 @@ fn open_kaleidoscope_menu(
 /// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
-    overlay: &mut ambition::inventory_ui::InventoryUiState,
-    mode: &ambition::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition::platformer::schedule::GameMode>,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -1774,14 +1774,14 @@ fn close_kaleidoscope_menu(
 /// this key used to own now lives only on the dev menu (`D::MenuBackend`).
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut base: ResMut<ambition::actors::physics::BaseGravity>,
+    mut base: ResMut<ambition_platformer2d::actors::physics::BaseGravity>,
 ) {
     if !keys.just_pressed(KeyCode::Backslash) {
         return;
     }
     // Same step the developer menu's Gravity row uses (shared `BaseGravity::cycle`).
     base.cycle();
-    info!(target: "ambition::gravity", "dev gravity cycle: dir = {:?}", base.dir);
+    info!(target: "ambition_platformer2d::gravity", "dev gravity cycle: dir = {:?}", base.dir);
 }
 
 /// Pause-gate the cube: toggle ONLY the cube's order-8 `Camera3d` (and ring
@@ -1792,7 +1792,7 @@ fn cycle_dev_gravity(
 #[cfg(feature = "kaleidoscope_menu")]
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut cube_cameras: Query<&mut Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>,
     mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,

@@ -8,7 +8,7 @@
 //! 2. RON authoring follows a stable, documented shape that doesn't
 //!    move when an unrelated runtime detail changes.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -69,7 +69,7 @@ pub struct SpriteTuningSpec {
 
 /// Surface-momentum motion feel, authored on the catalog row (Q21). The
 /// gameplay-side **mirror** of the serde-free kernel struct
-/// [`ae::MomentumParams`](ambition_engine_core::MomentumParams):
+/// [`ae::MomentumParams`](ambition_platformer2d_core::MomentumParams):
 /// the kernel stays serde-free (its doc's contract), so this Deserialize twin
 /// lives here and hydrates via [`to_kernel`](MomentumParamsSpec::to_kernel).
 ///
@@ -170,7 +170,7 @@ impl MomentumParamsSpec {
 /// and [`abilities`](CharacterCatalogEntry::abilities)).
 ///
 /// A row that carries this field spawns its PLAYABLE body with an
-/// [`AuthoredMovementTuning`](ambition_engine_core::AuthoredMovementTuning)
+/// [`AuthoredMovementTuning`](ambition_platformer2d_core::AuthoredMovementTuning)
 /// component, so the body's live axis parameters are refreshed from THIS instead
 /// of the global F3 dev tuning — a demo protagonist with a distinct jump keeps
 /// its feel instead of tracking the shared inspector sliders. A row without it
@@ -293,9 +293,9 @@ impl Default for AxisTuningSpec {
 
 impl AxisTuningSpec {
     /// Overlay the authored knobs onto the shared default tuning, producing the
-    /// full [`MovementTuning`](ambition_engine_core::MovementTuning) the axis
+    /// full [`MovementTuning`](ambition_platformer2d_core::MovementTuning) the axis
     /// policy projects its `AxisSweptParams` from. Only the fields this spec
-    /// carries diverge from [`DEFAULT_TUNING`](ambition_engine_core::DEFAULT_TUNING).
+    /// carries diverge from [`DEFAULT_TUNING`](ambition_platformer2d_core::DEFAULT_TUNING).
     pub fn to_kernel(&self) -> ae::MovementTuning {
         ae::MovementTuning {
             horizontal_law: self.horizontal_law,
@@ -324,14 +324,14 @@ impl AxisTuningSpec {
 /// preset roster.
 ///
 /// A row that carries this field spawns its PLAYABLE body with the union of its
-/// grants as the body's [`AbilityBase`](ambition_engine_core::AbilityBase),
+/// grants as the body's [`AbilityBase`](ambition_platformer2d_core::AbilityBase),
 /// which the session mask (the F3 dev editable) then gates — the per-character
 /// analogue of [`momentum`](CharacterCatalogEntry::momentum). A row without it
 /// (the default) keeps the shared sandbox set, so every existing character is
 /// untouched. This is how a restricted-kit demo character (classic run + jump,
 /// no blink/dash/wall/fly) is authored without forcing the whole multi-game host
 /// into that reduced kit.
-pub use ambition_engine_core::AbilityGrant;
+pub use ambition_platformer2d_core::AbilityGrant;
 
 /// An occasion on which a character may speak a one-line speech bubble.
 /// Each variant maps to a named pool on [`CharacterBarks`]; the firing
@@ -540,7 +540,7 @@ pub struct CharacterCatalogEntry {
     pub momentum: Option<MomentumParamsSpec>,
     /// Playable capability set, authored as a list of composable grants
     /// (run / jump / blink / dash / wall / fly / …). `Some` sets the body's
-    /// [`AbilityBase`](ambition_engine_core::AbilityBase) to the union of the
+    /// [`AbilityBase`](ambition_platformer2d_core::AbilityBase) to the union of the
     /// grants — the per-character analogue of [`momentum`](Self::momentum).
     /// `None` (the default) keeps the shared sandbox set, so every existing row
     /// is untouched. A restricted-kit demo character authors e.g.

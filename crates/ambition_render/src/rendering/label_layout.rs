@@ -38,7 +38,7 @@
 //! fighters in a couch match get the same protection
 //! ([[feedback-relativity-principle]]).
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use ambition_sim_view::ControlledBodiesView;
 use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
@@ -428,8 +428,8 @@ pub fn apply_world_label_fonts(
 /// The pass. Places every [`WorldLabel`] and writes the result.
 #[allow(clippy::type_complexity)]
 pub fn layout_world_labels(
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     settings: Res<WorldLabelLayoutSettings>,
     time: Res<Time>,
@@ -611,7 +611,7 @@ impl Plugin for WorldLabelLayoutPlugin {
             (apply_world_label_fonts, layout_world_labels)
                 .chain()
                 .in_set(WorldLabelLayoutSet)
-                .run_if(ambition_platformer_primitives::lifecycle::session_world_exists),
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
     }
 }

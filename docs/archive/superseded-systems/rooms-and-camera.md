@@ -12,10 +12,10 @@ This prototype now tests more than a single fixed screen.
 
 ## Current room graph
 
-The Bevy sandbox owns a small `RoomSet` in `crates/ambition_actors/src/rooms.rs`:
+The Bevy sandbox owns a small `RoomSet` in `crates/ambition_platformer2d_actor_monolith/src/rooms.rs`:
 
 - **Room 1: Scroll Lab**
-  - Uses the active RON-backed `RoomSet` world from `ambition_actors::rooms`.
+  - Uses the active RON-backed `RoomSet` world from `ambition_platformer2d_actor_monolith::rooms`.
   - Widened to `3200 x 900` so the camera must scroll horizontally with the player.
   - Contains the original movement sandbox plus a right-side scroll wing.
   - Has a loading zone near the far-right door area.

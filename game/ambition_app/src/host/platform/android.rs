@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 
 #[cfg(target_os = "android")]
-use ambition::platformer::schedule::GameMode;
+use ambition_platformer2d::platformer::schedule::GameMode;
 
 // Bevy's CosmicFontSystem is initialized with an empty fontdb (no system
 // fonts loaded). On Android, /system/fonts/ holds Roboto etc., which
@@ -42,7 +42,7 @@ use ambition::platformer::schedule::GameMode;
 fn seed_android_system_fonts(mut font_system: ResMut<bevy::text::CosmicFontSystem>) {
     font_system.0.db_mut().load_fonts_dir("/system/fonts");
     bevy::log::info!(
-        target: "ambition::android_platform",
+        target: "ambition_platformer2d::android_platform",
         "android: seeded fontdb with {} face(s) from /system/fonts",
         font_system.0.db().faces().count()
     );
@@ -146,7 +146,7 @@ fn detect_android_suspend_state(
     state.suspended = next;
     if state.just_changed {
         bevy::log::info!(
-            target: "ambition::android_lifecycle",
+            target: "ambition_platformer2d::android_lifecycle",
             "android suspend state changed: {} -> {}",
             was,
             next
@@ -204,8 +204,8 @@ mod audio_lifecycle {
     /// silence as immediate.
     pub(super) fn apply_android_suspend_to_audio(
         state: Res<AndroidSuspendState>,
-        music: Option<Res<AudioChannel<ambition::audio::library::MusicChannel>>>,
-        sfx: Option<Res<AudioChannel<ambition::audio::library::SfxChannel>>>,
+        music: Option<Res<AudioChannel<ambition_platformer2d::audio::library::MusicChannel>>>,
+        sfx: Option<Res<AudioChannel<ambition_platformer2d::audio::library::SfxChannel>>>,
     ) {
         if !state.just_changed {
             return;
@@ -220,7 +220,7 @@ mod audio_lifecycle {
                     .fade_out(AudioTween::linear(Duration::from_millis(40)));
             }
             bevy::log::info!(
-                target: "ambition::android_lifecycle",
+                target: "ambition_platformer2d::android_lifecycle",
                 "android suspend: paused music + sfx channels"
             );
         } else {
@@ -232,7 +232,7 @@ mod audio_lifecycle {
                     .fade_in(AudioTween::linear(Duration::from_millis(40)));
             }
             bevy::log::info!(
-                target: "ambition::android_lifecycle",
+                target: "ambition_platformer2d::android_lifecycle",
                 "android resume: resumed music + sfx channels"
             );
         }

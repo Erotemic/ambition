@@ -10,7 +10,7 @@
 //! each gravity well produces the same local trace up to the room rotation.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
+use ambition_platformer2d::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
 use ambition_app::{AgentAction, SandboxSim};
 use serde_json::json;
 use std::path::{Path, PathBuf};

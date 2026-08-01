@@ -167,8 +167,8 @@ fn leaving_the_ground_past_the_grace_loses_the_charge() {
 // ── The ECS half: a real body, the real components, the real systems ──
 
 use ae::SurfaceMotion;
-use ambition::actors::features::{MomentumMotion, MotionModel};
-use ambition::characters::brain::ActorControl;
+use ambition_platformer2d::actors::features::{MomentumMotion, MotionModel};
+use ambition_platformer2d::characters::brain::ActorControl;
 
 fn body_app() -> (App, Entity) {
     let mut app = App::new();
@@ -176,8 +176,8 @@ fn body_app() -> (App, Entity) {
         decay_per_s: 0.0,
         ..Default::default()
     });
-    app.insert_resource(ambition::time::WorldTime::default());
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.insert_resource(ambition_platformer2d::time::WorldTime::default());
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(bevy::app::Update, (tick_ball_dash, tick_rolling).chain());
 
     let mut kin = ae::BodyKinematics::default();
@@ -199,8 +199,8 @@ fn body_app() -> (App, Entity) {
             kin,
             BallDash::default(),
             BallDashInput::default(),
-            ambition::actors::actor::BodyAnimFacts::default(),
-            ambition::actors::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
+            ambition_platformer2d::actors::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     (app, e)
@@ -236,7 +236,7 @@ fn set_ball_dash_input_with_contact(
 /// content API). Also preserves the crouch-release latching coverage.
 #[test]
 fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
-    use ambition::characters::action_scheme::ResolvedTechniqueEdges;
+    use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
 
     let mut app = App::new();
     app.insert_resource(BallDashTuning::default());
@@ -248,7 +248,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
         .spawn((
             ActorControl::default(),
             motion,
-            ambition::actors::actor::BodyGroundState {
+            ambition_platformer2d::actors::actor::BodyGroundState {
                 on_ground: true,
                 ..Default::default()
             },
@@ -257,7 +257,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
             ResolvedTechniqueEdges::default(),
         ))
         .id();
-    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
         entity,
     )));
     app.add_systems(bevy::app::Update, capture_ball_dash_input);
@@ -410,7 +410,7 @@ fn charging_reuses_the_shared_dash_startup_animation_fact() {
 
     let anim = app
         .world()
-        .get::<ambition::actors::actor::BodyAnimFacts>(e)
+        .get::<ambition_platformer2d::actors::actor::BodyAnimFacts>(e)
         .expect("the body carries the shared presentation facts");
     assert!(
         anim.dash_startup_timer > 0.0,

@@ -1,5 +1,5 @@
 //! Reusable developer-tooling state + logic (E1d carve out of
-//! `ambition_actors`).
+//! `ambition_platformer2d_actor_monolith`).
 //!
 //! Owns the content-free half of the old `dev/` module:
 //!
@@ -20,7 +20,7 @@
 //! overlays, portal inspector) is app-level presentation and stays in
 //! `ambition_app`. The gameplay `trace` recorder samples live sim state
 //! (`player`/`features`/`rooms`/`portal`/`game_mode`) and stays sim-side in
-//! `ambition_actors::dev::trace`.
+//! `ambition_platformer2d_actor_monolith::dev::trace`.
 
 pub mod dev_tools;
 pub mod persistence;
@@ -32,11 +32,11 @@ pub use sim_plugin::{DevEditApplySet, DevInspectorMirrorSet, DevToolsSimPlugin};
 
 use bevy::prelude::*;
 
-use ambition_engine_core::{
+use ambition_platformer2d_core::{
     AbilityBase, ActiveMovementTuning, AuthoredMovementTuning, BodyAbilities, BodyDashState,
     BodyFlightState, BodyJumpState, MotionModel,
 };
-use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use dev_tools::EditableAbilitySet;
 
 /// Push live dev-tools ability/tuning edits onto the authoritative player.

@@ -8,9 +8,9 @@
 //! build one.
 #![cfg(feature = "visible")]
 
-use ambition::engine_core as ae;
-use ambition::presentation::gameplay_presentation::ResolvedGameplayPresentation;
-use ambition::presentation::DeclaredHudRoot;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::presentation::gameplay_presentation::ResolvedGameplayPresentation;
+use ambition_platformer2d::presentation::DeclaredHudRoot;
 use ambition_demo_mary_o_app::{build_windowed_demo_app, RenderMode};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, Window, WindowResolution};
@@ -105,7 +105,7 @@ fn the_readouts_sit_in_the_surround_and_the_card_is_actually_centred() {
             let Val::Px(top) = node.top else {
                 panic!("HUD nodes are placed in pixels; got {:?}", node.top);
             };
-            let overlay = ambition::render::hud::OVERLAY_ANCHOR;
+            let overlay = ambition_platformer2d::render::hud::OVERLAY_ANCHOR;
             assert!(
                 (left - overlay.x).abs() > 0.5 || (top - overlay.y).abs() > 0.5,
                 "readout {text:?} is still at the OVERLAY anchor {overlay:?} — it \

@@ -9,8 +9,8 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_demo_mary_o_app::{build_demo_app, build_demo_app_with_home};
 
@@ -25,7 +25,7 @@ fn active_route(app: &App) -> Option<String> {
 fn primary_players(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<Entity, With<ambition::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
     query.iter(app.world()).count()
 }
 

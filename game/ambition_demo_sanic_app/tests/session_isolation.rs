@@ -19,14 +19,14 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::abilities::traversal::possession::PossessionState;
-use ambition::actors::actor::PrimaryPlayer;
-use ambition::actors::encounter::EncounterRegistry;
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
-use ambition::platformer::markers::ControlledSubject;
-use ambition::world::collision::MovingPlatformSet;
-use ambition::world::platforms::MovingPlatformState;
+use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::actors::encounter::EncounterRegistry;
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopedEntity};
+use ambition_platformer2d::platformer::markers::ControlledSubject;
+use ambition_platformer2d::world::collision::MovingPlatformSet;
+use ambition_platformer2d::world::platforms::MovingPlatformState;
 use ambition_demo_sanic_app::build_demo_app;
 
 fn settle(app: &mut App) {
@@ -90,8 +90,8 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         .resource_mut::<MovingPlatformSet>()
         .0
         .push(MovingPlatformState::from_authored(
-            ambition::engine_core::Vec2::new(1.0, 2.0),
-            ambition::engine_core::Vec2::new(16.0, 4.0),
+            ambition_platformer2d::engine_core::Vec2::new(1.0, 2.0),
+            ambition_platformer2d::engine_core::Vec2::new(16.0, 4.0),
             32.0,
             20.0,
         ));

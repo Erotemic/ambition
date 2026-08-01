@@ -21,10 +21,10 @@ questions from LOC counts or terminology alone.
    `sprite_sheet::game_assets` binding becomes content-performed registration.
    Reintroducing a leak must require re-closing an open seam (a loud API
    regression), not a string constant.
-2. **`ambition_platformer_provider`** (working name; Jon may shorten): extract
-   `crates/ambition/src/provider.rs` into its own crate AND consolidate the
+2. **`ambition_platformer2d_provider`** (working name; Jon may shorten): extract
+   `crates/ambition_platformer2d/src/provider.rs` into its own crate AND consolidate the
    provider protocol — the `prepare_session`/`activate_session` pair is
-   near-verbatim across all four providers (~100 LOC each). The `ambition`
+   near-verbatim across all four providers (~100 LOC each). The `ambition_platformer2d`
    facade returns to pure re-exports.
 3. **`ambition_sim_harness`**: extract `game/ambition_app/src/rl_sim/` (the
    reset/step/typed-action/observation gym seam) below the demo gate, with the
@@ -48,7 +48,7 @@ questions from LOC counts or terminology alone.
    layout, item/health/mana/equip policy). Real reuse pressure draws the line;
    speculative classification does not. E1e stands until then.
 8. **Shrine:** one owner for the reusable shrine VOCABULARY (today it is
-   scattered: `platformer_primitives::shrine` + `ambition_world` `ShrineSpec`);
+   scattered: `platformer_primitives::shrine` + `ambition_platformer2d_world` `ShrineSpec`);
    healing/save/presentation policy is provider-side. A named mechanic below
    the game is not automatically a content leak.
 9. **Runtime/domain ownership is drift-repair** against architecture.md §3
@@ -56,7 +56,7 @@ questions from LOC counts or terminology alone.
    Audit every runtime-owned leaf registration into: legitimate cross-domain
    orchestration / domain-local (move to owner plugin) / temporary adapter
    awaiting a named port / app- or dev-specific residue. Known example of the
-   drift: `ambition_runtime` init's `ambition_dev_tools` resources and
+   drift: `ambition_platformer2d_runtime` init's `ambition_dev_tools` resources and
    schedules `sync_live_player_dev_edits_system` by name.
 10. **Session-root campaign gates (two, independent, both required):**
     (a) ARCHITECTURE gate — leak-free sequential second session / provider
@@ -92,7 +92,7 @@ questions from LOC counts or terminology alone.
 ## 3. Immediate correctness repairs (small, standalone; not campaigns)
 
 1. **Placement-lowering unification — COMPLETED in `7d972b6`.** The verified fork was: session setup
-   (`ambition_actors::session::setup`) and session reset
+   (`ambition_platformer2d_actor_monolith::session::setup`) and session reset
    (`session::reset`) lower placements through a LOCAL
    `PlacementLoweringRegistry::default()` built inside the now-deleted
    `features::ecs::spawn::spawn_room_feature_entities` helper, while room transition
@@ -117,9 +117,9 @@ questions from LOC counts or terminology alone.
 ## 4. Larger campaigns — agreed priority order
 
 1. Placement-lowering unification (repair #1 above — completed in `7d972b6`).
-2. Extract + consolidate `ambition_platformer_provider` (accepted #2 —
-   completed: crate created, `crates/ambition/src/provider.rs` deleted,
-   `ambition::provider` re-exports it, and the four duplicated prepare/activate
+2. Extract + consolidate `ambition_platformer2d_provider` (accepted #2 —
+   completed: crate created, `crates/ambition_platformer2d/src/provider.rs` deleted,
+   `ambition_platformer2d::provider` re-exports it, and the four duplicated prepare/activate
    flows fold onto one shared `install`-based lifecycle).
 3. N3.2/session-authority: retire process-global mirrors; prove BOTH gates of
    accepted #10.
@@ -151,7 +151,7 @@ questions from LOC counts or terminology alone.
    (possibly too broad); low priority either way. Name it only when the
    subtree's ownership can be stated precisely. A module-only half-rename
    remains forbidden.
-3. **The provider crate's exact name** (`ambition_platformer_provider` vs
+3. **The provider crate's exact name** (`ambition_platformer2d_provider` vs
    shorter) — Jon's call at extraction time.
 4. **The menu reusable/product line** — drawn by the second consumer, not in
    advance (accepted #7).
@@ -159,9 +159,9 @@ questions from LOC counts or terminology alone.
 
 ## 6. Explicit non-goals (do not reopen from LOC/terminology alone)
 
-- **No further `ambition_actors` crate split** (2026-07-10 ruling stands; the
+- **No further `ambition_platformer2d_actor_monolith` crate split** (2026-07-10 ruling stands; the
   leaf modules are the existing residue queue, not a new carve).
-- **No `ambition_engine_core` split** (measured coherent kernel; ~5s rebuild).
+- **No `ambition_platformer2d_core` split** (measured coherent kernel; ~5s rebuild).
 - **No sim_view types/builders inversion** (considered and rejected: splits
   types from their builders; the pull model quarantines the actors dep in
   exactly one crate).

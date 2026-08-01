@@ -8,12 +8,12 @@
 //!
 //! Lives here (rather than woven into the actor-side stepper) since R3 made every
 //! input plain: the authored room, the content-free `FeatureEcsWorldOverlay`, the
-//! placed portals, and `ambition_world`'s composite builder. Fable's F2 named
+//! placed portals, and `ambition_platformer2d_world`'s composite builder. Fable's F2 named
 //! this type as the one waiting on that follow-up.
 
-use ambition_engine_core as ae;
-use ambition_engine_core::RoomGeometry;
-use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Query, Res};
 
@@ -28,11 +28,11 @@ use bevy::prelude::{Query, Res};
 /// and could never transit a wall portal.
 #[derive(SystemParam)]
 pub struct ProjectileCollisionWorld<'w, 's> {
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<'w, 's, RoomGeometry>,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, RoomGeometry>,
     overlay: Res<'w, FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
-    portals: Query<'w, 's, &'static ambition_portal::PlacedPortal>,
+    portals: Query<'w, 's, &'static ambition_portal2d::PlacedPortal>,
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
@@ -42,7 +42,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     /// gate solids and letting a shot sink into a portal opening and transit.
     /// Borrowed (no clone) in the common no-gate, no-carve case.
     pub fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
-        ambition_world::collision::world_with_gate_solids_and_carves(
+        ambition_platformer2d_world::collision::world_with_gate_solids_and_carves(
             &self.world.0,
             &self.overlay.gate_solids,
             &self.overlay.portal_carves,
@@ -51,7 +51,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     }
 
     /// Snapshot the placed portals for the per-projectile transit test.
-    pub fn portal_list(&self) -> Vec<ambition_portal::PlacedPortal> {
+    pub fn portal_list(&self) -> Vec<ambition_portal2d::PlacedPortal> {
         self.portals.iter().cloned().collect()
     }
 }

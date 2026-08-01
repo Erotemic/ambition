@@ -2,7 +2,7 @@
 //!
 //! The unified menu has ONE content model
 //! ([`crate::menu::model::build_inventory_pages`] + the settings IR in
-//! [`ambition::settings_menu`]) rendered by TWO presentations (the flat Grid
+//! [`ambition_platformer2d::settings_menu`]) rendered by TWO presentations (the flat Grid
 //! [`crate::menu::grid_backend`] and the 3D cube [`crate::menu::kaleidoscope_app`]),
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
@@ -22,10 +22,10 @@
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
 use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
-use ambition::items::{Item, OwnedItems};
-use ambition::persistence::settings::UserSettings;
-use ambition::settings_menu::settings::{settings_menu_model, SettingsOptionId};
-use ambition::settings_menu::system::{
+use ambition_platformer2d::items::{Item, OwnedItems};
+use ambition_platformer2d::persistence::settings::UserSettings;
+use ambition_platformer2d::settings_menu::settings::{settings_menu_model, SettingsOptionId};
+use ambition_platformer2d::settings_menu::system::{
     DevSnapshot, RadioSnapshot, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget,
 };
 
@@ -315,7 +315,7 @@ fn every_settings_option_is_curated_into_the_system_model() {
 /// The actions the CUBE renders for a page: every node's action (the cube draws
 /// the page model verbatim, including the `ChangePage` edge page-turn controls).
 fn cube_actions(
-    page: &ambition::menu::MenuPageModel<MenuPage, MenuPageAction>,
+    page: &ambition_platformer2d::menu::MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageAction> {
     page.nodes
         .iter()
@@ -329,7 +329,7 @@ fn cube_actions(
 /// mirrors the backend's real `page.nodes.retain(...)`, so the test tracks the
 /// one documented divergence rather than reimplementing layout.
 fn grid_actions(
-    page: &ambition::menu::MenuPageModel<MenuPage, MenuPageAction>,
+    page: &ambition_platformer2d::menu::MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageAction> {
     cube_actions(page)
         .into_iter()
@@ -420,8 +420,8 @@ mod dispatch_parity {
     use super::*;
     use bevy::prelude::*;
 
-    use ambition::menu::render::bevy_ui::{install_bevy_ui_menu_actions, BevyUiMenuInteractionSet};
-    use ambition::menu::ActiveMenuPages;
+    use ambition_platformer2d::menu::render::bevy_ui::{install_bevy_ui_menu_actions, BevyUiMenuInteractionSet};
+    use ambition_platformer2d::menu::ActiveMenuPages;
 
     use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};
     use crate::menu::kaleidoscope_app::{
@@ -430,16 +430,16 @@ mod dispatch_parity {
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
-    use ambition::actors::actor::BodyMana;
-    use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition::actors::avatar::PlayerHealRequested;
-    use ambition::characters::brain::ActionSet;
-    use ambition::input::MenuControlFrame;
-    use ambition::inventory_ui::InventoryUiState;
-    use ambition::menu::backend::InventoryUiBackend;
-    use ambition::persistence::settings::UserSettings;
-    use ambition::platformer::schedule::GameMode;
-    use ambition::settings_menu::system::SystemMenuEntryId;
+    use ambition_platformer2d::actors::actor::BodyMana;
+    use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d::actors::avatar::PlayerHealRequested;
+    use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::input::MenuControlFrame;
+    use ambition_platformer2d::inventory_ui::InventoryUiState;
+    use ambition_platformer2d::menu::backend::InventoryUiBackend;
+    use ambition_platformer2d::persistence::settings::UserSettings;
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    use ambition_platformer2d::settings_menu::system::SystemMenuEntryId;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in
@@ -457,18 +457,18 @@ mod dispatch_parity {
         app.init_resource::<KaleidoscopePointerPress>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition::dev_tools::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition::dev_tools::SandboxDevState>();
-        app.init_resource::<ambition::actors::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition::actors::session::reset::SandboxResetRequested>();
-        app.init_resource::<ambition::dev_tools::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+        app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
+        app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();
-        app.init_resource::<ambition::menu::map::MapMenuState>();
+        app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<ambition::input::ActiveInputKind>();
+        app.init_resource::<ambition_platformer2d::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // The cube keeps its 3D pointer press/release path. The flat Grid consumes
         // the shared Bevy-UI Interaction activation message.

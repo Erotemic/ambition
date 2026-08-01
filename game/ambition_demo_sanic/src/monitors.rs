@@ -26,11 +26,11 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::actor::PrimaryPlayer;
-use ambition::actors::features::FeatureEcsWorldOverlay;
-use ambition::actors::rooms::RoomLoaded;
-use ambition::engine_core as ae;
-use ambition::platformer::lifecycle::SessionWorldRef;
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::actors::features::FeatureEcsWorldOverlay;
+use ambition_platformer2d::actors::rooms::RoomLoaded;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
 use crate::{SPEEDWAY_ROOM_ID, SUPER_SANIC_CHARACTER_ID};
 
@@ -88,13 +88,13 @@ pub fn break_monitor_boxes(
     mut commands: Commands,
     mut spent: ResMut<SpentMonitors>,
     geometry: SessionWorldRef<ae::RoomGeometry>,
-    mut vfx: MessageWriter<ambition::vfx::VfxMessage>,
-    mut sfx: ambition::sfx::BodySfxWriter,
+    mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut players: Query<
         (
             Entity,
             &ae::BodyKinematics,
-            &mut ambition::characters::actor::WornCharacter,
+            &mut ambition_platformer2d::characters::actor::WornCharacter,
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
             Option<&SpeedShoes>,
@@ -128,12 +128,12 @@ pub fn break_monitor_boxes(
         }
         spent.0.push(block.name.clone());
         let center = (b.min + b.max) * 0.5;
-        vfx.write(ambition::vfx::VfxMessage::Burst {
+        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
             pos: center,
             count: 16,
             speed: 170.0,
             color: [0.55, 0.75, 0.95, 1.0],
-            kind: ambition::vfx::ParticleKind::Shard,
+            kind: ambition_platformer2d::vfx::ParticleKind::Shard,
         });
         // The monitor's own pop (the super grant's transform sound fires
         // separately from the worn-identity edge in `sync_super_form_traits`).
@@ -144,8 +144,8 @@ pub fn break_monitor_boxes(
         // stomp bounce) is emitted by the breaker.
         sfx.write_from(
             crate::provider::SANIC_EXPERIENCE,
-            ambition::sfx::SfxMessage::Play {
-                id: ambition::sfx::SfxId::from_static(crate::SFX_MONITOR),
+            ambition_platformer2d::sfx::SfxMessage::Play {
+                id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
                 pos: center,
             },
         );
@@ -159,7 +159,7 @@ pub fn break_monitor_boxes(
                 // replaces the live `MomentumParams` wholesale, which would
                 // orphan a live speed shoes' saved baseline — the form eats
                 // the shoes.
-                *worn = ambition::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID);
+                *worn = ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID);
                 commands.entity(entity).remove::<SpeedShoes>();
             }
             SPEED_MONITOR => {
@@ -189,7 +189,7 @@ pub fn break_monitor_boxes(
                 // finds by reading a level file.
                 debug_assert!(false, "monitor block '{other}' has no authored grant");
                 bevy::log::error!(
-                    target: "ambition::sanic",
+                    target: "ambition_platformer2d::sanic",
                     "monitor block '{other}' has no authored grant; breaking it \
                      does nothing"
                 );
@@ -202,7 +202,7 @@ pub fn break_monitor_boxes(
 /// exactly on expiry.
 pub fn tick_speed_shoes(
     mut commands: Commands,
-    time: Res<ambition::time::WorldTime>,
+    time: Res<ambition_platformer2d::time::WorldTime>,
     mut bodies: Query<(Entity, &mut ae::MotionModel, &mut SpeedShoes)>,
 ) {
     for (entity, mut model, mut shoes) in &mut bodies {
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn expired_speed_shoes_restore_the_authored_params() {
         let mut app = App::new();
-        app.insert_resource(ambition::time::WorldTime {
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 10.0,
             ..Default::default()
         });

@@ -1,0 +1,498 @@
+[package]
+name = "ambition_platformer2d_actor_monolith"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition gameplay core: content-free simulation systems, runtime state, schedules, and compatibility facades."
+
+[lib]
+# rlib ONLY. The cdylib here is a leftover from the pre-A3 monolith, when the
+# Android .so was built from this crate; the shared library is `ambition_app`
+# now (`build_for_android.sh`: `cargo ndk ... build -p ambition_app --lib`, and
+# `android.app.lib_name = ambition_app`), so nothing consumed this one.
+#
+# It was not merely dead weight. Cargo drops the metadata hash from a target's
+# output filenames when it emits a cdylib -- a shared library needs a
+# predictable name -- and that applies to the target's OTHER crate-types too.
+# So every feature variant of this crate collided on one unhashed
+# `libambition_actors.rlib` instead of getting the per-feature artifact every
+# rlib-only crate gets. The 18-job test suite resolves this crate to 9 distinct
+# feature sets, so each crossing overwrote the slot and forced a rebuild of
+# this crate plus the ~15 downstream of it. Adding a cdylib back reintroduces
+# that; put it in a thin leaf crate instead.
+crate-type = ["rlib"]
+
+[features]
+# Publish this crate's causal facts (movement intent, for now).
+# ⚠ **every crate that PUBLISHES must be listed**, not just the ones this crate
+# calls into. `ambition_characters` was missing until 2026-08-01, so the BRAIN
+# domain — the fighter decisions Program C exists to explain — was compiled out
+# of every composition that turned the inspector on. The stderr trace still
+# printed, which is what hid it: the line appeared and the fact did not, and
+# nothing distinguishes "the brain published nothing" from "the brain cannot".
+causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_characters/causal"]
+# Default preserves the full desktop sandbox / development posture. Android
+# builds use the `android` composite below with `--no-default-features` so the
+# phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only
+# inspector/file-watcher tooling.
+default = ["desktop_dev"]
+
+# Full desktop sandbox. This is the regular `cargo run` experience: visible
+# gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
+
+# Portal gun mechanic (the flagship player ability). Optional so non-portal
+# builds can compile out portal mechanics, portal rendering, and portal LDtk
+# conversion while keeping movement, world-query, room transitions, gravity, and
+# inventory infrastructure. Persona builds (`visible`, and therefore
+# `desktop_dev`/`android`, plus the web backbone) opt into the full portal stack
+# below so a normal build is behaviorally unchanged.
+#
+# `portal`        — portal simulation/mechanics + Ambition input/inventory glue.
+# `portal_render` — portal visual sync (needs the `visible` render pipeline).
+# `portal_ldtk`   — portal-authored LDtk entity conversion (needs `ldtk_runtime`).
+#                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
+#                   a `Portal` / `PortalGunSpawn` entity rather than silently
+#                   dropping it.
+portal = ["ambition_platformer2d_ldtk/portal"]
+# `portal_render` does NOT force `visible` on, so the web backbone
+# (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
+# into portal visuals without dragging in the desktop-only audio/ui/physics
+# subsystems. Personas that want portal rendering enable their own render
+# pipeline (`visible` / `visible_web_base`) alongside this flag.
+#
+portal_render = ["portal"]
+portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
+
+
+# Desktop platform support mirrors Bevy's default platform collection: windowing,
+# desktop gamepads via gilrs, default font fallback, system info, and desktop
+# display backends. Keep this out of Android so phone builds do not initialize
+# unsupported desktop gamepad backends.
+desktop_platform = ["bevy/default_platform"]
+
+# Android platform support is intentionally narrower than Bevy's
+# `default_platform`: it keeps the Android GameActivity/winit/std pieces needed
+# to launch the app, but excludes `bevy_gilrs`, desktop display backends,
+# sysinfo_plugin, and web-only platform features.
+android_platform = [
+    "bevy/std",
+    "bevy/android-game-activity",
+    "bevy/android_shared_stdcxx",
+    "bevy/bevy_winit",
+    "bevy/default_font",
+    "bevy/multi_threaded",
+]
+
+# Web/browser platform support. First-pass wasm32 build: bevy's canvas-backed
+# winit, default font, and WebGL2 renderer plus the `bevy/web` glue. Excludes
+# `bevy_gilrs`, x11/wayland, sysinfo_plugin, and `multi_threaded` (the latter
+# needs wasm atomics + nightly). The browser start function now lives in
+# `ambition_app`; this feature keeps gameplay-core's wasm-facing Bevy deps in
+# sync with the app web persona.
+web_platform = [
+    "bevy/std",
+    "bevy/bevy_winit",
+    "bevy/default_font",
+    "bevy/web",
+    "bevy/webgl2",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+
+# Composite for the playable Bevy app. Desktop and Android both build on this.
+#
+# Pulls in Bevy's full `default_app` (windowing + render + scene + png)
+# explicitly so a headless build (`--no-default-features --features
+# headless`) keeps the narrower bevy feature set declared in the base
+# `bevy = { … }` dep above. Anything that uses `Sprite`, `Camera2d`,
+# `BackgroundColor`, `Window`, etc. should sit behind a presentation
+# `cfg(feature = "visible")` gate.
+visible = [
+    "ldtk_runtime",
+    "input",
+    "audio",
+    "ui",
+    "physics_debris",
+    "portal",
+    "portal_render",
+    "portal_ldtk",
+    "bevy/2d_bevy_render",
+    "bevy/ui_bevy_render",
+    "bevy/scene",
+    "bevy/png",
+    "frame_pacing",
+    "bevy_ui_menu",
+    "kaleidoscope_menu",
+]
+
+# Shared backbone for the two browser personas. Mirrors `visible` but
+# drops the subsystems that don't yet have a wasm story: UI polish
+# (yarnspinner/material_ui), physics debris (avian2d), file watcher,
+# mobile touch (virtual_joystick), and dev tools (egui inspector).
+# `static_map` is mandatory because the wasm build has no synchronous
+# filesystem reader for `sandbox.ldtk`. Audio is NOT in this backbone —
+# each web persona opts in via `web_audio` so a silent smoke build is
+# still cheap.
+#
+# `bevy/2d_bevy_render`, `bevy/ui_bevy_render`, `bevy/scene`, `bevy/png`
+# mirror what `visible` adds; without them the wasm build has the UI
+# type API (`ui_api`) but no render pipeline, so dialog overlays,
+# menus, and touch buttons spawn entities that never get drawn.
+visible_web_base = [
+    "ldtk_runtime",
+    "input",
+    "static_map",
+    "portal",
+    "portal_render",
+    "portal_ldtk",
+    "bevy/2d_bevy_render",
+    "bevy/ui_bevy_render",
+    "bevy/scene",
+    "bevy/png",
+    "bevy_ui_menu",
+]
+
+# Composite for the "embed core assets" browser persona. Bundles the
+# LDtk world + a bounded set of UI fonts + primary character sheets +
+# core entity sprites into the wasm binary. Smaller asset footprint
+# on the host; bigger binary. Out-of-set sprites fall back to colored
+# rectangles. Audio is silent here unless `static_sfx_bank` also bakes
+# the SFX bank into the wasm. See `docs/recipes/web-build.md`.
+visible_web = ["visible_web_base", "static_core_assets"]
+
+# Composite for the "served assets" browser persona. Bundles LDtk only;
+# every other visual / audio asset is fetched over HTTP from the
+# `/assets/` tree served alongside `index.html`. The sandbox selects
+# `AssetProfile::WebServedAssets` automatically when the `web_served`
+# feature is enabled (see `crate::game_assets::default_asset_profile`).
+# Includes `web_audio` so authored music + the SFX bank flow through
+# the same asset manager catalog routing on web as on desktop.
+visible_web_served = ["visible_web_base", "web_served", "web_audio"]
+
+# Browser persona — embedded core assets. The composite a `wasm-pack
+# build` / `wasm-bindgen --target web` step builds against by default;
+# see `docs/recipes/web-build.md`. Visual smoke build; audio stays silent unless
+# `static_sfx_bank` or `web_audio` is added on top.
+web = ["visible_web", "web_platform"]
+
+# Browser persona — served assets. Use with `./build_for_web.sh --served`
+# (which symlinks/copies `crates/ambition_platformer2d_actor_monolith/assets/` into
+# `game/ambition_app/web/assets/` so the served pages can reach
+# them under `/assets/...`). Full media: visuals + authored audio.
+web_served_assets = ["visible_web_served", "web_platform"]
+
+# Marker feature read by `crate::game_assets::default_asset_profile`
+# to flip the wasm default to `AssetProfile::WebServedAssets`. No deps
+# of its own — composing it pulls in the right sandbox behavior.
+web_served = ["ambition_sprite_sheet/web_served"]
+
+# (`rl_sim` was removed here 2026-07-19: the RL surface — `SandboxSim`,
+# `AgentAction`, `AgentObservation` — moved to `ambition_sim_harness` and the
+# app in the July-16 extraction, so this crate's copy of the feature gated
+# nothing at all. The real switch is `ambition_app/rl_sim`, which pulls
+# `dep:ambition_sim_harness` and gates the rl_sim-only integration tests.)
+
+# Composite marker for a headless build. Intentionally enables NOTHING: the
+# lever is `--no-default-features --features headless`, i.e. "the base without
+# `visible`", so the value is in what it leaves OFF. Keep it empty; adding
+# subsystem gates here is how heavy deps (Kira / Avian / inspector /
+# bevy_ecs_ldtk) get stripped further.
+headless = []
+
+# Devtools: egui inspector plugins. NOT the file watcher — its host
+# cost (one inotify instance + one open fd per watched directory)
+# scales with the assets tree (~320 files, ~70 dirs as of 2026-05-21)
+# and trips hosts with a low per-process file-descriptor limit
+# ("Failed to create file watcher … Too many open files"). Opt into
+# the hot-reload watcher explicitly with `--features dev_hot_reload`
+# when you actually want to iterate on assets live.
+dev_tools = ["dep:bevy-inspector-egui", "ambition_settings_menu/dev_tools"]
+
+# Opt-in Bevy file watcher for live asset hot-reload. Off by default
+# in the desktop persona because the cost (inotify quota / open fds)
+# is real and the LDtk workflow has its own `tools/ambition_ldtk_tools`
+# repair-and-reload loop. Enable with
+# `cargo run --features dev_hot_reload` when iterating on textures /
+# fonts / spritesheets that the asset server should pick up
+# automatically.
+dev_hot_reload = ["bevy/file_watcher"]
+
+# Opt-in self-contained map build. Normal sandbox builds load
+# assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
+# not require recompiling Rust. Enabling this feature also embeds the checked-in
+# map and falls back to it if the external map cannot be read or parsed.
+static_map = ["ambition_asset_manager/static_map", "ambition_platformer2d_ldtk/static_map"]
+
+# Embed a bounded "core visual" subset (UI fonts + primary character sheets +
+# core entity sprite PNGs) into the binary via `include_bytes!`, and register
+# them with Bevy's `EmbeddedAssetRegistry` via `AmbitionAssetSourcePlugin`.
+# Intended for `WebStatic` / `BundledStatic` builds where there is no
+# filesystem to read from. Desktop dev builds normally leave this off — the
+# loose `assets/` tree under `cargo run` is the source of truth there.
+#
+# Composes with `static_map`: `static_map` embeds the LDtk world JSON,
+# `static_core_assets` embeds the visual layer. The `web` composite feature
+# enables both.
+static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
+
+# Opt-in static SFX bank embedding. This is mainly for Android until the
+# synchronous SFX-bank loader can read from APK assets. The build script enables
+# this automatically when crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank exists
+# and passes AMBITION_STATIC_SFX_BANK_PATH for include_bytes!.
+static_sfx_bank = []
+
+# Android phone-test packaging. This is platform composition, not a stripped
+# release persona: keep the playable sandbox, touch controls, audio, LDtk,
+# UI, and RL/test seams, but do not pull desktop-only inspector/file-watcher
+# tooling into the phone build. Keep `static_map` here for now because the
+# sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
+# path can hand it to the runtime; the APK still packages the loose asset tree
+# for sprites/audio/fonts and future map-loading work.
+android = ["visible", "android_platform", "mobile_touch", "static_map"]
+
+# Explicit alias for Android builds that still include sandbox/dev gameplay
+# behavior. Kept separate so future phone-only diagnostics can be added without
+# changing the base Android packaging feature.
+android_dev = ["android", "dev_tools"]
+
+# Subsystem gates. Deps are flipped to `optional = true` so toggling
+# these features actually moves crates in/out of the dep graph. Code
+# inside these subsystems is not yet cfg-gated end-to-end, so disabling
+# them today only works when paired with `--features visible` (where
+# they're all enabled).
+ldtk_runtime = [
+    "dep:bevy_ecs_ldtk",
+    "dep:bevy_asset_loader",
+    "ambition_platformer2d_ldtk/ldtk_runtime",
+]
+# The runtime audio subsystem. Composes `authored_audio`: Kira playback
+# of authored OGG/WAV music + the packed SFX bank loaded through the
+# asset manager catalog. There is no runtime DSP/effects backend today;
+# the old fundsp procedural music + SFX synthesizer was retired in
+# favor of authored OGGs and the SFX bank. See docs/archive/retired/fundsp-audio.md
+# (now an end-of-life note).
+audio = ["authored_audio"]
+# Authored-asset audio playback. `bevy_kira_audio` works on
+# wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
+# is the same on desktop, Android, and web.
+authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
+# Browser-side audio composite. Pulls in the full `audio` feature
+# (NOT just `authored_audio`) so the `#[cfg(feature = "audio")]`
+# gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
+# loader, the env writer, etc. actually fire. Before this depended
+# only on `authored_audio` and the web build silently boot-stripped
+# the entire audio runtime (no plugin install, no AudioContext
+# creation) even though `bevy_kira_audio` was in the dep graph.
+web_audio = ["audio"]
+ui = [
+    "dep:bevy_material_ui",
+    "dep:bevy_yarnspinner",
+    "dep:yarnspinner",
+    "ambition_dialog/ui",
+]
+physics_debris = ["dep:avian2d"]
+input = [
+    "dep:leafwing-input-manager",
+    "ambition_input/input",
+    "ambition_ui_nav/input",
+    "ambition_dialog/input",
+]
+# Mobile / Android touch input. Pulls `virtual_joystick` for the
+# on-screen sticks; the supporting Bevy systems live behind this feature
+# flag so desktop / gamepad / headless builds skip the touch path.
+# Pure helper (`mobile_input::fold_touch_into_control_frame`) is
+# always-available so its tests run in a default `cargo test` without
+# requiring the feature.
+mobile_touch = ["input", "dep:virtual_joystick"]
+
+# Flat Bevy-UI inventory/pause menu backend. Enabled by the normal `visible`
+# desktop/Android personas so both platforms exercise the same menu stack by
+# default. Kept as a feature so focused diagnostics / minimal builds can avoid
+# installing its Bevy-UI tree, picking observers, and menu-scroll systems.
+#
+# The flat backend needs Bevy's UI picking backend so the tab bar and controls
+# receive `Pointer<*>` events. Keep that dependency attached to the backend
+# feature instead of the broad `visible` feature so future non-Bevy-UI menu
+# builds don't pay for it by accident.
+bevy_ui_menu = ["bevy/ui_picking"]
+
+# Experimental 3D cube inventory/pause menu backend. Enabled by the normal
+# `visible` desktop/Android personas so both platforms exercise the same menu
+# stack by default. Kept as a feature so headless/web/minimal builds can avoid
+# installing the cube camera/Lunex renderer.
+kaleidoscope_menu = []
+
+# Frame pacing (battery saver). Visible-only — the limiter lives in the render app.
+frame_pacing = ["dep:bevy_framepace"]
+
+# Bevy/Tracy per-system profiling. Off by default because it pulls
+# `tracing-tracy` and instruments every Bevy system, increasing binary
+# size and runtime overhead. Build with `cargo run --features profile`
+# and connect the Tracy GUI to record a flamegraph. See
+# `docs/recipes/profiling.md` for the workflow.
+profile = ["bevy/trace", "bevy/trace_tracy"]
+
+[dependencies]
+bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_math = { version = "0.18.1", features = ["serialize"] }
+parry2d = "0.26"
+# `ambition_sfx` stays in the dep graph regardless of the `audio`
+# feature: it has no audio backend deps and the sim layer
+# (`features.rs`) needs `SfxId` to enqueue SFX-only events generically.
+# Headless / RL builds compile it but never play through it.
+ambition_sfx = { path = "../ambition_sfx" }
+# Reusable sprite-sheet metadata schema, baked registry, and sheet registry plugin.
+# Actor code still depends on it for character-catalog-aware loading and
+# authored hitbox/body-collision joins.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). The
+# recording systems stay in dev/trace next to the sim state they sample.
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+# Authored-audio stack (Stage 20 / B1). The data schema half is
+# unconditional (SandboxDataSpec embeds AudioSpec); the Kira playback
+# half lights up via the `audio` feature below.
+ambition_audio = { path = "../ambition_audio" }
+# Reusable, content-free platformer runtime primitives (lifecycle vocabulary +
+# schedule sets). First real crate extracted from the proto-runtime
+# (`crate::platformer_runtime` is now a facade over this crate plus the
+# not-yet-extracted local modules collision/orientation/transit). See
+# docs/current/state.md Stage 13 / Task K.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# Reusable, content-free portal MECHANIC (portal-gun place/replace/channel,
+# aperture transit math, the one generic `portal_transit` over PortalBody +
+# PortalPolicy, carve publishing, pieces geometry, lifecycle, the pure shot
+# helper over SolidWorldQuery, portal events + PortalPlugin). Hosts and content
+# adapters import this crate directly; actor sim no longer carries a portal
+# facade or presentation dependency. ADR 0019; Stage 19.
+ambition_portal2d = { path = "../ambition_portal2d" }
+# The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +
+# portal transit. The sim heart retains only the victim/world/anim-woven steppers.
+ambition_projectiles = { path = "../ambition_projectiles" }
+# Reusable, content-free time vocabulary + producer (WorldTime / ClockState /
+# ClockDomain / ProperTimeScale / named-clock dt accessors / TimePlugin). The
+# `crate::time` module is a facade re-exporting these; the sandbox keeps the
+# game-specific time-control POLICY (Regime / requester table / feel-tuned
+# smoother), camera-ease, and feel modules on top. ADR 0010/0011. See
+# docs/current/state.md (T1b).
+ambition_time = { path = "../ambition_time" }
+# ECS-native pure-logic core (geometry / movement / collision / player_state /
+# abilities / ledge_grab / world / player_clusters + the shared BodyKinematics
+# body component). The build-time foundation; re-exported as `crate::engine_core`
+# from lib.rs (ADR 0019). See docs/current/state.md.
+ambition_characters = { path = "../ambition_characters" }
+# Structured causal facts. Optional and default-off (§2e), and it brings only
+# `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
+ambition_combat = { path = "../ambition_combat" }
+# Cutscene script format + runtime stepper + playback-state resources (pure
+# data + ECS resources). The playback systems that drive them live in
+# `crate::cutscene`.
+ambition_cutscene = { path = "../ambition_cutscene" }
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_items = { path = "../ambition_items" }
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
+# Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
+# input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
+# `crate::persistence::settings` re-exports its `settings` module so existing
+# `crate::persistence::settings::ControlSettings` paths resolve unchanged. The
+# sandbox `input` feature forwards to this crate's `input` feature. See
+# docs/current/state.md.
+ambition_input = { path = "../ambition_input" }
+# Reusable UI/menu nav primitives (windowed list math, pointer activation, drag
+# scroll). This crate names NO ui_nav path: the dependency exists only as a
+# conduit so the `input` feature can forward `ambition_ui_nav/input` (the
+# MenuInputFrame scroll helper). Consumers reach the crate as `ambition_platformer2d::ui_nav`
+# through the facade, not through here — so it is optional and compiles only
+# when that forward actually fires.
+ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
+# the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs
+# the Bevy-UI grid (#31). De-vendored from the submodule into a normal repo crate
+# so it can be edited without the submodule commit + gitlink-bump dance.
+ambition_menu = { path = "../ambition_menu" }
+ambition_persistence = { path = "../ambition_persistence" }
+# Reusable dialogue runtime (E1c): DialogState view model + typewriter reveal +
+# input systems + the bevy_yarnspinner bridge and binding-installer seam. The
+# game-specific Yarn bindings + GameMode sync stay in `src/dialog`.
+ambition_dialog = { path = "../ambition_dialog" }
+# Reusable developer-tooling state + logic (E1d): DeveloperTools, the editable
+# player-tuning/ability/stats resources, profile enums, startup profiler,
+# DeveloperTools disk persistence, and the live-edit sync system. gameplay-core
+# re-exports these on the historical `crate::dev::*` paths.
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+# The renderer-agnostic settings + system menu IR (E1e). Re-exported on the
+# historical `crate::menu::ir::*` + `crate::persistence::settings::*` paths.
+ambition_settings_menu = { path = "../ambition_settings_menu" }
+# Logical asset catalog + per-profile source resolution. The actor-side
+# sandbox only needs Bevy `AssetPath` formatting; SFX ownership stays with
+# the audio/SFX crates rather than flowing through the catalog crate.
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+avian2d = { version = "0.5", optional = true }
+bevy = { version = "0.18.1", default-features = false, features = [
+    # Minimum surface every sandbox build (visible and headless) needs.
+    #
+    # `ui_api` (Node / Style / Val / BackgroundColor / TextColor) is
+    # pulled in unconditionally because many non-presentation modules
+    # — cutscene scaffolding, fx HUD primitives, setup text widgets,
+    # the schedule helpers' query types — reference these types
+    # directly. Moving it behind a `visible` gate would require cfg-
+    # gating those modules, deferred.
+    #
+    # `ui_api` transitively pulls in `default_app` (via the Bevy 0.18
+    # feature graph: ui_api → default_app + common_api → bevy_window
+    # → bevy_winit). So in practice the base bevy dep still carries
+    # the windowing surface even though it isn't explicitly listed
+    # here. The `visible` cargo feature below adds the 2D / UI /
+    # scene / png renderer features that ARE genuinely render-only;
+    # those are what a true headless build needs to drop, and that's
+    # what moving them to `visible` already buys us.
+    "ui_api",
+] }
+bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_yarnspinner = { version = "0.8", optional = true }
+# The standalone Yarn compiler (same version bevy_yarnspinner pulls). Used only
+# by the `ui`-gated yarn-compiles test so a malformed `.yarn` file fails at
+# `cargo test` instead of crashing the running game's asset loader.
+yarnspinner = { version = "0.8", optional = true }
+bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"], optional = true }
+bevy_asset_loader = { version = "0.26", optional = true }
+bevy_ecs_ldtk = { version = "0.14", optional = true }
+bevy-inspector-egui = { version = "0.36", optional = true }
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
+# Frame pacing / limiter — caps the frame rate to the display refresh (Limiter::Auto)
+# so the GPU/CPU idle between frames instead of rendering as fast as possible. Big
+# battery win on mobile; gated by `frame_pacing` (needs the render app, so visible-only).
+bevy_framepace = { version = "0.21", default-features = false, optional = true }
+leafwing-input-manager = { version = "0.20", optional = true }
+virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
+# Browser support deps. Pulled in only by the `web_platform` feature; the actual
+# `#[wasm_bindgen(start)]` entry point lives in `ambition_app`.
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+petgraph = "0.8"
+ron = { workspace = true }
+serde = { workspace = true }
+serde_json = "1"
+
+# The binaries moved to the `ambition_app` crate (Stage 20 / A3).
+
+[dev-dependencies]
+# The observation-boundary crate: the headless camera example resolves its
+# snapshot through it (dev-only; cyclic dev-deps are fine).
+ambition_sim_view = { path = "../ambition_sim_view" }
+insta = { version = "1", features = ["ron"] }
+proptest = "1"
+# Pure-Rust PNG encode for the headless geometry-debug renderer
+# (examples/render_room_geometry.rs). Already in the lock via Bevy, so no
+# new crate build — dev-only so it never touches the shipping binary.
+image = { version = "0.25", default-features = false, features = ["png"] }
+# Isolated scratch dirs for the asset-publish fixture tests. Already in the
+# workspace lock (transitive), so this adds no new crate build.
+tempfile = "3"

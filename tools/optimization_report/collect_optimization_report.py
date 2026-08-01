@@ -305,7 +305,7 @@ def collect_binary_sizes(repo: Path, out: Path) -> list[dict[str, object]]:
         if not profile_dir.exists():
             continue
         for name in [
-            "ambition_actors",
+            "ambition_platformer2d_actor_monolith",
             "headless",
             "rl_random_walker",
             "rl_smoke",
@@ -609,7 +609,7 @@ The command table intentionally stays concise. Full stdout/stderr payloads are i
 
 ## Suggested first questions for optimization review
 
-1. Which crates dominate `cargo build --timings -p ambition_actors`?
+1. Which crates dominate `cargo build --timings -p ambition_platformer2d_actor_monolith`?
 2. Which dependencies remain in the `--no-default-features --features rl,headless,ldtk_runtime` tree, and which should drop out of a truly headless build?
 3. How much smaller is release versus distribution, if a distribution profile exists?
 4. Are large generated assets externalized, or are any accidentally embedded / tracked?
@@ -747,7 +747,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run("cargo_tree_workspace_duplicates", ["cargo", "tree", "-d"])
     run(
         "cargo_tree_sandbox_features_default",
-        ["cargo", "tree", "-e", "features", "-p", "ambition_actors"],
+        ["cargo", "tree", "-e", "features", "-p", "ambition_platformer2d_actor_monolith"],
     )
     run(
         "cargo_tree_sandbox_features_headlessish",
@@ -757,7 +757,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "-e",
             "features",
             "-p",
-            "ambition_actors",
+            "ambition_platformer2d_actor_monolith",
             "--no-default-features",
             "--features",
             "rl_sim,headless,ldtk_runtime",
@@ -778,11 +778,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     # The former ambition_engine crate is gone; its code lives in
-    # ambition_actors/src/engine_core and is covered by the sandbox check below.
+    # ambition_platformer2d_actor_monolith/src/engine_core and is covered by the sandbox check below.
     check_results.append(
         run(
             "cargo_check_sandbox_default",
-            cargo_check_cmd("-p", "ambition_actors", long_tests=args.long_tests),
+            cargo_check_cmd("-p", "ambition_platformer2d_actor_monolith", long_tests=args.long_tests),
         )
     )
     check_results.append(
@@ -790,7 +790,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "cargo_check_sandbox_headlessish",
             cargo_check_cmd(
                 "-p",
-                "ambition_actors",
+                "ambition_platformer2d_actor_monolith",
                 "--no-default-features",
                 "--features",
                 "rl_sim,headless,ldtk_runtime",
@@ -803,12 +803,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.quick:
         run(
             "cargo_build_timings_sandbox_default",
-            ["cargo", "build", "--timings", "-p", "ambition_actors"],
+            ["cargo", "build", "--timings", "-p", "ambition_platformer2d_actor_monolith"],
         )
 
         run(
             "cargo_build_timings_sandbox_release",
-            ["cargo", "build", "--timings", "-p", "ambition_actors", "--release"],
+            ["cargo", "build", "--timings", "-p", "ambition_platformer2d_actor_monolith", "--release"],
         )
         if cargo_profile_exists(repo, "distribution"):
             run(
@@ -818,7 +818,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "build",
                     "--timings",
                     "-p",
-                    "ambition_actors",
+                    "ambition_platformer2d_actor_monolith",
                     "--profile",
                     "distribution",
                 ],
@@ -847,9 +847,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "bloat",
                     "--release",
                     "-p",
-                    "ambition_actors",
+                    "ambition_platformer2d_actor_monolith",
                     "--bin",
-                    "ambition_actors",
+                    "ambition_platformer2d_actor_monolith",
                     "-n",
                     "50",
                 ],
@@ -869,9 +869,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "llvm-lines",
                     "--release",
                     "-p",
-                    "ambition_actors",
+                    "ambition_platformer2d_actor_monolith",
                     "--bin",
-                    "ambition_actors",
+                    "ambition_platformer2d_actor_monolith",
                     "--lines",
                     "50",
                 ],
@@ -891,7 +891,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # Platform binary introspection after builds. Failure is fine; logs explain missing files.
     for profile_name in ["debug", "release", "distribution"]:
-        candidate = repo / "target" / profile_name / "ambition_actors"
+        candidate = repo / "target" / profile_name / "ambition_platformer2d_actor_monolith"
         if candidate.exists():
             run(f"file_{profile_name}_ambition_actors", ["file", str(candidate)])
             run(f"size_{profile_name}_ambition_actors", ["size", str(candidate)])

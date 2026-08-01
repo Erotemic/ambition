@@ -43,7 +43,7 @@ Overlay packages are complete replacement-file patches that unpack over a user's
 ```bash
 unzip -l overlay.zip
 cargo fmt --check
-cargo test -p ambition_actors --lib
+cargo test -p ambition_platformer2d_actor_monolith --lib
 ```
 
 Adjust the code validation to the files touched by the overlay.

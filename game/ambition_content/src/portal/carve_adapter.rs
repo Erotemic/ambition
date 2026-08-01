@@ -1,8 +1,8 @@
 //! Ambition bridge: portal-owned carves → the host collision overlay.
 //!
-//! Portal core's [`publish_portal_carves`](ambition_portal::publish_portal_carves)
+//! Portal core's [`publish_portal_carves`](ambition_portal2d::publish_portal_carves)
 //! writes the aperture geometry into the portal-owned
-//! [`PortalCarves`](ambition_portal::PortalCarves) resource. Portal core never
+//! [`PortalCarves`](ambition_portal2d::PortalCarves) resource. Portal core never
 //! names `FeatureEcsWorldOverlay` — it owns the carve *geometry*, while Ambition
 //! owns how a carve alters its collision representation. This bridge copies the
 //! published carves into `FeatureEcsWorldOverlay.portal_carves` each frame,
@@ -11,10 +11,10 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::cast::SolidWorldQuery;
-use ambition_engine_core::RoomGeometry;
-use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
-use ambition_portal::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};
+use ambition_platformer2d_core::cast::SolidWorldQuery;
+use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
@@ -40,7 +40,7 @@ pub fn bridge_portal_carves(
 /// sight/entry through their own hole, and moving-platform overlays are not
 /// portal hosts.
 pub fn sync_portal_host_depths(
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     portals: Query<&PlacedPortal>,
     mut depths: ResMut<PortalHostDepths>,
 ) {
@@ -48,7 +48,7 @@ pub fn sync_portal_host_depths(
     if portals.is_empty() {
         return;
     }
-    let mut solids: Vec<ambition_engine_core::Aabb> = Vec::new();
+    let mut solids: Vec<ambition_platformer2d_core::Aabb> = Vec::new();
     world
         .0
         .for_each_solid_aabb(false, &mut |aabb| solids.push(aabb));
@@ -56,7 +56,7 @@ pub fn sync_portal_host_depths(
         let depth = measure_host_depth(
             &solids,
             &portal.frame(),
-            ambition_portal::pieces::CARVE_DEPTH,
+            ambition_portal2d::pieces::CARVE_DEPTH,
         );
         depths.0.push((portal.channel, depth));
     }

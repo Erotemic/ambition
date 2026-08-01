@@ -18,8 +18,8 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
-use ambition::world::rooms::{PropDraw, PropSpec};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::world::rooms::{PropDraw, PropSpec};
 
 /// The pipe's mouth lip (the wide rim you stand on) — a distinct sheet from the
 /// shaft so a tall pipe reads as a mouth on a body, not a stretched tube.
@@ -97,8 +97,8 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
 /// sheet target name (which is also the `PropSpec.kind` the level authors).
 /// Insert-if-missing so it self-heals after a wholesale `GameAssets` rebuild.
 pub fn register_mary_o_construction_props(
-    game_assets: Option<ResMut<ambition::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<Res<ambition::sprite_sheet::game_assets::GameAssetConfig>>,
+    game_assets: Option<ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+    config: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
 ) {
@@ -114,12 +114,12 @@ pub fn register_mary_o_construction_props(
         if game_assets.characters.props.contains_key(*kind) {
             continue;
         }
-        if let Some(asset) = ambition::actors::character_sprites::load_prop_sheet_for_target(
+        if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
             &asset_server,
             &mut layouts,
             &config.sprite_folder,
             kind,
-            &ambition::sprite_sheet::character::SheetTuning::new(1.0, 0),
+            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
         ) {
             game_assets
                 .characters

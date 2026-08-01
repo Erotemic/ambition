@@ -17,8 +17,8 @@ rationale = "The tier anchors (foundation engine_core, headless runtime, content
 source_doc = "docs/planning/engine/decomposition.md"
 severity = "error"
 members = [
-    "ambition_engine_core",
-    "ambition_runtime",
+    "ambition_platformer2d_core",
+    "ambition_platformer2d_runtime",
     "ambition_content",
     "ambition_app",
     "ambition_workspace_policy",
@@ -34,8 +34,8 @@ rationale = "The crate-tier layout (foundation crates under crates/, game crates
 source_doc = "docs/planning/engine/architecture.md"
 severity = "error"
 paths = [
-    "crates/ambition_engine_core/Cargo.toml",
-    "crates/ambition_runtime/Cargo.toml",
+    "crates/ambition_platformer2d_core/Cargo.toml",
+    "crates/ambition_platformer2d_runtime/Cargo.toml",
     "game/ambition_app/Cargo.toml",
     "game/ambition_content/Cargo.toml",
 ]

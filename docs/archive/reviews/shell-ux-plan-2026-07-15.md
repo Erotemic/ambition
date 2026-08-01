@@ -5,7 +5,7 @@
 - **Status:** PLANNED (not started)
 - **Scope:** the multi-game host's player-facing shell UX. Four interrelated
   features + one design-question sketch. Everything lands in engine crates and
-  flows to Ambition AND the demos through the `ambition` umbrella — no demo may
+  flows to Ambition AND the demos through the `ambition_platformer2d` umbrella — no demo may
   need a lower `ambition_*` crate (E9 oracle), and nothing new may live only in
   `game/ambition_app`.
 
@@ -23,12 +23,12 @@ not a new skeleton.
 | Basic shell presentation (launcher menu + sequence cards) | `crates/ambition_game_shell/src/basic_presentation.rs:117` (`render_basic_shell`), `:220` (`spawn_launcher_menu`) |
 | Neutral shell input edges (kb + pad unified) | `crates/ambition_game_shell/src/input.rs:10` (`ShellActionEdges`) |
 | Renderer-independent menu model + flat Bevy-UI renderer | `crates/ambition_menu/src/lib.rs:249` (`MenuPageModel`), `ambition_menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets` (used at `basic_presentation.rs:8`) |
-| Frontend audio profile + authority | `crates/ambition_audio/src/selection.rs:122` (`FrontendAudioProfile`), `crates/ambition_actors/src/audio/plugin.rs:280` (`apply_frontend_music_policy`) |
-| Pause vocabulary (engine-level, demos get it free) | `crates/ambition_platformer_primitives/src/schedule.rs:310` (`GameMode`), `:298` (`gameplay_suspended`); zeroing wired in `crates/ambition_runtime/src/player_schedule.rs:53-77` via `apply_suspended_time_scale_system` (`crates/ambition_actors/src/time/time_control/mod.rs:364`) |
-| Affordances ("what would each button do right now") | `crates/ambition_actors/src/affordances/mod.rs:75` (`PlayerAffordances`), `:89` (`compute_player_affordances`), `variants.rs`, `resolvers.rs`, `devices.rs:76` (`ActiveInputMethod`), `:142` (`glyph_for`) |
+| Frontend audio profile + authority | `crates/ambition_audio/src/selection.rs:122` (`FrontendAudioProfile`), `crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:280` (`apply_frontend_music_policy`) |
+| Pause vocabulary (engine-level, demos get it free) | `crates/ambition_platformer2d_shared_tangle/src/schedule.rs:310` (`GameMode`), `:298` (`gameplay_suspended`); zeroing wired in `crates/ambition_platformer2d_runtime/src/player_schedule.rs:53-77` via `apply_suspended_time_scale_system` (`crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs:364`) |
+| Affordances ("what would each button do right now") | `crates/ambition_platformer2d_actor_monolith/src/affordances/mod.rs:75` (`PlayerAffordances`), `:89` (`compute_player_affordances`), `variants.rs`, `resolvers.rs`, `devices.rs:76` (`ActiveInputMethod`), `:142` (`glyph_for`) |
 | Hint consumers today | `crates/ambition_touch_input/src/layout.rs:114-135` (hardcoded "Blink"/"Dash"/"Jump" buttons), `bevy_plugin.rs:791` (`ButtonVerb`), `update_button_verb_from_affordances` |
 | Character identity worn by the controlled body | `crates/ambition_characters/src/actor/worn.rs:33` (`WornCharacter`), catalog row `crates/ambition_characters/src/actor/character_catalog/entry.rs:375-377` (`abilities: Option<AbilityKitSpec>`) |
-| Umbrella surface | `crates/ambition/src/lib.rs` re-exports `game_shell` (:24), `menu` (:33), `ui_nav` (:48), `audio` (:15) — every type this plan touches is already reachable from demos |
+| Umbrella surface | `crates/ambition_platformer2d/src/lib.rs` re-exports `game_shell` (:24), `menu` (:33), `ui_nav` (:48), `audio` (:15) — every type this plan touches is already reachable from demos |
 | Standalone demo hosts (must also gain the pause menu by composition) | `game/ambition_demo_smb1_app/src/lib.rs:38` (`compose_smb1_shell`), `game/ambition_demo_sanic_app/src/lib.rs` (same pattern) |
 
 Design stance for all four parts: **the host offers ONE primitive; providers
@@ -54,9 +54,9 @@ menu can grow a 'Quit to Home' entry on top of the same command."*
 Everything needed already exists in `ambition_game_shell` + its deps:
 
 - **Pause semantics**: `GameMode::Paused` is engine vocabulary
-  (`ambition_platformer_primitives/src/schedule.rs:310`), and the sim-clock
+  (`ambition_platformer2d_shared_tangle/src/schedule.rs:310`), and the sim-clock
   zeroing that makes pause REAL is wired engine-side in
-  `ambition_runtime/src/player_schedule.rs:53-77` — so a Sanic session pauses
+  `ambition_platformer2d_runtime/src/player_schedule.rs:53-77` — so a Sanic session pauses
   correctly the moment anything sets the state. No app code involved.
 - **Quit semantics**: `ShellCommand::QuitToHome` and
   `ShellCommand::ExitProcess` (`router.rs:187-193`) are already
@@ -73,7 +73,7 @@ Everything needed already exists in `ambition_game_shell` + its deps:
 ### The smallest elegant change
 
 New module `crates/ambition_game_shell/src/pause.rs` + `ShellPauseMenuPlugin`,
-exported from `game_shell` and therefore from `ambition::game_shell`.
+exported from `game_shell` and therefore from `ambition_platformer2d::game_shell`.
 
 ```rust
 /// Host-composed in-session pause surface. One primitive for every provider.
@@ -255,7 +255,7 @@ Three defects, one seam each:
   (`crates/ambition_game_shell/src/session.rs:420-448`) selects the frontend
   profile — including its `title_track` — for **every** non-gameplay route
   activation, so `apply_frontend_music_policy`
-  (`crates/ambition_actors/src/audio/plugin.rs:280,324-335`) starts
+  (`crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:280,324-335`) starts
   `a_possible_morning` the moment the startup vanity card activates, then
   silences + restarts it when the launcher route (a new activation id)
   arrives.
@@ -295,7 +295,7 @@ line of engine code; its profile simply has no track (explicit silence today,
 On-screen button labels are the Ambition protagonist's verbs, twice over:
 
 1. The affordance table `PlayerAffordances`
-   (`crates/ambition_actors/src/affordances/mod.rs:75`) is computed for the
+   (`crates/ambition_platformer2d_actor_monolith/src/affordances/mod.rs:75`) is computed for the
    **`PrimaryPlayer`** (`compute_player_affordances`, `mod.rs:89`) with
    protagonist-specific inputs (portal gun, morph) — fine as far as it goes,
    and already the single source of truth ("HUD can never disagree with what
@@ -312,8 +312,8 @@ active UI focus — not a global constant.
 ### The seam
 
 - Controlled body: `ControlledSubject`
-  (`ambition_platformer_primitives::markers`, resolved in
-  `crates/ambition_actors/src/control/queries.rs:64-69`) / `Brain::Player`
+  (`ambition_platformer2d_shared_tangle::markers`, resolved in
+  `crates/ambition_platformer2d_actor_monolith/src/control/queries.rs:64-69`) / `Brain::Player`
   (single control seam).
 - Character identity + kit: `WornCharacter`
   (`crates/ambition_characters/src/actor/worn.rs:33`) and the catalog row's
@@ -329,7 +329,7 @@ active UI focus — not a global constant.
 
 ### The smallest elegant change: one read-model between producers and pixels
 
-New module `crates/ambition_actors/src/affordances/hints.rs`:
+New module `crates/ambition_platformer2d_actor_monolith/src/affordances/hints.rs`:
 
 ```rust
 /// The physical prompt slots a host can render (touch buttons, a desktop
@@ -458,7 +458,7 @@ separable). Estimates are focused-model wall-clock.
 - `session.rs:420-448`: home-route-only title track via
   `ShellHostConfiguration` + `FrontendAudioProfile::without_title_track`
   (`crates/ambition_audio/src/selection.rs:122`).
-- `crates/ambition_actors/src/audio/plugin.rs:280`: same-track continuity
+- `crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs:280`: same-track continuity
   guard before `silence_music_backend`.
 - `shell_host.rs:146-152`: startup card policy (4 s / 600 ms / 900 ms).
 - Tests: `segment_alpha` envelope; select-frontend for a NON-home route
@@ -468,7 +468,7 @@ separable). Estimates are focused-model wall-clock.
   activations. Timing values ship as a "blind fix:" commit.
 
 ### T3 — Control-hint read-model + touch refit — ~3 h
-- `crates/ambition_actors/src/affordances/hints.rs` (new): `HintSlot`,
+- `crates/ambition_platformer2d_actor_monolith/src/affordances/hints.rs` (new): `HintSlot`,
   `ControlHint`, `ControlHintModel`, `derive_control_hints` (identity-ordered
   Menu > Dialogue > Body), registered in `AffordancesPlugin` after Compute.
 - Generalize `compute_player_affordances` query (`mod.rs:89`) from

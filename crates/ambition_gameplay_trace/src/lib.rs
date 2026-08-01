@@ -8,7 +8,7 @@
 //! crate owns only the FORMAT, so the headless replay harness can read a dump
 //! without depending on the game.
 //!
-//! Extracted from `ambition_actors` (`dev/trace/`); the recording systems
+//! Extracted from `ambition_platformer2d_actor_monolith` (`dev/trace/`); the recording systems
 //! (`detect` / `systems` / `plugin`) stay in the game next to the sim state they
 //! sample.
 

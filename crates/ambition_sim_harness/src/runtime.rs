@@ -3,10 +3,10 @@
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition::engine_core as ae;
+use ambition_platformer2d::engine_core as ae;
 
-use ambition::actors::rooms::RoomSet;
-use ambition::input::ControlFrame;
+use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::input::ControlFrame;
 
 use crate::action::AgentAction;
 use crate::observation::{AgentObservation, EnemyObs, PickupObs};
@@ -57,19 +57,19 @@ impl SandboxSim {
         compose: impl FnOnce(&mut App, &SandboxSimOptions) -> Result<(), String>,
     ) -> Result<Self, String> {
         let mut app = App::new();
-        // The shared engine foundation — one definition in ambition::runtime.
-        ambition::runtime::add_headless_foundation(&mut app);
+        // The shared engine foundation — one definition in ambition_platformer2d::runtime.
+        ambition_platformer2d::runtime::add_headless_foundation(&mut app);
 
         // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
         // builds (see the doc note above).
         {
-            use ambition::runtime::SimulationHostAppExt as _;
+            use ambition_platformer2d::runtime::SimulationHostAppExt as _;
             let host = if options.rollback.enabled() {
-                ambition::runtime::SimulationHost::Ggrs
+                ambition_platformer2d::runtime::SimulationHost::Ggrs
             } else if options.fixed_tick {
-                ambition::runtime::SimulationHost::Fixed60Hz
+                ambition_platformer2d::runtime::SimulationHost::Fixed60Hz
             } else {
-                ambition::runtime::SimulationHost::RenderFrame
+                ambition_platformer2d::runtime::SimulationHost::RenderFrame
             };
             app.set_simulation_host(host);
         }
@@ -106,7 +106,7 @@ impl SandboxSim {
         if rollback.enabled() {
             app.insert_resource(TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_nanos(
-                    1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64,
+                    1_000_000_000u64 / ambition_platformer2d::runtime::SIM_TICK_HZ as u64,
                 ),
             ));
         } else if let TimestepMode::Fixed { dt } = timestep {
@@ -130,9 +130,9 @@ impl SandboxSim {
             players,
         } = rollback
         {
-            ambition::runtime::rollback::start_sync_test_session(
+            ambition_platformer2d::runtime::rollback::start_sync_test_session(
                 app.world_mut(),
-                ambition::runtime::rollback::SyncTestSettings {
+                ambition_platformer2d::runtime::rollback::SyncTestSettings {
                     check_distance,
                     max_prediction_window,
                     players,
@@ -164,7 +164,7 @@ impl SandboxSim {
             self.timestep = TimestepMode::fixed_60hz();
             self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_nanos(
-                    1_000_000_000u64 / ambition::runtime::SIM_TICK_HZ as u64,
+                    1_000_000_000u64 / ambition_platformer2d::runtime::SIM_TICK_HZ as u64,
                 ),
             ));
             return;
@@ -200,7 +200,7 @@ impl SandboxSim {
     }
 
     /// Step one tick driven by a raw [`ControlFrame`] — the unit an
-    /// [`InputStream`](ambition::engine_core::InputStream) records (netcode
+    /// [`InputStream`](ambition_platformer2d::engine_core::InputStream) records (netcode
     /// N0.2).
     ///
     /// `step` is this plus an `AgentAction → ControlFrame` conversion. A REPLAY
@@ -219,9 +219,9 @@ impl SandboxSim {
     /// not hold is written and never asked for, which is inert rather than
     /// wrong — the same as a pad plugged into a one-player game.
     pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
-        ambition::runtime::rollback::drive_seat_frame(
+        ambition_platformer2d::runtime::rollback::drive_seat_frame(
             self.app.world_mut(),
-            ambition::characters::brain::PlayerSlot(slot),
+            ambition_platformer2d::characters::brain::PlayerSlot(slot),
             frame,
         );
     }
@@ -232,7 +232,7 @@ impl SandboxSim {
         // (`rollback::drive_control_frame`), because every driver that grew its
         // own copy grew the same bug: writing the wrong resource is silently
         // ignored, and the sim simply never moves.
-        ambition::runtime::rollback::drive_control_frame(self.app.world_mut(), frame);
+        ambition_platformer2d::runtime::rollback::drive_control_frame(self.app.world_mut(), frame);
         self.app.update();
         self.tick = self.tick.saturating_add(1);
         self.observation()
@@ -273,41 +273,41 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition::engine_core::BodyClusterQueryData, ambition::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_platformer2d::engine_core::BodyClusterQueryData, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         // The published maneuver projection (ADR 0024): the observation's
         // cling/glide/blink flags are semantic facts, not policy internals.
         let mut facts_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition::engine_core::BodyMotionFacts, ambition::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyMotionFacts, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition::characters::actor::BodyCombat, ambition::actors::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition::characters::actor::BodyHealth, ambition::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_platformer2d::characters::actor::BodyHealth, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition::actors::avatar::PlayerSafetyState, ambition::actors::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_platformer2d::actors::avatar::PlayerSafetyState, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
-            &ambition::actors::actor::BodyKinematics,
-            &ambition::characters::actor::BodyHealth,
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &ambition_platformer2d::characters::actor::BodyHealth,
         )>();
         let mut pickup_query = self
             .app
             .world_mut()
-            .query::<&ambition::actors::items::pickup::GroundItem>();
+            .query::<&ambition_platformer2d::actors::items::pickup::GroundItem>();
 
         let world = self.app.world();
         let gravity_dir = world
-            .get_resource::<ambition::actors::physics::GravityField>()
+            .get_resource::<ambition_platformer2d::actors::physics::GravityField>()
             .map(|g| (g.dir.x, g.dir.y))
             .unwrap_or((0.0, 1.0));
         let enemies: Vec<EnemyObs> = enemy_query
@@ -331,8 +331,8 @@ impl SandboxSim {
         let health = health_query
             .single(world)
             .map(|h| h.health)
-            .unwrap_or_else(|_| ambition::characters::actor::Health::new(20));
-        let room = ambition::platformer::lifecycle::session_world_component::<RoomSet>(world)
+            .unwrap_or_else(|_| ambition_platformer2d::characters::actor::Health::new(20));
+        let room = ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
             .expect("active session RoomSet")
             .active_spec();
         let combat = combat_query.single(world).ok();
@@ -419,14 +419,14 @@ impl SandboxSim {
         self.step(AgentAction::default())
     }
 
-    fn sync_test_settings(&self) -> Option<ambition::runtime::rollback::SyncTestSettings> {
+    fn sync_test_settings(&self) -> Option<ambition_platformer2d::runtime::rollback::SyncTestSettings> {
         match self.rollback {
             RollbackMode::Disabled => None,
             RollbackMode::SyncTest {
                 check_distance,
                 max_prediction_window,
                 players,
-            } => Some(ambition::runtime::rollback::SyncTestSettings {
+            } => Some(ambition_platformer2d::runtime::rollback::SyncTestSettings {
                 check_distance,
                 max_prediction_window,
                 players,
@@ -445,8 +445,8 @@ impl SandboxSim {
         let Some(settings) = self.sync_test_settings() else {
             return Ok(());
         };
-        ambition::runtime::rollback::stop_session(self.app.world_mut());
-        ambition::runtime::rollback::start_sync_test_session(self.app.world_mut(), settings)
+        ambition_platformer2d::runtime::rollback::stop_session(self.app.world_mut());
+        ambition_platformer2d::runtime::rollback::start_sync_test_session(self.app.world_mut(), settings)
             .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
     }
 
@@ -461,18 +461,18 @@ impl SandboxSim {
             return Ok(());
         };
 
-        ambition::runtime::rollback::stop_session(self.app.world_mut());
-        ambition::runtime::rollback::start_sync_test_session(
+        ambition_platformer2d::runtime::rollback::stop_session(self.app.world_mut());
+        ambition_platformer2d::runtime::rollback::start_sync_test_session(
             self.app.world_mut(),
-            ambition::runtime::rollback::SyncTestSettings {
+            ambition_platformer2d::runtime::rollback::SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: settings.max_prediction_window,
-                ..ambition::runtime::rollback::SyncTestSettings::for_players(1)
+                ..ambition_platformer2d::runtime::rollback::SyncTestSettings::for_players(1)
             },
         )
         .map_err(|error| format!("failed to start GGRS setup frame: {error}"))?;
         self.app.update();
-        ambition::runtime::rollback::session_health(self.app.world())
+        ambition_platformer2d::runtime::rollback::session_health(self.app.world())
             .map_err(|error| format!("GGRS setup frame failed: {error}"))?;
         self.rebase_rollback_history()
     }
@@ -491,23 +491,23 @@ impl SandboxSim {
     /// save/load/resimulation work beneath a harness step.
     pub fn rollback_execution_stats(
         &self,
-    ) -> Option<ambition::runtime::rollback::RollbackExecutionStats> {
+    ) -> Option<ambition_platformer2d::runtime::rollback::RollbackExecutionStats> {
         self.app
             .world()
-            .get_resource::<ambition::runtime::rollback::RollbackExecutionStats>()
+            .get_resource::<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>()
             .copied()
     }
 
-    pub fn rollback_status(&self) -> Option<&ambition::runtime::rollback::RollbackSessionStatus> {
+    pub fn rollback_status(&self) -> Option<&ambition_platformer2d::runtime::rollback::RollbackSessionStatus> {
         self.app
             .world()
-            .get_resource::<ambition::runtime::rollback::RollbackSessionStatus>()
+            .get_resource::<ambition_platformer2d::runtime::rollback::RollbackSessionStatus>()
     }
 
     /// Return an actionable error if the active GGRS session invalidated its
     /// content/schema contract or the sync-test detected divergent resimulation.
     pub fn rollback_health(&self) -> Result<(), String> {
-        ambition::runtime::rollback::session_health(self.app.world())
+        ambition_platformer2d::runtime::rollback::session_health(self.app.world())
     }
 
     /// Tick count: number of `step` calls executed.
@@ -544,7 +544,7 @@ impl SandboxSim {
         let mut base = self
             .app
             .world_mut()
-            .resource_mut::<ambition::actors::physics::BaseGravity>();
+            .resource_mut::<ambition_platformer2d::actors::physics::BaseGravity>();
         base.dir = ae::Vec2::new(dir.0, dir.1);
         drop(base);
         self.rebase_after_direct_setup_mutation();
@@ -561,7 +561,7 @@ impl SandboxSim {
         let mut settings = self
             .app
             .world_mut()
-            .resource_mut::<ambition::persistence::settings::UserSettings>();
+            .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
         drop(settings);
         self.rebase_after_direct_setup_mutation();
@@ -573,8 +573,8 @@ impl SandboxSim {
     pub fn teleport_player(&mut self, pos: (f32, f32)) {
         let mut q = self.app.world_mut().query_filtered::<(
             ae::BodyClusterQueryData,
-            &mut ambition::actors::features::MotionModel,
-        ), ambition::actors::actor::PrimaryPlayerOnly>();
+            &mut ambition_platformer2d::actors::features::MotionModel,
+        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         if let Ok((mut cluster_item, mut motion_model)) = q.single_mut(self.app.world_mut()) {
             let mut clusters = cluster_item.as_clusters_mut();
             ae::movement::transit_body(
@@ -592,7 +592,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition::actors::actor::BodyAbilities, ambition::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_platformer2d::actors::actor::BodyAbilities, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
@@ -606,9 +606,9 @@ impl SandboxSim {
     /// own fly-toggle input, so it persists across steps.
     pub fn grant_flight(&mut self) {
         let mut q = self.app.world_mut().query_filtered::<(
-            &mut ambition::actors::actor::BodyAbilities,
-            &mut ambition::actors::actor::BodyFlightState,
-        ), ambition::actors::actor::PrimaryPlayerOnly>();
+            &mut ambition_platformer2d::actors::actor::BodyAbilities,
+            &mut ambition_platformer2d::actors::actor::BodyFlightState,
+        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;
@@ -633,7 +633,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition::entity_catalog::placements::BossBrain,
+        brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
     ) {
         self.spawn_boss_at_with(
             id,
@@ -641,12 +641,12 @@ impl SandboxSim {
             pos,
             half_size,
             brain,
-            ambition::actors::features::BossOverrides::default(),
+            ambition_platformer2d::actors::features::BossOverrides::default(),
         );
     }
 
     /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
-    /// ([`BossOverrides`](ambition::actors::features::BossOverrides)): hp /
+    /// ([`BossOverrides`](ambition_platformer2d::actors::features::BossOverrides)): hp /
     /// combat size / phase triggers / encounter opt-out. The refactor's headline
     /// "spawn boss X with tweaks Z at Y and it just works" seam.
     pub fn spawn_boss_at_with(
@@ -655,20 +655,20 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition::entity_catalog::placements::BossBrain,
-        overrides: ambition::actors::features::BossOverrides,
+        brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
+        overrides: ambition_platformer2d::actors::features::BossOverrides,
     ) {
         self.app
             .world_mut()
-            .write_message(ambition::actors::features::SpawnActorRequest {
+            .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
                 // Ignored for the Boss kind (always faction Boss); set for completeness.
-                faction: ambition::actors::features::ActorFaction::Boss,
+                faction: ambition_platformer2d::actors::features::ActorFaction::Boss,
                 grudge_against: None,
-                kind: ambition::actors::features::SpawnActorKind::Boss { brain, overrides },
+                kind: ambition_platformer2d::actors::features::SpawnActorKind::Boss { brain, overrides },
             });
         self.run_rollback_setup_frame()
             .expect("boss setup frame establishes a fresh GGRS rollback baseline");
@@ -688,18 +688,18 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition::entity_catalog::placements::CharacterBrain,
+        brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
     ) {
         self.app
             .world_mut()
-            .write_message(ambition::actors::features::SpawnActorRequest {
+            .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
-                faction: ambition::actors::features::ActorFaction::Enemy,
+                faction: ambition_platformer2d::actors::features::ActorFaction::Enemy,
                 grudge_against: None,
-                kind: ambition::actors::features::SpawnActorKind::Enemy { brain },
+                kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy { brain },
             });
         self.run_rollback_setup_frame()
             .expect("enemy setup frame establishes a fresh GGRS rollback baseline");
@@ -710,8 +710,8 @@ impl SandboxSim {
     /// target without authoring a room. Build with `ae::Block::pogo_orb`
     /// / `ae::Block::one_way` / etc.
     pub fn add_block(&mut self, block: ae::Block) {
-        ambition::platformer::lifecycle::session_world_component_mut::<
-            ambition::engine_core::RoomGeometry,
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+            ambition_platformer2d::engine_core::RoomGeometry,
         >(self.app.world_mut())
         .expect("active session RoomGeometry")
         .0
@@ -725,7 +725,7 @@ impl SandboxSim {
     /// (`rl_smoke` binary) or RL training loops that pick a fresh
     /// room per episode.
     pub fn room_ids(&self) -> Vec<String> {
-        ambition::platformer::lifecycle::session_world_component::<RoomSet>(self.app.world())
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(self.app.world())
             .expect("active session RoomSet")
             .rooms
             .iter()

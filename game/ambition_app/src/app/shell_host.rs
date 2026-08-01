@@ -30,13 +30,13 @@
 
 use bevy::prelude::*;
 
-use ambition::game_shell::{
+use ambition_platformer2d::game_shell::{
     GameplaySessionEvent, ShellCompletionPolicy, ShellEvent, ShellHostConfiguration, ShellHostSpec,
     ShellRouteCatalog, ShellRouteSpec,
 };
 
-use ambition::actors::ldtk_world;
-use ambition::platformer::lifecycle::SessionScopeSet;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::platformer::lifecycle::SessionScopeSet;
 
 /// The host's home/title route. Providers never name it — `QuitToHome`
 /// resolves here because the HOST declared it, not because any game knows it.
@@ -73,26 +73,26 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     // loops this track whenever no gameplay session is live (and enforces
     // silence otherwise); the host names the song, the engine owns the seam.
     app.insert_resource(
-        ambition::audio::selection::FrontendAudioProfile::new(
+        ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
             ambition_content::AMBITION_CONTENT_PROVIDER,
         )
         .with_title_track("something_worth_building")
         .with_sfx([
-            ambition::sfx::ids::UI_MENU_MOVE,
-            ambition::sfx::ids::UI_MENU_ACCEPT,
-            ambition::sfx::ids::UI_MENU_BACK,
+            ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+            ambition_platformer2d::sfx::ids::UI_MENU_BACK,
         ]),
     );
 
-    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
     // The normal visible-app composition already installed contributor-neutral
     // load presentation for direct and room-transition use. Keep this host
     // composer valid in isolation as well, then add only the shell adapter.
-    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadPresentationPlugin>() {
-        app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
+    if !app.is_plugin_added::<ambition_platformer2d::load_presentation::AmbitionLoadPresentationPlugin>() {
+        app.add_plugins(ambition_platformer2d::load_presentation::MinimalLoadPresentationPlugins);
     }
-    if !app.is_plugin_added::<ambition::load_presentation::AmbitionLoadShellPresentationPlugin>() {
-        app.add_plugins(ambition::load_presentation::AmbitionLoadShellPresentationPlugin);
+    if !app.is_plugin_added::<ambition_platformer2d::load_presentation::AmbitionLoadShellPresentationPlugin>() {
+        app.add_plugins(ambition_platformer2d::load_presentation::AmbitionLoadShellPresentationPlugin);
     }
 
     // The linked providers. Each registers its experience, routes, catalog
@@ -123,7 +123,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         .resource_mut::<ShellRouteCatalog>()
         .register(ShellRouteSpec::new(
             AMBITION_LAUNCHER_ROUTE,
-            ambition::game_shell::ShellLaunchCatalog::basic_experience_id(),
+            ambition_platformer2d::game_shell::ShellLaunchCatalog::basic_experience_id(),
         ));
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()
@@ -141,7 +141,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     // had nothing to do with what it tests.
     app.add_systems(
         Update,
-        exit_on_shell_request.after(ambition::game_shell::AmbitionGameShellSet::Commands),
+        exit_on_shell_request.after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands),
     );
     // The pause-suppression bridge only exists when the universal pause menu it
     // yields to does — that menu (and its `ShellPauseMenuSuppressed`) ships with
@@ -160,13 +160,13 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 #[cfg(feature = "basic_shell_presentation")]
 fn sync_shell_pause_suppression(
     active: Option<
-        ambition::platformer::lifecycle::SessionWorldRef<
-            ambition::world::rooms::ActiveRoomMetadata,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::ActiveRoomMetadata,
         >,
     >,
-    mut suppressed: ResMut<ambition::game_shell::ShellPauseMenuSuppressed>,
+    mut suppressed: ResMut<ambition_platformer2d::game_shell::ShellPauseMenuSuppressed>,
 ) {
-    suppressed.0 = ambition::runtime::in_base_mode(active);
+    suppressed.0 = ambition_platformer2d::runtime::in_base_mode(active);
 }
 
 /// The optional startup vanity sequence (engine card, then authorship card).
@@ -180,8 +180,8 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// Adding another card is one more entry here — no new state, and every
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
-fn ambition_startup_segments() -> Vec<ambition::game_shell::ShellSegmentSpec> {
-    use ambition::game_shell::{ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceFrame};
+fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
+    use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceFrame};
 
     vec![
         // The ENGINE card. Held longer than the 2s default so its ease-in /
@@ -237,7 +237,7 @@ pub fn ambition_startup_duration() -> std::time::Duration {
 /// `ShellSequenceCatalog` entry keyed by the startup experience, a route whose
 /// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
-    use ambition::game_shell::{ShellExperienceId, ShellSequenceCatalog, ShellSequenceSpec};
+    use ambition_platformer2d::game_shell::{ShellExperienceId, ShellSequenceCatalog, ShellSequenceSpec};
 
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -271,7 +271,7 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
     // Provider-agnostic per-session room presentation: parallax + static room
     // visuals for WHATEVER RoomSet the activating provider owns —
     // Sanic and Mary-O draw in this host through the same one system.
-    app.add_plugins(ambition::render::platformer_presentation::SessionRoomVisualsPlugin);
+    app.add_plugins(ambition_platformer2d::render::platformer_presentation::SessionRoomVisualsPlugin);
     app.add_systems(
         Update,
         ambition_activate_session_visuals.in_set(SessionScopeSet::Presentation),
@@ -285,18 +285,18 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
 fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
-    active_session: Res<ambition::game_shell::ActiveGameplaySession>,
+    active_session: Res<ambition_platformer2d::game_shell::ActiveGameplaySession>,
     session_worlds: Query<(
-        &ambition::engine_core::RoomGeometry,
-        &ambition::actors::rooms::RoomSet,
-        &ambition::actors::ldtk_world::LdtkRuntimeIndex,
+        &ambition_platformer2d::engine_core::RoomGeometry,
+        &ambition_platformer2d::actors::rooms::RoomSet,
+        &ambition_platformer2d::actors::ldtk_world::LdtkRuntimeIndex,
     )>,
-    game_assets: Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
-    ui_fonts: Option<Res<ambition::render::ui_fonts::UiFonts>>,
+    game_assets: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
+    ui_fonts: Option<Res<ambition_platformer2d::render::ui_fonts::UiFonts>>,
     asset_server: Res<AssetServer>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<
-        Res<ambition::actors::assets::loading::SandboxAssetCollection>,
+        Res<ambition_platformer2d::actors::assets::loading::SandboxAssetCollection>,
     >,
     // Present iff the LDtk plugin stack is composed (absent in the no-window
     // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
@@ -321,8 +321,8 @@ fn ambition_activate_session_visuals(
         let Ok((geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
             continue;
         };
-        let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
-        ambition::actors::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
+        let scope = ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
+        ambition_platformer2d::actors::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
         // Parallax + room visuals are the generic `SessionRoomVisualsPlugin`'s
         // job; this system adds only Ambition's own dressing.
         super::scene_setup::session_gameplay_dressing(

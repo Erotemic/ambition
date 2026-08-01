@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_portal::{
+use ambition_portal2d::{
     portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
 };
 use ambition_projectiles::ProjectileGameplay;
@@ -19,7 +19,7 @@ use super::ensure_projectile_portal_bodies;
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 
-use ambition_actors::platformer_runtime::body::BodyKinematics;
+use ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics;
 
 /// A straight-flying, gravity-free projectile gameplay half (Hadouken: no
 /// bounce, no arc) so the test isolates the portal velocity rotation.
@@ -38,9 +38,9 @@ fn straight_projectile() -> ProjectileGameplay {
 /// `ensure → transit` as in the real plugin.
 fn app_with_transit() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_portal::PortalBodyEntered>();
-    app.add_message::<ambition_portal::PortalBodyTransited>();
-    app.init_resource::<ambition_portal::PortalTuning>();
+    app.add_message::<ambition_portal2d::PortalBodyEntered>();
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(
         Update,
         (ensure_projectile_portal_bodies, portal_transit).chain(),
@@ -171,7 +171,7 @@ fn projectile_nowhere_near_a_portal_flies_straight_through() {
     );
     assert!(
         app.world()
-            .get::<ambition_portal::PortalTransit>(proj)
+            .get::<ambition_portal2d::PortalTransit>(proj)
             .is_none(),
         "no PortalTransit latch should be set for a projectile away from portals",
     );

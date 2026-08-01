@@ -242,7 +242,7 @@ pub use ambition_characters::actor::pose::ActorFaction;
 /// candidate exists, and a rollback lets that system rebuild it. `pos` is **state** —
 /// on the one frame where no candidates exist, the selector leaves the whole
 /// component untouched on purpose, so `pos` carries the previous frame's aim into the
-/// brain's math. `ambition_runtime::rollback` therefore registers `ActorTarget` as a
+/// brain's math. `ambition_platformer2d_runtime::rollback` therefore registers `ActorTarget` as a
 /// `SnapshotCursor` over `pos` alone.
 ///
 /// A rollback that spans the frame a target *died* can leave `entity` pointing at a

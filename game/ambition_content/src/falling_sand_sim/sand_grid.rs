@@ -57,7 +57,7 @@
 
 use std::collections::BTreeMap;
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 /// Cells per tile edge — must match the room's LDtk tile size and the tile
 /// keys the liquid projection uses ([`super::TILE_SIZE`]).

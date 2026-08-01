@@ -18,9 +18,9 @@ landed, and a rule that could not tell them apart would be the wrong rule.
 
 ## 1. Quarantine external effects to confirmed GGRS frames — **LANDED 2026-07-21**
 
-`ambition_engine_core::ConfirmedFrameBoundary` is the host's published answer to
+`ambition_platformer2d_core::ConfirmedFrameBoundary` is the host's published answer to
 "which frames can never be simulated again", and
-`ambition_runtime::external_effects` is the mechanism that keys irreversible
+`ambition_platformer2d_runtime::external_effects` is the mechanism that keys irreversible
 work to it. **Deferral, not suppression** — the distinction is the whole track.
 
 The sim's effect channel became an **outbox**: cleared at the start of each
@@ -99,7 +99,7 @@ Deep-review §6. Landed:
 - `ambition_menu` and `ambition_menu_kaleidoscope` now declare
   `default-features = false` with minimal feature sets (`bevy_ui` +
   `bevy_picking`; `bevy_pbr` + `bevy_ui`). **Measured result:** the
-  `ambition_actors` build graph dropped `bevy_pbr`, `bevy_gltf`,
+  `ambition_platformer2d_actor_monolith` build graph dropped `bevy_pbr`, `bevy_gltf`,
   `gltf_animation`, `bevy_audio`+`vorbis`, `mesh_picking`, `smaa_luts`,
   `tonemapping_luts`, `ktx2`, `sysinfo_plugin`, and `bevy_light` — the whole 3D
   stack that plain `bevy = "0.18.1"` was pushing into every build via feature
@@ -111,7 +111,7 @@ Deep-review §6. Landed:
   manifests, ending the ron 0.11-vs-0.12 split in our own tree. **Honest
   result:** the duplicate COMPILES remain, because ron 0.12 comes from
   `bevy_animation` and thiserror 1 from `bevy_ecs_ldtk` — transitive, not ours;
-- deleted the dead `ambition_world → ambition_time` edge and made actors→ui_nav
+- deleted the dead `ambition_platformer2d_world → ambition_time` edge and made actors→ui_nav
   an optional feature-conduit. **Correction:** `sprite_sheet → interaction` is
   NOT dead (8 real path references) — the deep review was wrong there;
 - deleted the vestigial `rl_sim` feature chain (actors' and the facade's copies
@@ -120,7 +120,7 @@ Deep-review §6. Landed:
   composite whose value is what it leaves off;
 - **the trim exposed three crates that only ever compiled by accident**, because
   the untrimmed dep was donating features workspace-wide:
-  `ambition_platformer_primitives` (needs `bevy_input_focus` for `KeyCode`),
+  `ambition_platformer2d_shared_tangle` (needs `bevy_input_focus` for `KeyCode`),
   `ambition_game_shell` and `ambition_load_presentation` (need a windowing
   backend for the winit that `ui_api` pulls). All three now declare what they
   use — see `dev/journals/lessons_learned.md` (2026-07-19) for the pattern to
@@ -135,7 +135,7 @@ the per-crate feature sets legitimately differ.
 
 ## 2.5 Make `RoomReplayRequested` a real seam — **LANDED 2026-07-21** (`cf5095576`, `7743d224f`)
 
-`ambition_runtime::sandbox_reset` now owns `reset_sandbox` and the ONE
+`ambition_platformer2d_runtime::sandbox_reset` now owns `reset_sandbox` and the ONE
 `apply_room_replay_request_system`, carried to every host by
 `RoomReplaySchedulePlugin` in `PlatformerEnginePlugins`. The two content anchors
 (`ContentDialogueFollowupSet`, `ContentRoomReplayResetSet`) moved with it, since
@@ -147,9 +147,9 @@ unambiguous.
 **The blocker was a MODULE, not a dependency.** The card said the consumer was
 stuck app-side because it called `reset_sandbox`, "a host/reset concern". In
 fact `reset_sandbox` names only `engine_core`/`actors`/`characters`/`sfx`/`vfx`,
-every one of which `ambition_runtime` already depended on; it was unmovable
+every one of which `ambition_platformer2d_runtime` already depended on; it was unmovable
 only because it sat in `app::world_flow::room_flow`, which also composes
-`load_room` with `ambition::render` spawns. Splitting the reset out of that
+`load_room` with `ambition_platformer2d::render` spawns. Splitting the reset out of that
 module is the entire unlock.
 
 **Exit met.** Nine tests across the three hosts
@@ -196,7 +196,7 @@ the emitter wrote:
 - **a body reset redefined the body** — `reset_body_clusters` hardcoded the
   default size into `base_size`, so any identity-driven size (a worn form, a
   mount, a boss phase) was silently unmade on every reset. FIXED `4e4bd0fd8` in
-  `ambition_engine_core`; engine-wide, not Mary-O's;
+  `ambition_platformer2d_core`; engine-wide, not Mary-O's;
 - **pit B opens into the secret vault**. REPORTED, authoring call:
   [`triage/room-replay-followups-2026-07-21.md`](triage/room-replay-followups-2026-07-21.md) §5.
 
@@ -212,7 +212,7 @@ item, and level state with no Mary-O-only engine path.
 `ambition_app`, so no demo host could change rooms — a direct hit on the oracle
 and the reason Mary-O's secret vault had to be dug into the same `RoomSpec` as
 her surface. The readiness transaction, one-shot authorization, and commit now
-live in `ambition_runtime::room_transition`, carried by `PlatformerEnginePlugins`
+live in `ambition_platformer2d_runtime::room_transition`, carried by `PlatformerEnginePlugins`
 into every host. The §2.5 shape repeats exactly: **the blocker was one CALL, not
 a dependency** — the commit drew the new room itself (`spawn_room_visuals`), so
 it named `ambition_render`; it now writes `RespawnRoomVisualsRequested`, the
@@ -239,8 +239,8 @@ Full account in
 [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
 Phase 3 — single source, do not copy back here. Headlines:
 
-`ambition_platformer_primitives::construction` is the content-free planner;
-`ambition_actors::construction` puts the three real origin families through it
+`ambition_platformer2d_shared_tangle::construction` is the content-free planner;
+`ambition_platformer2d_actor_monolith::construction` puts the three real origin families through it
 (authored `GroundItemSpec`, provider-staged `SpawnActorRequest`, `Effect::Summon`
 minion). Every exit clause met, each with a named test.
 
@@ -417,7 +417,7 @@ axes (viewport / framing / screen occupancy / activation), configured per
 provider. **No engine branch may select behavior by game name.**
 
 - ✅ **GP1** — pure policies + layout resolver in
-  `ambition_platformer_primitives::gameplay_presentation`: fixed-aspect
+  `ambition_platformer2d_shared_tangle::gameplay_presentation`: fixed-aspect
   fitting, safe-region ∩ occlusion composition, three presets, no runtime
   camera change. Tested over 4:3 / 16:9 / 16:10 / 19.5:9 / 20:9 plus
   asymmetric safe-area insets;

@@ -79,8 +79,8 @@ provider-qualified IDs and resolve live entities at the boundary that needs them
 
 ## World authoring and lowering
 
-Authoring backends write typed records. `ambition_ldtk_map` is today's LDtk
-adapter; `ambition_world` owns reusable world vocabulary and lowering seams.
+Authoring backends write typed records. `ambition_platformer2d_ldtk` is today's LDtk
+adapter; `ambition_platformer2d_world` owns reusable world vocabulary and lowering seams.
 Simulation/content interpreters register how authored records become canonical
 session-scoped ECS state.
 
@@ -109,8 +109,8 @@ page for exact paths:
 
 ```bash
 python scripts/agent_query.py "provider preparation activation content catalog"
-python scripts/agent_query.py crate ambition_platformer_provider
+python scripts/agent_query.py crate ambition_platformer2d_provider
 python scripts/agent_query.py crate ambition_content
-python scripts/agent_query.py crate ambition_world
+python scripts/agent_query.py crate ambition_platformer2d_world
 python scripts/agent_query.py tests "provider switch session teardown restore"
 ```

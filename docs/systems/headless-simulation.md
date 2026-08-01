@@ -10,7 +10,7 @@ netcode—not a stripped mock of the visible game.
 
 ## Composition
 
-- `ambition_runtime::PlatformerEnginePlugins` installs headless-safe engine and
+- `ambition_platformer2d_runtime::PlatformerEnginePlugins` installs headless-safe engine and
   schedule composition.
 - provider lifecycle registers/prepares/activates the same content used by the
   visible host.

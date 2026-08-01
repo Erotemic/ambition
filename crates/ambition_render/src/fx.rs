@@ -3,13 +3,13 @@
 //! Particles are CPU-side Bevy sprite entities for now. Keeping this behind a
 //! compact module gives us a later migration seam to GPU particles or Hanabi.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -258,8 +258,8 @@ pub fn tick_firework_sequences(
 pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -511,8 +511,8 @@ fn apply_speech_bubble_visual(
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(
         Entity,
@@ -559,8 +559,8 @@ pub fn update_speech_bubble_outlines(
 pub fn update_explosions(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(
         Entity,
@@ -591,8 +591,8 @@ pub fn update_explosions(
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(Entity, &mut ParticleVisual, &mut Transform, &mut Sprite)>,
 ) {
@@ -624,8 +624,8 @@ pub fn update_particles(
 pub fn update_impacts(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     mut query: Query<(Entity, &mut ImpactVisual, &mut Transform, &mut Sprite)>,
 ) {
@@ -923,8 +923,8 @@ pub fn spawn_blink_effects(
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     fact: Res<ambition_sim_view::BlinkPreviewFact>,
     active_session: Option<Res<ActiveSessionScope>>,

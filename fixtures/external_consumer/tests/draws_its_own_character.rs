@@ -38,7 +38,7 @@ fn settle(app: &mut App) {
         app.update();
         if app
             .world()
-            .get_resource::<ambition::view::GameAssets>()
+            .get_resource::<ambition_platformer2d::view::GameAssets>()
             .map(|assets| assets.characters.sheet_state("outlander_wanderer").is_ready())
             .unwrap_or(false)
         {
@@ -54,18 +54,18 @@ fn the_consumers_character_draws_from_the_consumers_own_art() {
 
     let assets = app
         .world()
-        .get_resource::<ambition::view::GameAssets>()
+        .get_resource::<ambition_platformer2d::view::GameAssets>()
         .expect("the umbrella asset install put `GameAssets` in the world");
     let state = assets.characters.sheet_state("outlander_wanderer");
     let ready = match state {
-        ambition::character::CharacterSheetState::Ready(asset) => asset,
-        ambition::character::CharacterSheetState::Declared { .. } => {
+        ambition_platformer2d::character::CharacterSheetState::Ready(asset) => asset,
+        ambition_platformer2d::character::CharacterSheetState::Declared { .. } => {
             // The engine records WHY a decode failed. Reporting it beats
             // "it did not work", which is the diagnostic quality this fixture
             // exists to hold the engine to in the first place.
             let states = app
                 .world()
-                .get_resource::<ambition::character::CharacterLoadStates>();
+                .get_resource::<ambition_platformer2d::character::CharacterLoadStates>();
             let outcome = states.and_then(|states| states.outcome("outlander_wanderer"));
             let failures: Vec<String> = states
                 .map(|states| {
@@ -81,7 +81,7 @@ fn the_consumers_character_draws_from_the_consumers_own_art() {
                  outcome={outcome:?} failures={failures:?}"
             )
         }
-        ambition::character::CharacterSheetState::Unknown => panic!(
+        ambition_platformer2d::character::CharacterSheetState::Unknown => panic!(
             "the engine does not know this character at all, so the catalog \
              fragment this crate registers is not reaching the decode"
         ),
@@ -133,7 +133,7 @@ fn the_consumers_room_is_drawn_by_the_engine_and_not_by_the_consumer() {
 
     let mut visuals = app
         .world_mut()
-        .query::<&ambition::view::RoomVisual>();
+        .query::<&ambition_platformer2d::view::RoomVisual>();
     let drawn_blocks = visuals.iter(app.world()).count();
     assert!(
         drawn_blocks > 0,

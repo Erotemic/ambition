@@ -26,7 +26,7 @@
       "leak": "the ratchet's last entry is rollback, deferred by ADR 0031",
       "source": "2a",
       "cost": "It is the ONLY thing between the campaign and §4.1.",
-      "closeable": "Yes, trivially and WRONGLY. Curating `ambition::rollback` would take the ratchet to zero tonight.",
+      "closeable": "Yes, trivially and WRONGLY. Curating `ambition_platformer2d::rollback` would take the ratchet to zero tonight.",
       "owned": "NO — ADR 0031's Deferred section reserves rollback-as-public-knob for its own slice with its own acceptance tests, calling it 'a far larger promise than a clock'.",
       "route": "3b: NOT owned -> not a slice. ⚠ This is the candidate most likely to be taken by a future reader looking at '1 away from zero'. The contract entry says why not, at the entry.",
       "action": "blocked on the deferred rollback slice, not on effort"
@@ -65,7 +65,7 @@
       "module-qualified namespaces and pack identity — B's deferred content design. D should find out whether they are NEEDED by trying to embed without them; a namespace scheme designed before the collision is a guess.",
       "the facade optionality experiment (slice E, deliberately after D so it has a consumer I did not design)",
       "rollback as a public knob, and therefore Smash",
-      "the ambition_actors decomposition"
+      "the ambition_platformer2d_actor_monolith decomposition"
     ],
     "exit_criteria_sketch": [
       "one in-tree module (Sanic or Mary-O) mounts through `PlatformerApp` STANDALONE and boots;",

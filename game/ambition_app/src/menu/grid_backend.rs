@@ -1,6 +1,6 @@
 //! Flat tabbed menu backend (`InventoryUiBackend::Grid`).
 //!
-//! Wires `ambition::menu::render::bevy_ui::spawn_bevy_ui_menu` into the same menu
+//! Wires `ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu` into the same menu
 //! model/action/cursor resources used by the 3D kaleidoscope backend. Only the
 //! presentation differs: a flat tab bar and body instead of cube faces.
 //!
@@ -14,11 +14,11 @@
 
 use bevy::prelude::*;
 
-use ambition::menu::render::bevy_ui::{
+use ambition_platformer2d::menu::render::bevy_ui::{
     install_bevy_ui_menu_actions, install_bevy_ui_menu_tabs, BevyUiMenuInteractionSet,
     BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
-use ambition::menu::{
+use ambition_platformer2d::menu::{
     ActiveMenuPages, AmbitionMenuControl, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect,
     MenuTabActivated,
 };
@@ -34,13 +34,13 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::actors::avatar::PlayerHealRequested;
-use ambition::input::MenuControlFrame;
-use ambition::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use ambition::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
-use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
-use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
-use ambition::sfx::SfxWriter;
+use ambition_platformer2d::actors::avatar::PlayerHealRequested;
+use ambition_platformer2d::input::MenuControlFrame;
+use ambition_platformer2d::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
+use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
+use ambition_platformer2d::sfx::SfxWriter;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
 /// [`grid_menu_action_activated`], bundled into one [`SystemParam`] so each stays
@@ -154,8 +154,8 @@ struct ViewKey {
 /// `UI_TAB_CHANGE` is a generic id the OLD menus and the cube share, so it is NOT
 /// swapped (only the genuinely cube-specific `ui.menu.*` ids change).
 mod grid_sfx {
-    use ambition::sfx::ids;
-    use ambition::sfx::SfxId;
+    use ambition_platformer2d::sfx::ids;
+    use ambition_platformer2d::sfx::SfxId;
 
     pub const OPEN: SfxId = ids::UI_PAUSE_OPEN;
     pub const CLOSE: SfxId = ids::UI_PAUSE_CLOSE;
@@ -212,7 +212,7 @@ fn tab_index_of(page: MenuPage) -> usize {
 /// page on the switch frame (no Inventory flash).
 pub(crate) fn sync_menu_page_across_backend_switch(
     backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut last: Local<Option<InventoryUiBackend>>,
@@ -284,7 +284,7 @@ fn focus_key_for(rect: MenuRect) -> MenuFocusKey {
 /// is the focused one; its rect gives the key. This reuses the cube's own
 /// action→focus mapping so render + nav agree by construction.
 fn cursor_focus_key(
-    page: &ambition::menu::MenuPageModel<MenuPage, MenuPageAction>,
+    page: &ambition_platformer2d::menu::MenuPageModel<MenuPage, MenuPageAction>,
     active_page: MenuPage,
     cursor: MenuFocus,
     model: &SystemMenuModel,
@@ -316,16 +316,16 @@ fn cursor_focus_key(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut sfx: SfxWriter,
     mut last_start: Local<bool>,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
 
     // Esc / Start: rising-edge toggle (debounced like the cube to avoid the
     // close-then-reopen on a multi-frame `just_pressed`).
@@ -408,13 +408,13 @@ pub(crate) fn grid_menu_open_routing(
 #[cfg(feature = "input")]
 fn open_grid_unified_menu(
     active_tab: usize,
-    overlay: &mut ambition::inventory_ui::InventoryUiState,
-    mode: &ambition::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition::platformer::schedule::GameMode>,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     system_nav.open_entry = None;
@@ -437,11 +437,11 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 /// from gameplay (respecting `opened_from_pause`). Same contract as
 /// `close_kaleidoscope_menu`.
 pub(crate) fn close_grid_unified_menu(
-    overlay: &mut ambition::inventory_ui::InventoryUiState,
-    mode: &ambition::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition::platformer::schedule::GameMode>,
+    overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
+    mode: &ambition_platformer2d::platformer::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
 ) {
-    use ambition::platformer::schedule::GameMode;
+    use ambition_platformer2d::platformer::schedule::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
@@ -462,9 +462,9 @@ pub(crate) fn grid_menu_nav(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
@@ -697,7 +697,7 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
     cursor: Res<KaleidoscopeCursor>,
@@ -848,7 +848,7 @@ pub(crate) fn grid_menu_republish_view(
     };
     // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
     // sprite ICONS (the model's per-cell icon path), like the cube does.
-    let root = ambition::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+    let root = ambition_platformer2d::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
         &mut commands,
         &view,
         assets.as_deref(),
@@ -887,7 +887,7 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -937,19 +937,19 @@ pub(crate) fn grid_menu_scroll_wheel(
 }
 
 /// Feature C (Grid): apply the engine's backend-agnostic scrollbar-drag signal
-/// (`ambition::menu::MenuScrollDragged`, emitted by the
+/// (`ambition_platformer2d::menu::MenuScrollDragged`, emitted by the
 /// `bevy_ui` scrollbar observers) to the Grid's scroll override — the mirror of the
 /// cube's `kaleidoscope_apply_scroll_drag`. The neutral `0..=1` fraction maps across
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
-    mut dragged: MessageReader<ambition::menu::MenuScrollDragged>,
+    mut dragged: MessageReader<ambition_platformer2d::menu::MenuScrollDragged>,
 ) {
     // Backend read from `system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.
@@ -981,9 +981,9 @@ pub(crate) fn grid_menu_action_activated(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition::platformer::schedule::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition::platformer::schedule::GameMode>>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut fx: MenuDispatchParams,
 ) {
     // Backend read from `fx.system` (it owns the resource); a separate `Res` would
@@ -1027,7 +1027,7 @@ pub(crate) fn grid_menu_action_activated(
 pub(crate) fn grid_menu_tab_activated(
     mut activated: MessageReader<MenuTabActivated>,
     backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1068,8 +1068,8 @@ pub(crate) fn grid_menu_tab_activated(
 /// shared `Interaction` bridge and is independent of this hover ownership gate.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
-    overlay: Res<ambition::inventory_ui::InventoryUiState>,
-    active_input: Res<ambition::input::ActiveInputKind>,
+    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    active_input: Res<ambition_platformer2d::input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
@@ -1085,7 +1085,7 @@ pub(crate) fn grid_menu_pointer_hover(
     }
     // Only a genuine mouse move (which set active=Mouse) may move the cursor;
     // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
-    if *active_input != ambition::input::ActiveInputKind::Mouse {
+    if *active_input != ambition_platformer2d::input::ActiveInputKind::Mouse {
         return;
     }
     let Ok(ctrl) = controls.get(over.entity) else {
@@ -1114,7 +1114,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // The pointer-hover observer reads `ActiveInputKind`; the input plugin
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition::input::ActiveInputKind>();
+        .init_resource::<ambition_platformer2d::input::ActiveInputKind>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
@@ -1128,21 +1128,21 @@ pub fn install_grid_unified_menu(app: &mut App) {
             // hosted Sanic/Mary-O session (whose chrome is the demo's, not this).
             grid_menu_open_routing
                 .run_if(grid_backend_active)
-                .run_if(ambition::platformer::lifecycle::simulation_authorized)
-                .run_if(ambition::runtime::in_base_mode),
+                .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
+                .run_if(ambition_platformer2d::runtime::in_base_mode),
             grid_menu_nav
                 .run_if(grid_backend_active)
                 // Join the shared menu-nav consume set so the touch-joystick
                 // fold (mobile_input) can pin `.before(MenuNavConsume)` and
                 // land its directional intent before this reads the frame.
-                .in_set(ambition::actors::schedule::MenuNavConsume),
+                .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
         )
             .chain()
-            .before(ambition::platformer::schedule::SandboxSet::CoreSimulation),
+            .before(ambition_platformer2d::platformer::schedule::SandboxSet::CoreSimulation),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition::platformer::schedule::SandboxSet::CoreSimulation),
+        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::SandboxSet::CoreSimulation),
     );
     // Carry the active page across a backend switch BEFORE the Grid republishes its
     // body, so you land on the same screen you were on (not Inventory). Ordered AFTER
@@ -1152,7 +1152,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
     app.add_systems(
         Update,
         sync_menu_page_across_backend_switch
-            .after(ambition::actors::schedule::MenuNavConsume)
+            .after(ambition_platformer2d::actors::schedule::MenuNavConsume)
             .before(grid_menu_republish_view),
     );
     // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so
@@ -1164,7 +1164,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
     {
         install_bevy_ui_menu_actions::<MenuPageAction>(app);
         install_bevy_ui_menu_tabs(app);
-        ambition::menu::render::bevy_ui::install_bevy_ui_menu_scroll(app);
+        ambition_platformer2d::menu::render::bevy_ui::install_bevy_ui_menu_scroll(app);
         app.add_systems(
             Update,
             (

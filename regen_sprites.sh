@@ -6,13 +6,13 @@
 #     registered YAML job (run `ambition_sprite2d_renderer list`) from the
 #     renderer package's config dir
 #     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
-#     — straight into crates/ambition_actors/assets/sprites/.
+#     — straight into crates/ambition_platformer2d_actor_monolith/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
-#     crates/ambition_actors/assets/sprites/entities/.
+#     crates/ambition_platformer2d_actor_monolith/assets/sprites/entities/.
 #   - Standalone pirate sheets: rendered and published into
-#     crates/ambition_actors/assets/sprites/.
+#     crates/ambition_platformer2d_actor_monolith/assets/sprites/.
 #   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
-#     generated/ dir then installed into crates/ambition_actors/assets/sprites/.
+#     generated/ dir then installed into crates/ambition_platformer2d_actor_monolith/assets/sprites/.
 #
 # Usage:
 #   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
@@ -47,7 +47,7 @@ worlds_dir="$content_assets_dir/worlds"
 character_catalog="$content_assets_dir/data/character_catalog.ron"
 sandbox_ldtk="$worlds_dir/sandbox.ldtk"
 hall_ldtk="$worlds_dir/hall_of_characters.ldtk"
-sprites_dir="$repo_root/crates/ambition_actors/assets/sprites"
+sprites_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/sprites"
 entities_dir="$sprites_dir/entities"
 
 # shellcheck disable=SC1091
@@ -1073,7 +1073,7 @@ fi
 #   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
 echo "==> Ultrapack: shared-page atlases per quality tier → runtime pack root:"
-pack_root="$repo_root/crates/ambition_actors/assets/sprite_packs"
+pack_root="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/sprite_packs"
 pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
     echo "  (skipped — AMBITION_ULTRAPACK=0)"

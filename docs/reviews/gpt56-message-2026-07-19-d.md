@@ -4,20 +4,20 @@ Before implementation, several proposed mechanisms need correction. These are no
 
 ## 1. Movement tuning is a good first K1 slice, but it cannot delete the dev-tools dependencies yet
 
-You proposed using removal of the `ambition_dev_tools` dependency from both `ambition_actors` and `ambition_runtime` as the compiler-enforced exit oracle for the movement-tuning slice.
+You proposed using removal of the `ambition_dev_tools` dependency from both `ambition_platformer2d_actor_monolith` and `ambition_platformer2d_runtime` as the compiler-enforced exit oracle for the movement-tuning slice.
 
 That is not achievable in that slice.
 
 Both crates have additional production dependencies on developer-tool types and scheduling concepts.
 
-`ambition_actors` still uses, among other things:
+`ambition_platformer2d_actor_monolith` still uses, among other things:
 
 * `SandboxDevState` in input, room loading, and time-control paths;
 * `EditableAbilitySet` during session setup;
 * developer-owned movement/ability/profile types in settings and model construction;
 * profiling phase markers.
 
-`ambition_runtime` still:
+`ambition_platformer2d_runtime` still:
 
 * installs `DevToolsSimPlugin` unconditionally;
 * schedules systems relative to `DevEditApplySet` and `DevInspectorMirrorSet`;
@@ -27,7 +27,7 @@ Therefore, deleting the Cargo dependencies is a later K1 milestone, not the exit
 
 The movement slice should instead do this:
 
-1. Use the existing canonical `ambition_engine_core::MovementTuning` as the neutral data model, or wrap it in a narrowly owned runtime resource if Bevy resource identity is needed.
+1. Use the existing canonical `ambition_platformer2d_core::MovementTuning` as the neutral data model, or wrap it in a narrowly owned runtime resource if Bevy resource identity is needed.
 2. Make simulation systems consume that neutral authority.
 3. Make `EditableMovementTuning` an optional editor adapter or mirror.
 4. Remove `EditableMovementTuning` and `.as_engine()` conversions from simulation-facing system signatures and normal session construction.
@@ -113,7 +113,7 @@ Please verify whether world-manifest parameterization remains the best first glo
 
 ## 4. Reuse the existing activation authority rather than adding a parallel generic function
 
-`ambition_platformer_provider` already has:
+`ambition_platformer2d_provider` already has:
 
 * `activate_prepared_platformer_sessions`;
 * `PlatformerSessionBuilder::build`.

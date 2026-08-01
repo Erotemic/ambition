@@ -5,24 +5,24 @@
 //! the canonical player, gameplay derives from it, and the identity does NOT
 //! depend on the session-owned `StartingCharacter` startup component. This is the same
 //! `WornCharacter` component + derive systems the full app uses — the demo just
-//! assembles them through the `ambition` umbrella.
+//! assembles them through the `ambition_platformer2d` umbrella.
 
 use bevy::prelude::*;
 
-use ambition::actors::avatar::StartingCharacter;
-use ambition::characters::actor::WornCharacter;
+use ambition_platformer2d::actors::avatar::StartingCharacter;
+use ambition_platformer2d::characters::actor::WornCharacter;
 
 fn worn_of_primary(app: &mut App) -> Option<WornCharacter> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&WornCharacter, With<ambition::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<&WornCharacter, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
     q.iter(app.world()).next().cloned()
 }
 
 fn primary_name(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&Name, With<ambition::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<&Name, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
     q.iter(app.world()).next().map(|n| n.as_str().to_string())
 }
 
@@ -70,7 +70,7 @@ fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     assert_eq!(worn_of_primary(&mut app).unwrap().id(), "sanic");
 
     // Change the session's startup selection to a DIFFERENT id after spawn.
-    ambition::platformer::lifecycle::session_world_component_mut::<StartingCharacter>(
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<StartingCharacter>(
         app.world_mut(),
     )
     .expect("Sanic session world")
@@ -104,12 +104,12 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 
     let has_momentum = {
         let mut q = app.world_mut().query_filtered::<
-            &ambition::actors::features::MotionModel,
-            With<ambition::actors::actor::PrimaryPlayer>,
+            &ambition_platformer2d::actors::features::MotionModel,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         >();
         matches!(
             q.iter(app.world()).next(),
-            Some(ambition::actors::features::MotionModel::SurfaceMomentum(_))
+            Some(ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(_))
         )
     };
     assert!(
@@ -139,8 +139,8 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// architecture fix — asserted on `ActionSet` + `ActorMoveset`, not just movement.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
-    use ambition::actors::combat::moveset::ActorMoveset;
-    use ambition::characters::brain::ActionSet;
+    use ambition_platformer2d::actors::combat::moveset::ActorMoveset;
+    use ambition_platformer2d::characters::brain::ActionSet;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.update();
@@ -151,7 +151,7 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
     let (player, action_set, moveset_len) = {
         let mut q = app.world_mut().query_filtered::<
             (Entity, &ActionSet, &ActorMoveset),
-            With<ambition::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         >();
         let (entity, set, moveset) = q
             .iter(app.world())
@@ -178,13 +178,13 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
     );
     assert!(
         app.world()
-            .get::<ambition::characters::brain::ChargesProjectiles>(player)
+            .get::<ambition_platformer2d::characters::brain::ChargesProjectiles>(player)
             .is_none(),
         "an authored peaceful persona does not retain the host charge capability"
     );
     assert!(
         app.world()
-            .get::<ambition::projectiles::PlayerProjectileState>(player)
+            .get::<ambition_platformer2d::projectiles::PlayerProjectileState>(player)
             .is_none(),
         "the protagonist-only charge state is removed with its capability"
     );

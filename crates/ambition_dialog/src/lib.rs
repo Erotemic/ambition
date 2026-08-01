@@ -1,4 +1,4 @@
-//! Reusable dialogue runtime (E1c carve out of `ambition_actors`).
+//! Reusable dialogue runtime (E1c carve out of `ambition_platformer2d_actor_monolith`).
 //!
 //! Owns the engine-side dialogue machinery, content-free:
 //!

@@ -97,7 +97,7 @@ pub struct BossSheetSpec {
 
 /// Parsed boss-sheet data used by provider catalog builders and tests.
 ///
-/// Runtime authority is the App-local `ambition_actors::boss_encounter::BossCatalog`;
+/// Runtime authority is the App-local `ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog`;
 /// this low-level crate deliberately owns no process-global override.
 #[derive(Clone, Debug, Default)]
 pub struct BossSheetRegistry {
@@ -1261,8 +1261,8 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
 }
 
 // NOTE (fable audit follow-up): the boss-sprite unit tests were NOT carved
-// over from `ambition_actors` in cdf21e0b — they still live at
-// `ambition_actors::boss_encounter::sprites::tests` (testing the same
+// over from `ambition_platformer2d_actor_monolith` in cdf21e0b — they still live at
+// `ambition_platformer2d_actor_monolith::boss_encounter::sprites::tests` (testing the same
 // derivation). The dangling `mod tests;` placeholder that shipped with the
 // carve pointed at a `boss/tests.rs` that never existed and left this crate's
 // lib-test target uncompilable; removed here. Adding sprite_sheet-local boss

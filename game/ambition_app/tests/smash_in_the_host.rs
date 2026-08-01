@@ -23,7 +23,7 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SeatSelection, SmashSelect};
 use leafwing_input_manager::prelude::Buttonlike;
@@ -43,11 +43,11 @@ fn shell_host_app() -> App {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
-    app.add_plugins(ambition::host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     shell_host::compose_ambition_shell_host(&mut app);
     app
 }
@@ -72,7 +72,7 @@ fn active_route(app: &App) -> Option<String> {
 fn launch_row(app: &mut App, label: &str) {
     let index = app
         .world()
-        .resource::<ambition::game_shell::ShellLaunchCatalog>()
+        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
         .entries
         .iter()
         .position(|entry| entry.label == label)
@@ -117,7 +117,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "nothing has been decided yet"
     );
@@ -135,7 +135,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
 
     let roster = app
         .world()
-        .get_resource::<ambition::actor::MatchParticipantRoster>()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
         .expect("the screen decided a match and published it")
         .clone();
     assert_eq!(roster.participants.len(), 2);
@@ -155,7 +155,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
     );
     assert!(
         app.world()
-            .resource::<ambition::game_shell::ActiveGameplaySession>()
+            .resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
             .0
             .is_some(),
         "the stage route activated no gameplay session"
@@ -167,7 +167,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
     // Quit to Title and no way back to the launcher at all.
     assert!(
         !app.world()
-            .resource::<ambition::game_shell::ShellPauseMenuSuppressed>()
+            .resource::<ambition_platformer2d::game_shell::ShellPauseMenuSuppressed>()
             .0,
         "the universal pause menu is suppressed during a Smash match, so the row \
          that leaves it does not exist"
@@ -216,7 +216,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_none(),
         "the previous match's roster is still standing, so the screen believes a \
          match is already under way and will never start another"
@@ -234,7 +234,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
     settle(&mut app);
     assert!(
         app.world()
-            .get_resource::<ambition::actor::MatchParticipantRoster>()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
             .is_some(),
         "a second match could not be decided"
     );
@@ -255,7 +255,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
 /// the system that was broken. The press has to enter where a real one enters.
 #[test]
 fn two_participants_start_a_match_and_can_still_pause_it() {
-    use ambition::input::InputParticipant;
+    use ambition_platformer2d::input::InputParticipant;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -293,7 +293,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     );
 
     assert!(
-        !app.world().resource::<ambition::game_shell::ShellPauseMenu>().open,
+        !app.world().resource::<ambition_platformer2d::game_shell::ShellPauseMenu>().open,
         "nothing is paused before anybody presses anything"
     );
 
@@ -302,7 +302,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     settle(&mut app);
 
     assert!(
-        app.world().resource::<ambition::game_shell::ShellPauseMenu>().open,
+        app.world().resource::<ambition_platformer2d::game_shell::ShellPauseMenu>().open,
         "with two participants seated, Escape must still reach the pause menu — a couch \
          game you can start together and cannot pause is the regression this pins"
     );

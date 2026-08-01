@@ -10,10 +10,10 @@ description = "Reusable encounter wave/lockdown vocabulary and headless state ma
 crate-type = ["rlib"]
 
 [dependencies]
-ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_persistence = { path = "../ambition_persistence" }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 bevy = { version = "0.18.1", default-features = false }
 ron = { workspace = true }
 serde = { workspace = true }

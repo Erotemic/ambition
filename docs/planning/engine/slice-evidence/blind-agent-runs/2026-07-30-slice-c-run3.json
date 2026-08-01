@@ -12,7 +12,7 @@
     "minimal_game": true,
     "notes": "BOTH faces, and it went further than any prior run: verified the host is POPULATED (4 entities, 1 PrimaryPlayer, 69 components) and then that it is a GAME \u2014 the body falls, lands on the authored floor with vel.y==0, walks 64->462 under drive_control_frame, jumps, lands on a ledge. 3/3 of its own tests green."
   },
-  "first_engine_file_opened": "crates/ambition/Cargo.toml",
+  "first_engine_file_opened": "crates/ambition_platformer2d/Cargo.toml",
   "first_engine_file_reason": "The cargo FEATURE list. docs/sdk/README.md's manifest section covers the bevy_ggrs patch and says nothing about the facade's ~30 features. Not an API question \u2014 a packaging one, same class as run 1's Cargo.lock.",
   "engine_api_surfaces_read": [
     {
@@ -21,7 +21,7 @@
       "looking_for": "the whole API \u2014 ModuleDraft's nine methods, PlatformerApp's eight, HostStatus, CompositionError"
     },
     {
-      "crate": "ambition_world",
+      "crate": "ambition_platformer2d_world",
       "via": "cargo doc",
       "looking_for": "AuthoredWorld/Block/RoomSpec/RoomMetadata signatures"
     },
@@ -46,7 +46,7 @@
     "headless": "false -> TRUE",
     "windowed": "false -> TRUE",
     "engine_surfaces_read": "8 -> 4 -> 4",
-    "first_file_opened": "Cargo.lock (cannot compile) -> ambition_world/src/lib.rs (cannot find a type) -> ambition/Cargo.toml (cannot find the feature list)",
+    "first_file_opened": "Cargo.lock (cannot compile) -> ambition_platformer2d_world/src/lib.rs (cannot find a type) -> ambition/Cargo.toml (cannot find the feature list)",
     "reading": "Three runs, three different first files, each a smaller question than the last: cannot build it, cannot find one type, cannot find the feature list. \u00a74.2 still fails \u2014 the gate is ZERO."
   },
   "findings": [
@@ -62,7 +62,7 @@
       "id": "api-prototype-5-published-a-module-that-does-not-exist",
       "severity": "doc defect",
       "closed": true,
-      "summary": "\u00a75 listed `ambition::experience` holding GameModule/ModuleManifest/ModuleDraft. They are in `ambition::app`. \u00a75 is framed as an OUTPUT read off the call sites, which makes it the most trustworthy list in the SDK."
+      "summary": "\u00a75 listed `ambition_platformer2d::experience` holding GameModule/ModuleManifest/ModuleDraft. They are in `ambition_platformer2d::app`. \u00a75 is framed as an OUTPUT read off the call sites, which makes it the most trustworthy list in the SDK."
     },
     {
       "id": "coordinate-conventions-documented-nowhere",

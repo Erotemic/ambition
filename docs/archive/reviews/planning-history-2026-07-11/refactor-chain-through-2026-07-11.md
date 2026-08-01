@@ -9,7 +9,7 @@ the in-flight test refactor. 2026-07-11.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
-decomposition" means. The residual `ambition_actors` is **64.0k total src lines**
+decomposition" means. The residual `ambition_platformer2d_actor_monolith` is **64.0k total src lines**
 (units: TOTAL, incl. tests) against a projected 31–35k — and the gap is **eight
 adapter shells, not one missing carve**. No further crate split is owed, and none
 would buy compile time. The residue shrinks by dissolving shells, one technical
@@ -32,8 +32,8 @@ in the same commit, don't guess.
   against a total-lines projection and concluded the opposite of the truth.
 - **The gate** (run before every commit; all must be green):
   ```
-  cargo test -p ambition_actors --lib
-  cargo test -p ambition_engine_core -p ambition_runtime -p ambition_host \
+  cargo test -p ambition_platformer2d_actor_monolith --lib
+  cargo test -p ambition_platformer2d_core -p ambition_platformer2d_runtime -p ambition_platformer2d_host \
              -p ambition_dialog -p ambition_sim_view -p ambition_combat \
              -p ambition_characters
   cargo test -p ambition_content --features portal
@@ -60,7 +60,7 @@ in the same commit, don't guess.
 
 The current tree has two partial encounter authorities: the generic wave-centric
 `ambition_encounter` resource machine and the boss-specific encounter entity/
-script/event/music path under `ambition_actors::boss_encounter`. Jon's design is
+script/event/music path under `ambition_platformer2d_actor_monolith::boss_encounter`. Jon's design is
 the stronger unification: an encounter is event-driven orchestration over any
 actors/features/objectives, while a boss is only an actor profile/capability and
 works outside an encounter.
@@ -93,13 +93,13 @@ pattern**: a demo's rules crate gates its systems on an area/room tag, not on
 global state, so Ambition hosts several demos' rulesets in one binary.
 
 **What landed.**
-- `ambition_world/src/rooms/metadata.rs` → `RoomMetadata::mode: Option<String>`,
+- `ambition_platformer2d_world/src/rooms/metadata.rs` → `RoomMetadata::mode: Option<String>`,
   merged first-`Some`-wins like every other string field; `is_empty` accounts for
   it. Authored as the LDtk level string field `mode`
-  (`ambition_ldtk_map/src/project.rs` → `LdtkLevel::level_metadata`).
-- `ambition_platformer_primitives/src/lifecycle/` → `ModeScopedEntity(String)`
+  (`ambition_platformer2d_ldtk/src/project.rs` → `LdtkLevel::level_metadata`).
+- `ambition_platformer2d_shared_tangle/src/lifecycle/` → `ModeScopedEntity(String)`
   and `SpawnScopedExt::spawn_mode_scoped`.
-- `ambition_runtime/src/mode_scope.rs` → `in_mode(name)`,
+- `ambition_platformer2d_runtime/src/mode_scope.rs` → `in_mode(name)`,
   `despawn_departed_mode_entities`, `ModeScopePlugin` (last member of
   `PlatformerEnginePlugins`, `.after(sync_active_room_metadata)` in
   `SandboxSet::Progression`).
@@ -107,15 +107,15 @@ global state, so Ambition hosts several demos' rulesets in one binary.
 
 **Two deviations from the pre-solved sketch, both stated out loud (vision §7):**
 
-1. **`ModeScopedEntity` lives in `ambition_platformer_primitives::lifecycle`, not
-   in `ambition_runtime`,** with `RoomScopedEntity` / `RunScopedEntity` /
+1. **`ModeScopedEntity` lives in `ambition_platformer2d_shared_tangle::lifecycle`, not
+   in `ambition_platformer2d_runtime`,** with `RoomScopedEntity` / `RunScopedEntity` /
    `PersistentEntity`. It is lifetime-scope VOCABULARY, and anti-god rule 1 sends
    vocabulary DOWN to the crate that owns the domain; it also lets
    `spawn_mode_scoped` join the existing `SpawnScopedExt` verb trait rather than
    forcing a second spawn-helper trait a tier up. Only the SWEEP needs
-   `ActiveRoomMetadata`, so only the sweep sits in `ambition_runtime` — the exact
+   `ActiveRoomMetadata`, so only the sweep sits in `ambition_platformer2d_runtime` — the exact
    split `RoomScopedEntity` already uses (marker in primitives, sweep above).
-   The sketch's `// ambition_runtime:` comment is satisfied by `in_mode` + the
+   The sketch's `// ambition_platformer2d_runtime:` comment is satisfied by `in_mode` + the
    plugin; nothing about the design changed.
 2. **`in_mode` returns `impl FnMut(Option<Res<ActiveRoomMetadata>>) -> bool +
    Clone`, not `impl Condition`.** That is the signature bevy's own `in_state`
@@ -133,7 +133,7 @@ the whole point, and `load_room_geometry`'s loop additionally carries the
 transiting body and retires avian physics entities. One sweep could not do both
 without a policy argument that means "which scope am I".
 
-**`ambition_runtime` gained a direct `ambition_world` dep** (the space IR is a
+**`ambition_platformer2d_runtime` gained a direct `ambition_platformer2d_world` dep** (the space IR is a
 tier below the sim). `architecture_boundaries.rs`'s runtime allowlist fired on
 it, correctly, and now names it with its reason.
 
@@ -143,19 +143,19 @@ momentum feel is the separate interactive build), so the constructor would be a
 facade over nothing. The room already claims the mode, which is what a hosted
 ruleset wakes on; the flag lands with sanic's first rule. The pattern is written
 out in `mode_scope.rs`'s module docs and pinned by
-`ambition_runtime/tests/mode_scope.rs`'s `DemoRulesPlugin` fixture, which is that
+`ambition_platformer2d_runtime/tests/mode_scope.rs`'s `DemoRulesPlugin` fixture, which is that
 constructor flag exactly.
 
-**Exit check — met.** `ambition_runtime/tests/mode_scope.rs`: two hosted rules
+**Exit check — met.** `ambition_platformer2d_runtime/tests/mode_scope.rs`: two hosted rules
 plugins coexist; `in_mode("a")` systems do not run while room metadata says `b`;
 `ModeScopedEntity("a")` entities are despawned when the active room's mode
 changes, while `b`'s survive; a room change WITHIN a mode spares them; a
 standalone (ungated) ruleset runs with no mode at all. `demo_shell_smoke.rs`
 passes. Plus the E9 oracle in `ambition_demo_sanic`: the seam is reachable
-through the `ambition` umbrella alone.
+through the `ambition_platformer2d` umbrella alone.
 
 **Found while doing it** (logged in `dev/journals/code_smells.md`): a crate whose
-manifest names only `ambition` cannot `#[derive(Resource)]` — bevy's derives
+manifest names only `ambition_platformer2d` cannot `#[derive(Resource)]` — bevy's derives
 resolve `bevy_ecs` through the consumer's manifest, and a re-export does not
 satisfy them. The umbrella's "author a game through this crate alone" claim has
 an asterisk.
@@ -190,11 +190,11 @@ so the giant mount simply inherited the layout it always described.
 | `ambition_render` (the split-layer render) | **−147** |
 | `game/ambition_content/src` (two duplicated arena-gate tests collapsed) | −42 |
 | `ambition_sprite_sheet` | −29 |
-| `game/ambition_app`, `ambition_ldtk_map`, `ambition_sim_view` (test retargets) | +9 |
-| **`ambition_actors`** | **+26** |
+| `game/ambition_app`, `ambition_platformer2d_ldtk`, `ambition_sim_view` (test retargets) | +9 |
+| **`ambition_platformer2d_actor_monolith`** | **+26** |
 | **repo-wide** | **−511** |
 
-`ambition_actors/src/boss_encounter/` went **5456 → 5457** total src lines. It did
+`ambition_platformer2d_actor_monolith/src/boss_encounter/` went **5456 → 5457** total src lines. It did
 not shrink. It *grew by one line*, because the retargeted tests carry more
 assertions than the ones they replaced.
 
@@ -219,7 +219,7 @@ sanctioned pattern.
 
 **Consequence: R2 does NOT unblock R4.** This doc claimed "boss types settle with
 R2". They did not: `BossRef` / `BossConfig` / `BossEncounter` all still live in
-`ambition_actors`, and the victim-routing stepper still queries them. R4 therefore
+`ambition_platformer2d_actor_monolith`, and the victim-routing stepper still queries them. R4 therefore
 loses one of its two claimed unblocks; only R3's `CollisionWorld` move discharges
 a real blocker. See R4 below — this makes fable's "do NOT force this seam" more
 likely to be the outcome, not less.
@@ -245,63 +245,63 @@ authors no body metrics at all, which those tests now pin explicitly.
 
 ---
 
-## R3 — the overlay split ✅ DONE (2026-07-10): `CollisionWorld` joined `ambition_world`
+## R3 — the overlay split ✅ DONE (2026-07-10): `CollisionWorld` joined `ambition_platformer2d_world`
 
 **The spike found one dep the analysis had missed, and fixing it properly made
 the move cleaner than promised.**
 
-`carve_portal_apertures` called `ambition_portal::pieces::subtract_aabb`. The
+`carve_portal_apertures` called `ambition_portal2d::pieces::subtract_aabb`. The
 residue analysis listed only the three `crate::` touches and never looked at the
 `ambition_*` ones — so the move as written would have forced
-`ambition_world → ambition_portal`, i.e. the space IR importing a gameplay
+`ambition_platformer2d_world → ambition_portal2d`, i.e. the space IR importing a gameplay
 MECHANIC. That edge is acyclic (portal names only `engine_core` +
 `platformer_primitives`) so it would have compiled, and it would have been wrong:
 the world IR is an authored INPUT to the sim, never a peer (decomposition.md's
 fault line 2).
 
 `subtract_aabb` is plain rectangle set-difference with **one** consumer outside
-its own crate. So it moved DOWN to `ambition_engine_core::geometry` (anti-god
+its own crate. So it moved DOWN to `ambition_platformer2d_core::geometry` (anti-god
 rule 1: vocabulary moves to the crate that owns the domain), along with the
 private `aabb_mm` helper, now `geometry::aabb_from_min_max`. Its two tests
 travelled with it (F7 test accounting) and a third was added for the
-hole-covers-block case. `ambition_portal::pieces` keeps the portal-SPECIFIC part
+hole-covers-block case. `ambition_portal2d::pieces` keeps the portal-SPECIFIC part
 — how deep and how wide the hole is (`carve_hole`, `CARVE_DEPTH`,
 `SURFACE_GRACE`) — and now calls down for the algebra.
 
 **What landed.**
-- `ambition_actors/src/world/overlay_rebuild.rs` → **deleted**; it is
-  `ambition_world/src/collision.rs`, named for its ONE concern (the composited
+- `ambition_platformer2d_actor_monolith/src/world/overlay_rebuild.rs` → **deleted**; it is
+  `ambition_platformer2d_world/src/collision.rs`, named for its ONE concern (the composited
   collision world) rather than for the actors-side split it used to be half of.
 - `CollisionWorld`, `world_with_sandbox_solids`, `world_with_portal_carves`,
   `world_with_gate_solids_and_carves` now live there, with their six inline tests.
-- `MovingPlatformSet` moved out of `ambition_actors/src/lib.rs` down to
-  `ambition_world::collision`, beside the `MovingPlatformState` it wraps.
+- `MovingPlatformSet` moved out of `ambition_platformer2d_actor_monolith/src/lib.rs` down to
+  `ambition_platformer2d_world::collision`, beside the `MovingPlatformState` it wraps.
 - The `features/` hub's `world_overlay` alias and its four re-exports are
   **gone** (anti-god rule 3). All ~30 consumers import from the owning crate.
-- New deps, each with its reason in the manifest: `ambition_world →
-  ambition_platformer_primitives` (for `FeatureEcsWorldOverlay`, a content-free
-  struct of `Block`s and `Aabb`s); `ambition_sim_view → ambition_world` and
-  `ambition_content → ambition_world` (for `MovingPlatformSet`). `ambition_world`
+- New deps, each with its reason in the manifest: `ambition_platformer2d_world →
+  ambition_platformer2d_shared_tangle` (for `FeatureEcsWorldOverlay`, a content-free
+  struct of `Block`s and `Aabb`s); `ambition_sim_view → ambition_platformer2d_world` and
+  `ambition_content → ambition_platformer2d_world` (for `MovingPlatformSet`). `ambition_platformer2d_world`
   still uses `bevy_ecs`/`bevy_app` directly — it never took the `bevy` facade.
-- `ambition_world`'s own `dependency_tests` allowlist fired on the new dep,
+- `ambition_platformer2d_world`'s own `dependency_tests` allowlist fired on the new dep,
   correctly, and now names it.
 
 **What did NOT move, on purpose.** `world/overlay.rs` — the REBUILD side. It
 queries breakables and pogo-target volumes and imports `crate::combat::*`; it is
 actor-domain and stays. Only the CONSUMPTION side left.
 
-**Test accounting (F7).** `ambition_actors --lib` 745 → 739 (the six
-`collision_world_tests` travelled); `ambition_world` 33 → 39. `ambition_portal`
-52 → 50; `ambition_engine_core` +3. Every moved test name exists in its new home.
+**Test accounting (F7).** `ambition_platformer2d_actor_monolith --lib` 745 → 739 (the six
+`collision_world_tests` travelled); `ambition_platformer2d_world` 33 → 39. `ambition_portal2d`
+52 → 50; `ambition_platformer2d_core` +3. Every moved test name exists in its new home.
 
-**LOC (units: TOTAL src lines, including tests).** `ambition_actors/src/world/`
-1875 → 1508 (−367); `ambition_actors` overall 63,858 → 63,477 (−381);
-`ambition_world` 2897 → 3296 (+399). The residue moved rather than vanished —
+**LOC (units: TOTAL src lines, including tests).** `ambition_platformer2d_actor_monolith/src/world/`
+1875 → 1508 (−367); `ambition_platformer2d_actor_monolith` overall 63,858 → 63,477 (−381);
+`ambition_platformer2d_world` 2897 → 3296 (+399). The residue moved rather than vanished —
 which is the point of a carve, and unlike R2 the number moved where the ledger
 said it would.
 
-**Exit check — met.** `CollisionWorld` is importable from `ambition_world`;
-`ambition_actors` has no `overlay_rebuild` module; the full gate is green. This
+**Exit check — met.** `CollisionWorld` is importable from `ambition_platformer2d_world`;
+`ambition_platformer2d_actor_monolith` has no `overlay_rebuild` module; the full gate is green. This
 was to unblock `ProjectileCollisionWorld` (R4) — and it is now R4's ONLY
 discharged blocker, since R2 turned out not to settle boss types.
 
@@ -310,12 +310,12 @@ discharged blocker, since R2 turned out not to settle boss types.
 **Unblocked — the precondition fable named has already been met, unnoticed.**
 
 `decomposition.md`'s residue list used to say "`world/overlay{,_rebuild}.rs` join
-`ambition_world` once the rebuild's inputs become plain solids." Those are **two
+`ambition_platformer2d_world` once the rebuild's inputs become plain solids." Those are **two
 modules with opposite status**:
 
-- `ambition_actors/src/world/overlay.rs` — the REBUILD side. Queries breakables
+- `ambition_platformer2d_actor_monolith/src/world/overlay.rs` — the REBUILD side. Queries breakables
   and pogo-target volumes; imports `crate::combat::*`. Actor-domain. **Stays.**
-- `ambition_actors/src/world/overlay_rebuild.rs` — the CONSUMPTION side. Owns
+- `ambition_platformer2d_actor_monolith/src/world/overlay_rebuild.rs` — the CONSUMPTION side. Owns
   `CollisionWorld` (a `SystemParam`), `world_with_sandbox_solids`,
   `world_with_portal_carves`, `carve_portal_apertures`. **Its inputs are already
   plain.**
@@ -324,31 +324,31 @@ modules with opposite status**:
 - `overlay_rebuild.rs` touches `crate::` exactly three times, all for
   `MovingPlatformSet`, `MovingPlatformState`, `world_with_moving_platforms`.
 - `MovingPlatformState` and `world_with_moving_platforms` **already live in
-  `ambition_world::platforms`**. `ambition_actors/src/world/platforms/mod.rs` is
+  `ambition_platformer2d_world::platforms`**. `ambition_platformer2d_actor_monolith/src/world/platforms/mod.rs` is
   a `pub use` facade plus visual systems (`spawn_moving_platform`,
   `sync_moving_platform`) that pull `RoomVisual` / `RoomSet` — those stay.
 - `FeatureEcsWorldOverlay` **already lives in
-  `ambition_platformer_primitives::feature_overlay`**; `world/overlay.rs`
+  `ambition_platformer2d_shared_tangle::feature_overlay`**; `world/overlay.rs`
   re-exports it. Its `portal_carves` field is a plain `Vec<Aabb>`.
 - `overlay_rebuild.rs`'s inline tests use only `super::*` and bevy.
-- `ambition_platformer_primitives` depends on **nothing but `engine_core`**, so
-  adding `ambition_world → ambition_platformer_primitives` is **acyclic**.
+- `ambition_platformer2d_shared_tangle` depends on **nothing but `engine_core`**, so
+  adding `ambition_platformer2d_world → ambition_platformer2d_shared_tangle` is **acyclic**.
 
 **So the only actor-local input is the one-line `MovingPlatformSet` newtype** in
-`ambition_actors/src/lib.rs`, which wraps an `ambition_world` type and belongs
+`ambition_platformer2d_actor_monolith/src/lib.rs`, which wraps an `ambition_platformer2d_world` type and belongs
 there anyway.
 
 **Do this:** (1) spike it — move the file, repoint, see if it compiles, *before*
 promising anything; (2) move `MovingPlatformSet` down; (3) add the
-`platformer_primitives` dep to `ambition_world`; (4) move `overlay_rebuild.rs`;
+`platformer_primitives` dep to `ambition_platformer2d_world`; (4) move `overlay_rebuild.rs`;
 (5) repoint consumers. The consumer list (verified) spans `features/ecs/*`,
 `abilities/traversal/{blink,dive,grapple}.rs`, `body_mode/mechanics/`,
 `items/pickup/`, `projectile/`, `dev/trace/`, `player/body_integration.rs`,
-`ambition_runtime/src/projectile_schedule.rs`,
+`ambition_platformer2d_runtime/src/projectile_schedule.rs`,
 `game/ambition_content/src/portal/carve_adapter.rs`.
 
-**Exit check.** `CollisionWorld` is importable from `ambition_world`;
-`ambition_actors` has no `overlay_rebuild` module; the full gate is green. This
+**Exit check.** `CollisionWorld` is importable from `ambition_platformer2d_world`;
+`ambition_platformer2d_actor_monolith` has no `overlay_rebuild` module; the full gate is green. This
 unblocks `ProjectileCollisionWorld` (R4).
 
 ---
@@ -364,21 +364,21 @@ than forcing the seam.
 **Moved: `ProjectileCollisionWorld`.** R3 made every input plain, and this is what
 that was for. Its three inputs, measured: `Res<RoomGeometry>` (engine_core),
 `Res<FeatureEcsWorldOverlay>` (`platformer_primitives`, a content-free struct of
-`Block`s and `Aabb`s), and `Query<&PlacedPortal>` (`ambition_portal`) — with its
-body calling `ambition_world::collision::world_with_gate_solids_and_carves`.
+`Block`s and `Aabb`s), and `Query<&PlacedPortal>` (`ambition_portal2d`) — with its
+body calling `ambition_platformer2d_world::collision::world_with_gate_solids_and_carves`.
 `ambition_projectiles` already depended on primitives and portal; it gained
-`ambition_world`, which is acyclic (the world IR names no projectile).
+`ambition_platformer2d_world`, which is acyclic (the world IR names no projectile).
 
 **Survives: victim routing.** `step_projectiles` names exactly THREE
-`ambition_actors`-owned symbols. That is a sharper answer than F2's prose ("queries
+`ambition_platformer2d_actor_monolith`-owned symbols. That is a sharper answer than F2's prose ("queries
 bosses, actors, breakables, shields, owner combat") — everything else it touches
 already lives a tier down. Measured 2026-07-10:
 
 | Symbol | Home | Discharged by |
 |---|---|---|
-| `BossConfig`, `BossClusterRef` | `ambition_actors/src/features/ecs/boss_clusters.rs` | the boss-type settle R2 was *supposed* to be |
-| `BossAnimationFrameSample` | `ambition_actors/src/boss_encounter/attack_geometry/` | same |
-| `PlayerHealRequested` | `ambition_actors/src/player/events.rs` | **R6**, the player fold |
+| `BossConfig`, `BossClusterRef` | `ambition_platformer2d_actor_monolith/src/features/ecs/boss_clusters.rs` | the boss-type settle R2 was *supposed* to be |
+| `BossAnimationFrameSample` | `ambition_platformer2d_actor_monolith/src/boss_encounter/attack_geometry/` | same |
+| `PlayerHealRequested` | `ambition_platformer2d_actor_monolith/src/player/events.rs` | **R6**, the player fold |
 
 For contrast, these were *already* plain and needed nothing: `CenteredAabb`,
 `BodyOffense`, `BodyDodgeState`, `BodyShieldState` (engine_core); `FeatureId`,
@@ -389,17 +389,17 @@ For contrast, these were *already* plain and needed nothing: `CenteredAabb`,
 
 So victim routing is *close* — but its remaining blocker is the boss cluster
 views, which R2 was expected to settle and did not (see R2's correction). Forcing
-it now would drag `ambition_actors`' boss vocabulary into `ambition_projectiles`,
+it now would drag `ambition_platformer2d_actor_monolith`' boss vocabulary into `ambition_projectiles`,
 which is the sideways import anti-god rule 4 forbids. **Stopped.**
 
 **Survives: charge input**, exactly as predicted, and with exactly one blocker:
-`crate::player::BodyAnimFacts` (`ambition_actors/src/player/components/`) — fable's
+`crate::player::BodyAnimFacts` (`ambition_platformer2d_actor_monolith/src/player/components/`) — fable's
 "optional player ANIMATION facts". Every other input is plain (`UserSettings` from
 persistence, `ChargesProjectiles`/`ActorActionMessage` from characters,
 `PlayerProjectileState` from projectiles itself, `GravityCtx` from primitives).
 It folds into **R6**.
 
-**LOC** (units: TOTAL src lines, incl. tests): `ambition_actors/src/projectile/`
+**LOC** (units: TOTAL src lines, incl. tests): `ambition_platformer2d_actor_monolith/src/projectile/`
 1758 → 1719 (−39); `ambition_projectiles` 2182 → 2240 (+58). `projectile/`'s
 `crate::features` touches: 14 → 13. A small, honest number for a slice whose
 instruction was "move ONLY what is now plain".
@@ -415,13 +415,13 @@ paragraph):
 
 | Stepper | Blocker as written | After R2/R3 |
 |---|---|---|
-| victim routing | queries bosses, actors, breakables, shields, owner combat; emits `HitEvent`/heal/SFX/VFX | **STILL BLOCKED.** R2 was supposed to settle boss types; it did not (see R2's correction) — `BossRef`/`BossConfig`/`BossEncounter` never left `ambition_actors`, and the stepper still queries actors/breakables/shields besides |
+| victim routing | queries bosses, actors, breakables, shields, owner combat; emits `HitEvent`/heal/SFX/VFX | **STILL BLOCKED.** R2 was supposed to settle boss types; it did not (see R2's correction) — `BossRef`/`BossConfig`/`BossEncounter` never left `ambition_platformer2d_actor_monolith`, and the stepper still queries actors/breakables/shields besides |
 | world collision | needs the live feature overlay + the portal-carve snapshot; `ProjectileCollisionWorld` waits on the world follow-up | **R3** is that follow-up |
 | charge input | reads brain action messages, `UserSettings`, gravity, optional player ANIMATION facts | still blocked — and it folds into **R6** anyway |
 
-**Anchors.** `ambition_actors/src/projectile/systems.rs` →
+**Anchors.** `ambition_platformer2d_actor_monolith/src/projectile/systems.rs` →
 `charge_projectile_input`, `step_projectiles`, `try_fire_projectile`;
-`ambition_actors/src/projectile/mod.rs`. The model already lives in
+`ambition_platformer2d_actor_monolith/src/projectile/mod.rs`. The model already lives in
 `ambition_projectiles`.
 
 **Do this:** after R2 and R3, re-read the blocker paragraph and move ONLY what is
@@ -435,11 +435,11 @@ seam" the likely honest outcome for the other two.
 
 ## R5 — the `ControlFrame` allowlist lint ✅ DONE (2026-07-10) (= step 5's Phase C)
 
-**`tests/ambition_workspace_policy/src/custom/control_frame.rs`** (migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/control_frame_lint.rs`). Written BEFORE the fold,
+**`tests/ambition_workspace_policy/src/custom/control_frame.rs`** (migrated 2026-07-10 from the retired `crates/ambition_platformer2d_runtime/tests/control_frame_lint.rs`). Written BEFORE the fold,
 which is the whole point. Eight tests; the gate on R6 is now armed.
 
 **It found a fifth holder, and the fifth is the only real one.** This doc's own
-re-count said four `Res<ControlFrame>` holders in `ambition_actors`. Measured by
+re-count said four `Res<ControlFrame>` holders in `ambition_platformer2d_actor_monolith`. Measured by
 the lint: **five**. The extra is
 `abilities/traversal/possession.rs::possession_trigger_system`, which no name-grep
 found because it is written `Res<ambition_input::ControlFrame>` — the import path
@@ -450,7 +450,7 @@ and then forgotten, which is exactly what a lint is for and a paragraph is not.
 
 Nine holders repo-wide over the scanned scope (the sim crates + `ambition_content`,
 because a content RULE reading the global frame is as slot-0-only as an engine
-system doing it): `engine_core`'s two latch halves, `ambition_actors`' five,
+system doing it): `engine_core`'s two latch halves, `ambition_platformer2d_actor_monolith`' five,
 `ambition_content`'s two portal intent bridges. Each carries a `Bridge` category
 (`DeviceToFrame` / `Latch` / `FrameToSlot` / `IntentBridge` / `Slot0Gesture`) and a
 reason; a test asserts every `Slot0Gesture` reason opens with `MULTIPLAYER TODO`,
@@ -488,7 +488,7 @@ Phase C is marked DONE there.
 verification) remains" and never defined it. Defined 2026-07-10: it is this lint.
 
 **Why it's needed, not ceremony.** B3's audit conclusion claims the only
-`Res<ControlFrame>` holders inside `ambition_actors` are "the two input-bridge
+`Res<ControlFrame>` holders inside `ambition_platformer2d_actor_monolith` are "the two input-bridge
 writers (`populate_control_frame_from_actions`, `sync_local_player_input_frame`)".
 Measured: there are **four** —
 `schedule/input_systems.rs::populate_control_frame_from_actions`,
@@ -554,7 +554,7 @@ correctness bug, exactly as R2's retarget did.
 Every surviving sim-side slot-0 filter now uses the NAMED `PrimaryPlayerOnly`
 alias and carries a comment saying why (the exit check's second clause). Zero
 spelled-out `With<PlayerEntity>, With<PrimaryPlayer>` pairs remain in
-`ambition_actors`' non-test sources. Six modules — `gravity/lifecycle`,
+`ambition_platformer2d_actor_monolith`' non-test sources. Six modules — `gravity/lifecycle`,
 `ability_cooldown`, `items/persist`, `items/pickup`, `shrine`,
 `features/ecs/damage_apply` — no longer name the player markers at all.
 
@@ -599,7 +599,7 @@ tests); `control/` is 962.
 
 ### ✅ R6d — `player/` is gone (committed)
 
-**Exit-check clause 1 is met: `crates/ambition_actors/src/player/` no longer
+**Exit-check clause 1 is met: `crates/ambition_platformer2d_actor_monolith/src/player/` no longer
 exists.** What was in it went where it belongs, and what remained turned out to be
 a real concept that had simply never been named:
 
@@ -631,7 +631,7 @@ It is not, and doing it as scoped would leave the tree WORSE than it is today.
 
 | Surface | Refs |
 |---|---:|
-| `crate::features` / `ambition_actors::features` / … | **722** |
+| `crate::features` / `ambition_platformer2d_actor_monolith::features` / … | **722** |
 | `Feature*`-prefixed IDENTIFIERS (`FeatureId` 165, `FeatureSimEntity` 192, `FeatureEcsWorldOverlay` 80, `FeatureName` 55, `FeatureViewIndex` 40, `FeatureView` 33, `FeatureVisual` 29, …) | **838** |
 | Crates that DEFINE a `Feature*` type | **5** (`actors`, `combat`, `platformer_primitives`, `render`, `sim_view`) |
 
@@ -657,10 +657,10 @@ simulation) and the TYPE FAMILY (in-world entities).
 
 | Option | Module | Types | Cost | Trade |
 |---|---|---|---|---|
-| **A. `sim` + `Entity*`** | `crate::sim`, `ambition::actors::sim::…` | `SimEntityId`, `SimEntity`, … | ~1560 | Reads cleanly outside; `Entity*` risks confusion with bevy's `Entity` unless prefixed `Sim`. |
-| **B. `actors` + keep `Feature*`** | `crate::actors` | unchanged | ~722 | Matches vision's "ONE actors tree" literally, but yields `ambition::actors::actors::FeatureId` — redundant AND still mis-typed. **Not recommended.** |
+| **A. `sim` + `Entity*`** | `crate::sim`, `ambition_platformer2d::actors::sim::…` | `SimEntityId`, `SimEntity`, … | ~1560 | Reads cleanly outside; `Entity*` risks confusion with bevy's `Entity` unless prefixed `Sim`. |
+| **B. `actors` + keep `Feature*`** | `crate::actors` | unchanged | ~722 | Matches vision's "ONE actors tree" literally, but yields `ambition_platformer2d::actors::actors::FeatureId` — redundant AND still mis-typed. **Not recommended.** |
 | **C. `entities` + `Entity*`** | `crate::entities` | `EntityId`, … | ~1560 | Truest to the header's own words; collides hard with bevy `Entity` in a Bevy-native codebase. |
-| **D. do nothing; fix the DOC** | unchanged | unchanged | 0 | `crates/ambition_actors/MODULES.md` already names `features` as one of three misleading names and says what it is. The cost of the name is now one table row, paid once, for every reader. |
+| **D. do nothing; fix the DOC** | unchanged | unchanged | 0 | `crates/ambition_platformer2d_actor_monolith/MODULES.md` already names `features` as one of three misleading names and says what it is. The cost of the name is now one table row, paid once, for every reader. |
 
 **Recommendation: A, or D.** A is right if the 1560-site sweep is worth a day of
 churn on a pre-release engine with zero dependents (it probably is — the cost only
@@ -713,7 +713,7 @@ never ships blind. Leave it; note it in this doc when you get there.
 or `Player*`-only clusters; body-generic CONSUMERS, not just body-generic state;
 this is a checkpointed refactor, not a blind rewrite — the parity harness first.
 
-**Exit check.** `crates/ambition_actors/src/player/` no longer exists as a
+**Exit check.** `crates/ambition_platformer2d_actor_monolith/src/player/` no longer exists as a
 sibling of `features/`; every surviving slot-0 filter carries a comment saying
 why it is slot-scoped; R5's lint is still green (this is the whole point of
 ordering it first); the full gate is green; `player_clone_live.rs`,
@@ -732,7 +732,7 @@ adjectives ("small", "the big one", "unblocked, fully pre-solved").
 |---|---|---:|---|
 | R1 D-C mode-scope seam | "unblocked, fully pre-solved" | **25 min** | It was. The only cost was deciding `ModeScopedEntity`'s crate, and the demo oracle turned up the umbrella's derive-macro asterisk. |
 | R2 E6 teardown | "the biggest measurable win in this chain" | **33 min** | Cheap to execute, and the required LOC measurement disproved the premise. Retarget-before-delete found the G5 possessed-verb map. |
-| R3 overlay split | "spike it first" | **58 min** | The longest slice, and the spike is why: an unlisted `ambition_portal` dep meant the right move was to send `subtract_aabb` DOWN to `engine_core`, not to give the space IR a mechanic dependency. Plus ~30 consumers, a `--all-targets` feature hole, and a full disk. |
+| R3 overlay split | "spike it first" | **58 min** | The longest slice, and the spike is why: an unlisted `ambition_portal2d` dep meant the right move was to send `subtract_aabb` DOWN to `engine_core`, not to give the space IR a mechanic dependency. Plus ~30 consumers, a `--all-targets` feature hole, and a full disk. |
 | R4 projectile steppers | "re-check, do NOT force" | **11 min** | Measurement, one 45-line move, and a STOP. The doc's instruction was the whole slice. |
 | R5 ControlFrame lint | "an afternoon" | **12 min** | Far cheaper than estimated because `determinism_lints.rs` was a working template. The poison tests cost more than the lint and were worth more. |
 | R6a body vocab out | (part of "the big one") | **15 min** | `BodyAnimFacts` had one obvious home and 18 importers. |
@@ -771,7 +771,7 @@ warnings in `ambition_touch_input`. The workspace now builds `--all-targets
 
 - **No new crates.** The ledger ruling says no further crate split is owed, and
   none buys compile time (≥72 s of the 104 s play loop is the tower ABOVE
-  `ambition_actors`). `abilities/` remains a *discretionary* candidate on
+  `ambition_platformer2d_actor_monolith`). `abilities/` remains a *discretionary* candidate on
   navigability grounds only. Do not carve it as part of this chain.
 - **No `features/` split.** Fable: splitting spawn/tick/perceive/damage-routing
   apart would re-fork the actor unification (U1).

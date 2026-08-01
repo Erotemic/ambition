@@ -98,8 +98,8 @@ Current scope:
 Likely candidates include:
 
 * `ambition_characters/src/brain/smash/mod.rs`
-* `ambition_actors/src/features/ecs/perception.rs`
-* `ambition_actors/src/enemy_projectile/systems.rs`
+* `ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs`
+* `ambition_platformer2d_actor_monolith/src/enemy_projectile/systems.rs`
 * `ambition_characters/src/perception.rs`
 
 Each commit should touch one implementation file and its new test module only.
@@ -345,10 +345,10 @@ Do not move a test merely because its subject sounds low-level. If it depends on
 
 Some tests will remain in `ambition_app`; some should migrate to:
 
-* `ambition_engine_core/tests`;
-* `ambition_runtime/tests`;
-* `ambition_portal/tests`;
-* `ambition_actors/tests`;
+* `ambition_platformer2d_core/tests`;
+* `ambition_platformer2d_runtime/tests`;
+* `ambition_portal2d/tests`;
+* `ambition_platformer2d_actor_monolith/tests`;
 * another clearly owning crate.
 
 Every move must reduce dependencies or improve ownership. Do not create new cross-crate test packages merely to move files around.

@@ -440,7 +440,7 @@ ambition_engine
   movement, collision semantics, abilities, combat, actors, reusable mechanics,
   geometry, state-machine vocabulary, data types
 
-ambition_actors / future story crates
+ambition_platformer2d_actor_monolith / future story crates
   app setup, LDtk/RON content, rendering, input bindings, HUD/debug UI,
   audio playback, presentation choices, temporary labs
 ```

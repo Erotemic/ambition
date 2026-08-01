@@ -26,10 +26,10 @@ crate-type = ["rlib"]
 default = []
 # No `bevy` entry, and that is a RESULT rather than an omission: this game
 # derives no components or resources, so it never needs Bevy's derive macros to
-# resolve `::bevy_ecs` through its own manifest. `ambition::bevy` is enough.
+# resolve `::bevy_ecs` through its own manifest. `ambition_platformer2d::bevy` is enough.
 # Outlander needs the dependency; a game this small does not — which is exactly
 # the kind of difference only a second consumer can show.
-visible = ["ambition/visible", "ambition/basic_shell_presentation"]
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation"]
 
 [dependencies]
 # Slice H: the facade's edges are capabilities, and this game names the ONE it
@@ -40,7 +40,7 @@ visible = ["ambition/visible", "ambition/basic_shell_presentation"]
 # this line is that fact written down — the render edge stays in this game's
 # measured closure because the game asks for it, not because the facade forces
 # it. A game with no windowed face drops this line and the render chain with it.
-ambition = { path = "../../crates/ambition", default-features = false, features = [
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
     "ambition_render",
 ] }
 

@@ -1232,14 +1232,14 @@ provider applications and shared host
 
 Useful landmarks:
 
-- `crates/ambition_engine_core` — reusable movement and geometry logic;
-- `crates/ambition_platformer_primitives` — lifecycle, schedule, and shared platformer vocabulary;
-- `crates/ambition_actors` — the largest body of gameplay machinery;
-- `crates/ambition_runtime` — canonical runtime/session state;
+- `crates/ambition_platformer2d_core` — reusable movement and geometry logic;
+- `crates/ambition_platformer2d_shared_tangle` — lifecycle, schedule, and shared platformer vocabulary;
+- `crates/ambition_platformer2d_actor_monolith` — the largest body of gameplay machinery;
+- `crates/ambition_platformer2d_runtime` — canonical runtime/session state;
 - `crates/ambition_render` — presentation systems;
 - `crates/ambition_game_shell` — title routes, startup, launchers, and session bridging;
 - `crates/ambition_load` — load transactions and authorization;
-- `crates/ambition` — a public facade and shared provider authoring surface;
+- `crates/ambition_platformer2d` — a public facade and shared provider authoring surface;
 - `game/ambition_content` — Ambition-specific named content and provider implementation;
 - `game/ambition_app` — the shipping host and binaries;
 - `game/ambition_demo_*` — smaller providers and standalone hosts.
@@ -1251,13 +1251,13 @@ Run:
 ```bash
 cargo metadata --format-version 1 > /tmp/ambition-metadata.json
 cargo tree -p ambition_app --depth 2
-cargo tree -p ambition_engine_core --depth 2
+cargo tree -p ambition_platformer2d_core --depth 2
 ```
 
 Then answer without guessing:
 
 - Why can `ambition_app` depend on `ambition_content`?
-- Why should `ambition_engine_core` not depend on it?
+- Why should `ambition_platformer2d_core` not depend on it?
 - Where would a reusable collision shape belong?
 - Where would a named boss roster belong?
 - Where would window creation belong?
@@ -1726,7 +1726,7 @@ In a scratch test module, create an `App` with:
 - one update system that counts them;
 - a test that calls `app.update()` and inspects the resource.
 
-Then add session ownership to those entities using the lifecycle helpers in `ambition_platformer_primitives`. Retire the session and prove the entities disappear.
+Then add session ownership to those entities using the lifecycle helpers in `ambition_platformer2d_shared_tangle`. Retire the session and prove the entities disappear.
 
 This exercise covers most mechanics used by larger Ambition integration tests.
 
@@ -1878,7 +1878,7 @@ struct PlatformerSessionBuilder<'w, 's> {
 }
 ```
 
-Read the provider authoring surface in [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs).
+Read the provider authoring surface in [`../../crates/ambition_platformer2d_provider/src/lifecycle.rs`](../../crates/ambition_platformer2d_provider/src/lifecycle.rs).
 
 A good `SystemParam` bundle:
 
@@ -1905,8 +1905,8 @@ The shared title host can launch Ambition, Sanic, Mary-O, and other providers. T
 The key types are in:
 
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
-- [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
-- [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
+- [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
 
 The model is:
 
@@ -1949,7 +1949,7 @@ Mark every clone and every resource projection. This is the best way to understa
 
 A provider is a game that can be linked into the shared host. Read:
 
-- [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs)
+- [`../../crates/ambition_platformer2d_provider/src/lifecycle.rs`](../../crates/ambition_platformer2d_provider/src/lifecycle.rs)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
 - the equivalent provider files in `game/ambition_demo_sanic`, `game/ambition_demo_mary_o`, and `game/ambition_demo_pocket`.
 
@@ -2043,7 +2043,7 @@ Read:
 
 - [`../concepts/movement-collision.md`](../concepts/movement-collision.md)
 - [`../adr/0024-frame-aware-unified-movement-kernel.md`](../adr/0024-frame-aware-unified-movement-kernel.md)
-- the movement module under [`../../crates/ambition_engine_core/src/movement/`](../../crates/ambition_engine_core/src/movement/)
+- the movement module under [`../../crates/ambition_platformer2d_core/src/movement/`](../../crates/ambition_platformer2d_core/src/movement/)
 
 The important Rust design is not any one equation. It is that body kinds converge on a shared typed entrypoint and select explicit movement policies.
 
@@ -2449,13 +2449,13 @@ Source entrypoints:
 
 - [`../../crates/ambition_game_shell/src/lib.rs`](../../crates/ambition_game_shell/src/lib.rs)
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
-- [`../../crates/ambition_platformer_provider/src/lifecycle.rs`](../../crates/ambition_platformer_provider/src/lifecycle.rs)
-- [`../../crates/ambition_runtime/src/session_world.rs`](../../crates/ambition_runtime/src/session_world.rs)
-- [`../../crates/ambition/src/session_world.rs`](../../crates/ambition/src/session_world.rs)
-- [`../../crates/ambition_platformer_primitives/src/`](../../crates/ambition_platformer_primitives/src/)
-- [`../../crates/ambition_engine_core/src/movement/`](../../crates/ambition_engine_core/src/movement/)
-- [`../../crates/ambition_actors/src/schedule/`](../../crates/ambition_actors/src/schedule/)
-- [`../../crates/ambition_actors/src/session/`](../../crates/ambition_actors/src/session/)
+- [`../../crates/ambition_platformer2d_provider/src/lifecycle.rs`](../../crates/ambition_platformer2d_provider/src/lifecycle.rs)
+- [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d_shared_tangle/src/`](../../crates/ambition_platformer2d_shared_tangle/src/)
+- [`../../crates/ambition_platformer2d_core/src/movement/`](../../crates/ambition_platformer2d_core/src/movement/)
+- [`../../crates/ambition_platformer2d_actor_monolith/src/schedule/`](../../crates/ambition_platformer2d_actor_monolith/src/schedule/)
+- [`../../crates/ambition_platformer2d_actor_monolith/src/session/`](../../crates/ambition_platformer2d_actor_monolith/src/session/)
 - [`../../crates/ambition_render/src/`](../../crates/ambition_render/src/)
 - [`../../game/ambition_content/src/provider.rs`](../../game/ambition_content/src/provider.rs)
 - [`../../game/ambition_app/src/app/`](../../game/ambition_app/src/app/)

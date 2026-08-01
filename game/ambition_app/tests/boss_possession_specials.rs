@@ -26,19 +26,19 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::abilities::traversal::possession::PossessionState;
-use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition::actors::features::{ActorFaction, FeatureId};
-use ambition::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
-use ambition::entity_catalog::placements::BossBrain;
-use ambition::vfx::HitSide;
+use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
+use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
+use ambition_platformer2d::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::vfx::HitSide;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";
 
-fn player_pos(world: &mut World) -> ambition::engine_core::Vec2 {
+fn player_pos(world: &mut World) -> ambition_platformer2d::engine_core::Vec2 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player").pos
 }
@@ -190,7 +190,7 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // of routing the strike through the shared moveset instead of suppressing it.
     {
         // `HitSide` is the presentation-neutral side carried by vfx hitboxes.
-        let mut q = sim.world_mut().query::<&ambition::vfx::Hitbox>();
+        let mut q = sim.world_mut().query::<&ambition_platformer2d::vfx::Hitbox>();
         let strike_sides: Vec<HitSide> = q
             .iter(sim.world_mut())
             .filter(|h| h.owner == boss)

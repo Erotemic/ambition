@@ -12,9 +12,9 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_platformer_primitives::markers::ControlledSubject;
-use ambition_portal::{FirePortalGun, PortalFireIntent, PortalGun};
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
 /// from the body HOLDING the gun — the controlled subject. Origin = that body's
@@ -54,7 +54,7 @@ pub fn resolve_portal_fire_intent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_actors::actor::BodyBaseSize;
+    use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
 
     #[derive(Resource, Default)]
     struct CapturedOrigin(Option<Vec2>);

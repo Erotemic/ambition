@@ -6,10 +6,10 @@
 //! their immutable definitions into one App without plugin-order authority or
 //! process-global cross-App contamination.
 
-use ambition::actors::boss_encounter::{BossCatalog, BossCatalogRegistry};
-use ambition::actors::features::CharacterRosterRegistry;
-use ambition::audio::catalog::AudioCatalogRegistry;
-use ambition::characters::actor::character_catalog::{
+use ambition_platformer2d::actors::boss_encounter::{BossCatalog, BossCatalogRegistry};
+use ambition_platformer2d::actors::features::CharacterRosterRegistry;
+use ambition_platformer2d::audio::catalog::AudioCatalogRegistry;
+use ambition_platformer2d::characters::actor::character_catalog::{
     CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners,
 };
 use bevy::prelude::*;
@@ -184,7 +184,7 @@ fn separate_apps_select_independent_provider_sets() {
 /// bark and a catalog-backed LDtk dialogue binding that names a real Yarn node.
 #[test]
 fn the_full_hall_validates_with_all_three_provider_catalogs() {
-    use ambition::actors::ldtk_world::{field_string, LdtkProject};
+    use ambition_platformer2d::actors::ldtk_world::{field_string, LdtkProject};
 
     // The world manifest (which names the Hall's secondary world) must be
     // installed before any world load, exactly as the content plugin does.
@@ -244,7 +244,7 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
             assert!(
                 entry
                     .bark(
-                        ambition::characters::actor::character_catalog::BarkSituation::Hall,
+                        ambition_platformer2d::characters::actor::character_catalog::BarkSituation::Hall,
                         0
                     )
                     .is_some(),

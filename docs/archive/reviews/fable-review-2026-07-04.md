@@ -30,7 +30,7 @@ already stale before this review; **do not work from it — work from THIS doc.*
 numbering space (authoring-backend-agnostic space per Jon's
 `spatial-model.md`, the contact/surface kernel + momentum locomotion /
 "Sanic", the gnuton mounted-giant split). **R4b is RESHAPED by its AJ9** —
-the carve now targets TWO crates (`ambition_world` + `ambition_ldtk_map`);
+the carve now targets TWO crates (`ambition_platformer2d_world` + `ambition_platformer2d_ldtk`);
 execute the world carve from the 07-05 doc (R7), not from R4b below.
 
 ---
@@ -73,10 +73,10 @@ QUEUE deferred-tuning items remain Jon's feel pass, unchanged.
 
 ## 2. THE STATE, measured (2026-07-04)
 
-- 25 workspace crates. `ambition_actors` = **~99.5k LOC** — half the
+- 25 workspace crates. `ambition_platformer2d_actor_monolith` = **~99.5k LOC** — half the
   workspace, 5× the next crate. `ambition_app` = 21k, of which **10k is a
   misplaced menu host stack** and 2.7k dev tools. `ambition_characters` 17k,
-  `ambition_engine_core` 13.7k, `ambition_content` 10.6k, `ambition_render` 9.9k.
+  `ambition_platformer2d_core` 13.7k, `ambition_content` 10.6k, `ambition_render` 9.9k.
 - **The dep graph is already cleanly layered**: only app/content/render/
   touch_input sit above gameplay_core; nothing below reaches up. The carve is
   therefore an *internal* decomposition problem, not an untangling of the
@@ -109,7 +109,7 @@ QUEUE deferred-tuning items remain Jon's feel pass, unchanged.
   `PLAYABLE_ROSTER`; plus `features/{bosses,arena}.rs` id consts,
   `projectile/visual_kind.rs` (apple/glider), `falling_sand.rs` room/switch
   ids. Verified CLEAN (no action): `shrine.rs`, `quest/`, `music` director,
-  `dialog` known-ids (derived), `ambition_engine_core`, `ambition_menu`,
+  `dialog` known-ids (derived), `ambition_platformer2d_core`, `ambition_menu`,
   `ambition_audio` prod.
 
 ## 3. FABLE ADJUDICATIONS — every queued fork, resolved
@@ -272,11 +272,11 @@ moveset-routed strike with the possessor's EFFECTIVE faction (E66's carve-out
 
 `docs/planning/engine/architecture.md` (rewritten today) is binding: 6 tiers,
 ~30 crates, short names (no `_runtime` suffix scheme), grow-don't-mint,
-mechanics core stays ONE crate (`ambition_actors`, renamed LAST). Key
+mechanics core stays ONE crate (`ambition_platformer2d_actor_monolith`, renamed LAST). Key
 reconciliations against the old lineup: `ambition_actor_control` /
 `_actor_runtime` / `_combat_runtime` / `_game_runtime` do not happen as
-named; their concerns land in `ambition_characters` / `ambition_actors` /
-`ambition_combat` / `ambition_runtime`. The persistence↔menu knot resolves by
+named; their concerns land in `ambition_characters` / `ambition_platformer2d_actor_monolith` /
+`ambition_combat` / `ambition_platformer2d_runtime`. The persistence↔menu knot resolves by
 LAYERING (persistence below menu), not by one mega-crate. `falling_sand` is
 CONTENT (a self-gating plugin), not an engine mechanic crate.
 
@@ -355,7 +355,7 @@ exists to buy rebuild speed — measure the purchase).
 - **R4a** near-leaf harvest: `time/`→`ambition_time`; `quest/`+`host/`→ the
   new `ambition_persistence`; `inventory_ui/`→items; `asset_publish/`→
   asset_manager; `camera_snapshot`+`camera_ease` wait for sim_view.
-- **R4b** `ambition_world` (rooms+LDtk+platforms+physics+gravity zones; the
+- **R4b** `ambition_platformer2d_world` (rooms+LDtk+platforms+physics+gravity zones; the
   `RoomTransitioned` inversions; the 139-inbound repoint). Needs R3.1.
 - **R4c** support ring: `ambition_persistence` (save+settings); the menu
   consolidation (gameplay_core IR + the app's 10k host stack →
@@ -367,19 +367,19 @@ exists to buy rebuild speed — measure the purchase).
   → `ambition_sprite_sheet` (the ONE pipeline, M7).
 - **R4f** `ambition_sim_view` + cut the render edge (D3.7 — the lever fires;
   render/portal_presentation leave the hot rebuild path).
-- **R4g** rename the ~30–35k residue → `ambition_actors`; dissolve the
+- **R4g** rename the ~30–35k residue → `ambition_platformer2d_actor_monolith`; dissolve the
   `features/` hub facade (its 634 refs redirect family-by-family as homes
   land — this happens *throughout* R4, R4g is the final sweep).
 
 ### R5 — the engine face (≈1 session, autonomous)
-`ambition_runtime::PlatformerEnginePlugins` (sim/presentation/headless
+`ambition_platformer2d_runtime::PlatformerEnginePlugins` (sim/presentation/headless
 groups, subsystem-owned ordering); app assembly collapses onto it; boundary
 tests extended to assert app thinness. The `App::new().add_plugins(...)`
 moment (C4/M12).
 
 ### R6 — the first proof clone (≈2–3 sessions; Jon picks the target — Q12)
 `demos/demo_smb` or `demo_moneyseize`: one content crate + ~100-line app
-against `ambition_runtime`, built adversarially — every needed core edit files
+against `ambition_platformer2d_runtime`, built adversarially — every needed core edit files
 an oracle-violation issue and gets fixed as engine work. Exit: the demo's
 `git log --stat` touches zero engine crates.
 
@@ -387,7 +387,7 @@ an oracle-violation issue and gets fixed as engine work. Exit: the demo's
 
 1. **Q12 (first demo game):** SMB1 or MoneySeize for R6? (Roadmap proposal:
    MoneySeize for feel-calibration, SMB1 for recognizability — pick one.)
-2. **The `ambition_actors` rename** of the gameplay_core residue (R4g):
+2. **The `ambition_platformer2d_actor_monolith` rename** of the gameplay_core residue (R4g):
    endorse the name or supply a better one. Pure mechanical churn either way;
    scheduled last.
 3. **Standing Q1–Q11** in roadmap.md remain open (engine naming/repo Q3,
@@ -430,7 +430,7 @@ a live cross-doc coordination call. Fable: answer inline / take slices.
 | **R4d** combat/projectiles | 🔴 senior design | **Q24** — break the combat↔features mutual-re-export cycle |
 | **R4e** sprite_sheet (the M7 ONE pipeline) | ⚠ coordinate | **Q25** — ride R10.2 + the asset-root flip |
 | **R4f** sim_view + render edge | ✅→⚠ | **Q26** — is the D3 read-model boundary clean enough to fire D3.7? |
-| **R4g** rename + hub dissolve | ✅ mechanical | Q2 (rename name) — Jon endorse `ambition_actors`? |
+| **R4g** rename + hub dissolve | ✅ mechanical | Q2 (rename name) — Jon endorse `ambition_platformer2d_actor_monolith`? |
 | **R5** engine face | ✅ downstream | none (after R4) |
 | **R6** proof clones | 🔴 senior effort | **Q12 RULED: Sanic + SMB1** (see 07-05 §8) |
 | deferred **`Item` set** (violation #2) | ⏸ by design | lands with the Sanic/SMB1 demo when it needs items |
@@ -483,7 +483,7 @@ a live cross-doc coordination call. Fable: answer inline / take slices.
   first like R4b/R7 got? Mostly mechanical IF the boundary is clean — confirm. **fable:**
 
 ### Minor / Jon
-- **Q2 (rename)** — endorse `ambition_actors` for the gameplay_core residue (R4g)
+- **Q2 (rename)** — endorse `ambition_platformer2d_actor_monolith` for the gameplay_core residue (R4g)
   or supply a name; pure churn, scheduled last. **Jon:** _(open)_
 - **Q12 RULED** — R6 first demo clones = **Sanic + SMB1** (Jon 2026-07-05;
   Sanic jumps the queue — see 07-05 §7/§8). The deferred `Item`-enum set
@@ -713,7 +713,7 @@ focused effort; a fresh context should take them one at a time. The
 groundwork:
 
 - **The exit criterion is measurable.** `rg 'Without<.*BossConfig>'
-  crates/ambition_actors/src` (excl. tests) = **17 carve-outs / 11
+  crates/ambition_platformer2d_actor_monolith/src` (excl. tests) = **17 carve-outs / 11
   files** today. The three LOAD-BEARING ones are the actor-tick systems the
   boss is excluded from only because it has parallel systems:
   `features/ecs/actors/update.rs:177` (`tick_actor_brains`), `:701`
@@ -1005,7 +1005,7 @@ panic; core tests read the game's real worlds via the cross-crate fixture.
 - **Gate:** full workspace --all-targets green except the documented
   unified_melee feel-red; static_map configs check; the REAL headless
   binary boots the moved worlds end-to-end.
-- `rg 'ambition/worlds' crates/ambition_actors/src` → zero. The
+- `rg 'ambition/worlds' crates/ambition_platformer2d_actor_monolith/src` → zero. The
   engine ships no worlds.
 
 ### R3.3 — room mechanics split by kind ✅ (`1b9b34b4`, `a0c1118a`)
@@ -1154,7 +1154,7 @@ special is a new key + a content system — NEITHER edits this enum.
 mapping surfaced — the geometry-vs-special distinction is read by the brain
 (`boss_pattern/tick.rs`: `is_special()` routes `special_pressed` vs
 `melee_pressed`), which lives in `ambition_characters`, BELOW the geometry table
-in `ambition_actors`. A pure newtype would force "special ⇔ no geometry
+in `ambition_platformer2d_actor_monolith`. A pure newtype would force "special ⇔ no geometry
 entry" — a table lookup the brain can't do without a layering violation. Keeping
 `Strike`/`Special` as variants makes the distinction structural + brain-visible
 (no table needed), while still collapsing the 11 named geometry variants into
@@ -1365,13 +1365,13 @@ time_control / camera_ease) DEPENDS on `crate::{player,combat,features}`, so it
 can't move down; `quest/`+`host/`→persistence reaches UP into menu (the one
 god-dep); `camera_snapshot` waits for sim_view. So after this leaf, R4 is the
 big COUPLED carves (world/combat/sprite) — genuine multi-session dependency
-untangling, not more quick leaves. Start R4b (`ambition_world`, the 139-inbound
+untangling, not more quick leaves. Start R4b (`ambition_platformer2d_world`, the 139-inbound
 `rooms` repoint; needs R3.1's seam, which landed) as the next real carve.
 
-### R4b — `ambition_world` starting map (scouted; the next real carve)
+### R4b — `ambition_platformer2d_world` starting map (scouted; the next real carve)
 
 > **⚠ RESHAPED (2026-07-05):** the carve target is now TWO crates —
-> `ambition_world` (canonical spatial IR, no LDtk dep) + `ambition_ldtk_map`
+> `ambition_platformer2d_world` (canonical spatial IR, no LDtk dep) + `ambition_platformer2d_ldtk`
 > (the LDtk backend). The dep-inversion prep below (step 1) stands unchanged;
 > steps 2–3 execute as **R7.2–R7.4 of
 > [`fable-review-2026-07-05.md`](fable-review-2026-07-05.md)** (AJ9). Do not
@@ -1380,7 +1380,7 @@ untangling, not more quick leaves. Start R4b (`ambition_world`, the 139-inbound
 16 internal-refs) + `platforms/` (951, but depends on `rooms` +
 `platformer_runtime`) + `physics.rs`. The whole module is coupled around
 `rooms` (the 139-inbound universal spine), so there is NO clean seed —
-`ambition_world` is a big atomic carve dominated by the `rooms` repoint. Before
+`ambition_platformer2d_world` is a big atomic carve dominated by the `rooms` repoint. Before
 `rooms` can move to a LOW crate, its ~13 UPWARD deps must be inverted/moved
 (they are why it can't move down today):
 ```
@@ -1395,8 +1395,8 @@ Each is a dep-inversion decision (does the coupling belong on `rooms`, or should
 the consumer own it and pass it in?). Recommended R4b sequence: (1) invert/relocate
 these ~13 couplings one at a time (each a compiling, committable prep step —
 bounded, safe, no half-carve), until `rooms` reaches down to only
-`ambition_engine_core`/`ambition_platformer_primitives`; (2) create
-`ambition_world`, move `rooms`+`platforms`+`physics`+`ldtk_world` in one atomic
+`ambition_platformer2d_core`/`ambition_platformer2d_shared_tangle`; (2) create
+`ambition_platformer2d_world`, move `rooms`+`platforms`+`physics`+`ldtk_world` in one atomic
 carve; (3) repoint the 139 inbound consumers (mechanical, via the facade-then-delete
 D2 template); (4) full gate + compile-time before/after. This is a dedicated
 focused run — NOT startable as a quick mid-run slice (the `rooms` move can't reach

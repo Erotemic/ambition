@@ -18,7 +18,7 @@ SPEC.loader.exec_module(asset_guard)
 
 class PackageAssetGuardTests(unittest.TestCase):
     def make_repo(self, root: Path) -> tuple[Path, Path]:
-        actors = root / "crates/ambition_actors/assets"
+        actors = root / "crates/ambition_platformer2d_actor_monolith/assets"
         content = root / "game/ambition_content/assets"
         actors.mkdir(parents=True)
         content.mkdir(parents=True)

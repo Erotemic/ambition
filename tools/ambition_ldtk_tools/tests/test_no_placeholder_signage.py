@@ -28,7 +28,7 @@ import json
 # ⚠ `default_worlds_dir`, NOT a path spelled here. The absence contract
 # `the-worlds-path-is-confined-to-ldtk-paths` exists because fifteen commands and
 # five test modules each recreated this path in three spellings, and when the
-# worlds moved out of `crates/ambition_actors/assets` every one of them broke.
+# worlds moved out of `crates/ambition_platformer2d_actor_monolith/assets` every one of them broke.
 # The first draft of this file spelled it out and the contract caught me — which
 # is the guard working on the person who had just finished arguing for guards.
 from ambition_ldtk_tools.ldtk.paths import default_worlds_dir

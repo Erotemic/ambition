@@ -22,7 +22,7 @@
 //!   a body wearing `MatchSeat`. Same shape as A19 (`PogoTarget`, `ChestFeature`,
 //!   `PortalHostScanned` were never in the population, not missed within it);
 //! * **a MODULE-FAMILY waiver swallowed the resource.** `ActiveMatch` lives in
-//!   `ambition_actors::character_runtime::`, which carried a blanket waiver
+//!   `ambition_platformer2d_actor_monolith::character_runtime::`, which carried a blanket waiver
 //!   reading *"character art load bookkeeping; decoded-ness has no simulation
 //!   consequence"* — written when that module held only art loading, and still
 //!   in force after the module grew seating. Third instance of that class after
@@ -62,7 +62,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::actors::character_runtime::{
+use ambition_platformer2d::actors::character_runtime::{
     ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
 };
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
@@ -108,7 +108,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
 
 fn seats(sim: &mut SandboxSim) -> Vec<(usize, String)> {
     let world = sim.world_mut();
-    let mut query = world.query::<(&MatchSeat, &ambition::combat::targeting::MatchTeam)>();
+    let mut query = world.query::<(&MatchSeat, &ambition_platformer2d::combat::targeting::MatchTeam)>();
     let mut rows: Vec<(usize, String)> = query
         .iter(world)
         .map(|(seat, team)| (seat.0, team.as_str().to_string()))
@@ -284,8 +284,8 @@ fn the_activation_count_still_matches_the_bodies_after_resimulation() {
 // is exactly "activation lands mid-window"; this reproduces that timing without
 // needing the route.
 
-use ambition::sim::{SandboxSet, SimScheduleExt};
-use ambition::time::SimTick;
+use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d::time::SimTick;
 use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
 /// The `SimTick` the roster appears on. Chosen well past `check_distance: 4` so
@@ -343,7 +343,7 @@ fn late_arriving_roster_sim() -> SandboxSim {
                 sim,
                 (
                     the_roster_arrives_on_a_tick
-                        .before(ambition::actors::character_runtime::seat_match_participants),
+                        .before(ambition_platformer2d::actors::character_runtime::seat_match_participants),
                     trace_the_activation.in_set(SandboxSet::Trace),
                 ),
             );
@@ -364,7 +364,7 @@ fn late_arriving_roster_sim() -> SandboxSim {
 ///
 /// **PROBED RED, which is the only reason it is worth having.** With
 /// `rollback_resource_optional_canonical::<ActiveMatch>` removed from
-/// `ambition_runtime::rollback`, this test FAILS and the two fixtures above
+/// `ambition_platformer2d_runtime::rollback`, this test FAILS and the two fixtures above
 /// still PASS — the exact asymmetry their own docstring predicted and could not
 /// demonstrate. It fails on the right assertion, too: the restored frame comes
 /// back carrying a live match, so the world the run rewound to was not
@@ -464,7 +464,7 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
 /// pool; the fixture authors a 100-point pool now so the number is legible.)
 #[test]
 fn a_fighters_percent_and_policy_survive_a_rewind() {
-    use ambition::characters::actor::{BodyHealth, DeathPolicy};
+    use ambition_platformer2d::characters::actor::{BodyHealth, DeathPolicy};
 
     let mut sim = match_sim();
     introduce_the_roster(&mut sim);

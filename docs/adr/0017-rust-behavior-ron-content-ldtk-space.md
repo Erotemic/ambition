@@ -36,7 +36,7 @@ layer. LDtk owns where authored ids appear in the world.
 
 Named character, boss, enemy, encounter, dialogue, and progression content is
 owned by the provider. Focused reusable crates own generic schemas, validation,
-registries, and execution; `ambition_actors` composes the live simulation body
+registries, and execution; `ambition_platformer2d_actor_monolith` composes the live simulation body
 without owning the flagship roster.
 
 ## Consequences

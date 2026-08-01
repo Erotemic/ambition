@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
 use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile};
 use ambition_load::LoadBarrierRef;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
     SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };

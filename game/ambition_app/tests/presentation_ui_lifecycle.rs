@@ -22,16 +22,16 @@
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
-use ambition::engine_core as ae;
-use ambition::host::gameplay_presentation::{HostGameplayPresentationPlugin, ScreenOccupancy};
-use ambition::platformer::camera_layers::MainCamera;
-use ambition::presentation::gameplay_presentation::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::host::gameplay_presentation::{HostGameplayPresentationPlugin, ScreenOccupancy};
+use ambition_platformer2d::platformer::camera_layers::MainCamera;
+use ambition_platformer2d::presentation::gameplay_presentation::{
     profiles, ActiveGameplayPresentationProfiles, GameplayPresentationProfiles,
     PresentationEnvironment, ResolvedGameplayPresentation, ScreenOcclusionPurpose, ScreenRect,
 };
-use ambition::touch_input::bevy_plugin::{MobileStick, VirtualJoystickNode, VirtualJoystickPlugin};
-use ambition::touch_input::bevy_plugin::{MobileTouchUiRoot, TouchControlsVisible, TouchSurface};
-use ambition::touch_input::placement::{TouchControlPlacement, TouchPresentationPlugin};
+use ambition_platformer2d::touch_input::bevy_plugin::{MobileStick, VirtualJoystickNode, VirtualJoystickPlugin};
+use ambition_platformer2d::touch_input::bevy_plugin::{MobileTouchUiRoot, TouchControlsVisible, TouchSurface};
+use ambition_platformer2d::touch_input::placement::{TouchControlPlacement, TouchPresentationPlugin};
 
 /// An app running the REAL `bevy_ui` layout pass, the real host presentation
 /// cluster, and the real touch placement systems against a synthetic window.
@@ -65,7 +65,7 @@ fn app(display: ae::Vec2) -> App {
     app.insert_resource(PresentationEnvironment::TouchPrimary);
     app.insert_resource(TouchControlsVisible(true));
     // The SAME unit `TouchControlsPlugin` installs.
-    app.insert_resource(ambition::persistence::settings::UserSettings::default());
+    app.insert_resource(ambition_platformer2d::persistence::settings::UserSettings::default());
     app.add_plugins(TouchPresentationPlugin);
 
     let mut resolution = WindowResolution::new(display.x as u32, display.y as u32);
@@ -106,7 +106,7 @@ fn app(display: ae::Vec2) -> App {
 /// `sync_touch_visibility_from_settings` mirrors into `TouchControlsVisible`.
 fn set_touch_controls_visible(app: &mut App, visible: bool) {
     app.world_mut()
-        .resource_mut::<ambition::persistence::settings::UserSettings>()
+        .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>()
         .controls
         .touch_controls_visible = visible;
 }
@@ -332,7 +332,7 @@ fn a_transformed_parent_reaches_its_childs_occupancy() {
                     height: Val::Px(100.0),
                     ..default()
                 },
-                ambition::presentation::gameplay_presentation::ScreenOccluder::hud(),
+                ambition_platformer2d::presentation::gameplay_presentation::ScreenOccluder::hud(),
             ))
             .insert(InheritedVisibility::VISIBLE)
             .id();
@@ -406,7 +406,7 @@ fn hiding_a_parent_withdraws_its_childs_occupancy() {
                 height: Val::Px(100.0),
                 ..default()
             },
-            ambition::presentation::gameplay_presentation::ScreenOccluder::hud(),
+            ambition_platformer2d::presentation::gameplay_presentation::ScreenOccluder::hud(),
         ))
         .id();
     let parent = app
@@ -482,7 +482,7 @@ fn joystick_app(display: ae::Vec2, profiles: GameplayPresentationProfiles) -> Ap
     // The real spawner, in the schedule the real plugin uses.
     app.add_systems(
         Startup,
-        ambition::touch_input::bevy_plugin::spawn_touch_joysticks,
+        ambition_platformer2d::touch_input::bevy_plugin::spawn_touch_joysticks,
     );
     app
 }

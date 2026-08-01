@@ -19,7 +19,7 @@ Ambition uses `ggrs` and `bevy_ggrs` as the sole authority for ephemeral rollbac
   checksum projections, the input bridge, exact prepared-content/schema identity,
   and session invalidation policy.
 
-The deleted `ambition_runtime::snapshot` subsystem is not retained behind a
+The deleted `ambition_platformer2d_runtime::snapshot` subsystem is not retained behind a
 compatibility facade. Persistence/checkpoint serialization, when required, will
 be a separate product boundary and must not become a second rollback engine.
 

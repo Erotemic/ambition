@@ -4,17 +4,17 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition::actors::assets::game_assets as actor_game_assets;
-use ambition::actors::assets::loading;
-use ambition::actors::ldtk_world;
-use ambition::actors::rooms;
-use ambition::actors::session::{data, setup};
-use ambition::actors::world::physics;
-use ambition::dev_tools::dev_tools::EditableAbilitySet;
-use ambition::engine_core::RoomGeometry;
-use ambition::persistence::settings::TextureResolutionScale;
-use ambition::render::ui_fonts;
-use ambition::sprite_sheet::game_assets::{self, GameAssetConfig};
+use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
+use ambition_platformer2d::actors::assets::loading;
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::actors::session::{data, setup};
+use ambition_platformer2d::actors::world::physics;
+use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
+use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::persistence::settings::TextureResolutionScale;
+use ambition_platformer2d::render::ui_fonts;
+use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 
 use super::scene_setup;
 
@@ -23,13 +23,13 @@ use super::scene_setup;
 /// implementation limit while preserving explicit authority.
 #[derive(SystemParam)]
 pub(crate) struct PresentationCatalogs<'w> {
-    characters: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    characters: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     /// Provider-authored sheets (U1). Grouped with the catalogs because it is
     /// the same question — what did this app's providers declare — asked about
     /// art instead of identity.
-    sheets: Res<'w, ambition::actors::character_sprites::AuthoredSheets>,
-    bosses: Res<'w, ambition::actors::boss_encounter::BossCatalog>,
-    assets: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    assets: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
 }
 
 /// The three App-installed authorities room construction reads: how authored
@@ -38,9 +38,9 @@ pub(crate) struct PresentationCatalogs<'w> {
 /// Bevy's system-parameter limit — and they belong together anyway.
 #[derive(SystemParam)]
 pub(crate) struct RoomConstructionAuthorities<'w> {
-    placement_lowering: Res<'w, ambition::actors::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<'w, ambition::actors::features::RoomContentStagingRegistry>,
-    recipes: Res<'w, ambition::actors::construction::ActorConstructionRegistry>,
+    placement_lowering: Res<'w, ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
+    content_staging: Res<'w, ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
+    recipes: Res<'w, ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
 }
 
 /// **Who this app's characters ARE**, in one parameter.
@@ -52,40 +52,40 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
 /// which it went over the moment the prepared registry joined (2026-07-29).
 #[derive(SystemParam)]
 pub(crate) struct CharacterAuthorities<'w> {
-    catalog: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     /// `None` for a composition that registers no characters — the ordinary
     /// case, not a degraded one.
-    prepared: Option<Res<'w, ambition::actors::character_runtime::PreparedCharacterRegistry>>,
-    sheets: Res<'w, ambition::actors::character_sprites::AuthoredSheets>,
-    roster: Res<'w, ambition::actors::features::CharacterRoster>,
+    prepared: Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+    sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    roster: Res<'w, ambition_platformer2d::actors::features::CharacterRoster>,
 }
 
-/// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
+/// Sim-only startup. Calls `ambition_platformer2d::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). The presentation startup system discovers the home avatar by
 /// its `PrimaryPlayer` marker and spawns the HUD/quest text as session-scoped,
 /// marker-tagged entities.
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
     asset_server: Res<AssetServer>,
-    ldtk_index: ambition::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
-    active_tuning: Res<ambition::engine_core::ActiveMovementTuning>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
+    active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: ambition::platformer::lifecycle::SessionWorldRef<
-        ambition::actors::avatar::StartingCharacter,
+    starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::actors::avatar::StartingCharacter,
     >,
     characters: CharacterAuthorities,
-    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     construction: RoomConstructionAuthorities,
-    mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
-        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         setup::SimulationSetup {
             world: &world,
             room_set: &room_set,
@@ -102,7 +102,7 @@ pub(super) fn setup_simulation_system(
             // Direct entry builds its session root at plugin-build time rather
             // than through provider activation, so no prepared-content
             // generation is available to state here.
-            construction: ambition::actors::features::ActorConstructionContext::new(
+            construction: ambition_platformer2d::actors::features::ActorConstructionContext::new(
                 &construction.recipes,
                 Default::default(),
             ),
@@ -114,11 +114,11 @@ pub(super) fn setup_simulation_system(
         },
     );
     platform_set.0 =
-        ambition::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
+        ambition_platformer2d::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See
-    // `ambition::actors::avatar::PlayerSimulationBundle::new`.
+    // `ambition_platformer2d::actors::avatar::PlayerSimulationBundle::new`.
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the home
@@ -128,8 +128,8 @@ pub(super) fn setup_simulation_system(
 #[cfg(feature = "audio")]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
     catalogs: PresentationCatalogs,
@@ -139,8 +139,8 @@ pub(crate) fn setup_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    mut profiler: ResMut<ambition::dev_tools::profiling::StartupProfiler>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
+    mut profiler: ResMut<ambition_platformer2d::dev_tools::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step
@@ -196,7 +196,7 @@ pub(crate) fn setup_presentation_system(
     {
         // Wasm path: no per-step timing, no profiler marks (the
         // wasm `StartupProfiler` doesn't take Instants — see
-        // `ambition::actors::profiling`). The presentation world still spawns.
+        // `ambition_platformer2d::actors::profiling`). The presentation world still spawns.
         let _ = &profiler; // silence unused-resource warning
         scene_setup::presentation_world(
             &mut commands,
@@ -227,15 +227,15 @@ pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
     prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
     sfx_registry: Res<data::SfxRegistry>,
-    audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition::actors::ldtk_world::WorldManifest>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
+    world_manifest: Res<ambition_platformer2d::actors::ldtk_world::WorldManifest>,
 ) {
     // The host-resident music library must resolve EVERY linked provider's
     // authored tracks — not just Ambition's — so a Sanic or Mary-O session's
@@ -257,7 +257,7 @@ pub(crate) fn setup_host_presentation_system(
     // host code. Direct-entry apps register only Ambition, so their frozen
     // catalog is already complete and no rebuild happens.
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
@@ -273,7 +273,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
 
@@ -318,9 +318,9 @@ pub(crate) fn setup_host_presentation_system(
 /// resolve. Retries until it succeeds once (the bank may land asynchronously).
 #[cfg(feature = "audio")]
 pub(crate) fn publish_resident_sfx_bank_authority(
-    bank: Option<Res<ambition::audio::SfxBankResource>>,
-    mut registry: ResMut<ambition::audio::catalog::SfxBankRegistry>,
-    mut selection: ResMut<ambition::audio::selection::ActiveAudioSelection>,
+    bank: Option<Res<ambition_platformer2d::audio::SfxBankResource>>,
+    mut registry: ResMut<ambition_platformer2d::audio::catalog::SfxBankRegistry>,
+    mut selection: ResMut<ambition_platformer2d::audio::selection::ActiveAudioSelection>,
     mut published: Local<bool>,
 ) {
     if *published {
@@ -352,12 +352,12 @@ pub(crate) fn setup_host_presentation_system(
     prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
-    audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
+    audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition::actors::ldtk_world::WorldManifest>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
+    world_manifest: Res<ambition_platformer2d::actors::ldtk_world::WorldManifest>,
 ) {
     // Same provider-sprite composition as the audio variant: rebuild the sandbox
     // asset catalog from the merged character catalog so host-launched Sanic and
@@ -367,7 +367,7 @@ pub(crate) fn setup_host_presentation_system(
         .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
         .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
     let rebuilt_catalog = hosted.is_some().then(|| {
-        ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+        ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
             &asset_config,
             &catalogs.characters,
             &catalogs.bosses,
@@ -383,7 +383,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
     let game_assets = actor_game_assets::load_game_assets(
@@ -405,11 +405,11 @@ pub(crate) fn setup_host_presentation_system(
 }
 
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
-    quality: Res<ambition::render::quality::ResolvedVisualQuality>,
+    quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,
     catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut game_assets: Option<ResMut<game_assets::GameAssets>>,
     mut last_scales: Local<Option<(TextureResolutionScale, TextureResolutionScale)>>,
@@ -445,14 +445,14 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_presentation_system(
     mut commands: Commands,
-    world: ambition::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     catalogs: PresentationCatalogs,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
 ) {
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,

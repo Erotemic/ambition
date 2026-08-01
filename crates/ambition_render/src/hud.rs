@@ -21,7 +21,7 @@ pub mod declared;
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::{
+use ambition_platformer2d_shared_tangle::{
     gameplay_presentation::{
         ActiveHudDeclaration, ResolvedGameplayPresentation, ScreenOccluder, SurroundRegion,
     },
@@ -194,7 +194,7 @@ pub fn spawn_player_hud(
 /// responsive framework, no layout negotiation — a HUD knows its own size.
 ///
 /// [`ResolvedControlRegions::hud`]:
-///     ambition_platformer_primitives::gameplay_presentation::ResolvedControlRegions::hud
+///     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedControlRegions::hud
 pub fn place_player_hud(
     presentation: Res<ResolvedGameplayPresentation>,
     mut roots: Query<&mut Node, With<PlayerHudRoot>>,
@@ -304,11 +304,11 @@ fn set_text_if_changed(text: &mut Text, next: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer_primitives::lifecycle::{
+    use ambition_platformer2d_shared_tangle::lifecycle::{
         SessionScopePlugin, SessionScopeRetired, SessionScopedEntity,
     };
 
-    use ambition_platformer_primitives::gameplay_presentation::{
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         profiles, resolve_gameplay_presentation, ControlFootprints, GameplayPresentationInput,
         PresentationEnvironment, ScreenInsets, ScreenRect,
     };
@@ -316,7 +316,7 @@ mod tests {
     /// Resolve a real declared profile at a real display size.
     fn layout(
         display: Vec2,
-        profiles: ambition_platformer_primitives::gameplay_presentation::GameplayPresentationProfiles,
+        profiles: ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationProfiles,
         environment: PresentationEnvironment,
     ) -> ResolvedGameplayPresentation {
         resolve_gameplay_presentation(GameplayPresentationInput {
@@ -471,7 +471,7 @@ mod tests {
     /// Mary-O's score.
     #[test]
     fn the_builtin_vitals_hud_hides_when_a_game_declares_its_own() {
-        use ambition_platformer_primitives::gameplay_presentation::{HudDeclaration, HudSlotSpec};
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{HudDeclaration, HudSlotSpec};
         fn display_with(declaration: Option<HudDeclaration>) -> Display {
             let mut app = App::new();
             app.insert_resource(ActiveHudDeclaration(declaration));

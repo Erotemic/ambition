@@ -1,8 +1,8 @@
 //! Ambition's Bevy presentation layer — the sandbox's default renderer.
 //!
 //! Everything here is downstream of the sim: no module on the gameplay critical
-//! path lives in this crate. It reads lower read-model crates (`ambition_sim_view`, `ambition_world`,
-//! `ambition_sprite_sheet`, `ambition_platformer_primitives`) and mirrors them
+//! path lives in this crate. It reads lower read-model crates (`ambition_sim_view`, `ambition_platformer2d_world`,
+//! `ambition_sprite_sheet`, `ambition_platformer2d_shared_tangle`) and mirrors them
 //! into Bevy sprites / UI; it never mutates the sim. The sim/render seam is now
 //! a CRATE boundary in both directions: render does not depend on
 //! actor machinery, and actor machinery cannot import render (enforced by

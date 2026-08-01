@@ -322,12 +322,12 @@ fn default_character_for(seat: usize) -> usize {
 /// must follow discovery. A rollback session freezes its seating precisely so the
 /// MATCH cannot; the two answers are different on purpose, and the seam between
 /// them is the moment the roster is published.
-pub fn seats_offered(devices: &ambition::input::LocalDeviceOrder) -> usize {
+pub fn seats_offered(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> usize {
     devices.devices().len().clamp(1, MAX_SMASH_SEATS)
 }
 
 /// Which seats a player may join, given the pads present.
-pub fn joinable_seats(devices: &ambition::input::LocalDeviceOrder) -> std::ops::Range<usize> {
+pub fn joinable_seats(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> std::ops::Range<usize> {
     0..seats_offered(devices)
 }
 

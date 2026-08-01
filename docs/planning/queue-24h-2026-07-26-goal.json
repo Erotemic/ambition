@@ -52,42 +52,42 @@
     },
     {
       "name": "A1 registration is DECLARATIVE: it no longer demands art itself",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib registration_declares_without_demanding_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib registration_declares_without_demanding_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A1 the prepared registry is a REAL source of sheets, not a write-only store",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_character_registered_only_through_register_character_gets_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib a_character_registered_only_through_register_character_gets_art 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A2 the fight test drives the REAL damage path (no hand-rolled overlap arithmetic)",
-      "cmd": "! git grep -n 'mary_hp -=' -- 'crates/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "! git grep -n 'mary_hp -=' -- 'crates/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A3+A7 ONE victim geometry: a player-shaped body is hit on its AUTHORED hurtbox",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_player_shaped_body_is_hit_on_its_authored_hurtbox 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib a_player_shaped_body_is_hit_on_its_authored_hurtbox 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A7 the damage path READS published volumes; every family shares one rule",
-      "cmd": "git grep -n 'strike_reaches_victim' -- crates/ambition_combat/src/hitbox/mod.rs crates/ambition_actors/src/features/ecs/damage/mod.rs >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib authored_hurtboxes_do_not_care_which_family_the_body_belongs_to 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "git grep -n 'strike_reaches_victim' -- crates/ambition_combat/src/hitbox/mod.rs crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib authored_hurtboxes_do_not_care_which_family_the_body_belongs_to 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A8 hurtboxes resolve on the SIM clock, pinned between playback and damage",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib a_widening_move_silhouette_is_hittable_on_the_tick_it_widens 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib a_widening_move_silhouette_is_hittable_on_the_tick_it_widens 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A4 a PRODUCTION path authorizes each seated participant's presentation source",
-      "cmd": "git grep -n 'authorize_sfx_source' -- 'crates/**.rs' 'game/*/src/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib seating_a_cast_authorizes_every_participants_presentation_source 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "git grep -n 'authorize_sfx_source' -- 'crates/**.rs' 'game/*/src/**.rs' >/dev/null && out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib seating_a_cast_authorizes_every_participants_presentation_source 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "A5 preparation provenance survives registration (verified != not checked)",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib preparation_provenance_survives_registration 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib preparation_provenance_survives_registration 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
@@ -111,17 +111,17 @@
     },
     {
       "name": "F1 a swing is credited to the character that swung it, not the session owner",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib two_provider_characters_trade_damage_through_the_real_damage_path 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "F2 the cast is THIS session's, by canonical id (display names + a second session)",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib character_runtime::presentation::tests::a_new_session_does_not_inherit_the_previous_casts_providers 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib character_runtime::presentation::tests::a_new_session_does_not_inherit_the_previous_casts_providers 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
       "name": "F2 a room staging a DISPLAY NAME authorizes that character's provider",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib staging_a_character_by_display_name_authorizes_its_provider 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib staging_a_character_by_display_name_authorizes_its_provider 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
@@ -131,7 +131,7 @@
     },
     {
       "name": "F4 the decode path declares a registered character itself (no system-order race)",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib the_decode_path_declares_a_registered_character_itself 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib the_decode_path_declares_a_registered_character_itself 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
@@ -146,7 +146,7 @@
     },
     {
       "name": "A10 the silhouette-vs-box premise is CHECKED, not stated in a comment",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors --lib character_runtime::fight_tests::a_strike_that_clears_the_authored_torso_lands_on_nobody 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith --lib character_runtime::fight_tests::a_strike_that_clears_the_authored_torso_lands_on_nobody 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 1800
     },
     {
@@ -171,12 +171,12 @@
     },
     {
       "name": "K3 a shrine records a checkpoint and the next session resumes there",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_actors shrine::tests::resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_actor_monolith shrine::tests::resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 900
     },
     {
       "name": "K6 the SimId encoding is injective (two entities cannot share an identity)",
-      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer_primitives sim_id::tests::the_id_encoding_is_injective_over_adversarial_segments 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
+      "cmd": "out=$($HOME/.cargo/bin/cargo test -p ambition_platformer2d_shared_tangle sim_id::tests::the_id_encoding_is_injective_over_adversarial_segments 2>&1); echo \"$out\" | grep -E 'test result: ok\\. 1 passed' >/dev/null",
       "timeout": 900
     },
     {

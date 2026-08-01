@@ -14,23 +14,23 @@ use bevy::sprite::Anchor;
 /// This boss's claim on the encounter layer's priority music tier.
 const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
-use ambition_actors::boss_encounter::{
+use ambition_platformer2d_actor_monolith::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
 };
-use ambition_actors::features::BossConfig;
-use ambition_actors::features::{
+use ambition_platformer2d_actor_monolith::features::BossConfig;
+use ambition_platformer2d_actor_monolith::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
     EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, PogoPolicy,
     PogoTargetVolumes, PostBossNpc,
 };
-use ambition_actors::rooms::{PropSpec, RoomSet};
+use ambition_platformer2d_actor_monolith::rooms::{PropSpec, RoomSet};
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
 use ambition_encounter::EncounterParticipants;
-use ambition_engine_core::config::world_to_bevy;
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer2d_core::config::world_to_bevy;
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
@@ -131,20 +131,20 @@ impl CutRopeHeavyObjectCycle {
 }
 
 /// Convert a pending dialogue-authored replay into the ENGINE's generic
-/// [`RoomReplayRequested`](ambition_actors::session::reset::RoomReplayRequested)
+/// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// after the final dialog line has been dismissed. Registered in the engine's
 /// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
 /// host never names this system.
 pub fn emit_cut_rope_room_replay_after_dialogue_closes(
     dialogue: Res<ambition_dialog::DialogState>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
-    mut replay_requests: MessageWriter<ambition_actors::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageWriter<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
 ) {
     if !pending.requested || dialogue.active() {
         return;
     }
     pending.requested = false;
-    replay_requests.write(ambition_actors::session::reset::RoomReplayRequested);
+    replay_requests.write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested);
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
@@ -187,7 +187,7 @@ pub fn reset_cut_rope_boss_attempt(
     }
 }
 
-/// On a generic [`RoomReplayRequested`](ambition_actors::session::reset::RoomReplayRequested),
+/// On a generic [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested),
 /// clear the cut-rope boss's per-attempt state (persisted "cleared" record,
 /// victory-NPC flag, intro music) for every cut-rope placement in the room.
 ///
@@ -198,11 +198,11 @@ pub fn reset_cut_rope_boss_attempt(
 /// the host consumer never names cut-rope. Both read the same message the frame
 /// it is emitted (independent reader cursors).
 pub fn reset_cut_rope_attempt_on_replay(
-    mut replay_requests: MessageReader<ambition_actors::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageReader<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
     mut music: Option<
-        ambition::platformer::lifecycle::SessionWorldMut<ambition_encounter::EncounterMusicRequest>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ambition_encounter::EncounterMusicRequest>,
     >,
     bosses: Query<&BossConfig>,
 ) {
@@ -234,7 +234,7 @@ pub fn reset_cut_rope_attempt_on_replay(
 /// Idempotent + waits until the authored anvil prop is available.
 pub fn setup_cut_rope_encounter(
     mut commands: Commands,
-    room_set: ambition::platformer::lifecycle::SessionWorldRef<RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     bosses: Query<&BossConfig>,
     encounters: Query<(Entity, &EncounterParticipants), Without<EncounterScript>>,
     behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,

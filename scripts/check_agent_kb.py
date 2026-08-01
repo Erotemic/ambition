@@ -170,7 +170,7 @@ PLANNING_FILE_MAX_LINES = {
 FORBIDDEN_PLANNING_PATTERNS = [
     (re.compile(r"8 errors, 1 warning", re.IGNORECASE), "stale boss-validator count"),
     (re.compile(r"1155/718(?:/471/1379)?"), "stale snapshot split count"),
-    (re.compile(r"crates/ambition_actors/build\.rs"), "retired sprite embed owner"),
+    (re.compile(r"crates/ambition_platformer2d_actor_monolith/build\.rs"), "retired sprite embed owner"),
     (re.compile(r"Objective::Protect\b"), "nonexistent objective variant"),
     (
         re.compile(r"Status:\s*\*\*?IMPLEMENTED.*E0.?E7", re.IGNORECASE),

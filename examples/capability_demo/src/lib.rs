@@ -15,13 +15,13 @@
 //! ```
 //!
 //! ⚠ **the Cargo manifest is half the proof, and only half.** There is no
-//! DIRECT `ambition_actors` dependency, no game and no content crate, so this
+//! DIRECT `ambition_platformer2d_actor_monolith` dependency, no game and no content crate, so this
 //! crate's source cannot name an actor-crate item — the mechanic defines its own
 //! [`PulseBody`] and [`PulseAffected`] rather than borrowing `BodyKinematics`,
 //! and the compiler enforces that rather than a comment.
 //!
-//! ⛔ But `ambition_actors` IS in the TRANSITIVE closure, through
-//! `ambition_runtime`, and pretending otherwise would make this sentinel lie.
+//! ⛔ But `ambition_platformer2d_actor_monolith` IS in the TRANSITIVE closure, through
+//! `ambition_platformer2d_runtime`, and pretending otherwise would make this sentinel lie.
 //! Rollback registration lives in the runtime and only a crate above it can own
 //! a schema directly, so a capability that wants its own rollback state links
 //! the whole simulation whether it uses it or not. That is a measured cost of
@@ -36,7 +36,7 @@
 //! wire is not, and pretending otherwise would make this sentinel lie about the
 //! thing it exists to measure.
 
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 mod schema;
@@ -96,7 +96,7 @@ pub struct PulseFired {
 }
 
 /// A body that can be pushed by a pulse. Deliberately this crate's OWN marker:
-/// a capability that keyed off `ambition_actors`' body components would have to
+/// a capability that keyed off `ambition_platformer2d_actor_monolith`' body components would have to
 /// depend on it.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PulseAffected;
@@ -109,15 +109,15 @@ pub struct PulseAffected;
 /// the composition adapts its bodies to that.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PulseBody {
-    pub pos: ambition_engine_core::Vec2,
-    pub vel: ambition_engine_core::Vec2,
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub vel: ambition_platformer2d_core::Vec2,
 }
 
 /// Install the mechanic's behaviour.
 ///
 /// ⛔ **it does NOT register rollback state, and that is the fix rather than an
 /// omission.** The first version did, through `AmbitionRollbackApp`, and the
-/// cost was a dependency on `ambition_runtime` — the whole simulation, dragged
+/// cost was a dependency on `ambition_platformer2d_runtime` — the whole simulation, dragged
 /// into a mechanic that uses none of it, because the registration trait lives up
 /// there.
 ///
@@ -220,7 +220,7 @@ impl Plugin for PulsePlugin {
             // which is what a pulse is.
             (tick_pulse_cooldowns, fire_pulses)
                 .chain()
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::GameplayEffects),
         );
     }
 }
@@ -231,7 +231,7 @@ impl Plugin for PulsePlugin {
 /// so it says what it needs instead. A composition does:
 ///
 /// ```ignore
-/// use ambition_runtime::rollback::AmbitionRollbackApp;
+/// use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 /// app.rollback_component_clone_probed::<PulseCooldown>(
 ///     capability_demo::PULSE_CAPABILITY,
 ///     capability_demo::ROLLBACK_STATE,
@@ -259,8 +259,8 @@ pub const ROLLBACK_STATE: &str = "pulse.cooldown";
 /// — and gets the `why` back rather than a bare name, because a host hitting
 /// this needs to know whether it is looking at a desync or an optional extra,
 /// and only the capability knows which.
-pub const REQUIRED_ROLLBACK: &[ambition_engine_core::snapshot::RequiredRollbackState] = &[
-    ambition_engine_core::snapshot::RequiredRollbackState {
+pub const REQUIRED_ROLLBACK: &[ambition_platformer2d_core::snapshot::RequiredRollbackState] = &[
+    ambition_platformer2d_core::snapshot::RequiredRollbackState {
         owner: PULSE_CAPABILITY,
         name: ROLLBACK_STATE,
         why: "a pulse cooldown that is not rewound lets the action fire twice from one charge \
@@ -273,7 +273,7 @@ pub const REQUIRED_ROLLBACK: &[ambition_engine_core::snapshot::RequiredRollbackS
     // resimulate from a body that is still moving from a pulse it is about to
     // fire again. A contract that names only the cheap half is worse than none:
     // the check passes and the desync remains.
-    ambition_engine_core::snapshot::RequiredRollbackState {
+    ambition_platformer2d_core::snapshot::RequiredRollbackState {
         owner: PULSE_CAPABILITY,
         name: BODY_ROLLBACK_STATE,
         why: "a pulse pushes bodies by changing their velocity; a rewind that does not restore \

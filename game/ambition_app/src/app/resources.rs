@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
-use ambition::actors::ldtk_world;
-use ambition::actors::session::data;
-use ambition::actors::time::feel::SandboxFeelTuning;
-use ambition::actors::world::physics;
-use ambition::dev_tools::dev_tools::{
+use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::actors::session::data;
+use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
+use ambition_platformer2d::actors::world::physics;
+use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
-use ambition::input::ControlFrame;
+use ambition_platformer2d::input::ControlFrame;
 use ambition_content::content_validation;
 
 use super::cli::cli_start_room_arg;
@@ -45,9 +45,9 @@ pub struct StartRoomMustResolve;
 ///
 /// This resource is consumed during sandbox preparation and never becomes
 /// gameplay authority. The selected value is moved into the exact session-root
-/// [`StartingCharacter`](ambition::actors::avatar::StartingCharacter) component.
+/// [`StartingCharacter`](ambition_platformer2d::actors::avatar::StartingCharacter) component.
 #[derive(Resource, Clone, Debug, Default)]
-pub struct StartingCharacterOverride(pub ambition::actors::avatar::StartingCharacter);
+pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::StartingCharacter);
 
 #[cfg(test)]
 fn sandbox_init_failed() -> ! {
@@ -80,7 +80,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let (music_registry, sfx_registry) = {
         let catalogs = app
             .world()
-            .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+            .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
         (
             catalogs
                 .music_for(ambition_content::AMBITION_CONTENT_PROVIDER)
@@ -104,35 +104,35 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Bank ids are folded in by `publish_resident_sfx_bank_authority` once
         // the resident bank finishes loading; the cues are authorized here.
         app.insert_resource(
-            ambition::audio::selection::ActiveAudioSelection::selected_direct(
+            ambition_platformer2d::audio::selection::ActiveAudioSelection::selected_direct(
                 ambition_content::AMBITION_CONTENT_PROVIDER,
                 Some(music_registry.clone()),
                 Some(sfx_registry.clone()),
                 std::collections::BTreeSet::new(),
             ),
         );
-        app.insert_resource(ambition::sfx::SfxEmissionContext::default());
+        app.insert_resource(ambition_platformer2d::sfx::SfxEmissionContext::default());
         app.world_mut()
-            .resource_mut::<ambition::sfx::SfxEmissionContext>()
+            .resource_mut::<ambition_platformer2d::sfx::SfxEmissionContext>()
             .set(
-                ambition::sfx::AudioContextOwner::Direct,
+                ambition_platformer2d::sfx::AudioContextOwner::Direct,
                 ambition_content::AMBITION_CONTENT_PROVIDER,
             );
     }
     let character_catalog = app
         .world()
-        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
+        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
         .clone();
     let boss_catalog = app
         .world()
-        .resource::<ambition::actors::boss_encounter::BossCatalog>()
+        .resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>()
         .clone();
     // Provider-authored sheets (U1). Cloned like the catalogs above; empty is
     // the ordinary state for an app whose providers author none, and the intro
     // sprite rows resolve exactly as before when it is.
     let authored_sheets = app
         .world()
-        .get_resource::<ambition::actors::character_sprites::AuthoredSheets>()
+        .get_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>()
         .cloned()
         .unwrap_or_default();
 
@@ -143,10 +143,10 @@ pub fn init_sandbox_resources(app: &mut App) {
     // catalog.
     let asset_config = app
         .world()
-        .get_resource::<ambition::sprite_sheet::game_assets::GameAssetConfig>()
+        .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+    let sandbox_catalog = ambition_platformer2d::actors::assets::sandbox_assets::build_sandbox_catalog_with(
         &asset_config,
         &character_catalog,
         &boss_catalog,
@@ -163,9 +163,9 @@ pub fn init_sandbox_resources(app: &mut App) {
     );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
-        .path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank())
+        .path_for(&ambition_platformer2d::asset_manager::sandbox_assets::ids::sfx_bank())
         .map(|path| {
-            ambition::audio::SfxBankAssetPath::new(
+            ambition_platformer2d::audio::SfxBankAssetPath::new(
                 ambition_content::AMBITION_CONTENT_PROVIDER,
                 path,
             )
@@ -197,7 +197,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     // The simulation's authority, seeded from the same authored value.
-    let active_tuning = ambition::engine_core::ActiveMovementTuning(sandbox_data.tuning);
+    let active_tuning = ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
     let mut room_set = match ldtk_project.to_room_set(&world_manifest) {
         Ok(room_set) => room_set,
         Err(errors) => {
@@ -343,7 +343,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         // state. Headless SandboxSim runs quest reward systems (which grant into
         // OwnedItems) without loading `add_presentation_plugins`, so the resource
         // must exist before the first Update tick.
-        .insert_resource(ambition::items::OwnedItems::starter())
+        .insert_resource(ambition_platformer2d::items::OwnedItems::starter())
         .insert_resource(editable_abilities)
         // The neutral authority the SIMULATION reads, seeded from authored
         // content. `editable_tuning` beside it is the inspector's reflected
@@ -359,7 +359,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Aggregate user settings (video/audio/controls/gameplay).
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
-        .insert_resource(ambition::persistence::settings::UserSettings::default());
+        .insert_resource(ambition_platformer2d::persistence::settings::UserSettings::default());
     #[cfg(feature = "audio")]
     if let Some(path) = sfx_bank_asset_path {
         app.insert_resource(path);
@@ -382,7 +382,7 @@ pub(super) fn publish_direct_prepared_session_root(app: &mut App) {
         .world()
         .resource::<ambition_content::provider::AmbitionPreparedWorld>()
         .prepared_source();
-    let content = ambition::provider::prepare_platformer_content_for_app(
+    let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
         app,
         source,
         &ambition_content::provider::ambition_authored_catalogs(),
@@ -391,8 +391,8 @@ pub(super) fn publish_direct_prepared_session_root(app: &mut App) {
     let identity = content.identity();
     let live_world = content.source().instantiate_live();
     app.world_mut().spawn((
-        ambition::platformer::lifecycle::SessionRoot(
-            ambition::platformer::lifecycle::SessionScopeId(0),
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(
+            ambition_platformer2d::platformer::lifecycle::SessionScopeId(0),
         ),
         live_world,
         content,

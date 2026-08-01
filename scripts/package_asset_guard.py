@@ -31,7 +31,7 @@ from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
 
 
-ACTOR_ASSET_ROOT = Path("crates/ambition_actors/assets")
+ACTOR_ASSET_ROOT = Path("crates/ambition_platformer2d_actor_monolith/assets")
 CONTENT_ASSET_ROOT = Path("game/ambition_content/assets")
 CONTRACT_VERSION = 1
 

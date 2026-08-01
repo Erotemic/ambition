@@ -9,7 +9,7 @@
 //! [`super::AmbitionBossContentPlugin`] — so the machinery lib names no boss
 //! technique.
 //!
-//! Migrated from `ambition_actors::features::ecs::brain_effects` one Technique
+//! Migrated from `ambition_platformer2d_actor_monolith::features::ecs::brain_effects` one Technique
 //! at a time. First: the Smirking Behemoth eye beam.
 
 use bevy::prelude::*;
@@ -41,10 +41,10 @@ pub use mode_collapse::{spawn_mode_collapse_converge_from_special_messages, Mode
 pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
 pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
-use ambition_actors::features::BossConfig;
-use ambition_platformer_primitives::schedule::gameplay_allowed;
-use ambition_platformer_primitives::schedule::CombatSet;
-use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer2d_actor_monolith::features::BossConfig;
+use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
+use ambition_platformer2d_shared_tangle::schedule::CombatSet;
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Installs the named per-boss special-attack Techniques as a single
 /// self-contained content domain unit.

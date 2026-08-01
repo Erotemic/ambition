@@ -341,13 +341,13 @@ impl SandboxAssetCatalog {
     /// 2. `$BEVY_ASSET_ROOT/<rel>`
     /// 3. `$CWD/assets/<rel>`
     /// 4. `$CWD/<rel>`
-    /// 5. `$CARGO_MANIFEST_DIR/../ambition_actors/assets/<rel>`
+    /// 5. `$CARGO_MANIFEST_DIR/../ambition_platformer2d_actor_monolith/assets/<rel>`
     ///    (current dev fallback while runtime assets still live there)
     ///
     /// This is the **only** host-filesystem probe in the sandbox. The
     /// LDtk hot-reload watcher and the SFX bank byte loader both call
     /// through here — there is no duplicate candidate walk anywhere
-    /// else in `crates/ambition_actors/src/`.
+    /// else in `crates/ambition_platformer2d_actor_monolith/src/`.
     pub fn resolve_local_file_path(&self, rel: &str) -> Option<std::path::PathBuf> {
         if !matches!(
             self.profile,
@@ -386,7 +386,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     }
     candidates.push(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../ambition_actors/assets")
+            .join("../ambition_platformer2d_actor_monolith/assets")
             .join(rel),
     );
     candidates
@@ -394,7 +394,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 
 /// The AssetServer FILE-SOURCE root a windowed app must set as
 /// `AssetPlugin.file_path` on a loose desktop dev checkout: the absolute
-/// `crates/ambition_actors/assets` directory, where the generated sprite sheets,
+/// `crates/ambition_platformer2d_actor_monolith/assets` directory, where the generated sprite sheets,
 /// music, dialogue, and menu icons live.
 ///
 /// Bevy's default file root is the cwd-relative `"assets"`, which in this
@@ -414,7 +414,7 @@ pub fn actors_desktop_asset_root() -> String {
         return "assets".to_string();
     }
     let dev_assets =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_actors/assets");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d_actor_monolith/assets");
     match dev_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),

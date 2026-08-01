@@ -334,21 +334,21 @@ make_profile_dir() {
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
     local found="" candidate
-    for candidate in ambition_game_bin ambition_actors; do
+    for candidate in ambition_game_bin ambition_platformer2d_actor_monolith; do
         found="$(pgrep -n -x "$candidate" 2>/dev/null || true)"
         if [[ -n "$found" ]]; then
             printf '%s\n' "$found"
             return 0
         fi
     done
-    for candidate in ambition_game_bin ambition_actors; do
+    for candidate in ambition_game_bin ambition_platformer2d_actor_monolith; do
         found="$(pgrep -n -f "$candidate" 2>/dev/null || true)"
         if [[ -n "$found" ]]; then
             printf '%s\n' "$found"
             return 0
         fi
     done
-    fail "could not find ambition_game_bin or ambition_actors; pass --pid or use a *-run mode"
+    fail "could not find ambition_game_bin or ambition_platformer2d_actor_monolith; pass --pid or use a *-run mode"
 }
 
 # The pgrep -f fallback can latch onto anything whose command line mentions an

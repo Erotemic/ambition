@@ -19,21 +19,21 @@ a test in `game/ambition_app/tests/architecture_boundaries.rs`:
 - **Moved down:** `GameMode` → `platformer_primitives::schedule`;
   `ControlFrame` → `engine_core` (so reusable character brains no longer dep
   the input adapter); `InventoryUiState` → `ambition_inventory_ui`.
-- **Deps deleted:** `ambition_world` → combat/interaction/portal;
-  `ambition_render` → `ambition_actors` (the big one); `ambition_host` →
-  `ambition_actors`; `ambition_vfx` → `ambition_characters` (vfx owns
+- **Deps deleted:** `ambition_platformer2d_world` → combat/interaction/portal;
+  `ambition_render` → `ambition_platformer2d_actor_monolith` (the big one); `ambition_platformer2d_host` →
+  `ambition_platformer2d_actor_monolith`; `ambition_vfx` → `ambition_characters` (vfx owns
   `HitSide`, combat maps at the two edges that need both facts);
   `ambition_asset_manager` → `ambition_sfx` (the adapter was unused —
-  deleted, not feature-gated). The `ambition_actors::portal` facade is gone.
+  deleted, not feature-gated). The `ambition_platformer2d_actor_monolith::portal` facade is gone.
 - **Two explicit NO-MOVE rulings**, both ratcheted so future cleanups don't
-  re-chase them: `ambition_runtime` may name sim/mechanic/model crates because
+  re-chase them: `ambition_platformer2d_runtime` may name sim/mechanic/model crates because
   it IS the headless composition tier (it must not drift upward into
   app/content/host/render ownership); and `ambition_touch_input → ambition_render`
   is correct because that crate owns the visible touch HUD — it is a
   presentation/input adapter with a legacy name. *A rename/re-home under a
   `presentation/` grouping stays legal but LOW priority.*
 
-## F2 — `ambition_actors`: closed for audit cleanup
+## F2 — `ambition_platformer2d_actor_monolith`: closed for audit cleanup
 
 The actor DOMAIN (`features` + `player` + `abilities` + `boss_encounter` +
 `body_mode`) is legitimately in this crate. Everything else was classified as
@@ -45,10 +45,10 @@ bindings, item pickup, concrete schedule installers, map UI hydration).
 **Rules this pass established, still binding:**
 
 - **The facade dissolution ratchet:** a facade may be deleted the moment
-  `grep -rn "ambition_actors::<mod>"` outside actors returns zero. That
+  `grep -rn "ambition_platformer2d_actor_monolith::<mod>"` outside actors returns zero. That
   one-liner is the per-facade exit test.
 - **Residual glue splits two ways, one commit each.** Per ADR 0019 the
-  plugin/schedule wiring belongs in `ambition_runtime`; actor-DOMAIN reactions
+  plugin/schedule wiring belongs in `ambition_platformer2d_runtime`; actor-DOMAIN reactions
   stay. Never move a glue module wholesale into runtime — that just relocates
   the god-hub.
 - **North star for the residual** (fold into `unified-actors.md`): `player/`
@@ -72,7 +72,7 @@ world/plain-input follow-up.
 > imprecise.** R3 was the world/plain-input follow-up, so
 > `ProjectileCollisionWorld` moved to `ambition_projectiles::collision_world`.
 > The other two remain, and their blockers are narrower than written: victim
-> routing names exactly THREE `ambition_actors`-owned symbols — `BossConfig` /
+> routing names exactly THREE `ambition_platformer2d_actor_monolith`-owned symbols — `BossConfig` /
 > `BossClusterRef` / `BossAnimationFrameSample` (the boss cluster views) and
 > `PlayerHealRequested`. Everything else it queries — `CenteredAabb`,
 > `BodyOffense`, `BodyDodgeState`, `BodyShieldState`, `FeatureId`,
@@ -87,14 +87,14 @@ world/plain-input follow-up.
 Verified green and still true: the `[W-e]`/`[W-b]` lowering registry has both
 the duplicate-registration panic and the unknown-kind hard error, pinned by
 `#[should_panic]` tests; `ambition_entity_catalog` deps NOTHING (Tier-0 purity);
-`ambition_world` has no LDtk dep and carries an explicit allow-list regression
+`ambition_platformer2d_world` has no LDtk dep and carries an explicit allow-list regression
 test; §3.6 GeoId stamping survived the W3 move.
 
 Two REAL regressions were found and fixed in-session, and both are worth
 remembering as a class: **the `game/` re-home broke `desktop_asset_root()`**
-(a `../ambition_actors/assets` hop that now landed in `game/`, silently falling
+(a `../ambition_platformer2d_actor_monolith/assets` hop that now landed in `game/`, silently falling
 back to exe-relative `assets` — "game runs but nothing renders / no music"),
-and **the `gameplay_core → ambition_actors` rename broke the music tools'
+and **the `gameplay_core → ambition_platformer2d_actor_monolith` rename broke the music tools'
 repo-root probe.** Rename/move fallout hides behind silent fallbacks; audit
 every `CARGO_MANIFEST_DIR` hop after a re-home.
 
@@ -108,7 +108,7 @@ regression — `enemy_attacks_player` was always the enemy-AI oracle, while
 
 ## F5 — elegance directions
 
-Done: the `ambition` umbrella crate (`crates/ambition`) re-exports runtime,
+Done: the `ambition_platformer2d` umbrella crate (`crates/ambition_platformer2d`) re-exports runtime,
 host, render, world, model, and vocabulary crates plus a curated prelude, and
 deliberately does NOT dep `ambition_app`/`ambition_content`/kaleidoscope. The
 app manifest collapsed to three `ambition*` deps. `game/ambition_demo_sanic`
@@ -118,17 +118,17 @@ and `game/ambition_demo_smb1` dep ONLY the umbrella, oracle-ratcheted.
 
 3. **At the S5/S6 player-fold, rename `features/` away.** The name is
    pre-decomposition residue. When `player/` folds in, the tree becomes
-   `ambition_actors::{bodies, brains, spawn, damage, mount, perception,
+   `ambition_platformer2d_actor_monolith::{bodies, brains, spawn, damage, mount, perception,
    bosses}`. Do not rename before the fold — one churn, not two.
 4. **Tests travel with their subject — but check CONTENTS, not filenames.**
    The audit's own hunch was half wrong: `features/conversion_tests.rs` is
    MISNAMED (its content is headless actor movement/collision tests, not LDtk
    conversion) and correctly stays; only the 8 `portal_phase_*` tests actually
-   travelled, to `ambition_world::rooms::gate_portal`.
+   travelled, to `ambition_platformer2d_world::rooms::gate_portal`.
 5. **Anti-goal (Jon's tiny-crate skepticism):** the remaining wins are MOVES
    and DELETIONS, not new crates. No new crate without a consumer that exists
    today. The crate count is already at the top of the comfortable range; the
-   value now is thinning `ambition_actors` and deleting facades.
+   value now is thinning `ambition_platformer2d_actor_monolith` and deleting facades.
 
 ## F7 — the lowering seam had three real defects; two rulings, one lesson
 
@@ -200,7 +200,7 @@ lowering interpreter; there is no second channel to keep in sync.
    restructure) item.
    **ADVANCED:** `ambition_demo_sanic` authors a real momentum showcase room
    (`sanic_speedway` — a long solid floor plus a rideable loop as an
-   interior-winding `SurfaceChain`) entirely through the `ambition` umbrella,
+   interior-winding `SurfaceChain`) entirely through the `ambition_platformer2d` umbrella,
    with a headless test that composes it and runs the engine's own chain
    validator. A missing re-export would fail to compile there. **The oracle
    held — nothing was missing.**
@@ -216,5 +216,5 @@ lowering interpreter; there is no second channel to keep in sync.
    the unified-actor work is ready. Do not churn the module tree first.
 5. **Standing:** no new crates without a present consumer; facade re-adds are
    ratcheted; keep the E9 umbrella narrow (new app/demo/content code imports
-   through `ambition::*`, while app-local extensions like kaleidoscope stay
+   through `ambition_platformer2d::*`, while app-local extensions like kaleidoscope stay
    direct).

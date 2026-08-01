@@ -65,7 +65,7 @@ door free-spots, and geometry rendering.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity query --help
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity check --help
-cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>
+cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- <ROOM_ID>
 ```
 
 ## Representation rules

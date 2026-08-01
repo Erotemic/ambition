@@ -4,7 +4,7 @@ Everything a game calls, in one page.
 
 ⚠ **This page exists because the SDK was telling readers to do the thing its own
 acceptance test measures.** `docs/sdk/README.md` recommended
-`cargo doc -p ambition -p ambition_world --no-deps`, and both of blind run 4's
+`cargo doc -p ambition_platformer2d -p ambition_platformer2d_world --no-deps`, and both of blind run 4's
 engine opens were exactly that — so the SDK's advice was generating the failures
 the SDK is scored on. ADR 0031's gate is that an author never opens a file under
 `crates/`; a document that sends them there cannot satisfy it, however useful
@@ -100,11 +100,11 @@ rewind and had no supported way to supply it, so a rollback-enabled game
 mounting such a capability could not be composed at all.
 
 ⚠ **do not register rollback state from your own crate.** The registration trait
-lives in `ambition_runtime`, and reaching for it drags the whole simulation into
+lives in `ambition_platformer2d_runtime`, and reaching for it drags the whole simulation into
 a mechanic that uses none of it — `capability_demo` linked 133 crates that way and
 links 8 now. Declare it; let whoever composes install it.
 
-⚠ **8, not 7**: the eighth is `ambition_platformer_primitives`, for
+⚠ **8, not 7**: the eighth is `ambition_platformer2d_shared_tangle`, for
 `SimScheduleExt`. A capability's systems belong in the HOST's simulation
 schedule, and asking which one costs exactly one foundation crate. Registering
 into bare `Update` is cheaper and wrong — see the recipe.
@@ -154,7 +154,7 @@ symptom is a game that looks like the engine is broken.
 Your systems belong in the **sim schedule**, in one of the engine's phases:
 
 ```rust
-use ambition::sim::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
 
 impl Plugin for MyCapability {
     fn build(&self, app: &mut App) {
@@ -194,7 +194,7 @@ A headless harness, a replay, an RL agent, an acceptance walk — anything
 supplying input that is not a device — writes through one verb:
 
 ```rust
-ambition::sim::drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..default() });
+ambition_platformer2d::sim::drive_control_frame(app.world_mut(), ControlFrame { axis_x: 1.0, ..default() });
 ```
 
 ⚠ **It is correct on BOTH hosts, and that is the whole reason it exists.**
@@ -220,7 +220,7 @@ boundaries — each of which now has a test in
 `fixtures/external_consumer/tests/rollback_is_a_promise.rs`.
 
 **Two halves, and they are separate on purpose.** `PlatformerApp::rollback(n)`
-composes the host. `ambition::rollback::start(&mut app, plan)` starts the
+composes the host. `ambition_platformer2d::rollback::start(&mut app, plan)` starts the
 session — it cannot happen at build time, because a session rebases frame zero
 onto a world that has to be CONSTRUCTED first.
 
@@ -230,7 +230,7 @@ let mut app = PlatformerApp::headless()
     .mount(MyGame)
     .build();
 
-let session = ambition::rollback::start(&mut app, RollbackPlan::new())?;
+let session = ambition_platformer2d::rollback::start(&mut app, RollbackPlan::new())?;
 assert_eq!(session.participants(), 2);
 ```
 
@@ -257,7 +257,7 @@ characters.** These are independent facts today and nothing reconciles them:
 the count decides how many streams are checksum-compared; the *seating* comes
 from the stage and its devices. A headless composition seats one body no matter
 what you declare, and no error says so. Check what you actually got by querying
-`ambition::actor::MatchSeat`.
+`ambition_platformer2d::actor::MatchSeat`.
 
 And there is **no public seam for driving input to a named seat** —
 `drive_control_frame` writes one frame for the whole composition. So a
@@ -287,10 +287,10 @@ unusable.
 
 ⚠ **A started session is not a running one, and `host_status` cannot tell you
 the difference.** Blind run 7 watched it report `Running { prepared: true }`
-for 4300 updates while the sim was frozen. Ask `ambition::rollback::health`:
+for 4300 updates while the sim was frozen. Ask `ambition_platformer2d::rollback::health`:
 
 ```rust
-match ambition::rollback::health(&app) {
+match ambition_platformer2d::rollback::health(&app) {
     RollbackHealth::Healthy { frame, .. } => { /* compare frame across updates */ }
     RollbackHealth::Desynced { frames, .. } => panic!("nondeterminism at {frames:?}"),
     RollbackHealth::Invalidated { reason } => panic!("{reason}"),
@@ -317,11 +317,11 @@ quiet frame is allowed to be.
 ⚠ **and a frame number cannot tell you WHICH session it belongs to.** Every
 session starts numbering at zero, and the engine legitimately installs a new one
 — a confirmed lifecycle commit rebases the timeline, and so does
-[`ambition::rollback::stop`] followed by another `start`. A `frame()` that went
+[`ambition_platformer2d::rollback::stop`] followed by another `start`. A `frame()` that went
 backwards is a restart, not a rewind, and `generation()` is what says so: it
 changes on every session install and never repeats.
 
-`ambition::rollback::stop(&mut app)` ends the session. After it, `health` reports
+`ambition_platformer2d::rollback::stop(&mut app)` ends the session. After it, `health` reports
 `NoSession` — the session, not a leftover read model, is what it asks — unless
 the timeline it tore down had diverged, in which case the DIAGNOSIS survives as
 `Invalidated { reason }`. A divergence that disappeared when its timeline ended
@@ -335,7 +335,7 @@ blind run 8 got them out of the compiler.** It wrote an empty impl, read
 accessors — its verdict: "that worked, but it is a trick, not documentation."
 
 ```rust
-use ambition::rollback::{put_u32, Reader, SnapshotState};
+use ambition_platformer2d::rollback::{put_u32, Reader, SnapshotState};
 
 impl SnapshotState for BeaconCharge {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -358,11 +358,11 @@ does not fail to compile — it decodes garbage.
 Then register it:
 
 ```rust
-use ambition::rollback::AmbitionRollbackApp;
+use ambition_platformer2d::rollback::AmbitionRollbackApp;
 app.rollback_component_canonical::<BeaconCharge>("mygame", "mygame.beacon");
 ```
 
-No engine file lists your type, and nothing in `ambition` has heard of it. The
+No engine file lists your type, and nothing in `ambition_platformer2d` has heard of it. The
 registration is what puts it in the baseline — without it, your state silently
 does not roll back.
 
@@ -411,15 +411,15 @@ correct-looking programs that nothing in the API surfaces.
 
 | Module | Holds |
 |---|---|
-| `ambition::app` | everything above, plus `app::prelude` |
-| `ambition::world` | rooms and geometry — `world::prelude` is the one to import |
-| `ambition::actor` | `PrimaryPlayer`, `BodyKinematics`, spawn requests, ability sets |
-| `ambition::sim` | `ControlFrame`, `drive_control_frame`, `WorldTime`, schedule sets |
-| `ambition::character` | catalogs, action sets, sheets, brains |
-| `ambition::view` | `GameAssets`, `SandboxAssetCatalog`, `RoomVisual` |
-| `ambition::rollback` | the rollback session mode, the snapshot vocabulary, and the registration verbs |
-| `ambition::bevy` | Bevy itself, re-exported |
+| `ambition_platformer2d::app` | everything above, plus `app::prelude` |
+| `ambition_platformer2d::world` | rooms and geometry — `world::prelude` is the one to import |
+| `ambition_platformer2d::actor` | `PrimaryPlayer`, `BodyKinematics`, spawn requests, ability sets |
+| `ambition_platformer2d::sim` | `ControlFrame`, `drive_control_frame`, `WorldTime`, schedule sets |
+| `ambition_platformer2d::character` | catalogs, action sets, sheets, brains |
+| `ambition_platformer2d::view` | `GameAssets`, `SandboxAssetCatalog`, `RoomVisual` |
+| `ambition_platformer2d::rollback` | the rollback session mode, the snapshot vocabulary, and the registration verbs |
+| `ambition_platformer2d::bevy` | Bevy itself, re-exported |
 
-Anything else under `ambition::` is an implementation crate this facade mirrors,
+Anything else under `ambition_platformer2d::` is an implementation crate this facade mirrors,
 carries no stability promise, and is measured as a leak by
 `scripts/check_absence_contracts.py`.

@@ -10,7 +10,7 @@ in Ambition desktop profiling (desktop-lifecycle-5) with a single
 
 Apply to a fork of leafwing-input-manager v0.20.0, then wire it in the
 workspace [patch.crates-io] exactly like the bevy_ggrs entry. Ambition
-side is already ready: tune_clash_strategy_to_bindings (ambition_host)
+side is already ready: tune_clash_strategy_to_bindings (ambition_platformer2d_host)
 keeps the strategy PressAll while no chord exists.
 
 --- a/src/clashing_inputs.rs

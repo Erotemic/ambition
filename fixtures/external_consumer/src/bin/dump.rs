@@ -17,8 +17,8 @@
 //! It now calls [`outlander::build_outlander_app`], the same builder the
 //! headless binary and the gameplay tests use. That is what "a slice ends with
 //! ONE path" means here: not a second composition that happens to agree, but no
-//! second composition. Retiring it is what closes `ambition::engine` and
-//! `ambition::windowed_host` on the A1 ratchet.
+//! second composition. Retiring it is what closes `ambition_platformer2d::engine` and
+//! `ambition_platformer2d::windowed_host` on the A1 ratchet.
 
 fn main() {
     // The same composition the walkthrough runs. A dump of a DIFFERENT app than
@@ -33,7 +33,7 @@ fn main() {
     let mut missing: Vec<&str> = Vec::new();
 
     println!("== rollback registration schema ==");
-    match world.get_resource::<ambition::rollback::RollbackRegistry>() {
+    match world.get_resource::<ambition_platformer2d::rollback::RollbackRegistry>() {
         Some(registry) => {
             println!("{}", registry.deterministic_dump());
             println!("schema fingerprint: {:?}", registry.schema_fingerprint());
@@ -42,7 +42,7 @@ fn main() {
     }
 
     println!("== construction registry ==");
-    match world.get_resource::<ambition::actor::ActorConstructionRegistry>() {
+    match world.get_resource::<ambition_platformer2d::actor::ActorConstructionRegistry>() {
         Some(registry) => println!("{}", registry.deterministic_dump()),
         None => missing.push("ActorConstructionRegistry"),
     }
@@ -51,7 +51,7 @@ fn main() {
     // `PreparedContent` is not a bare resource — the provider lifecycle owns
     // it per prepared route, so a dump BEFORE launch reports the authored
     // catalog registry instead (the pre-preparation truth).
-    match world.get_resource::<ambition::character::PlatformerAuthoredCatalogRegistry>() {
+    match world.get_resource::<ambition_platformer2d::character::PlatformerAuthoredCatalogRegistry>() {
         Some(authored) => println!("{}", authored.deterministic_dump()),
         None => missing.push("PlatformerAuthoredCatalogRegistry"),
     }

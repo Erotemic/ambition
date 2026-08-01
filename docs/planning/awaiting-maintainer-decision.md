@@ -110,7 +110,7 @@ answers:
   legend flicker as you walk past things.
 
 **Layering note for whoever takes it:** `derive_action_scheme` lives in
-`ambition_characters`, below both callers (`ambition_actors::action_scheme` and
+`ambition_characters`, below both callers (`ambition_platformer2d_actor_monolith::action_scheme` and
 `ambition_sim_view::control_prompt`), so no match concept is visible to it. A
 per-body marker from `ambition_characters` is the only shape both callers can
 read — the route `ScriptedControl` already takes.

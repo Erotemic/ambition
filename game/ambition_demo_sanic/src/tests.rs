@@ -12,13 +12,13 @@ fn sanic_demo_content_plugin_installs() {
     // shell's real composition order. A bare App only tests catalog registration
     // and cannot validate or fingerprint the speedway's authored ring placements.
     let mut app = App::new();
-    ambition::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
+    ambition_platformer2d::engine::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     add_demo_content(&mut app);
 
     let placement_lowering = app
         .world()
-        .resource::<ambition::runtime::demo_fixture::PlacementLoweringRegistry>();
+        .resource::<ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry>();
     assert!(
         placement_lowering
             .schema_descriptors()
@@ -29,7 +29,7 @@ fn sanic_demo_content_plugin_installs() {
 
     let mut prepared_query = app
         .world_mut()
-        .query::<&ambition::runtime::PreparedContent>();
+        .query::<&ambition_platformer2d::runtime::PreparedContent>();
     let prepared = prepared_query
         .single(app.world())
         .expect("Sanic direct entry publishes one prepared-content root");
@@ -43,7 +43,7 @@ fn sanic_demo_content_plugin_installs() {
 
     let audio = app
         .world()
-        .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
     let music = audio
         .music_for(provider::SANIC_EXPERIENCE)
         .expect("Sanic music fragment");
@@ -58,7 +58,7 @@ fn sanic_demo_content_plugin_installs() {
     );
     let catalog = app
         .world()
-        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
+        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
     assert!(catalog.get(SANIC_CHARACTER_ID).is_some());
     assert!(catalog.get(SUPER_SANIC_CHARACTER_ID).is_some());
 }
@@ -563,9 +563,9 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
 #[test]
 fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.world_mut().spawn((
-        ambition::actors::actor::PrimaryPlayer,
+        ambition_platformer2d::actors::actor::PrimaryPlayer,
         ae::BodyKinematics {
             pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
             ..Default::default()
@@ -578,11 +578,11 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 
     let messages = app
         .world()
-        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>();
+        .resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
     assert!(
         messages
             .iter_current_update_messages()
-            .any(|message| matches!(message.request, ambition::sfx::SfxMessage::Dash { .. })),
+            .any(|message| matches!(message.request, ambition_platformer2d::sfx::SfxMessage::Dash { .. })),
         "the first visual marker emits the first standard diagnostic cue"
     );
     let mut q = app.world_mut().query::<&SanicActState>();
@@ -592,36 +592,36 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 #[test]
 fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     let entity = app
         .world_mut()
         .spawn((
-            ambition::characters::brain::ActorControl::default(),
-            ambition::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::brain::ActorControl::default(),
+            ambition_platformer2d::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
         ))
         .id();
-    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
         entity,
     )));
     app.add_systems(bevy::app::Update, toggle_sanic_form);
 
     app.world_mut()
-        .get_mut::<ambition::characters::brain::ActorControl>(entity)
+        .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
         .unwrap()
         .0
         .fly_toggle_pressed = true;
     app.update();
     assert_eq!(
         app.world()
-            .get::<ambition::characters::actor::WornCharacter>(entity)
+            .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
             .unwrap()
             .id(),
         SUPER_SANIC_CHARACTER_ID
     );
     assert!(
         !app.world()
-            .get::<ambition::characters::brain::ActorControl>(entity)
+            .get::<ambition_platformer2d::characters::brain::ActorControl>(entity)
             .unwrap()
             .0
             .fly_toggle_pressed,
@@ -629,14 +629,14 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
     );
 
     app.world_mut()
-        .get_mut::<ambition::characters::brain::ActorControl>(entity)
+        .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
         .unwrap()
         .0
         .fly_toggle_pressed = true;
     app.update();
     assert_eq!(
         app.world()
-            .get::<ambition::characters::actor::WornCharacter>(entity)
+            .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
             .unwrap()
             .id(),
         SANIC_CHARACTER_ID
@@ -656,32 +656,32 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
 #[test]
 fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.init_resource::<ambition::time::WorldTime>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.init_resource::<ambition_platformer2d::time::WorldTime>();
     // A session whose speakers belong to somebody else.
-    let mut context = ambition::sfx::SfxEmissionContext::default();
-    context.set(ambition::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
+    context.set(ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1), "some_host");
     app.insert_resource(context);
 
     let entity = app
         .world_mut()
         .spawn((
-            ambition::actors::actor::PrimaryPlayer,
-            ambition::characters::actor::BodyHealth::new(ambition::characters::actor::Health::new(
+            ambition_platformer2d::actors::actor::PrimaryPlayer,
+            ambition_platformer2d::characters::actor::BodyHealth::new(ambition_platformer2d::characters::actor::Health::new(
                 3,
             )),
-            ambition::characters::brain::ActorControl::default(),
-            ambition::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
+            ambition_platformer2d::characters::brain::ActorControl::default(),
+            ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             // What `publish_body_presentation_sources` derives in production; the
             // derivation itself is tested in `character_runtime::presentation`.
-            ambition::sfx::BodyPresentationSource(ambition::sfx::PresentationSourceId::new(
+            ambition_platformer2d::sfx::BodyPresentationSource(ambition_platformer2d::sfx::PresentationSourceId::new(
                 "sanic_demo",
             )),
         ))
         .id();
-    app.insert_resource(ambition::platformer::markers::ControlledSubject(Some(
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
         entity,
     )));
     app.add_systems(bevy::app::Update, sync_super_form_traits);
@@ -689,7 +689,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
 
     let sources: Vec<String> = app
         .world()
-        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>()
         .iter_current_update_messages()
         .map(|message| message.source.as_str().to_string())
         .collect();
@@ -718,14 +718,14 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
 #[test]
 fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    let mut context = ambition::sfx::SfxEmissionContext::default();
-    context.set(ambition::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
+    context.set(ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1), "some_host");
     app.insert_resource(context);
 
     // Parked just past the first marker, so one milestone fires this update.
     app.world_mut().spawn((
-        ambition::actors::actor::PrimaryPlayer,
+        ambition_platformer2d::actors::actor::PrimaryPlayer,
         ae::BodyKinematics {
             pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
             ..Default::default()
@@ -737,7 +737,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 
     let sources: Vec<String> = app
         .world()
-        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>()
+        .resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>()
         .iter_current_update_messages()
         .map(|message| message.source.as_str().to_string())
         .collect();
@@ -756,8 +756,8 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 /// the active room leaves the mode — this demo writes no teardown code.
 #[test]
 fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
-    use ambition::bevy::ecs::system::RunSystemOnce as _;
-    use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+    use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
+    use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
     fn elapsed(app: &mut App) -> Option<f32> {
         let mut q = app.world_mut().query::<&SanicActState>();
@@ -765,18 +765,18 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     }
     fn shell(rules: SanicRulesPlugin, mode: Option<&str>) -> App {
         let mut app = App::new();
-        ambition::engine::add_headless_foundation(&mut app);
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
         // The focused rules-only shell omits PlatformerEnginePlugins, whose
         // SimCoreResourcesPlugin normally registers the shared SFX message.
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        ambition::platformer::lifecycle::insert_session_world_component(
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
             ActiveRoomMetadata(RoomMetadata {
                 mode: mode.map(str::to_string),
                 ..Default::default()
             }),
         );
-        app.insert_resource(ambition::time::WorldTime {
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 0.5,
             ..Default::default()
         });
@@ -813,12 +813,12 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     app.update();
     app.update();
     assert!(elapsed(&mut app).is_some());
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ActiveRoomMetadata::default(),
     ); // left the Sanic rooms
     app.world_mut()
-        .run_system_once(ambition::runtime::despawn_departed_mode_entities)
+        .run_system_once(ambition_platformer2d::runtime::despawn_departed_mode_entities)
         .expect("the engine's mode sweep runs");
     assert_eq!(
         elapsed(&mut app),
@@ -829,26 +829,26 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
 
 /// The D-C hosting oracle: a demo's room claims its mode, and the run
 /// condition that wakes a hosted ruleset inside it reaches this crate
-/// through the `ambition` umbrella alone. If gating a hosted demo ever
+/// through the `ambition_platformer2d` umbrella alone. If gating a hosted demo ever
 /// needs a lower `ambition_*` crate, it fails to compile HERE.
 ///
 /// The condition is evaluated directly rather than through `.run_if` on a
-/// bespoke marker resource: a crate whose manifest names only `ambition`
+/// bespoke marker resource: a crate whose manifest names only `ambition_platformer2d`
 /// cannot `#[derive(Resource)]`, because bevy's derive macros resolve
 /// `bevy_ecs` through the CONSUMER's manifest and a re-export does not
 /// satisfy them. The `.run_if` wiring itself is pinned in
-/// `ambition_runtime/tests/mode_scope.rs`.
+/// `ambition_platformer2d_runtime/tests/mode_scope.rs`.
 #[test]
 fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
-    use ambition::bevy::ecs::system::RunSystemOnce as _;
-    use ambition::runtime::in_mode;
-    use ambition::world::rooms::ActiveRoomMetadata;
+    use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
+    use ambition_platformer2d::runtime::in_mode;
+    use ambition_platformer2d::world::rooms::ActiveRoomMetadata;
 
     let room = sanic_speedway();
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ActiveRoomMetadata(room.metadata.clone()),
     );
@@ -859,7 +859,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     assert!(awake, "a hosted Sanic ruleset wakes inside the speedway");
 
     // Ambition's own rooms carry no mode, so the demo's rules sleep there.
-    ambition::platformer::lifecycle::insert_session_world_component(
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
         ActiveRoomMetadata::default(),
     );
@@ -1054,22 +1054,22 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
 
 #[test]
 fn super_form_traits_track_the_worn_identity_both_ways() {
-    use ambition::characters::actor::{BodyHealth, Health, WornCharacter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, Health, WornCharacter};
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         raw_dt: 1.0 / 60.0,
         scaled_dt: 1.0 / 60.0,
     });
-    app.add_message::<ambition::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     // `sync_super_form_traits` now emits the transform cue on the worn-identity
     // edge, so the SFX channel must exist for the SfxWriter system param.
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(bevy::prelude::Update, sync_super_form_traits);
     let player = app
         .world_mut()
         .spawn((
-            ambition::actors::actor::PrimaryPlayer,
+            ambition_platformer2d::actors::actor::PrimaryPlayer,
             WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
             BodyHealth::new(Health::new(3)),
             ae::BodyKinematics::default(),
@@ -1107,13 +1107,13 @@ fn the_super_row_authors_a_real_movement_boost() {
     // same catalog hydration the runtime wear uses, so a RON edit that
     // flattens the form (or a hydration regression) trips this.
     let fragment =
-        ambition::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
             provider::SANIC_EXPERIENCE,
             Some(SANIC_CHARACTER_ID),
             SANIC_CATALOG_RON,
         )
         .expect("demo catalog parses");
-    let catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
+    let catalog = ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
         fragment.catalog().clone(),
     );
     let base = catalog
@@ -1135,7 +1135,7 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
     let mut app = App::new();
     assert!(
         !app.world()
-            .contains_resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>(),
+            .contains_resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>(),
         "the test must begin without the engine group's SFX registrar"
     );
 
@@ -1143,7 +1143,7 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
 
     assert!(
         app.world()
-            .contains_resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>(),
+            .contains_resource::<bevy::prelude::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>(),
         "SanicRulesPlugin owns a mandatory SfxWriter dependency and must register it when a thin host has not"
     );
 }
@@ -1172,7 +1172,7 @@ fn rev_tier_climbs_with_charge() {
 
 #[test]
 fn the_sanic_sfx_registry_validates_with_every_new_cue() {
-    let registry = ambition::audio::spec::SfxRegistry {
+    let registry = ambition_platformer2d::audio::spec::SfxRegistry {
         sample_rate: 44_100,
         sfx: sanic_sfx_specs(),
     };
@@ -1195,14 +1195,14 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
         SFX_SKID,
     ] {
         assert!(
-            ids.contains(&ambition::sfx::SfxId::from_static(open)),
+            ids.contains(&ambition_platformer2d::sfx::SfxId::from_static(open)),
             "registry must authorize {open}"
         );
     }
     for cue in [
-        ambition::audio::spec::SoundCueKey::Pogo,
-        ambition::audio::spec::SoundCueKey::Land,
-        ambition::audio::spec::SoundCueKey::Reset,
+        ambition_platformer2d::audio::spec::SoundCueKey::Pogo,
+        ambition_platformer2d::audio::spec::SoundCueKey::Land,
+        ambition_platformer2d::audio::spec::SoundCueKey::Reset,
     ] {
         assert!(
             ids.contains(&cue.sfx_id()),
@@ -1213,7 +1213,7 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
 
 #[test]
 fn the_speedway_authors_a_field_of_collectible_rings() {
-    use ambition::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+    use ambition_platformer2d::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
     let room = sanic_speedway();
     let rings = room
         .placements
@@ -1242,26 +1242,26 @@ fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
     // `WORLD_COIN_PICKUP` on collect. The demo authorises + voices exactly that
     // id (a private `sanic.ring` would be silently dropped by the authority gate).
     assert_eq!(
-        ambition::sfx::SfxId::from_static(SFX_RING),
-        ambition::sfx::ids::WORLD_COIN_PICKUP,
+        ambition_platformer2d::sfx::SfxId::from_static(SFX_RING),
+        ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP,
         "the ring ding must voice the id the shared currency-pickup loop emits"
     );
     // And the demo's registry authorises it.
-    let registry = ambition::audio::spec::SfxRegistry {
+    let registry = ambition_platformer2d::audio::spec::SfxRegistry {
         sample_rate: 44_100,
         sfx: sanic_sfx_specs(),
     };
     assert!(
         registry
             .authorized_cue_ids()
-            .contains(&ambition::sfx::ids::WORLD_COIN_PICKUP),
+            .contains(&ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP),
         "the Sanic registry must authorise the ring/coin pickup cue"
     );
 }
 
 #[test]
 fn the_speedway_tags_every_ring_with_the_animated_sprite() {
-    use ambition::entity_catalog::placements::PlacementSchema;
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     let room = sanic_speedway();
     let rings: Vec<_> = room
         .placements
@@ -1302,12 +1302,12 @@ fn emit_ring_shield_spend(app: &mut App, victim: bevy::prelude::Entity, amount: 
         .pos;
     if let Some(mut wallet) = app
         .world_mut()
-        .get_mut::<ambition::characters::actor::BodyWallet>(victim)
+        .get_mut::<ambition_platformer2d::characters::actor::BodyWallet>(victim)
     {
         wallet.balance = 0;
     }
     app.world_mut().write_message(
-        ambition::actors::features::ecs::damage_apply::WalletShieldSpent {
+        ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent {
             victim,
             amount,
             pos,
@@ -1317,14 +1317,14 @@ fn emit_ring_shield_spend(app: &mut App, victim: bevy::prelude::Entity, amount: 
 
 #[test]
 fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
-    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
-    use ambition::platformer::lifecycle::ActiveSessionScope;
+    use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
     fn app_with_session() -> App {
         let mut app = App::new();
-        app.add_message::<ambition::vfx::VfxMessage>();
-        app.add_message::<ambition::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
         let mut scope = ActiveSessionScope::default();
         scope.begin();
         app.insert_resource(scope);
@@ -1336,15 +1336,15 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
         kin.size = ae::Vec2::new(28.0, 32.0);
         app.world_mut()
             .spawn((
-                ambition::platformer::markers::PlayerEntity,
-                ambition::platformer::markers::PrimaryPlayer,
+                ambition_platformer2d::platformer::markers::PlayerEntity,
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
                 kin,
                 BodyHealth::new(Health::new(3)),
                 BodyWallet { balance: rings },
                 // Identity the scatter path mints ring ids from — `ensure_sim_id`
                 // supplies these at runtime; the harness stamps them directly.
-                ambition::platformer::sim_id::SimId::player_slot(0),
-                ambition::platformer::sim_id::SimIdCounter::default(),
+                ambition_platformer2d::platformer::sim_id::SimId::player_slot(0),
+                ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
             ))
             .id()
     }
@@ -1357,7 +1357,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     fn dropped(app: &mut App) -> usize {
         let mut q = app
             .world_mut()
-            .query::<&ambition::actors::features::PickupFeature>();
+            .query::<&ambition_platformer2d::actors::features::PickupFeature>();
         q.iter(app.world()).count()
     }
 
@@ -1390,17 +1390,17 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
 /// magnet can't refund them the same instant they drop).
 #[test]
 fn scattered_rings_burst_outward_and_then_become_collectible() {
-    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
-    use ambition::platformer::lifecycle::ActiveSessionScope;
+    use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
     let mut app = App::new();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 0.1,
         ..Default::default()
     });
@@ -1413,13 +1413,13 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let sanic = app
         .world_mut()
         .spawn((
-            ambition::platformer::markers::PlayerEntity,
-            ambition::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
             kin,
             BodyHealth::new(Health::new(3)),
             BodyWallet { balance: 6 },
-            ambition::platformer::sim_id::SimId::player_slot(0),
-            ambition::platformer::sim_id::SimIdCounter::default(),
+            ambition_platformer2d::platformer::sim_id::SimId::player_slot(0),
+            ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
         ))
         .id();
 
@@ -1500,7 +1500,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let pickups = {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), bevy::prelude::With<ambition::actors::features::PickupFeature>>();
+            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::actors::features::PickupFeature>>();
         q.iter(app.world()).count()
     };
     assert_eq!(
@@ -1537,15 +1537,15 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     );
 
     let mut app = App::new();
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 1.0 / 60.0,
         ..Default::default()
     });
-    let mut scope = ambition::platformer::lifecycle::ActiveSessionScope::default();
+    let mut scope = ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::default();
     let session = scope.begin();
     app.insert_resource(scope);
     app.world_mut().spawn((
-        ambition::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ae::RoomGeometry(world),
     ));
     let ring = app
@@ -1593,21 +1593,21 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
 /// spawn on top of the player. Here the whole chain runs in production order.
 #[test]
 fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
-    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
-    use ambition::platformer::lifecycle::ActiveSessionScope;
+    use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
     use bevy::prelude::{IntoScheduleConfigs, With};
 
     let mut app = App::new();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
-    app.add_message::<ambition::actors::avatar::PlayerHealRequested>();
-    app.add_message::<ambition::actors::features::SetFlagRequested>();
-    app.insert_resource(ambition::actors::features::GameplayBanner::default());
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
+    app.add_message::<ambition_platformer2d::actors::features::SetFlagRequested>();
+    app.insert_resource(ambition_platformer2d::actors::features::GameplayBanner::default());
     let mut scope = ActiveSessionScope::default();
     let session = scope.begin();
     app.insert_resource(scope);
-    app.insert_resource(ambition::time::WorldTime {
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
         scaled_dt: 0.1,
         ..Default::default()
     });
@@ -1615,7 +1615,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     // grab them" is not a thing you can do — which is the shape of the bug this
     // whole test is about.
     app.world_mut().spawn((
-        ambition::platformer::lifecycle::SessionRoot(session),
+        ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ae::RoomGeometry(ae::World::new(
             "ring-chain",
             ae::Vec2::new(800.0, 600.0),
@@ -1632,9 +1632,9 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         bevy::prelude::Update,
         (
             crate::scatter_rings_on_hit,
-            ambition::actors::features::magnetize_pickups,
+            ambition_platformer2d::actors::features::magnetize_pickups,
             crate::arc_scattered_rings,
-            ambition::actors::features::collect_ecs_pickups,
+            ambition_platformer2d::actors::features::collect_ecs_pickups,
         )
             .chain(),
     );
@@ -1646,20 +1646,20 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let sanic = app
         .world_mut()
         .spawn((
-            ambition::platformer::markers::PlayerEntity,
-            ambition::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
             kin,
             BodyHealth::new(Health::new(3)),
             BodyWallet { balance: 6 },
-            ambition::platformer::sim_id::SimId::player_slot(0),
-            ambition::platformer::sim_id::SimIdCounter::default(),
+            ambition_platformer2d::platformer::sim_id::SimId::player_slot(0),
+            ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
         ))
         .id();
     let wallet = |app: &App| app.world().get::<BodyWallet>(sanic).unwrap().balance;
     let locked = |app: &mut App| {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), With<ambition::actors::features::PickupCollectLock>>();
+            .query_filtered::<(), With<ambition_platformer2d::actors::features::PickupCollectLock>>();
         q.iter(app.world()).count()
     };
 
@@ -1700,7 +1700,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let ring_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&ae::CenteredAabb, With<ambition::actors::features::PickupFeature>>();
+            .query_filtered::<&ae::CenteredAabb, With<ambition_platformer2d::actors::features::PickupFeature>>();
         q.iter(app.world()).next().map(|a| a.center)
     };
     if let Some(pos) = ring_pos {
@@ -1725,15 +1725,15 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
 /// `SpawnOrigin::Dynamic` parented to the player, not just a bare label.
 #[test]
 fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
-    use ambition::characters::actor::{BodyHealth, BodyWallet, Health};
-    use ambition::platformer::construction::SpawnOrigin;
-    use ambition::platformer::lifecycle::ActiveSessionScope;
-    use ambition::platformer::sim_id::{SimId, SimIdCounter};
+    use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
+    use ambition_platformer2d::platformer::construction::SpawnOrigin;
+    use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
+    use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
 
     let mut app = App::new();
-    app.add_message::<ambition::vfx::VfxMessage>();
-    app.add_message::<ambition::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -1745,8 +1745,8 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     let sanic = app
         .world_mut()
         .spawn((
-            ambition::platformer::markers::PlayerEntity,
-            ambition::platformer::markers::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
             kin,
             BodyHealth::new(Health::new(9)),
             BodyWallet { balance: 4 },
@@ -1768,7 +1768,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     let ids: Vec<String> = {
         let mut q = app
             .world_mut()
-            .query::<&ambition::actors::features::FeatureId>();
+            .query::<&ambition_platformer2d::actors::features::FeatureId>();
         q.iter(app.world()).map(|f| f.0.clone()).collect()
     };
     let unique: std::collections::HashSet<_> = ids.iter().cloned().collect();

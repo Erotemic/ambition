@@ -1,4 +1,4 @@
-//! A minimal host for `ambition_portal` and `ambition_portal_presentation`.
+//! A minimal host for `ambition_portal2d` and `ambition_portal2d_presentation`.
 //!
 //! The demo deliberately avoids the full Ambition game stack. It provides only
 //! the four things a portal host must own:
@@ -8,13 +8,13 @@
 //! 3. two linked portal entities,
 //! 4. a sim-to-render observation bridge.
 
-use ambition_engine_core::BodyKinematics;
-use ambition_platformer_primitives::time::SimDt;
-use ambition_portal::{
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::time::SimDt;
+use ambition_portal2d::{
     portal_half_extent, PlacedPortal, PortalBody, PortalChannelColor, PortalPlugin, PortalPolicy,
     PortalSet,
 };
-use ambition_portal_presentation::{
+use ambition_portal2d_presentation::{
     PortalBodyView, PortalPresentationPlugin, PortalPresentationSet, PortalSceneBody,
     PortalWorldFrame,
 };
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, mut frame: ResMut<PortalWorldFrame>) {
     commands.spawn(Camera2d);
 
     // A little room dressing. These are ordinary Bevy sprites; the portals
-    // themselves are drawn by `ambition_portal_presentation`.
+    // themselves are drawn by `ambition_portal2d_presentation`.
     let wall_color = Color::srgb(0.14, 0.17, 0.24);
     spawn_rect(
         &mut commands,
@@ -239,5 +239,5 @@ fn spawn_rect(
 }
 
 fn world_to_render(pos: Vec2, z: f32) -> Vec3 {
-    ambition_engine_core::config::world_size_to_bevy(WORLD_SIZE, pos, z)
+    ambition_platformer2d_core::config::world_size_to_bevy(WORLD_SIZE, pos, z)
 }

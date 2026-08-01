@@ -19,16 +19,16 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition::game_shell::{
+use ambition_platformer2d::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, BasicSequenceRoot, BasicShellUiRoot,
     FrontendOwnedEntity, FrontendPresentationKind, GameplayInputOwner, GameplaySessionWorldRoot,
     PreparedSessionRegistry, PresentationOwnershipClass, PresentationOwnershipPolicy, ShellCommand,
     ShellLauncherCommand, ShellRouter,
 };
-use ambition::load::LoadCoordinator;
-use ambition::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegroundState};
-use ambition::platformer::lifecycle::{ActiveSessionScope, RoomVisual, SessionScopedEntity};
-use ambition::render::rendering::HudText;
+use ambition_platformer2d::load::LoadCoordinator;
+use ambition_platformer2d::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegroundState};
+use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, RoomVisual, SessionScopedEntity};
+use ambition_platformer2d::render::rendering::HudText;
 use ambition_app::app::{shell_host, VisibleRenderMode};
 
 /// The real visible composition, stepped on a PINNED timestep.
@@ -73,7 +73,7 @@ fn count<C: Component>(app: &mut App) -> usize {
 fn main_cameras(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<Entity, With<ambition::platformer::camera_layers::MainCamera>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::platformer::camera_layers::MainCamera>>();
     query.iter(app.world()).count()
 }
 
@@ -95,19 +95,19 @@ fn frontend_kind(app: &mut App, kind: FrontendPresentationKind) -> usize {
 /// the in-memory recording backend, so no physical audio device is opened.
 fn active_music_track(app: &App) -> String {
     app.world()
-        .resource::<ambition::audio::library::MusicPlaybackState>()
+        .resource::<ambition_platformer2d::audio::library::MusicPlaybackState>()
         .active_track
         .clone()
 }
 
 fn assert_recording_audio_output(app: &App) {
     assert_eq!(
-        *app.world().resource::<ambition::audio::AudioOutputMode>(),
-        ambition::audio::AudioOutputMode::Recording,
+        *app.world().resource::<ambition_platformer2d::audio::AudioOutputMode>(),
+        ambition_platformer2d::audio::AudioOutputMode::Recording,
         "no-window tests must record accepted playback without issuing device play commands"
     );
-    let backend = app.world().resource::<ambition::audio::AudioBackendState>();
-    assert_eq!(backend.mode, ambition::audio::AudioOutputMode::Recording);
+    let backend = app.world().resource::<ambition_platformer2d::audio::AudioBackendState>();
+    assert_eq!(backend.mode, ambition_platformer2d::audio::AudioOutputMode::Recording);
     assert!(
         !backend.device_backend_installed,
         "recording tests must not initialize Kira's physical-device backend",
@@ -177,32 +177,32 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         "{context}: no gameplay input owner"
     );
     assert_eq!(
-        count::<ambition::platformer::markers::PlayerEntity>(app),
+        count::<ambition_platformer2d::platformer::markers::PlayerEntity>(app),
         0,
         "{context}: no player entity",
     );
     assert_eq!(
-        count::<ambition::render::hud::PlayerHudRoot>(app),
+        count::<ambition_platformer2d::render::hud::PlayerHudRoot>(app),
         0,
         "{context}: no gameplay HUD root",
     );
     assert_eq!(
-        count::<ambition::render::dialog_ui::DialogOverlayRoot>(app),
+        count::<ambition_platformer2d::render::dialog_ui::DialogOverlayRoot>(app),
         0,
         "{context}: no gameplay dialog root",
     );
     assert_eq!(
-        count::<ambition::actors::menu::map::MapMenuRoot>(app),
+        count::<ambition_platformer2d::actors::menu::map::MapMenuRoot>(app),
         0,
         "{context}: no gameplay map root",
     );
     assert_eq!(
-        count::<ambition::actors::world::platforms::MovingPlatformVisual>(app),
+        count::<ambition_platformer2d::actors::world::platforms::MovingPlatformVisual>(app),
         0,
         "{context}: no moving-platform presentation",
     );
     assert!(
-        ambition::platformer::lifecycle::session_world_entity(app.world()).is_none(),
+        ambition_platformer2d::platformer::lifecycle::session_world_entity(app.world()).is_none(),
         "{context}: no canonical gameplay-world root exists",
     );
     assert!(
@@ -253,11 +253,11 @@ fn assert_title_ownership(app: &mut App, context: &str) {
     );
     let selection = app
         .world()
-        .resource::<ambition::audio::selection::ActiveAudioSelection>();
+        .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>();
     assert!(
         matches!(
             selection.owner(),
-            Some(ambition::sfx::AudioContextOwner::Frontend(_))
+            Some(ambition_platformer2d::sfx::AudioContextOwner::Frontend(_))
         ),
         "{context}: title owns a frontend audio context",
     );
@@ -389,7 +389,7 @@ fn provider_relative_music_drives_the_base_channel() {
     // to Home restores it.
     let title = app
         .world()
-        .resource::<ambition::audio::selection::FrontendAudioProfile>()
+        .resource::<ambition_platformer2d::audio::selection::FrontendAudioProfile>()
         .title_track()
         .expect("the shell host configures a title theme")
         .to_owned();
@@ -449,11 +449,11 @@ fn provider_relative_music_drives_the_base_channel() {
 
 fn play_owned_sfx(
     app: &mut App,
-    request: ambition::sfx::SfxMessage,
-) -> Option<ambition::audio::render::SfxPlaybackRecord> {
+    request: ambition_platformer2d::sfx::SfxMessage,
+) -> Option<ambition_platformer2d::audio::render::SfxPlaybackRecord> {
     let source = app
         .world()
-        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .primary_sfx_source()
         .cloned()
         .expect("active audio context publishes a primary SFX source");
@@ -462,14 +462,14 @@ fn play_owned_sfx(
 
 fn play_owned_sfx_from(
     app: &mut App,
-    source: ambition::sfx::PresentationSourceId,
-    request: ambition::sfx::SfxMessage,
-) -> Option<ambition::audio::render::SfxPlaybackRecord> {
+    source: ambition_platformer2d::sfx::PresentationSourceId,
+    request: ambition_platformer2d::sfx::SfxMessage,
+) -> Option<ambition_platformer2d::audio::render::SfxPlaybackRecord> {
     let owner = app
         .world()
-        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner();
-    app.world_mut().write_message(ambition::sfx::OwnedSfxMessage {
+    app.world_mut().write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
         owner,
         source,
         request,
@@ -477,7 +477,7 @@ fn play_owned_sfx_from(
     app.update();
     app.update();
     app.world()
-        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .last_played
         .clone()
 }
@@ -486,8 +486,8 @@ fn play_owned_sfx_from(
 /// resolving their actual provider-authored source definitions.
 #[test]
 fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
-    use ambition::audio::render::SfxSourceKind;
-    use ambition::sfx::{ids, AudioContextOwner, OwnedSfxMessage, SfxMessage};
+    use ambition_platformer2d::audio::render::SfxSourceKind;
+    use ambition_platformer2d::sfx::{ids, AudioContextOwner, OwnedSfxMessage, SfxMessage};
 
     let mut app = rendered_app();
     assert_recording_audio_output(&app);
@@ -529,15 +529,15 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     // or audio provider, then request the SAME logical Dash id from Sanic.
     let sanic_sfx = app
         .world()
-        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
         .sfx_for("sanic")
         .cloned();
     let sanic_bank_ids = app
         .world()
-        .resource::<ambition::audio::catalog::SfxBankRegistry>()
+        .resource::<ambition_platformer2d::audio::catalog::SfxBankRegistry>()
         .ids_for("sanic");
     app.world_mut()
-        .resource_mut::<ambition::audio::selection::ActiveAudioSelection>()
+        .resource_mut::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .authorize_sfx_source("sanic.cast", "sanic", sanic_sfx, sanic_bank_ids);
     let crossover_sanic_dash = play_owned_sfx_from(
         &mut app,
@@ -558,7 +558,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     );
     assert_eq!(
         app.world()
-            .resource::<ambition::audio::selection::ActiveAudioSelection>()
+            .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
             .provider_id(),
         Some(ambition_content::AMBITION_CONTENT_PROVIDER),
         "secondary SFX authorization must not replace the session's primary provider"
@@ -568,7 +568,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     settle(&mut app);
     assert!(
         app.world()
-            .resource::<ambition::audio::render::SfxPlaybackState>()
+            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
             .last_played
             .is_none(),
         "returning home clears gameplay SFX playback ownership"
@@ -579,7 +579,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     settle(&mut app);
     let first_sanic_owner = app
         .world()
-        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner()
         .expect("Sanic owns audio");
     let sanic_dash = play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO })
@@ -598,7 +598,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     settle(&mut app);
     let rejected_before = app
         .world()
-        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .rejected_unauthorized;
     assert!(
         play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO }).is_none(),
@@ -606,7 +606,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     );
     assert!(
         app.world()
-            .resource::<ambition::audio::render::SfxPlaybackState>()
+            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
             .rejected_unauthorized
             > rejected_before
     );
@@ -620,13 +620,13 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     settle(&mut app);
     let current_owner = app
         .world()
-        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner()
         .expect("fresh Sanic session owns audio");
     assert_ne!(first_sanic_owner, current_owner);
     let rejected_before = app
         .world()
-        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .rejected_wrong_owner;
     app.world_mut().write_message(OwnedSfxMessage {
         owner: Some(first_sanic_owner),
@@ -637,7 +637,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     app.update();
     let playback = app
         .world()
-        .resource::<ambition::audio::render::SfxPlaybackState>();
+        .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>();
     // `audio_play_sfx_messages` routes each message down EXACTLY ONE branch:
     // wrong-owner rejection and acceptance are mutually exclusive `continue`
     // arms. So "the stale request was rejected exactly once" is both necessary
@@ -766,7 +766,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
 /// could see the launcher too.
 #[test]
 fn the_title_screen_does_not_show_gameplay_touch_buttons() {
-    use ambition::touch_input::layout::TouchActionButton;
+    use ambition_platformer2d::touch_input::layout::TouchActionButton;
 
     let mut app = rendered_app();
     settle(&mut app);
@@ -824,7 +824,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
 /// nobody installed is the same defect one layer down.
 #[test]
 fn the_title_screen_menu_opens_and_mutes_the_game() {
-    use ambition::persistence::settings::UserSettings;
+    use ambition_platformer2d::persistence::settings::UserSettings;
 
     let mut app = rendered_app();
     settle(&mut app);
@@ -852,7 +852,7 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
     tap(&mut app, KeyCode::Escape);
     assert!(
         app.world()
-            .resource::<ambition::game_shell::ShellPauseMenu>()
+            .resource::<ambition_platformer2d::game_shell::ShellPauseMenu>()
             .open,
         "Escape on the title screen did not open the shell menu"
     );

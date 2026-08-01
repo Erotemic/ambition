@@ -401,7 +401,7 @@ Literal windowed and audible observation still requires a display/audio host.
 | INPUT0 | OPEN | Candidate unifies startup, launcher, loading, Continue, back, Quit-to-Home, keyboard, D-pad, face-button, Start-button, and analog-edge actions. Awaiting focused input suites. |
 | LOAD-ACTIVITY0 | OPEN | Candidate provider-selectable activity consumes real keyboard/controller shell actions, records an optional result, holds readiness when engaged, cleans its load scope, and leaves destination state unchanged. Awaiting feature-suite execution. |
 | C0 | DONE | Deterministic App-local character/audio fragment registries; real Ambition/Sanic/Mary-O coexistence; registration-order and separate-App isolation coverage; stable duplicate ownership diagnostics; candidate-before-commit App updates. |
-| C0H | DONE | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. Evidence status note: 2026-07-13: workspace compiles; `ambition_characters` 375, `ambition_actors` 775, `ambition_audio`, `ambition_combat`, boss/roster/audio registry unit suites all green. |
+| C0H | DONE | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. Evidence status note: 2026-07-13: workspace compiles; `ambition_characters` 375, `ambition_platformer2d_actor_monolith` 775, `ambition_audio`, `ambition_combat`, boss/roster/audio registry unit suites all green. |
 | C1-char | DONE | Every production playable-character, hostile-archetype, and boss consumer uses explicit App-local authority: wear/re-wear, construction, brain/action/movement/body resolution, boss behavior/encounters/art/special rows, sprites, collision, manifests, room lowering, reset/hot reload, snapshots, projectiles, encounters/summons, interaction, dialogue, barks, and attack volumes. Playable-character consumers fail visibly when composition is absent; content-free hostile/boss resources remain explicit for reusable frontend/demo Apps, and W0 must reject activation when a selected provider's required fragments are absent. Separate Apps prove isolation and provider defaults coexist without a global winner. Evidence status note: 2026-07-13: full focused suites + `app_local_catalog_composition` + reachability/app suites green after repairing the untested candidate — see commit "repair + verify the inherited App-local authority patch". |
 | C2-char | DONE | Production playable-character, hostile-roster, and boss install/override globals; the global attack-volume function pointer; engine-owned provider boss-asset lists; demo installers; and implicit sprite wrappers are removed. One workspace-policy ratchet rejects their return and rejects optional authority resources in production. Pure test fixtures may construct explicit values without becoming runtime authority. Evidence status note: 2026-07-13: `ambition_workspace_policy` 33 green including `engine.character-authority-is-app-local`; the ratchet caught and forced the fix of two violations in the candidate itself. |
 | C1-audio-registry | DONE | Process-global music/SFX registry APIs are removed; App-local provider fragments are registered and read explicitly by current bootstrap paths. |
@@ -561,11 +561,11 @@ and the feature-specific suites named below.
 ```bash
 cargo test -p ambition_audio
 cargo test -p ambition_characters
-cargo test -p ambition_platformer_primitives
+cargo test -p ambition_platformer2d_shared_tangle
 cargo test -p ambition_game_shell
 cargo test -p ambition_load
 cargo test -p ambition_load_presentation
-cargo test -p ambition_actors
+cargo test -p ambition_platformer2d_actor_monolith
 cargo test -p ambition_render
 cargo test -p ambition_demo_sanic
 cargo test -p ambition_demo_sanic_app

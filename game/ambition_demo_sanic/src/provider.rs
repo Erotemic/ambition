@@ -2,11 +2,11 @@
 
 use bevy::prelude::*;
 
-use ambition::engine_core as ae;
-use ambition::presentation::profiles;
-use ambition::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition::runtime::PreparedPlatformerSource;
-use ambition::runtime::demo_fixture::{
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
+use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
 
@@ -63,17 +63,17 @@ impl Plugin for SanicExperiencePlugin {
         // The ring tally. One declared readout; the engine never learns what a
         // ring is — `publish_sanic_ring_readout` writes the word "RINGS".
         .with_hud(
-            ambition::presentation::HudDeclaration::new()
+            ambition_platformer2d::presentation::HudDeclaration::new()
                 .slot(
-                    ambition::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
-                        .with_region(ambition::presentation::SurroundRegion::Top)
+                    ambition_platformer2d::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
                         .with_font_size(22.0)
                         .with_color([1.0, 0.85, 0.25, 1.0]),
                 )
                 // The results card. Published only while the act is cleared, so it
                 // needs no hide path — an unpublished slot draws nothing.
                 .slot(
-                    ambition::presentation::HudSlotSpec::new(RESULTS_HUD_SLOT)
+                    ambition_platformer2d::presentation::HudSlotSpec::new(RESULTS_HUD_SLOT)
                         .with_order(99)
                         .with_font_size(30.0)
                         .with_color([1.0, 0.94, 0.60, 1.0])
@@ -113,9 +113,9 @@ pub const RESULTS_HUD_SLOT: &str = "sanic_results";
 /// controlled subject every tick. So this is the whole feature — read the fact,
 /// name it "RINGS", hand it to the slot.
 fn publish_sanic_ring_readout(
-    facts: bevy::prelude::Res<ambition::sim_view::PlayerHudFacts>,
+    facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
     act: bevy::prelude::Query<&crate::SanicActState>,
-    mut readouts: bevy::prelude::ResMut<ambition::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     if !facts.present {
         return;
@@ -129,7 +129,7 @@ fn publish_sanic_ring_readout(
     }) {
         Some((time, rings)) => readouts.set(
             RESULTS_HUD_SLOT,
-            ambition::presentation::HudReadout::bare(format!(
+            ambition_platformer2d::presentation::HudReadout::bare(format!(
                 "ACT CLEAR    TIME {}    RINGS {}    SCORE {}",
                 crate::act_time_text(time),
                 rings,

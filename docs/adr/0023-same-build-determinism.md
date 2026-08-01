@@ -42,7 +42,7 @@ determinism stays reachable without a rewrite, should it ever be wanted.
 Each is enforced by the `engine.determinism` / `game.determinism` policy
 ([`tests/ambition_workspace_policy/src/custom/determinism.rs`](../../tests/ambition_workspace_policy/src/custom/determinism.rs)
 + config [`policies/determinism.toml`](../../tests/ambition_workspace_policy/policies/determinism.toml);
-migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/determinism_lints.rs`),
+migrated 2026-07-10 from the retired `crates/ambition_platformer2d_runtime/tests/determinism_lints.rs`),
 which greps every non-test source in the SIM crates.
 
 1. **No ambient randomness.** Sim randomness is a seeded, snapshot-registered
@@ -114,7 +114,7 @@ reviewed set, so an auditor reads every such claim at once.
 
 ## Current implications for agents
 
-Writing sim code (`ambition_engine_core`, `platformer_primitives`, `time`,
+Writing sim code (`ambition_platformer2d_core`, `platformer_primitives`, `time`,
 `entity_catalog`, `world`, `characters`, `combat`, `projectiles`, `portal`,
 `encounter`, `items`, `cutscene`, `interaction`, `sim_view`, `actors`,
 `runtime`):
@@ -145,8 +145,8 @@ system that reads it is silently slot-0-only. Both are source scans with
 justified allowlists, both are poison-tested, and both exist because a measured
 "this is already true" is not an invariant until something can make it fail.
 
-⚠ **This paragraph cited the retired ambition_runtime/tests/determinism_lints.rs
-and ambition_runtime/tests/control_frame_lint.rs for eighteen days after both
+⚠ **This paragraph cited the retired ambition_platformer2d_runtime/tests/determinism_lints.rs
+and ambition_platformer2d_runtime/tests/control_frame_lint.rs for eighteen days after both
 moved into the policy package (2026-07-10 → found 2026-07-28).** Those two names
 are deliberately UNBACKTICKED: a backticked name is a claim that it exists, and
 naming a dead file to say it is dead is prose. The section

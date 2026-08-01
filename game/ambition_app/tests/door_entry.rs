@@ -24,7 +24,7 @@
 //! Any link in that chain going quiet reads as "doors do not work" and, until
 //! this existed, as nothing else.
 
-use ambition::engine_core::AabbExt;
+use ambition_platformer2d::engine_core::AabbExt;
 use ambition_app::{AgentAction, SandboxSim};
 use bevy::prelude::With;
 
@@ -40,19 +40,19 @@ fn active_room(sim: &mut SandboxSim) -> String {
 fn stand_in_a_door(sim: &mut SandboxSim) -> Option<String> {
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let room_set = query.iter(world).next()?;
         room_set
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
             .cloned()?
     };
     let world = sim.world_mut();
-    let mut player = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+    let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = player.single_mut(world).ok()?;
     kin.pos = door.aabb.center();
-    kin.vel = ambition::engine_core::Vec2::ZERO;
+    kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
     Some(door.name.clone())
 }
 
@@ -116,8 +116,8 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 #[cfg(feature = "input")]
 #[test]
 fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
-    use ambition::game_shell::ShellCommand;
-    use ambition::input::{InputParticipant, SandboxAction};
+    use ambition_platformer2d::game_shell::ShellCommand;
+    use ambition_platformer2d::input::{InputParticipant, SandboxAction};
     use ambition_app::app::shell_host;
     use bevy::MinimalPlugins;
     use bevy::asset::AssetPlugin;
@@ -133,11 +133,11 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
-    app.init_state::<ambition::platformer::schedule::GameMode>();
+    app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
-    app.add_plugins(ambition::host::PlatformerHostPlugins);
+    app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     shell_host::compose_ambition_shell_host(&mut app);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
@@ -169,20 +169,20 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     // Stand in an authored Door zone of the live session's room.
     let door = {
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let zone = rooms
             .iter(world)
             .next()
             .expect("a live session room set")
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
             .cloned();
         // ⚠ LOUD, not a quiet `return`. A test that skips itself when it cannot
         // find its subject is a test that reports green for the one reason it
         // exists to catch.
         let zone = zone.unwrap_or_else(|| {
-            let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+            let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
             let room = rooms
                 .iter(world)
                 .next()
@@ -194,17 +194,17 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
                  at a room that has one."
             )
         });
-        let mut player = world.query_filtered::<&mut ambition::platformer::body::BodyKinematics, With<ambition::platformer::markers::PrimaryPlayer>>();
+        let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         if let Ok(mut kin) = player.single_mut(world) {
             kin.pos = zone.aabb.center();
-            kin.vel = ambition::engine_core::Vec2::ZERO;
+            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
         }
         zone
     };
 
     let room_before = {
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         rooms
             .iter(world)
             .next()
@@ -218,7 +218,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     for _ in 0..40 {
         app.update();
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let now = rooms
             .iter(world)
             .next()
@@ -342,7 +342,7 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     // position into history.
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
@@ -350,7 +350,7 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
         room_set
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
             .cloned()
     };
     let Some(door) = door else {

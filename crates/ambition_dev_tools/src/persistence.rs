@@ -34,7 +34,7 @@ pub fn load_developer(path: &Path) -> DeveloperTools {
         }
         Err(error) => {
             warn!(
-                target: "ambition::settings",
+                target: "ambition_platformer2d::settings",
                 "could not read developer file {}: {error}; using defaults",
                 path.display()
             );
@@ -48,7 +48,7 @@ pub fn load_developer(path: &Path) -> DeveloperTools {
         }
         Err(error) => {
             warn!(
-                target: "ambition::settings",
+                target: "ambition_platformer2d::settings",
                 "could not parse developer file {}: {error}; using defaults",
                 path.display()
             );
@@ -78,7 +78,7 @@ pub fn load_developer_at_startup(mut developer: ResMut<DeveloperTools>) {
     }
     *developer = load_developer(&path);
     info!(
-        target: "ambition::settings",
+        target: "ambition_platformer2d::settings",
         "loaded developer tools from {}",
         path.display()
     );
@@ -92,7 +92,7 @@ pub fn save_developer_on_change(developer: Res<DeveloperTools>) {
     let path = developer_path();
     if let Err(error) = save_developer(&path, &developer) {
         warn!(
-            target: "ambition::settings",
+            target: "ambition_platformer2d::settings",
             "failed to write developer file {}: {error}",
             path.display()
         );

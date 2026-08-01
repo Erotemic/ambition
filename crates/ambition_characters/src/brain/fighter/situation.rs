@@ -39,7 +39,7 @@
 //! a level-9 CPU agree about whether they are cornered; they disagree about what
 //! to do next, and that is L2's job (§1).
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 
 #[cfg(test)]
 use crate::perception::WorldView;

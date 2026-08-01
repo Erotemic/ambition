@@ -3,11 +3,11 @@
 //! (HealShrine plus the lower ShrineActivationPulse resource) from the sim/read-model seam.
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
-use ambition_platformer_primitives::binding::BindingLedger;
-use ambition_platformer_primitives::lifecycle::{
+use ambition_platformer2d_shared_tangle::binding::BindingLedger;
+use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer_primitives::shrine::ShrineActivationPulse;
+use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 use ambition_sim_view::{ShrineFact, ShrinesView};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
@@ -69,8 +69,8 @@ pub enum ShrineVisualSource {
 /// sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
-    world: ambition_platformer_primitives::lifecycle::SessionWorldRef<
-        ambition_engine_core::RoomGeometry,
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     asset_server: Res<AssetServer>,
@@ -103,7 +103,7 @@ pub fn sync_shrine_visual(
     for shrine in &shrines.0 {
         let key = shrine_visual_key(shrine);
         present.insert(key);
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
 
         if let Some(&entity) = visual_cache.get(&key) {
             let mut matched = true;
@@ -150,7 +150,7 @@ pub fn sync_shrine_visual(
                     shrine_visual_atlas(&source),
                     sprite,
                     Transform::from_translation(translation),
-                    ambition_platformer_primitives::lifecycle::RoomVisual,
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomVisual,
                     Name::new("Shrine visual"),
                 ),
             )

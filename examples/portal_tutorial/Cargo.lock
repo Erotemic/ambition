@@ -132,7 +132,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_engine_core"
+name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
  "bevy_ecs",
@@ -142,31 +142,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_platformer_primitives"
+name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
+ "ambition_platformer2d_core",
  "bevy",
  "tracing",
 ]
 
 [[package]]
-name = "ambition_portal"
+name = "ambition_portal2d"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
  "bevy",
  "serde",
 ]
 
 [[package]]
-name = "ambition_portal_presentation"
+name = "ambition_portal2d_presentation"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
- "ambition_portal",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_portal2d",
  "bevy",
 ]
 
@@ -174,10 +174,10 @@ dependencies = [
 name = "ambition_portal_tutorial"
 version = "0.1.0"
 dependencies = [
- "ambition_engine_core",
- "ambition_platformer_primitives",
- "ambition_portal",
- "ambition_portal_presentation",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_portal2d",
+ "ambition_portal2d_presentation",
  "bevy",
 ]
 

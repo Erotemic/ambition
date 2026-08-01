@@ -7,12 +7,12 @@
 //! records the exact schema identity owned by this content crate.
 //!
 //! That is the whole seam. It needed a resource, not a trait relocation: the codec
-//! trait must live where `ambition_runtime` can implement it for `ambition_time` and
-//! `ambition_engine_core` types, and those crates sit *below* every foundation crate
+//! trait must live where `ambition_platformer2d_runtime` can implement it for `ambition_time` and
+//! `ambition_platformer2d_core` types, and those crates sit *below* every foundation crate
 //! `ambition_content` names. Moving the trait down would trade one orphan-rule problem
 //! for a worse one.
 
-use ambition_runtime::rollback::{
+use ambition_platformer2d_runtime::rollback::{
     put_bool, put_f32, put_u32, put_vec2, AmbitionRollbackApp, Reader, SnapshotCursor,
     SnapshotState,
 };

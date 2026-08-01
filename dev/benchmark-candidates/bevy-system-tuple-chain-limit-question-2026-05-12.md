@@ -106,7 +106,7 @@ The exact grouping can vary, but each group should stay well below Bevy's tuple 
 
 ```bash
 cargo fmt --all
-cargo check -p ambition_actors --lib
+cargo check -p ambition_platformer2d_actor_monolith --lib
 ```
 
 ## What this tests

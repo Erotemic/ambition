@@ -20,11 +20,11 @@ description = "A SENTINEL capability: one self-contained mechanic that contribut
 
 # ⚠ THE DEPENDENCY LIST IS THE PROOF.
 #
-# No `ambition_actors`, no `ambition_content`, no game. A capability that had to
+# No `ambition_platformer2d_actor_monolith`, no `ambition_content`, no game. A capability that had to
 # reach into the actor crate to exist would tell us the seams are not seams —
 # so this one deliberately cannot, and the compiler enforces it.
 #
-# It sits ABOVE `ambition_runtime` on purpose: R1's recorded decision is that a
+# It sits ABOVE `ambition_platformer2d_runtime` on purpose: R1's recorded decision is that a
 # domain BELOW the runtime has its rollback schema registered on its behalf
 # (see `rollback/domains/vfx.rs`), and only a crate above it owns one directly.
 # "A capability registers its own rollback state" is only testable up here.
@@ -32,10 +32,10 @@ description = "A SENTINEL capability: one self-contained mechanic that contribut
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_causal = { path = "../../crates/ambition_causal", features = ["bevy"] }
 ambition_input = { path = "../../crates/ambition_input" }
-ambition_engine_core = { path = "../../crates/ambition_engine_core" }
+ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
 # ⚠ **the SIM SCHEDULE seam, and it costs exactly ONE crate** (7 → 8 in the
 # closure). `SimScheduleExt` lives here and this crate depends only on
-# `ambition_engine_core`, which was already present.
+# `ambition_platformer2d_core`, which was already present.
 #
 # ⛔ the first version registered into bare `Update`, which is what a Bevy
 # habit produces and what this crate's own recipe warns against — so the
@@ -44,7 +44,7 @@ ambition_engine_core = { path = "../../crates/ambition_engine_core" }
 # the systems are not replayed at all, so a rewind restores `PulseCooldown`
 # without re-running the behaviour that produced it. The eighth crate is the
 # honest price of being a rollback-safe capability rather than claiming to be.
-ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 bevy = { version = "0.18.1", default-features = false }
 # ⚠ **declared explicitly, not inherited.** Outside the engine's workspace there
 # is no `workspace.dependencies` to inherit from — which is the point: this is
@@ -54,7 +54,7 @@ serde = { version = "1", features = ["derive"] }
 
 # ⚠ A DEV-DEPENDENCY, and that is the whole fix.
 #
-# The first version of this crate depended on `ambition_runtime` so its plugin
+# The first version of this crate depended on `ambition_platformer2d_runtime` so its plugin
 # could register its own rollback state — which dragged the entire simulation
 # into a mechanic that uses none of it. It also broke the pattern the other two
 # contributions already follow: a capability OFFERS a content schema and OFFERS
@@ -65,19 +65,19 @@ serde = { version = "1", features = ["derive"] }
 # capability's real closure is foundations only — and the test that proves the
 # registration works still runs.
 [dev-dependencies]
-ambition_runtime = { path = "../../crates/ambition_runtime" }
+ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
 # The public SDK, for the composition proof in `tests/`. A dev-dependency, so
 # the capability's own closure is unaffected: a mechanic must not depend on the
 # facade that mounts it.
-ambition = { path = "../../crates/ambition", features = ["content_pack"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack"] }
 
 # ⛔ **AN OUTSIDE WORKSPACE DOES NOT INHERIT THE ENGINE'S PATCHES**, and this is
 # the first thing that broke when this crate moved out of `crates/`
 # (2026-08-01): `cargo test` here resolved the RELEASED `bevy_ggrs 0.21`, which
-# has no `GgrsFrameTiming`, and `ambition_runtime` failed to compile.
+# has no `GgrsFrameTiming`, and `ambition_platformer2d_runtime` failed to compile.
 #
 # The engine pins a forked rev in its own `[patch.crates-io]`. Any consumer that
-# reaches `ambition_runtime` — which this crate does, as a DEV-dependency, to
+# reaches `ambition_platformer2d_runtime` — which this crate does, as a DEV-dependency, to
 # prove a host can install its rollback state — has to repeat it. That is a real
 # cost of the fork, and it was invisible while this crate lived inside the
 # workspace and inherited the patch for free.

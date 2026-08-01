@@ -3,7 +3,7 @@
 //! / `OobReason` enums, plus serde-friendly geometry mirrors (`TracePoint`,
 //! `TraceAabb`) that avoid leaking `bevy_math`/engine types into the JSON shape.
 
-use ambition_engine_core as ae;
+use ambition_platformer2d_core as ae;
 use ambition_input::ControlFrame;
 use serde::Serialize;
 

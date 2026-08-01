@@ -82,7 +82,7 @@ struct SceneCaptureConfig {
     /// exactly `tap(ArrowDown)` then `tap(Enter)` twice, so this is the same
     /// entry those tests use rather than a second mechanism that can disagree
     /// with them. Any route with a lobby gets it for free.
-    press: Vec<KeyCode>,
+    press: Vec<PressStep>,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
     ///
     /// The surfaces a stranger sees first — the launcher, the startup cards,
@@ -113,6 +113,8 @@ struct SceneCaptureRuntime {
     /// drivers do exactly this, and a held key is not a second press.
     press_cursor: usize,
     press_held: Option<KeyCode>,
+    /// Frames left on a `wait` step.
+    press_wait: u32,
     /// The frame the last key was released on. The sequence usually STARTS a
     /// route change ("Starting…"), so the shutter has to wait for the state the
     /// presses asked for rather than photograph the moment they were accepted —
@@ -292,15 +294,42 @@ fn main() {
     app.run();
 }
 
-/// Parse `--press Down,Enter,Enter` into key taps.
+/// One step of a `--press` sequence.
+///
+/// ⚠ `Wait` exists because presses fire two frames apart — one to press, one to
+/// release, because the surfaces read EDGES — and a ROUTE CHANGE takes far
+/// longer than that. Driving the launcher into Smash and then into the select
+/// screen with taps alone lands the select-screen keys on the launcher, and the
+/// photograph that comes back looks like a product bug rather than a mistimed
+/// script. Measured: `Down,Down,Down,Down,Enter,Down,Enter,Enter` through the
+/// launcher produced the same image as pressing nothing.
+#[derive(Clone, Copy, Debug)]
+enum PressStep {
+    Tap(KeyCode),
+    /// Run this many frames without touching anything.
+    Wait(u32),
+}
+
+/// Parse `--press Down,Enter,wait,Down,Enter` into taps and pauses.
 ///
 /// The names are the ones a person says out loud, not `ArrowDown`: this is typed
 /// by hand at a terminal while looking at a screenshot.
-fn parse_press_sequence(text: &str) -> Result<Vec<KeyCode>, String> {
+fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
     text.split(',')
         .map(str::trim)
         .filter(|name| !name.is_empty())
-        .map(|name| match name.to_ascii_lowercase().as_str() {
+        .map(|name| {
+            let lower = name.to_ascii_lowercase();
+            if lower == "wait" {
+                return Ok(PressStep::Wait(DEFAULT_WAIT_FRAMES));
+            }
+            if let Some(rest) = lower.strip_prefix("wait:") {
+                return rest
+                    .parse::<u32>()
+                    .map(PressStep::Wait)
+                    .map_err(|_| format!("--press wait:N needs a frame count, got '{rest}'"));
+            }
+            match lower.as_str() {
             "up" | "arrowup" => Ok(KeyCode::ArrowUp),
             "down" | "arrowdown" => Ok(KeyCode::ArrowDown),
             "left" | "arrowleft" => Ok(KeyCode::ArrowLeft),
@@ -313,11 +342,16 @@ fn parse_press_sequence(text: &str) -> Result<Vec<KeyCode>, String> {
             "c" => Ok(KeyCode::KeyC),
             other => Err(format!(
                 "--press does not know the key '{other}'. Known: up, down, left, \
-                 right, enter, space, escape, z, x, c"
+                 right, enter, space, escape, z, x, c, wait, wait:N"
             )),
+        }
+        .map(PressStep::Tap)
         })
         .collect()
 }
+
+/// Frames a bare `wait` runs for — comfortably more than a route change.
+const DEFAULT_WAIT_FRAMES: u32 = 120;
 
 impl SceneCaptureConfig {
     fn from_args(args: Vec<String>) -> Result<Self, String> {
@@ -328,7 +362,7 @@ impl SceneCaptureConfig {
         let mut show_window = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
-        let mut press: Vec<KeyCode> = Vec::new();
+        let mut press: Vec<PressStep> = Vec::new();
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
@@ -976,6 +1010,10 @@ fn request_capture(
     // shutter until the sequence is spent — a capture taken mid-sequence would
     // photograph a half-made decision and look like a product bug.
     if runtime.press_cursor < config.press.len() || runtime.press_held.is_some() {
+        if runtime.press_wait > 0 {
+            runtime.press_wait -= 1;
+            return;
+        }
         if let Some(key) = runtime.press_held.take() {
             keys.release(key);
             if runtime.press_cursor >= config.press.len() {
@@ -1003,15 +1041,26 @@ fn request_capture(
                 );
             }
         } else {
-            let key = config.press[runtime.press_cursor];
-            keys.press(key);
-            runtime.press_held = Some(key);
+            match config.press[runtime.press_cursor] {
+                PressStep::Tap(key) => {
+                    keys.press(key);
+                    runtime.press_held = Some(key);
+                    eprintln!(
+                        "capture_scene: pressed {key:?} ({} of {})",
+                        runtime.press_cursor + 1,
+                        config.press.len()
+                    );
+                }
+                PressStep::Wait(frames) => {
+                    runtime.press_wait = frames;
+                    eprintln!(
+                        "capture_scene: waiting {frames} frames ({} of {})",
+                        runtime.press_cursor + 1,
+                        config.press.len()
+                    );
+                }
+            }
             runtime.press_cursor += 1;
-            eprintln!(
-                "capture_scene: pressed {key:?} ({} of {})",
-                runtime.press_cursor,
-                config.press.len()
-            );
         }
         return;
     }

@@ -459,8 +459,9 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
 /// perfectly about a value that was being thrown away. This asserts the VALUE
 /// after the rewind, which is the only thing that could have seen it — probed
 /// against the original codec, where `rollback_health()` stayed silent for all
-/// thirty ticks and this reported *"went into the rewind at 3760% and came out
-/// at 0%"*.
+/// thirty ticks and this reported *"went into the rewind at 188% and came out
+/// at 0%"*. (That probe originally read 3760%, against the seeded fighter's tiny
+/// pool; the fixture authors a 100-point pool now so the number is legible.)
 #[test]
 fn a_fighters_percent_and_policy_survive_a_rewind() {
     use ambition::characters::actor::{BodyHealth, DeathPolicy};
@@ -484,6 +485,13 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
             .next()
             .expect("the roster seated at least one fighter");
         health.set_policy(DeathPolicy::Unbounded);
+        // **A POOL THE NUMBER CAN BE READ AGAINST.** The seeded fighter's pool
+        // is tiny, so `damage(188)` against it reported *3760%* — correct for
+        // what this asserts (percent is preserved, and percent is NOT health)
+        // and nonsense to anybody who opens the file. 188 over 100 is a Smash
+        // percentage a reader recognises, still above 100%, and still proving
+        // the meter is not the pool.
+        health.health.max = 100;
         health.damage(188);
         (health.damage_percent(), health.policy())
     };
@@ -492,6 +500,16 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
     assert!(
         before_percent > 1.0,
         "the fixture meant to put a fighter ABOVE 100%, and it is at {:.0}%",
+        before_percent * 100.0
+    );
+    // ⚠ pinned, not just bounded: the previous version asserted only `> 1.0` and
+    // sat at 3760% for weeks because the seeded pool was tiny and nothing said
+    // what the number was SUPPOSED to be. A reader opening this now sees the
+    // fixture's intent, and a change to the seeded pool cannot quietly turn it
+    // back into nonsense.
+    assert!(
+        (before_percent - 1.88).abs() < 1e-3,
+        "188 damage over the 100-point pool this fixture authors is 188%, and it          is at {:.0}%",
         before_percent * 100.0
     );
     assert_eq!(before_policy, DeathPolicy::Unbounded);

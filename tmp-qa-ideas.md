@@ -656,7 +656,7 @@ potentially submitting to a NeurIPS dataset/benchmark track:
    level: A           # A | B | C
    tags: [rust-module-refactor, rust-visibility]
    source_commit: f355e3d
-   verification_command: cargo check -p ambition_engine
+   verification_command: cargo check -p ambition_platformer2d_core
    ```
    …so an evaluation harness can filter by tag, target the right
    crate for `cargo check`, and audit each Q against the source

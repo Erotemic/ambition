@@ -6,10 +6,16 @@
 // score (rendered separately by the music renderer); falls back
 // to existing boss tracks if the audio asset isn't on disk.
 //
-// Mirrors `ae::BossEncounterSpec::mockingbird()` in
-// `crates/ambition_engine/src/boss_encounter.rs`; the spec
-// equivalence is pinned by
-// `mockingbird_profile_encounter_matches_hardcoded_constructor`.
+// The profile lives in
+// `crates/ambition_platformer2d_actor_monolith/src/boss_encounter/`.
+//
+// ⚠ this comment used to point at `crates/ambition_engine/`, which no longer
+// exists — that crate was collapsed years ago — and to claim the spec
+// equivalence was "pinned by
+// `mockingbird_profile_encounter_matches_hardcoded_constructor`", which is not
+// a test in this tree. What DOES cover this profile is
+// `mockingbird_profile_registers_in_the_catalog` and
+// `mockingbird_profile_declares_reward_chest`.
 
 (
     id: "mockingbird",

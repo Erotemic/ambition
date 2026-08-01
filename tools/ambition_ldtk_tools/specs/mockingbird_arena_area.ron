@@ -1,7 +1,9 @@
 // Mockingbird boss arena — open vertical room behind the pirate cove.
 // The Mockingbird floats in the center of the room and uses the
 // `mockingbird` BossPatternSchedule (Hover → Swoop → Fireball →
-// Swoop) registered in `crates/ambition_engine/src/boss_patterns.rs`.
+// Swoop) registered in
+// `crates/ambition_platformer2d_actor_monolith/src/boss_encounter/` (the
+// `ambition_engine` crate named here before was collapsed long ago).
 //
 // Layout (960 wide × 768 tall — wide enough for the dash-distance
 // swoops, tall enough that hover beats read as "above the player"):

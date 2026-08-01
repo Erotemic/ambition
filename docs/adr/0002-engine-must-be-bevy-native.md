@@ -6,7 +6,7 @@ Accepted. Supersedes the older “engine may be Bevy-native” phrasing. Largely
 
 ## Context
 
-Earlier notes tried to keep `ambition_engine` backend-neutral. That direction is now counterproductive. Ambition is built around Bevy 0.18, Bevy math, Bevy ECS integration, Leafwing input, Bevy states/schedules, inspector/dev tooling, LDtk runtime integration, and platform feature composition.
+Earlier notes tried to keep the crate then called `ambition_engine` backend-neutral. That direction is now counterproductive. Ambition is built around Bevy 0.18, Bevy math, Bevy ECS integration, Leafwing input, Bevy states/schedules, inspector/dev tooling, LDtk runtime integration, and platform feature composition.
 
 The important boundary is not "no Bevy." The important boundary is whether a type or system is reusable mechanics vocabulary or sandbox presentation/app-shell policy.
 

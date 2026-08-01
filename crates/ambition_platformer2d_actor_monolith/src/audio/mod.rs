@@ -40,7 +40,7 @@ pub use environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment,
 };
 #[cfg(feature = "audio")]
-pub use plugin::SandboxAudioPlugin;
+pub use plugin::AmbitionGameAudioPlugin;
 // The playback library + render cache + web unlock moved to the
 // `ambition_audio` crate (Stage 20 / B1); re-exported so historical
 // `crate::audio::…` paths keep resolving.

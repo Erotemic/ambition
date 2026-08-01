@@ -32,7 +32,7 @@ use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
 use crate::encounter::{EncounterRegistry, EncounterView, SwitchActivationQueue};
-use crate::SandboxSimState;
+use crate::AmbitionGameSessionState;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
@@ -63,7 +63,7 @@ pub struct SessionScopedResources<'w> {
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
-    sim_state: ResMut<'w, SandboxSimState>,
+    sim_state: ResMut<'w, AmbitionGameSessionState>,
     /// Slot-level buffered gestures belong to the retired control session. The
     /// simulation sleeps at the launcher, so they cannot rely on a later tick
     /// to decay before the next activation.
@@ -95,7 +95,7 @@ pub fn reset_session_scoped_resources_on_retire(
     *resources.encounter_view = EncounterView::default();
     *resources.boss_registry = BossEncounterRegistry::default();
     *resources.quest_registry = QuestRegistry::default();
-    *resources.sim_state = SandboxSimState::default();
+    *resources.sim_state = AmbitionGameSessionState::default();
     *resources.slot_interactions = SlotInteractionState::default();
     *resources.switch_activations = SwitchActivationQueue::default();
 }

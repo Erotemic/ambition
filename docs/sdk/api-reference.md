@@ -154,7 +154,7 @@ symptom is a game that looks like the engine is broken.
 Your systems belong in the **sim schedule**, in one of the engine's phases:
 
 ```rust
-use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
 
 impl Plugin for MyCapability {
     fn build(&self, app: &mut App) {
@@ -166,7 +166,7 @@ impl Plugin for MyCapability {
             sim,
             (charge_beacon, open_gate)
                 .chain()
-                .in_set(SandboxSet::PlayerSimulation),
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );
     }
 }
@@ -416,7 +416,7 @@ correct-looking programs that nothing in the API surfaces.
 | `ambition_platformer2d::actor` | `PrimaryPlayer`, `BodyKinematics`, spawn requests, ability sets |
 | `ambition_platformer2d::sim` | `ControlFrame`, `drive_control_frame`, `WorldTime`, schedule sets |
 | `ambition_platformer2d::character` | catalogs, action sets, sheets, brains |
-| `ambition_platformer2d::view` | `GameAssets`, `SandboxAssetCatalog`, `RoomVisual` |
+| `ambition_platformer2d::view` | `GameAssets`, `AmbitionGameAssetCatalog`, `RoomVisual` |
 | `ambition_platformer2d::rollback` | the rollback session mode, the snapshot vocabulary, and the registration verbs |
 | `ambition_platformer2d::bevy` | Bevy itself, re-exported |
 

@@ -201,12 +201,12 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// the pre-reset pickup and spawns a new one, then asserts the
 /// FeatureViewIndex reflects the new id after `app.update()`. The
 /// real `process_sandbox_reset_request` runs in
-/// `SandboxSet::ResetProcessing`; we use the same `.in_set` to
+/// `Platformer2dSimulationPhase::ResetProcessing`; we use the same `.in_set` to
 /// pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
     use ambition_platformer2d_actor_monolith::schedule::configure_sandbox_sets;
-    use ambition_platformer2d_shared_tangle::schedule::SandboxSet;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {
@@ -246,8 +246,8 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
     app.add_systems(
         Update,
         (
-            fake_reset_system.in_set(SandboxSet::ResetProcessing),
-            rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
+            fake_reset_system.in_set(Platformer2dSimulationPhase::ResetProcessing),
+            rebuild_feature_view_index.in_set(Platformer2dSimulationPhase::FeatureViewSync),
         ),
     );
 

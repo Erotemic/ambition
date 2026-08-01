@@ -162,7 +162,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             portal_input_adapter_system
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::PlayerSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent`
@@ -177,7 +177,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             resolve_portal_fire_intent
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::PlayerSimulation)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(portal_input_adapter_system),
         );
 
@@ -298,9 +298,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // tagged before transit sees it.
         //
         // Ordering of projectile INTEGRATION vs transit: projectile motion
-        // integrates in `SandboxSet::Combat` (`update_projectiles` /
+        // integrates in `Platformer2dSimulationPhase::Combat` (`update_projectiles` /
         // `update_enemy_projectiles`), which is chained AFTER
-        // `SandboxSet::PlayerSimulation` (where `PortalSet::Transit` lives). So
+        // `Platformer2dSimulationPhase::PlayerSimulation` (where `PortalSet::Transit` lives). So
         // within every frame the relationship is FIXED and deterministic —
         // `portal_transit` runs against the projectile body integrated on the
         // PREVIOUS frame, the same fixed cadence actors use (integrate → transit
@@ -377,7 +377,7 @@ mod schedule_tests {
     //! `ControlFrame` after. They MUST live inside the same
     //! `[populate ControlFrame -> player consumes ControlFrame]` window the old
     //! in-`warp` direct mutate occupied. When the brackets only carried
-    //! `.before/.after(warp_portal_input)` (and no SandboxSet / consume anchor)
+    //! `.before/.after(warp_portal_input)` (and no Platformer2dSimulationPhase / consume anchor)
     //! they floated: the read could run before the per-frame populate and the
     //! write-back after the player had already consumed the frame, stamping a
     //! STALE intent over the fresh axis — the live Move axis read as dead/sticky.
@@ -392,7 +392,7 @@ mod schedule_tests {
     use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_actor_monolith::schedule::configure_sandbox_sets;
     use ambition_input::ControlFrame;
-    use ambition_platformer2d_shared_tangle::schedule::SandboxSet;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use ambition_portal2d::PlayerMovementIntent;
 
     use super::super::ability_adapter::warp_portal_input;
@@ -404,13 +404,13 @@ mod schedule_tests {
     struct ConsumedAxis(f32);
 
     // Stand-in for the device populate (`populate_control_frame_from_actions`),
-    // which runs `.before(SandboxSet::CoreSimulation)`.
+    // which runs `.before(Platformer2dSimulationPhase::CoreSimulation)`.
     fn populate_fresh_axis(mut frame: ResMut<ControlFrame>) {
         frame.axis_x = -1.0;
     }
 
     // Stand-in for the player consume (`sync_local_player_input_frame`), the tail
-    // of `SandboxSet::PlayerInput`. Records the axis it observes.
+    // of `Platformer2dSimulationPhase::PlayerInput`. Records the axis it observes.
     fn consume_axis(frame: Res<ControlFrame>, mut consumed: ResMut<ConsumedAxis>) {
         consumed.0 = frame.axis_x;
     }
@@ -432,34 +432,34 @@ mod schedule_tests {
 
         app.add_systems(
             Update,
-            populate_fresh_axis.before(SandboxSet::CoreSimulation),
+            populate_fresh_axis.before(Platformer2dSimulationPhase::CoreSimulation),
         );
         // Real brackets + real warp, anchored exactly as the plugin wires them.
         // Wire the brackets exactly as the plugin does: both inside
-        // `SandboxSet::PlayerInput` (so the read runs after the
+        // `Platformer2dSimulationPhase::PlayerInput` (so the read runs after the
         // `.before(CoreSimulation)` populate) and the write-back
         // `.before` the consumer (so the fresh/round-tripped axis reaches the
         // player this frame).
         app.add_systems(
             Update,
             sync_movement_intent_from_control
-                .in_set(SandboxSet::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(warp_portal_input),
         );
         app.add_systems(
             Update,
             warp_portal_input
-                .in_set(SandboxSet::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(consume_axis),
         );
         app.add_systems(
             Update,
             apply_movement_intent_to_control
-                .in_set(SandboxSet::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(warp_portal_input)
                 .before(consume_axis),
         );
-        app.add_systems(Update, consume_axis.in_set(SandboxSet::PlayerInput));
+        app.add_systems(Update, consume_axis.in_set(Platformer2dSimulationPhase::PlayerInput));
 
         app.update();
 
@@ -482,7 +482,7 @@ mod schedule_tests {
     }
 
     /// The general input contract: any system tagged `InputSet::Route` is
-    /// pinned BEFORE the real gameplay consumers in `SandboxSet::PlayerInput`.
+    /// pinned BEFORE the real gameplay consumers in `Platformer2dSimulationPhase::PlayerInput`.
     /// The slot-input path is `populate_slot_controls` (ControlFrame →
     /// `SlotControls[PRIMARY]`) then `sync_local_player_input_frame`
     /// (SlotControls → the controlled body's `PlayerInputFrame`, gated on
@@ -525,7 +525,7 @@ mod schedule_tests {
             Update,
             (populate_slot_controls, sync_local_player_input_frame)
                 .chain()
-                .in_set(SandboxSet::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         app.update();

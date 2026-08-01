@@ -6,7 +6,7 @@
 //! brain path every controlled body uses (`SlotControls` → its own
 //! `ActorControlFrame` → `update_ecs_actors`). The vacated home avatar has no
 //! player brain, so it is inert. This pins the whole loop driving REAL inputs
-//! through `SandboxSim::step`:
+//! through `Platformer2dSimHarness::step`:
 //!
 //! 1. Hold Down+Interact ~2s next to an actor → its brain is replaced with
 //!    `Brain::Player(PRIMARY)` (recorded in `PossessionState.possessed`). Its
@@ -27,7 +27,7 @@ use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ACTOR_ID: &str = "possess_target";
@@ -45,7 +45,7 @@ fn actor_entity(world: &mut World) -> Entity {
         .expect("the spawned actor is present")
 }
 
-fn possessed(sim: &mut SandboxSim) -> Option<Entity> {
+fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
     sim.world_mut().resource::<PossessionState>().possessed
 }
 
@@ -65,7 +65,7 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
 /// lands (the sim is deterministic; a bounded hold catches an in-range commit). This
 /// oscillation crossing the radius knife-edge is what the ranged subsumption (E54)
 /// nudged us onto — the mechanic itself is unchanged.
-fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
+fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_at(
         ACTOR_ID,
@@ -97,7 +97,7 @@ fn spawn_and_possess(sim: &mut SandboxSim) -> Entity {
 #[test]
 fn possessed_actor_reads_this_frame_slot_input() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let actor = spawn_and_possess(&mut sim);
 
     // The possess gesture drove `move_y` (down); horizontal was zero, so the
@@ -128,7 +128,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let home = {
         let mut q = sim
             .world_mut()
@@ -142,7 +142,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     // harness, where one `sim.step` can advance many sim frames — may already have
     // run to completion). Robust to catch-up; still proves "attack started this
     // body's melee".
-    let melee_engaged = |sim: &mut SandboxSim, e: Entity| {
+    let melee_engaged = |sim: &mut Platformer2dSimHarness, e: Entity| {
         sim.world_mut()
             .get::<BodyMelee>(e)
             .map(|m| m.is_swinging() || m.cooldown > 0.0)
@@ -213,7 +213,7 @@ fn down_interact(edge: bool) -> AgentAction {
 #[test]
 fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // Drop a normal actor one short stride from the player — inside POSSESS_RADIUS
     // (150px). Same known-good melee archetype the enemy-attacks test uses.

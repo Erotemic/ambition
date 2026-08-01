@@ -1,7 +1,7 @@
 //! Persist the player's inventory + wallet across save/load.
 //!
 //! `OwnedItems` (the 24-item OoT catalog) and the player's `BodyWallet` are
-//! live state, not part of `SandboxSave` — so a session's earned items + money
+//! live state, not part of `AmbitionGameSave` — so a session's earned items + money
 //! evaporated on restart. This module mirrors them into the save (which the
 //! existing autosave writes to disk) and restores them on load, keyed by stable
 //! `dialog_id` so the save survives catalog reordering. Equipped state is a
@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use crate::items::OwnedItems;
 use ambition_characters::actor::BodyWallet;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 
 /// Set once the saved inventory has been applied to the live state (or skipped
 /// for a fresh save), so the write-back can't fire before the restore and
@@ -24,7 +24,7 @@ pub struct InventoryRestored(pub bool);
 /// `inventory_saved == false`) keeps the live starter set.
 pub fn restore_inventory_from_save(
     mut restored: ResMut<InventoryRestored>,
-    save: Res<SandboxSave>,
+    save: Res<AmbitionGameSave>,
     mut owned: ResMut<OwnedItems>,
     // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
     // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
@@ -47,7 +47,7 @@ pub fn restore_inventory_from_save(
 
 /// Mirror the live inventory + wallet into the save whenever they differ from
 /// the saved form (autosave then writes the dirtied save to disk). Only touches
-/// `SandboxSave` on an actual change, so autosave's change-detection throttle
+/// `AmbitionGameSave` on an actual change, so autosave's change-detection throttle
 /// stays honest. Gated on the restore so it can't run first.
 pub fn persist_inventory_to_save(
     restored: Res<InventoryRestored>,
@@ -55,7 +55,7 @@ pub fn persist_inventory_to_save(
     // SLOT-0 BY DESIGN: see `restore_inventory_from_save` — the save file is the
     // local player's, so only slot 0's wallet is persisted.
     wallet_q: Query<&BodyWallet, crate::actor::PrimaryPlayerOnly>,
-    mut save: ResMut<SandboxSave>,
+    mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {
         return;

@@ -17,7 +17,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{RoomTransitionSet, SandboxSet};
+use ambition_platformer2d_shared_tangle::schedule::{RoomTransitionSet, Platformer2dSimulationPhase};
 
 /// Registers room-transition detection + the per-room feature reset, and
 /// anchors the content room-reset slot. Part of
@@ -46,7 +46,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet
-                .in_set(SandboxSet::RoomTransition)
+                .in_set(Platformer2dSimulationPhase::RoomTransition)
                 // The PHASE, not the reset system's name.
                 .after(RoomTransitionSet::Reset),
         );

@@ -18,7 +18,7 @@ use ambition_dev_tools::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
     EditableMovementTuning,
 };
-use ambition_dev_tools::SandboxDevState;
+use ambition_dev_tools::AmbitionGameDeveloperState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user
@@ -581,7 +581,7 @@ pub struct DevToggleSnapshot {
 
 impl DevToggleSnapshot {
     pub fn capture(
-        dev_state: &SandboxDevState,
+        dev_state: &AmbitionGameDeveloperState,
         developer: &DeveloperTools,
         ldtk_reload: &LdtkHotReloadState,
     ) -> Self {
@@ -747,7 +747,7 @@ pub fn apply_action(
     display_state: &mut DisplayModeState,
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
     _keyboard_preset_count: usize,
-    dev_state: &mut SandboxDevState,
+    dev_state: &mut AmbitionGameDeveloperState,
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,

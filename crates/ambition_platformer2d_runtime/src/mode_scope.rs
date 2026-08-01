@@ -32,7 +32,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, ModeScopedEntity};
-use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt as _};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt as _};
 use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 
 /// Run condition: the active room belongs to the game mode `name`.
@@ -108,7 +108,7 @@ impl Plugin for ModeScopePlugin {
             sim,
             despawn_departed_mode_entities
                 .after(ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata)
-                .in_set(SandboxSet::Progression),
+                .in_set(Platformer2dSimulationPhase::Progression),
         );
     }
 }

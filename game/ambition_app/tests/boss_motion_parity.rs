@@ -27,7 +27,7 @@ use ambition_platformer2d::actors::features::ecs::boss_clusters::BossConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::World;
 
 /// Read the live boss's body position (only the boss carries `BossConfig`, so this
@@ -55,7 +55,7 @@ fn read_player_pos(world: &mut World) -> ae::Vec2 {
 #[test]
 fn dormant_boss_floats_and_does_not_fall() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player_pos(sim.world_mut());
     sim.spawn_boss_at(
@@ -97,7 +97,7 @@ fn dormant_boss_floats_and_does_not_fall() {
 fn woken_boss_moves_and_stays_afloat() {
     const FRAMES: usize = 300;
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player_pos(sim.world_mut());
     sim.spawn_boss_at(

@@ -6,7 +6,7 @@
 //! The symptom from manual play: discrete button actions (jump/fly/fire) flow
 //! fine, but the analog Move axis (`ControlFrame.axis_x` / `axis_y`) does not
 //! reach player movement. This test drives the RL/agent seam — writing
-//! `ControlFrame` directly each tick via `SandboxSim::step` (no devices, no
+//! `ControlFrame` directly each tick via `Platformer2dSimHarness::step` (no devices, no
 //! leafwing) — and asserts the player actually translates a real distance in the
 //! commanded direction. It encodes the contract "axis input -> actual movement"
 //! headlessly, independent of rendering or input devices.
@@ -26,7 +26,7 @@ use ambition_app::AgentAction;
 /// loose floor that still rules out "axis is dead" (~0 movement).
 const MIN_TRAVEL_PX: f32 = 20.0;
 
-fn fresh_sim() -> ambition_app::SandboxSim {
+fn fresh_sim() -> ambition_app::Platformer2dSimHarness {
     // Default room spawns the player on flat floor; fixed 60Hz keeps the
     // trajectory deterministic.
     crate::common::fixed_60hz_sim()

@@ -221,7 +221,7 @@ pub fn refresh_parallax_layers_on_quality_change(
 /// the world forever.
 pub fn ensure_active_room_parallax_theme(
     assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     room_set: Option<
@@ -421,16 +421,16 @@ mod tests {
 mod theme_load_tests {
     use super::*;
     use ambition_asset_manager::profile::AssetProfile;
-    use ambition_asset_manager::sandbox_assets::SandboxAssetCatalog;
+    use ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
 
     /// Trusts packaging rather than the filesystem — `AndroidBundle` is the
     /// profile whose `should_attempt_resolved_load` is unconditionally true, so
     /// this test asks "does the engine REQUEST the theme's art" without also
     /// asking whether a generated PNG happens to exist next to the test binary.
-    fn packaged_catalog() -> SandboxAssetCatalog {
+    fn packaged_catalog() -> AmbitionGameAssetCatalog {
         let manifest = ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites");
-        SandboxAssetCatalog::new(
+        AmbitionGameAssetCatalog::new(
             ambition_asset_manager::AmbitionAssetCatalog::new(manifest),
             AssetProfile::AndroidBundle,
         )

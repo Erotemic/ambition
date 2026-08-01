@@ -213,7 +213,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
 /// registry it fills is generic.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
 ) {
     if registry.initialized {
         return;
@@ -249,7 +249,7 @@ pub fn grant_pirate_treasure_reward(inventory: &mut OwnedItems) -> String {
 /// quests that need rewards on completion can extend the match.
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut inventory: ResMut<OwnedItems>,
     mut banner_state: ResMut<GameplayBanner>,
 ) {

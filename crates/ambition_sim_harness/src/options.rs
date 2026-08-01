@@ -1,10 +1,10 @@
-//! Construction, timestep, and GGRS rollback options for `SandboxSim`.
+//! Construction, timestep, and GGRS rollback options for `Platformer2dSimHarness`.
 
-/// Construction options for `SandboxSim`. Builder-style so future
+/// Construction options for `Platformer2dSimHarness`. Builder-style so future
 /// knobs (RNG seed, ability set override, debug overlays) drop in
-/// without breaking callers that take `SandboxSimOptions::default()`.
+/// without breaking callers that take `Platformer2dSimHarnessOptions::default()`.
 #[derive(Clone, Debug, Default)]
-pub struct SandboxSimOptions {
+pub struct Platformer2dSimHarnessOptions {
     pub timestep: TimestepMode,
     /// Optional starting room id (matches the visible binary's
     /// `--start-room` flag). When `Some`, looked up against
@@ -19,7 +19,7 @@ pub struct SandboxSimOptions {
     /// prove exactly that: a suite parameterized over both modes is N0.1's exit
     /// check.
     ///
-    /// When set, each `SandboxSim::step` advances exactly one sim tick: the
+    /// When set, each `Platformer2dSimHarness::step` advances exactly one sim tick: the
     /// frame dt handed to Bevy is pinned to the `Time<Fixed>` timestep, so the
     /// accumulator expends once and only once.
     pub fixed_tick: bool,
@@ -29,7 +29,7 @@ pub struct SandboxSimOptions {
     pub rollback: RollbackMode,
 }
 
-impl SandboxSimOptions {
+impl Platformer2dSimHarnessOptions {
     /// Builder: set the timestep mode.
     pub fn with_timestep(mut self, timestep: TimestepMode) -> Self {
         self.timestep = timestep;

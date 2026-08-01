@@ -15,12 +15,12 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 use ambition_platformer2d::encounter::{Encounter, EncounterLifecycle, EncounterPhase, SwitchActivation};
 use ambition_content::encounters::{SYMMETRY_ATTUNEMENT_FLAG, SYMMETRY_ATTUNEMENT_ID};
 
-fn attunement_phase(sim: &mut SandboxSim) -> EncounterPhase {
+fn attunement_phase(sim: &mut Platformer2dSimHarness) -> EncounterPhase {
     let mut q = sim
         .world_mut()
         .try_query::<(&Encounter, &EncounterLifecycle)>()
@@ -31,7 +31,7 @@ fn attunement_phase(sim: &mut SandboxSim) -> EncounterPhase {
         .expect("the attunement authority exists")
 }
 
-fn flip_kernel_face(sim: &mut SandboxSim, switch_id: &str, action: &str) {
+fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &str) {
     sim.world_mut()
         .write_message(ambition_platformer2d::actors::features::SwitchActivated {
             activation: SwitchActivation {
@@ -45,10 +45,10 @@ fn flip_kernel_face(sim: &mut SandboxSim, switch_id: &str, action: &str) {
 
 #[test]
 fn the_noether_attunement_completes_through_the_generic_path() {
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_start_room("symmetry_room");
-    let mut sim = SandboxSim::new_with_options(opts).expect("symmetry_room boots");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("symmetry_room boots");
 
     // Entering the chamber starts the puzzle (content emits Start; the
     // generic reducer flips it Active — no content code touches the phase).
@@ -85,7 +85,7 @@ fn the_noether_attunement_completes_through_the_generic_path() {
     assert_eq!(attunement_phase(&mut sim), EncounterPhase::Completed);
     let save = sim
         .world()
-        .resource::<ambition_platformer2d::persistence::save::SandboxSave>();
+        .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
     assert!(
         save.data().flag(SYMMETRY_ATTUNEMENT_FLAG),
         "completion pays out through the generic Completed event"

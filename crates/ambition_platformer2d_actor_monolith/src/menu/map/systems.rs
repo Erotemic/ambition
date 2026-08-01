@@ -11,7 +11,7 @@ pub fn track_room_visits(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     mut map: ResMut<MapMenuState>,
     mut last: Local<Option<String>>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
     let current = room_set.active_spec().id.clone();
     if last.as_deref() == Some(current.as_str()) {
@@ -24,7 +24,7 @@ pub fn track_room_visits(
 }
 
 pub fn sync_map_from_save(
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut map: ResMut<MapMenuState>,
     mut hydrated: Local<bool>,
 ) {
@@ -40,7 +40,7 @@ pub fn sync_map_from_save(
 }
 
 pub fn populate_map_rooms(
-    project: Res<crate::ldtk_world::SandboxLdtkProject>,
+    project: Res<crate::ldtk_world::AmbitionGameLdtkProject>,
     mut map: ResMut<MapMenuState>,
 ) {
     if !map.rooms.is_empty() {

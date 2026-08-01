@@ -294,7 +294,7 @@ impl Plugin for AmbitionBossContentPlugin {
             gate_gnu_ton_arena_ladder
                 .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
                 .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

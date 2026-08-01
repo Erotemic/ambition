@@ -6,7 +6,7 @@
 //!
 //! The save point is two systems, and it was neither of them until 2026-07-27.
 //! [`heal_save_shrine_system`] records a [`PersistedCheckpoint`] — room id plus
-//! position — into `SandboxSave`, which the value-comparing autosave then commits
+//! position — into `AmbitionGameSave`, which the value-comparing autosave then commits
 //! to disk. [`restore_checkpoint_on_session_start`] puts the body back there when
 //! a session opens in that room.
 //!
@@ -75,7 +75,7 @@ pub fn heal_save_shrine_system(
     room_set: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
@@ -154,7 +154,7 @@ pub fn heal_save_shrine_system(
 /// already placed, so a later room transition does not yank the player back to the
 /// shrine they woke up at.
 pub fn restore_checkpoint_on_session_start(
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,

@@ -27,7 +27,7 @@ ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_input = { path = "../ambition_input" }
 # SfxMessage / SfxId / cue ids for the typewriter blips + markup accents.
 ambition_sfx = { path = "../ambition_sfx" }
-# SandboxSave for the bridge's per-node visit-count bookkeeping + MenuTapMode.
+# AmbitionGameSave for the bridge's per-node visit-count bookkeeping + MenuTapMode.
 ambition_persistence = { path = "../ambition_persistence" }
 # `ui_api` carries the windowing + time + ecs + observer surface the systems
 # and bridge use, transitively (ui_api -> default_app -> bevy_window). Matches

@@ -6,7 +6,7 @@
 //! The composition here is deliberately minimal and content-free — a single
 //! empty room seeded as the session world — so the proof is about the *seam*, not
 //! about any particular game's content. Ambition's own 30+ behavior/oracle suites
-//! exercise the same `SandboxSim` with the full Ambition composition (via
+//! exercise the same `Platformer2dSimHarness` with the full Ambition composition (via
 //! `ambition_app::rl_sim::AmbitionSim`).
 
 use ambition_platformer2d::engine_core as ae;
@@ -14,14 +14,14 @@ use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::lifecycle::insert_session_world_component;
 use ambition_platformer2d::world::rooms::{RoomSet, RoomSpec};
 
-use ambition_sim_harness::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_sim_harness::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 /// Compose a bare one-room session onto the harness App: seed the session
 /// `RoomSet` the observation reads, and register the `ControlFrame` the stepper
 /// writes. No content crate, no product shell — only reusable engine APIs.
 fn compose_minimal_room(
     app: &mut bevy::prelude::App,
-    _options: &SandboxSimOptions,
+    _options: &Platformer2dSimHarnessOptions,
 ) -> Result<(), String> {
     let world = ae::World::new(
         "harness_room",
@@ -41,7 +41,7 @@ fn compose_minimal_room(
 
 #[test]
 fn a_minimal_sim_runs_through_the_harness_without_the_product_shell() {
-    let mut sim = SandboxSim::build(SandboxSimOptions::default(), compose_minimal_room)
+    let mut sim = Platformer2dSimHarness::build(Platformer2dSimHarnessOptions::default(), compose_minimal_room)
         .expect("the harness composes a minimal sim");
 
     // The seeded session is observable through the harness read-model.
@@ -64,7 +64,7 @@ fn a_minimal_sim_runs_through_the_harness_without_the_product_shell() {
 
 #[test]
 fn reset_episode_drives_the_harness_reset_edge() {
-    let mut sim = SandboxSim::build(SandboxSimOptions::default(), compose_minimal_room)
+    let mut sim = Platformer2dSimHarness::build(Platformer2dSimHarnessOptions::default(), compose_minimal_room)
         .expect("the harness composes a minimal sim");
     sim.step(AgentAction::default());
     // reset_episode presses the in-sim reset edge and drains it; it returns a

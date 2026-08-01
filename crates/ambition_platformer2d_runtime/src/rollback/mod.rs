@@ -235,7 +235,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
             "resource.input_stream_recorder",
         )
         .rollback_resource_canonical::<ambition_time::ClockState>(ENGINE, "resource.clock_state")
-        .rollback_resource_clone::<ambition_persistence::save::SandboxSave>(
+        .rollback_resource_clone::<ambition_persistence::save::AmbitionGameSave>(
             ENGINE,
             "resource.sandbox_save",
         )

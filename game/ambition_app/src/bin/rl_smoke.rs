@@ -1,11 +1,11 @@
-//! Smoke test: visit every room in the sandbox via SandboxSim and run
+//! Smoke test: visit every room in the sandbox via Platformer2dSimHarness and run
 //! a small random-walker policy for a fixed number of steps. Catches
 //! regressions where a specific room panics on construction (LDtk
 //! validation, encounter/boss registry init, IntGrid layer parsing,
 //! …) or under any random input combination.
 //!
-//! For each room id (returned by `SandboxSim::room_ids`):
-//! 1. Build a fresh `SandboxSim` starting in that room (fixed-60Hz).
+//! For each room id (returned by `Platformer2dSimHarness::room_ids`):
+//! 1. Build a fresh `Platformer2dSimHarness` starting in that room (fixed-60Hz).
 //! 2. Run an LCG-seeded random policy for `steps` ticks.
 //! 3. Assert: HP stays in [0, hp_max], position stays finite + bounded.
 //! 4. Report per-room max distance from spawn + final HP.
@@ -23,15 +23,15 @@
 //! ```
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AmbitionSim, RandomWalkPolicy, SandboxSim, SandboxSimOptions};
+use ambition_app::{AmbitionSim, RandomWalkPolicy, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String> {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room(room_id),
     )
-    .map_err(|e| format!("room '{room_id}': SandboxSim::new failed: {e}"))?;
+    .map_err(|e| format!("room '{room_id}': Platformer2dSimHarness::new failed: {e}"))?;
     let initial = sim.observation();
     if initial.active_room != room_id {
         // start_room override falls back to authored start when the id
@@ -154,7 +154,7 @@ fn main() {
     let filter = parse_rooms_filter(&args);
 
     // Build a sim once just to enumerate the room ids.
-    let scout = SandboxSim::new().expect("SandboxSim::new should succeed");
+    let scout = Platformer2dSimHarness::new().expect("Platformer2dSimHarness::new should succeed");
     let all_room_ids = scout.room_ids();
     drop(scout);
 

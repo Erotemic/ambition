@@ -88,7 +88,7 @@ fn synthetic_alice_relay_project() -> ambition_platformer2d_actor_monolith::worl
 #[test]
 fn lock_wall_compute_returns_block_when_flag_clear() {
     let project = synthetic_alice_relay_project();
-    let save = ambition_persistence::save_data::SandboxSaveData::default();
+    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
     assert_eq!(walls.len(), 1, "expected one lock wall");
     let (id, min, size) = &walls[0];
@@ -102,7 +102,7 @@ fn lock_wall_compute_returns_block_when_flag_clear() {
 #[test]
 fn lock_wall_compute_drops_block_when_flag_set() {
     let project = synthetic_alice_relay_project();
-    let mut save = ambition_persistence::save_data::SandboxSaveData::default();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     save.set_flag("bob_field_survey_received", true);
     let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
     assert!(walls.is_empty(), "expected no lock walls after unlock");
@@ -114,7 +114,7 @@ fn lock_wall_compute_drops_block_when_flag_set() {
 #[test]
 fn lock_wall_compute_skips_other_rooms() {
     let project = synthetic_alice_relay_project();
-    let save = ambition_persistence::save_data::SandboxSaveData::default();
+    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
     assert!(walls.is_empty(), "expected no lock walls for inactive room");
 }
@@ -138,7 +138,7 @@ fn lock_wall_compute_ignores_unregistered_ids() {
             real_editor_values: vec![serde_json::Value::Null],
         }];
     }
-    let save = ambition_persistence::save_data::SandboxSaveData::default();
+    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
     assert!(
         walls.is_empty(),
@@ -171,11 +171,11 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
     use crate::quest::QuestRegistry;
     use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
-    use ambition_persistence::save::SandboxSave;
+    use ambition_persistence::save::AmbitionGameSave;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
     app.add_message::<SetFlagRequested>();
     app.add_systems(
@@ -185,7 +185,7 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 
     // Pre-condition: trigger flag set, target flag clear.
     app.world_mut()
-        .resource_mut::<SandboxSave>()
+        .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_flag("bob_field_survey_received", true);
 
@@ -194,14 +194,14 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
     // it the same frame because of `.chain()` ordering.
     app.update();
 
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(
         save.data().flag("map_private_marks_unlocked"),
         "chained flag should be set after one update"
     );
     // Idempotency: a second tick must not emit a redundant SetFlag.
     app.update();
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("map_private_marks_unlocked"));
 }
 
@@ -214,11 +214,11 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
     use ambition_platformer2d_actor_monolith::features::{apply_flag_effects, apply_quest_effects};
     use ambition_platformer2d_actor_monolith::features::{QuestAdvanceRequested, SetFlagRequested};
-    use ambition_persistence::save::SandboxSave;
+    use ambition_persistence::save::AmbitionGameSave;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameSave::default());
     let mut registry = QuestRegistry::default();
     for spec in default_quest_specs() {
         registry.ensure(spec);
@@ -260,7 +260,7 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     // chain promotion landed in save + bus same-frame; the quest
     // step condition watches FlagSet("alice_route_note_carried").
     app.world_mut()
-        .resource_mut::<SandboxSave>()
+        .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_flag("alice_route_note_carried", true);
     app.world_mut().resource_mut::<QuestRegistry>().push_event(
@@ -275,7 +275,7 @@ fn cartography_quest_advances_through_alice_bob_p5() {
 
     // Step 2: bob's field survey.
     app.world_mut()
-        .resource_mut::<SandboxSave>()
+        .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_flag("bob_field_survey_received", true);
     app.world_mut().resource_mut::<QuestRegistry>().push_event(
@@ -283,12 +283,12 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     );
     app.update();
     assert_eq!(step(&app), 2, "after bob survey, quest should be at step 2");
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("map_private_marks_unlocked"));
 
     // Step 3: P5 route memory.
     app.world_mut()
-        .resource_mut::<SandboxSave>()
+        .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_flag("intro_p5_route_memory_received", true);
     app.world_mut().resource_mut::<QuestRegistry>().push_event(
@@ -300,7 +300,7 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     let registry = app.world().resource::<QuestRegistry>();
     let q = registry.quests.get("intro_cartography_route").unwrap();
     assert!(q.is_complete(), "after P5 pickup, quest should be complete");
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("route_memory_received"));
 }
 
@@ -312,11 +312,11 @@ fn emit_chains_promotes_p5_to_route_memory() {
     use crate::quest::QuestRegistry;
     use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
-    use ambition_persistence::save::SandboxSave;
+    use ambition_persistence::save::AmbitionGameSave;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(QuestRegistry::default());
     app.add_message::<SetFlagRequested>();
     app.add_systems(
@@ -325,31 +325,31 @@ fn emit_chains_promotes_p5_to_route_memory() {
     );
 
     app.world_mut()
-        .resource_mut::<SandboxSave>()
+        .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_flag("intro_p5_route_memory_received", true);
     app.update();
 
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("route_memory_received"));
 }
 
 /// **The wall cache must observe the PROJECT, not just save + room.** A hot
-/// reload that swaps `SandboxLdtkProject` under an unchanged room id and save
+/// reload that swaps `AmbitionGameLdtkProject` under an unchanged room id and save
 /// state used to keep serving walls computed from the replaced project — the
 /// invalidation checked `save.is_changed()` and the room string only.
 #[test]
 fn lock_walls_recompute_when_the_project_resource_changes() {
     use ambition_platformer2d_actor_monolith::rooms::{RoomSet, RoomSpec};
-    use ambition_platformer2d_actor_monolith::world::ldtk_world::SandboxLdtkProject;
+    use ambition_platformer2d_actor_monolith::world::ldtk_world::AmbitionGameLdtkProject;
     use ambition_platformer2d_core as ae;
-    use ambition_persistence::save::SandboxSave;
+    use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
-    app.insert_resource(SandboxLdtkProject(synthetic_alice_relay_project()));
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameLdtkProject(synthetic_alice_relay_project()));
+    app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(FeatureEcsWorldOverlay::default());
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -403,7 +403,7 @@ fn lock_walls_recompute_when_the_project_resource_changes() {
     // Replace the project with one that has NO lock wall — same room id, same
     // save state. Only the project resource changes.
     {
-        let mut project = app.world_mut().resource_mut::<SandboxLdtkProject>();
+        let mut project = app.world_mut().resource_mut::<AmbitionGameLdtkProject>();
         project.0.levels[0].layer_instances[0]
             .entity_instances
             .clear();

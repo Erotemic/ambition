@@ -1,12 +1,12 @@
 //! Random-walker RL driver for the Ambition sandbox.
 //!
-//! Drives `SandboxSim` with a small LCG-seeded random policy so the
+//! Drives `Platformer2dSimHarness` with a small LCG-seeded random policy so the
 //! simulation gets exercised without a human at the keyboard. Useful as:
 //!
 //! - **Fuzz harness** — a long random walk surfaces movement / collision
 //!   bugs that don't show up in scripted tests (sticky walls, OOB
 //!   teleports, mid-air-stuck states, etc.).
-//! - **End-to-end SandboxSim demonstration** — one of the simplest
+//! - **End-to-end Platformer2dSimHarness demonstration** — one of the simplest
 //!   possible RL agents you can write against the Ambition step API.
 //!   The policy here is `epsilon=1.0` random — replace `RandomWalkPolicy`
 //!   with a learned policy and you're training.
@@ -22,7 +22,7 @@
 //! room, hp, total resets, dash count, jump count, max distance from
 //! spawn).
 
-use ambition_app::{AgentObservation, AmbitionSim, RandomWalkPolicy, SandboxSim};
+use ambition_app::{AgentObservation, AmbitionSim, RandomWalkPolicy, Platformer2dSimHarness};
 
 #[derive(Default, Clone, Copy)]
 struct RunStats {
@@ -38,10 +38,10 @@ struct RunStats {
 }
 
 fn run_random_walk(steps: u32, seed: u64) {
-    let mut sim = match SandboxSim::new() {
+    let mut sim = match Platformer2dSimHarness::new() {
         Ok(sim) => sim,
         Err(error) => {
-            eprintln!("rl_random_walker: failed to construct SandboxSim: {error}");
+            eprintln!("rl_random_walker: failed to construct Platformer2dSimHarness: {error}");
             std::process::exit(1);
         }
     };

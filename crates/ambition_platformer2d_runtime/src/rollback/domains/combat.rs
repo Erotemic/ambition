@@ -216,7 +216,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "feature.collected",
     );
-    app.rollback_component_clone::<ambition_combat::components::SandboxSolidContributor>(
+    app.rollback_component_clone::<ambition_combat::components::PlatformerWorldSolidContributor>(
         OWNER,
         "feature.sandbox_solid_contributor",
     );

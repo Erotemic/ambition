@@ -120,7 +120,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   snapshotted, read nowhere; stale `AttackSpec.damage_override` comment) —
   logged in `dev/journals/code_smells.md`, not wired.
 - ✅ Keyboard-preset authority (`b10e45fbb`): `UserSettings.controls
-  .keyboard_preset_index` is the one source; `SandboxDevState.preset_index`
+  .keyboard_preset_index` is the one source; `AmbitionGameDeveloperState.preset_index`
   DELETED (it had no writer — the picker was a no-op).
 - ✅ Portal composition + gate (`e4edd4acb`): host `portal` forwards
   `ambition_platformer2d_runtime/portal`; `demo_shell_smoke` 6/6 under `portal_render`;
@@ -219,7 +219,7 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   caught (Bevy counts insertion as a change, so the mirror's defaults
   stomped authored tuning on frame one) is fixed and poison-tested.
   **LATER K1 completion** (unchanged, NOT done): deleting the
-  `ambition_dev_tools` dep from actors/runtime still needs `SandboxDevState`,
+  `ambition_dev_tools` dep from actors/runtime still needs `AmbitionGameDeveloperState`,
   `EditableAbilitySet`, the schedule sets, and profiling hooks evicted.
 - ✅ **K2a world-manifest parameterization** (opus, 2026-07-21). The
   `OnceLock`, `install_world_manifest`, the free `world_manifest()` accessor,
@@ -331,12 +331,12 @@ this section is the bounded first wave, not a restatement. Vocabulary note
      selection + `SfxEmissionContext` on activation.
   5. **This is where the actual work is:** `headless.rs:124`,
      `rl_sim/mod.rs:64`, `bin/capture_scene.rs:143` add only
-     `SandboxSimulationPlugin` and get their root for free at build time. They
+     `AmbitionGameSimulationPlugin` and get their root for free at build time. They
      must compose the shell and **settle N frames until the world exists**.
 
   **Two risks, both structural:**
   - **sync→async.** ~35 integration files behind `tests/common/mod.rs` +
-    `SandboxSim` (`rl_sim/mod.rs:64`), plus `run_headless`
+    `Platformer2dSimHarness` (`rl_sim/mod.rs:64`), plus `run_headless`
     (`headless.rs:137-142` `.expect("active session RoomSet")`), do
     `App::new(); …; update(); read_the_world()`. After the migration the root
     exists only after the load barrier reaches `Ready` and all 8 preparation

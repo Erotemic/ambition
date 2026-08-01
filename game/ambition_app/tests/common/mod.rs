@@ -8,7 +8,7 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 /// A fully-neutral action; build scenario inputs with struct update:
 /// `AgentAction { move_x: 1.0, ..base() }`.
@@ -57,23 +57,23 @@ pub fn hold_right() -> AgentAction {
 }
 
 /// Fixed-60Hz options in the default start room.
-pub fn fixed_60hz_options() -> SandboxSimOptions {
-    SandboxSimOptions::default().with_timestep(TimestepMode::fixed_60hz())
+pub fn fixed_60hz_options() -> Platformer2dSimHarnessOptions {
+    Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz())
 }
 
 /// Fixed-60Hz options for a named start room.
-pub fn fixed_60hz_room_options(room: &str) -> SandboxSimOptions {
+pub fn fixed_60hz_room_options(room: &str) -> Platformer2dSimHarnessOptions {
     fixed_60hz_options().with_start_room(room)
 }
 
 /// Fixed-60Hz simulation in the default start room.
-pub fn fixed_60hz_sim() -> SandboxSim {
-    SandboxSim::new_with_options(fixed_60hz_options()).expect("SandboxSim::new")
+pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(fixed_60hz_options()).expect("Platformer2dSimHarness::new")
 }
 
 /// Fixed-60Hz simulation for a named start room.
-pub fn fixed_60hz_room_sim(room: &str) -> SandboxSim {
-    SandboxSim::new_with_options(fixed_60hz_room_options(room)).expect("SandboxSim::new")
+pub fn fixed_60hz_room_sim(room: &str) -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room)).expect("Platformer2dSimHarness::new")
 }
 
 #[cfg(feature = "portal")]
@@ -85,7 +85,7 @@ use ambition_platformer2d::portal::PlacedPortal;
 /// linked portals are assigned generated `Indexed` channels, so tests should not
 /// assume the old Purple/Yellow channels remain on the live `PlacedPortal`s.
 #[cfg(feature = "portal")]
-pub fn authored_portal_pairs(sim: &mut SandboxSim) -> Vec<(PlacedPortal, PlacedPortal)> {
+pub fn authored_portal_pairs(sim: &mut Platformer2dSimHarness) -> Vec<(PlacedPortal, PlacedPortal)> {
     let mut q = sim.world_mut().query::<&PlacedPortal>();
     let world = sim.world();
     let mut portals: Vec<PlacedPortal> = q
@@ -115,7 +115,7 @@ pub fn authored_portal_pairs(sim: &mut SandboxSim) -> Vec<(PlacedPortal, PlacedP
 
 /// First live authored pair in deterministic left-to-right/top-to-bottom order.
 #[cfg(feature = "portal")]
-pub fn first_authored_portal_pair(sim: &mut SandboxSim) -> (PlacedPortal, PlacedPortal) {
+pub fn first_authored_portal_pair(sim: &mut Platformer2dSimHarness) -> (PlacedPortal, PlacedPortal) {
     authored_portal_pairs(sim)
         .into_iter()
         .next()
@@ -125,7 +125,7 @@ pub fn first_authored_portal_pair(sim: &mut SandboxSim) -> (PlacedPortal, Placed
 /// First floor-to-floor authored pair, used by tests that must exercise a floor
 /// carve instead of a wall/ceiling portal.
 #[cfg(feature = "portal")]
-pub fn first_floor_authored_portal_pair(sim: &mut SandboxSim) -> (PlacedPortal, PlacedPortal) {
+pub fn first_floor_authored_portal_pair(sim: &mut Platformer2dSimHarness) -> (PlacedPortal, PlacedPortal) {
     authored_portal_pairs(sim)
         .into_iter()
         .find(|(entry, exit)| entry.normal.y < -0.5 && exit.normal.y < -0.5)

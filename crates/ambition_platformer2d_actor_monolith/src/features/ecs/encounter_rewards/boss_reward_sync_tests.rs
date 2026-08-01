@@ -9,7 +9,7 @@
 //! a normal wrapper system can drive the helper.
 use super::*;
 use crate::boss_encounter::{BossEncounterRegistry, BossProfile};
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::PersistedEncounterState;
 use bevy::prelude::{App, Resource, Update};
 
@@ -20,7 +20,7 @@ struct TestAnchors(Vec<(String, String, ae::Vec2)>);
 
 fn run_boss_sync(
     mut commands: Commands,
-    save: Res<SandboxSave>,
+    save: Res<AmbitionGameSave>,
     registry: Res<BossEncounterRegistry>,
     world: Res<TestWorld>,
     anchors: Res<TestAnchors>,
@@ -48,7 +48,7 @@ fn run_boss_sync(
 
 fn app() -> App {
     let mut app = App::new();
-    let mut save = SandboxSave::default();
+    let mut save = AmbitionGameSave::default();
     save.data_mut()
         .set_boss("test_boss", PersistedEncounterState::Cleared);
     app.insert_resource(save);

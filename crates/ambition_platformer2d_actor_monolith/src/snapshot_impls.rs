@@ -320,7 +320,7 @@ impl SnapshotState for crate::session::reset::SandboxResetRequested {
     }
 }
 
-impl SnapshotState for crate::SandboxSimState {
+impl SnapshotState for crate::AmbitionGameSessionState {
     fn encode(&self, out: &mut Vec<u8>) {
         put_f32(out, self.room_transition_cooldown);
     }

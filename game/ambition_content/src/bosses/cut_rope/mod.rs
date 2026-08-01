@@ -160,7 +160,7 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 /// passes the cut-rope boss placement ids currently in the room to clear.
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
-    save: Option<&mut ambition_persistence::save::SandboxSave>,
+    save: Option<&mut ambition_persistence::save::AmbitionGameSave>,
     music_request: Option<&mut ambition_encounter::EncounterMusicRequest>,
     placement_ids: &[String],
 ) {
@@ -200,7 +200,7 @@ pub fn reset_cut_rope_boss_attempt(
 pub fn reset_cut_rope_attempt_on_replay(
     mut replay_requests: MessageReader<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
     registry: Res<BossEncounterRegistry>,
-    mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
+    mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ambition_encounter::EncounterMusicRequest>,
     >,

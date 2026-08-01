@@ -61,7 +61,7 @@ pub fn body_snapshot(
 
 /// Records one [`ActorTraceFrame`] per Update tick: a snapshot of every body
 /// with a [`ae::BodyKinematics`], each classified for OOB against the same
-/// augmented world the player tick uses. Runs in `SandboxSet::Trace` (after
+/// augmented world the player tick uses. Runs in `Platformer2dSimulationPhase::Trace` (after
 /// `CoreSimulation`) so it captures resolved post-integration positions.
 #[allow(clippy::too_many_arguments)]
 pub fn record_actor_oob_frame_system(

@@ -27,7 +27,7 @@
 //!
 //! Per the migration design, the "what verbs / functions /
 //! markup can authored dialogue invoke" surface lives here as a
-//! single source of truth. Couples to `SandboxSave`, `SfxMessage`,
+//! single source of truth. Couples to `AmbitionGameSave`, `SfxMessage`,
 //! `GameplayEffect`, etc. — that's the bridge's whole job.
 
 //! The generic binding machinery (the [`YarnStateMirror`] shape, the
@@ -35,7 +35,7 @@
 //! [`ambition_dialog::YarnBindingsPlugin`]) lives in the reusable `ambition_dialog` crate (E1c).
 //! This module keeps only Ambition's game-specific vocabulary — the commands
 //! and functions that touch actor/save state — and the per-frame refresh that
-//! fills the mirror from `SandboxSave`. It registers on the runtime through the
+//! fills the mirror from `AmbitionGameSave`. It registers on the runtime through the
 //! installer seam via [`install_game_bindings`].
 
 use std::sync::Arc;
@@ -45,7 +45,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 
 use crate::features::SetFlagRequested;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 
@@ -63,19 +63,19 @@ pub fn install_game_bindings(
     register_functions(runner, mirror);
 }
 
-/// Per-frame refresh: copy the relevant slices of [`SandboxSave`]
+/// Per-frame refresh: copy the relevant slices of [`AmbitionGameSave`]
 /// into the mirror so Yarn functions read consistent values for the
 /// duration of a single tick. Runs unconditionally — cheap because
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
-    save: Option<Res<SandboxSave>>,
+    save: Option<Res<AmbitionGameSave>>,
     owned: Option<Res<crate::items::OwnedItems>>,
     wallet: Query<&ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     snap.wallet_balance = wallet.iter().next().map(|w| w.balance).unwrap_or(0);
-    // Inventory is a live ECS resource, not part of `SandboxSave`;
+    // Inventory is a live ECS resource, not part of `AmbitionGameSave`;
     // refresh it independently (and before the save early-return) so
     // `inventory_has(...)` reflects pickups even in a save-less sandbox.
     snap.inventory_counts.clear();
@@ -563,7 +563,7 @@ mod tests {
         assert_eq!(snap.inventory_counts.get("healthcell").copied(), Some(3));
         assert!(mirror_inventory_has(&snap, "HealthPotion"));
         assert!(mirror_inventory_has(&snap, "SpareBattery"));
-        // Inventory must populate even though there is no SandboxSave
+        // Inventory must populate even though there is no AmbitionGameSave
         // (the save early-return runs only after the inventory slice).
         assert!(snap.flags.is_empty());
     }

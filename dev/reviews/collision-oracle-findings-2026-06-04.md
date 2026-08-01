@@ -9,7 +9,7 @@ with a precise repro list instead of flying around by hand.
 ## What it is
 
 `crates/ambition_platformer2d_actor_monolith/tests/collision_invariant_oracle.rs` — a fuzz-driven
-per-tick invariant checker over the deterministic `SandboxSim`. Each tick it
+per-tick invariant checker over the deterministic `Platformer2dSimHarness`. Each tick it
 reads the player's live AABB + the room's Solid collision world and flags:
 
 - **EMBEDDED-IN-SOLID** — player center sits inside a Solid block (the

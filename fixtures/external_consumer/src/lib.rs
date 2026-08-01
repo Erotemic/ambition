@@ -436,7 +436,7 @@ impl Plugin for OutlanderExperiencePlugin {
         // names a literal schedule, so the same system runs under the fixed
         // tick and a GGRS host alike.
         {
-            use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
+            use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
@@ -451,7 +451,7 @@ impl Plugin for OutlanderExperiencePlugin {
                     ridge_gate_system,
                 )
                     .chain()
-                    .in_set(SandboxSet::PlayerSimulation),
+                    .in_set(Platformer2dSimulationPhase::PlayerSimulation),
             );
         }
         // The consumer's own authoritative state joins the rollback contract

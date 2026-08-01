@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::SandboxSimState;
+use ambition_platformer2d_actor_monolith::AmbitionGameSessionState;
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
@@ -357,10 +357,10 @@ fn commit_transition(
     if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
         dialogue.close();
     }
-    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::SandboxDevState>() {
+    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::AmbitionGameDeveloperState>() {
         dev_state.preset_flash = 1.0;
     }
-    if let Some(mut sim_state) = world.get_resource_mut::<SandboxSimState>() {
+    if let Some(mut sim_state) = world.get_resource_mut::<AmbitionGameSessionState>() {
         sim_state.room_transition_cooldown = if edge_exit { edge_cd } else { door_cd };
     }
 

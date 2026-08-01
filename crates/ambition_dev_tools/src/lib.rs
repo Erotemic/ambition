@@ -111,13 +111,13 @@ pub fn sync_live_player_dev_edits_system(
 /// persisted setting is the ONE authority; input-owning callers map it through
 /// `ambition_input::KeyboardPreset::by_index`.
 #[derive(Resource)]
-pub struct SandboxDevState {
+pub struct AmbitionGameDeveloperState {
     pub debug: bool,
     pub slowmo: bool,
     pub preset_flash: f32,
 }
 
-impl Default for SandboxDevState {
+impl Default for AmbitionGameDeveloperState {
     fn default() -> Self {
         Self {
             debug: false,
@@ -127,7 +127,7 @@ impl Default for SandboxDevState {
     }
 }
 
-impl SandboxDevState {
+impl AmbitionGameDeveloperState {
     pub fn debug_enabled(&self) -> bool {
         self.debug
     }
@@ -139,6 +139,6 @@ mod sandbox_dev_state_tests {
 
     #[test]
     fn debug_overlay_defaults_off_for_every_game() {
-        assert!(!SandboxDevState::default().debug);
+        assert!(!AmbitionGameDeveloperState::default().debug);
     }
 }

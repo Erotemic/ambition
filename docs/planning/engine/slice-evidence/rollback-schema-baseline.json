@@ -348,7 +348,7 @@
   ],
   "stable_schema_name_count": 324,
   "encoded_types": [
-    "ambition_platformer2d_actor_monolith::SandboxSimState",
+    "ambition_platformer2d_actor_monolith::AmbitionGameSessionState",
     "ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState",
     "ambition_platformer2d_actor_monolith::character_runtime::ActiveMatch",
     "ambition_platformer2d_actor_monolith::character_runtime::MatchSeat",

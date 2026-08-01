@@ -42,11 +42,11 @@ use super::{
 pub fn populate_encounter_registry(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     mut registry: ResMut<EncounterRegistry>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     // Optional: a RON-only app (demo shell, generated rooms) installs no
     // LDtk project — that's an empty encounter set, not an error. (W4 will
     // route encounter loading through RoomEmission instead of the project.)
-    project: Option<Res<crate::ldtk_world::SandboxLdtkProject>>,
+    project: Option<Res<crate::ldtk_world::AmbitionGameLdtkProject>>,
 ) {
     if registry.specs_loaded {
         return;
@@ -123,7 +123,7 @@ pub fn drive_wave_encounters(
         &mut EncounterWaves,
         &mut EncounterParticipants,
     )>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
@@ -425,7 +425,7 @@ pub fn apply_wave_encounter_effects(
         Option<&EncounterWaves>,
         Option<&EncounterParticipants>,
     )>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,

@@ -19,14 +19,14 @@
 //! (keyed off the body's current position, before collision), so the body sinks
 //! straight through carrying its momentum.
 //!
-//! Driven through the public SandboxSim API, asserting only on observed player
+//! Driven through the public Platformer2dSimHarness API, asserting only on observed player
 //! position / velocity / on-ground / reset counter.
 
 use crate::common::{base, first_floor_authored_portal_pair};
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 struct BounceStats {
     died_at: Option<usize>,
@@ -34,10 +34,10 @@ struct BounceStats {
 }
 
 fn run_bounce(dt: f32) -> BounceStats {
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt })
         .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
 
     let spawn = sim.observation().player_pos;
 
@@ -117,10 +117,10 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
         16.0_f32, 50.0, 13.0, 33.0, 16.0, 45.0, 11.0, 40.0, 25.0, 50.0,
     ];
 
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt: 1.0 / 60.0 })
         .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
 
     let spawn = sim.observation().player_pos;
 
@@ -208,10 +208,10 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     const SPIKE_DT: f32 = 0.050; // Jon's measured worst frame (~20 FPS hitch)
     const DROPS: usize = 8;
 
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt: SMALL_DT })
         .with_start_room("portal_lab");
-    let mut sim = SandboxSim::new_with_options(opts).expect("SandboxSim::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
     sim.step(base());
 
     // Drops happen onto the first live floor-to-floor authored pair.
@@ -221,7 +221,7 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     };
 
     // Teleport the primary player to `pos` with zero velocity.
-    let place_player = |sim: &mut SandboxSim, pos: Vec2| {
+    let place_player = |sim: &mut Platformer2dSimHarness, pos: Vec2| {
         let mut q = sim
             .world_mut()
             .query_filtered::<&mut BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>();

@@ -17,7 +17,7 @@ use ambition_platformer2d::actors::actor::PrimaryPlayerOnly;
 use ambition_platformer2d::engine_core::MovementOp;
 use ambition_app::app::PlayerBodyFrameOutput;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 fn primary_player(world: &mut World) -> Entity {
@@ -33,8 +33,8 @@ fn primary_player(world: &mut World) -> Entity {
 /// **This is half of netcode N0.1's exit check** — see `actor_phase_split.rs`.
 /// The body runs both frame-stepped (`Update`) and fixed-tick (`FixedUpdate`).
 fn player_handoff_seam_holds(fixed_tick: bool) {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(fixed_tick),
     )

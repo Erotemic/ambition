@@ -12,7 +12,7 @@
 //! - the host's own reset-INPUT system (Ambition's
 //!   `apply_player_reset_input_system`) pins
 //!   `.after(DevEditApplySet).before(input_timer_system)`
-//!   in `SandboxSet::PlayerInput`. Its former chain partner, the
+//!   in `Platformer2dSimulationPhase::PlayerInput`. Its former chain partner, the
 //!   `RoomReplayRequested` consumer, is engine-side as of 2026-07-21 —
 //!   see [`crate::sandbox_reset`];
 //! - the home-reset/presentation pair (`apply_home_reset_policy`,
@@ -28,7 +28,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, PlayerSimulationSet, SandboxSet};
+use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, PlayerSimulationSet, Platformer2dSimulationPhase};
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_allowed, gameplay_suspended};
 
 /// Registers the engine-generic player frame (see module docs). Part of
@@ -69,7 +69,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Ordering subtleties (ADR 0010 §"Suspended time"):
         // * `apply_suspended_time_scale_system` runs FIRST so when gameplay
         //   is suspended (pause / dialogue / cutscene / room transition) the
-        //   sim_clock target and `SandboxSimState::time_scale` are zeroed
+        //   sim_clock target and `AmbitionGameSessionState::time_scale` are zeroed
         //   BEFORE `refresh_world_time` snapshots them.
         // * `refresh_world_time` snapshots whichever path won — the
         //   suspended-zero fallback this frame, or the clock-request tail of
@@ -93,7 +93,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime,
             )
                 .chain()
-                .in_set(SandboxSet::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         // ── Frame tail: the time-control pipeline ─────────────────────────
@@ -134,8 +134,8 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(SandboxSet::ResetProcessing)
-                .before(SandboxSet::FeatureViewSync),
+                .after(Platformer2dSimulationPhase::ResetProcessing)
+                .before(Platformer2dSimulationPhase::FeatureViewSync),
         );
 
         // The dev-tools DOMAIN set (its systems live in `DevToolsSimPlugin`;
@@ -146,7 +146,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             ambition_dev_tools::DevEditApplySet
                 .after(ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime)
-                .in_set(SandboxSet::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         // ── PlayerInput, part B: input → controlled subject → brains ──────
@@ -286,7 +286,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet
-                .in_set(SandboxSet::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         // Universal-brain effects resolver — AFTER `WorldPrep` so it observes
@@ -302,8 +302,8 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(SandboxSet::WorldPrep)
-                .before(SandboxSet::PlayerSimulation),
+                .after(Platformer2dSimulationPhase::WorldPrep)
+                .before(Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // ── PlayerSimulation: possession + hit events ──────────────────────
@@ -353,7 +353,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::control::cleanup_timers_system,
             )
                 .chain()
-                .in_set(SandboxSet::PresentationSync),
+                .in_set(Platformer2dSimulationPhase::PresentationSync),
         );
     }
 }

@@ -106,7 +106,7 @@ mutable truth is being hidden.
 | **Simulation assembly** | `ambition_platformer2d_runtime` | headless-safe plugin composition and global schedule-set ordering |
 | **Platformer provider lifecycle** | `ambition_platformer2d_provider` | typed preparation, exact activation, session construction, cleanup |
 | **Windowed host** | `ambition_platformer2d_host` | device/window/presentation composition above the runtime |
-| **Programmatic harness** | `ambition_sim_harness` (landed) | reset/step, typed actions, observations, reward/termination adapters; `SandboxSim::build` takes a caller-supplied composition so it links no product shell |
+| **Programmatic harness** | `ambition_sim_harness` (landed) | reset/step, typed actions, observations, reward/termination adapters; `Platformer2dSimHarness::build` takes a caller-supplied composition so it links no product shell |
 | **SDK facade** | `ambition_platformer2d` | curated re-exports and convenient composition, not substantive lifecycle implementation |
 
 ### Tier 6 — games and providers

@@ -13,7 +13,7 @@ use ambition_content::content_validation;
 
 use super::cli::cli_start_room_arg;
 
-/// Programmatic start-room override. SandboxSim and other library
+/// Programmatic start-room override. Platformer2dSimHarness and other library
 /// callers insert this resource before `init_sandbox_resources` runs;
 /// the function consumes it (taking precedence over the
 /// `--start-room` CLI flag) so callers do not need to manipulate
@@ -74,7 +74,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let world_manifest = ambition_content::worlds::world_manifest();
     app.insert_resource(world_manifest.clone());
 
-    let sandbox_data = data::SandboxDataSpec::load_embedded();
+    let sandbox_data = data::AmbitionGameGameplaySpec::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
     let (music_registry, sfx_registry) = {
@@ -136,7 +136,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .cloned()
         .unwrap_or_default();
 
-    // Build the singleton SandboxAssetCatalog before anything else asks
+    // Build the singleton AmbitionGameAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
     // sandbox flows through this — LDtk, SFX bank, fonts, sprites,
     // music. Consumes the music registry so music-track ids land in the
@@ -210,7 +210,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             sandbox_init_failed();
         }
     };
-    // Programmatic override (SandboxSim / library callers) takes
+    // Programmatic override (Platformer2dSimHarness / library callers) takes
     // precedence over the CLI flag. Either one resolving by id wins;
     // the other is silently ignored. If neither matches, the LDtk
     // project's authored start room stays active.
@@ -228,7 +228,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // and collapsing them meant `--start-room` — which the README documents by
     // example — silently booted somewhere else (2026-07-29).
     //
-    // * a PROGRAMMATIC override comes from a library caller (`SandboxSim`, the RL
+    // * a PROGRAMMATIC override comes from a library caller (`Platformer2dSimHarness`, the RL
     //   harness) that may legitimately name a room outside this composition;
     //   falling back is the tolerant, correct answer.
     // * the CLI FLAG was typed, just now, by somebody who wanted that room. The
@@ -295,7 +295,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         starting_character: starting_character.clone(),
     });
 
-    app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
+    app.insert_resource(ldtk_world::AmbitionGameLdtkProject(ldtk_project.clone()))
         .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
             &sandbox_catalog,
             &world_manifest,
@@ -340,7 +340,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(EditablePlayerStats::default())
         .insert_resource(SandboxFeelTuning::default())
         // The OwnedItems catalog is simulation state, not only presentation UI
-        // state. Headless SandboxSim runs quest reward systems (which grant into
+        // state. Headless Platformer2dSimHarness runs quest reward systems (which grant into
         // OwnedItems) without loading `add_presentation_plugins`, so the resource
         // must exist before the first Update tick.
         .insert_resource(ambition_platformer2d::items::OwnedItems::starter())

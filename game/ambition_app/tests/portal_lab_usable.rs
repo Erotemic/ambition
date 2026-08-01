@@ -9,7 +9,7 @@
 //! Station A is a linked ground↔ground authored pair at x≈300 / x≈600 on the floor.
 //! Walking the player right across the entry portal must produce a TELEPORT —
 //! a single-frame position jump far larger than walking speed — which only the
-//! portal transfer can do. Driven through the public SandboxSim API, asserting
+//! portal transfer can do. Driven through the public Platformer2dSimHarness API, asserting
 //! only on observed player position.
 
 use crate::common::{base, fixed_60hz_room_sim};

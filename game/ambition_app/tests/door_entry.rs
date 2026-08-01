@@ -25,19 +25,19 @@
 //! this existed, as nothing else.
 
 use ambition_platformer2d::engine_core::AabbExt;
-use ambition_app::{AgentAction, SandboxSim};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use bevy::prelude::With;
 
 use crate::common::{base, fixed_60hz_sim};
 
 /// The active room's id, as the sim reports it.
-fn active_room(sim: &mut SandboxSim) -> String {
+fn active_room(sim: &mut Platformer2dSimHarness) -> String {
     sim.observation().active_room.clone()
 }
 
 /// Stand the controlled body in the centre of an authored `Door` zone of the
 /// active room, and report the zone's name. `None` when the room authors none.
-fn stand_in_a_door(sim: &mut SandboxSim) -> Option<String> {
+fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
     let door = {
         let world = sim.world_mut();
         let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
@@ -314,10 +314,10 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
 #[cfg(feature = "rl_sim")]
 #[test]
 fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
-    use ambition_app::rl_sim::{AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+    use ambition_app::rl_sim::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             // A rollback host: this is what puts `ConfirmedFrameBoundary` in the
             // world and sends the transition down the DEFERRED branch.

@@ -11,7 +11,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
-use ambition_asset_manager::sandbox_assets::SandboxAssetCatalog;
+use ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog;
 
 #[derive(Resource, Clone, Debug)]
 pub struct LdtkHotReloadState {
@@ -25,7 +25,7 @@ pub struct LdtkHotReloadState {
     /// Local filesystem path the watcher polls, when both the active
     /// asset profile and the resolved LDtk location support filesystem
     /// hot reload (resolved via
-    /// `SandboxAssetCatalog::hot_reload_local_path`, private to
+    /// `AmbitionGameAssetCatalog::hot_reload_local_path`, private to
     /// `crate::assets::sandbox_assets`).
     /// `None` for bundled / web / embedded profiles — the watcher is
     /// effectively disabled there.
@@ -53,7 +53,7 @@ impl LdtkHotReloadState {
     /// both report `supports_hot_reload`. Otherwise the state stays
     /// idle and `poll_ldtk_file_changes` short-circuits.
     pub fn from_catalog(
-        catalog: &SandboxAssetCatalog,
+        catalog: &AmbitionGameAssetCatalog,
         manifest: &super::manifest::WorldManifest,
     ) -> Self {
         let mut state = Self::default();

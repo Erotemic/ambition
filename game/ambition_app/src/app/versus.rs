@@ -709,8 +709,8 @@ pub fn compose_versus_experience(app: &mut App) {
 
     // `Update`, NOT the sim schedule.
     //
-    // The first draft put this in `SandboxSet::PlayerInput`, and its own test
-    // caught the consequence: every `SandboxSet` is nested inside
+    // The first draft put this in `Platformer2dSimulationPhase::PlayerInput`, and its own test
+    // caught the consequence: every `Platformer2dSimulationPhase` is nested inside
     // `GameplaySimulationRoot`, which carries the session gate, so leaving
     // gameplay switches OFF the system whose job is to clean up after leaving
     // gameplay. The roster survived, and the next game the player picked would
@@ -745,7 +745,7 @@ mod stage_rule_tests {
         app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
-        // The projection normally runs in `SandboxSet::WorldPrep`; here it runs
+        // The projection normally runs in `Platformer2dSimulationPhase::WorldPrep`; here it runs
         // straight after the declarer, which is the same ORDER and all these
         // tests need. Asserting on the resolved value rather than on a global is
         // the whole point of AE6 — a test that read the baseline would be

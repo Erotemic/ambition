@@ -335,7 +335,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    `ActorSurfaceState.{on_ground,air_jumps}` → `BodyGroundState`/`BodyJumpState`. One
    authority per body-fact. 🟢 **Phase C (payoff VERIFICATION) DONE (2026-06-30):**
    - **C1 — possession in-game, end-to-end.** `tests/possession_end_to_end.rs` drives REAL
-     inputs through `SandboxSim::step`: hold Down+Interact ~2s next to an actor → it becomes
+     inputs through `Platformer2dSimHarness::step`: hold Down+Interact ~2s next to an actor → it becomes
      `Possessed` + flips to the player's faction; `move_x` then drives the POSSESSED body
      through its OWN update path (`tick_player_brain_from_control` → `ActorControlFrame` →
      `update_ecs_actors`) while the player's own body is frozen (`player_body_tick` gated
@@ -604,7 +604,7 @@ Every later step must move toward convergence, never away:
 - Perception: `ambition_characters::perception` (`WorldView`, `WorldMemory`,
   `build_world_view`).
 - The proven seam: `ambition_app/src/app/player_clone.rs`, `player::clone_probe_tests`.
-- Verify in the real sim: `SandboxSim::new_with_options(..).step(AgentAction)`;
+- Verify in the real sim: `Platformer2dSimHarness::new_with_options(..).step(AgentAction)`;
   `ambition_app/tests/*`. Detailed specs: `docs/systems/actors-brains-and-character-content.md`,
   `docs/recipes/extending-brains-and-action-sets.md`, `docs/adr/0016-actor-unification.md`.
 

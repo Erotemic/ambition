@@ -9,7 +9,7 @@
 /// one or two `world.resource()` reads per tick, which is negligible.
 #[derive(Clone, Debug)]
 pub struct AgentObservation {
-    /// Number of `app.update()` calls since `SandboxSim::new`. The first
+    /// Number of `app.update()` calls since `Platformer2dSimHarness::new`. The first
     /// observation (after `new()`) returns `tick = 0`; the first `step`
     /// returns `tick = 1`.
     pub tick: u64,

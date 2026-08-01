@@ -210,7 +210,7 @@ title: hub_guide__test_flag
 <<else>>
     Kernel Guide: The save mirror reads kernel_guide_demo_flag = FALSE.
 <<endif>>
-Kernel Guide: The mirror refreshes once per frame from SandboxSave.flags. Toggle the flag here, return to the test menu, then come back to see the readback flip.
+Kernel Guide: The mirror refreshes once per frame from AmbitionGameSave.flags. Toggle the flag here, return to the test menu, then come back to see the readback flip.
 -> Set the flag.
     <<set_flag "kernel_guide_demo_flag">>
     <<jump hub_guide__test>>
@@ -282,7 +282,7 @@ title: hub_guide__test_visit
 <<if visit_count("hub_guide") == 1>>
     Kernel Guide: visit_count("hub_guide") returned 1. First conversation this save.
 <<else>>
-    Kernel Guide: visit_count("hub_guide") returned more than 1. The counter pulls live from SandboxSaveData.dialog_visits — incremented every time DialogState.start fires with that id.
+    Kernel Guide: visit_count("hub_guide") returned more than 1. The counter pulls live from AmbitionGameSaveData.dialog_visits — incremented every time DialogState.start fires with that id.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>

@@ -41,7 +41,7 @@
 //! all. A commit that changes an encoding and does not bump it produces two
 //! peers that disagree about a snapshot while every test here is green.
 
-use ambition_app::{AmbitionSim, SandboxSim, TimestepMode};
+use ambition_app::{AmbitionSim, Platformer2dSimHarness, TimestepMode};
 
 /// Where the recorded schema lives. Text, and committed, because reading the
 /// diff is the point.
@@ -49,8 +49,8 @@ const BASELINE: &str = include_str!("rollback_schema_baseline.txt");
 
 #[test]
 fn the_rollback_schema_matches_its_recorded_baseline() {
-    let sim = SandboxSim::new_with_options(
-        ambition_app::rl_sim::SandboxSimOptions::default()
+    let sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("sandbox sim builds");
@@ -104,12 +104,12 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
 #[test]
 fn the_schema_is_the_same_from_a_second_build() {
     let dump = |room: Option<&str>| {
-        let mut options = ambition_app::rl_sim::SandboxSimOptions::default()
+        let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz());
         if let Some(room) = room {
             options = options.with_start_room(room);
         }
-        let sim = SandboxSim::new_with_options(options).expect("sandbox sim builds");
+        let sim = Platformer2dSimHarness::new_with_options(options).expect("sandbox sim builds");
         sim.world()
             .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
             .expect("rollback registry is installed")

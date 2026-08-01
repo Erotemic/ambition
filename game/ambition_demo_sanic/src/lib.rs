@@ -1016,14 +1016,14 @@ impl Plugin for SanicRulesPlugin {
             take_the_controls_at_the_goal,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::tick_player_brains)
             .before(ambition_platformer2d::actors::avatar::gate_worn_player_control);
         // AFTER the gate: read Sanic's spin-dash rev from the sanctioned technique
         // edge the gate resolved — the fragile before-gate `melee_pressed`
         // interception window is GONE (a plain melee edge is no longer the API).
         let sanic_post_gate = ball_dash::capture_ball_dash_input
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::gate_worn_player_control);
         if self.hosted {
             app.add_systems(
@@ -1045,7 +1045,7 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(
                 sim,
                 sync_hosted_sanic_wallet_shield
-                    .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+                    .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
                     // D7: the PHASE, not the leaf. A provider ordering against
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
@@ -1056,7 +1056,7 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(
                 sim,
                 sync_sanic_wallet_shield
-                    .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerInput)
+                    .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
                     // D7: the PHASE, not the leaf. A provider ordering against
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
@@ -1093,26 +1093,26 @@ impl Plugin for SanicRulesPlugin {
             cycle_act_after_clear,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
         let milestone_sfx = emit_sanic_milestone_sfx
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
         // The badnik defeat runs BEFORE the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
         let badniks = badnik::defeat_badniks
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
             .before(ambition_platformer2d::actors::features::apply_actor_contact_damage);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::PlayerSimulation)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerSimulation)
             .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
         // The scattered-ring burst flies out BETWEEN the coin magnet and the
         // collect: it owns each ring's position during the lock so the magnet
         // can't reclaim it, and collect then sees the ring out at its arc rather
         // than on top of the knocked-back body.
         let scatter_arc = arc_scattered_rings
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::FeatureCollection)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureCollection)
             .after(ambition_platformer2d::actors::features::magnetize_pickups)
             .before(ambition_platformer2d::actors::features::collect_ecs_pickups);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
@@ -1126,9 +1126,9 @@ impl Plugin for SanicRulesPlugin {
             monitors::tick_speed_shoes,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
-            .in_set(ambition_platformer2d::platformer::schedule::SandboxSet::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
             .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)));

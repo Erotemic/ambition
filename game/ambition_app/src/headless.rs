@@ -1,8 +1,8 @@
 //! Headless simulation entry point.
 //!
 //! `run_headless` drives the full gameplay loop by adding
-//! `SandboxSimulationPlugin`. The visible binary uses `run_visible` which
-//! additionally adds `SandboxLdtkPlugin` and `SandboxPresentationPlugin`.
+//! `AmbitionGameSimulationPlugin`. The visible binary uses `run_visible` which
+//! additionally adds `AmbitionGameLdtkPlugin` and `AmbitionGamePresentationPlugin`.
 //! Headless skips the presentation half so audio, VFX, debris, HUD, and
 //! inspector plugins are absent — the sim emits messages into the queue
 //! and the queue drains harmlessly.
@@ -15,7 +15,7 @@ use std::fmt;
 
 use bevy::prelude::*;
 
-use crate::app::SandboxSimulationPlugin;
+use crate::app::AmbitionGameSimulationPlugin;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms::RoomSet;
 
@@ -95,7 +95,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // the process on failure; tests want a structured error instead.
     // Validate the embedded world before constructing the App. Provider-owned
     // character, hostile-archetype, boss, and audio catalogs are composed as
-    // App-local resources by `SandboxSimulationPlugin`.
+    // App-local resources by `AmbitionGameSimulationPlugin`.
     let world_manifest = ambition_content::worlds::world_manifest();
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate();
@@ -121,7 +121,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // headless entry point.
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
 
-    app.add_plugins(SandboxSimulationPlugin);
+    app.add_plugins(AmbitionGameSimulationPlugin);
 
     for _ in 0..max_ticks {
         app.update();

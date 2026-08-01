@@ -6,7 +6,7 @@
 //! tests in `portal.rs`; this proves the LDtk content (PortalGunSpawn + walls +
 //! death strip) wires up to it: pick up the gun, fire a portal on the far wall and
 //! one on the floor, and teleport across the death strip — all driven through the
-//! public `SandboxSim` action/observation API, asserting only on player position
+//! public `Platformer2dSimHarness` action/observation API, asserting only on player position
 //! (so it's robust to internal component layout).
 //!
 //! Sequence: walk onto the gun (Attack to grab) → step clear of the entry door →

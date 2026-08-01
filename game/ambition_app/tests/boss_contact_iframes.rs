@@ -11,10 +11,10 @@
 //! want a clear, reproducible record of (and may later want to change).
 //!
 //! Harness:
-//!   * `SandboxSim` (fixed 60 Hz, deterministic) boots the full sim.
-//!   * `SandboxSim::spawn_boss_at` drops the mockingbird at the player via
+//!   * `Platformer2dSimHarness` (fixed 60 Hz, deterministic) boots the full sim.
+//!   * `Platformer2dSimHarness::spawn_boss_at` drops the mockingbird at the player via
 //!     the new `SpawnActorRequest` seam — no LDtk authoring required.
-//!   * `SandboxSim::grant_flight` lets the player free-fly toward the boss.
+//!   * `Platformer2dSimHarness::grant_flight` lets the player free-fly toward the boss.
 //!   * Each frame steers the `ControlFrame` toward the live boss center and
 //!     records pos / distance / in-box / i-frame timers / hp / contact hits.
 //!
@@ -32,7 +32,7 @@ use ambition_platformer2d::encounter::EncounterParticipants;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -124,7 +124,7 @@ fn boss_contact_hits(world: &World) -> usize {
 #[test]
 fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // Survive the whole run so hp only ever moves downward (one delta per
     // landed hit) — no respawn to confuse the trace.
@@ -334,7 +334,7 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
 #[test]
 fn face_tanking_player_swings_back_and_is_recoil_locked() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     boost_player_health(sim.world_mut(), 1000);
     sim.grant_flight();
@@ -554,7 +554,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
     use ambition_platformer2d::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     // Two mockingbirds, far enough apart that neither is on top of the other.
@@ -654,7 +654,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
 #[test]
 fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     sim.spawn_boss_at(

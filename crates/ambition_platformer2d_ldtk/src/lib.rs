@@ -12,7 +12,7 @@
 //!
 //! - `project` — JSON deserialization types ([`LdtkProject`],
 //!   [`LdtkLevel`], [`LdtkLayerInstance`], [`LdtkEntityInstance`],
-//!   [`LdtkFieldInstance`], [`SandboxLdtkProject`]).
+//!   [`LdtkFieldInstance`], [`AmbitionGameLdtkProject`]).
 //! - `loading` — file-loading policy
 //!   ([`LdtkProject::load_default`] (catalog-aware),
 //!   [`LdtkProject::load_default_for_dev`] (no-catalog test/headless
@@ -61,7 +61,7 @@ pub use ambition_platformer2d_world::ron_room::{
 pub use manifest::{world_bevy_asset_path, RonRoomSource, WorldManifest, WorldSource};
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
-    SandboxLdtkProject,
+    AmbitionGameLdtkProject,
 };
 pub use surfaces::{
     compile_surface, LdtkSurfaceSpec, SurfaceBreakability, SurfaceCollision, SurfaceCompiled,
@@ -296,13 +296,13 @@ impl LdtkProject {
     }
 
     /// Cross-validate level `music_track` fields against the catalog of
-    /// audio-side track ids loaded from `SandboxDataSpec`. Returns one
+    /// audio-side track ids loaded from `AmbitionGameGameplaySpec`. Returns one
     /// warning per (level, unknown_id) pair so the user can see all
     /// typos in a single startup pass instead of debugging room-by-room.
     ///
     /// Lives here (not on `validate()`) because the LDtk validator must
     /// stay self-contained — the audio catalog is only known once
-    /// `SandboxDataSpec` is loaded. Callers (visible binary's
+    /// `AmbitionGameGameplaySpec` is loaded. Callers (visible binary's
     /// `init_sandbox_resources`, headless tests) wire both halves.
     pub fn music_track_warnings<'a, I>(&self, valid_track_ids: I) -> Vec<String>
     where

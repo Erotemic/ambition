@@ -14,7 +14,7 @@
 //! The existing `shell_cycle.rs` proves *entity* isolation. This test adds the
 //! dimension that campaign targets: the process-global resource mirrors that the
 //! entity sweep does not touch (`MovingPlatformSet`, `PossessionState`,
-//! `ControlledSubject`, `EncounterRegistry`, `SandboxSimState`) — the ones that
+//! `ControlledSubject`, `EncounterRegistry`, `AmbitionGameSessionState`) — the ones that
 //! used to retain dangling `Entity` handles across a teardown.
 
 use bevy::prelude::*;

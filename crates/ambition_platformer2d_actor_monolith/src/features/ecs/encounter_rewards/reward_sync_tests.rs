@@ -10,7 +10,7 @@
 use super::*;
 use crate::encounter::EncounterSpec;
 use ambition_interaction::PickupKind;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use bevy::prelude::{App, Resource, Update};
 
 /// The cleared encounters' `(id, spec)` pairs the reward sync consumes now that
@@ -35,7 +35,7 @@ fn cleared_encounters() -> ClearedEncounters {
 
 fn run_sync(
     mut commands: Commands,
-    save: Res<SandboxSave>,
+    save: Res<AmbitionGameSave>,
     cleared: Res<ClearedEncounters>,
     chests: Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
 ) {
@@ -50,7 +50,7 @@ fn run_sync(
 
 fn app() -> App {
     let mut app = App::new();
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(cleared_encounters());
     app.add_systems(Update, run_sync);
     app

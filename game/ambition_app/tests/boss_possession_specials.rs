@@ -12,7 +12,7 @@
 //! the content technique (with the possessor's effective Player faction) and projects
 //! the read-model. Capability is body data; the human is the policy choosing from it.
 //!
-//! This pins, driving REAL inputs through `SandboxSim::step`:
+//! This pins, driving REAL inputs through `Platformer2dSimHarness::step`:
 //! 1. A ~2s Down+Interact hold next to a boss possesses it (its brain becomes
 //!    `Brain::Player`), without mutating its authored `Boss` faction.
 //! 2. Pressing Attack fires a geometry strike through the moveset (R1.4 — possession
@@ -33,7 +33,7 @@ use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackStat
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_platformer2d::vfx::HitSide;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";
@@ -51,7 +51,7 @@ fn boss_entity(world: &mut World) -> Entity {
         .expect("the spawned boss is present")
 }
 
-fn possessed(sim: &mut SandboxSim) -> Option<Entity> {
+fn possessed(sim: &mut Platformer2dSimHarness) -> Option<Entity> {
     sim.world_mut().resource::<PossessionState>().possessed
 }
 
@@ -78,7 +78,7 @@ fn down_interact(edge: bool) -> AgentAction {
 /// `[HandSlam, HandSweep, HeadDescent, ConvergingShockwave, Special("apple_rain")]`
 /// — a geometry primary (slot 0) AND a content signature special, so both
 /// mapping arms are exercised.
-fn spawn_and_possess_boss(sim: &mut SandboxSim) -> Entity {
+fn spawn_and_possess_boss(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         BOSS_ID,
@@ -108,7 +108,7 @@ fn spawn_and_possess_boss(sim: &mut SandboxSim) -> Entity {
 
 /// Idle until the boss's strike window closes, so a fresh press isn't ignored
 /// mid-strike (the active window is the body's fire-rate enforcement, I3).
-fn wait_out_strike(sim: &mut SandboxSim, boss: Entity) {
+fn wait_out_strike(sim: &mut Platformer2dSimHarness, boss: Entity) {
     for _ in 0..200 {
         if active_profile(sim.world_mut(), boss).is_none() {
             return;
@@ -125,7 +125,7 @@ fn wait_out_strike(sim: &mut SandboxSim, boss: Entity) {
 #[test]
 fn possessed_boss_commands_its_authored_specials_and_release_restores_the_pattern() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let boss = spawn_and_possess_boss(&mut sim);
 
     // The boss's authored repertoire is present as body capability, surviving the

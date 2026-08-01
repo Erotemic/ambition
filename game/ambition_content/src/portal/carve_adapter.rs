@@ -19,7 +19,7 @@ use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHo
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
 /// Runs in `PortalSet::Carves`, after `publish_portal_carves` (which fills
-/// [`PortalCarves`]) and before `SandboxSet::CoreSimulation` consumes the overlay
+/// [`PortalCarves`]) and before `Platformer2dSimulationPhase::CoreSimulation` consumes the overlay
 /// via `world_with_sandbox_solids`. The copy clears and refills
 /// `portal_carves` so a frame with no transiting body re-seals the host wall,
 /// exactly as the old in-core write did.

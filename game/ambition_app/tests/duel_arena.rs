@@ -3,7 +3,7 @@
 //! the basement door into it.
 //!
 //! This is the "start a room and see how the sim plays out" test for the advanced
-//! fighter brain. It builds the full `SandboxSim` app with `start_room =
+//! fighter brain. It builds the full `Platformer2dSimHarness` app with `start_room =
 //! "duel_arena"`, so the room's normal registry-backed placement path →
 //! the content `RoomLoaded` stager) auto-stages the fight — a Perfect Cell-ular
 //! Automaton vs a robot copy of the player, both plain `Npc`s holding a mutual
@@ -28,7 +28,7 @@ use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
 use bevy::prelude::World;
 
@@ -189,8 +189,8 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 #[test]
 fn resetting_the_room_restages_the_duel_fighters_fresh() {
     use ambition_platformer2d::actors::actor::BodyKinematics as Kin;
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("duel_arena"),
     )
@@ -258,8 +258,8 @@ fn resetting_the_room_restages_the_duel_fighters_fresh() {
 
 #[test]
 fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("duel_arena"),
     )
@@ -291,8 +291,8 @@ fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
 /// user reported ("I don't see any shield, dash, or blink, fly").
 #[test]
 fn duel_fighters_actually_enact_their_abilities_on_the_body() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("duel_arena"),
     )
@@ -384,8 +384,8 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
 /// the duel drains HP toward a resolution.
 #[test]
 fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("duel_arena"),
     )

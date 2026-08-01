@@ -4,7 +4,7 @@
 //! The existing `fuzz_random_walker` asserts only "no panic / no NaN / alive"
 //! and *deliberately permits* collision violations. This harness adds the
 //! missing per-step invariant oracle on top of the same deterministic
-//! `SandboxSim`: each tick it reads the player's live AABB and the room's
+//! `Platformer2dSimHarness`: each tick it reads the player's live AABB and the room's
 //! collision world and flags
 //!   - **EmbeddedInSolid** — the player center sits inside a Solid block (the
 //!     "teleported into a wall" / clipped-through signature),
@@ -35,7 +35,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
+use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 // --- the oracle ---
 
@@ -183,7 +183,7 @@ struct SolidBlock {
 ///
 /// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
-fn solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
+fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
     let Some(room) =
         ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
@@ -214,7 +214,7 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
 /// The one-way platforms of the room the sim is in, with their identities. Read
 /// from the AUTHORED geometry: a portal never carves a one-way (only solid host
 /// kinds are carved for a body's benefit, and a one-way is not a host).
-fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
+fn one_ways(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
     let Some(room) =
         ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
@@ -236,7 +236,7 @@ fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
 /// body that slipped into the host wall through a *different* portal's hole
 /// reads as "not in a solid" there. Against the authored wall it reads as what
 /// it is.
-fn authored_solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
+fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
     let Some(room) =
         ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
     else {
@@ -259,7 +259,7 @@ fn authored_solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
 }
 
 /// The player's entity, so the Class-B ledger can be read per body.
-fn player_entity(sim: &mut SandboxSim) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
+fn player_entity(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
     use ambition_platformer2d::bevy::prelude::{Entity, With};
     let mut q = sim
         .world_mut()
@@ -277,7 +277,7 @@ fn player_entity(sim: &mut SandboxSim) -> Option<ambition_platformer2d::bevy::pr
 /// same `pieces::carve_hole` that `publish_portal_carves` pushes, so the oracle
 /// tests against the exact geometry the sim carved.
 #[cfg(feature = "portal")]
-fn straddled_carve(sim: &mut SandboxSim) -> Option<ae::Aabb> {
+fn straddled_carve(sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
     use ambition_platformer2d::bevy::prelude::With;
     use ambition_platformer2d::portal::{find_portal, PlacedPortal, PortalTransit};
 
@@ -298,7 +298,7 @@ fn straddled_carve(sim: &mut SandboxSim) -> Option<ae::Aabb> {
 }
 
 #[cfg(not(feature = "portal"))]
-fn straddled_carve(_sim: &mut SandboxSim) -> Option<ae::Aabb> {
+fn straddled_carve(_sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
     None
 }
 
@@ -309,7 +309,7 @@ fn straddled_carve(_sim: &mut SandboxSim) -> Option<ae::Aabb> {
 /// the TELEPORT false positive: a body the transit authority legally warped did
 /// not "pop".
 fn class_b_remaps(
-    sim: &SandboxSim,
+    sim: &Platformer2dSimHarness,
     body: Option<ambition_platformer2d::bevy::prelude::Entity>,
 ) -> Vec<ambition_platformer2d::platformer::class_b::ClassBRemap> {
     let (Some(log), Some(body)) = (
@@ -324,7 +324,7 @@ fn class_b_remaps(
 
 /// The player's live body: center, velocity, half-extent. The oracle needs the
 /// half-height to know where its FEET are, and the velocity for invariant 4.
-fn player_body(sim: &mut SandboxSim) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
+fn player_body(sim: &mut Platformer2dSimHarness) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
     use ambition_platformer2d::bevy::prelude::With;
     let mut q = sim.world_mut().query_filtered::<
         &ambition_platformer2d::actors::actor::BodyKinematics,
@@ -648,10 +648,10 @@ fn run_episode(
     steps: u64,
     zones: &std::collections::HashMap<String, Vec<ae::Aabb>>,
 ) -> (Vec<Violation>, u64, u32) {
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_start_room(start_room);
-    let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
+    let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {
         return (Vec::new(), 0, 0);
     };
     let mut policy = RandomWalkPolicy::traversal_stress(seed);
@@ -919,10 +919,10 @@ fn oob_classifies_through_wall_vs_open_edge() {
 #[test]
 #[ignore = "diagnostic trace — run with --ignored --nocapture"]
 fn trace_oob_under_town_pipes() {
-    let opts = SandboxSimOptions::default()
+    let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_start_room("under_town_pipes");
-    let mut sim = SandboxSim::new_with_options(opts).expect("sim");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("sim");
     let mut policy = RandomWalkPolicy::traversal_stress(1);
     let mut prev = sim.observation().player_pos;
     for tick in 1..=110u64 {
@@ -1012,8 +1012,8 @@ fn collision_oracle_smoke() {
 #[test]
 #[ignore = "diagnostic catalog — run with --ignored --nocapture; surfaces deferred OOB bugs"]
 fn collision_oracle_full_sweep() {
-    let rooms = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("SandboxSim::new should succeed")
+    let rooms = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("Platformer2dSimHarness::new should succeed")
         .room_ids();
     assert!(
         !rooms.is_empty(),
@@ -1519,8 +1519,8 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
 fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
     const OVERLAP_MARGIN: f32 = 1.0;
 
-    let rooms = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("SandboxSim::new should succeed")
+    let rooms = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("Platformer2dSimHarness::new should succeed")
         .room_ids();
     assert!(!rooms.is_empty(), "no rooms — the measurement is vacuous");
 
@@ -1530,10 +1530,10 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
         std::collections::BTreeMap::new();
 
     for room in &rooms {
-        let opts = SandboxSimOptions::default()
+        let opts = Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room(room);
-        let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
+        let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {
             continue;
         };
         let mut policy = RandomWalkPolicy::traversal_stress(42);

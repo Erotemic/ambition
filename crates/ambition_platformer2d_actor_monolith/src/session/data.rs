@@ -2,7 +2,7 @@
 //!
 //! The goal of this module is to keep tuning/audio iteration data in RON while
 //! still letting the current code synthesize assets at startup. `bevy_common_assets` registers
-//! `SandboxDataSpec` as a real Bevy asset type; `load_embedded` gives us a
+//! `AmbitionGameGameplaySpec` as a real Bevy asset type; `load_embedded` gives us a
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
 //! Bevy resolves `ambition/sandbox.ron` relative to the sandbox crate asset
@@ -25,12 +25,12 @@ use std::collections::HashSet;
 pub const SANDBOX_DATA_ASSET: &str = "ambition/sandbox.ron";
 
 #[derive(Clone, Debug, Deserialize, Asset, TypePath, Resource)]
-pub struct SandboxDataSpec {
+pub struct AmbitionGameGameplaySpec {
     pub abilities: ae::AbilitySet,
     pub tuning: ae::MovementTuning,
 }
 
-impl SandboxDataSpec {
+impl AmbitionGameGameplaySpec {
     pub fn load_embedded() -> Self {
         ron::from_str(include_str!("../../assets/ambition/sandbox.ron"))
             .expect("embedded assets/ambition/sandbox.ron should parse")
@@ -80,14 +80,14 @@ static TEST_FIXTURE_SFX_REGISTRY: std::sync::LazyLock<SfxRegistry> =
     });
 
 #[derive(Resource, Clone, Debug)]
-pub struct SandboxDataAsset(pub Handle<SandboxDataSpec>);
+pub struct SandboxDataAsset(pub Handle<AmbitionGameGameplaySpec>);
 
-/// Bevy startup system: register a `Handle<SandboxDataSpec>` so the
+/// Bevy startup system: register a `Handle<AmbitionGameGameplaySpec>` so the
 /// asset server keeps the underlying `.ron` alive (and emits hot
 /// reload events under `bevy_dev_hot_reload`).
 ///
 /// Resolves the path through the active
-/// [`crate::assets::sandbox_assets::SandboxAssetCatalog`] when one is
+/// [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`] when one is
 /// installed. The catalog entry
 /// [`crate::assets::sandbox_assets::ids::sandbox_data`] is required, so the
 /// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
@@ -96,7 +96,7 @@ pub struct SandboxDataAsset(pub Handle<SandboxDataSpec>);
 pub fn load_data_asset_handle(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    catalog: Option<Res<crate::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<crate::assets::sandbox_assets::AmbitionGameAssetCatalog>>,
 ) {
     let path = catalog
         .as_ref()

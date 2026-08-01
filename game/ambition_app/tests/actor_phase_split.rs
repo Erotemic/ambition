@@ -25,7 +25,7 @@ use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "phase_split_enemy";
@@ -53,8 +53,8 @@ fn enemy_entity(world: &mut World) -> Entity {
 /// so the graph is the same graph and the phase seam must hold identically. If
 /// threading the label broke an ordering edge, exactly one of these two fails.
 fn brain_intent_seam_holds(fixed_tick: bool) {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(fixed_tick),
     )

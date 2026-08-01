@@ -220,7 +220,7 @@ impl Plugin for PulsePlugin {
             // which is what a pulse is.
             (tick_pulse_cooldowns, fire_pulses)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
     }
 }

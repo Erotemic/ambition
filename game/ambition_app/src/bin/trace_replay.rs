@@ -1,5 +1,5 @@
 //! Replay a recorded `GameplayTraceBuffer` JSON dump through a fresh
-//! `SandboxSim` and compare the resulting trajectory to the recorded
+//! `Platformer2dSimHarness` and compare the resulting trajectory to the recorded
 //! one.
 //!
 //! Use cases:
@@ -34,14 +34,14 @@
 //! The binary reads only the `frames[*].controls` array from the JSON
 //! dump (plus `frames[*].player.pos` for divergence reporting). The
 //! rest of the recorded state is informational; we don't try to
-//! restore world/encounter snapshots, since the SandboxSim starts at
+//! restore world/encounter snapshots, since the Platformer2dSimHarness starts at
 //! the canonical embedded LDtk world spawn.
 
 use std::fs;
 use std::path::PathBuf;
 
 use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{AgentAction, AmbitionSim, SandboxSim};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 
 #[derive(Debug, Default, Clone, Copy)]
 struct RecordedControls {
@@ -202,8 +202,8 @@ fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
         return Err("trace contains zero frames".into());
     }
 
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .map_err(|e| format!("SandboxSim::new failed: {e}"))?;
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .map_err(|e| format!("Platformer2dSimHarness::new failed: {e}"))?;
     let pre_step_pos = sim.observation().player_pos;
     println!(
         "replay start: live pre-step pos=({:.1},{:.1})",

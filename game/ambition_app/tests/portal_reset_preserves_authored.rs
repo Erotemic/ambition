@@ -20,9 +20,9 @@ use crate::common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
 use ambition_platformer2d::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::portal::PlacedPortal;
-use ambition_app::SandboxSim;
+use ambition_app::Platformer2dSimHarness;
 
-fn authored_count(sim: &mut SandboxSim) -> usize {
+fn authored_count(sim: &mut Platformer2dSimHarness) -> usize {
     let mut q = sim.world_mut().query::<&PlacedPortal>();
     let world = sim.world();
     q.iter(world).filter(|p| !p.channel.is_gun_pair()).count()

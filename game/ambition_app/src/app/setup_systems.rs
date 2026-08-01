@@ -29,7 +29,7 @@ pub(crate) struct PresentationCatalogs<'w> {
     /// art instead of identity.
     sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
     bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    assets: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    assets: Res<'w, ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog>,
 }
 
 /// The three App-installed authorities room construction reads: how authored
@@ -273,7 +273,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
 
@@ -383,7 +383,7 @@ pub(crate) fn setup_host_presentation_system(
             },
         )
     });
-    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog =
+    let frozen_catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog =
         &catalogs.assets;
     let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
     let game_assets = actor_game_assets::load_game_assets(

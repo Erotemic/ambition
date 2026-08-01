@@ -4,10 +4,10 @@
 //!
 //! ## Plugin API (preferred)
 //!
-//! * [`SandboxSimulationPlugin`] — all sim resources + systems; safe for
+//! * [`AmbitionGameSimulationPlugin`] — all sim resources + systems; safe for
 //!   headless and visible builds.
-//! * [`SandboxLdtkPlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
-//! * [`SandboxPresentationPlugin`] — input, audio, VFX, HUD, debug; visible only.
+//! * [`AmbitionGameLdtkPlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
+//! * [`AmbitionGamePresentationPlugin`] — input, audio, VFX, HUD, debug; visible only.
 //!
 //! ## Function API (lower-level)
 //!
@@ -45,7 +45,7 @@ pub use ambition_platformer2d::actors::schedule::{
     populate_menu_control_frame_from_actions, MenuNavConsume,
 };
 pub use ambition_platformer2d::actors::schedule::{
-    configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, SandboxSet,
+    configure_sandbox_sets, BossSteerSlot, PresentationSetupSet, Platformer2dSimulationPhase,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::run_visible;
@@ -57,7 +57,7 @@ pub use cli::{
     shared_host_startup_ticks, SharedHostAcceptanceReport, SharedHostHeadlessReport,
     VisibleRenderMode, SHARED_HOST_HEADLESS_TICK_HZ,
 };
-pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
+pub use feedback::{ProgressionResources, AmbitionGameEventWriters};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 // `PlayerBodyFrameOutput` moved to `ambition_platformer2d::actors::avatar` (the movement
@@ -66,8 +66,8 @@ pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
-    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,
-    SandboxPresentationPlugin, SandboxSimulationPlugin,
+    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, AmbitionGameLdtkPlugin,
+    AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
 };
 pub use resources::{
     init_sandbox_resources, StartRoomMustResolve, StartRoomOverride, StartingCharacterOverride,

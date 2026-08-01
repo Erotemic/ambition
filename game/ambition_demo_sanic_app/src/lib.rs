@@ -196,7 +196,7 @@ fn load_sanic_game_assets(
     character_catalog: Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
     boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    catalog: Res<ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalog: Res<ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
@@ -246,8 +246,8 @@ fn install_sanic_audio(app: &mut App) {
     // Use the same engine-owned audio runtime as the multi-game host. The
     // standalone app contributes only its provider catalogs and resident asset
     // library; selection, intent priority, playback state, channels, and the
-    // director are installed once by `SandboxAudioPlugin`.
-    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin)
+    // director are installed once by `AmbitionGameAudioPlugin`.
+    app.add_plugins(ambition_platformer2d::actors::audio::AmbitionGameAudioPlugin)
         .add_systems(
             Startup,
             setup_sanic_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),

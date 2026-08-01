@@ -95,7 +95,7 @@ There is deliberately no CI initiative.
 ### Work
 
 1. Continue the K1 authority removals until developer editing/inspection is an
-   optional adapter rather than runtime setup authority (`SandboxDevState`,
+   optional adapter rather than runtime setup authority (`AmbitionGameDeveloperState`,
    `EditableAbilitySet`, dev-owned schedule sets, and profiling hooks remain).
 2. Only then define explicit supported app configurations:
    - desktop development;
@@ -209,7 +209,7 @@ single activation lifecycle are stable.
 ### Persistence
 
 Reusable actor/dialog/cutscene systems currently depend on Ambition-specific
-`SandboxSave`. `SandboxSaveData.version` exists, but loading does not yet form a
+`AmbitionGameSave`. `AmbitionGameSaveData.version` exists, but loading does not yet form a
 provider-owned migration/rejection contract suitable for another game.
 
 When a real external provider needs persistence:
@@ -217,7 +217,7 @@ When a real external provider needs persistence:
 1. keep file/storage I/O reusable;
 2. move Ambition's payload/schema to Ambition content/provider ownership;
 3. give each provider explicit save identity/version/migration responsibility;
-4. remove one reusable domain's direct `SandboxSave` dependency per slice;
+4. remove one reusable domain's direct `AmbitionGameSave` dependency per slice;
 5. reject unsupported future versions rather than silently accepting them.
 
 ### Items

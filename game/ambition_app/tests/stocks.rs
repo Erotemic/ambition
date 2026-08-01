@@ -1,7 +1,7 @@
 //! **Stocks are a real loop: spend, respawn, eliminate, end the match.** (S4)
 //!
 //! `FighterStocks` was vocabulary with no consumer. This drives the whole loop
-//! through the SHIPPED composition — `SandboxSimulationPlugin`, the real
+//! through the SHIPPED composition — `AmbitionGameSimulationPlugin`, the real
 //! `CombatSet::Settle` ordering, the real messages — rather than a hand-built app
 //! with the two systems in `Update`. The distinction matters here more than
 //! usual: every step of this loop is a system somebody has to have installed, and
@@ -22,7 +22,7 @@ use ambition_platformer2d::combat::stocks::{
     BodyKnockedOut, FighterEliminated, FighterStockSpent, StocksMatchDecided,
 };
 use ambition_platformer2d::combat::targeting::MatchTeam;
-use ambition_app::app::{SandboxSimulationPlugin, StartRoomOverride};
+use ambition_app::app::{AmbitionGameSimulationPlugin, StartRoomOverride};
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -48,7 +48,7 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    app.add_plugins(SandboxSimulationPlugin);
+    app.add_plugins(AmbitionGameSimulationPlugin);
     app.finish();
     app.update();
     // A LIVE match. `decide_stocks_match` refuses to end a match that is not

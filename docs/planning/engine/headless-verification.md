@@ -11,7 +11,7 @@ from any state*. The stance is in [`AGENTS.md`](../../../AGENTS.md); this is the
 The full game runs headless — the real gameplay app with rendering, audio, and
 windowing stripped, the actual systems intact:
 
-- **`SandboxSim::new_with_options(opts).step(AgentAction)`** — build the real app,
+- **`Platformer2dSimHarness::new_with_options(opts).step(AgentAction)`** — build the real app,
   step it one frame with an input, read an `AgentObservation` back. Set state
   (teleport, grant ability, spawn, inject geometry), step N frames, assert on the
   result. This is the substrate.
@@ -23,7 +23,7 @@ windowing stripped, the actual systems intact:
   (`game/ambition_app/tests/app_it.rs`, with `autotests = false`); the ~50 sibling
   `.rs` files are its MODULES, not separate targets. Run a single module with
   `cargo test -p ambition_app --test app_it -- <module_name>`. They drive
-  `SandboxSim` and assert on resulting state.
+  `Platformer2dSimHarness` and assert on resulting state.
 
 > "Can't test it" is almost never true. If the real sim can't be exercised headless
 > from some state, **fixing that is the priority**, never building a proxy. (The
@@ -100,13 +100,13 @@ The sibling capture is `ambition_platformer2d_actor_monolith/examples/render_roo
 ## Pointers
 
 - **`crates/ambition_sim_harness/`** owns the reusable headless surface:
-  `runtime.rs` (`SandboxSim`), `action.rs`, `observation.rs`, `options.rs`,
+  `runtime.rs` (`Platformer2dSimHarness`), `action.rs`, `observation.rs`, `options.rs`,
   `reward.rs`, `random_policy.rs`. The old `ambition_app/src/rl_sim/runtime.rs`
   is gone; `game/ambition_app/src/rl_sim/mod.rs` survives as the thin Ambition
   BINDING — it re-exports the harness and supplies the one product-specific
   piece, the composition that installs Ambition content +
-  `SandboxSimulationPlugin` onto the harness App. A demo or test with different
-  content calls `ambition_sim_harness::SandboxSim::build` with its own
+  `AmbitionGameSimulationPlugin` onto the harness App. A demo or test with different
+  content calls `ambition_sim_harness::Platformer2dSimHarness::build` with its own
   composition and never links the app crate.
 - `game/ambition_app/src/bin/` for the driver binaries.
 - `game/ambition_app/tests/app_it.rs` for the build → step → assert pattern.

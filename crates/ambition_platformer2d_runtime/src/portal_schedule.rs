@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
-use ambition_platformer2d_shared_tangle::schedule::SandboxSet;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_portal2d::PortalSet;
 
@@ -36,7 +36,7 @@ impl Plugin for PortalSchedulePlugin {
             PortalSet::Carves
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                 .after(ambition_platformer2d_actor_monolith::physics::collect_gravity_zones)
-                .before(SandboxSet::CoreSimulation),
+                .before(Platformer2dSimulationPhase::CoreSimulation),
         );
 
         // InputWarp: input rewrite in the player-input phase, after
@@ -45,7 +45,7 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::InputWarp
-                .in_set(SandboxSet::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(ambition_platformer2d_actor_monolith::control::interaction_input_system)
                 .before(ambition_platformer2d_actor_monolith::control::sync_local_player_input_frame)
                 .run_if(gameplay_allowed),
@@ -56,12 +56,12 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::WeaponAndProjectiles
-                .in_set(SandboxSet::PlayerSimulation)
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation)
                 .run_if(gameplay_allowed),
         );
         app.configure_sets(
             sim,
-            PortalSet::WeaponMaintenance.in_set(SandboxSet::PlayerSimulation),
+            PortalSet::WeaponMaintenance.in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // RoomReset: reset-time portal cleanup in the room-transition phase,
@@ -69,7 +69,7 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::RoomReset
-                .in_set(SandboxSet::RoomTransition)
+                .in_set(Platformer2dSimulationPhase::RoomTransition)
                 .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
         );
 
@@ -93,7 +93,7 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::Transit
-                .in_set(SandboxSet::PlayerSimulation)
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation)
                 .after(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems)
                 .run_if(gameplay_allowed),
         );

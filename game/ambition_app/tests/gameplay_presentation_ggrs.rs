@@ -30,7 +30,7 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
 };
 use ambition_app::rl_sim::ambition_sim_composition;
-use ambition_sim_harness::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_sim_harness::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
 const DISPLAY: ae::Vec2 = ae::Vec2::new(2400.0, 1080.0);
 const RESIZED: ae::Vec2 = ae::Vec2::new(1600.0, 1200.0);
@@ -47,9 +47,9 @@ fn window_at(display: ae::Vec2) -> Window {
 
 /// The flagship simulation on a real sync-test rollback session, composed with
 /// the VISIBLE host so the presentation cluster is actually installed.
-fn ggrs_flagship() -> SandboxSim {
-    SandboxSim::build(
-        SandboxSimOptions::default()
+fn ggrs_flagship() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
@@ -65,7 +65,7 @@ fn ggrs_flagship() -> SandboxSim {
     .expect("the flagship GGRS sync-test harness builds with the visible host")
 }
 
-fn resize(sim: &mut SandboxSim, display: ae::Vec2) {
+fn resize(sim: &mut Platformer2dSimHarness, display: ae::Vec2) {
     let world = sim.world_mut();
     let mut windows = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
     let mut window = windows.single_mut(world).expect("a primary window");
@@ -77,7 +77,7 @@ fn resize(sim: &mut SandboxSim, display: ae::Vec2) {
 /// resolved against, so comparing it to the live [`CameraViewport`] detects a
 /// one-frame-old mixture directly.
 #[track_caller]
-fn assert_one_coherent_layout(sim: &mut SandboxSim, display: ae::Vec2, label: &str) {
+fn assert_one_coherent_layout(sim: &mut Platformer2dSimHarness, display: ae::Vec2, label: &str) {
     let presentation = sim
         .world()
         .resource::<ResolvedGameplayPresentation>()

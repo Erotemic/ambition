@@ -275,7 +275,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -298,7 +298,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // sides live in `Update` for all three sim hosts.
         app.configure_sets(
             Update,
-            ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync
+            ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync
                 .after(ambition_sim_view::PresentedPoseSet),
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
@@ -318,7 +318,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(actors::animate_characters)
                 .before(hit_flash::sync_hit_flash_overlays)
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -400,7 +400,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             )
                 .chain()
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::SandboxSet::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );

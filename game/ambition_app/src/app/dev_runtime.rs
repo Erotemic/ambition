@@ -8,7 +8,7 @@ use ambition_platformer2d::actors::platformer_runtime::lifecycle::RoomScopedEnti
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::world::physics;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
-use ambition_platformer2d::dev_tools::SandboxDevState;
+use ambition_platformer2d::dev_tools::AmbitionGameDeveloperState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
@@ -27,7 +27,7 @@ use ambition_platformer2d::render::rendering::spawn_room_visuals;
 /// before the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
     mut actions: MessageReader<DeveloperAction>,
-    mut dev_state: ResMut<SandboxDevState>,
+    mut dev_state: ResMut<AmbitionGameDeveloperState>,
     mut tools: ResMut<DeveloperTools>,
 ) {
     for action in actions.read() {
@@ -113,8 +113,8 @@ pub(super) fn handle_ldtk_hot_reload(
     mut hotkey_actions: MessageReader<DeveloperAction>,
     mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
-    mut dev_state: ResMut<SandboxDevState>,
-    mut sim_state: ResMut<ambition_platformer2d::actors::SandboxSimState>,
+    mut dev_state: ResMut<AmbitionGameDeveloperState>,
+    mut sim_state: ResMut<ambition_platformer2d::actors::AmbitionGameSessionState>,
     mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
     mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
@@ -142,7 +142,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
     catalogs: (
-        Res<ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+        Res<ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
         Res<ambition_platformer2d::actors::features::CharacterRoster>,
@@ -188,7 +188,7 @@ pub(super) fn handle_ldtk_hot_reload(
 
     // Hot reload reads the same `watch_path` the file-change poller
     // armed at startup (per the catalog's
-    // `SandboxAssetCatalog::hot_reload_local_path`). If the active
+    // `AmbitionGameAssetCatalog::hot_reload_local_path`). If the active
     // asset profile doesn't support filesystem watching the
     // `watch_path` is `None` and the reload is silently skipped.
     let Some(watch_path) = ldtk_reload.watch_path.clone() else {
@@ -321,7 +321,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
     manifest: &ldtk_world::WorldManifest,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
@@ -375,8 +375,8 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut SandboxDevState,
-    sim_state: &mut ambition_platformer2d::actors::SandboxSimState,
+    dev_state: &mut AmbitionGameDeveloperState,
+    sim_state: &mut ambition_platformer2d::actors::AmbitionGameSessionState,
     safety: &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
     dialogue: &mut ambition_platformer2d::dialog::DialogState,
     combat: &mut ambition_platformer2d::characters::actor::BodyCombat,
@@ -388,7 +388,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
-    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_platformer2d::actors::character_sprites::AuthoredSheets,
     character_roster: &ambition_platformer2d::actors::features::CharacterRoster,
@@ -540,20 +540,20 @@ mod hot_reload_session_tests {
 
         let mut app = App::new();
         app.add_message::<DeveloperAction>();
-        app.init_resource::<SandboxDevState>();
+        app.init_resource::<AmbitionGameDeveloperState>();
         app.init_resource::<DeveloperTools>();
         app.add_systems(Update, handle_debug_hotkeys);
 
-        assert!(!app.world().resource::<SandboxDevState>().debug);
+        assert!(!app.world().resource::<AmbitionGameDeveloperState>().debug);
         app.world_mut()
             .write_message(DeveloperAction::ToggleDebugOverlay);
         app.update();
-        assert!(app.world().resource::<SandboxDevState>().debug);
+        assert!(app.world().resource::<AmbitionGameDeveloperState>().debug);
 
         app.world_mut()
             .write_message(DeveloperAction::ToggleDebugOverlay);
         app.update();
-        assert!(!app.world().resource::<SandboxDevState>().debug);
+        assert!(!app.world().resource::<AmbitionGameDeveloperState>().debug);
     }
 
     #[test]

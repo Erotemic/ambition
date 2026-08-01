@@ -22,7 +22,7 @@ vocabulary that should eventually leave the sandbox crate.
 - Lifecycle markers and spawn helpers move there first because room-scoped
 lifetime bugs have already happened and because spawn policy is independent of
 Ambition content.
-- Schedule vocabulary may exist in `platformer_runtime` even while `SandboxSet`
+- Schedule vocabulary may exist in `platformer_runtime` even while `Platformer2dSimulationPhase`
 remains the concrete app schedule.
 - Subsystems should own their own Bevy plugin registration. The app composes
 plugins; it should not accumulate detailed system lists for every mechanic.
@@ -46,7 +46,7 @@ Tradeoffs:
 `RoomScopedEntity` paths used by presentation and reset code.
 - Crude architecture tests can produce false positives and need explicit
 allowlist maintenance.
-- `SandboxSet` and `PlatformerRuntimeSet` coexist until the concrete app schedule
+- `Platformer2dSimulationPhase` and `PlatformerRuntimeSet` coexist until the concrete app schedule
 can be mapped cleanly onto reusable runtime phases.
 
 ## Validation

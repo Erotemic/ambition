@@ -15,7 +15,7 @@ use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityState, PortalWorldFrame,
 };
 use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
-use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
+use ambition_app::app::{Platformer2dSimulationPhase, AmbitionGameSimulationPlugin, StartRoomOverride};
 use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -56,14 +56,14 @@ impl HeadlessCameraHarness {
         app.insert_resource(TimeUpdateStrategy::ManualDuration(
             std::time::Duration::from_secs_f32(1.0 / 60.0),
         ));
-        app.add_plugins(SandboxSimulationPlugin);
+        app.add_plugins(AmbitionGameSimulationPlugin);
         app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<PortalCameraContinuityHostView>();
         // camera_follow is the PRESENTATION half now (E4-17): the sim's
-        // CameraObservationPlugin (inside SandboxSimulationPlugin's engine
+        // CameraObservationPlugin (inside AmbitionGameSimulationPlugin's engine
         // group) resolves the snapshot as a tail observer after
         // CoreSimulation; the rig composes the render-side apply after it,
         // exactly like the real host, and owns the render-side
@@ -77,7 +77,7 @@ impl HeadlessCameraHarness {
                 ambition_platformer2d::host::portal::sync_portal_camera_continuity_focus
                     .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::apply_portal_camera_continuity
-                    .after(SandboxSet::CoreSimulation)
+                    .after(Platformer2dSimulationPhase::CoreSimulation)
                     .before(camera_follow),
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_platformer2d::render::rendering::publish_portal_camera_clamp

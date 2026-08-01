@@ -110,7 +110,7 @@ Two remap layers fall out naturally:
    this; this design is that migration.
 3. **One bindings source.** The live `InputMap` build and every glyph render
    read the same `ActiveBindings` (kills the real
-   `SandboxDevState.preset_index` vs
+   `AmbitionGameDeveloperState.preset_index` vs
    `UserSettings.controls.keyboard_preset_index` split — today the settings
    toggle changes glyphs but not bindings, and nothing re-applies to a live
    player).
@@ -366,7 +366,7 @@ DISPLAY). P1 is invasive (live input) and wants Jon's playtest before landing.
   defaults from the 4 presets (`ambition_input/src/presets.rs:216
   input_map()`); **menu slots included** (`MenuSelect`/`MenuBack`/
   `MenuPage*` bindings move into the same table).
-- Collapse the split: `SandboxDevState.preset_index`
+- Collapse the split: `AmbitionGameDeveloperState.preset_index`
   (`ambition_dev_tools/src/lib.rs:111` — written by nothing) vs
   `settings.controls.keyboard_preset_index` — both replaced by
   `ActiveBindings` seeded from settings.

@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_platformer2d::actors::world::platforms;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
-use ambition_platformer2d::dev_tools::SandboxDevState;
+use ambition_platformer2d::dev_tools::AmbitionGameDeveloperState;
 use ambition_platformer2d::engine_core::config::world_to_bevy;
 use ambition_platformer2d::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
@@ -86,7 +86,7 @@ pub(crate) fn draw_debug_overlay() {}
 pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    dev_state: Res<SandboxDevState>,
+    dev_state: Res<AmbitionGameDeveloperState>,
     platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,

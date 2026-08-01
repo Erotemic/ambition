@@ -2,10 +2,10 @@
 //!
 //! Loads the regular / semibold / mono `Handle<Font>`s into the [`UiFonts`]
 //! resource for the dialog overlay, HUD, and menus. All path/existence policy
-//! goes through `ambition_asset_manager::sandbox_assets::SandboxAssetCatalog`.
+//! goes through `ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog`.
 
 // UI font loading. All path/existence policy goes through
-// `ambition_asset_manager::sandbox_assets::SandboxAssetCatalog`; there are no
+// `ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog`; there are no
 // `target_os = "android"` cfg branches or `BEVY_ASSET_ROOT` probes
 // in this module.
 
@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
+use ambition_asset_manager::sandbox_assets::{ids, AmbitionGameAssetCatalog};
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
@@ -65,7 +65,7 @@ pub enum UiFontWeight {
 
 /// Bevy startup system: walk each font's canonical + legacy catalog
 /// ids, pick the first one whose asset is present under the active
-/// [`ambition_asset_manager::sandbox_assets::SandboxAssetCatalog`] profile, and store
+/// [`ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog`] profile, and store
 /// the resulting `Handle<Font>` in [`UiFonts`].
 ///
 /// Missing fonts are non-fatal — the rendering layer falls back to
@@ -77,11 +77,11 @@ pub enum UiFontWeight {
 pub fn load_ui_fonts(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    catalog: Option<Res<SandboxAssetCatalog>>,
+    catalog: Option<Res<AmbitionGameAssetCatalog>>,
 ) {
     let Some(catalog) = catalog else {
         warn!(
-            "ui_fonts: SandboxAssetCatalog resource missing; falling back to Bevy's default font. \
+            "ui_fonts: AmbitionGameAssetCatalog resource missing; falling back to Bevy's default font. \
              This means the visible app forgot to install AmbitionAssetManagerPlugin."
         );
         commands.insert_resource(UiFonts::default());
@@ -140,7 +140,7 @@ pub fn load_ui_fonts(
 }
 
 fn load_first_available_font(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     ids: &[AssetId],
     label: &str,

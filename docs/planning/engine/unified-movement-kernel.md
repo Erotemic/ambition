@@ -23,7 +23,7 @@ private state; a model change is not a frame change and writes no environment.
 ## The frame resolution phase
 
 `FrameResolveSet` (configured after `GravitySet::ZoneSnapshot`, before
-`SandboxSet::CoreSimulation`) runs ONE system,
+`Platformer2dSimulationPhase::CoreSimulation`) runs ONE system,
 `resolve_body_motion_frames`, which publishes every integrated body's
 **`ResolvedMotionFrame`** component through ONE composition rule,
 `FrameEnv::resolve(body_aabb, gravity_response)`:

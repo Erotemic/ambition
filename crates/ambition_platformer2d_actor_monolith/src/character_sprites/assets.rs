@@ -11,7 +11,7 @@
 //! Missing files are not errors — callers fall back to colored
 //! rectangles (the game must always run regardless of asset state).
 //! All path/existence policy goes through
-//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`]; this module
+//! [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`]; this module
 //! no longer owns any `target_os = "android"` cfg branches or
 //! `BEVY_ASSET_ROOT` probes.
 //!
@@ -29,7 +29,7 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, AmbitionGameAssetCatalog};
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
 use ambition_platformer2d_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
@@ -345,7 +345,7 @@ fn sprite_texture_scale(
 /// Iterates the caller's App-local character catalog and, for each entry,
 /// looks up its [`CharacterSheetSpec`] via [`sheet_for_character_id_in`]. Asset
 /// availability gates through
-/// [`SandboxAssetCatalog::should_attempt_optional_load`]; missing
+/// [`AmbitionGameAssetCatalog::should_attempt_optional_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
 
@@ -384,7 +384,7 @@ pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
-    asset_catalog: &SandboxAssetCatalog,
+    asset_catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -450,7 +450,7 @@ pub fn materialize_declared_character_sprite(
 pub fn load_character_sprites_in(
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
-    _asset_catalog: &SandboxAssetCatalog,
+    _asset_catalog: &AmbitionGameAssetCatalog,
     _asset_server: &AssetServer,
     _layouts: &mut Assets<TextureAtlasLayout>,
     _quality: Option<&VisualQualityBudget>,
@@ -499,7 +499,7 @@ pub fn load_character_sprites_in(
 /// pair otherwise (and always for props / `variant: None`). Gameplay collision
 /// is untouched; it reads the base record separately.
 fn resolve_variant_pair(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
     variant: Option<(&str, &sheets::SheetTuning)>,
@@ -529,7 +529,7 @@ fn resolve_variant_pair(
 }
 
 fn build_optional_via_catalog(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     base_id: &AssetId,
@@ -635,7 +635,7 @@ fn load_sprite_pages(
 /// loadable under the active profile — callers fall back to colored
 /// rectangles.
 pub fn build_npc_sprite_asset(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
@@ -662,7 +662,7 @@ pub fn build_npc_sprite_asset(
 /// or the pack pages are gated by the asset profile — the caller falls
 /// back to [`build_prop_sprite_asset`].
 pub fn build_prop_sprite_asset_packed(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     target: &str,
@@ -685,7 +685,7 @@ pub fn build_prop_sprite_asset_packed(
 }
 
 pub fn build_prop_sprite_asset(
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     id: &AssetId,
@@ -695,7 +695,7 @@ pub fn build_prop_sprite_asset(
 }
 
 /// Load a prop sprite sheet straight from its generated manifest TARGET, without
-/// a `SandboxAssetCatalog` — for a demo that registers one animated prop (a
+/// a `AmbitionGameAssetCatalog` — for a demo that registers one animated prop (a
 /// collectible ring) and doesn't carry that prop in its lean asset catalog. The
 /// spec comes from the build-embedded manifest index (`try_load_spec_for_target`)
 /// and the page-0 image resolves to `<sprite_folder>/<target>_spritesheet.png`,

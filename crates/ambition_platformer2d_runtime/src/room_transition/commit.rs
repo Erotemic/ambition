@@ -40,7 +40,7 @@ pub struct RoomTransitionEffects<'w> {
 /// consumed by the time-control owner — no system here mutates `time_scale`.
 #[derive(SystemParam)]
 pub struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_platformer2d_actor_monolith::SandboxSimState>,
+    pub sim_state: ResMut<'w, ambition_platformer2d_actor_monolith::AmbitionGameSessionState>,
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
@@ -172,8 +172,8 @@ pub fn load_room(
     respawn_visuals: &mut MessageWriter<rooms::RespawnRoomVisualsRequested>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut ambition_dev_tools::SandboxDevState,
-    sim_state: &mut ambition_platformer2d_actor_monolith::SandboxSimState,
+    dev_state: &mut ambition_dev_tools::AmbitionGameDeveloperState,
+    sim_state: &mut ambition_platformer2d_actor_monolith::AmbitionGameSessionState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
@@ -307,7 +307,7 @@ pub fn commit_ready_room_transition_system(
     mut transit: TransitBodies,
     mut world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<rooms::RoomSet>,
-    mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
+    mut dev_state: ResMut<ambition_dev_tools::AmbitionGameDeveloperState>,
     mut room_clock: RoomClock,
     mut moving_platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
     mut dialogue: ResMut<ambition_dialog::DialogState>,

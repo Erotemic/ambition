@@ -8,13 +8,13 @@
 //! (or a reset that rewrote flags) re-derives switch visuals/state.
 use super::*;
 use crate::encounter::SwitchActivation;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use bevy::prelude::{App, Update};
 
 #[test]
 fn switches_restore_their_on_state_from_the_save() {
     let mut app = App::new();
-    let mut save = SandboxSave::default();
+    let mut save = AmbitionGameSave::default();
     save.data_mut().set_switch("on_switch", true);
     app.insert_resource(save);
     app.add_systems(Update, sync_ecs_switches_from_save);

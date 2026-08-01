@@ -45,7 +45,7 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt as _};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt as _};
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;
@@ -196,7 +196,7 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 sim,
                 ambition_platformer2d_core::publish_latched_control_frame
-                    .in_set(SandboxSet::PlayerInput)
+                    .in_set(Platformer2dSimulationPhase::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );
             // The SECONDARY seats' half of the same bridge (queue Y2). A couch
@@ -206,7 +206,7 @@ impl Plugin for HostInputBindingsPlugin {
             app.add_systems(
                 sim,
                 publish_latched_slot_controls
-                    .in_set(SandboxSet::PlayerInput)
+                    .in_set(Platformer2dSimulationPhase::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );
         }
@@ -334,7 +334,7 @@ impl Plugin for HostInputBindingsPlugin {
                     dialog_pointer_input,
                 )
                     .chain()
-                    .before(SandboxSet::CoreSimulation),
+                    .before(Platformer2dSimulationPhase::CoreSimulation),
             );
     }
 }
@@ -484,7 +484,7 @@ impl Plugin for HostCameraPlugin {
                 Update,
                 (
                     crate::portal::apply_portal_camera_continuity
-                        .after(SandboxSet::CoreSimulation)
+                        .after(Platformer2dSimulationPhase::CoreSimulation)
                         .after(crate::portal::sync_portal_camera_continuity_focus)
                         .before(camera_follow),
                     // Same-frame pad into the sim resolve (E4-17): after the

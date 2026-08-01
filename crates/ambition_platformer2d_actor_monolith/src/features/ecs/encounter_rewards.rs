@@ -15,7 +15,7 @@ use bevy::prelude::Name;
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
 pub fn clear_encounter_reward_ecs(
     commands: &mut Commands,
-    save: &mut ambition_persistence::save_data::SandboxSaveData,
+    save: &mut ambition_persistence::save_data::AmbitionGameSaveData,
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -41,7 +41,7 @@ pub fn clear_encounter_reward_ecs(
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    save: &ambition_persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
     cleared: &[(String, crate::encounter::EncounterSpec)],
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
@@ -98,7 +98,7 @@ pub fn sync_encounter_reward_chests_ecs(
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    save: &ambition_persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
     // (placement_id, archetype_id, spawn) for each boss in the room. R4 keys the

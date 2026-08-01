@@ -9,13 +9,13 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 use super::{
     LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition, validated_spawn,
 };
-use crate::SandboxSimState;
+use crate::AmbitionGameSessionState;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
 use crate::world::platforms::MovingPlatformState;
-use ambition_dev_tools::SandboxDevState;
+use ambition_dev_tools::AmbitionGameDeveloperState;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -38,8 +38,8 @@ pub fn commit_room_transition_geometry(
     sfx: &mut SfxWriter,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut SandboxDevState,
-    sim_state: &mut SandboxSimState,
+    dev_state: &mut AmbitionGameDeveloperState,
+    sim_state: &mut AmbitionGameSessionState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     plan: &RoomConstructionPlan,

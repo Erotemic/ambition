@@ -77,7 +77,7 @@ Ordinary Bevy systems — registered into the schedule **the host declares
 authoritative**, never into bare `Update`:
 
 ```rust
-use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
 
 impl Plugin for MyPlugin {
     fn build(&self, app: &mut App) {
@@ -86,7 +86,7 @@ impl Plugin for MyPlugin {
             sim,
             (tick_my_cooldowns, apply_my_effect)
                 .chain()
-                .in_set(SandboxSet::GameplayEffects),   // one explicit phase
+                .in_set(Platformer2dSimulationPhase::GameplayEffects),   // one explicit phase
         );
     }
 }
@@ -227,7 +227,7 @@ that mounts it through the facade (`ambition_platformer2d` as a **dev**-dependen
 capability's own closure is unaffected) — `capability_demo/tests/
 composed_through_the_sdk.rs` is the template.
 
-**Headlessly, against the real sim**: `SandboxSim::new_with_options(..).step(..)`
+**Headlessly, against the real sim**: `Platformer2dSimHarness::new_with_options(..).step(..)`
 builds the actual app with rendering, audio and windowing stripped and the
 systems intact. The doctrine — drive the real sim, assert invariants rather than
 tuned values, treat replay tests as canaries not cages — is

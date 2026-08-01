@@ -186,8 +186,8 @@ fn install_mary_o_audio(app: &mut App) {
     // Use the same engine-owned audio runtime as the multi-game host. The
     // standalone app contributes only its provider catalogs and resident asset
     // library; selection, intent priority, playback state, channels, and the
-    // director are installed once by `SandboxAudioPlugin`.
-    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin)
+    // director are installed once by `AmbitionGameAudioPlugin`.
+    app.add_plugins(ambition_platformer2d::actors::audio::AmbitionGameAudioPlugin)
         .add_systems(
             Startup,
             setup_mary_o_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),

@@ -1138,11 +1138,11 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
         )
             .chain()
-            .before(ambition_platformer2d::platformer::schedule::SandboxSet::CoreSimulation),
+            .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::SandboxSet::CoreSimulation),
+        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation),
     );
     // Carry the active page across a backend switch BEFORE the Grid republishes its
     // body, so you land on the same screen you were on (not Inventory). Ordered AFTER

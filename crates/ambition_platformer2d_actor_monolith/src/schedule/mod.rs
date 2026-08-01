@@ -3,7 +3,7 @@
 //!
 //! The Bevy app ASSEMBLY (plugins, resources, sim systems, HUD, CLI)
 //! moved to the `ambition_app` crate (Stage 20 / A3). What stays here
-//! is the vocabulary other layers order against: the `SandboxSet`
+//! is the vocabulary other layers order against: the `Platformer2dSimulationPhase`
 //! schedule labels (+ the content/machinery slot sets) and the
 //! device -> ControlFrame populate systems the menu/host layers anchor
 //! to.
@@ -13,7 +13,7 @@ mod schedule;
 
 pub use ambition_platformer2d_shared_tangle::schedule::{
     BossSteerSlot, CombatSet, PlayerInputSet, PlayerSimulationSet, PresentationSetupSet,
-    RoomTransitionSet, SandboxSet, SimulationSetupSet, WorldPrepSet,
+    RoomTransitionSet, Platformer2dSimulationPhase, SimulationSetupSet, WorldPrepSet,
 };
 pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]

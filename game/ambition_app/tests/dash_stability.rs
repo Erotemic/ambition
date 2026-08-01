@@ -19,12 +19,12 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 #[test]
 fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("central_hub_complex"),
     )
@@ -78,8 +78,8 @@ fn grounded_horizontal_plus_down_dash_does_not_oscillate_pos_y() {
     // The user's specific report mentioned "slide" -- which on
     // this engine is dash + down. Dash impulse gets a downward
     // y component which is immediately absorbed by floor contact.
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("central_hub_complex"),
     )

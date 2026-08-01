@@ -38,9 +38,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 /// chain in `app/plugins.rs::add_presentation_plugins`. Headless / RL
 /// builds drop the `audio` cargo feature and the entire dep graph
 /// (`bevy_kira_audio` and friends) goes away.
-pub struct SandboxAudioPlugin;
+pub struct AmbitionGameAudioPlugin;
 
-impl Plugin for SandboxAudioPlugin {
+impl Plugin for AmbitionGameAudioPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ambition_audio::AudioOutputMode>()
             .add_plugins(ambition_audio::AmbitionAudioBackendPlugin)
@@ -103,7 +103,7 @@ impl Plugin for SandboxAudioPlugin {
             )
             .add_systems(
                 Update,
-                audio_play_sfx_messages.after(crate::schedule::SandboxSet::CoreSimulation),
+                audio_play_sfx_messages.after(crate::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
@@ -118,7 +118,7 @@ impl Plugin for SandboxAudioPlugin {
                     apply_audio_environment,
                 )
                     .chain()
-                    .after(crate::schedule::SandboxSet::CoreSimulation),
+                    .after(crate::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Neutral music intent: the content layer resolves Ambition
             // encounter/boss/room/radio gameplay into a content-agnostic
@@ -161,7 +161,7 @@ impl Plugin for SandboxAudioPlugin {
                     // case a stale room/encounter candidate cannot switch the
                     // base channel before gameplay authority exists.
                     .run_if(simulation_authorized)
-                    .after(crate::schedule::SandboxSet::CoreSimulation),
+                    .after(crate::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Reset all activation-local audio request/director state on both
             // gameplay and frontend transitions. This runs outside the gameplay
@@ -169,7 +169,7 @@ impl Plugin for SandboxAudioPlugin {
             .add_systems(
                 Update,
                 reset_audio_request_state_on_context_change
-                    .after(crate::schedule::SandboxSet::CoreSimulation)
+                    .after(crate::schedule::Platformer2dSimulationPhase::CoreSimulation)
                     .before(audio_play_sfx_messages)
                     .before(crate::music::compute_music_intent)
                     .before(apply_frontend_music_policy),
@@ -182,7 +182,7 @@ impl Plugin for SandboxAudioPlugin {
             // latched so it acts exactly once per frontend entry (no thrash).
             .add_systems(
                 Update,
-                apply_frontend_music_policy.after(crate::schedule::SandboxSet::CoreSimulation),
+                apply_frontend_music_policy.after(crate::schedule::Platformer2dSimulationPhase::CoreSimulation),
             );
     }
 }

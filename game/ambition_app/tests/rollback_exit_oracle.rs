@@ -29,7 +29,7 @@
 
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::equipment::{EquipmentRow, OnHit, WornEquipment};
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without};
 
 const ORACLE_ARMOR_ID: &str = "oracle_armor";
@@ -38,9 +38,9 @@ const MAX_FRAMES: usize = 2400;
 /// See the early-exit guard in `walk_the_combat_route`.
 const MIN_FRAMES: usize = 600;
 
-fn oracle_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn oracle_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
@@ -51,7 +51,7 @@ fn oracle_sim() -> SandboxSim {
 /// Dress the player in one armor row so the first enemy hit is an armor spend
 /// rather than an HP loss. `WornEquipment` is registered rollback state, so
 /// this pre-run mutation is part of frame-0 state like any authored loadout.
-fn wear_oracle_armor(sim: &mut SandboxSim) {
+fn wear_oracle_armor(sim: &mut Platformer2dSimHarness) {
     let world = sim.world_mut();
     let player = {
         let mut q =
@@ -100,7 +100,7 @@ fn wear_oracle_armor(sim: &mut SandboxSim) {
 /// hazard band spans x 592-688 and eats a body staged inside it), like the
 /// armor row:
 /// a setup mutation folded into rollback frame zero by the rebase that follows.
-fn stage_player_on_arena_floor(sim: &mut SandboxSim) {
+fn stage_player_on_arena_floor(sim: &mut Platformer2dSimHarness) {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = q
@@ -160,7 +160,7 @@ const ORACLE_SWITCH_ID: &str = "combat_lab_classify_switch";
 /// Identify the route's targets and ASSERT they start in the state the route is
 /// supposed to change. A calibration that cannot find them, or finds them already
 /// done, fails here rather than producing a green run that proved nothing.
-fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
+fn calibrate_targets(sim: &mut Platformer2dSimHarness) -> OracleTargets {
     let world = sim.world_mut();
 
     // Matched on the authored NAME and recorded by runtime id: LDtk gives a
@@ -223,7 +223,7 @@ fn calibrate_targets(sim: &mut SandboxSim) -> OracleTargets {
 
 /// Read every oracle observation from live world state.
 fn observe(
-    sim: &mut SandboxSim,
+    sim: &mut Platformer2dSimHarness,
     targets: &OracleTargets,
     enemy_health_baseline: i32,
     events: &mut OracleEvents,
@@ -281,7 +281,7 @@ fn observe(
 /// only chases enemies: building and iterating the brick and switch queries for
 /// values they discard costs two fresh `QueryState`s on every simulated frame,
 /// and these loops run 600-2400 frames.
-fn enemy_positions(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
+fn enemy_positions(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
         &ambition_platformer2d::platformer::body::BodyKinematics,
@@ -335,7 +335,7 @@ fn brick_standoff(brick: PropBox, px: f32) -> f32 {
 /// Positions of the actionable things, in sim space, queried live so the
 /// policy needs no knowledge of the room's coordinate frame.
 fn target_positions(
-    sim: &mut SandboxSim,
+    sim: &mut Platformer2dSimHarness,
     targets: &OracleTargets,
 ) -> (Vec<(f32, f32)>, Option<PropBox>, Option<(f32, f32)>) {
     let enemies = enemy_positions(sim);
@@ -716,7 +716,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored quest registry; immutable at runtime",
         ),
         (
-            "ambition_persistence::save::SandboxSave",
+            "ambition_persistence::save::AmbitionGameSave",
             "the whole save document; rewritten wholesale, never edited in place",
         ),
         (
@@ -1093,7 +1093,7 @@ struct RouteWalk {
     stalled_at: Option<GgrsStall>,
 }
 
-fn walk_the_combat_route(sim: &mut SandboxSim) -> RouteWalk {
+fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
     let mut census: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let enemy_health_baseline: i32 = {
         let world = sim.world_mut();
@@ -1674,11 +1674,11 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "developer hotkeys: shell, trace and debug-viz consumers, none in the sim",
         ),
         (
-            "bevy_asset::event::AssetEvent<ambition_platformer2d_actor_monolith::session::data::SandboxDataSpec>",
+            "bevy_asset::event::AssetEvent<ambition_platformer2d_actor_monolith::session::data::AmbitionGameGameplaySpec>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (
-            "bevy_asset::event::AssetLoadFailedEvent<ambition_platformer2d_actor_monolith::session::data::SandboxDataSpec>",
+            "bevy_asset::event::AssetLoadFailedEvent<ambition_platformer2d_actor_monolith::session::data::AmbitionGameGameplaySpec>",
             "bevy's asset lifecycle, delivered on the frame clock",
         ),
         (

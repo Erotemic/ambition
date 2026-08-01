@@ -1,4 +1,4 @@
-//! Random-walker fuzz harness. Runs `SandboxSim` under several
+//! Random-walker fuzz harness. Runs `Platformer2dSimHarness` under several
 //! deterministic LCG-seeded random policies and asserts the simulation
 //! survives — no panic, no out-of-world player position, no negative HP.
 //!
@@ -14,14 +14,14 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{RandomWalkPolicy, SandboxSim};
+use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness};
 
 /// Per-seed assertion: 200 steps of random play with the seed must
 /// finish without panicking, with the player still alive, still inside
 /// the world bounds, and with HP in [0, hp_max].
 fn assert_seed_survives(seed: u64) {
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("SandboxSim::new should succeed");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("Platformer2dSimHarness::new should succeed");
     let mut policy = RandomWalkPolicy::fuzz(seed);
     let initial = sim.observation();
     for step in 0..200 {

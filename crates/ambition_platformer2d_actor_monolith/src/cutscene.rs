@@ -5,7 +5,7 @@
 //! renderer). This module is the gameplay-side *player*: it reads triggers from
 //! [`crate::cutscene_trigger::CutsceneTriggerQueue`], starts/advances the active
 //! cutscene, and applies its side effects (save-flag writes via
-//! [`ambition_persistence::save::SandboxSave`]). The HUD/overlay presentation
+//! [`ambition_persistence::save::AmbitionGameSave`]). The HUD/overlay presentation
 //! reads `ActiveCutscene` from the render crate.
 //!
 //! These systems are gameplay-coupled (rooms, save, schedule) so they live here
@@ -50,7 +50,7 @@ pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
 ) {
     if active.is_playing() {
         return;
@@ -78,7 +78,7 @@ pub fn tick_active_cutscene(
     time: Res<Time>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);
@@ -151,7 +151,7 @@ pub fn tick_active_cutscene(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`crate::schedule::SandboxSet::Cutscene`].
+/// `tick_active_cutscene`) into [`crate::schedule::Platformer2dSimulationPhase::Cutscene`].
 ///
 /// The presentation overlay (`ambition_render::cutscene::sync_cutscene_ui`) is
 /// scheduled separately by the render/app side — this plugin owns only the
@@ -178,7 +178,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(crate::schedule::SandboxSet::Cutscene),
+                .in_set(crate::schedule::Platformer2dSimulationPhase::Cutscene),
         );
     }
 }

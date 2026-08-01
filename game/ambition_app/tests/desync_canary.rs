@@ -8,12 +8,12 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_platformer2d::runtime::rollback::{Rollback, RollbackRegistry};
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::With;
 
-fn rollback_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn rollback_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )
@@ -364,8 +364,8 @@ fn sim_mutated_state_that_changes_survives_rewind_identically() {
 /// bug being excluded is precisely one seat's input standing in for another's.
 #[test]
 fn two_seats_drive_independent_streams_through_a_rewind() {
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
             .with_rollback_players(2),

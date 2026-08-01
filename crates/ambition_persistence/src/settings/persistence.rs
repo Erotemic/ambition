@@ -129,7 +129,7 @@ pub struct LastPersistedSettings(Option<UserSettings>);
 ///
 /// # Why this is NOT gated on confirmed simulation state
 ///
-/// Its sibling `autosave_sandbox_save` is, because `SandboxSave` is registered
+/// Its sibling `autosave_sandbox_save` is, because `AmbitionGameSave` is registered
 /// rollback state that a speculating host will rewind — writing it mid-
 /// prediction records a guess as history. `UserSettings` is not simulation
 /// state at all: it is not rollback-registered, and every writer is menu or

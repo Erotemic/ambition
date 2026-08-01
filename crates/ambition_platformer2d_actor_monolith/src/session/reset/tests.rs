@@ -157,7 +157,7 @@ fn min_app() -> App {
     let mut app = App::new();
     let world = dummy_world();
     app.insert_resource(SandboxResetRequested::default());
-    app.insert_resource(SandboxSave::default());
+    app.insert_resource(AmbitionGameSave::default());
     app.insert_resource(EncounterRegistry::default());
     app.insert_resource(BossEncounterRegistry::default());
     app.insert_resource(QuestRegistry::default());
@@ -199,9 +199,9 @@ fn min_app() -> App {
     app.insert_resource(crate::construction::engine_construction_registry());
     app.insert_resource(crate::features::RoomContentStagingRegistry::default());
     app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet::default());
-    app.insert_resource(crate::SandboxSimState::default());
+    app.insert_resource(crate::AmbitionGameSessionState::default());
     app.insert_resource(ambition_time::ClockState::default());
-    app.insert_resource(ambition_dev_tools::SandboxDevState::default());
+    app.insert_resource(ambition_dev_tools::AmbitionGameDeveloperState::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
         RoomGeometry(world.clone()),
@@ -251,11 +251,11 @@ fn min_app() -> App {
 fn processor_is_a_noop_without_request() {
     let mut app = min_app();
     {
-        let mut save = app.world_mut().resource_mut::<SandboxSave>();
+        let mut save = app.world_mut().resource_mut::<AmbitionGameSave>();
         save.data_mut().set_flag("npc_test_hostile", true);
     }
     app.update();
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(save.data().flag("npc_test_hostile"));
 }
 
@@ -271,7 +271,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
     // - a save flag remembering an encounter chest was looted
     // - "specs already loaded" on the registries
     {
-        let mut save = app.world_mut().resource_mut::<SandboxSave>();
+        let mut save = app.world_mut().resource_mut::<AmbitionGameSave>();
         save.data_mut().set_flag("npc_kira_hostile", true);
         save.data_mut()
             .set_flag("encounter_goblin_encounter_reward_dropped", true);
@@ -300,7 +300,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
     app.update();
 
     // Save is wiped.
-    let save = app.world().resource::<SandboxSave>();
+    let save = app.world().resource::<AmbitionGameSave>();
     assert!(!save.data().flag("npc_kira_hostile"));
     assert!(
         !save
@@ -420,7 +420,7 @@ fn processor_restores_authored_start_room_platform() {
 fn a_declined_reset_leaves_the_running_session_untouched() {
     let mut app = min_app();
     {
-        let mut save = app.world_mut().resource_mut::<SandboxSave>();
+        let mut save = app.world_mut().resource_mut::<AmbitionGameSave>();
         save.data_mut().set_flag("npc_kira_hostile", true);
     }
     {
@@ -447,7 +447,7 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
 
     assert!(
         app.world()
-            .resource::<SandboxSave>()
+            .resource::<AmbitionGameSave>()
             .data()
             .flag("npc_kira_hostile"),
         "a reset that could not be prepared still wiped the save. The preflight \

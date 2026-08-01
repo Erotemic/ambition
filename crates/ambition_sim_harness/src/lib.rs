@@ -3,8 +3,8 @@
 //!
 //! The sandbox separates simulation from presentation: gameplay systems read
 //! `Res<ControlFrame>`, and drivers write it between `app.update()` calls. This
-//! crate packages that stepping pattern into a small public API — [`SandboxSim`]
-//! ([`SandboxSim::build`], [`SandboxSim::step`], [`SandboxSim::reset_episode`],
+//! crate packages that stepping pattern into a small public API — [`Platformer2dSimHarness`]
+//! ([`Platformer2dSimHarness::build`], [`Platformer2dSimHarness::step`], [`Platformer2dSimHarness::reset_episode`],
 //! [`AgentAction`], [`AgentObservation`], the example [`reward`] shaping, and the
 //! [`random_policy`] fuzz driver) — so RL agents, fuzz harnesses, scripted-replay
 //! tools, and future Python bindings build on ONE shared seam.
@@ -17,9 +17,9 @@
 //! Ambition's (see its `rl_sim::AmbitionSim` constructors).
 //!
 //! ```no_run
-//! use ambition_sim_harness::{AgentAction, SandboxSim, SandboxSimOptions};
-//! # fn compose(_: &mut bevy::prelude::App, _: &SandboxSimOptions) -> Result<(), String> { Ok(()) }
-//! let mut sim = SandboxSim::build(SandboxSimOptions::default(), compose).expect("sim builds");
+//! use ambition_sim_harness::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+//! # fn compose(_: &mut bevy::prelude::App, _: &Platformer2dSimHarnessOptions) -> Result<(), String> { Ok(()) }
+//! let mut sim = Platformer2dSimHarness::build(Platformer2dSimHarnessOptions::default(), compose).expect("sim builds");
 //! let mut action = AgentAction::default();
 //! action.move_x = 1.0;
 //! action.jump = true;
@@ -36,6 +36,6 @@ pub mod runtime;
 
 pub use action::AgentAction;
 pub use observation::{AgentObservation, EnemyObs, PickupObs};
-pub use options::{RollbackMode, SandboxSimOptions, TimestepMode};
+pub use options::{RollbackMode, Platformer2dSimHarnessOptions, TimestepMode};
 pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};
-pub use runtime::SandboxSim;
+pub use runtime::Platformer2dSimHarness;

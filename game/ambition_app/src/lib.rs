@@ -33,7 +33,7 @@ pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{
     AgentAction, AgentObservation, AmbitionSim, Lcg, RandomWalkPolicy, RandomWalkTuning,
-    SandboxSim, SandboxSimOptions, TimestepMode,
+    Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 
 /// Android shared-library entry point.

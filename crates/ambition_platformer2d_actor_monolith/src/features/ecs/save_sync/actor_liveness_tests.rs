@@ -8,7 +8,7 @@
 //! NPC, the exact case that used to fall through both branches of
 //! `sync_ecs_actors_with_save` and respawn alive forever.
 use super::*;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use bevy::prelude::{App, Update};
 
 fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
@@ -60,7 +60,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
 fn a_killed_unprovoked_npc_stays_dead_on_load() {
     let mut app = App::new();
     app.insert_resource(crate::features::enemies::test_roster());
-    let mut save = SandboxSave::default();
+    let mut save = AmbitionGameSave::default();
     // The kill hook wrote the DeadStaysDead flag; the NPC was never
     // provoked, so its `npc_<id>_hostile` flag is absent.
     save.data_mut()

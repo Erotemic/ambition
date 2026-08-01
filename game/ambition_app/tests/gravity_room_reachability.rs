@@ -8,7 +8,7 @@
 //!   ceiling, and cross a hazard floor that's otherwise lethal (the flagship as a
 //!   TRAVERSAL TOOL).
 //!
-//! Both drive only "hold right" and assert on the public `SandboxSim` observation,
+//! Both drive only "hold right" and assert on the public `Platformer2dSimHarness` observation,
 //! so they're fast (sub-second) and don't depend on rendering.
 
 use crate::common::{fixed_60hz_room_sim, hold_right};

@@ -1,10 +1,10 @@
 //! The engine-generic simulation messages + resource defaults (E5 step 6).
 //!
-//! Moved from the app's `SandboxSimulationResourcesPlugin` so a demo app gets
+//! Moved from the app's `AmbitionGameSimulationResourcesPlugin` so a demo app gets
 //! a bootable sim from the engine group alone (THE DEMO GATE). Everything here
 //! is `init_resource`/default semantics — a host overrides any of these by
 //! `insert_resource` BEFORE adding the group (init never clobbers), which is
-//! the documented host-override convention (`SandboxSetsPlugin` docs).
+//! the documented host-override convention (`Platformer2dSimulationSchedulePlugin` docs).
 //!
 //! What the engine group deliberately does NOT provide (the game/fixture
 //! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
@@ -69,7 +69,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .init_resource::<ambition_platformer2d_actor_monolith::SandboxSimState>()
+            .init_resource::<ambition_platformer2d_actor_monolith::AmbitionGameSessionState>()
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector
@@ -96,7 +96,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_sim_view::BossRenderIndex>()
             // Session data-spec RON loader (the engine's own asset format).
             .add_plugins(bevy_common_assets::ron::RonAssetPlugin::<
-                data::SandboxDataSpec,
+                data::AmbitionGameGameplaySpec,
             >::new(&["ron"]))
             // In-flight player projectiles are ECS entities; their monotonic
             // spawn-id source is this global counter.
@@ -118,7 +118,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // Sandbox save (encounter defeat + switch state). Loaded from
             // disk by the presentation half only — headless/RL never touch
             // disk; mutated by encounter/switch systems.
-            .init_resource::<ambition_persistence::save::SandboxSave>()
+            .init_resource::<ambition_persistence::save::AmbitionGameSave>()
             // World-clock dt mirror — `WorldTime::scaled_dt` is the
             // bullet-time-respecting delta for gameplay timers.
             .init_resource::<ambition_time::WorldTime>()

@@ -90,7 +90,7 @@ fn two_hosted_demos() -> App {
     );
     app.init_resource::<RuleTicks>();
     // The sweep as the engine group schedules it, minus the sim-schedule
-    // plumbing this test does not need. `SandboxSet::Progression` membership is
+    // plumbing this test does not need. `Platformer2dSimulationPhase::Progression` membership is
     // what orders it against `sync_active_room_metadata` in a real app.
     app.add_systems(Update, despawn_departed_mode_entities);
     app.add_plugins(DemoRulesPlugin::hosted("a"));

@@ -531,7 +531,7 @@ fn fight_app() -> App {
             .chain()
             // The engine projects a registered character's moveset and silhouette
             // onto the body (C3), and everything below reads what it projects. In
-            // production that edge comes from `SandboxSet::Combat`'s internal order;
+            // production that edge comes from `Platformer2dSimulationPhase::Combat`'s internal order;
             // this fixture composes the systems by hand, so it has to name the edge
             // by hand. Without it the projection landed AFTER the move trigger and
             // the first swing of the fight found no moveset.

@@ -6,12 +6,12 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 
-use ambition_app::{AgentAction, SandboxSim};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 /// Current HP of each target (enemies carry `BodyHealth`; the player carries
 /// player-side health, so this is the target line). Dead-but-not-despawned
 /// targets show `current <= 0`, so HP distinguishes "killed" from "survived".
-fn enemy_hps(sim: &mut SandboxSim) -> Vec<i32> {
+fn enemy_hps(sim: &mut Platformer2dSimHarness) -> Vec<i32> {
     let mut q = sim
         .world_mut()
         .query::<&ambition_platformer2d::characters::actor::BodyHealth>();

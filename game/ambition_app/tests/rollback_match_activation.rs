@@ -65,14 +65,14 @@
 use ambition_platformer2d::actors::character_runtime::{
     ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
 };
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
 /// A sync-test sim: every frame is saved, rewound and resimulated, so the
 /// activation tick is inside a rollback window by construction rather than by a
 /// forced rewind somebody has to remember to trigger.
-fn match_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn match_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
     )
@@ -106,7 +106,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
     }
 }
 
-fn seats(sim: &mut SandboxSim) -> Vec<(usize, String)> {
+fn seats(sim: &mut Platformer2dSimHarness) -> Vec<(usize, String)> {
     let world = sim.world_mut();
     let mut query = world.query::<(&MatchSeat, &ambition_platformer2d::combat::targeting::MatchTeam)>();
     let mut rows: Vec<(usize, String)> = query
@@ -140,7 +140,7 @@ const FRAMES_BEFORE_THE_ROSTER: usize = 20;
 /// sync-test rewind to frame zero therefore genuinely crosses it — it restores
 /// a world in which the fighters do not yet exist, which is precisely the state
 /// the reviews say the latch used to survive.
-fn introduce_the_roster(sim: &mut SandboxSim) {
+fn introduce_the_roster(sim: &mut Platformer2dSimHarness) {
     for _ in 0..FRAMES_BEFORE_THE_ROSTER {
         sim.step(AgentAction::default());
     }
@@ -284,7 +284,7 @@ fn the_activation_count_still_matches_the_bodies_after_resimulation() {
 // is exactly "activation lands mid-window"; this reproduces that timing without
 // needing the route.
 
-use ambition_platformer2d::sim::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
 use ambition_platformer2d::time::SimTick;
 use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
@@ -319,7 +319,7 @@ fn the_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
     }
 }
 
-/// Runs in `SandboxSet::Trace`, after everything: `ActiveMatch` is published
+/// Runs in `Platformer2dSimulationPhase::Trace`, after everything: `ActiveMatch` is published
 /// through `Commands` during `PlayerInputSet::CharacterProjection`, so a reader
 /// in that same set would record the tick before the one it activated on.
 fn trace_the_activation(
@@ -330,9 +330,9 @@ fn trace_the_activation(
     trace.0.push((tick.get(), active.is_some()));
 }
 
-fn late_arriving_roster_sim() -> SandboxSim {
-    SandboxSim::build(
-        SandboxSimOptions::default()
+fn late_arriving_roster_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10),
         |app, options| {
@@ -344,7 +344,7 @@ fn late_arriving_roster_sim() -> SandboxSim {
                 (
                     the_roster_arrives_on_a_tick
                         .before(ambition_platformer2d::actors::character_runtime::seat_match_participants),
-                    trace_the_activation.in_set(SandboxSet::Trace),
+                    trace_the_activation.in_set(Platformer2dSimulationPhase::Trace),
                 ),
             );
             Ok(())

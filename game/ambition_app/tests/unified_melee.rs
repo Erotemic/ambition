@@ -10,7 +10,7 @@
 //!        strike + slash, owned by the body, on the owner's proper-time clock)
 //!     → `project_moveset_melee_to_body_melee`      (`BodyMelee` read-model)
 //!
-//! This pins, through `SandboxSim::step`, that BOTH the player and an autonomous
+//! This pins, through `Platformer2dSimHarness::step`, that BOTH the player and an autonomous
 //! hostile actor enter that identical melee lifecycle and own the strike their
 //! swing spawns. The possessed-actor case is pinned by
 //! `possession_end_to_end.rs`; the peaceful-NPC-with-kit case is the same path
@@ -27,7 +27,7 @@ use ambition_platformer2d::actors::features::{FeatureId, Hitbox};
 use ambition_platformer2d::characters::brain::{ActionSet, ActorControl};
 use ambition_platformer2d::entity_catalog::{placements::CharacterBrain, WindowTag};
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 use std::sync::Mutex;
 
@@ -184,7 +184,7 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
         .lock()
         .expect("unified melee test lock");
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let player = player_entity(sim.world_mut());
 
     let mut engaged = false;
@@ -217,7 +217,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
         .expect("unified melee test lock");
     const ENEMY_ID: &str = "test_aggressor";
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
     sim.spawn_enemy_at(
         ENEMY_ID,

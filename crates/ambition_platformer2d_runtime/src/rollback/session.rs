@@ -323,7 +323,7 @@ pub fn build_sync_test_session(
 /// reports that correctly and reports it as a checksum difference, which tells a
 /// consumer nothing about the cause.
 ///
-/// The engine's own harness cannot hit this: `SandboxSim` builds the room first
+/// The engine's own harness cannot hit this: `Platformer2dSimHarness` builds the room first
 /// by construction. So the only people who meet it are exactly the ones with no
 /// way to diagnose it — an external consumer starting a session at boot gets
 /// frames 2, 3 and 4 mismatching forever. Outlander did precisely that
@@ -618,7 +618,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             GgrsSchedule,
             (publish_ggrs_input, count_advance_run)
                 .chain()
-                .before(ambition_platformer2d_shared_tangle::schedule::SandboxSet::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         )
         .add_systems(
             LoadWorld,

@@ -3,7 +3,7 @@
 //! Loads the in-tree fixture trace (`tests/fixtures/replay_central_hub_60f_v1.json`),
 //! lifts its recorded controls into a typed
 //! [`InputStream`](ambition_platformer2d::engine_core::InputStream) (netcode N0.2), drives a
-//! fresh `SandboxSim` at fixed-60Hz with it, and asserts ZERO divergence from
+//! fresh `Platformer2dSimHarness` at fixed-60Hz with it, and asserts ZERO divergence from
 //! the recorded `player.pos` at every tick.
 //!
 //! This pins many gameplay invariants in one shot: any change that shifts player
@@ -31,7 +31,7 @@ use serde::Deserialize;
 use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::SandboxSim;
+use ambition_app::Platformer2dSimHarness;
 
 const FIXTURE_PATH: &str = "tests/fixtures/replay_central_hub_60f_v1.json";
 const TICK_HZ: u32 = 60;
@@ -92,7 +92,7 @@ fn fixture_replays_with_zero_divergence() {
     );
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("SandboxSim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("Platformer2dSimHarness builds");
 
     let mut max_dx: f32 = 0.0;
     let mut max_dy: f32 = 0.0;

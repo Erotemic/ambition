@@ -188,7 +188,7 @@ web_served_assets = ["visible_web_served", "web_platform"]
 # of its own — composing it pulls in the right sandbox behavior.
 web_served = ["ambition_sprite_sheet/web_served"]
 
-# (`rl_sim` was removed here 2026-07-19: the RL surface — `SandboxSim`,
+# (`rl_sim` was removed here 2026-07-19: the RL surface — `Platformer2dSimHarness`,
 # `AgentAction`, `AgentObservation` — moved to `ambition_sim_harness` and the
 # app in the July-16 extraction, so this crate's copy of the feature gated
 # nothing at all. The real switch is `ambition_app/rl_sim`, which pulls
@@ -353,7 +353,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # recording systems stay in dev/trace next to the sim state they sample.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Authored-audio stack (Stage 20 / B1). The data schema half is
-# unconditional (SandboxDataSpec embeds AudioSpec); the Kira playback
+# unconditional (AmbitionGameGameplaySpec embeds AudioSpec); the Kira playback
 # half lights up via the `audio` feature below.
 ambition_audio = { path = "../ambition_audio" }
 # Reusable, content-free platformer runtime primitives (lifecycle vocabulary +

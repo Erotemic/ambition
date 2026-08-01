@@ -840,7 +840,7 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
 /// to the static `EntitySprite::BossCore` image, which in turn falls
 /// back to the colored rectangle.
 pub fn load_boss_sprite_in(
-    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,
@@ -907,7 +907,7 @@ pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> b
 }
 
 pub fn load_named_boss_sprite_via_catalog(
-    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,

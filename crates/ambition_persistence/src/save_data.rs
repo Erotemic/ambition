@@ -1,4 +1,4 @@
-//! Pure save-game data shapes (`SandboxSaveData`, `PersistedEncounter`,
+//! Pure save-game data shapes (`AmbitionGameSaveData`, `PersistedEncounter`,
 //! `PersistedSwitch`, ability/quest flags) — the vocabulary the save format
 //! is built from.
 //!
@@ -175,7 +175,7 @@ impl PersistedItem {
 ///
 /// The position is INTEGER world pixels, and deliberately so. A checkpoint has no
 /// use for sub-pixel precision, and a float here would cost two things that
-/// matter more: `SandboxSaveData` could no longer derive `Eq`, and a NaN — which
+/// matter more: `AmbitionGameSaveData` could no longer derive `Eq`, and a NaN — which
 /// compares unequal to itself — would make the value-comparing autosave rewrite
 /// the file on every single frame, forever.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -202,7 +202,7 @@ impl PersistedCheckpoint {
 /// `#[serde(default)]` so older saves load against newer schemas with
 /// missing fields filling in as empty.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SandboxSaveData {
+pub struct AmbitionGameSaveData {
     #[serde(default = "default_save_version")]
     pub version: u32,
     #[serde(default)]
@@ -280,13 +280,13 @@ impl SaveCompatibility {
 /// A fresh save stamped with the current version. `Default` delegates here so a
 /// missing/corrupt file (`load_save`) and a reset (`session::reset`) both produce
 /// a `CURRENT_SAVE_VERSION` save, not the `u32::default()` (0) a derive would give.
-impl Default for SandboxSaveData {
+impl Default for AmbitionGameSaveData {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SandboxSaveData {
+impl AmbitionGameSaveData {
     pub fn new() -> Self {
         Self {
             version: CURRENT_SAVE_VERSION,
@@ -519,7 +519,7 @@ impl SandboxSaveData {
     /// costs nothing today and is a silently-wrong reset button the day someone
     /// wires one up (GPT 5.6, 2026-07-27).
     ///
-    /// A field added to `SandboxSaveData` and not cleared here is the same bug
+    /// A field added to `AmbitionGameSaveData` and not cleared here is the same bug
     /// again; `reset_all_clears_every_collection` is written to fail on that.
     pub fn reset_all(&mut self) {
         let Self {
@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn missing_encounter_reads_untouched() {
-        let s = SandboxSaveData::default();
+        let s = AmbitionGameSaveData::default();
         assert_eq!(
             s.encounter("goblin_encounter"),
             PersistedEncounterState::Untouched
@@ -564,7 +564,7 @@ mod tests {
 
     #[test]
     fn setting_encounter_round_trips() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         assert_eq!(
             s.encounter("goblin_encounter"),
@@ -577,13 +577,13 @@ mod tests {
 
     #[test]
     fn switch_defaults_to_off() {
-        let s = SandboxSaveData::default();
+        let s = AmbitionGameSaveData::default();
         assert!(!s.switch("reset_switch"));
     }
 
     #[test]
     fn setting_switch_round_trips() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_switch("reset_switch", true);
         assert!(s.switch("reset_switch"));
         s.set_switch("reset_switch", false);
@@ -593,12 +593,12 @@ mod tests {
 
     #[test]
     fn serde_round_trip_preserves_fields() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         s.set_encounter("boss_room", PersistedEncounterState::Failed);
         s.set_switch("reset_switch", true);
         let serialized = serde_json::to_string(&s).expect("serialize");
-        let restored: SandboxSaveData = serde_json::from_str(&serialized).expect("deserialize");
+        let restored: AmbitionGameSaveData = serde_json::from_str(&serialized).expect("deserialize");
         assert_eq!(s, restored);
     }
 
@@ -612,13 +612,13 @@ mod tests {
     #[test]
     fn a_file_with_no_version_field_is_the_version_from_before_the_field() {
         let json = r#"{"encounters":[],"switches":[]}"#;
-        let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        let s: AmbitionGameSaveData = serde_json::from_str(json).expect("parse");
         assert_eq!(s.version, PRE_VERSIONING_SAVE_VERSION);
     }
 
     #[test]
     fn a_fresh_save_is_stamped_current_and_needs_no_migration() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
         assert_eq!(s.migrate(), SaveCompatibility::Current);
     }
@@ -628,7 +628,7 @@ mod tests {
     #[test]
     fn an_old_save_migrates_up_to_the_current_version() {
         let json = r#"{"version":1,"encounters":[{"id":"goblin_encounter","state":"Cleared"}],"switches":[]}"#;
-        let mut s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        let mut s: AmbitionGameSaveData = serde_json::from_str(json).expect("parse");
         assert_eq!(s.migrate(), SaveCompatibility::Migrated { from: 1 });
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
         // Migrating must not cost the player anything it was carrying.
@@ -644,7 +644,7 @@ mod tests {
     /// because whatever it adopts is what it will write back.
     #[test]
     fn a_save_from_a_newer_build_is_refused_rather_than_adopted() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.version = CURRENT_SAVE_VERSION + 7;
         assert_eq!(
             s.migrate(),
@@ -664,7 +664,7 @@ mod tests {
     #[test]
     fn every_version_in_range_migrates_to_current() {
         for version in PRE_VERSIONING_SAVE_VERSION..=CURRENT_SAVE_VERSION {
-            let mut s = SandboxSaveData::new();
+            let mut s = AmbitionGameSaveData::new();
             s.version = version;
             let verdict = s.migrate();
             assert_eq!(
@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn boss_round_trip_and_untouched_removes_entry() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_boss("gradient_sentinel", PersistedEncounterState::Cleared);
         assert_eq!(
             s.boss("gradient_sentinel"),
@@ -688,7 +688,7 @@ mod tests {
 
     #[test]
     fn quest_round_trip_and_not_started_removes_entry() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_quest("first_steps", PersistedQuestState::InProgress, 1);
         assert_eq!(s.quest("first_steps"), (PersistedQuestState::InProgress, 1));
         s.set_quest("first_steps", PersistedQuestState::Completed, 3);
@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn flag_round_trip_and_off_removes_entry() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         assert!(!s.flag("seen_intro_cutscene"));
         s.set_flag("seen_intro_cutscene", true);
         assert!(s.flag("seen_intro_cutscene"));
@@ -714,7 +714,7 @@ mod tests {
         // collection. Verifies the v1 → v2 schema migration is
         // backwards-compatible at the wire level.
         let json = r#"{"version":1,"encounters":[{"id":"goblin_encounter","state":"Cleared"}],"switches":[]}"#;
-        let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        let s: AmbitionGameSaveData = serde_json::from_str(json).expect("parse");
         assert_eq!(
             s.encounter("goblin_encounter"),
             PersistedEncounterState::Cleared
@@ -732,7 +732,7 @@ mod tests {
     /// did (GPT 5.6, 2026-07-27).
     #[test]
     fn reset_all_clears_every_collection() {
-        let mut s = SandboxSaveData::new();
+        let mut s = AmbitionGameSaveData::new();
         s.set_encounter("a", PersistedEncounterState::Cleared);
         s.set_switch("b", true);
         s.set_boss("c", PersistedEncounterState::Cleared);
@@ -750,7 +750,7 @@ mod tests {
 
         assert_eq!(
             s,
-            SandboxSaveData::new(),
+            AmbitionGameSaveData::new(),
             "a wholesale reset must leave exactly a fresh save. Anything surviving \
              here is progress a player asked to erase and did not — the original \
              offenders were the wallet, the item list, and the flag that suppresses \

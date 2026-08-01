@@ -458,7 +458,7 @@ mod dispatch_parity {
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+        app.init_resource::<ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>();
         app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
         app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();

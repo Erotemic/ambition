@@ -97,7 +97,6 @@ These parameters improve both the signature and the conceptual model.
 
 Several existing types explicitly say they exist to stay under the ceiling:
 
-- `SandboxQueues`;
 - `CombatRoomReset`;
 - `ProgressionResources`;
 - `RoomClock`;

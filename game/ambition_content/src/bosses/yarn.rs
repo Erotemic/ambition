@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use ambition_combat::SetFlagRequested;
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 
 use super::{CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay};
 
@@ -85,7 +85,7 @@ pub fn install_cut_rope_yarn_bindings(
 /// `refresh_yarn_state_mirror` and keeps the old save-gated behavior
 /// (no save → no value, so `cut_rope_heavy_object_is(...)` is false).
 pub fn mirror_cut_rope_heavy_object(
-    save: Option<Res<SandboxSave>>,
+    save: Option<Res<AmbitionGameSave>>,
     cycle: Option<Res<CutRopeHeavyObjectCycle>>,
     mirror: Res<YarnStateMirror>,
 ) {
@@ -123,7 +123,7 @@ mod tests {
         }
 
         // Save present, no cycle resource: defaults to "anvil".
-        app.insert_resource(SandboxSave::default());
+        app.insert_resource(AmbitionGameSave::default());
         app.update();
         {
             let mirror = app.world().resource::<YarnStateMirror>();

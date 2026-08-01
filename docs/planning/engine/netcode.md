@@ -51,7 +51,7 @@ phase. The exhaustive Bevy ambiguity diagnostic is disabled for this schedule,
 while `SyncTestSession` supplies the stronger behavioral check by repeatedly
 rewinding and resimulating the real world.
 
-`ambition_sim_harness::SandboxSimOptions::with_sync_test_rollback*` selects
+`ambition_sim_harness::Platformer2dSimHarnessOptions::with_sync_test_rollback*` selects
 `GgrsSchedule` before game/content plugins are built, starts a real
 `SyncTestSession` after startup has published the canonical prepared session,
 and submits one local `ControlFrame` per harness step. Instrumentation proves

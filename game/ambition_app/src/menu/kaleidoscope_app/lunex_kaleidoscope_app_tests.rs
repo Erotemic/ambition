@@ -60,7 +60,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+    app.init_resource::<ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>();
     app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
@@ -94,14 +94,14 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 // ---- Developer-resource toggles ------------------------------------------
 
 /// Dispatching the resource-backed Developer rows flips the right resource:
-/// `DebugOverlay` → `SandboxDevState::debug`, `SlowMotion` →
-/// `SandboxDevState::slowmo`, `LdtkAutoApply` → `LdtkHotReloadState::auto_apply`
+/// `DebugOverlay` → `AmbitionGameDeveloperState::debug`, `SlowMotion` →
+/// `AmbitionGameDeveloperState::slowmo`, `LdtkAutoApply` → `LdtkHotReloadState::auto_apply`
 /// — none of which live on `DeveloperTools`. Driven through the real
 /// `apply_dev_toggle` path so the cube and pause menu can't drift.
 #[test]
 fn extra_dev_toggles_flip_their_non_developer_resources() {
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_platformer2d::dev_tools::SandboxDevState::default();
+    let mut dev_state = ambition_platformer2d::dev_tools::AmbitionGameDeveloperState::default();
     let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::default();
 
@@ -133,11 +133,11 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
 
     assert_eq!(
         dev_state.debug, !debug_before,
-        "the debug-overlay row flips SandboxDevState.debug"
+        "the debug-overlay row flips AmbitionGameDeveloperState.debug"
     );
     assert_eq!(
         dev_state.slowmo, !slowmo_before,
-        "the slow-motion row flips SandboxDevState.slowmo"
+        "the slow-motion row flips AmbitionGameDeveloperState.slowmo"
     );
     assert_eq!(
         ldtk_reload.auto_apply, !auto_before,
@@ -172,7 +172,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     assert!(DevToggleId::MenuBackend.is_cycle());
 
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_platformer2d::dev_tools::SandboxDevState::default();
+    let mut dev_state = ambition_platformer2d::dev_tools::AmbitionGameDeveloperState::default();
     let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::Grid;
 
@@ -241,7 +241,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 #[test]
 fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_platformer2d::dev_tools::SandboxDevState::default();
+    let mut dev_state = ambition_platformer2d::dev_tools::AmbitionGameDeveloperState::default();
     let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
     dev.show_feature_hitboxes = false;
     dev.show_player_hitbox = false;
@@ -903,7 +903,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+    app.init_resource::<ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>();
     app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
@@ -1420,7 +1420,7 @@ fn scroll_total_rows(app: &App) -> usize {
         .resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     let dev_state = app
         .world()
-        .resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+        .resource::<ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>();
     let ldtk_reload = app
         .world()
         .resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
@@ -1800,7 +1800,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     owned.grant(owned_item, 1);
     app.insert_resource(owned);
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_platformer2d::dev_tools::SandboxDevState>();
+    app.init_resource::<ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>();
     app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
@@ -2227,7 +2227,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 /// tick.
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
-    use ambition_platformer2d::platformer::schedule::{SandboxSet, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
     use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
     use bevy::prelude::IntoScheduleConfigs;
 
@@ -2259,7 +2259,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.set_sim_schedule(Update);
     app.add_systems(
         Update,
-        ambition_platformer2d::sim_view::rebuild_control_prompt.in_set(SandboxSet::FeatureViewSync),
+        ambition_platformer2d::sim_view::rebuild_control_prompt.in_set(Platformer2dSimulationPhase::FeatureViewSync),
     );
     super::install_menu_confirm_provider(&mut app);
     app.update();

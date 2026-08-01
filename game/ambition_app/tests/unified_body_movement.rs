@@ -17,7 +17,7 @@ use ambition_platformer2d::actors::control::PlayerInputFrame;
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "unified_move_enemy";
@@ -47,7 +47,7 @@ fn enemy_entity(world: &mut World) -> Entity {
 #[test]
 fn home_body_and_actor_body_move_through_the_same_integration_phase() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // Drop the enemy to the player's RIGHT — a chasing brain is drawn toward it.
     let px = player_x(sim.world_mut());
     let p = {
@@ -111,7 +111,7 @@ fn player_body_tick_is_not_the_gameplay_movement_route() {
     use bevy::prelude::Update;
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // One step so the Update schedule is initialized (systems() needs that).
     sim.step(AgentAction::default());
 
@@ -147,7 +147,7 @@ fn player_input_frame_is_not_brain_player_authority() {
     use ambition_platformer2d::input::ControlFrame;
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // Settle a frame so the body is grounded and at rest.
     sim.step(AgentAction::default());
     let player = primary_player(sim.world_mut());

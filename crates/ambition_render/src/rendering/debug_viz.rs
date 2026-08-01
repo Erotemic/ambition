@@ -13,7 +13,7 @@
 //!
 //! - [`DebugVizPlugin`] — the whole package for a game that has no debug stack
 //!   of its own (the demo apps): an F1 toggle on the shared
-//!   [`SandboxDevState::debug`] seam plus one draw system over these layers.
+//!   [`AmbitionGameDeveloperState::debug`] seam plus one draw system over these layers.
 //!   Games start with the viz OFF and press F1 to opt in.
 //! - The sandbox's own richer overlay (`ambition_app::dev::debug_overlay`)
 //!   imports the layer/primitive functions from here and composes them with
@@ -23,7 +23,7 @@
 //! NOT a dev HUD: this module draws shapes, nothing else.
 
 use ambition_dev_tools::dev_tools::DeveloperTools;
-use ambition_dev_tools::SandboxDevState;
+use ambition_dev_tools::AmbitionGameDeveloperState;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{AabbExt, RoomGeometry};
@@ -452,7 +452,7 @@ pub fn draw_moving_platform_debug(
 // ─────────────────────────── the plugin ───────────────────────────
 
 /// The opt-in F1 debug-visualization package for a game host: an F1 toggle on
-/// the shared [`SandboxDevState::debug`] seam plus one draw pass over the
+/// the shared [`AmbitionGameDeveloperState::debug`] seam plus one draw pass over the
 /// generic layers above and a body/feature layer from the sim-view
 /// read-models. No dev HUD, no inspectors — shapes only. The per-layer
 /// [`DeveloperTools`] flags (already in the debug-first posture on desktop)
@@ -479,12 +479,12 @@ impl Plugin for DebugVizPlugin {
         // Thin-host safety: the shared sim stack normally owns these, but the
         // plugin must not panic in a host that draws without it.
         app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
-        app.init_resource::<SandboxDevState>();
+        app.init_resource::<AmbitionGameDeveloperState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<MovingPlatformSet>();
         let start_enabled = self.start_enabled;
-        app.add_systems(Startup, move |mut dev_state: ResMut<SandboxDevState>| {
+        app.add_systems(Startup, move |mut dev_state: ResMut<AmbitionGameDeveloperState>| {
             // Shared state defaults clean for every game; an embedding host
             // may still opt in explicitly for a dedicated diagnostic build.
             dev_state.debug = start_enabled;
@@ -518,7 +518,7 @@ impl Plugin for DebugVizPlugin {
 /// the portal debug overlay bridge read.
 pub fn toggle_debug_viz(
     mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
-    mut dev_state: ResMut<SandboxDevState>,
+    mut dev_state: ResMut<AmbitionGameDeveloperState>,
 ) {
     if actions.read().any(|action| {
         *action
@@ -534,7 +534,7 @@ pub fn toggle_debug_viz(
 pub fn draw_debug_viz(
     mut gizmos: Gizmos,
     world: SessionWorldRef<RoomGeometry>,
-    dev_state: Res<SandboxDevState>,
+    dev_state: Res<AmbitionGameDeveloperState>,
     developer_tools: Res<DeveloperTools>,
     platform_set: Res<MovingPlatformSet>,
     features: Res<FeatureViewIndex>,

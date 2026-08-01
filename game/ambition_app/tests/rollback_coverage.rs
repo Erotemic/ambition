@@ -45,7 +45,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_app::{AgentAction, AmbitionSim, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::*;
 
 /// Type-name substrings that are NOT authoritative simulation state.
@@ -153,7 +153,7 @@ fn waiver(type_name: &str) -> Option<&'static str> {
 /// Used to DERIVE the swept population rather than to judge coverage: an entity
 /// carrying even one type the rollback knows about is an entity the rollback
 /// participates in, and therefore one whose every component has to be accounted for.
-fn rollback_vocabulary(sim: &mut SandboxSim) -> BTreeSet<String> {
+fn rollback_vocabulary(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
     sim.world()
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
@@ -188,7 +188,7 @@ fn rollback_vocabulary(sim: &mut SandboxSim) -> BTreeSet<String> {
 /// `require_rollback` is recorded for schema identity and never installed, so the
 /// marker is absent from every entity in the world and a population derived from it
 /// would silently be the old two-tag population again.
-fn simulated_population(sim: &mut SandboxSim) -> Vec<Entity> {
+fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     let vocabulary = rollback_vocabulary(sim);
     let world = sim.world_mut();
     let mut found: BTreeSet<Entity> = BTreeSet::new();
@@ -224,7 +224,7 @@ fn simulated_population(sim: &mut SandboxSim) -> Vec<Entity> {
 /// waived. The population differs per room — enemies, switches, and breakables
 /// only exist where a room authors them — so callers sweep representative
 /// rooms, not just the boot default.
-pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, usize> {
+pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, usize> {
     // An ANCHOR is not coverage. `require_rollback` only installs the
     // `bevy_ggrs::Rollback` marker so the entity participates; it snapshots
     // nothing. Counting it as accounted is how `TransformBeat` shipped claiming
@@ -275,7 +275,7 @@ pub(crate) fn unaccounted_components(sim: &mut SandboxSim) -> BTreeMap<String, u
 ///
 /// This lists what each waiver is actually covering so the claim can be re-read
 /// against reality instead of against the crate name.
-pub(crate) fn waived_components(sim: &mut SandboxSim) -> BTreeMap<String, &'static str> {
+pub(crate) fn waived_components(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, &'static str> {
     let known: BTreeSet<String> = sim
         .world()
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
@@ -314,8 +314,8 @@ pub(crate) fn waived_components(sim: &mut SandboxSim) -> BTreeMap<String, &'stat
 #[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
 fn list_what_every_waiver_actually_covers() {
     for room in ["combat_calibration_lab", "mockingbird_arena"] {
-        let mut sim = SandboxSim::new_with_options(
-            ambition_app::rl_sim::SandboxSimOptions::default()
+        let mut sim = Platformer2dSimHarness::new_with_options(
+            ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
                 .with_start_room(room),
         )
@@ -330,7 +330,7 @@ fn list_what_every_waiver_actually_covers() {
     }
 }
 
-fn assert_components_accounted(sim: &mut SandboxSim, room: &str) {
+fn assert_components_accounted(sim: &mut Platformer2dSimHarness, room: &str) {
     let unaccounted = unaccounted_components(sim);
     if !unaccounted.is_empty() {
         let mut report = format!(
@@ -349,7 +349,7 @@ fn assert_components_accounted(sim: &mut SandboxSim, room: &str) {
 #[test]
 fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime state (timers, resolved
     // frames, published hurtboxes) is actually present on the bodies.
     for _ in 0..8 {
@@ -364,8 +364,8 @@ fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
 /// composition being fully accounted is what makes that checksum meaningful.
 #[test]
 fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived() {
-    let mut sim = SandboxSim::new_with_options(
-        ambition_app::rl_sim::SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("combat_calibration_lab"),
     )
@@ -395,8 +395,8 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
 /// instrument because of population, not because of accounting.
 #[test]
 fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
-    let mut sim = SandboxSim::new_with_options(
-        ambition_app::rl_sim::SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("mockingbird_arena"),
     )
@@ -431,8 +431,8 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         // path state the sim advances every tick.
         "vertical_shaft",
     ] {
-        let mut sim = SandboxSim::new_with_options(
-            ambition_app::rl_sim::SandboxSimOptions::default()
+        let mut sim = Platformer2dSimHarness::new_with_options(
+            ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
                 .with_start_room(room),
         )
@@ -461,8 +461,8 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
 /// its transient would be the same false negative in a new costume.
 #[test]
 fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
-    let mut sim = SandboxSim::new_with_options(
-        ambition_app::rl_sim::SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("combat_calibration_lab"),
     )
@@ -568,7 +568,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     use ambition_platformer2d::characters::brain::Brain;
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let home = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
@@ -596,7 +596,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         (22.0, 39.0),
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom("pirate_raider".to_string()),
     );
-    let by_id = |sim: &mut SandboxSim, id: &str| {
+    let by_id = |sim: &mut Platformer2dSimHarness, id: &str| {
         let world = sim.world_mut();
         let mut q = world.query::<(Entity, &ambition_platformer2d::actors::features::FeatureId)>();
         q.iter(world)
@@ -651,12 +651,12 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
 /// wearing the right character. A seat that silently fails to adopt is how a
 /// match sweep ends up inspecting an empty roster and reporting success.
 ///
-/// ⚠ the robot lineage, not the arena duelists. A plain `SandboxSim` prepares
+/// ⚠ the robot lineage, not the arena duelists. A plain `Platformer2dSimHarness` prepares
 /// exactly `["player_robot_v2", "player_robot_v3", "robot"]` — the duelists are
 /// versus-ROUTE content — and `seat_character` returns `None` for an unprepared
 /// id, silently. The vacuity guard is what said so; the first version of this
 /// named the duelists and swept nothing.
-fn seat_a_two_cpu_match(sim: &mut SandboxSim) -> usize {
+fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
     use ambition_platformer2d::actors::character_runtime::{
         ControllerBinding, MatchParticipant, MatchParticipantRoster,
     };
@@ -722,12 +722,12 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
 
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     seat_a_two_cpu_match(&mut sim);
     // The activation tick itself is already behind us, and it is swept below on
     // the way through: seating publishes on the tick the last seat lands, and
     // the match then lives for the rest of this loop.
-    let seat_count = |sim: &mut SandboxSim| -> usize {
+    let seat_count = |sim: &mut Platformer2dSimHarness| -> usize {
         let world = sim.world_mut();
         let mut q = world.query::<&MatchSeat>();
         q.iter(world).count()
@@ -932,11 +932,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ("::gate_portal::GatePortalRegistry", "authored gate portals"),
     ("::manifest::WorldManifest", "authored world manifest"),
     (
-        "::project::SandboxLdtkProject",
+        "::project::AmbitionGameLdtkProject",
         "authored LDtk project; hot reload restarts the session",
     ),
     (
-        "::session::data::SandboxDataSpec",
+        "::session::data::AmbitionGameGameplaySpec",
         "authored data-spec value",
     ),
     (
@@ -1045,7 +1045,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "::cutscene_trigger::CutsceneTriggerQueue",
-        "narrative trigger seam; seen-flags in the rollback-registered SandboxSave dedup re-fires",
+        "narrative trigger seam; seen-flags in the rollback-registered AmbitionGameSave dedup re-fires",
     ),
     (
         "::brain::BrainActionCounter",
@@ -1154,7 +1154,7 @@ mod ambition_poison {
 #[test]
 fn the_resource_sweep_actually_catches_an_unregistered_resource() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.world_mut()
         .insert_resource(ambition_poison::DeliberatelyUnregistered);
     let flagged = unaccounted_resources(sim.world());
@@ -1170,7 +1170,7 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
 #[test]
 fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime resources exist.
     for _ in 0..8 {
         sim.step(AgentAction::default());
@@ -1205,12 +1205,12 @@ fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
 /// such thing as a render-only frame to probe — the first draft of this made
 /// exactly that mistake and reported twenty resources, every one of them a sim
 /// write.
-fn sim_with_a_stopped_clock() -> SandboxSim {
+fn sim_with_a_stopped_clock() -> Platformer2dSimHarness {
     use bevy::time::TimeUpdateStrategy;
     use std::time::Duration;
 
-    let mut sim = SandboxSim::new_with_options(
-        ambition_app::SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_fixed_tick(true),
     )
@@ -1251,7 +1251,7 @@ pub(crate) fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
 /// poison test uses to stand in for a render-frame writer — and is a faithful
 /// stand-in, because "not the sim schedule" is the whole of the claim.
 fn changed_while_the_sim_could_not_run(
-    sim: &mut SandboxSim,
+    sim: &mut Platformer2dSimHarness,
     watched: &BTreeSet<String>,
     mut between_frames: impl FnMut(&mut World),
 ) -> Vec<String> {
@@ -1470,7 +1470,7 @@ fn inert_waiver(components: &BTreeSet<String>) -> Option<&'static str> {
 
 /// Type names registered as SNAPSHOT state for a component (not resources, not
 /// anchors, not derived declarations).
-fn component_state_registrations(sim: &mut SandboxSim) -> BTreeSet<String> {
+fn component_state_registrations(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
     use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
     sim.world()
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
@@ -1492,7 +1492,7 @@ fn component_state_registrations(sim: &mut SandboxSim) -> BTreeSet<String> {
 }
 
 /// Type names whose PRESENCE puts an entity in the rollback envelope.
-fn rollback_anchors(sim: &mut SandboxSim) -> BTreeSet<String> {
+fn rollback_anchors(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
     use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
     sim.world()
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
@@ -1506,7 +1506,7 @@ fn rollback_anchors(sim: &mut SandboxSim) -> BTreeSet<String> {
 /// Every entity in `sim`'s swept population that carries snapshot-registered
 /// components but NO anchor, with the registrations that are therefore inert on
 /// it.
-fn inert_registrations(sim: &mut SandboxSim) -> BTreeMap<String, BTreeSet<String>> {
+fn inert_registrations(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, BTreeSet<String>> {
     let state = component_state_registrations(sim);
     let anchors = rollback_anchors(sim);
     let population = simulated_population(sim);
@@ -1536,7 +1536,7 @@ fn inert_registrations(sim: &mut SandboxSim) -> BTreeMap<String, BTreeSet<String
     inert
 }
 
-fn assert_no_inert_registrations(sim: &mut SandboxSim, room: &str) {
+fn assert_no_inert_registrations(sim: &mut Platformer2dSimHarness, room: &str) {
     let inert = inert_registrations(sim);
     assert!(
         inert.is_empty(),
@@ -1552,7 +1552,7 @@ fn assert_no_inert_registrations(sim: &mut SandboxSim, room: &str) {
 /// **The boot world's snapshot registrations all actually apply.**
 #[test]
 fn no_snapshot_registration_is_inert_in_the_boot_world() {
-    let mut sim = SandboxSim::new().expect("sandbox sim boots");
+    let mut sim = Platformer2dSimHarness::new().expect("sandbox sim boots");
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
@@ -1567,7 +1567,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
     // Fixed-tick, like its sibling sweep: `seat_a_two_cpu_match` drives the
     // seating retry to completion and the default timestep does not reach it.
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     // ⚠ the helper returns the TICK the match activated, not a seat count — and
     // with the S2 transaction that tick is 0, because every seat now resolves
     // and commits together. Count the bodies, like the sibling sweep does.
@@ -1590,7 +1590,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
 /// component and NO anchor — exactly the mistake — and confirm it is named.
 #[test]
 fn the_inert_sweep_actually_catches_an_unanchored_registration() {
-    let mut sim = SandboxSim::new().expect("sandbox sim boots");
+    let mut sim = Platformer2dSimHarness::new().expect("sandbox sim boots");
     for _ in 0..4 {
         sim.step(AgentAction::default());
     }

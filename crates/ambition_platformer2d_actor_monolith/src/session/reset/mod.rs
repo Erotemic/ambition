@@ -4,7 +4,7 @@
 //! runtime state so the player returns to the world's start room with encounters,
 //! quests, switches, bosses, and flags reset.
 //!
-//! Reset replaces `SandboxSaveData`, resets encounter/boss/quest registries so
+//! Reset replaces `AmbitionGameSaveData`, resets encounter/boss/quest registries so
 //! their populate systems rebuild from LDtk plus the empty save, despawns
 //! `RoomScopedEntity` instances, warps/refills the player, and re-seeds authored
 //! moving-platform state for the start room.
@@ -73,14 +73,14 @@ use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::rooms::RoomSet;
 use crate::world::physics;
 use ambition_persistence::quest::QuestRegistry;
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
-    sim_state: ResMut<'w, crate::SandboxSimState>,
+    sim_state: ResMut<'w, crate::AmbitionGameSessionState>,
     clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -127,7 +127,7 @@ impl SandboxResetRequested {
 /// the next frame the cleared registries see fresh state.
 pub fn process_sandbox_reset_request(
     mut request: ResMut<SandboxResetRequested>,
-    mut save: ResMut<SandboxSave>,
+    mut save: ResMut<AmbitionGameSave>,
     mut encounter_registry: ResMut<EncounterRegistry>,
     mut boss_registry: ResMut<BossEncounterRegistry>,
     mut quest_registry: ResMut<QuestRegistry>,
@@ -233,7 +233,7 @@ pub fn process_sandbox_reset_request(
 
     // 1. Wipe the persisted save. Change-detection will trigger the
     //    autosave system to write the empty save to disk this tick.
-    *save.data_mut() = ambition_persistence::save_data::SandboxSaveData::default();
+    *save.data_mut() = ambition_persistence::save_data::AmbitionGameSaveData::default();
 
     // 2. Clear registries. Setting them to Default flips
     //    `specs_loaded` / `initialized` back to false so the populate
@@ -391,7 +391,7 @@ pub fn clear_transient_on_sandbox_reset(
     }
 }
 
-/// Schedules [`process_sandbox_reset_request`] into [`SandboxSet::ResetProcessing`].
+/// Schedules [`process_sandbox_reset_request`] into [`Platformer2dSimulationPhase::ResetProcessing`].
 pub struct SandboxResetSchedulePlugin;
 
 impl Plugin for SandboxResetSchedulePlugin {
@@ -411,7 +411,7 @@ impl Plugin for SandboxResetSchedulePlugin {
                 clear_transient_on_sandbox_reset,
             )
                 .chain()
-                .in_set(crate::schedule::SandboxSet::ResetProcessing),
+                .in_set(crate::schedule::Platformer2dSimulationPhase::ResetProcessing),
         );
     }
 }

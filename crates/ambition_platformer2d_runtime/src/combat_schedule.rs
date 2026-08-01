@@ -3,7 +3,7 @@
 //! EFFECTS-stage brain-action consumers (enemy melee/ranged spawns, boss
 //! special-attack spawns), projectile + hitbox + feature-hit resolution,
 //! the cut-rope boss-arena tick, and mount/rider link bookkeeping all run
-//! here in `SandboxSet::Combat`.
+//! here in `Platformer2dSimulationPhase::Combat`.
 //!
 //! Extracted from `app/plugins.rs` (ecs-cleanup-plan #8) so the top-level
 //! simulation orchestration reads as a list of named domain plugins rather
@@ -12,9 +12,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{CombatSet, SandboxSet, gameplay_allowed};
+use ambition_platformer2d_shared_tangle::schedule::{CombatSet, Platformer2dSimulationPhase, gameplay_allowed};
 
-/// Schedules the `SandboxSet::Combat` system chain.
+/// Schedules the `Platformer2dSimulationPhase::Combat` system chain.
 pub struct CombatSchedulePlugin;
 
 impl Plugin for CombatSchedulePlugin {
@@ -320,14 +320,14 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             ambition_platformer2d_actor_monolith::features::ecs::damage_apply::void_pending_player_hits_at_lifecycle_boundaries
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(SandboxSet::ResetProcessing)
-                .before(SandboxSet::FeatureViewSync),
+                .after(Platformer2dSimulationPhase::ResetProcessing)
+                .before(Platformer2dSimulationPhase::FeatureViewSync),
         );
 
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the
         // global phase); the content plugins own the systems that hang on
-        // each slot. Both slots live in `SandboxSet::Combat`.
+        // each slot. Both slots live in `Platformer2dSimulationPhase::Combat`.
         //
         // `ContentSpecials` slots in where the inline boss-special block
         // Both slots' PLACEMENT is `configure_sandbox_sets`' job now — the phase

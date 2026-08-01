@@ -66,7 +66,7 @@ pub fn update_boss_encounters(
     world_time: Res<ambition_time::WorldTime>,
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         crate::encounter::EncounterMusicRequest,
     >,

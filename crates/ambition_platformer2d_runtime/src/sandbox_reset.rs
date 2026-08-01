@@ -22,13 +22,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::SandboxSimState;
+use ambition_platformer2d_actor_monolith::AmbitionGameSessionState;
 use ambition_platformer2d_actor_monolith::time::feel::SandboxFeelTuning;
 use ambition_platformer2d_actor_monolith::time::time_control::{ClockRequester, ClockResetRequest};
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_shared_tangle::schedule::SandboxSet;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::VfxMessage;
@@ -52,7 +52,7 @@ pub fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut SandboxSimState,
+    sim_state: &mut AmbitionGameSessionState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
     attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
@@ -111,7 +111,7 @@ pub fn apply_room_replay_request_system(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    mut sim_state: ResMut<SandboxSimState>,
+    mut sim_state: ResMut<AmbitionGameSessionState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,
@@ -180,7 +180,7 @@ pub fn apply_room_replay_request_system(
 /// request through the same system.
 ///
 /// The consumer holds the position the app's copy held: in
-/// [`SandboxSet::PlayerInput`], after the dev-edit sync and before the input
+/// [`Platformer2dSimulationPhase::PlayerInput`], after the dev-edit sync and before the input
 /// timer. A host with its own reset-input system pins itself relative to this
 /// one (the Ambition app does).
 pub struct RoomReplaySchedulePlugin;
@@ -191,7 +191,7 @@ impl Plugin for RoomReplaySchedulePlugin {
         app.add_systems(
             sim,
             apply_room_replay_request_system
-                .in_set(SandboxSet::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
                 .before(ambition_platformer2d_actor_monolith::control::input_timer_system),
         );

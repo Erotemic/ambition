@@ -19,7 +19,7 @@
 //! This is **the demo gate**: a demo app depends on `ambition_platformer2d_runtime`, never
 //! on `ambition_app`. The group carries only plugins that name no content and
 //! reach for no app-local system — the sim schedule SETS + engine resources
-//! ([`SandboxSetsPlugin`]), the universal brain, gravity, traversal abilities,
+//! ([`Platformer2dSimulationSchedulePlugin`]), the universal brain, gravity, traversal abilities,
 //! item pickups, encounters/cutscenes, feature collection/interaction/effects/
 //! view-sync, room reset, traces, affordances, and the combat-phase chain
 //! ([`CombatSchedulePlugin`]) with its content extension slots.
@@ -129,7 +129,7 @@ pub mod host_input {
 /// crates. This records the intentional runtime facade used to keep the windowed
 /// host out of the actor-systems crate.
 pub mod host_seams {
-    pub use ambition_dev_tools::SandboxDevState;
+    pub use ambition_dev_tools::AmbitionGameDeveloperState;
 }
 
 /// Fixture/demo support re-exported from the runtime composition tier so the
@@ -209,7 +209,7 @@ impl SimulationHostAppExt for App {
 }
 
 /// The canonical simulation-phase SETS + the engine resources every consumer
-/// needs before any `.in_set(SandboxSet::…)` registration or host override.
+/// needs before any `.in_set(Platformer2dSimulationPhase::…)` registration or host override.
 ///
 /// First plugin in [`PlatformerEnginePlugins`]. Hosts may override ordinary
 /// engine configuration resources before `add_plugins` (Bevy's
@@ -222,11 +222,11 @@ impl SimulationHostAppExt for App {
 ///
 /// [`SimSchedule`]: ambition_platformer2d_shared_tangle::schedule::SimSchedule
 #[derive(Default)]
-pub struct SandboxSetsPlugin {
+pub struct Platformer2dSimulationSchedulePlugin {
     pub host: SimulationHost,
 }
 
-impl Plugin for SandboxSetsPlugin {
+impl Plugin for Platformer2dSimulationSchedulePlugin {
     fn build(&self, app: &mut App) {
         app.set_simulation_host(self.host);
         if self.host == SimulationHost::Fixed60Hz {
@@ -247,7 +247,7 @@ impl Plugin for SandboxSetsPlugin {
             // publisher would overwrite it at the head of every tick.
         }
         // Declare the canonical simulation-phase ordering. System
-        // registrations elsewhere only need `.in_set(SandboxSet::X)`.
+        // registrations elsewhere only need `.in_set(Platformer2dSimulationPhase::X)`.
         ambition_platformer2d_actor_monolith::schedule::configure_sandbox_sets(app);
         // The Class-B transit ledger (`collision-and-ccd.md` §3.2). Frame-scoped:
         // cleared at the head of the sim, appended to by portal transit, room
@@ -261,7 +261,7 @@ impl Plugin for SandboxSetsPlugin {
             sim,
             ambition_platformer2d_shared_tangle::class_b::clear_class_b_remap_log
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .before(ambition_platformer2d_shared_tangle::schedule::SandboxSet::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         // N3.1's identity vocabulary. Every body the sim can identify from an
         // authored fact gets its `SimId` at the head of the frame, before anything
@@ -275,7 +275,7 @@ impl Plugin for SandboxSetsPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .before(ambition_platformer2d_shared_tangle::schedule::SandboxSet::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         // ...and again at the TAIL, after the last in-tick spawner (room
         // transition lowering, wave spawns, summons, sandbox reset), so identity
@@ -293,8 +293,8 @@ impl Plugin for SandboxSetsPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(ambition_platformer2d_shared_tangle::schedule::SandboxSet::ResetProcessing)
-                .before(ambition_platformer2d_shared_tangle::schedule::SandboxSet::FeatureViewSync),
+                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::ResetProcessing)
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         // Shrine activation pulse (interaction → save flash).
         app.init_resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>();
@@ -356,8 +356,8 @@ impl PlatformerEnginePlugins {
 impl PluginGroup for PlatformerEnginePlugins {
     fn build(self) -> PluginGroupBuilder {
         let builder = PluginGroupBuilder::start::<Self>()
-            // Sets + engine resources FIRST (see SandboxSetsPlugin docs).
-            .add(SandboxSetsPlugin { host: self.host });
+            // Sets + engine resources FIRST (see Platformer2dSimulationSchedulePlugin docs).
+            .add(Platformer2dSimulationSchedulePlugin { host: self.host });
         // Non-rollback games do not pay for GGRS schedules, snapshot storage,
         // checksums, entity recreation, or session/request handling.
         let builder = if self.host.is_ggrs() {

@@ -8,7 +8,7 @@
 |---|---|
 | [`action`](src/action.rs) | Agent-facing action vocabulary and conversion into the engine-owned `ControlFrame`. |
 | [`observation`](src/observation.rs) | Owned simulation observations exposed to RL agents and scripted drivers. |
-| [`options`](src/options.rs) | Construction, timestep, and GGRS rollback options for `SandboxSim`. |
+| [`options`](src/options.rs) | Construction, timestep, and GGRS rollback options for `Platformer2dSimHarness`. |
 | [`random_policy`](src/random_policy.rs) | Small deterministic policies used by harness examples and stress tests. |
 | [`reward`](src/reward.rs) | Example reward-shaping functions for the headless RL sim (TODO #198). |
 | [`runtime`](src/runtime.rs) | Programmatic Ambition simulation runtime, including direct and GGRS-driven stepping. |

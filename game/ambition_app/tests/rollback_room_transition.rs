@@ -35,7 +35,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
 
@@ -45,9 +45,9 @@ use std::collections::HashSet;
 const SOURCE_ROOM: &str = "combat_calibration_lab";
 const TARGET_ROOM: &str = "first_system_boss";
 
-fn repro_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn repro_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room(SOURCE_ROOM)
             .with_sync_test_rollback_settings(4, 10),
@@ -58,14 +58,14 @@ fn repro_sim() -> SandboxSim {
 /// Every room-scoped feature/actor entity currently spawned. A transition
 /// despawns this whole set and spawns a fresh one; because despawn bumps the
 /// generation, no source `Entity` value can equal a post-transition one.
-fn feature_roster(sim: &mut SandboxSim) -> HashSet<Entity> {
+fn feature_roster(sim: &mut Platformer2dSimHarness) -> HashSet<Entity> {
     let world = sim.world_mut();
     let mut q =
         world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     q.iter(world).collect()
 }
 
-fn player_y(sim: &mut SandboxSim) -> f32 {
+fn player_y(sim: &mut Platformer2dSimHarness) -> f32 {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world).map(|k| k.pos.y).unwrap_or(0.0)
@@ -73,7 +73,7 @@ fn player_y(sim: &mut SandboxSim) -> f32 {
 
 /// The rollback session generation — bumped once per session rebase, so a Track B
 /// confirmed lifecycle commit advances it exactly once.
-fn session_generation(sim: &SandboxSim) -> u64 {
+fn session_generation(sim: &Platformer2dSimHarness) -> u64 {
     sim.world()
         .get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>()
         .map(|boundary| boundary.session)
@@ -81,7 +81,7 @@ fn session_generation(sim: &SandboxSim) -> u64 {
 }
 
 /// Whether a deferred lifecycle intent is currently recorded (rollback state).
-fn intent_pending(sim: &SandboxSim) -> bool {
+fn intent_pending(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
         .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
         .is_some_and(|slot| slot.pending.is_some())

@@ -92,7 +92,7 @@ fn cinematic_grants_scripted_denies_player() {
 /// End-to-end: build a minimal app, fire a request, run the
 /// system, observe the target change. This is the canonical
 /// regression check that the dispatch pipeline is wired.
-/// SandboxSimState::time_scale is touched by the SMOOTHER
+/// AmbitionGameSessionState::time_scale is touched by the SMOOTHER
 /// (smooth_sim_clock_toward_target_system), not by this system.
 #[test]
 fn solo_grant_writes_requested_clock_scale() {

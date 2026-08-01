@@ -19,6 +19,31 @@ Ambition can grow outward from a deep, high-quality 2D platformer engine rather
 
 ---
 
+
+Recommended debt vocabulary
+
+Use each term for one specific condition:
+
+Monolith
+    one type or crate owns multiple concerns that should eventually have
+    different authorities
+
+Tangle
+    dependency direction and ownership are mutually entangled
+
+Legacy
+    an old path retained temporarily while replacement code is already active
+
+Bridge
+    intentional temporary integration between two architectures
+
+Compatibility
+    intentionally retained translation for an older external contract - WE SHOULD NEVER BE USING THIS UNTIL WE HAVE A REAL RELEASE, WHICH WILL NOT HAPPEN ANYTIME SOON.
+
+Do not use Legacy for merely unattractive code, and do not use Monolith for every aggregate.
+
+---
+
 # Retire Stale Sandbox and Ambition Naming
 
 ## Extended abstract
@@ -71,7 +96,9 @@ SandboxAssetCatalog → AmbitionGameAssetCatalog
 
 SandboxCatalogInputs → AmbitionGameAssetCatalogInputs
 
-SandboxDataSpec → AmbitionGameGameplaySpec
+SandboxDataSpec → AmbitionGamePlatformerDefaults
+
+SandboxDataAsset → AmbitionGamePlatformerDefaultsAsset
 
 SandboxSimState → AmbitionGameSessionState
 
@@ -89,8 +116,15 @@ SandboxLdtkProject → AmbitionGameLdtkProject
 
 SandboxEventWriters → AmbitionGameEventWriters
 
-SandboxQueues → AmbitionGameQueues
+SandboxFeelTuning → AmbitionGameFeelTuningMonolith
+
+SandboxAction → AmbitionGameInputActionMonolith
+
+ambition/sandbox.ron → ambition/platformer_defaults.ron
 ```
+
+
+Is SandboxQueues dead code? Can it be removed?
 
 The same pass should correct unambiguous bare `Ambition*` names:
 
@@ -125,6 +159,19 @@ SandboxFeelTuning
 `SandboxAction` belongs to the planned input separation. `SandboxFeelTuning` combines several ownership domains and should be decomposed rather than hidden behind a new broad name.
 
 The campaign is complete when production systems no longer use `Sandbox*` as a historical namespace, while literal sandbox content and development modes retain the name.
+
+
+The eventual decomposition is roughly:
+
+```
+AmbitionGameInputActionMonolith
+    ├── ShellAction
+    │     menu navigation, confirm, cancel, pause
+    ├── Platformer2dAction
+    │     movement, jump, dash, attacks, traversal
+    └── AmbitionGameAction
+          inventory, map, and game-specific commands
+```
 
 
 ----

@@ -1,6 +1,6 @@
 //! Sandbox-side aggregator for the [`ambition_asset_manager`] catalog.
 //!
-//! This module builds the single [`SandboxAssetCatalog`] resource used by visible
+//! This module builds the single [`AmbitionGameAssetCatalog`] resource used by visible
 //! sandbox systems to resolve Bevy asset paths: sprites, parallax, character and
 //! boss sheets, fonts, LDtk world/data, SFX bank, and music tracks.
 //!
@@ -139,7 +139,7 @@ pub struct WorldCatalogRow {
 /// Caller-provided catalog rows that would otherwise force this foundational
 /// crate to import gameplay/session/content modules.
 #[derive(Clone, Debug, Default)]
-pub struct SandboxCatalogInputs {
+pub struct AmbitionGameAssetCatalogInputs {
     pub scale_variants: Vec<AssetScaleVariant>,
     pub character_sprites: Vec<CharacterSpriteCatalogRow>,
     pub boss_sprites: Vec<BossSpriteCatalogRow>,
@@ -156,12 +156,12 @@ pub struct SandboxCatalogInputs {
 /// Cheap to clone (the underlying manifest is wrapped in an `Arc`-like
 /// shared shape inside [`AmbitionAssetCatalog`]'s `Clone` impl).
 #[derive(Resource, Clone, Debug)]
-pub struct SandboxAssetCatalog {
+pub struct AmbitionGameAssetCatalog {
     catalog: AmbitionAssetCatalog,
     profile: AssetProfile,
 }
 
-impl SandboxAssetCatalog {
+impl AmbitionGameAssetCatalog {
     /// Construct from a fully-built [`AmbitionAssetCatalog`] + the
     /// active profile. Prefer [`build_sandbox_catalog`] from
     /// production code; this is the seam for unit tests that author
@@ -369,7 +369,7 @@ pub fn scaled_asset_id(id: &AssetId, scale_asset_id_suffix: Option<&str>) -> Opt
 
 /// Build the ordered candidate roots for `rel_path` on desktop / Steam
 /// Deck profiles. The only candidate-roots walker in the sandbox;
-/// [`SandboxAssetCatalog::resolve_local_file_path`] (and through it
+/// [`AmbitionGameAssetCatalog::resolve_local_file_path`] (and through it
 /// `should_attempt_optional_load` / `try_path_for_load`) are the sole
 /// callers.
 fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
@@ -460,8 +460,8 @@ mod asset_root_tests {
 pub fn build_sandbox_catalog(
     config: &SandboxAssetConfig,
     image_manifest: AssetManifest,
-    inputs: &SandboxCatalogInputs,
-) -> SandboxAssetCatalog {
+    inputs: &AmbitionGameAssetCatalogInputs,
+) -> AmbitionGameAssetCatalog {
     build_sandbox_catalog_with(config, image_manifest, inputs, |_| {})
 }
 
@@ -471,9 +471,9 @@ pub fn build_sandbox_catalog(
 pub fn build_sandbox_catalog_with(
     config: &SandboxAssetConfig,
     image_manifest: AssetManifest,
-    inputs: &SandboxCatalogInputs,
+    inputs: &AmbitionGameAssetCatalogInputs,
     extend: impl FnOnce(&mut AssetManifest),
-) -> SandboxAssetCatalog {
+) -> AmbitionGameAssetCatalog {
     let mut manifest = image_manifest;
     extend_with_world_entries(&mut manifest, &inputs.worlds);
     extend_with_data_entries(&mut manifest);
@@ -494,7 +494,7 @@ pub fn build_sandbox_catalog_with(
     );
     extend_with_music_entries(&mut manifest, &inputs.music_tracks);
     extend(&mut manifest);
-    SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
+    AmbitionGameAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }
 
 #[cfg(test)]

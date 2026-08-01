@@ -23,7 +23,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::projectiles::enemy::EnemyProjectile;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";
@@ -81,7 +81,7 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
 #[test]
 fn the_player_robot_fights_the_player_with_its_own_full_kit() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // Drop the protagonist's own body a medium stride away — far enough to open
     // with the signature Hadouken, close enough to then melee the human.

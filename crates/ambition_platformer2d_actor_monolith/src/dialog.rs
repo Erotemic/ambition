@@ -8,7 +8,7 @@
 //! - [`yarn_bindings`] — Ambition's Yarn *commands* (`<<give_item>>`,
 //!   `<<challenge>>`, shop verbs) and *functions* (`<<if boss_cleared("x")>>`),
 //!   plus the per-frame [`yarn_bindings::refresh_yarn_state_mirror`] that fills
-//!   the shared mirror from `SandboxSave`. These reference actor/save state, so
+//!   the shared mirror from `AmbitionGameSave`. These reference actor/save state, so
 //!   they register onto the reusable runtime through the
 //!   [`ambition_dialog::YarnContentBindings`] installer seam.
 //! - [`sync_dialogue_game_mode`] — the one host↔runtime coupling: the dialogue

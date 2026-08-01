@@ -61,7 +61,7 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
 /// frame; cost is O(chains × set-flag-lookups) and the chain table is
 /// expected to stay under a few dozen entries.
 pub fn emit_intro_flag_chains(
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut effects: MessageWriter<SetFlagRequested>,
 ) {
     let data = save.data();
@@ -106,7 +106,7 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 pub fn compute_intro_flag_gated_lock_walls(
     project: &ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkProject,
     active_room_id: &str,
-    save: &ambition_persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
 ) -> Vec<(
     String,
     ambition_platformer2d_core::Vec2,
@@ -174,11 +174,11 @@ pub struct IntroLockWallCache {
 }
 
 pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_platformer2d_actor_monolith::world::ldtk_world::SandboxLdtkProject>>,
+    project: Option<Res<ambition_platformer2d_actor_monolith::world::ldtk_world::AmbitionGameLdtkProject>>,
     room_set: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     >,
-    save: Option<Res<ambition_persistence::save::SandboxSave>>,
+    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     overlay: Option<
         ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     >,
@@ -193,7 +193,7 @@ pub fn sync_intro_flag_gated_lock_walls(
     // The cached walls are a function of THREE inputs: the save flags, the
     // active room, and the LDtk project the walls are computed FROM. The
     // project is the one that used to be missing — a hot reload that swaps
-    // `SandboxLdtkProject` under an unchanged room id and save state kept
+    // `AmbitionGameLdtkProject` under an unchanged room id and save state kept
     // serving walls computed from the replaced project.
     if save.is_changed()
         || project.is_changed()

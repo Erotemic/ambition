@@ -145,7 +145,7 @@ embed_core_assets! {
 }
 
 /// Bevy plugin that backs every URL the
-/// [`super::SandboxAssetCatalog`] hands out with a real `AssetSource`.
+/// [`super::AmbitionGameAssetCatalog`] hands out with a real `AssetSource`.
 ///
 /// Today this is the embedded source only: the plugin inserts every
 /// installed `WorldManifest` row's LDtk JSON bytes (when the game built
@@ -173,7 +173,7 @@ embed_core_assets! {
 /// `EmbeddedAssetRegistry` is created by Bevy's `AssetPlugin`. The
 /// plugin therefore must run AFTER `DefaultPlugins`. The visible app builders
 /// in `ambition_app::app` add it as the last plugin in the
-/// `SandboxPresentationPlugin` install order.
+/// `AmbitionGamePresentationPlugin` install order.
 pub struct AmbitionAssetSourcePlugin {
     pub profile: AssetProfile,
     pub embedded_worlds: Vec<EmbeddedWorldAsset>,

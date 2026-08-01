@@ -131,7 +131,7 @@ fn the_shipped_games_compose_through_the_public_api() {
 #[test]
 fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys() {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
-    use ambition_platformer2d::view::{ids, SandboxAssetCatalog};
+    use ambition_platformer2d::view::{ids, AmbitionGameAssetCatalog};
 
     let mut app = PlatformerApp::headless()
         .with_game_assets()
@@ -190,7 +190,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
          route and id"
     );
 
-    let catalog = app.world().resource::<SandboxAssetCatalog>();
+    let catalog = app.world().resource::<AmbitionGameAssetCatalog>();
 
     // ── One character visual, and therefore one logical asset path ──
     let sheet = catalog.path_for(&ids::character_sprite(
@@ -221,7 +221,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
         !declared.is_empty(),
         "non-vacuity: the secondary experience declares a default track"
     );
-    let catalog = app.world().resource::<SandboxAssetCatalog>();
+    let catalog = app.world().resource::<AmbitionGameAssetCatalog>();
     assert!(
         catalog.path_for(&ids::music_track(&declared)).is_none(),
         "the secondary experience's music track `{declared}` now HAS an asset \

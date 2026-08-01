@@ -20,7 +20,7 @@ use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
 use ambition_platformer2d::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
-use ambition_platformer2d::asset_manager::sandbox_assets::SandboxAssetCatalog;
+use ambition_platformer2d::asset_manager::sandbox_assets::AmbitionGameAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
 use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionWorldRef};
@@ -101,7 +101,7 @@ pub(crate) struct RoomPreparationPrefetchState {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
-    pub(crate) catalog: Option<Res<'w, SandboxAssetCatalog>>,
+    pub(crate) catalog: Option<Res<'w, AmbitionGameAssetCatalog>>,
     pub(crate) character_catalog:
         Option<Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>>,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
@@ -201,7 +201,7 @@ pub(crate) fn demand_room_character_sheets(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -343,7 +343,7 @@ pub(crate) fn build_room_asset_manifest(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
@@ -835,7 +835,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
-    catalog: Res<SandboxAssetCatalog>,
+    catalog: Res<AmbitionGameAssetCatalog>,
     asset_server: Res<AssetServer>,
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,

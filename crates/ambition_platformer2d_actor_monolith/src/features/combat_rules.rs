@@ -17,7 +17,7 @@ use bevy::prelude::{Commands, Res};
 
 /// Rebuild [`ResolvedCombatTuning`] from the declaration and the baseline.
 ///
-/// Runs in `SandboxSet::WorldPrep`, which is before every reader: the damage
+/// Runs in `Platformer2dSimulationPhase::WorldPrep`, which is before every reader: the damage
 /// paths are in `PlayerSimulation`/`Combat`, and a resolution landing after them
 /// would give the hit kernel last tick's rules on the tick a match opens — the
 /// one tick where they differ.

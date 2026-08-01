@@ -1,7 +1,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition_platformer2d::combat::{GameplayBanner, HitEvent, ResetRoomFeaturesEvent};
+use ambition_platformer2d::combat::GameplayBanner;
 use ambition_platformer2d::sfx::SfxWriter;
 use ambition_platformer2d::vfx::VfxMessage;
 
@@ -18,44 +18,14 @@ use ambition_platformer2d::vfx::VfxMessage;
 /// `RoomTransitionRequested`) are written directly from their own
 /// extracted systems' `MessageWriter` params.
 #[derive(SystemParam)]
-pub struct SandboxEventWriters<'w> {
+pub struct AmbitionGameEventWriters<'w> {
     pub(super) sfx: SfxWriter<'w>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
 }
 
-/// Mutable producer streams the player tick writes into during the gameplay
-/// tick.
-///
-/// Phase-1 strangler rule: typed gameplay effects now travel through focused
-/// Bevy messages (`SetFlagRequested` / `QuestAdvanceRequested` /
-/// `SwitchActivated` / `GameplaySfxRequested`) rather than a custom
-/// `FeatureEventBus` resource or a single mixed-purpose `GameplayEffect` enum.
-/// Bundling the remaining sim→sim writers here keeps the player tick under
-/// Bevy's 16-`SystemParam` budget while making the cross-system transport
-/// explicit.
-///
-/// Add new sim → sim streams (NOT sim → presentation, which is
-/// `SandboxEventWriters`) here when they grow naturally; resist the urge to
-/// thread them through the system signature directly.
-#[derive(SystemParam)]
-pub struct SandboxQueues<'w> {
-    /// Single canonical channel for attacker-direction hits (player
-    /// slash, player projectile, pogo bounce). Replaced the prior
-    /// split `DamageEvent` + `PogoBounceEvent` writers.
-    pub hit_events: MessageWriter<'w, HitEvent>,
-    pub reset_room_features: MessageWriter<'w, ResetRoomFeaturesEvent>,
-    pub feature_ecs_overlay: Res<'w, ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay>,
-    pub dialogue: ResMut<'w, ambition_platformer2d::dialog::DialogState>,
-    pub physics_settings: Res<'w, ambition_platformer2d::actors::world::physics::PhysicsSandboxSettings>,
-    pub moving_platforms: ResMut<'w, ambition_platformer2d::world::collision::MovingPlatformSet>,
-    pub sim_state: ResMut<'w, ambition_platformer2d::actors::SandboxSimState>,
-    pub clock: ResMut<'w, ambition_platformer2d::time::ClockState>,
-    pub dev_state: ResMut<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
-}
-
 /// Read-only progression-state bundle for the HUD and pause menu.
 ///
-/// Same `SystemParam`-packing trick as `SandboxQueues` — the HUD reads
+/// Same `SystemParam`-packing trick as `AmbitionGameEventWriters` — the HUD reads
 /// from many independent registries (quests, cutscene state, bosses,
 /// encounters, world map) and would otherwise blow the 16-param budget
 /// when combined with windowing / camera / font handles. Grouping them

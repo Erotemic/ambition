@@ -881,7 +881,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
             app.configure_sets(
                 bevy::prelude::Update,
                 CameraObservationSet
-                    .after(ambition_platformer2d_shared_tangle::schedule::SandboxSet::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             );
         }
         // The resolve frames the PRESENTED subject, so the frame-clock resample

@@ -27,7 +27,7 @@ use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
-    ActorDiedMessage, SafePositionContext, SandboxSimState, remember_safe_player_position,
+    ActorDiedMessage, SafePositionContext, AmbitionGameSessionState, remember_safe_player_position,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -313,7 +313,7 @@ pub(crate) fn death_respawn_player(
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut SandboxSimState,
+    sim_state: &mut AmbitionGameSessionState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
@@ -410,7 +410,7 @@ pub(crate) fn handle_player_damage_events(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut SandboxSimState,
+    sim_state: &mut AmbitionGameSessionState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
@@ -1148,7 +1148,7 @@ pub fn apply_player_hit_events(
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
-    mut sim_state: ResMut<SandboxSimState>,
+    mut sim_state: ResMut<AmbitionGameSessionState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     // The rollback-registered FIFO `stage_player_victim_hit_events` filled at

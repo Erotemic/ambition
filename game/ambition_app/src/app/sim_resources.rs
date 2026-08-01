@@ -10,7 +10,7 @@
 //!   `setup_simulation_system` — the host's world construction),
 //! - the startup-profiler phase marks + PostStartup report.
 //!
-//! [`SandboxSimulationResourcesPlugin`] is mounted by
+//! [`AmbitionGameSimulationResourcesPlugin`] is mounted by
 //! [`super::add_simulation_plugins`] before the engine group.
 
 use bevy::prelude::*;
@@ -19,12 +19,12 @@ use super::setup_systems::setup_simulation_system;
 use ambition_platformer2d::actors::session::data;
 use ambition_platformer2d::platformer::schedule::SimulationSetupSet;
 
-pub struct SandboxSimulationResourcesPlugin;
+pub struct AmbitionGameSimulationResourcesPlugin;
 
-impl Plugin for SandboxSimulationResourcesPlugin {
+impl Plugin for AmbitionGameSimulationResourcesPlugin {
     fn build(&self, app: &mut App) {
         // Registration is App-local and idempotent, so direct users of this
-        // plugin receive the same catalog as the full SandboxSimulationPlugin.
+        // plugin receive the same catalog as the full AmbitionGameSimulationPlugin.
         ambition_content::character_catalog::register(app);
         app.add_systems(
             Startup,

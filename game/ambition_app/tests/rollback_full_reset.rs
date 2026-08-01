@@ -4,7 +4,7 @@
 //! MULTI-TICK load machinery, `RoomTransitionLoadState` et al.), a full sandbox
 //! reset (`process_sandbox_reset_request`) is SINGLE-TICK Commands reconstruction:
 //! despawn the whole `RoomScopedEntity` set + respawn a start-room plan, plus the
-//! registry/save/player resets, all in one `SandboxSet::ResetProcessing` pass.
+//! registry/save/player resets, all in one `Platformer2dSimulationPhase::ResetProcessing` pass.
 //! The transition result does NOT answer whether that diverges — the in-place
 //! reset proved single-tick Commands resets can be perfectly rollback-safe — so
 //! this asks op 2b directly.
@@ -17,13 +17,13 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
 
-fn repro_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn repro_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
@@ -31,7 +31,7 @@ fn repro_sim() -> SandboxSim {
     .expect("Ambition GGRS sync-test harness builds in the calibration lab")
 }
 
-fn active_room(sim: &SandboxSim) -> String {
+fn active_room(sim: &Platformer2dSimHarness) -> String {
     // RoomSet is a session-world component, read via the same accessor the
     // harness observation uses.
     ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::rooms::RoomSet>(
@@ -44,7 +44,7 @@ fn active_room(sim: &SandboxSim) -> String {
 /// The room-scoped roster. A full reset despawns this whole set and respawns
 /// from the start-room plan; despawn bumps the generation, so a reconstruction
 /// that actually ran leaves NO original `Entity` value behind.
-fn feature_roster(sim: &mut SandboxSim) -> HashSet<Entity> {
+fn feature_roster(sim: &mut Platformer2dSimHarness) -> HashSet<Entity> {
     let world = sim.world_mut();
     let mut q =
         world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();

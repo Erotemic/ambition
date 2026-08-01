@@ -11,7 +11,7 @@
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
-use ambition_app::{AgentAction, SandboxSim};
+use ambition_app::{AgentAction, Platformer2dSimHarness};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -141,7 +141,7 @@ fn local_down_jump() -> AgentAction {
     }
 }
 
-fn open_arm_sim(arm: Arm, spot: StartSpot) -> SandboxSim {
+fn open_arm_sim(arm: Arm, spot: StartSpot) -> Platformer2dSimHarness {
     let mut sim = fixed_60hz_room_sim("symmetry_room");
     // This makes AgentAction axes mean controlled-body-local side/down. The room
     // still supplies the gravity via zones; the setting only avoids mixing the
@@ -513,7 +513,7 @@ fn local_one_way_block(id: &'static str, dir: Vec2, local_min: Vec2, local_size:
     Block::one_way(id, world_center - world_half, world_half * 2.0)
 }
 
-fn settle_on_injected_one_way(arm: Arm) -> SandboxSim {
+fn settle_on_injected_one_way(arm: Arm) -> Platformer2dSimHarness {
     let mut sim = fixed_60hz_room_sim("symmetry_room");
     sim.set_movement_frame_mode(InputFrameMode::BodyRelativeStrict);
     sim.set_base_gravity_dir((arm.dir.x, arm.dir.y));

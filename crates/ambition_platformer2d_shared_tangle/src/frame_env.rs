@@ -127,7 +127,7 @@ pub fn collect_force_zones(mut snapshot: ResMut<ForceZones>, zones: Query<&Force
 
 /// The frame resolution phase: publishes every integrated body's
 /// [`ResolvedMotionFrame`] for the tick. Configured after the environment's
-/// zone snapshot and before `SandboxSet::CoreSimulation`, so controller
+/// zone snapshot and before `Platformer2dSimulationPhase::CoreSimulation`, so controller
 /// interpretation, brains, combat, and integration all read this tick's value.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct FrameResolveSet;

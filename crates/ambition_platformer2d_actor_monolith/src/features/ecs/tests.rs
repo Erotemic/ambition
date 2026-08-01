@@ -357,8 +357,8 @@ fn interact_buffered_starts_npc_dialogue() {
 
 /// Regression for the presentation-reader ordering contract:
 /// every system added to
-/// [`crate::schedule::SandboxSet::PresentationVisualSync`] must run
-/// after [`crate::schedule::SandboxSet::FeatureViewSync`].
+/// [`crate::schedule::Platformer2dSimulationPhase::PresentationVisualSync`] must run
+/// after [`crate::schedule::Platformer2dSimulationPhase::FeatureViewSync`].
 ///
 /// Structural check: inspect the actual Bevy schedule graph
 /// rather than depend on the executor's behavior with two
@@ -372,7 +372,7 @@ fn interact_buffered_starts_npc_dialogue() {
 /// Bevy ships or how it tie-breaks unordered systems.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::{configure_sandbox_sets, SandboxSet};
+    use crate::schedule::{configure_sandbox_sets, Platformer2dSimulationPhase};
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 
@@ -385,8 +385,8 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
     app.add_systems(
         Update,
         (
-            (|| {}).in_set(SandboxSet::FeatureViewSync),
-            (|| {}).in_set(SandboxSet::PresentationVisualSync),
+            (|| {}).in_set(Platformer2dSimulationPhase::FeatureViewSync),
+            (|| {}).in_set(Platformer2dSimulationPhase::PresentationVisualSync),
         ),
     );
 
@@ -397,11 +397,11 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
     let graph = schedule.graph();
     let fvs_key = graph
         .system_sets
-        .get_key(SandboxSet::FeatureViewSync.intern())
+        .get_key(Platformer2dSimulationPhase::FeatureViewSync.intern())
         .expect("FeatureViewSync must be a registered SystemSet");
     let pvs_key = graph
         .system_sets
-        .get_key(SandboxSet::PresentationVisualSync.intern())
+        .get_key(Platformer2dSimulationPhase::PresentationVisualSync.intern())
         .expect("PresentationVisualSync must be a registered SystemSet");
     let edge_present = graph
         .dependency()

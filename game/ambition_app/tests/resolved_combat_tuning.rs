@@ -15,11 +15,11 @@
 //! The question to ask is never "is the reader right" but *"which plugin
 //! installs it"*.
 //!
-//! So this test composes `SandboxSimulationPlugin` — the same plugin the game
+//! So this test composes `AmbitionGameSimulationPlugin` — the same plugin the game
 //! boots — and asks the world.
 
 use ambition_platformer2d::combat::rules::{DeclaredCombatRules, ResolvedCombatTuning};
-use ambition_app::app::{SandboxSimulationPlugin, StartRoomOverride};
+use ambition_app::app::{AmbitionGameSimulationPlugin, StartRoomOverride};
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -49,7 +49,7 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    app.add_plugins(SandboxSimulationPlugin);
+    app.add_plugins(AmbitionGameSimulationPlugin);
     app.finish();
     app.update();
     app

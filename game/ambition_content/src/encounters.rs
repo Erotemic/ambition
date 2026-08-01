@@ -20,7 +20,7 @@ use ambition_encounter::{
     EncounterLifecycle, EncounterObjective, EncounterParticipants, EncounterPhase, Objective,
 };
 use ambition_persistence::save_data::PersistedEncounterState;
-use ambition_platformer2d_shared_tangle::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
 
 /// The puzzle's stable encounter id (and save-flag namespace).
 pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
@@ -56,7 +56,7 @@ const KERNEL_FACES: [(&str, &str); 4] = [
 pub fn spawn_symmetry_attunement(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     existing: Query<&Encounter>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
 ) {
     let Some(scope) = commands.spawn_scope() else {
         return;
@@ -125,7 +125,7 @@ pub fn drive_symmetry_attunement(
 pub fn celebrate_symmetry_attunement(
     mut events: MessageReader<EncounterEventMsg>,
     mut banners: MessageWriter<ambition_platformer2d_actor_monolith::features::GameplayBannerRequested>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
     for msg in events.read() {
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
@@ -150,12 +150,12 @@ impl Plugin for AmbitionEncounterContentPlugin {
             sim,
             (spawn_symmetry_attunement, drive_symmetry_attunement)
                 .chain()
-                .in_set(SandboxSet::GameplayEffects),
+                .in_set(Platformer2dSimulationPhase::GameplayEffects),
         );
         app.add_systems(
             sim,
             celebrate_symmetry_attunement
-                .in_set(SandboxSet::Progression)
+                .in_set(Platformer2dSimulationPhase::Progression)
                 .after(ambition_encounter::EncounterLifecycleSet),
         );
     }

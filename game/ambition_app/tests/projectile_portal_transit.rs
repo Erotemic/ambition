@@ -9,7 +9,7 @@
 //! `PortalPolicy { reorient: false, carry_velocity: true }`. The unit suite in
 //! `ambition_content::portal::transit_body_adapter` proves the Phase-4 tagging
 //! adapter (`ensure_projectile_portal_bodies`) + the core transit in isolation;
-//! THIS test proves the same thing end-to-end inside a live `SandboxSim` app —
+//! THIS test proves the same thing end-to-end inside a live `Platformer2dSimHarness` app —
 //! the real `PortalSet::Transit` schedule processes a projectile-shaped body and
 //! transits it through a placed pair.
 //!

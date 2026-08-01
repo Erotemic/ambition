@@ -87,7 +87,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 ///
 /// `publish_menu_confirm_prompt` WRITES the inventory's `UiCue` and
 /// `rebuild_control_prompt` READS the cues — and the reader lives in the sim
-/// schedule's [`SandboxSet::FeatureViewSync`]. Registering the writer in `Update`
+/// schedule's [`Platformer2dSimulationPhase::FeatureViewSync`]. Registering the writer in `Update`
 /// (a different schedule) made the read one frame stale under a `FixedUpdate`
 /// sim, and non-deterministic about WHICH frame's label it saw (Update and
 /// FixedUpdate interleave by wall-clock). Co-locating the writer in the same
@@ -95,7 +95,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 /// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
 /// producer→consumer edge is explicit, not incidental.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
-    use ambition_platformer2d::platformer::schedule::{SandboxSet, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
     // Idempotent: the shell presentation and host input plugin init it too;
@@ -104,7 +104,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     app.add_systems(
         sim,
         publish_menu_confirm_prompt
-            .in_set(SandboxSet::FeatureViewSync)
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
             .before(ambition_platformer2d::sim_view::rebuild_control_prompt),
     );
 }
@@ -425,7 +425,7 @@ pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
+    dev_state: ResMut<'w, ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>,
     ldtk_reload: ResMut<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
@@ -646,7 +646,7 @@ pub(crate) struct GameModeIo<'w> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, ambition_platformer2d::dev_tools::SandboxDevState>,
+    dev_state: Res<'w, ambition_platformer2d::dev_tools::AmbitionGameDeveloperState>,
     ldtk_reload: Res<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]

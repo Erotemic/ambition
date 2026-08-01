@@ -8,7 +8,7 @@
 //! embedded fallbacks).
 //!
 //! Per row, the path is selected by
-//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`] under the active
+//! [`crate::assets::sandbox_assets::AmbitionGameAssetCatalog`] under the active
 //! [`ambition_asset_manager::AssetProfile`]:
 //! - `DesktopDevLoose` / `DesktopInstalled` / `SteamDeckInstalled` →
 //!   `LocalPath` resolved against the canonical assets root.
@@ -33,7 +33,7 @@ use std::fs;
 use std::path::Path;
 
 use ambition_asset_manager::sandbox_assets::{
-    build_sandbox_catalog, SandboxAssetCatalog, SandboxAssetConfig, SandboxCatalogInputs,
+    build_sandbox_catalog, AmbitionGameAssetCatalog, SandboxAssetConfig, AmbitionGameAssetCatalogInputs,
     WorldCatalogRow,
 };
 use ambition_asset_manager::{AssetManifest, AssetProfile};
@@ -54,7 +54,7 @@ impl LdtkProject {
     /// - `NoAssets` / `Headless`: returns the required-asset error
     ///   (matches [`ambition_asset_manager::MissingAssetPolicy::Error`]).
     pub fn load_default(
-        catalog: &SandboxAssetCatalog,
+        catalog: &AmbitionGameAssetCatalog,
         manifest: &WorldManifest,
     ) -> Result<Self, String> {
         let primary = manifest.primary();
@@ -131,7 +131,7 @@ impl LdtkProject {
             sprite_folder: "sprites".to_string(),
             asset_profile: AssetProfile::DesktopDevLoose,
         };
-        let inputs = SandboxCatalogInputs {
+        let inputs = AmbitionGameAssetCatalogInputs {
             worlds: manifest
                 .worlds
                 .iter()
@@ -155,7 +155,7 @@ impl LdtkProject {
     /// the hot-reload system has both in hand.
     pub fn load_from_disk_at(
         path: &Path,
-        catalog: &SandboxAssetCatalog,
+        catalog: &AmbitionGameAssetCatalog,
         manifest: &WorldManifest,
     ) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
@@ -198,7 +198,7 @@ fn parse_world_text(text: &str, source: &WorldSource) -> Result<LdtkProject, Str
 /// primary keeps booting.
 fn merge_secondary_worlds(
     project: &mut LdtkProject,
-    catalog: &SandboxAssetCatalog,
+    catalog: &AmbitionGameAssetCatalog,
     manifest: &WorldManifest,
 ) {
     for source in manifest.secondaries() {

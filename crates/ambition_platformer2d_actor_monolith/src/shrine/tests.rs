@@ -12,7 +12,7 @@ fn interacting_at_the_shrine_heals_to_full() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
-    app.init_resource::<ambition_persistence::save::SandboxSave>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);
 
@@ -72,7 +72,7 @@ fn interacting_at_the_shrine_heals_to_full() {
 fn no_heal_without_interact_or_when_not_touching() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.init_resource::<ambition_persistence::save::SandboxSave>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);
     let player = app
@@ -155,7 +155,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
 
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.init_resource::<ambition_persistence::save::SandboxSave>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
@@ -198,7 +198,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
 
     let recorded = app
         .world()
-        .resource::<ambition_persistence::save::SandboxSave>()
+        .resource::<ambition_persistence::save::AmbitionGameSave>()
         .data()
         .checkpoint
         .clone()
@@ -215,9 +215,9 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     // spawn and must be moved to the checkpoint instead.
     let mut next = App::new();
     next.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
-    next.insert_resource(ambition_persistence::save::SandboxSave(
+    next.insert_resource(ambition_persistence::save::AmbitionGameSave(
         app.world()
-            .resource::<ambition_persistence::save::SandboxSave>()
+            .resource::<ambition_persistence::save::AmbitionGameSave>()
             .data()
             .clone(),
     ));
@@ -260,14 +260,14 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     };
 
     let mut app = App::new();
-    let mut save = ambition_persistence::save_data::SandboxSaveData::default();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     save.checkpoint = Some(ambition_persistence::save_data::PersistedCheckpoint::new(
         "somewhere_else",
         999,
         999,
     ));
     app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
-    app.insert_resource(ambition_persistence::save::SandboxSave(save));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
     let world = ambition_platformer2d_core::World::new(
@@ -325,14 +325,14 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     };
 
     let mut app = App::new();
-    let mut save = ambition_persistence::save_data::SandboxSaveData::default();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     save.checkpoint = Some(ambition_persistence::save_data::PersistedCheckpoint::new(
         "rest_room",
         512,
         300,
     ));
     app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
-    app.insert_resource(ambition_persistence::save::SandboxSave(save));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
 

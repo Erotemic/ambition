@@ -44,7 +44,7 @@ mod host_adapter {
     use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
     use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
     use ambition_platformer2d_shared_tangle::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
-    use ambition_platformer2d_runtime::host_seams::SandboxDevState;
+    use ambition_platformer2d_runtime::host_seams::AmbitionGameDeveloperState;
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character
@@ -172,10 +172,10 @@ mod host_adapter {
     }
 
     /// Drive the portal debug overlay's host-side F1 gate from the standard
-    /// `SandboxDevState.debug` flag, so the portal gizmos stay quiet unless the
+    /// `AmbitionGameDeveloperState.debug` flag, so the portal gizmos stay quiet unless the
     /// global debug overlay is on.
     pub fn sync_portal_debug_overlay_to_f1(
-        dev_state: Res<SandboxDevState>,
+        dev_state: Res<AmbitionGameDeveloperState>,
         debug: Option<ResMut<PortalDebugOverlay>>,
     ) {
         if let Some(mut debug) = debug {

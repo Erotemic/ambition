@@ -24,7 +24,7 @@ use std::path::PathBuf;
 
 use ambition_platformer2d::actors::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 use ambition_platformer2d::input::ControlFrame;
-use ambition_app::rl_sim::{AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -55,11 +55,11 @@ fn parse_named_value(args: &[String], name: &str) -> Option<String> {
 }
 
 fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<String>) -> i32 {
-    let mut options = SandboxSimOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
     if let Some(room) = start_room {
         options = options.with_start_room(room);
     }
-    let mut sim = match SandboxSim::new_with_options(options) {
+    let mut sim = match Platformer2dSimHarness::new_with_options(options) {
         Ok(s) => s,
         Err(error) => {
             eprintln!("headless run failed: {error}");

@@ -139,7 +139,7 @@ pub struct StandTimer(pub f32);
 /// Marker for ECS features that should contribute collision to the sandbox
 /// world overlay while active.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SandboxSolidContributor;
+pub struct PlatformerWorldSolidContributor;
 
 /// Volumes that can currently receive player-side attack damage.
 ///

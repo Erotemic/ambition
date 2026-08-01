@@ -187,7 +187,7 @@ impl DialogState {
     /// the first frame, before `PresentLine` lands) and stashes a
     /// `pending_start` request that the dispatch system drains to
     /// call `runner.start_node`. Increments
-    /// `SandboxSave.dialog_visits[id]` so Yarn's `visit_count(id)`
+    /// `AmbitionGameSave.dialog_visits[id]` so Yarn's `visit_count(id)`
     /// function reflects the new visit.
     pub fn start(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext) {
         self.active = true;

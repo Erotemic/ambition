@@ -31,7 +31,7 @@ impl Plugin for AmbitionQuestContentPlugin {
         app.add_systems(
             sim,
             crate::quest::populate_quest_registry
-                .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::Progression),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
         );
     }
 }

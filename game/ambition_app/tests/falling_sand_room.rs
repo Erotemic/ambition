@@ -30,7 +30,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// One authored-switch activation, delivered the way the interaction system
 /// delivers it: the switch's own parsed `SwitchActivation`, cloned off the
 /// authored entity, written as a `SwitchActivated` message.
-fn activate_authored_switch(sim: &mut ambition_app::SandboxSim, switch_id: &str) {
+fn activate_authored_switch(sim: &mut ambition_app::Platformer2dSimHarness, switch_id: &str) {
     let world = sim.world_mut();
     let mut switches = world.query::<&ambition_platformer2d::actors::features::SwitchFeature>();
     let activation = switches

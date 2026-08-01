@@ -18,7 +18,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
 };
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::platformer::schedule::{
-    gameplay_allowed, PresentationSetupSet, SandboxSet, SimScheduleExt,
+    gameplay_allowed, PresentationSetupSet, Platformer2dSimulationPhase, SimScheduleExt,
 };
 use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
@@ -67,7 +67,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // now — `RoomTransitionComposerPlugin` owns them.
 
     // The canonical simulation-phase sets + engine resources now live in
-    // `ambition_platformer2d::runtime::SandboxSetsPlugin` (first in the engine group below).
+    // `ambition_platformer2d::runtime::Platformer2dSimulationSchedulePlugin` (first in the engine group below).
     // Host configuration overrides are consumed before simulation plugins
     // build. Live gameplay-world values are already components on the exact
     // direct/session root; no canonical world value is initialized as a resource.
@@ -80,7 +80,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .copied()
         .unwrap_or_default();
 
-    app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
+    app.add_plugins(super::sim_resources::AmbitionGameSimulationResourcesPlugin);
 
     // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
     // hooks, and portal adapters. Installed after simulation resources so content
@@ -147,7 +147,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         sim,
         apply_player_reset_input_system
             .run_if(gameplay_allowed)
-            .in_set(SandboxSet::PlayerInput)
+            .in_set(Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::dev_tools::DevEditApplySet)
             .before(ambition_platformer2d::actors::control::input_timer_system)
             .before(ambition_platformer2d::runtime::apply_room_replay_request_system),
@@ -171,23 +171,23 @@ fn register_app_local_sim_systems(app: &mut App) {
                 crate::app::player_clone::spawn_requested_player_clone,
             )
                 .chain()
-                .in_set(SandboxSet::WorldPrep),
+                .in_set(Platformer2dSimulationPhase::WorldPrep),
         )
         .add_systems(
             sim,
             crate::app::player_clone::tick_player_clone_brains
                 .run_if(gameplay_allowed)
-                .in_set(SandboxSet::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         )
         .add_systems(
             sim,
             crate::app::player_clone::sync_player_clone_transform
-                .in_set(SandboxSet::PresentationSync),
+                .in_set(Platformer2dSimulationPhase::PresentationSync),
         )
         .add_systems(
             sim,
             crate::app::player_clone::despawn_player_clones_on_reset
-                .in_set(SandboxSet::ResetProcessing)
+                .in_set(Platformer2dSimulationPhase::ResetProcessing)
                 // AFTER, not before: the processor is the only system that may
                 // decline a reset, and this one waits for its commitment.
                 .after(ambition_platformer2d::actors::session::reset::process_sandbox_reset_request),
@@ -418,7 +418,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
-        sync_preset_input_map.before(SandboxSet::CoreSimulation),
+        sync_preset_input_map.before(Platformer2dSimulationPhase::CoreSimulation),
     );
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
@@ -476,7 +476,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (ambition_platformer2d::actors::menu::map::sync_map_menu,)
-                .after(SandboxSet::CoreSimulation)
+                .after(Platformer2dSimulationPhase::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(
@@ -517,7 +517,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 ambition_platformer2d::actors::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
-                .after(SandboxSet::CoreSimulation)
+                .after(Platformer2dSimulationPhase::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
@@ -745,7 +745,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
                 fx::process_explosion_requests,
             )
                 .chain()
-                .after(SandboxSet::CoreSimulation)
+                .after(Platformer2dSimulationPhase::CoreSimulation)
                 .before(vfx_spawn_messages)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
@@ -762,7 +762,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     app.add_systems(
         Update,
         fx::update_blink_preview
-            .after(SandboxSet::CoreSimulation)
+            .after(Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
@@ -777,7 +777,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
         physics_spawn_debris_messages
-            .after(SandboxSet::CoreSimulation)
+            .after(Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
@@ -832,7 +832,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition_platformer2d::actors::audio::SandboxAudioPlugin);
+    app.add_plugins(ambition_platformer2d::actors::audio::AmbitionGameAudioPlugin);
     // Once the resident SFX bank lands, publish its ids as Ambition's
     // provider-relative SFX authority (bank = storage, selection = permission).
     app.add_systems(
@@ -856,9 +856,9 @@ pub(super) fn add_audio_plugins(_app: &mut App) {}
 /// Installs all sandbox simulation resources and systems — the subset
 /// that is safe for both visible and headless builds. Calls
 /// `init_sandbox_resources` then `add_simulation_plugins`.
-pub struct SandboxSimulationPlugin;
+pub struct AmbitionGameSimulationPlugin;
 
-impl Plugin for SandboxSimulationPlugin {
+impl Plugin for AmbitionGameSimulationPlugin {
     fn build(&self, app: &mut App) {
         // `init_sandbox_resources` composes provider catalogs before building
         // the asset manifest and world/session resources. The later content
@@ -870,9 +870,9 @@ impl Plugin for SandboxSimulationPlugin {
 
 /// Installs LDtk runtime spine registrations and `LdtkPlugin`. Visible
 /// binary only — `LdtkPlugin` panics in headless (no `RenderApp`).
-pub struct SandboxLdtkPlugin;
+pub struct AmbitionGameLdtkPlugin;
 
-impl Plugin for SandboxLdtkPlugin {
+impl Plugin for AmbitionGameLdtkPlugin {
     fn build(&self, app: &mut App) {
         add_ldtk_runtime_plugin(app);
     }
@@ -880,9 +880,9 @@ impl Plugin for SandboxLdtkPlugin {
 
 /// Installs all presentation-side plugins: input, audio, VFX, HUD, debug
 /// overlays, and platform plugins. Visible binary only.
-pub struct SandboxPresentationPlugin;
+pub struct AmbitionGamePresentationPlugin;
 
-impl Plugin for SandboxPresentationPlugin {
+impl Plugin for AmbitionGamePresentationPlugin {
     fn build(&self, app: &mut App) {
         add_presentation_plugins(app);
     }

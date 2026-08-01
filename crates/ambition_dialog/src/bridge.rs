@@ -23,7 +23,7 @@ use crate::bindings::{YarnContentBindings, YarnPresentationCue, YarnStateMirror}
 use crate::content::DialogChoice;
 use crate::context::{DialogueContext, DialogueNodeIndex};
 use crate::runtime::{DialogSpeechStyle, DialogState};
-use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save::AmbitionGameSave;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.
@@ -126,7 +126,7 @@ fn dispatch_pending_dialog_requests(
     mut state: ResMut<DialogState>,
     runner_e: Option<Res<DialogueRunnerEntity>>,
     mut runner_q: Query<&mut DialogueRunner>,
-    save: Option<ResMut<SandboxSave>>,
+    save: Option<ResMut<AmbitionGameSave>>,
 ) {
     // Early-return + visible diagnostic if the runner hasn't
     // spawned yet. Without this, dialog.start() requests pile up

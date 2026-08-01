@@ -8,7 +8,7 @@ use bevy::window::WindowResolution;
 use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
+use super::plugins::{AmbitionGameLdtkPlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin};
 
 /// Resolve the on-disk asset root for the desktop app.
 ///
@@ -768,9 +768,9 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     match render {
         VisibleRenderMode::Windowed => {
             app.add_plugins((
-                SandboxSimulationPlugin,
-                SandboxLdtkPlugin,
-                SandboxPresentationPlugin,
+                AmbitionGameSimulationPlugin,
+                AmbitionGameLdtkPlugin,
+                AmbitionGamePresentationPlugin,
             ));
         }
         VisibleRenderMode::NoWindow => {
@@ -779,7 +779,7 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
             // visuals are ordinary sprites and still draw; only the painted
             // LDtk tile spine is absent in this mode. The session LDtk roots
             // guard on the asset registry so nothing dangles.
-            app.add_plugins((SandboxSimulationPlugin, SandboxPresentationPlugin));
+            app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
         }
         VisibleRenderMode::OffscreenGpu => {
             // The FULL set, tile spine included — this mode has a render app,
@@ -787,9 +787,9 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
             // dropped the painted tiles would be a photograph of a different
             // game than the one a player runs.
             app.add_plugins((
-                SandboxSimulationPlugin,
-                SandboxLdtkPlugin,
-                SandboxPresentationPlugin,
+                AmbitionGameSimulationPlugin,
+                AmbitionGameLdtkPlugin,
+                AmbitionGamePresentationPlugin,
             ));
         }
     }
@@ -921,9 +921,9 @@ pub fn run_web() {
     // (repair_wasm.md failure #5: this used to `match render`, a variable copied
     // from the native `build_visible_app` builder that never existed here.)
     app.add_plugins((
-        SandboxSimulationPlugin,
-        SandboxLdtkPlugin,
-        SandboxPresentationPlugin,
+        AmbitionGameSimulationPlugin,
+        AmbitionGameLdtkPlugin,
+        AmbitionGamePresentationPlugin,
     ));
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.

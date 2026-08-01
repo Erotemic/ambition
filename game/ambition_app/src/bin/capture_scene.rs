@@ -27,7 +27,7 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 };
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 use ambition_app::app::{
-    PresentationSetupSet, SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
+    PresentationSetupSet, AmbitionGameLdtkPlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
     StartRoomOverride,
 };
 use bevy::app::AppExit;
@@ -213,9 +213,9 @@ fn main() {
     app.insert_resource(config);
     app.insert_resource(SceneCaptureRuntime::default());
     app.add_plugins((
-        SandboxSimulationPlugin,
-        SandboxLdtkPlugin,
-        SandboxPresentationPlugin,
+        AmbitionGameSimulationPlugin,
+        AmbitionGameLdtkPlugin,
+        AmbitionGamePresentationPlugin,
         // **THE LAYOUT RESOLVER**, which the sandbox plugins do not install.
         //
         // Without it `ResolvedGameplayPresentation` stays at its DEFAULT, whose

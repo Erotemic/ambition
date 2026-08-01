@@ -25,7 +25,7 @@ use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
 use ambition_platformer2d::runtime::InputStreamRecorder;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::SandboxSim;
+use ambition_app::Platformer2dSimHarness;
 
 const TICK_HZ: u32 = 60;
 const TICKS: usize = 90;
@@ -67,17 +67,17 @@ fn scripted_input(tick: usize) -> ControlFrame {
     frame
 }
 
-fn new_sim() -> SandboxSim {
-    SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("SandboxSim builds")
+fn new_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("Platformer2dSimHarness builds")
 }
 
-fn arm_recorder(sim: &mut SandboxSim) {
+fn arm_recorder(sim: &mut Platformer2dSimHarness) {
     sim.world_mut()
         .resource_mut::<InputStreamRecorder>()
         .arm_single_player(TICK_HZ);
 }
 
-fn finish_recording(sim: &mut SandboxSim) -> InputStream {
+fn finish_recording(sim: &mut Platformer2dSimHarness) -> InputStream {
     sim.world_mut()
         .resource_mut::<InputStreamRecorder>()
         .finish()
@@ -164,7 +164,7 @@ fn the_recorder_captures_the_frame_the_sim_consumed() {
 
 /// Ticks are the timeline, and the recording says so.
 ///
-/// The stream does NOT begin at tick 0: `SandboxSim::new` runs one sim step so
+/// The stream does NOT begin at tick 0: `Platformer2dSimHarness::new` runs one sim step so
 /// the caller's first `observation()` is valid, and the recorder is armed after
 /// it. A stream is contiguous from ITS OWN first tick — which is why `frame()`
 /// offsets from `start_tick()` rather than assuming zero, and why a recording

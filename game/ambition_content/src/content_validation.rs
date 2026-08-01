@@ -416,7 +416,7 @@ fn validate_quest_conditions(
 
     let loaded_encounters = ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
         project,
-        &ambition_persistence::save_data::SandboxSaveData::default(),
+        &ambition_persistence::save_data::AmbitionGameSaveData::default(),
     );
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())

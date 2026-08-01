@@ -2,7 +2,7 @@
 //! and switches.
 //!
 //! These systems run at room-load time so authored entities reflect
-//! flags carried in the SandboxSave (provoked NPCs, dead enemies,
+//! flags carried in the AmbitionGameSave (provoked NPCs, dead enemies,
 //! cleared bosses, flipped switches) before gameplay resumes.
 
 use super::*;
@@ -15,7 +15,7 @@ use super::*;
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     roster: Res<crate::features::CharacterRoster>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     // A persisted-hostile NPC re-establishes its grudge against a stable player
     // slot on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one slot to be angry at).
@@ -124,7 +124,7 @@ pub fn sync_ecs_actors_with_save(
 
 /// Mirror persisted boss-cleared state onto ECS-owned boss actors.
 pub fn sync_ecs_bosses_with_save(
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
@@ -156,7 +156,7 @@ pub fn sync_ecs_bosses_with_save(
 /// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
 /// these ECS components.
 pub fn sync_ecs_switches_from_save(
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,
 ) {
     for (id, mut switch_on) in &mut switches {

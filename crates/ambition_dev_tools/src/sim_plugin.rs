@@ -32,7 +32,7 @@ impl Plugin for DevToolsSimPlugin {
         // plugin that owns the systems initializes their resources).
         app.init_resource::<crate::profiling::StartupProfiler>();
         app.init_resource::<crate::profiling::FrameCensus>();
-        app.init_resource::<crate::SandboxDevState>();
+        app.init_resource::<crate::AmbitionGameDeveloperState>();
         app.init_resource::<crate::dev_tools::DeveloperTools>();
         app.init_resource::<crate::dev_tools::EditablePlayerStats>();
         app.init_resource::<crate::dev_tools::EditableMovementTuning>();

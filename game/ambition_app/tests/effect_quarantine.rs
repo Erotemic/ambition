@@ -32,16 +32,16 @@
 
 use ambition_platformer2d::runtime::external_effects::ExternalEffectJournal;
 use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::ecs::message::{MessageCursor, Messages};
 
 /// How far past the end to keep stepping so the rewinding run's pending tail
 /// confirms. Must exceed the largest `check_distance` used below.
 const FLUSH_STEPS: usize = 12;
 
-fn sim_with_rewind_distance(check_distance: usize) -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn sim_with_rewind_distance(check_distance: usize) -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(check_distance, 10),
     )

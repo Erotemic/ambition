@@ -93,7 +93,7 @@ pub fn apply_encounter_music(
     music_channel: Res<AudioChannel<MusicChannel>>,
     mut request: ResMut<crate::encounter::EncounterMusicRequest>,
     room_music: Res<crate::rooms::RoomMusicRequest>,
-    sandbox_data: Res<crate::data::SandboxDataSpec>,
+    sandbox_data: Res<crate::data::AmbitionGameGameplaySpec>,
 ) {
     let resolved_default = room_music
         .desired_track

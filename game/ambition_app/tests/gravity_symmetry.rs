@@ -5,21 +5,21 @@
 //! the pogo gravity-inversion bug; see docs note in the run plan.
 //!
 //! Uses the world-observability added to `AgentObservation` (gravity_dir,
-//! enemies, pickups) and the `SandboxSim` scenario scaffolding
+//! enemies, pickups) and the `Platformer2dSimHarness` scenario scaffolding
 //! (set_base_gravity_dir / teleport_player / grant_pogo_ability / add_block).
 
 use ambition_platformer2d::engine_core::{Block, Vec2};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 fn base() -> AgentAction {
     AgentAction::default()
 }
 
-fn open_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn open_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("central_hub_complex"),
     )
@@ -162,7 +162,7 @@ fn descend(gdir: (f32, f32), jump: bool) -> AgentAction {
 /// gravity-facing face, so the test is independent of room geometry. The platform
 /// sits at an open spot; the player is dropped onto it from the anti-gravity side.
 /// Returns (sim, floor_center_y). Asserts the player actually landed on OUR floor.
-fn settle_on_floor(gdir: (f32, f32), one_way: bool) -> (SandboxSim, f32) {
+fn settle_on_floor(gdir: (f32, f32), one_way: bool) -> (Platformer2dSimHarness, f32) {
     let mut sim = open_sim();
     for _ in 0..5 {
         sim.step(base());

@@ -39,12 +39,12 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without, World};
 
-fn repro_sim() -> SandboxSim {
-    SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+fn repro_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
@@ -75,7 +75,7 @@ fn place_player_on_floor(world: &mut World, hp: i32) {
 }
 
 /// Stage the player at `hp` and fold it into the rollback baseline.
-fn stage_on_floor(sim: &mut SandboxSim, hp: i32) {
+fn stage_on_floor(sim: &mut Platformer2dSimHarness, hp: i32) {
     place_player_on_floor(sim.world_mut(), hp);
     sim.rebase_rollback_history()
         .expect("arena staging becomes the rollback baseline");
@@ -133,28 +133,28 @@ fn smash_one_brick(world: &mut World) -> Entity {
     brick
 }
 
-fn enemy_hp(sim: &mut SandboxSim, enemy: Entity) -> i32 {
+fn enemy_hp(sim: &mut Platformer2dSimHarness, enemy: Entity) -> i32 {
     sim.world_mut()
         .get::<BodyHealth>(enemy)
         .map(|h| h.health.current)
         .expect("wounded enemy still exists after the in-place reset")
 }
 
-fn brick_is_broken(sim: &mut SandboxSim, brick: Entity) -> bool {
+fn brick_is_broken(sim: &mut Platformer2dSimHarness, brick: Entity) -> bool {
     sim.world_mut()
         .get::<ambition_platformer2d::combat::components::BreakableFeature>(brick)
         .map(|f| f.broken())
         .expect("brick still exists after the in-place reset")
 }
 
-fn player_hp(sim: &mut SandboxSim) -> i32 {
+fn player_hp(sim: &mut Platformer2dSimHarness) -> i32 {
     let world = sim.world_mut();
     let mut q =
         world.query_filtered::<&BodyHealth, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.single(world).map(|h| h.health.current).unwrap_or(0)
 }
 
-fn living_enemies(sim: &mut SandboxSim) -> Vec<(f32, f32)> {
+fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
         &ambition_platformer2d::platformer::body::BodyKinematics,

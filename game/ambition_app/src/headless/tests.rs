@@ -11,7 +11,7 @@ use bevy::ecs::message::Messages;
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
-    app.add_plugins(crate::app::SandboxSimulationPlugin);
+    app.add_plugins(crate::app::AmbitionGameSimulationPlugin);
     app
 }
 
@@ -97,7 +97,7 @@ fn sim_completes_60_ticks_with_counter_intact() {
     );
 }
 
-/// Verify the BrainPlugin is installed by SandboxSimulationPlugin
+/// Verify the BrainPlugin is installed by AmbitionGameSimulationPlugin
 /// — adding the plugin should mean ActorActionMessage +
 /// BrainActionCounter are both registered. Catches a future
 /// app-plugin refactor that accidentally drops the
@@ -149,7 +149,7 @@ fn sim_accumulates_messages_across_repeated_attacks() {
 }
 
 /// Universal-brain integration check: spawning the
-/// SandboxSimulationPlugin yields a player entity carrying
+/// AmbitionGameSimulationPlugin yields a player entity carrying
 /// Brain::Player and an ActionSet — verifies the bundle
 /// path injects the components even when the spawn flow
 /// runs through the real Startup schedule.
@@ -175,7 +175,7 @@ fn sim_spawns_player_with_brain_and_action_set() {
 }
 
 /// Universal-brain integration check: with the full
-/// SandboxSimulationPlugin installed, the player carries a
+/// AmbitionGameSimulationPlugin installed, the player carries a
 /// Brain + ActionSet + ActorControl, the brain ticks each
 /// frame, and the ActionSet resolver writes an
 /// ActorActionMessage when the input frame triggers attack.

@@ -9,7 +9,7 @@ use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
 use crate::encounter::{EncounterRegistry, SwitchActivation, SwitchActivationQueue};
-use crate::SandboxSimState;
+use crate::AmbitionGameSessionState;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 fn app_with_populated_mirrors() -> App {
@@ -22,7 +22,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<crate::encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
-    app.init_resource::<SandboxSimState>();
+    app.init_resource::<AmbitionGameSessionState>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<SwitchActivationQueue>();
     app.add_systems(Update, reset_session_scoped_resources_on_retire);
@@ -43,7 +43,7 @@ fn app_with_populated_mirrors() -> App {
         .ids
         .insert("wave_a".to_owned(), ghost);
     app.world_mut()
-        .resource_mut::<SandboxSimState>()
+        .resource_mut::<AmbitionGameSessionState>()
         .room_transition_cooldown = 5.0;
     app.world_mut()
         .resource_mut::<SlotInteractionState>()
@@ -100,9 +100,9 @@ fn retirement_clears_every_session_scoped_mirror() {
     );
     assert_eq!(
         app.world()
-            .resource::<SandboxSimState>()
+            .resource::<AmbitionGameSessionState>()
             .room_transition_cooldown,
-        SandboxSimState::default().room_transition_cooldown,
+        AmbitionGameSessionState::default().room_transition_cooldown,
         "transient room state carried across teardown"
     );
     assert!(

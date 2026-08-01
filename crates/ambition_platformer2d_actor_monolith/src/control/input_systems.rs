@@ -32,7 +32,7 @@ pub fn input_timer_system(
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut sim_state: ResMut<crate::SandboxSimState>,
+    mut sim_state: ResMut<crate::AmbitionGameSessionState>,
     mut control_frame: ResMut<ControlFrame>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
@@ -172,7 +172,7 @@ pub fn interaction_input_system(
 /// `input_timer_system`.
 pub fn cleanup_timers_system(
     time: Res<Time>,
-    mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
+    mut dev_state: ResMut<ambition_dev_tools::AmbitionGameDeveloperState>,
     mut player_q: Query<
         (
             &ae::BodyMotionFacts,

@@ -23,7 +23,7 @@
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
-//! `SandboxSimState`) that submodules reference through the actor crate.
+//! `AmbitionGameSessionState`) that submodules reference through the actor crate.
 //! It is a library only; the playable app, the headless entry point
 //! (`run_headless`), and all binaries live in `ambition_app`.
 //!
@@ -166,7 +166,7 @@ pub struct DeathCause {
     pub attacker: Option<bevy::prelude::Entity>,
 }
 
-/// Per-frame conditions that gate writes to `SandboxSimState::last_safe_player_pos`.
+/// Per-frame conditions that gate writes to `AmbitionGameSessionState::last_safe_player_pos`.
 /// We refuse to record a position as "safe" while any of these flags are
 /// set so an in-flight reset / hazard respawn / room transition cannot
 /// pollute the safe spawn point. Construct with [`SafePositionContext::ideal`]
@@ -229,11 +229,11 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 ///   build splits rooms per-player this would need to move per-room
 ///   or per-player.
 #[derive(Resource, Clone, Copy, Debug)]
-pub struct SandboxSimState {
+pub struct AmbitionGameSessionState {
     pub room_transition_cooldown: f32,
 }
 
-impl Default for SandboxSimState {
+impl Default for AmbitionGameSessionState {
     fn default() -> Self {
         Self {
             room_transition_cooldown: 0.0,

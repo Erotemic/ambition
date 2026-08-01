@@ -9,7 +9,7 @@
 //! - its conservation and settling proofs run in every
 //!   `cargo test -p ambition_content` (the F13 lesson: a feature-gated test is
 //!   a test that silently stops running), and
-//! - the headless `SandboxSim` harness can drive the room end-to-end, which is
+//! - the headless `Platformer2dSimHarness` harness can drive the room end-to-end, which is
 //!   what the authored-room regression in `ambition_app` does.
 //!
 //! The feature-gated sibling [`crate::falling_sand`] keeps the
@@ -40,7 +40,7 @@ pub mod sand_grid;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::{
-    simulation_pass_is_authoritative, SandboxSet, SimScheduleExt,
+    simulation_pass_is_authoritative, Platformer2dSimulationPhase, SimScheduleExt,
 };
 use bevy::prelude::*;
 
@@ -110,7 +110,7 @@ pub struct FallingSandSpoutState {
 }
 
 impl FallingSandSpoutState {
-    pub fn from_save(save: &ambition_persistence::save_data::SandboxSaveData) -> Self {
+    pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
         Self {
             sand: save.switch(SAND_SWITCH),
             water: save.switch(WATER_SWITCH),
@@ -264,19 +264,19 @@ impl Plugin for FallingSandSimPlugin {
                     // overlay, which the rebuild clears each frame — run after
                     // it (the same WorldPrep contract the gates use).
                     .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
-                    .in_set(SandboxSet::WorldPrep)
+                    .in_set(Platformer2dSimulationPhase::WorldPrep)
                     .in_set(FallingSandSimSet),
             )
             .add_systems(
                 sim,
-                capture_falling_sand_switch_interactions.in_set(SandboxSet::GameplayEffects),
+                capture_falling_sand_switch_interactions.in_set(Platformer2dSimulationPhase::GameplayEffects),
             );
     }
 }
 
 pub fn sync_falling_sand_room_state(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut state: ResMut<FallingSandRoomState>,
 ) {
     let active_id = room_set.active_spec().id.as_str();
@@ -458,7 +458,7 @@ pub fn project_settled_sand(
 pub fn capture_falling_sand_switch_interactions(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut effects: MessageReader<ambition_platformer2d_actor_monolith::features::SwitchActivated>,
 ) {
     if room_set.active_spec().id != ROOM_ID {

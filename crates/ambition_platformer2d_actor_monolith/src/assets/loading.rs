@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::AssetCollection;
 
-use crate::session::data::SandboxDataSpec;
+use crate::session::data::AmbitionGameGameplaySpec;
 
 /// First asset collection for the sandbox.
 ///
@@ -18,7 +18,7 @@ use crate::session::data::SandboxDataSpec;
 #[derive(AssetCollection, Resource, Clone)]
 pub struct SandboxAssetCollection {
     #[asset(path = "ambition/sandbox.ron")]
-    pub sandbox_data: Handle<SandboxDataSpec>,
+    pub sandbox_data: Handle<AmbitionGameGameplaySpec>,
 
     // Worlds moved to the content crate's `assets/` tree (R3.2), served via the
     // `game://` asset source the app registers — NOT the default (actor-sim)

@@ -430,7 +430,7 @@ checksums, simulation authorization, lifecycle cleanup, or reconstruction.
 **Current code to refactor**
 
 - `crates/ambition_platformer2d_runtime/src/rollback/mod.rs::register_engine_rollback_state`
-- `crates/ambition_platformer2d_shared_tangle/src/schedule.rs::SandboxSet`
+- `crates/ambition_platformer2d_shared_tangle/src/schedule.rs::Platformer2dSimulationPhase`
 - runtime plugin assembly in `crates/ambition_platformer2d_runtime/src/lib.rs`
 - demo scheduling in `game/ambition_demo_mary_o/` and
   `game/ambition_demo_sanic/`
@@ -466,7 +466,7 @@ The criterion is answered, and deliberately from outside the workspace, in
 declares `BeaconCharge`, writes its own snapshot codec, registers it with
 `app.rollback_component_canonical::<BeaconCharge>(..)` through the public
 `ambition_platformer2d::runtime::rollback` vocabulary, and installs its systems into
-`SandboxSet::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
+`Platformer2dSimulationPhase::PlayerSimulation` via `app.sim_schedule()`. No engine file names the
 component; nothing in `ambition_platformer2d` could, because nothing in `ambition_platformer2d` has heard
 of it. The rewind is real — a GGRS sync-test session, ~900 loads and ~4500
 resimulated advances in the test's own run — and the ridge gate is GATED on the
@@ -536,7 +536,7 @@ real schedule.
 **Status 2026-07-27 — all four families rewind; the DECLARATIVE scenario half
 does not exist.**
 
-`SandboxSim` steps the real schedule and `with_sync_test_rollback_settings`
+`Platformer2dSimHarness` steps the real schedule and `with_sync_test_rollback_settings`
 turns any scenario into a rewound, checksum-compared one. By family:
 
 - damage — `rollback_exit_oracle::a_player_taking_hp_damage_survives_rollback`,
@@ -559,7 +559,7 @@ turns any scenario into a rewound, checksum-compared one. By family:
 Approach items 3–5 (typed opaque facts, persisted failing fixtures, defer
 interactive inspection) are satisfied by `ambition_gameplay_trace` and
 `replay_fixture_regression`. Item 1 — a concise DECLARATIVE scenario description
-— is not: a scenario today is Rust in a test file, and `SandboxSimOptions` +
+— is not: a scenario today is Rust in a test file, and `Platformer2dSimHarnessOptions` +
 `AgentAction` is the closest thing to a vocabulary.
 
 ---
@@ -888,7 +888,7 @@ composition plus documented Ambition contracts.
 plainly false.**
 
 Providers use ordinary Bevy composition: Outlander is a `Plugin` that calls
-`app.sim_schedule()` and `.in_set(SandboxSet::PlayerSimulation)`, never a literal
+`app.sim_schedule()` and `.in_set(Platformer2dSimulationPhase::PlayerSimulation)`, never a literal
 schedule, and it assembles a whole game from outside the workspace through the
 `ambition_platformer2d` umbrella. Four recorded API leaks is the honest cost, and they are
 listed rather than hidden. Domain plugins largely own their installation — the
@@ -1292,7 +1292,7 @@ anywhere in the workspace, and `default_save_version()` returned CURRENT, so
 every pre-versioning file claimed to be the current shape. A tag nothing reads is
 not a tag; it is a comment that costs a field.
 
-Closed 2026-07-27: `SandboxSaveData::migrate()` runs the version chain and
+Closed 2026-07-27: `AmbitionGameSaveData::migrate()` runs the version chain and
 returns a `SaveCompatibility` verdict, a missing field now means v1 (what it
 actually is), and `load_save` returns `LoadedSave { data, writable }`. The
 `writable` half is the part that protects a player: a save from a NEWER build, or

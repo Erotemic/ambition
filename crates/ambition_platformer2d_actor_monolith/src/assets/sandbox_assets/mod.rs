@@ -16,7 +16,7 @@ pub use core::embedded_core;
 pub use core::ids;
 pub use core::{
     AssetScaleVariant, BossSpriteCatalogRow, CharacterSpriteCatalogRow, EmbeddedWorldAsset,
-    MusicCatalogRow, SandboxAssetCatalog, SandboxAssetConfig, SandboxCatalogInputs,
+    MusicCatalogRow, AmbitionGameAssetCatalog, SandboxAssetConfig, AmbitionGameAssetCatalogInputs,
     WorldCatalogRow,
 };
 
@@ -61,7 +61,7 @@ pub fn desktop_dev_default_catalog(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> SandboxAssetCatalog {
+) -> AmbitionGameAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
@@ -84,7 +84,7 @@ pub fn build_sandbox_catalog(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> SandboxAssetCatalog {
+) -> AmbitionGameAssetCatalog {
     build_sandbox_catalog_with(
         config,
         character_catalog,
@@ -109,7 +109,7 @@ pub fn build_sandbox_catalog_with(
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
-) -> SandboxAssetCatalog {
+) -> AmbitionGameAssetCatalog {
     let core_config = SandboxAssetConfig {
         sprite_folder: config.sprite_folder.clone(),
         asset_profile: config.asset_profile,
@@ -124,7 +124,7 @@ pub fn sandbox_catalog_inputs(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &crate::ldtk_world::WorldManifest,
-) -> SandboxCatalogInputs {
+) -> AmbitionGameAssetCatalogInputs {
     let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     inputs.worlds = worlds
         .worlds
@@ -144,8 +144,8 @@ fn sandbox_catalog_inputs_without_worlds(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-) -> SandboxCatalogInputs {
-    SandboxCatalogInputs {
+) -> AmbitionGameAssetCatalogInputs {
+    AmbitionGameAssetCatalogInputs {
         scale_variants: texture_scale_variants(),
         character_sprites: crate::character_sprites::all_character_sprite_filenames_in(
             character_catalog,

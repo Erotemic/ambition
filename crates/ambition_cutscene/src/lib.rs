@@ -51,7 +51,7 @@ impl CutsceneBeat {
 
 /// A complete cutscene: ordered beats + an id + an optional "seen"
 /// flag. Sandbox systems can skip a cutscene that's already been
-/// played by checking `SandboxSaveData::flag(seen_flag)`.
+/// played by checking `AmbitionGameSaveData::flag(seen_flag)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CutsceneScript {
     pub id: String,

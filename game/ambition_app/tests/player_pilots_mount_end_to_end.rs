@@ -10,7 +10,7 @@
 //! with the rider welded to the saddle. This is rider-agnostic by construction:
 //! the mount cannot tell an AI Skirmisher rider from a possessing human.
 //!
-//! This pins the loop through `SandboxSim::step` with REAL slot input:
+//! This pins the loop through `Platformer2dSimHarness::step` with REAL slot input:
 //! 1. Spawn a shark mount + a pirate rider and weld them (`RidingOn` +
 //!    `Mounted` + `MountSlot` — the exact components the planned
 //!    `ambition.mount` relation wiring installs for an authored pair; welded
@@ -31,7 +31,7 @@ use ambition_platformer2d::characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const MOUNT_ID: &str = "pilot_shark";
@@ -57,7 +57,7 @@ fn pos_of(world: &mut World, e: Entity) -> ae::Vec2 {
 #[test]
 fn a_player_pilots_a_mount_end_to_end() {
     let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
 
     // 1. Spawn the mount + rider near the player. Their archetypes carry the
     //    mount roles (shark → `Mountable{class:"shark"}`; pirate raider →

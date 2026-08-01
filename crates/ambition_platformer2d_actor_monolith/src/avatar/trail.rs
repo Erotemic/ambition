@@ -696,7 +696,7 @@ impl Plugin for PlayerTrailPlugin {
             sim,
             (ensure_player_trail, update_player_trail)
                 .chain()
-                .in_set(crate::schedule::SandboxSet::PresentationSync),
+                .in_set(crate::schedule::Platformer2dSimulationPhase::PresentationSync),
         );
         // The gizmo draw is the FEEL clock: it paints whatever the last sim tick
         // emitted, once per rendered frame.

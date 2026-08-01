@@ -57,7 +57,7 @@ pub fn sync_room_music_request(
 /// even when the switch flickers.
 pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut portals: ResMut<GatePortalRegistry>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
@@ -87,7 +87,7 @@ pub fn tick_portal_phases_system(
 /// is a no-op when no transition transaction is active.
 pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    sim_state: Res<crate::SandboxSimState>,
+    sim_state: Res<crate::AmbitionGameSessionState>,
     portals: Res<GatePortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     // The transition subject is the CONTROLLED body: if the driven body (home

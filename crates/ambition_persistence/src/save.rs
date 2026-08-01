@@ -1,8 +1,8 @@
 //! Sandbox save game I/O + autosave.
 //!
-//! The data shape lives in `crate::save_data` (`SandboxSaveData`,
+//! The data shape lives in `crate::save_data` (`AmbitionGameSaveData`,
 //! `PersistedEncounter`, `PersistedSwitch`). This module is the
-//! Bevy-side shim (`SandboxSave` resource) that loads/saves to disk and
+//! Bevy-side shim (`AmbitionGameSave` resource) that loads/saves to disk and
 //! coordinates autosave.
 //!
 //! Convention: the save file lives next to `settings.ron` under the
@@ -22,21 +22,21 @@ use std::path::{Path, PathBuf};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-use crate::save_data::{SandboxSaveData, SaveCompatibility, CURRENT_SAVE_VERSION};
+use crate::save_data::{AmbitionGameSaveData, SaveCompatibility, CURRENT_SAVE_VERSION};
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
 /// Bevy resource holding the live save state. Mutated by the encounter
 /// + switch systems; written to disk by `autosave_sandbox_save`.
 #[derive(Resource, Clone, Debug, Default)]
-pub struct SandboxSave(pub SandboxSaveData);
+pub struct AmbitionGameSave(pub AmbitionGameSaveData);
 
-impl SandboxSave {
-    pub fn data(&self) -> &SandboxSaveData {
+impl AmbitionGameSave {
+    pub fn data(&self) -> &AmbitionGameSaveData {
         &self.0
     }
 
-    pub fn data_mut(&mut self) -> &mut SandboxSaveData {
+    pub fn data_mut(&mut self) -> &mut AmbitionGameSaveData {
         &mut self.0
     }
 }
@@ -55,14 +55,14 @@ pub fn save_path_under(root: &Path) -> PathBuf {
 /// A save read from disk, together with whether this build may write over it.
 ///
 /// The second field is the point. Every failure path here produces a usable
-/// `SandboxSaveData` — that is the long-standing and correct choice, since a
+/// `AmbitionGameSaveData` — that is the long-standing and correct choice, since a
 /// player would rather start a fresh sandbox than stare at a crash — but
 /// "usable" and "safe to commit over the original" are different facts, and
 /// collapsing them is how an unreadable file becomes a destroyed one on the next
 /// autosave.
 #[derive(Clone, Debug)]
 pub struct LoadedSave {
-    pub data: SandboxSaveData,
+    pub data: AmbitionGameSaveData,
     /// False when the file on disk holds something this build must not replace:
     /// a save from a NEWER build, or bytes it could not parse at all.
     pub writable: bool,
@@ -77,7 +77,7 @@ impl LoadedSave {
     /// A save that came from nowhere (no file yet) — fresh, and writable.
     fn fresh() -> Self {
         Self {
-            data: SandboxSaveData::default(),
+            data: AmbitionGameSaveData::default(),
             writable: true,
             upgraded: false,
         }
@@ -86,7 +86,7 @@ impl LoadedSave {
     /// A file exists and this build cannot safely replace it.
     fn preserve() -> Self {
         Self {
-            data: SandboxSaveData::default(),
+            data: AmbitionGameSaveData::default(),
             writable: false,
             upgraded: false,
         }
@@ -113,7 +113,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
             return LoadedSave::preserve();
         }
     };
-    match ron::from_str::<SandboxSaveData>(&bytes) {
+    match ron::from_str::<AmbitionGameSaveData>(&bytes) {
         Ok(mut save) => match save.migrate() {
             SaveCompatibility::Current => LoadedSave {
                 data: save,
@@ -175,7 +175,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
 /// put the new one in place, and delete the backup. If the second rename fails
 /// after the backup moved, the backup is restored — so the failure modes are
 /// "old save kept" or "new save written", never "neither".
-pub fn write_save(path: &Path, save: &SandboxSaveData) -> std::io::Result<()> {
+pub fn write_save(path: &Path, save: &AmbitionGameSaveData) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -222,7 +222,7 @@ impl Default for SaveFileWritable {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_save_at_startup(
-    mut save: ResMut<SandboxSave>,
+    mut save: ResMut<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     mut writable: ResMut<SaveFileWritable>,
 ) {
@@ -269,13 +269,13 @@ pub fn load_save_at_startup(
 ///
 /// Change detection is the wrong throttle under a rollback host, in both
 /// directions. It fires when nothing meaningful changed — GGRS's own restore
-/// writes `SandboxSave` on every rewind, so `is_changed()` is true almost
+/// writes `AmbitionGameSave` on every rewind, so `is_changed()` is true almost
 /// constantly — and it is consumed by a system that ran and declined to write,
 /// so a genuine change can be dropped by any guard placed in front of it. A
 /// value comparison has neither problem and is the honest question anyway:
 /// *is what is on disk still correct?*
 #[derive(Resource, Clone, Debug, Default)]
-pub struct LastPersistedSave(Option<SandboxSaveData>);
+pub struct LastPersistedSave(Option<AmbitionGameSaveData>);
 
 /// Bevy update system: commit the save to disk when it no longer matches what
 /// is there, and only while the simulation holds no predicted state.
@@ -294,7 +294,7 @@ pub struct LastPersistedSave(Option<SandboxSaveData>);
 /// outcome, not a missed one.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn autosave_sandbox_save(
-    save: Res<SandboxSave>,
+    save: Res<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     writable: Res<SaveFileWritable>,
 ) {
@@ -319,15 +319,15 @@ pub fn autosave_sandbox_save(
 }
 
 /// Wasm (browser) no-op for save loading. First-pass web build does not
-/// persist the sandbox save; the in-memory `Res<SandboxSave>` still
+/// persist the sandbox save; the in-memory `Res<AmbitionGameSave>` still
 /// works for the session. Browser persistence (IndexedDB / LocalStorage
 /// behind `web-sys`) is a follow-up.
 #[cfg(target_arch = "wasm32")]
-pub fn load_save_at_startup(_save: ResMut<SandboxSave>, _last: ResMut<LastPersistedSave>) {}
+pub fn load_save_at_startup(_save: ResMut<AmbitionGameSave>, _last: ResMut<LastPersistedSave>) {}
 
 /// Wasm (browser) no-op for save writing. See [`load_save_at_startup`].
 #[cfg(target_arch = "wasm32")]
-pub fn autosave_sandbox_save(_save: Res<SandboxSave>, _last: ResMut<LastPersistedSave>) {}
+pub fn autosave_sandbox_save(_save: Res<AmbitionGameSave>, _last: ResMut<LastPersistedSave>) {}
 
 #[cfg(test)]
 mod tests {
@@ -347,7 +347,7 @@ mod tests {
         let root = temp_root("missing");
         let path = save_path_under(&root);
         let s = load_save(&path);
-        assert_eq!(s.data, SandboxSaveData::default());
+        assert_eq!(s.data, AmbitionGameSaveData::default());
         assert!(s.writable, "no file at all means a fresh, writable sandbox");
     }
 
@@ -356,7 +356,7 @@ mod tests {
         let _g = crate::lock_data_dir();
         let root = temp_root("round_trip");
         let path = save_path_under(&root);
-        let mut save = SandboxSaveData::default();
+        let mut save = AmbitionGameSaveData::default();
         save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
         save.set_switch("reset_switch", true);
         write_save(&path, &save).unwrap();
@@ -374,7 +374,7 @@ mod tests {
     fn autosave_app(root: &Path) -> App {
         std::env::set_var("AMBITION_DATA_DIR", root);
         let mut app = App::new();
-        app.init_resource::<SandboxSave>()
+        app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
         // Run startup + the first autosave, which commits the fresh default
@@ -397,7 +397,7 @@ mod tests {
 
     fn touch_save(app: &mut App, flag: &str) {
         app.world_mut()
-            .resource_mut::<SandboxSave>()
+            .resource_mut::<AmbitionGameSave>()
             .data_mut()
             .set_flag(flag, true);
     }
@@ -451,7 +451,7 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// GGRS writes `SandboxSave` on every restore, so under change detection
+    /// GGRS writes `AmbitionGameSave` on every restore, so under change detection
     /// the autosave would rewrite an identical file on every rewind. Deleting
     /// the file and proving it does not come back is an exact "no write
     /// happened" probe.
@@ -469,8 +469,8 @@ mod tests {
         fs::remove_file(save_path_under(&root)).unwrap();
         // A rewind restores the same value: Bevy marks it changed, but nothing
         // about it is actually different.
-        let restored = app.world().resource::<SandboxSave>().0.clone();
-        app.world_mut().resource_mut::<SandboxSave>().0 = restored;
+        let restored = app.world().resource::<AmbitionGameSave>().0.clone();
+        app.world_mut().resource_mut::<AmbitionGameSave>().0 = restored;
         app.update();
 
         assert!(
@@ -512,7 +512,7 @@ mod tests {
         let _g = crate::lock_data_dir();
         let root = temp_root("from_the_future");
         let path = save_path_under(&root);
-        let mut future = SandboxSaveData::default();
+        let mut future = AmbitionGameSaveData::default();
         future.version = crate::save_data::CURRENT_SAVE_VERSION + 1;
         future.set_flag("beat_the_final_boss", true);
         write_save(&path, &future).unwrap();
@@ -520,7 +520,7 @@ mod tests {
 
         std::env::set_var("AMBITION_DATA_DIR", &root);
         let mut app = App::new();
-        app.init_resource::<SandboxSave>()
+        app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
         app.update();
@@ -552,7 +552,7 @@ mod tests {
 
         std::env::set_var("AMBITION_DATA_DIR", &root);
         let mut app = App::new();
-        app.init_resource::<SandboxSave>()
+        app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
         app.update();
@@ -584,14 +584,14 @@ mod tests {
         let _g = crate::lock_data_dir();
         let root = temp_root("migrate_commits");
         let path = save_path_under(&root);
-        let mut old = SandboxSaveData::default();
+        let mut old = AmbitionGameSaveData::default();
         old.version = 1;
         old.set_flag("found_the_shrine", true);
         write_save(&path, &old).unwrap();
 
         std::env::set_var("AMBITION_DATA_DIR", &root);
         let mut app = App::new();
-        app.init_resource::<SandboxSave>()
+        app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
         app.update();
@@ -616,7 +616,7 @@ mod tests {
         let root = temp_root("repeat_write");
         let path = save_path_under(&root);
         for round in 0..4 {
-            let mut save = SandboxSaveData::default();
+            let mut save = AmbitionGameSaveData::default();
             save.set_flag(&format!("round_{round}"), true);
             write_save(&path, &save)
                 .unwrap_or_else(|error| panic!("save #{round} failed to commit: {error}"));
@@ -642,14 +642,14 @@ mod tests {
         let _g = crate::lock_data_dir();
         let root = temp_root("migrate_write_back");
         let path = save_path_under(&root);
-        let mut old = SandboxSaveData::default();
+        let mut old = AmbitionGameSaveData::default();
         old.version = 1;
         old.set_flag("found_the_shrine", true);
         write_save(&path, &old).unwrap();
 
         std::env::set_var("AMBITION_DATA_DIR", &root);
         let mut app = App::new();
-        app.init_resource::<SandboxSave>()
+        app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
         app.update();
@@ -677,7 +677,7 @@ mod tests {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, b"garbage not ron").unwrap();
         let s = load_save(&path);
-        assert_eq!(s.data, SandboxSaveData::default());
+        assert_eq!(s.data, AmbitionGameSaveData::default());
         let _ = fs::remove_dir_all(&root);
     }
 }

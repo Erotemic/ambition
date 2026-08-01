@@ -17,7 +17,7 @@ one `app.update()` and `vel.length() ≈ 620`.
 
 ## What actually happens in a full sim (trace)
 
-Driving the real `SandboxSim` (player holds grapple — verified via a world query,
+Driving the real `Platformer2dSimHarness` (player holds grapple — verified via a world query,
 `spec.id == "grapple"` — jumps, then grapples a post ~275px to the right):
 
 ```

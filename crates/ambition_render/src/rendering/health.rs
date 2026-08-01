@@ -159,7 +159,7 @@ pub fn sync_health_overlays(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    dev_state: Res<ambition_dev_tools::SandboxDevState>,
+    dev_state: Res<ambition_dev_tools::AmbitionGameDeveloperState>,
     active_session: Option<Res<ActiveSessionScope>>,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,

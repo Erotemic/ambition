@@ -59,7 +59,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                 ItemPickupSet::WieldedAbilities,
             )
                 .chain()
-                .in_set(crate::schedule::SandboxSet::PlayerSimulation),
+                .in_set(crate::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         app.add_systems(

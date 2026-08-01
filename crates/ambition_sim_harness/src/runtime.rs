@@ -10,7 +10,7 @@ use ambition_platformer2d::input::ControlFrame;
 
 use crate::action::AgentAction;
 use crate::observation::{AgentObservation, EnemyObs, PickupObs};
-use crate::options::{RollbackMode, SandboxSimOptions, TimestepMode};
+use crate::options::{RollbackMode, Platformer2dSimHarnessOptions, TimestepMode};
 
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
 ///
@@ -19,17 +19,17 @@ use crate::options::{RollbackMode, SandboxSimOptions, TimestepMode};
 /// the converted `ControlFrame` into the resource and calling
 /// `app.update()` once.
 ///
-/// `SandboxSim` is `Send` because the inner `App` is, but it is not
-/// `Sync` — multi-thread RL agents should keep one `SandboxSim` per
+/// `Platformer2dSimHarness` is `Send` because the inner `App` is, but it is not
+/// `Sync` — multi-thread RL agents should keep one `Platformer2dSimHarness` per
 /// worker thread (or wrap with a Mutex).
-pub struct SandboxSim {
+pub struct Platformer2dSimHarness {
     app: App,
     tick: u64,
     timestep: TimestepMode,
     rollback: RollbackMode,
 }
 
-impl SandboxSim {
+impl Platformer2dSimHarness {
     /// Build a new simulation, composing a caller-supplied game.
     ///
     /// The harness owns the *engine* half: it builds the `App`, adds the shared
@@ -53,8 +53,8 @@ impl SandboxSim {
     /// `fixed_tick`, so both timestep modes reach the same one-step-executed state
     /// at construction).
     pub fn build(
-        options: SandboxSimOptions,
-        compose: impl FnOnce(&mut App, &SandboxSimOptions) -> Result<(), String>,
+        options: Platformer2dSimHarnessOptions,
+        compose: impl FnOnce(&mut App, &Platformer2dSimHarnessOptions) -> Result<(), String>,
     ) -> Result<Self, String> {
         let mut app = App::new();
         // The shared engine foundation — one definition in ambition_platformer2d::runtime.

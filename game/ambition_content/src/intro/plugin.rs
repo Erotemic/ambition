@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-// `SandboxSet` import retired alongside the legacy
+// `Platformer2dSimulationPhase` import retired alongside the legacy
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
@@ -116,7 +116,7 @@ impl Plugin for IntroPlugin {
                 super::route_state::sync_intro_flag_gated_lock_walls
                     .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
                     .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::SandboxSet::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its
@@ -198,7 +198,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog>>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
 ) {
@@ -248,7 +248,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::AmbitionGameAssetCatalog>>,
     quality: Option<Res<ResolvedVisualQuality>>,
 ) {
     if installed.0 {

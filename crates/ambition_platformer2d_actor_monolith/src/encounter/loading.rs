@@ -54,7 +54,7 @@ fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
 /// LDtk `EnemySpawn` markers. The loader names no specific encounter.
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
-    save: &ambition_persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
     for level in &project.levels {

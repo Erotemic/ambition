@@ -2,7 +2,7 @@
 //!
 //! [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin)
 //! draws a room from two resources it does not build:
-//! [`SandboxAssetCatalog`](ambition_platformer2d_actor_monolith::assets::sandbox_assets::SandboxAssetCatalog)
+//! [`AmbitionGameAssetCatalog`](ambition_platformer2d_actor_monolith::assets::sandbox_assets::AmbitionGameAssetCatalog)
 //! (every asset path/source policy) and
 //! [`GameAssets`](ambition_sprite_sheet::game_assets::GameAssets) (the decoded
 //! sheets). Building them was ~90 lines each demo shell hand-rolled, and the
@@ -46,7 +46,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::assets::sandbox_assets::SandboxAssetCatalog;
+use ambition_platformer2d_actor_monolith::assets::sandbox_assets::AmbitionGameAssetCatalog;
 use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
 use ambition_platformer2d_actor_monolith::ldtk_world::WorldManifest;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -202,7 +202,7 @@ fn bind_game_assets(
     character_catalog: Res<CharacterCatalog>,
     authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
     boss_catalog: Res<BossCatalog>,
-    catalog: Res<SandboxAssetCatalog>,
+    catalog: Res<AmbitionGameAssetCatalog>,
     room: Res<AssetBindRoom>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,

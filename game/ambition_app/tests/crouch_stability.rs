@@ -5,7 +5,7 @@
 //! Holding down causes the camera and sprite to look like they are
 //! shaking."
 //!
-//! This test runs the full SandboxSim (engine + progression chain
+//! This test runs the full Platformer2dSimHarness (engine + progression chain
 //! including body_mode driver) for 60 frames with axis_y pinned at
 //! 1.0 (Down held) and asserts the player stays Crouching for the
 //! tail of the run, with no per-frame Standing↔Crouching flips
@@ -15,14 +15,14 @@
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
+use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
 #[test]
 fn holding_down_on_flat_ground_does_not_flicker_body_mode() {
     // Use a room with a flat floor and no overhead obstructions.
     // central_hub_complex's spawn area is open enough.
-    let mut sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default()
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("central_hub_complex"),
     )

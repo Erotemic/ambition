@@ -9,7 +9,7 @@
 | [`host`](src/host/mod.rs) | Host-facing settings vocabulary. |
 | [`quest`](src/quest/mod.rs) | Quest data types and progression rules. |
 | [`save`](src/save.rs) | Sandbox save game I/O + autosave. |
-| [`save_data`](src/save_data.rs) | Pure save-game data shapes (`SandboxSaveData`, `PersistedEncounter`, `PersistedSwitch`, ability/quest flags) — the vocabulary the save format is built from. |
+| [`save_data`](src/save_data.rs) | Pure save-game data shapes (`AmbitionGameSaveData`, `PersistedEncounter`, `PersistedSwitch`, ability/quest flags) — the vocabulary the save format is built from. |
 | [`settings`](src/settings/mod.rs) | User-facing persisted settings data. |
 
 _5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

@@ -83,7 +83,7 @@ pub fn push_room_entered_quest_event_for_room(
 /// progress back to the save resource. Runs each frame.
 pub fn apply_quest_advance_events(
     mut registry: ResMut<QuestRegistry>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::save::AmbitionGameSave>,
 ) {
     let events = std::mem::take(&mut registry.pending_events);
     if events.is_empty() {

@@ -7,7 +7,7 @@ use super::*;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::items::Item;
 
-fn app_with(save: SandboxSave, owned: OwnedItems, wallet: i32) -> (App, Entity) {
+fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(save);
     app.insert_resource(owned);
@@ -25,7 +25,7 @@ fn app_with(save: SandboxSave, owned: OwnedItems, wallet: i32) -> (App, Entity) 
 
 #[test]
 fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
-    let mut save = SandboxSave::default();
+    let mut save = AmbitionGameSave::default();
     save.data_mut().inventory_saved = true;
     save.data_mut().wallet = 137;
     // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
@@ -58,7 +58,7 @@ fn a_loaded_save_restores_items_and_wallet_over_the_starter() {
 #[test]
 fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
     // inventory_saved == false → fresh; keep the live starter + wallet.
-    let (mut app, _player) = app_with(SandboxSave::default(), OwnedItems::starter(), 25);
+    let (mut app, _player) = app_with(AmbitionGameSave::default(), OwnedItems::starter(), 25);
     app.update();
     let owned = app.world().resource::<OwnedItems>();
     assert!(
@@ -66,7 +66,7 @@ fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
         "fresh save keeps the starter"
     );
     // …and persist wrote the starter + wallet back into the save.
-    let data = app.world().resource::<SandboxSave>().data().clone();
+    let data = app.world().resource::<AmbitionGameSave>().data().clone();
     assert!(
         data.inventory_saved,
         "the fresh inventory is now marked saved"

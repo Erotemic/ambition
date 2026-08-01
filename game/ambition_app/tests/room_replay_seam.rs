@@ -18,10 +18,10 @@ use crate::common::{base, fixed_60hz_sim};
 use ambition_platformer2d::combat::ResetRoomFeaturesEvent;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_app::SandboxSim;
+use ambition_app::Platformer2dSimHarness;
 use bevy::prelude::*;
 
-fn player_pos(sim: &mut SandboxSim) -> Vec2 {
+fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
     let mut q = sim
         .world_mut()
         .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
@@ -32,7 +32,7 @@ fn player_pos(sim: &mut SandboxSim) -> Vec2 {
         .pos
 }
 
-fn room_spawn(sim: &mut SandboxSim) -> Vec2 {
+fn room_spawn(sim: &mut Platformer2dSimHarness) -> Vec2 {
     let mut q = sim
         .world_mut()
         .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
@@ -44,7 +44,7 @@ fn room_spawn(sim: &mut SandboxSim) -> Vec2 {
         .spawn
 }
 
-fn displace(sim: &mut SandboxSim, to: Vec2) {
+fn displace(sim: &mut Platformer2dSimHarness, to: Vec2) {
     let mut q = sim.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
         &mut ambition_platformer2d::actors::features::MotionModel,
@@ -109,7 +109,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
 
     // A `Messages` buffer retains for two frames, so read the drain-count for
     // ONE step in isolation: step to clear, then measure the next step alone.
-    let resets_this_step = |sim: &mut SandboxSim| -> usize {
+    let resets_this_step = |sim: &mut Platformer2dSimHarness| -> usize {
         sim.world_mut()
             .resource_mut::<Messages<ResetRoomFeaturesEvent>>()
             .drain()

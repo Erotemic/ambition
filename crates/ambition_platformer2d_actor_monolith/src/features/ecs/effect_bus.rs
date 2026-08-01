@@ -15,7 +15,7 @@ use bevy::prelude::{MessageReader, ResMut};
 /// the former monolithic router behavior.
 pub fn apply_flag_effects(
     mut effects: MessageReader<SetFlagRequested>,
-    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {

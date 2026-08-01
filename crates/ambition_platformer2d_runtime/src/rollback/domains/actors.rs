@@ -84,7 +84,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "resource.pending_lifecycle_commit",
         );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::SandboxSimState>(
+    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::AmbitionGameSessionState>(
         OWNER,
         "resource.sandbox_sim_state",
     );

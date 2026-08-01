@@ -14,7 +14,7 @@ use super::*;
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    save: Res<ambition_persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
     character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,

@@ -1686,7 +1686,7 @@ could never see, in layers:
    already-collected, the magnet skipped it, and its checksummed
    `CenteredAabb` froze. Fixed (registered clone), plus three more
    composition gaps the lab's population exposed (`MovesetRanged`,
-   `PickupFeature`, `SandboxSolidContributor`) — found by extending the
+   `PickupFeature`, `PlatformerWorldSolidContributor`) — found by extending the
    coverage sweep to run per-room, since the boot room has no ranged enemy,
    pickups, or breakables.
 2. **In-flight victim-side hits** — `apply_player_hit_events` runs in
@@ -1829,7 +1829,7 @@ could never see, in layers:
 
 **The problem (mapped 2026-07-23).** Under the GGRS host `app.sim_schedule()`
 IS `bevy_ggrs::GgrsSchedule` (`ambition_platformer2d_runtime/src/lib.rs:185`), and every
-`SandboxSet` phase registers into it. So **all five room-lifecycle operations
+`Platformer2dSimulationPhase` phase registers into it. So **all five room-lifecycle operations
 execute inside the rollback schedule and mutate the authoritative world via
 Commands / direct writes on speculative frames.** No lifecycle path consults
 `ConfirmedFrameBoundary`; the only confirmed-frame deferral today is for
@@ -1840,24 +1840,24 @@ is "detection, not rollback… commands cannot be undone"
 
 The five operations (all rollback-schedule, all Commands/direct-write):
 1. **Player-death reset** — `apply_home_reset_policy` (`app/player_tick.rs:40`,
-   `SandboxSet::PlayerSimulation`) reads `PlayerBodyFrameOutput.reset`, runs
+   `Platformer2dSimulationPhase::PlayerSimulation`) reads `PlayerBodyFrameOutput.reset`, runs
    `reset_sandbox`, writes `ResetRoomFeaturesEvent{PlayerDeath}` →
    `reset_ecs_room_features` (`features/ecs/reset.rs:11`,
-   `SandboxSet::RoomTransition`): **in-place restore** — despawns transients,
+   `Platformer2dSimulationPhase::RoomTransition`): **in-place restore** — despawns transients,
    `remove::<Collected|Opened|RespawnTimer>`, revives bosses via direct
    `health.reset()`, resets actors to spawn. (This is the observed divergence:
    mid-brawl enemy HP snap-back.)
 2. **Manual reset** — (2a) `reset_pressed` → `apply_player_reset_input_system`
-   (`app/sim_systems.rs:56`, `SandboxSet::PlayerInput`) → same in-place restore;
+   (`app/sim_systems.rs:56`, `Platformer2dSimulationPhase::PlayerInput`) → same in-place restore;
    (2b) `SandboxResetRequested` (rollback-registered resource) →
    `process_sandbox_reset_request` (`session/reset/mod.rs:112`,
-   `SandboxSet::ResetProcessing`) → **reconstruction** via
+   `Platformer2dSimulationPhase::ResetProcessing`) → **reconstruction** via
    `RoomConstructionPlan::prepare_from_parts` + `commit_deferred`.
 3. **Room replay** — `RoomReplayRequested` → `apply_room_replay_request_system`
-   (`sandbox_reset.rs:115`, `SandboxSet::PlayerInput`) → in-place restore.
+   (`sandbox_reset.rs:115`, `Platformer2dSimulationPhase::PlayerInput`) → in-place restore.
 4. **Room transition** — already a MULTI-TICK readiness state machine:
    `detect_room_transition_system` → `RoomTransitionRequested` → composer chain
-   (`app/plugins.rs:235-248`, `SandboxSet::RoomTransition`); plan is
+   (`app/plugins.rs:235-248`, `Platformer2dSimulationPhase::RoomTransition`); plan is
    prepared mutation-free during `AwaitingReadiness`
    (`room_transition_loading.rs:544`), committed a LATER tick via
    `commit_ready_room_transition_system` → `commit_room_transition_geometry`
@@ -2075,7 +2075,7 @@ oracle + manual-reset/transition tests. Determinism-sacred throughout; no
 > through the umbrella; the interactive run needs a display (this VM has
 > none). Two more recorded findings: the AssetServer root must be pointed at
 > the engine tree via `actors_desktop_asset_root()` (leak #3 made concrete),
-> and the standalone asset-resource install (`SandboxAssetCatalog` +
+> and the standalone asset-resource install (`AmbitionGameAssetCatalog` +
 > `GameAssets`) is app-local boilerplate no umbrella helper offers — the
 > binary ships without it and honestly draws colored primitives (leak #8).
 >

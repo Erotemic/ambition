@@ -21,7 +21,7 @@
 //! `ambition_platformer2d` but never on `ambition_app`, had no consumer at all.
 //!
 //! This system is a narrow query/resource system registered in the
-//! [`SandboxSet::CoreSimulation`] chain configured by
+//! [`Platformer2dSimulationPhase::CoreSimulation`] chain configured by
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
@@ -30,7 +30,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::time::feel::SandboxFeelTuning;
 use ambition_platformer2d::actors::time::time_control::ClockResetRequest;
-use ambition_platformer2d::actors::SandboxSimState;
+use ambition_platformer2d::actors::AmbitionGameSessionState;
 use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::ControlFrame;
@@ -58,7 +58,7 @@ pub fn apply_player_reset_input_system(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    mut sim_state: ResMut<SandboxSimState>,
+    mut sim_state: ResMut<AmbitionGameSessionState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: SfxWriter,

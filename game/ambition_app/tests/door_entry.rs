@@ -45,9 +45,7 @@ fn stand_in_a_door(sim: &mut SandboxSim) -> Option<String> {
         room_set
             .active_loading_zones()
             .iter()
-            .find(|zone| {
-                zone.activation == ambition::world::rooms::LoadingZoneActivation::Door
-            })
+            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
             .cloned()?
     };
     let world = sim.world_mut();
@@ -121,12 +119,12 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     use ambition::game_shell::ShellCommand;
     use ambition::input::{InputParticipant, SandboxAction};
     use ambition_app::app::shell_host;
+    use bevy::MinimalPlugins;
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
     use bevy::prelude::*;
     use bevy::state::app::StatesPlugin;
     use bevy::transform::TransformPlugin;
-    use bevy::MinimalPlugins;
     use leafwing_input_manager::prelude::InputMap;
 
     let mut app = App::new();
@@ -254,9 +252,8 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
         sim.step(base());
     }
     let before = active_room(&mut sim);
-    let door = stand_in_a_door(&mut sim).unwrap_or_else(|| {
-        panic!("the start room '{before}' authors no `Door` loading zone")
-    });
+    let door = stand_in_a_door(&mut sim)
+        .unwrap_or_else(|| panic!("the start room '{before}' authors no `Door` loading zone"));
 
     let up = AgentAction {
         up_pressed: true,
@@ -291,5 +288,96 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
          the GESTURE half: `register_up_tap` seeing the second edge inside \
          `up_double_tap_window`, and `double_tap_up_pending` reaching the \
          interact buffer"
+    );
+}
+
+/// **A DOOR under a ROLLBACK host — the combination nothing covered.**
+///
+/// ⛔ this is one of the un-ruled-out candidates in S26 item 2 ("Jon cannot
+/// enter doors"), and it is the only one that could be tested without asking
+/// him which room he was in.
+///
+/// The two existing bodies of evidence miss between them:
+/// * `door_entry.rs` (above) drives DOORS, on a fixed-tick sim and in the
+///   shipped host — hosts with no `ConfirmedFrameBoundary`, so
+///   `detect_room_transition_system` takes its EAGER branch;
+/// * `rollback_room_transition.rs` drives the DEFERRED branch end to end — but
+///   through an `EdgeExit`, which fires on overlap.
+///
+/// A door is the one activation that needs a buffered INTERACT press, and the
+/// deferred branch calls `slot_gestures.primary_mut().clear()` before recording
+/// the intent. If the commit then failed or was never run, the press would be
+/// consumed and nothing would happen — which is exactly the reported symptom.
+///
+/// So: rollback host, real door, held interact, and the room must actually
+/// change.
+#[cfg(feature = "rl_sim")]
+#[test]
+fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
+    use ambition_app::rl_sim::{AmbitionSim, SandboxSim, SandboxSimOptions, TimestepMode};
+
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            // A rollback host: this is what puts `ConfirmedFrameBoundary` in the
+            // world and sends the transition down the DEFERRED branch.
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the GGRS sync-test harness builds");
+
+    // Settle, so the room and its zones exist before anything is measured.
+    for _ in 0..20 {
+        sim.step(base());
+    }
+
+    let before = active_room(&mut sim);
+
+    // ⚠ **`teleport_player`, NOT a `world_mut()` write.** The body's position is
+    // ROLLBACK STATE: a direct write is restored out from under itself on the
+    // next resim, so the body never overlaps the zone on a frame the system
+    // sees. `stand_in_a_door` (used by the eager tests above) writes directly,
+    // which is correct for a host with no rollback and silently wrong here —
+    // it produced a convincing 600-frame reproduction of a bug that was not
+    // there. `teleport_player` rebases the baseline, which is what folds the new
+    // position into history.
+    let door = {
+        let world = sim.world_mut();
+        let mut query = world.query::<&ambition::actors::rooms::RoomSet>();
+        let room_set = query
+            .iter(world)
+            .next()
+            .expect("the active room has a RoomSet");
+        room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| zone.activation == ambition::world::rooms::LoadingZoneActivation::Door)
+            .cloned()
+    };
+    let Some(door) = door else {
+        panic!(
+            "the start room '{before}' authors no `Door` loading zone, so this \
+             test is measuring nothing — point it at a room that has one"
+        );
+    };
+    let centre = door.aabb.center();
+    sim.teleport_player((centre.x, centre.y));
+
+    // Longer than the eager case on purpose: a deferred transition waits for a
+    // CONFIRMED frame, and the sync-test host confirms behind the prediction
+    // window.
+    for _ in 0..240 {
+        sim.step(interact());
+        if active_room(&mut sim) != before {
+            return;
+        }
+    }
+
+    panic!(
+        "held interact inside the `{}` door of '{before}' for 240 frames under a \
+         ROLLBACK host and the room never changed — while the same door opens on \
+         a fixed-tick sim. That is the deferred branch: the press is consumed by \
+         `slot_gestures.primary_mut().clear()` and the confirmed commit never \
+         delivers the transition",
+        door.name
     );
 }

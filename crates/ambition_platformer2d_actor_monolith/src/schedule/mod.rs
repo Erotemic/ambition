@@ -24,7 +24,8 @@ pub use input_systems::{
     decode_menu_frame, populate_menu_control_frame_from_actions, populate_seat_menu_frames,
     populate_secondary_slot_controls,
     publish_latched_slot_controls,
-    seat_input_participants_for_roster, spawn_primary_input_participant,
+    freeze_local_seating_for_the_decided_match, seat_input_participants_for_roster,
+    spawn_primary_input_participant,
     toggle_player_trail_emission_from_actions, MenuNavConsume, SeatDashTriggerState,
 };
 pub use schedule::configure_platformer2d_simulation_phases;

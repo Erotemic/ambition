@@ -705,3 +705,64 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
          against the keyboard player's {keyboard_moved_one:.2}px)"
     );
 }
+
+/// **The seating is FROZEN in a build a player runs.** (queue S35)
+///
+/// ⛔ Until 2026-08-01 nothing in a shipped build ever created
+/// `LocalSeatTopology`. The only non-test caller was the rollback observatory,
+/// behind `#[cfg(feature = "dev_tools")]`, so `reconcile_roster_with_frozen_topology`
+/// returned on its first line every frame and `assign_local_seat_devices` always
+/// used live discovery — the exact behaviour its own doc calls the bug. Every
+/// test passed because tests construct the resource by hand.
+///
+/// This asserts the thing none of them did: that a decided match leaves a frozen
+/// topology behind, sized by the ROSTER rather than by how many pads happen to be
+/// plugged in.
+#[test]
+fn a_decided_match_freezes_the_local_seating() {
+    use ambition_platformer2d::input::LocalSeatTopology;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    add_cpu(&mut app);
+    confirm(&mut app);
+    confirm(&mut app);
+    settle(&mut app);
+
+    let declared = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("the screen decided a match")
+        .participants
+        .len();
+    assert_eq!(declared, 2, "the roster is this test's premise");
+
+    for _ in 0..60 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let topology = app
+        .world()
+        .get_resource::<LocalSeatTopology>()
+        .cloned()
+        .expect(
+            "a decided match left no frozen seating — the mechanism that stops the \
+             roster and the session disagreeing is not installed in this build",
+        );
+    assert!(topology.is_frozen(), "the topology exists but was never captured");
+    assert_eq!(
+        topology.declared_seats(),
+        Some(declared),
+        "the seating was frozen from the DEVICE count, not the roster's — which is \
+         the two-authority conflict S34 records, with a spare controller inflating \
+         the match and a keyboard player deflating it"
+    );
+    assert_eq!(topology.players(), declared);
+}

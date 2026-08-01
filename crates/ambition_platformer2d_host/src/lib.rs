@@ -83,7 +83,8 @@ impl Plugin for HostInputBindingsPlugin {
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
             populate_secondary_slot_controls, publish_latched_slot_controls,
-            seat_input_participants_for_roster, spawn_primary_input_participant,
+            freeze_local_seating_for_the_decided_match, seat_input_participants_for_roster,
+            spawn_primary_input_participant,
             toggle_player_trail_emission_from_actions,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -283,7 +284,15 @@ impl Plugin for HostInputBindingsPlugin {
             // has to exist before bindings resolve anything for it.
             .add_systems(
                 Update,
-                seat_input_participants_for_roster.in_set(ambition_input::InputSet::Collect),
+                // The seating is frozen from the ROSTER before the seats it
+                // describes materialize, so nothing downstream sees a frame where
+                // participants exist and the topology does not.
+                (
+                    freeze_local_seating_for_the_decided_match,
+                    seat_input_participants_for_roster,
+                )
+                    .chain()
+                    .in_set(ambition_input::InputSet::Collect),
             )
             // Context ownership: surfaces declare claims during
             // `ResolveContext` (the session lifecycle here; the shell's

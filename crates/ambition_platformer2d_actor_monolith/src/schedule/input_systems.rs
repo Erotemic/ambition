@@ -1362,3 +1362,57 @@ mod focus_gate_tests {
         assert!(input_suppressed_by_unfocus(&settings, std::iter::empty()));
     }
 }
+
+/// **Freeze the local seating once a MATCH has been decided.**
+///
+/// ⛔ Nothing in a shipped build has ever created
+/// [`ambition_input::LocalSeatTopology`]. The only non-test caller is the
+/// rollback observatory, behind `#[cfg(feature = "dev_tools")]` — a feature the
+/// `android` persona omits and desktop only exercises when somebody presses F9
+/// (queue S35). Every consumer takes `Option<Res<..>>` and returns early without
+/// it, so `reconcile_roster_with_frozen_topology` returned on its first line
+/// every frame and `assign_local_seat_devices` always used live discovery. The
+/// fix for that landed in July; the mechanism that makes it apply did not ship.
+///
+/// ⚠ **the lifetime is the ROSTER's, not the session's.** An earlier attempt froze
+/// at gameplay-session start and broke the Smash flow: the topology existed
+/// before any roster did, so the reconciler rebuilt a roster from a device count
+/// nobody had declared. Jon's brief says when — *"Before the match starts,
+/// freeze: participant, session seat, control channel, input sources"* — and a
+/// match starts when a roster says who is in it.
+///
+/// ⚠ and it declares the ROSTER'S seat count (`capture_for_roster`), not the
+/// device count, because those are two different authorities and the device one
+/// was wrong in both directions (queue S34).
+#[cfg(feature = "input")]
+pub fn freeze_local_seating_for_the_decided_match(
+    mut commands: Commands,
+    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
+    order: Res<ambition_input::LocalDeviceOrder>,
+    existing: Option<Res<ambition_input::LocalSeatTopology>>,
+) {
+    let Some(roster) = roster else {
+        // No match. A topology that outlives the roster it describes is the
+        // previous match's seating presented to the next one as a frozen fact.
+        if existing.is_some() {
+            commands.remove_resource::<ambition_input::LocalSeatTopology>();
+        }
+        return;
+    };
+    let seats = roster.participants.len();
+    if seats == 0 {
+        return;
+    }
+    // Already frozen for THIS roster's shape: leave it exactly as it is. A
+    // recapture would advance the generation and every consumer that keys off it
+    // would rebuild for no reason.
+    if existing
+        .as_deref()
+        .is_some_and(|topology| topology.is_frozen() && topology.declared_seats() == Some(seats))
+    {
+        return;
+    }
+    let mut topology = ambition_input::LocalSeatTopology::default();
+    topology.capture_for_roster(&order, seats);
+    commands.insert_resource(topology);
+}

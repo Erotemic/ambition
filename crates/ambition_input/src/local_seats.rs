@@ -232,9 +232,46 @@ pub fn track_local_device_order(
 /// frees exactly its own seat; and a free pad is only taken by a seat that has
 /// none — which is also what makes reconnecting restore the same assignment
 /// (milestone 7) rather than reshuffling everybody.
+/// What a controller IS, across disconnects.
+///
+/// ⚠ an `Entity` cannot answer this: a reconnecting pad is a new entity and Bevy
+/// moves the generation, so a remembered id never matches again. The OS-provided
+/// name and USB vendor/product are what survive being unplugged.
+///
+/// ⛔ **two IDENTICAL controllers are genuinely indistinguishable** — same name,
+/// same vendor, same product — and no amount of code fixes that, because the
+/// information does not exist. What the identity buys is the case that DOES
+/// have an answer: a keyboard-and-pad room, or two different pads, where
+/// reconnecting in the other order used to swap the players.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PadIdentity {
+    name: Option<String>,
+    vendor: Option<u16>,
+    product: Option<u16>,
+}
+
+impl PadIdentity {
+    fn of(pad: Option<&Gamepad>, name: Option<&Name>) -> Self {
+        Self {
+            name: name.map(|name| name.as_str().to_string()),
+            vendor: pad.and_then(|pad| pad.vendor_id()),
+            product: pad.and_then(|pad| pad.product_id()),
+        }
+    }
+
+    /// Whether this identity says anything at all. An empty one matches
+    /// everything, so it must never be used to claim a seat back.
+    fn is_known(&self) -> bool {
+        self.name.is_some() || self.vendor.is_some() || self.product.is_some()
+    }
+}
+
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct SeatDeviceOwnership {
     held: std::collections::BTreeMap<u8, Entity>,
+    /// What each seat's controller WAS, kept after it disconnects so the same
+    /// controller coming back finds the same seat.
+    remembered: std::collections::BTreeMap<u8, PadIdentity>,
 }
 
 impl SeatDeviceOwnership {
@@ -248,11 +285,26 @@ impl SeatDeviceOwnership {
         self.held.values().any(|held| *held == pad)
     }
 
-    fn claim(&mut self, slot: u8, pad: Entity) {
-        self.held.insert(slot, pad);
+    /// The seat waiting for this exact controller, if one is.
+    fn seat_awaiting(&self, identity: &PadIdentity) -> Option<u8> {
+        if !identity.is_known() {
+            return None;
+        }
+        self.remembered
+            .iter()
+            .find(|(slot, remembered)| {
+                *remembered == identity && !self.held.contains_key(slot)
+            })
+            .map(|(slot, _)| *slot)
     }
 
-    /// Forget every seat whose pad is no longer connected.
+    fn claim(&mut self, slot: u8, pad: Entity, identity: PadIdentity) {
+        self.held.insert(slot, pad);
+        self.remembered.insert(slot, identity);
+    }
+
+    /// Forget which ENTITY each seat holds when its pad is gone — but remember
+    /// WHAT it was, which is the whole point.
     fn retire_missing(&mut self, live: &[Entity]) {
         self.held.retain(|_, pad| live.contains(pad));
     }
@@ -278,6 +330,7 @@ pub fn assign_local_seat_devices(
     policy: Option<Res<crate::sources::InputAssignmentPolicy>>,
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
     mut ownership: ResMut<SeatDeviceOwnership>,
+    pads: Query<(Option<&Gamepad>, Option<&Name>)>,
     mut seats: Query<(&InputParticipant, &mut InputMap<Platformer2dInputActionMonolith>)>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
@@ -340,7 +393,29 @@ pub fn assign_local_seat_devices(
         .collect();
     order_of_seats.sort_by_key(|(slot, _)| *slot);
     let seat_slots: Vec<u8> = order_of_seats.into_iter().map(|(slot, _)| slot).collect();
-    // Claim first, in slot order, so the write pass below only reads decisions.
+    // **A RETURNING CONTROLLER GOES BACK TO ITS OWN SEAT FIRST.**
+    //
+    // ⛔ without this pass, two pads that both disconnect and reconnect in the
+    // other order SWAP the players: every claim is vacant, and the first pad
+    // back takes the lowest empty seat (GPT 5.6, 2026-08-01). Identity is what
+    // makes "the same participant" mean anything after an entity has died.
+    if frozen.is_none() {
+        for pad in &live {
+            if ownership.is_held(*pad) {
+                continue;
+            }
+            let identity = pads
+                .get(*pad)
+                .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
+                .unwrap_or_default();
+            if let Some(slot) = ownership.seat_awaiting(&identity) {
+                ownership.claim(slot, *pad, identity);
+            }
+        }
+    }
+
+    // Then the seats that still have nothing take whatever is left, in slot
+    // order — the write pass below only reads decisions.
     for slot in &seat_slots {
         let slot = *slot;
         if keyboard_owner.map(|owner| owner.slot()) == Some(slot) {
@@ -353,7 +428,11 @@ pub fn assign_local_seat_devices(
             continue;
         }
         if let Some(free) = live.iter().copied().find(|pad| !ownership.is_held(*pad)) {
-            ownership.claim(slot, free);
+            let identity = pads
+                .get(free)
+                .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
+                .unwrap_or_default();
+            ownership.claim(slot, free, identity);
         }
     }
 
@@ -551,6 +630,51 @@ mod tests {
             Some(pad_b),
             "and player two was never disturbed by any of it"
         );
+    }
+
+
+    /// **Two pads reconnecting in the OTHER order must not swap the players.**
+    /// (GPT 5.6, 2026-08-01)
+    ///
+    /// ⛔ the first reconnect test left exactly ONE seat vacant, so any returning
+    /// pad necessarily filled the "correct" one. It proved vacancy filling and
+    /// was written up as proving RESTORATION. With both seats vacant the
+    /// difference is the whole thing: pad B coming back first took seat 0, and
+    /// pad A took seat 1 — the two people swapped characters by unplugging in one
+    /// order and plugging in in another.
+    #[test]
+    fn two_pads_reconnecting_in_reverse_order_keep_their_own_seats() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        let pad_b = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // Everybody unplugs.
+        app.world_mut().entity_mut(pad_a).despawn();
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+        assert_eq!(assigned(&app, one), None);
+        assert_eq!(assigned(&app, two), None);
+
+        // Player TWO plugs back in first.
+        let pad_b_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        app.update();
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b_again),
+            "player two's controller came back and landed in player ONE's seat"
+        );
+        assert_eq!(assigned(&app, one), None, "seat one is still waiting for its pad");
+
+        // ...and then player one.
+        let pad_a_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a_again));
+        assert_eq!(assigned(&app, two), Some(pad_b_again));
     }
 
     /// **A frozen session's device mapping does not follow live discovery.**

@@ -1,0 +1,371 @@
+"""Regression tests for the git-well-backed Ambition source archiver."""
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+_ARCHIVER_PATH = Path(__file__).resolve().parent.parent / "archive_agent_source.py"
+
+
+def _load_archiver():
+    spec = importlib.util.spec_from_file_location("archive_agent_source", _ARCHIVER_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["archive_agent_source"] = mod
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    return mod
+
+
+archiver = _load_archiver()
+
+
+def _fake_context(tmp_path: Path, **overrides):
+    archive_root = tmp_path / "stage" / "ambition-agent-source-test"
+    archive_root.mkdir(parents=True)
+    defaults = {
+        "repo_root": tmp_path / "repo",
+        "archive_root": archive_root,
+        "archive_root_name": archive_root.name,
+        "archive_format": "tar.gz",
+        "head_sha": "a" * 40,
+        "short_sha": "a" * 12,
+        "depth": 100,
+        "include_git_history": True,
+        "all_branches": False,
+        "branch_refs": None,
+        "submodule_decisions": (),
+        "source_display_path": lambda: str(tmp_path / "repo"),
+        "add_generated_excludes": lambda paths: None,
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def test_build_archive_delegates_to_git_well(monkeypatch, tmp_path: Path):
+    captured = {}
+    output = tmp_path / "out.zip"
+
+    def fake_git(_root, *args, **_kwargs):
+        if args == ("rev-parse", "HEAD"):
+            return "a" * 40
+        if args == ("rev-parse", "--short=12", "HEAD"):
+            return "a" * 12
+        if args == ("status", "--short"):
+            return ""
+        raise AssertionError(args)
+
+    def fake_archive_source(**kwargs):
+        captured.update(kwargs)
+        return output
+
+    monkeypatch.setattr(archiver, "coerce_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(archiver, "git", fake_git)
+    monkeypatch.setattr(
+        archiver,
+        "_load_git_well_archive_api",
+        lambda: (fake_archive_source, object),
+    )
+
+    result = archiver.build_archive(
+        tmp_path,
+        output,
+        "custom-root",
+        keep_stage=True,
+        verbose=0,
+        depth="25",
+        all_branches=True,
+        submodule_depth='{"*": 0, tools/ambition_sfx_renderer: 50}',
+        exclude_submodule=["tools/experimental/*"],
+        no_submodules=False,
+        archive_format="zip",
+        redact_local_paths=True,
+    )
+
+    assert result == output
+    assert captured["repo_dpath"] == tmp_path
+    assert captured["output"] == output
+    assert captured["depth"] == "25"
+    assert captured["all_branches"] is True
+    assert captured["submodule_depth"] == '{"*": 0, tools/ambition_sfx_renderer: 50}'
+    assert captured["exclude_submodule"] == ["tools/experimental/*"]
+    assert captured["format"] == "zip"
+    assert captured["redact_local_paths"] is True
+    assert captured["archive_root_name"] == "custom-root"
+    assert captured["keep_stage"] is True
+    assert callable(captured["prepare"])
+    assert callable(captured["validate"])
+
+
+def test_build_archive_uses_repo_depth_defaults(monkeypatch, tmp_path: Path):
+    captured = {}
+
+    def fake_git(_root, *args, **_kwargs):
+        values = {
+            ("rev-parse", "HEAD"): "b" * 40,
+            ("rev-parse", "--short=12", "HEAD"): "b" * 12,
+            ("status", "--short"): "",
+        }
+        return values[args]
+
+    def fake_archive_source(**kwargs):
+        captured.update(kwargs)
+        return tmp_path / "out.tar.gz"
+
+    monkeypatch.setattr(archiver, "coerce_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(archiver, "git", fake_git)
+    monkeypatch.setattr(
+        archiver,
+        "_load_git_well_archive_api",
+        lambda: (fake_archive_source, object),
+    )
+
+    archiver.build_archive(
+        tmp_path,
+        None,
+        None,
+        keep_stage=False,
+        verbose=0,
+    )
+
+    assert captured["depth"] == archiver.CONFIG["super_depth"]
+    assert captured["submodule_depth"] == archiver.CONFIG["submodule_depths"]
+    assert captured["format"] == "tar.gz"
+    assert str(captured["archive_root_name"]).startswith("ambition-agent-source-")
+
+
+def test_main_forwards_git_well_cli_options(monkeypatch, tmp_path: Path):
+    captured = {}
+    output = tmp_path / "agent.zip"
+
+    def fake_build(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        captured["toggles"] = {
+            key: archiver.CONFIG[key]
+            for key in (
+                "run_agent_index",
+                "run_ecs_inventory",
+                "run_agent_navigation",
+                "run_dirstats",
+                "run_live_disk_inventory",
+            )
+        }
+        return output
+
+    monkeypatch.setattr(archiver, "build_archive", fake_build)
+    monkeypatch.setattr(archiver, "print_output_location", lambda path: None)
+
+    result = archiver.main(
+        [
+            str(tmp_path),
+            "--output",
+            str(output),
+            "--depth",
+            "25",
+            "--all-branches",
+            "--submodule-depth",
+            "full",
+            "--exclude-submodule",
+            "tools/a",
+            "--exclude-submodule",
+            "tools/b*",
+            "--no-submodules",
+            "--format",
+            "zip",
+            "--redact-local-paths",
+            "--slim",
+            "--keep-stage",
+            "--quiet",
+        ]
+    )
+
+    assert result == 0
+    kwargs = captured["kwargs"]
+    assert kwargs["depth"] == "25"
+    assert kwargs["all_branches"] is True
+    assert kwargs["submodule_depth"] == "full"
+    assert kwargs["exclude_submodule"] == ["tools/a", "tools/b*"]
+    assert kwargs["no_submodules"] is True
+    assert kwargs["archive_format"] == "zip"
+    assert kwargs["redact_local_paths"] is True
+    assert kwargs["verbose"] == 0
+    assert kwargs["full_reports"] is False
+    assert all(value is False for value in captured["toggles"].values())
+
+
+def test_prepare_registers_excludes_and_refreshes_stamp(monkeypatch, tmp_path: Path):
+    events = []
+    excludes = []
+    context = _fake_context(
+        tmp_path,
+        add_generated_excludes=lambda paths: excludes.extend(paths),
+        source_display_path=lambda: "(redacted)",
+    )
+    extension = archiver.AmbitionArchiveExtension(
+        repo_root=tmp_path / "repo",
+        dirty_status="",
+        allow_forbidden=False,
+        full_reports=False,
+        log=archiver.Log(0),
+    )
+
+    monkeypatch.setattr(
+        archiver,
+        "enforce_forbidden_path_policy",
+        lambda *args: events.append("forbidden"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "run_agent_index",
+        lambda *args: events.append("index"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "refresh_generation_stamp",
+        lambda *args: events.append("stamp"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "run_ecs_inventory",
+        lambda *args: events.append("ecs"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "run_agent_navigation",
+        lambda *args: events.append("navigation"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "run_dirstats",
+        lambda *args: events.append("dirstats"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "run_live_disk_inventory",
+        lambda *args: events.append("live"),
+    )
+    monkeypatch.setattr(
+        archiver,
+        "write_manifests",
+        lambda **kwargs: events.append("manifest"),
+    )
+
+    extension.prepare(context)
+
+    assert excludes == ["/.agent/", "/SOURCE_ARCHIVE_MANIFEST.txt"]
+    assert events == [
+        "forbidden",
+        "index",
+        "stamp",
+        "ecs",
+        "navigation",
+        "dirstats",
+        "live",
+        "manifest",
+    ]
+
+
+def test_refresh_generation_stamp_works_without_staged_git(monkeypatch, tmp_path: Path):
+    context = _fake_context(tmp_path, include_git_history=False)
+    stamp = context.archive_root / ".agent" / "index" / "generation_stamp.json"
+    stamp.parent.mkdir(parents=True)
+    stamp.write_text('{"generated_from_commit": "unknown"}\n')
+    monkeypatch.setattr(
+        archiver,
+        "git",
+        lambda *args, **kwargs: "2026-08-01T12:00:00-04:00",
+    )
+
+    archiver.refresh_generation_stamp(
+        context,
+        "2026-08-01T16:00:00Z",
+        archiver.Log(0),
+    )
+
+    payload = json.loads(stamp.read_text())
+    assert payload["generated_from_commit"] == context.short_sha
+    assert payload["source_commit_time"] == "2026-08-01T12:00:00-04:00"
+    assert payload["generated_at"] == "2026-08-01T16:00:00Z"
+
+
+def test_forbidden_scan_uses_all_archived_branch_refs(monkeypatch, tmp_path: Path):
+    refs = SimpleNamespace(
+        local_branches=("main", "feature"),
+        remote_tracking_branches=("origin/old",),
+    )
+    context = _fake_context(
+        tmp_path,
+        all_branches=True,
+        branch_refs=refs,
+    )
+    calls = []
+
+    def fake_git(_root, *args, **_kwargs):
+        calls.append(args)
+        if args[:4] == ("ls-tree", "-r", "--name-only", "HEAD"):
+            return "README.md"
+        if args[:3] == ("log", "--format=", "--name-only"):
+            return "docs/planning/plugin_refactor/snapshots/secret.txt"
+        raise AssertionError(args)
+
+    monkeypatch.setattr(archiver, "git", fake_git)
+    found = archiver.find_forbidden_paths(context)
+
+    assert found["history"] == [
+        "docs/planning/plugin_refactor/snapshots/secret.txt"
+    ]
+    log_call = calls[1]
+    assert "refs/heads/main" in log_call
+    assert "refs/heads/feature" in log_call
+    assert "refs/remotes/origin/old" in log_call
+
+
+def test_clean_validation_rejects_tracked_mutation(monkeypatch, tmp_path: Path):
+    context = _fake_context(tmp_path)
+    monkeypatch.setattr(
+        archiver,
+        "git",
+        lambda *args, **kwargs: " M .agent/manifest.yaml",
+    )
+    with pytest.raises(RuntimeError, match="modified tracked source"):
+        archiver.validate_staged_checkout_clean(context)
+
+
+def test_clean_validation_allows_omitted_submodule(monkeypatch, tmp_path: Path):
+    decision = SimpleNamespace(
+        omitted=True,
+        info=SimpleNamespace(path="tools/omitted"),
+    )
+    context = _fake_context(tmp_path, submodule_decisions=(decision,))
+    monkeypatch.setattr(
+        archiver,
+        "git",
+        lambda *args, **kwargs: " D tools/omitted",
+    )
+    archiver.validate_staged_checkout_clean(context)
+
+
+def test_manifests_honor_redaction(tmp_path: Path):
+    context = _fake_context(
+        tmp_path,
+        source_display_path=lambda: "(redacted by --redact-local-paths)",
+    )
+    archiver.write_manifests(
+        context=context,
+        generated_at="2026-08-01T16:00:00Z",
+        dirty_status="",
+        full_reports=False,
+    )
+    yaml_text = (
+        context.archive_root / ".agent" / "source_archive_manifest.yaml"
+    ).read_text()
+    txt_text = (context.archive_root / "SOURCE_ARCHIVE_MANIFEST.txt").read_text()
+    assert str(tmp_path) not in yaml_text
+    assert str(tmp_path) not in txt_text
+    assert "redacted by --redact-local-paths" in yaml_text
+    assert "redacted by --redact-local-paths" in txt_text

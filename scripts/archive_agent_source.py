@@ -16,16 +16,18 @@ The archive layout is deterministic:
         .agent/reports/...             # optional full diagnostic reports
         .agent/dirstats-*.txt         # freshly generated from staged contents
         .agent/source_archive_manifest.yaml
-        .agent/manifest.yaml              # refreshed to match staged HEAD
+        .agent/manifest.yaml              # tracked, byte-stable navigation policy
         .agent/live-disk-inventory-*.txt  # metadata only, from live checkout
         SOURCE_ARCHIVE_MANIFEST.txt
+        GIT_WELL_ARCHIVE_INFO.txt
         ... tracked source files ...
 
-Only committed/tracked source is copied from the superproject and initialized
-submodules. Generated agent metadata is then added to the staged tree before the
-tarball is written, so it lands under the same archive prefix as the source.
-The optional live-disk inventory records where ignored/untracked assets exist in
-the user's checkout, but it does not copy those files into the archive.
+Git-well stages committed source, history, branches, and submodules. Ambition
+then enriches that staged tree through git-well's programmatic prepare hook and
+validates the final payload through its validation hook before git-well writes
+the requested archive format. The optional live-disk inventory records where
+ignored/untracked assets exist in the user's checkout, but it does not copy
+those files into the archive.
 """
 
 from __future__ import annotations
@@ -34,17 +36,13 @@ import argparse
 import fnmatch
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tarfile
-import tempfile
-import textwrap
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 try:  # rich is optional; the final artifact link degrades to plain print without it.
     from rich import print as rich_print
@@ -61,7 +59,6 @@ CONFIG = {
     # {short_sha}. The timestamp is UTC and filename-safe.
     'repo_name': 'ambition',
     'prefix_template': '{repo}-agent-source-{timestamp}-{short_sha}',
-    'output_template': '{prefix}.tar.gz',
 
     # Git history policy. Use None or 'full' for full history, a positive int
     # for a shallow clone, or 0 for source-only git-archive mode.
@@ -72,7 +69,6 @@ CONFIG = {
         'tools/ambition_sfx_renderer': 50,
         '*': 25,
     },
-    'strip_remotes': True,
 
     # Dirty worktree policy. The archive is built from committed source. If this
     # is True, local modifications cause an error instead of only a warning.
@@ -84,6 +80,7 @@ CONFIG = {
     'agent_index_command': [sys.executable, 'scripts/generate_agent_index.py'],
     'required_agent_index_paths': [
         '.agent/manifest.yaml',
+        '.agent/index/generation_stamp.json',
         '.agent/index/entry_points.json',
         '.agent/index/planning_index.json',
         '.agent/index/file_summaries.json',
@@ -256,14 +253,6 @@ CONFIG = {
 }
 
 
-@dataclass(frozen=True)
-class SubmoduleInfo:
-    status: str
-    sha: str
-    path: str
-    line: str
-
-
 @dataclass
 class DirNode:
     path: Path
@@ -339,16 +328,6 @@ def coerce_repo_root(path: Path) -> Path:
     return Path(proc.stdout.strip()).resolve()
 
 
-def normalize_depth(value: object) -> int | None:
-    if value is None or value == '' or value == 'full':
-        return None
-    if isinstance(value, bool):
-        raise ValueError('depth must be None, "full", 0, or a positive integer')
-    ivalue = int(value)  # type: ignore[arg-type]
-    if ivalue < 0:
-        raise ValueError('depth cannot be negative')
-    return ivalue
-
 
 def file_url(path: Path) -> str:
     # Path.as_uri handles spaces and other URL quoting for absolute paths.
@@ -373,141 +352,6 @@ def print_output_location(output: Path) -> None:
         print(f'\narchive written: {output}')
         print(f'open folder: {directory}')
 
-
-def parse_submodule_status(repo_root: Path) -> list[SubmoduleInfo]:
-    proc = run(
-        ['git', '-C', repo_root, 'submodule', 'status', '--recursive'],
-        capture=True,
-        check=False,
-    )
-    if proc.returncode != 0 or not proc.stdout.strip():
-        return []
-
-    infos: list[SubmoduleInfo] = []
-    for line in proc.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            raise RuntimeError(f'could not parse submodule status line: {line!r}')
-        status = line[0]
-        first = parts[0]
-        sha = first if status == ' ' else first[1:]
-        path = parts[1]
-        infos.append(SubmoduleInfo(status=status, sha=sha, path=path, line=line))
-    return infos
-
-
-def resolve_submodule_depth(path: str) -> int | None:
-    table = CONFIG['submodule_depths']
-    assert isinstance(table, dict)
-    if path in table:
-        return normalize_depth(table[path])
-    for pattern, value in table.items():
-        if pattern != '*' and fnmatch.fnmatch(path, pattern):
-            return normalize_depth(value)
-    return normalize_depth(table.get('*', CONFIG['super_depth']))
-
-
-def clone_committed_checkout(
-    *,
-    src: Path,
-    dst: Path,
-    commit: str,
-    depth: int | None,
-    label: str,
-    log: Log,
-) -> None:
-    if dst.exists() or dst.is_symlink():
-        if dst.is_dir() and not dst.is_symlink():
-            shutil.rmtree(dst)
-        else:
-            dst.unlink()
-    dst.parent.mkdir(parents=True, exist_ok=True)
-
-    clone_args = [
-        'git',
-        'clone',
-        '--quiet',
-        '--no-local',
-        '--single-branch',
-        '--no-checkout',
-    ]
-    if depth is not None:
-        clone_args += ['--depth', str(depth)]
-    clone_args += [file_url(src), os.fspath(dst)]
-
-    log(f'[archive-agent-source] clone {label}: {src} -> {dst}')
-    run(clone_args, check=True)
-
-    try:
-        git(dst, 'checkout', '-q', '--detach', commit)
-    except CommandError:
-        # A submodule commit can be outside the shallow default ref. Fetch the
-        # exact object, retaining the requested depth where possible.
-        fetch_args = ['fetch', '--quiet']
-        if depth is not None:
-            fetch_args += ['--depth', str(depth)]
-        fetch_args += ['origin', commit]
-        try:
-            git(dst, *fetch_args)
-        except CommandError:
-            git(dst, 'fetch', '--quiet', 'origin', commit)
-        git(dst, 'checkout', '-q', '--detach', commit)
-
-    if CONFIG['strip_remotes']:
-        git(dst, 'remote', 'remove', 'origin', check=False)
-
-    git(dst, 'reflog', 'expire', '--expire=now', '--expire-unreachable=now', '--all', check=False)
-    git(dst, 'gc', '--prune=now', '--quiet', check=False)
-
-
-def export_git_archive(src: Path, dst_parent: Path, prefix: str, treeish: str = 'HEAD') -> None:
-    import io
-
-    proc = subprocess.run(
-        ['git', '-C', src, 'archive', '--format=tar', f'--prefix={prefix.rstrip("/")}/', treeish],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise CommandError(proc.stderr.decode('utf8', errors='replace'))
-    with tarfile.open(fileobj=io.BytesIO(proc.stdout), mode='r:') as tar:
-        safe_extractall(tar, dst_parent)
-
-
-def safe_extractall(tar: tarfile.TarFile, dst: Path) -> None:
-    dst = dst.resolve()
-    for member in tar.getmembers():
-        target = (dst / member.name).resolve()
-        try:
-            target.relative_to(dst)
-        except ValueError as ex:
-            raise RuntimeError(f'unsafe tar member path: {member.name!r}') from ex
-    try:
-        tar.extractall(path=dst, filter='fully_trusted')
-    except TypeError:
-        tar.extractall(path=dst)
-
-
-def append_archive_excludes(repo_path: Path) -> None:
-    info = repo_path / '.git' / 'info'
-    if not info.exists():
-        return
-    exclude = info / 'exclude'
-    with exclude.open('a') as file:
-        file.write(
-            textwrap.dedent(
-                '''
-
-                # Added by scripts/archive_agent_source.py so generated archive
-                # metadata does not dirty the unpacked inspection checkout.
-                /.agent/
-                /SOURCE_ARCHIVE_MANIFEST.txt
-                '''
-            ).lstrip('\n')
-        )
 
 
 def should_exclude(name: str, patterns: Iterable[str]) -> bool:
@@ -737,7 +581,13 @@ def write_builtin_dirstats_report(archive_root: Path, spec: dict[str, object], g
 
 
 
-def write_live_disk_inventory_report(repo_root: Path, archive_root: Path, spec: dict[str, object], generated_at: str) -> None:
+def write_live_disk_inventory_report(
+    repo_root: Path,
+    archive_root: Path,
+    spec: dict[str, object],
+    generated_at: str,
+    source_display_path: str,
+) -> None:
     """Write metadata-only dirstats for the user's live checkout."""
     rel_input = Path(str(spec['path']))
     root = (repo_root / rel_input).resolve()
@@ -755,7 +605,7 @@ def write_live_disk_inventory_report(repo_root: Path, archive_root: Path, spec: 
     lines.append('===================')
     lines.append('')
     lines.append(f'Generated at UTC: {generated_at}')
-    lines.append(f'Live repo root: {repo_root}')
+    lines.append(f'Live repo root: {source_display_path}')
     lines.append(f'Inventory root: {rel_input.as_posix()}')
     lines.append(f'Display depth: {display_depth_int if display_depth_int is not None else "full"}')
     lines.append('')
@@ -786,7 +636,12 @@ def write_live_disk_inventory_report(repo_root: Path, archive_root: Path, spec: 
     output.write_text('\n'.join(lines).rstrip() + '\n')
 
 
-def write_live_git_status_report(repo_root: Path, archive_root: Path, generated_at: str) -> None:
+def write_live_git_status_report(
+    repo_root: Path,
+    archive_root: Path,
+    generated_at: str,
+    source_display_path: str,
+) -> None:
     """Record ignored/untracked path hints without copying those files."""
     output = archive_root / str(CONFIG['live_git_status_output'])
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -804,7 +659,7 @@ def write_live_git_status_report(repo_root: Path, archive_root: Path, generated_
         '==================================',
         '',
         f'Generated at UTC: {generated_at}',
-        f'Live repo root: {repo_root}',
+        f'Live repo root: {source_display_path}',
         '',
         'Policy: metadata only. These paths are not copied into the archive.',
         'Legend follows git status --short --ignored output, e.g. ?? untracked and !! ignored.',
@@ -823,51 +678,78 @@ def write_live_git_status_report(repo_root: Path, archive_root: Path, generated_
     output.write_text('\n'.join(lines).rstrip() + '\n')
 
 
-def run_live_disk_inventory(repo_root: Path, archive_root: Path, generated_at: str, log: Log) -> None:
+def run_live_disk_inventory(
+    repo_root: Path,
+    archive_root: Path,
+    generated_at: str,
+    source_display_path: str,
+    log: Log,
+) -> None:
     if not CONFIG['run_live_disk_inventory']:
         log('[archive-agent-source] skipping live disk inventory')
         return
     for spec in CONFIG['live_disk_inventory']:
         log(f'[archive-agent-source] writing {spec["output"]}')
-        write_live_disk_inventory_report(repo_root, archive_root, spec, generated_at)
+        write_live_disk_inventory_report(
+            repo_root, archive_root, spec, generated_at, source_display_path
+        )
     log(f'[archive-agent-source] writing {CONFIG["live_git_status_output"]}')
-    write_live_git_status_report(repo_root, archive_root, generated_at)
+    write_live_git_status_report(
+        repo_root, archive_root, generated_at, source_display_path
+    )
 
 
 def path_matches_any(relpath: str, patterns: Iterable[str]) -> bool:
     return any(fnmatch.fnmatch(relpath, pattern) for pattern in patterns)
 
 
-def history_max_count(depth: int | None) -> str | None:
-    if depth is None:
-        return None
-    if depth <= 0:
-        return '1'
-    return str(depth)
+def _staged_history_refs(context: Any) -> list[str]:
+    if not context.all_branches or context.branch_refs is None:
+        return ['HEAD']
+    refs = [f'refs/heads/{name}' for name in context.branch_refs.local_branches]
+    refs.extend(
+        f'refs/remotes/{name}'
+        for name in context.branch_refs.remote_tracking_branches
+    )
+    return refs or ['HEAD']
 
 
-def find_forbidden_paths(repo_root: Path, super_depth: int | None) -> dict[str, list[str]]:
+def find_forbidden_paths(context: Any) -> dict[str, list[str]]:
+    """Inspect the exact staged source and history that will be archived."""
     patterns = [str(p) for p in CONFIG['forbidden_path_globs']]
     found: dict[str, list[str]] = {'head': [], 'history': []}
     if not patterns:
         return found
 
-    head_paths = git(repo_root, 'ls-tree', '-r', '--name-only', 'HEAD').splitlines()
-    found['head'] = sorted({p for p in head_paths if path_matches_any(p, patterns)})
+    if context.include_git_history:
+        head_paths = git(
+            context.archive_root, 'ls-tree', '-r', '--name-only', 'HEAD'
+        ).splitlines()
+    else:
+        head_paths = [
+            path.relative_to(context.archive_root).as_posix()
+            for path in context.archive_root.rglob('*')
+            if path.is_file() or path.is_symlink()
+        ]
+    found['head'] = sorted(
+        {path for path in head_paths if path_matches_any(path, patterns)}
+    )
 
-    if CONFIG['scan_forbidden_history']:
-        args = ['log', '--format=', '--name-only']
-        max_count = history_max_count(super_depth)
-        if max_count is not None:
-            args.append(f'--max-count={max_count}')
-        args.append('HEAD')
-        hist_paths = git(repo_root, *args).splitlines()
-        found['history'] = sorted({p for p in hist_paths if path_matches_any(p, patterns)})
+    if CONFIG['scan_forbidden_history'] and context.include_git_history:
+        args = ['log', '--format=', '--name-only', *_staged_history_refs(context)]
+        hist_paths = git(context.archive_root, *args).splitlines()
+        found['history'] = sorted(
+            {path for path in hist_paths if path_matches_any(path, patterns)}
+        )
 
     return found
 
 
-def enforce_forbidden_path_policy(repo_root: Path, super_depth: int | None, allow_forbidden: bool, log: Log) -> None:
+def enforce_forbidden_path_policy(
+    context: Any,
+    allow_forbidden: bool,
+    log: Log,
+) -> None:
     if allow_forbidden:
         log('[archive-agent-source] forbidden path guard disabled by --allow-forbidden')
         return
@@ -875,25 +757,35 @@ def enforce_forbidden_path_policy(repo_root: Path, super_depth: int | None, allo
     if policy == 'ignore':
         return
     if policy not in {'fail', 'warn'}:
-        raise ValueError('CONFIG["forbidden_path_policy"] must be one of: fail, warn, ignore')
-    found = find_forbidden_paths(repo_root, super_depth)
+        raise ValueError(
+            'CONFIG["forbidden_path_policy"] must be one of: fail, warn, ignore'
+        )
+    found = find_forbidden_paths(context)
     if not found['head'] and not found['history']:
         return
     parts = ['forbidden paths matched archive guard:']
     if found['head']:
-        parts.append('  present in HEAD:')
+        parts.append('  present in staged HEAD:')
         parts.extend(f'    - {p}' for p in found['head'][:50])
         if len(found['head']) > 50:
             parts.append(f'    ... {len(found["head"]) - 50} more ...')
     if found['history']:
-        parts.append('  present in included HEAD history:')
+        scope = 'all archived branch history' if context.all_branches else 'archived HEAD history'
+        parts.append(f'  present in {scope}:')
         parts.extend(f'    - {p}' for p in found['history'][:50])
         if len(found['history']) > 50:
             parts.append(f'    ... {len(found["history"]) - 50} more ...')
     message = '\n'.join(parts)
     if policy == 'fail':
-        raise RuntimeError(message + '\nSet CONFIG["forbidden_path_policy"] to "warn" or run --allow-forbidden only if this is intentional.')
-    log('[archive-agent-source] warning: ' + message.replace('\n', '\n[archive-agent-source] warning: '))
+        raise RuntimeError(
+            message
+            + '\nSet CONFIG["forbidden_path_policy"] to "warn" or run '
+            '--allow-forbidden only if this is intentional.'
+        )
+    log(
+        '[archive-agent-source] warning: '
+        + message.replace('\n', '\n[archive-agent-source] warning: ')
+    )
 
 def yaml_scalar(value: object) -> str:
     text = str(value)
@@ -903,140 +795,161 @@ def yaml_scalar(value: object) -> str:
     return text
 
 
-def patch_yaml_top_level_scalars(text: str, updates: dict[str, object], *, after_key: str | None = None) -> str:
-    """Patch simple top-level YAML scalar keys while preserving the file body."""
-    lines = text.splitlines()
-    found: set[str] = set()
-    out: list[str] = []
-
-    for line in lines:
-        key_match = None
-        for key in updates:
-            if line.startswith(f'{key}:'):
-                key_match = key
-                break
-        if key_match is None:
-            out.append(line)
-        else:
-            out.append(f'{key_match}: {yaml_scalar(updates[key_match])}')
-            found.add(key_match)
-
-    missing = [(key, value) for key, value in updates.items() if key not in found]
-    if missing:
-        insert_at = None
-        if after_key is not None:
-            for idx, line in enumerate(out):
-                if line.startswith(f'{after_key}:'):
-                    insert_at = idx + 1
-                    break
-        new_lines = [f'{key}: {yaml_scalar(value)}' for key, value in missing]
-        if insert_at is None:
-            if out and out[-1].strip():
-                out.append('')
-            out.extend(new_lines)
-        else:
-            out[insert_at:insert_at] = new_lines
-
-    return '\n'.join(out).rstrip() + '\n'
+def refresh_generation_stamp(
+    context: Any,
+    generated_at: str,
+    log: Log,
+) -> None:
+    """Record exact source provenance without modifying tracked manifest data."""
+    stamp_path = context.archive_root / '.agent' / 'index' / 'generation_stamp.json'
+    stamp_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        payload = json.loads(stamp_path.read_text(encoding='utf-8'))
+    except (FileNotFoundError, json.JSONDecodeError):
+        payload = {}
+    payload.update(
+        {
+            'generated_from_commit': context.short_sha,
+            'source_commit_time': git(
+                context.repo_root,
+                'show',
+                '-s',
+                '--format=%cI',
+                context.head_sha,
+            ),
+            'generated_at': generated_at,
+        }
+    )
+    stamp_path.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+    log(f'[archive-agent-source] refreshed {stamp_path.relative_to(context.archive_root)}')
 
 
-def refresh_agent_manifest(archive_root: Path, *, generated_at: str, short_sha: str, log: Log) -> None:
-    """Refresh ``.agent/manifest.yaml`` metadata after the indexer runs.
-
-    The repo's indexer historically regenerated ``.agent/index/*.json`` but did
-    not rewrite the manifest itself. Because the archive builder stages a fresh
-    checkout, this function makes the staged manifest match the staged HEAD and
-    fails early if the indexer did not leave a manifest behind.
-    """
-    manifest = archive_root / '.agent' / 'manifest.yaml'
-    if not manifest.exists():
+def validate_generation_stamp(context: Any) -> None:
+    stamp_path = context.archive_root / '.agent' / 'index' / 'generation_stamp.json'
+    if not stamp_path.exists():
+        raise RuntimeError('missing required .agent/index/generation_stamp.json')
+    payload = json.loads(stamp_path.read_text(encoding='utf-8'))
+    if payload.get('generated_from_commit') != context.short_sha:
         raise RuntimeError(
-            'agent indexer did not produce required .agent/manifest.yaml; '
-            'cannot build a self-describing agent archive'
+            'generation stamp does not match staged source: '
+            f'expected {context.short_sha!r}, got '
+            f'{payload.get("generated_from_commit")!r}'
         )
-    text = manifest.read_text(encoding='utf-8')
-    updates = {
-        'generated_from_commit': short_sha,
-        'generated_at': generated_at,
-        'generator': 'scripts/generate_agent_index.py',
+
+
+def _status_path(line: str) -> str:
+    path = line[3:] if len(line) >= 4 else line
+    if ' -> ' in path:
+        path = path.split(' -> ', 1)[1]
+    return path.strip()
+
+
+def validate_staged_checkout_clean(context: Any) -> None:
+    """Reject tracked mutations while allowing intentionally omitted submodules."""
+    if not context.include_git_history:
+        return
+    status_lines = git(
+        context.archive_root,
+        'status',
+        '--short',
+        '--untracked-files=all',
+    ).splitlines()
+    omitted = {
+        decision.info.path.rstrip('/')
+        for decision in context.submodule_decisions
+        if decision.omitted
     }
-    patched = patch_yaml_top_level_scalars(text, updates, after_key='schema_version')
-    manifest.write_text(patched, encoding='utf-8')
-    log(f'[archive-agent-source] refreshed {manifest.relative_to(archive_root)}')
-
-
-def validate_agent_manifest_metadata(archive_root: Path, *, short_sha: str) -> None:
-    """Ensure the packaged agent manifest is not stale."""
-    manifest = archive_root / '.agent' / 'manifest.yaml'
-    if not manifest.exists():
-        raise RuntimeError('missing required .agent/manifest.yaml')
-    text = manifest.read_text(encoding='utf-8')
-    expected = f'generated_from_commit: {short_sha}'
-    quoted_expected = f'generated_from_commit: "{short_sha}"'
-    if expected not in text and quoted_expected not in text:
+    unexpected = []
+    for line in status_lines:
+        path = _status_path(line)
+        if any(path == item or path.startswith(item + '/') for item in omitted):
+            continue
+        unexpected.append(line)
+    if unexpected:
+        details = '\n'.join(f'  {line}' for line in unexpected)
         raise RuntimeError(
-            '.agent/manifest.yaml was not refreshed for this archive: '
-            f'expected generated_from_commit={short_sha!r}'
+            'archive enrichment modified tracked source files:\n'
+            f'{details}\n'
+            'Generated payloads must remain untracked/ignored; keep volatile '
+            'provenance in .agent/index/generation_stamp.json.'
         )
-    if 'generated_from_commit: unknown' in text:
-        raise RuntimeError('.agent/manifest.yaml still says generated_from_commit: unknown')
-
 
 def write_manifests(
     *,
-    archive_root: Path,
-    repo_root: Path,
-    prefix: str,
+    context: Any,
     generated_at: str,
-    head_sha: str,
-    short_sha: str,
     dirty_status: str,
-    submodules: list[SubmoduleInfo],
-    include_git: bool,
-    super_depth: int | None,
     full_reports: bool,
 ) -> None:
+    archive_root = context.archive_root
     agent_dir = archive_root / '.agent'
     agent_dir.mkdir(exist_ok=True)
     manifest_yaml = agent_dir / 'source_archive_manifest.yaml'
     manifest_txt = archive_root / 'SOURCE_ARCHIVE_MANIFEST.txt'
-
-    submodule_rows = []
-    for info in submodules:
-        submodule_rows.append((info, resolve_submodule_depth(info.path)))
+    source_display_path = context.source_display_path()
 
     yaml_lines = [
-        'schema_version: 1',
+        'schema_version: 2',
         f'generated_at_utc: {yaml_scalar(generated_at)}',
         f'generator: {yaml_scalar("scripts/archive_agent_source.py")}',
         f'repo_name: {yaml_scalar(CONFIG["repo_name"])}',
-        f'source_repo_root: {yaml_scalar(repo_root)}',
-        f'archive_prefix: {yaml_scalar(prefix)}',
+        f'source_repo_root: {yaml_scalar(source_display_path)}',
+        f'archive_prefix: {yaml_scalar(context.archive_root_name)}',
+        f'archive_format: {yaml_scalar(context.archive_format)}',
         'git:',
-        f'  include_history: {str(include_git).lower()}',
-        f'  super_depth: {yaml_scalar("full" if super_depth is None else super_depth)}',
-        f'  head_sha: {yaml_scalar(head_sha)}',
-        f'  short_sha: {yaml_scalar(short_sha)}',
+        f'  include_history: {str(context.include_git_history).lower()}',
+        f'  super_depth: {yaml_scalar("full" if context.depth is None else context.depth)}',
+        f'  all_branches: {str(context.all_branches).lower()}',
+        f'  head_sha: {yaml_scalar(context.head_sha)}',
+        f'  short_sha: {yaml_scalar(context.short_sha)}',
         f'  dirty_worktree_at_build_time: {str(bool(dirty_status.strip())).lower()}',
     ]
-    if submodule_rows:
+    if context.branch_refs is not None:
+        yaml_lines.extend(
+            [
+                f'  local_branch_count: {len(context.branch_refs.local_branches)}',
+                '  local_branches:',
+                *[
+                    f'    - {yaml_scalar(name)}'
+                    for name in context.branch_refs.local_branches
+                ],
+                f'  remote_tracking_branch_count: {len(context.branch_refs.remote_tracking_branches)}',
+                '  remote_tracking_branches:',
+                *[
+                    f'    - {yaml_scalar(name)}'
+                    for name in context.branch_refs.remote_tracking_branches
+                ],
+            ]
+        )
+
+    if context.submodule_decisions:
         yaml_lines.append('submodules:')
-        for info, depth in submodule_rows:
-            yaml_lines.extend([
-                f'  - path: {yaml_scalar(info.path)}',
-                f'    sha: {yaml_scalar(info.sha)}',
-                f'    status: {yaml_scalar(info.status)}',
-                f'    depth: {yaml_scalar("full" if depth is None else depth)}',
-            ])
+        for decision in context.submodule_decisions:
+            info = decision.info
+            yaml_lines.extend(
+                [
+                    f'  - path: {yaml_scalar(info.path)}',
+                    f'    sha: {yaml_scalar(info.sha)}',
+                    f'    status: {yaml_scalar(info.status)}',
+                    f'    omitted: {str(decision.omitted).lower()}',
+                    f'    mode: {yaml_scalar(decision.mode)}',
+                    f'    depth: {yaml_scalar("full" if decision.depth is None else decision.depth)}',
+                    f'    reason: {yaml_scalar(decision.reason)}',
+                ]
+            )
     else:
         yaml_lines.append('submodules: []')
 
-    yaml_lines.extend([
-        'generated_payloads:',
-        '  agent_manifest: .agent/manifest.yaml',
-        '  source_archive_manifest: .agent/source_archive_manifest.yaml',
-        '  agent_index_command:',
-    ])
+    yaml_lines.extend(
+        [
+            'generated_payloads:',
+            '  agent_manifest: .agent/manifest.yaml',
+            '  generation_stamp: .agent/index/generation_stamp.json',
+            '  source_archive_manifest: .agent/source_archive_manifest.yaml',
+            '  git_well_manifest: GIT_WELL_ARCHIVE_INFO.txt',
+            '  agent_index_command:',
+        ]
+    )
     for item in CONFIG['agent_index_command']:
         yaml_lines.append(f'    - {yaml_scalar(item)}')
     yaml_lines.append('  ecs_inventory_command:')
@@ -1057,18 +970,22 @@ def write_manifests(
         yaml_lines.append(f'      - {yaml_scalar(spec["output"])}')
     yaml_lines.append('  dirstats:')
     for spec in CONFIG['dirstats']:
-        yaml_lines.extend([
-            f'    - output: {yaml_scalar(spec["output"])}',
-            f'      path: {yaml_scalar(spec["path"])}',
-            f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
-        ])
+        yaml_lines.extend(
+            [
+                f'    - output: {yaml_scalar(spec["output"])}',
+                f'      path: {yaml_scalar(spec["path"])}',
+                f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
+            ]
+        )
     yaml_lines.append('  live_disk_inventory:')
     for spec in CONFIG['live_disk_inventory']:
-        yaml_lines.extend([
-            f'    - output: {yaml_scalar(spec["output"])}',
-            f'      path: {yaml_scalar(spec["path"])}',
-            f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
-        ])
+        yaml_lines.extend(
+            [
+                f'    - output: {yaml_scalar(spec["output"])}',
+                f'      path: {yaml_scalar(spec["path"])}',
+                f'      display_depth: {yaml_scalar(spec["display_depth"] if spec["display_depth"] is not None else "full")}',
+            ]
+        )
     yaml_lines.append(f'  live_git_status_output: {yaml_scalar(CONFIG["live_git_status_output"])}')
     if dirty_status.strip():
         yaml_lines.append('dirty_status: |')
@@ -1076,7 +993,6 @@ def write_manifests(
             yaml_lines.append(f'  {line}')
     else:
         yaml_lines.append('dirty_status: ""')
-
     manifest_yaml.write_text('\n'.join(yaml_lines).rstrip() + '\n')
 
     txt = [
@@ -1085,18 +1001,20 @@ def write_manifests(
         '',
         f'Generated at UTC: {generated_at}',
         f'Repository: {CONFIG["repo_name"]}',
-        f'Source repository root: {repo_root}',
-        f'Archive prefix: {prefix}',
-        f'Superproject HEAD: {head_sha}',
-        f'Superproject short HEAD: {short_sha}',
-        f'Git history included: {"yes" if include_git else "no"}',
-        f'Superproject depth: {"full" if super_depth is None else super_depth}',
+        f'Source repository root: {source_display_path}',
+        f'Archive prefix: {context.archive_root_name}',
+        f'Archive format: {context.archive_format}',
+        f'Superproject HEAD: {context.head_sha}',
+        f'Superproject short HEAD: {context.short_sha}',
+        f'Git history included: {"yes" if context.include_git_history else "no"}',
+        f'Superproject depth: {"full" if context.depth is None else context.depth}',
+        f'All locally cached branches included: {"yes" if context.all_branches else "no"}',
         '',
         'Policy:',
-        '- Archives committed/tracked source from the superproject and initialized recursive submodules.',
-        '- Rebuilds .agent index metadata inside the staged archive tree before writing the tarball.',
-        '- Generates ECS inventory shards inside the staged archive tree.',
-        '- Generates a compact .agent/README.md, catalog, and per-crate drill-down packets.',
+        '- Git-well stages committed source, history, branch refs, and recursive submodules.',
+        '- Ambition enriches the staged checkout through a programmatic prepare hook.',
+        '- The tracked .agent/manifest.yaml remains byte-stable; volatile provenance lives in generation_stamp.json.',
+        '- Generates ECS inventory shards and progressive-disclosure navigation metadata.',
         '- Generates optional full reports when --full is used.',
         '- Generates dirstats inside the staged archive tree so paths match what agents unpack.',
         '- Writes metadata-only live disk inventory so agents can see where ignored/generated assets live.',
@@ -1104,16 +1022,21 @@ def write_manifests(
         '',
         'Submodules:',
     ]
-    if submodule_rows:
-        for info, depth in submodule_rows:
-            txt.append(f'- {info.path}: {info.sha} depth={"full" if depth is None else depth} status={info.status!r}')
+    if context.submodule_decisions:
+        for decision in context.submodule_decisions:
+            info = decision.info
+            txt.append(
+                f'- {info.path}: {info.sha} '
+                f'depth={"full" if decision.depth is None else decision.depth} '
+                f'mode={decision.mode} omitted={decision.omitted} '
+                f'reason={decision.reason!r}'
+            )
     else:
         txt.append('- (none)')
     txt.append('')
     txt.append('Dirty status at build time:')
     txt.append(dirty_status.rstrip() if dirty_status.strip() else '(clean)')
     manifest_txt.write_text('\n'.join(txt).rstrip() + '\n')
-
 
 def validate_archive_root(archive_root: Path) -> None:
     required = list(CONFIG['required_archive_paths'])
@@ -1132,16 +1055,6 @@ def validate_archive_root(archive_root: Path) -> None:
         details = '\n'.join(f'  - {m}' for m in missing)
         raise RuntimeError(f'archive validation failed; missing required paths:\n{details}')
 
-
-def write_tar_gz(stage: Path, prefix: str, output: Path) -> None:
-    root = stage / prefix
-    output.parent.mkdir(parents=True, exist_ok=True)
-    tmp_output = output.with_suffix(output.suffix + '.tmp')
-    if tmp_output.exists():
-        tmp_output.unlink()
-    with tarfile.open(tmp_output, mode='w:gz', compresslevel=6) as tar:
-        tar.add(root, arcname=prefix, recursive=True)
-    tmp_output.replace(output)
 
 
 def run_agent_index(archive_root: Path, log: Log) -> None:
@@ -1344,6 +1257,77 @@ def run_dirstats(archive_root: Path, generated_at: str, log: Log) -> None:
         write_dirstats_report(archive_root, spec, generated_at, log)
 
 
+def _load_git_well_archive_api() -> tuple[Any, Any]:
+    try:
+        from git_well.git_archive_source import ArchiveSourceContext
+        from git_well.git_archive_source import archive_source
+    except ImportError as ex:
+        raise RuntimeError(
+            'Ambition source archiving requires git-well with the '
+            'programmatic archive hook API. Install or update it with:\n'
+            f'  {sys.executable} -m pip install -U "git_well>=0.3.4"'
+        ) from ex
+    return archive_source, ArchiveSourceContext
+
+
+@dataclass
+class AmbitionArchiveExtension:
+    repo_root: Path
+    dirty_status: str
+    allow_forbidden: bool
+    full_reports: bool
+    log: Log
+    generated_at: str = field(init=False, default='')
+
+    def prepare(self, context: Any) -> None:
+        """Add Ambition-specific agent payloads to git-well's staged tree."""
+        enforce_forbidden_path_policy(context, self.allow_forbidden, self.log)
+        context.add_generated_excludes(
+            [
+                '/.agent/',
+                '/SOURCE_ARCHIVE_MANIFEST.txt',
+            ]
+        )
+        self.generated_at = datetime.now(timezone.utc).strftime(
+            '%Y-%m-%dT%H:%M:%SZ'
+        )
+        run_agent_index(context.archive_root, self.log)
+        if CONFIG['run_agent_index']:
+            refresh_generation_stamp(context, self.generated_at, self.log)
+        run_ecs_inventory(context.archive_root, self.log)
+        run_agent_navigation(context.archive_root, self.log)
+        if self.full_reports:
+            run_full_agent_reports(
+                context.archive_root, self.generated_at, self.log
+            )
+        else:
+            self.log(
+                '[archive-agent-source] skipping full reports; pass --full '
+                'to run cargo check and cargo-modules reports'
+            )
+        run_dirstats(context.archive_root, self.generated_at, self.log)
+        run_live_disk_inventory(
+            self.repo_root,
+            context.archive_root,
+            self.generated_at,
+            context.source_display_path(),
+            self.log,
+        )
+        write_manifests(
+            context=context,
+            generated_at=self.generated_at,
+            dirty_status=self.dirty_status,
+            full_reports=self.full_reports,
+        )
+
+    def validate(self, context: Any) -> None:
+        """Validate the exact payload immediately before serialization."""
+        if CONFIG['run_agent_index']:
+            validate_generation_stamp(context)
+        validate_archive_root(context.archive_root)
+        validate_staged_checkout_clean(context)
+
+
 def build_archive(
     repo_arg: Path,
     output_arg: Path | None,
@@ -1352,6 +1336,13 @@ def build_archive(
     verbose: int,
     allow_forbidden: bool = False,
     full_reports: bool = False,
+    depth: object | None = None,
+    all_branches: bool = False,
+    submodule_depth: object | None = None,
+    exclude_submodule: list[str] | None = None,
+    no_submodules: bool = False,
+    archive_format: str = 'tar.gz',
+    redact_local_paths: bool = False,
 ) -> Path:
     log = Log(verbose)
     repo_root = coerce_repo_root(repo_arg)
@@ -1361,9 +1352,15 @@ def build_archive(
     dirty_status = git(repo_root, 'status', '--short')
 
     if dirty_status.strip() and CONFIG['fail_if_dirty']:
-        raise RuntimeError('worktree is dirty and CONFIG["fail_if_dirty"] is true:\n' + dirty_status)
+        raise RuntimeError(
+            'worktree is dirty and CONFIG["fail_if_dirty"] is true:\n'
+            + dirty_status
+        )
     if dirty_status.strip():
-        log('[archive-agent-source] warning: source archive is committed-only; dirty changes are not included')
+        log(
+            '[archive-agent-source] warning: source archive is committed-only; '
+            'dirty changes are not included'
+        )
 
     timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     prefix = prefix_arg or str(CONFIG['prefix_template']).format(
@@ -1371,157 +1368,151 @@ def build_archive(
         timestamp=timestamp,
         short_sha=short_sha,
     )
-    output = output_arg
-    if output is None:
-        output_name = str(CONFIG['output_template']).format(prefix=prefix, repo=repo_name, timestamp=timestamp, short_sha=short_sha)
-        output = repo_root / output_name
-    elif not output.is_absolute():
-        output = repo_root / output
-    output = output.resolve()
+    effective_depth = CONFIG['super_depth'] if depth is None else depth
+    if not CONFIG['include_git_history']:
+        effective_depth = 0
+    effective_submodule_depth = (
+        CONFIG['submodule_depths']
+        if submodule_depth is None
+        else submodule_depth
+    )
 
-    include_git = bool(CONFIG['include_git_history']) and normalize_depth(CONFIG['super_depth']) != 0
-    super_depth = normalize_depth(CONFIG['super_depth'])
-    if not include_git:
-        super_depth = 0
-
-    enforce_forbidden_path_policy(repo_root, super_depth, allow_forbidden, log)
-
-    submodules = parse_submodule_status(repo_root)
-    submodules.sort(key=lambda info: (info.path.count('/'), info.path))
-
-    log(f'[archive-agent-source] repo: {repo_root}')
-    log(f'[archive-agent-source] prefix: {prefix}')
-    log(f'[archive-agent-source] output: {output}')
-    log(f'[archive-agent-source] superproject HEAD: {short_sha}')
-    log(f'[archive-agent-source] git history: {"included" if include_git else "omitted"}')
-    log(f'[archive-agent-source] superproject depth: {"full" if super_depth is None else super_depth}')
-
-    tmp_obj = tempfile.TemporaryDirectory(prefix=f'{repo_name}-agent-archive.')
-    tmp = Path(tmp_obj.name)
-    stage = tmp / 'stage'
-    archive_root = stage / prefix
-    stage.mkdir(parents=True, exist_ok=True)
-
-    try:
-        if include_git:
-            clone_committed_checkout(
-                src=repo_root,
-                dst=archive_root,
-                commit=head_sha,
-                depth=super_depth,
-                label='superproject',
-                log=log,
-            )
-        else:
-            log('[archive-agent-source] exporting superproject source-only')
-            export_git_archive(repo_root, stage, prefix, 'HEAD')
-
-        for info in submodules:
-            if info.status == '-':
-                raise RuntimeError(
-                    f'submodule is not initialized: {info.path!r}; run git submodule update --init --recursive'
-                )
-            sub_src = repo_root / info.path
-            if not sub_src.exists():
-                raise RuntimeError(f'submodule path is missing: {info.path!r}')
-            sub_depth = resolve_submodule_depth(info.path)
-            log(f'[archive-agent-source] submodule {info.path}: depth={"full" if sub_depth is None else sub_depth}')
-            if include_git and sub_depth != 0:
-                clone_committed_checkout(
-                    src=sub_src,
-                    dst=archive_root / info.path,
-                    commit=info.sha,
-                    depth=sub_depth,
-                    label=f'submodule {info.path}',
-                    log=log,
-                )
-            else:
-                target = archive_root / info.path
-                if target.exists() or target.is_symlink():
-                    if target.is_dir() and not target.is_symlink():
-                        shutil.rmtree(target)
-                    else:
-                        target.unlink()
-                export_git_archive(sub_src, stage, f'{prefix}/{info.path}', info.sha)
-
-        # Make generated metadata invisible to git status in the unpacked clone.
-        if include_git:
-            append_archive_excludes(archive_root)
-            for info in submodules:
-                append_archive_excludes(archive_root / info.path)
-
-        run_agent_index(archive_root, log)
-        generated_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        refresh_agent_manifest(archive_root, generated_at=generated_at, short_sha=short_sha, log=log)
-        run_ecs_inventory(archive_root, log)
-        run_agent_navigation(archive_root, log)
-        if full_reports:
-            run_full_agent_reports(archive_root, generated_at, log)
-        else:
-            log('[archive-agent-source] skipping full reports; pass --full to run cargo check and cargo-modules reports')
-        run_dirstats(archive_root, generated_at, log)
-        run_live_disk_inventory(repo_root, archive_root, generated_at, log)
-        write_manifests(
-            archive_root=archive_root,
-            repo_root=repo_root,
-            prefix=prefix,
-            generated_at=generated_at,
-            head_sha=head_sha,
-            short_sha=short_sha,
-            dirty_status=dirty_status,
-            submodules=submodules,
-            include_git=include_git,
-            super_depth=super_depth,
-            full_reports=full_reports,
-        )
-
-        if include_git:
-            append_archive_excludes(archive_root)
-            for info in submodules:
-                append_archive_excludes(archive_root / info.path)
-
-        validate_agent_manifest_metadata(archive_root, short_sha=short_sha)
-        validate_archive_root(archive_root)
-        write_tar_gz(stage, prefix, output)
-        log(f'[archive-agent-source] wrote: {output}')
-        log(f'[archive-agent-source] inspect: tar -tzf {shell_quote(os.fspath(output))} | less')
-        if keep_stage:
-            kept = repo_root / f'.tmp-{prefix}-stage'
-            if kept.exists():
-                shutil.rmtree(kept)
-            shutil.copytree(archive_root, kept, symlinks=True)
-            log(f'[archive-agent-source] kept staged tree: {kept}')
-    finally:
-        tmp_obj.cleanup()
-
-    return output
+    archive_source, _ = _load_git_well_archive_api()
+    extension = AmbitionArchiveExtension(
+        repo_root=repo_root,
+        dirty_status=dirty_status,
+        allow_forbidden=allow_forbidden,
+        full_reports=full_reports,
+        log=log,
+    )
+    return archive_source(
+        repo_dpath=repo_root,
+        output=output_arg,
+        depth=effective_depth,
+        all_branches=all_branches,
+        submodule_depth=effective_submodule_depth,
+        exclude_submodule=exclude_submodule,
+        no_submodules=no_submodules,
+        format=archive_format,
+        redact_local_paths=redact_local_paths,
+        verbose=verbose,
+        prepare=extension.prepare,
+        validate=extension.validate,
+        archive_root_name=prefix,
+        keep_stage=keep_stage,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('repo', nargs='?', default='.', type=Path, help='repository path, default: current directory')
-    parser.add_argument('-o', '--output', type=Path, default=None, help='archive path to write, relative paths are under the repo root')
-    parser.add_argument('--prefix', default=None, help='override the top-level directory name inside the archive')
-    parser.add_argument('--skip-index', action='store_true', help='do not run CONFIG["agent_index_command"]')
-    parser.add_argument('--skip-ecs-inventory', action='store_true', help='do not run CONFIG["ecs_inventory_command"]')
-    parser.add_argument('--skip-agent-navigation', action='store_true', help='do not build .agent/README.md, catalog, or crate packets')
-    parser.add_argument('--skip-dirstats', action='store_true', help='do not generate the staged dirstats reports')
-    parser.add_argument('--skip-live-inventory', action='store_true', help='do not generate the live-disk inventory or live git-status reports')
-    parser.add_argument('--full', action='store_true', help='also run slower cargo reports: cargo check --workspace --lib and cargo-modules')
-    # `--slim` is the canonical spelling because it names WHAT IS INCLUDED
-    # rather than the side effect: the archive still carries the full source and
-    # git history, it just drops the generated payloads. It also reads as the
-    # natural antonym of `--full` above, with the default sitting between them.
-    # `--quick`/`--fast` stay as aliases so existing invocations keep working.
-    #
-    # Deliberately NOT `-f`: `--full` is this flag's opposite and also starts
-    # with "f", so `-f` would silently produce an archive missing everything the
-    # user meant to add. Deliberately NOT `-q`: that is `--quiet` below, which
-    # is what `-q` means nearly everywhere, and stealing it would turn an
-    # existing `-q` invocation into a payload-less archive that still exits 0.
-    parser.add_argument('-s', '--slim', '--quick', '--fast', action='store_true', help='stage source and history only; skip every generated payload (agent index, navigation catalog, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
-    parser.add_argument('--allow-forbidden', action='store_true', help='bypass CONFIG["forbidden_path_globs"] guardrails for this run')
-    parser.add_argument('--keep-stage', action='store_true', help='copy the staged archive root to .tmp-<prefix>-stage for debugging')
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        'repo',
+        nargs='?',
+        default='.',
+        type=Path,
+        help='repository path, default: current directory',
+    )
+    parser.add_argument(
+        '-o',
+        '--output',
+        type=Path,
+        default=None,
+        help='exact archive path; relative paths are resolved under the repo root',
+    )
+    parser.add_argument(
+        '--prefix',
+        default=None,
+        help='override the top-level directory name inside the archive',
+    )
+    parser.add_argument(
+        '--depth',
+        default=None,
+        help='superproject history depth: 0, a positive integer, or full; default: CONFIG["super_depth"]',
+    )
+    parser.add_argument(
+        '--all-branches',
+        action='store_true',
+        help='include every locally cached local and remote-tracking branch',
+    )
+    parser.add_argument(
+        '--submodule-depth',
+        default=None,
+        help='git-well YAML depth scalar/mapping; default: CONFIG["submodule_depths"]',
+    )
+    parser.add_argument(
+        '--exclude-submodule',
+        action='append',
+        default=None,
+        metavar='PATH_OR_GLOB',
+        help='omit a recursive submodule path or quoted fnmatch glob; repeatable',
+    )
+    parser.add_argument(
+        '--no-submodules',
+        action='store_true',
+        help='omit all recursive submodule working trees',
+    )
+    parser.add_argument(
+        '--format',
+        dest='archive_format',
+        default='tar.gz',
+        choices=['auto', 'tar', 'tar.gz', 'tgz', 'zip', 'tar.bz2', 'tbz2', 'tar.xz', 'txz'],
+        help='archive format; default: tar.gz',
+    )
+    parser.add_argument(
+        '--redact-local-paths',
+        action='store_true',
+        help='redact local source/output paths and local clone origins',
+    )
+    parser.add_argument(
+        '--skip-index',
+        action='store_true',
+        help='do not run CONFIG["agent_index_command"]',
+    )
+    parser.add_argument(
+        '--skip-ecs-inventory',
+        action='store_true',
+        help='do not run CONFIG["ecs_inventory_command"]',
+    )
+    parser.add_argument(
+        '--skip-agent-navigation',
+        action='store_true',
+        help='do not build .agent/README.md, catalog, or crate packets',
+    )
+    parser.add_argument(
+        '--skip-dirstats',
+        action='store_true',
+        help='do not generate the staged dirstats reports',
+    )
+    parser.add_argument(
+        '--skip-live-inventory',
+        action='store_true',
+        help='do not generate live-disk inventory or live git-status reports',
+    )
+    parser.add_argument(
+        '--full',
+        action='store_true',
+        help='also run cargo check and cargo-modules reports',
+    )
+    parser.add_argument(
+        '-s',
+        '--slim',
+        '--quick',
+        '--fast',
+        action='store_true',
+        help='stage source/history only; skip every generated Ambition payload; incompatible with --full',
+    )
+    parser.add_argument(
+        '--allow-forbidden',
+        action='store_true',
+        help='bypass CONFIG["forbidden_path_globs"] guardrails for this run',
+    )
+    parser.add_argument(
+        '--keep-stage',
+        action='store_true',
+        help='retain git-well temporary staging directory for debugging',
+    )
     parser.add_argument('-q', '--quiet', action='store_true', help='reduce logging')
     args = parser.parse_args(argv)
 
@@ -1534,8 +1525,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.skip_dirstats = True
         args.skip_live_inventory = True
 
-    # Each heavy step is a CONFIG toggle; flip the requested ones off for this
-    # run and restore the originals afterward so CONFIG stays a static default.
     step_toggles = {
         'run_agent_index': not args.skip_index,
         'run_ecs_inventory': not args.skip_ecs_inventory,
@@ -1556,6 +1545,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             verbose=0 if args.quiet else 1,
             allow_forbidden=args.allow_forbidden,
             full_reports=args.full,
+            depth=args.depth,
+            all_branches=args.all_branches,
+            submodule_depth=args.submodule_depth,
+            exclude_submodule=args.exclude_submodule,
+            no_submodules=args.no_submodules,
+            archive_format=args.archive_format,
+            redact_local_paths=args.redact_local_paths,
         )
     finally:
         CONFIG.update(saved)

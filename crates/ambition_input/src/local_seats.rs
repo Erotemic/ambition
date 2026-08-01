@@ -399,7 +399,12 @@ pub fn assign_local_seat_devices(
     // other order SWAP the players: every claim is vacant, and the first pad
     // back takes the lowest empty seat (GPT 5.6, 2026-08-01). Identity is what
     // makes "the same participant" mean anything after an entity has died.
-    if frozen.is_none() {
+    // ⚠ this runs even when the topology is FROZEN. A freeze exists so nobody
+    // ELSE may take this seat's controller; handing the seat back the SAME
+    // controller is not a reorder, and skipping it left a frozen seat pointing at
+    // a dead entity forever — the freeze protected the mapping from being
+    // repaired as well as from being reordered (GPT 5.6, 2026-08-01).
+    {
         for pad in &live {
             if ownership.is_held(*pad) {
                 continue;
@@ -454,13 +459,31 @@ pub fn assign_local_seat_devices(
             // room, which is what owning the keyboard has to mean.
             Some(Entity::PLACEHOLDER)
         } else if let Some(topology) = frozen.as_ref() {
-            // A frozen session's mapping is the session's own answer and does
-            // not move — that is the whole point of freezing it.
+            // A frozen session's mapping is the session's own answer and does not
+            // move — that is the whole point of freezing it.
             let pad_index = match keyboard_owner {
                 Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
                 _ => slot,
             };
-            topology.device_for_handle(pad_index as usize)
+            let recorded = topology.device_for_handle(pad_index as usize);
+            match recorded {
+                // Still plugged in: the session's answer stands.
+                Some(pad) if live.contains(&pad) => Some(pad),
+                // The recorded pad is GONE. If the same controller has come back
+                // it reclaimed this seat by identity above, and that is not a
+                // reorder — it is the seat getting its own pad again.
+                _ => ownership
+                    .pad_for(slot)
+                    .filter(|pad| live.contains(pad))
+                    // ⚠ otherwise stay DEAF, never `None`. A dead entity matches
+                    // no live gamepad and `None` matches EVERY one, so falling
+                    // through to `None` here would promote whatever pad is left
+                    // into a seat the session froze — the exact swap the freeze
+                    // exists to prevent, and the reason this branch keeps the
+                    // dead id rather than clearing it.
+                    .or(recorded)
+                    .or(Some(Entity::PLACEHOLDER)),
+            }
         } else {
             // **THE PAD IN THEIR HANDS**, decided above. A seat keeps its
             // controller while that controller exists, so somebody else
@@ -675,6 +698,60 @@ mod tests {
         app.update();
         assert_eq!(assigned(&app, one), Some(pad_a_again));
         assert_eq!(assigned(&app, two), Some(pad_b_again));
+    }
+
+
+    /// **A frozen session must still survive a reconnection.** (GPT 5.6, 2026-08-01)
+    ///
+    /// ⛔ freezing records ENTITIES, and an entity dies when its pad is unplugged.
+    /// The frozen branch skipped the ownership pass entirely, so a seat whose pad
+    /// came back kept pointing at a dead id forever: the freeze protected the
+    /// mapping from being REORDERED and also from being REPAIRED.
+    ///
+    /// The freeze's purpose is that nobody else may take this seat's controller.
+    /// Handing the seat back the same controller is not a reorder.
+    #[test]
+    fn a_frozen_session_rebinds_a_seat_whose_pad_came_back() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        let pad_b = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        app.update();
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture(app.world().resource::<LocalDeviceOrder>());
+            topology
+        };
+        app.insert_resource(frozen);
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // Player one's controller drops and comes back.
+        app.world_mut().entity_mut(pad_a).despawn();
+        app.update();
+        // ⚠ NOT `None` — that means "any pad" and would promote pad B into this
+        // seat, which is the swap the freeze exists to prevent. A dead id is
+        // DEAF, which is the truthful state for a seat whose controller is gone.
+        assert_ne!(
+            assigned(&app, one),
+            Some(pad_b),
+            "seat one was handed player two's controller"
+        );
+        assert_ne!(assigned(&app, one), None, "an unset gamepad answers every pad");
+        let pad_a_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        app.update();
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a_again),
+            "a frozen session left seat one pointing at a pad that no longer exists"
+        );
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b),
+            "and player two was never disturbed"
+        );
     }
 
     /// **A frozen session's device mapping does not follow live discovery.**

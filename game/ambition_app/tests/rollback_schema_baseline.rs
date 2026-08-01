@@ -26,6 +26,20 @@
 //! content identity; two peers whose schemas differ cannot agree about a
 //! snapshot. Updating this file is a deliberate act, not a chore — if the diff
 //! is not one you meant, the fix is in the code.
+//!
+//! ⛔ **BUT THE CONVERSE DOES NOT HOLD, and this baseline was red for a day
+//! proving it** (found 2026-07-31). The dump records WHAT is registered and HOW
+//! it projects — one line per descriptor, no field detail. A codec that changes
+//! the BYTES it writes for an unchanged descriptor moves nothing here.
+//!
+//! That is exactly what `20664bb7e` did: `BodyHealth` started carrying its
+//! uncapped damage meter and a policy discriminant on the wire, all 351
+//! descriptor lines stayed identical, and the only thing that moved was
+//! `GGRS_ROLLBACK_SCHEMA_VERSION`. So the version constant is not redundant
+//! bookkeeping beside this file — **it is the only signal for a whole class of
+//! wire change**, and bumping it by hand is what makes that class visible at
+//! all. A commit that changes an encoding and does not bump it produces two
+//! peers that disagree about a snapshot while every test here is green.
 
 use ambition_app::{AmbitionSim, SandboxSim, TimestepMode};
 

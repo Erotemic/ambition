@@ -19,6 +19,18 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"] }
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+# ⚠ **the SIM SCHEDULE seam, and it costs exactly ONE crate** (7 → 8 in the
+# closure). `SimScheduleExt` lives here and this crate depends only on
+# `ambition_engine_core`, which was already present.
+#
+# ⛔ the first version registered into bare `Update`, which is what a Bevy
+# habit produces and what this crate's own recipe warns against — so the
+# WORKED EXAMPLE contradicted the documentation it exists to illustrate. Under
+# a fixed-tick host that ties pulse timing to the RENDER rate; under rollback
+# the systems are not replayed at all, so a rewind restores `PulseCooldown`
+# without re-running the behaviour that produced it. The eighth crate is the
+# honest price of being a rollback-safe capability rather than claiming to be.
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false }
 ron = { workspace = true }
 serde = { workspace = true }

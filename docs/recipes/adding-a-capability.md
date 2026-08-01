@@ -51,12 +51,46 @@ whoever is composing, so a mechanic never has to link the thing that owns them.
 ⚠ the one that catches people: **do not register your own rollback state.** The
 registration trait lives in `ambition_runtime`, and reaching for it drags the
 whole simulation into a mechanic that uses none of it. `ambition_pulse` linked
-133 crates that way and links 7 now.
+133 crates that way and links 8 now (the eighth is
+`ambition_platformer_primitives`, for the schedule seam in §1).
 
 ## 1. Behaviour
 
-Ordinary Bevy. Define your own components rather than borrowing the actor
-crate's — `ambition_pulse` has `PulseBody` and `PulseAffected` instead of using
+Ordinary Bevy systems — registered into the schedule **the host declares
+authoritative**, never into bare `Update`:
+
+```rust
+use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+
+impl Plugin for MyPlugin {
+    fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();          // the HOST answers; this seals it
+        app.add_systems(
+            sim,
+            (tick_my_cooldowns, apply_my_effect)
+                .chain()
+                .in_set(SandboxSet::GameplayEffects),   // one explicit phase
+        );
+    }
+}
+```
+
+⛔ **`Update` is the mistake this recipe exists to prevent, and the sentinel
+made it anyway** (found by review, 2026-08-01). Two failures, neither visible in
+a bare-`App` test because `sim_schedule()` DEFAULTS to `Update`:
+
+* a **fixed-tick** host ages your cooldowns once per rendered frame, so your
+  timing follows the frame rate;
+* a **rollback** host replays the sim schedule, so your systems never
+  resimulate — a rewind restores your state without re-running what produced it.
+  Snapshotting does not save you here; the state comes back and the behaviour
+  does not.
+
+⚠ **do not name GGRS or `FixedUpdate` yourself.** `sim_schedule()` is the whole
+interface; the host has already chosen.
+
+Define your own components rather than borrowing the actor crate's —
+`ambition_pulse` has `PulseBody` and `PulseAffected` instead of using
 `BodyKinematics`, and that is what keeps `ambition_actors` out of its manifest.
 A composition adapts its bodies to what you describe.
 

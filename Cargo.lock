@@ -755,6 +755,7 @@ dependencies = [
  "ambition_content_pack",
  "ambition_engine_core",
  "ambition_input",
+ "ambition_platformer_primitives",
  "ambition_runtime",
  "bevy",
  "ron 0.11.0",

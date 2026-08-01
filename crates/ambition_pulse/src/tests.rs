@@ -208,7 +208,8 @@ fn the_capability_publishes_its_own_causal_facts() {
         PulseAffected,
     ));
 
-    app.world_mut().write_message(PulseRequested { body: firer });
+    app.world_mut()
+        .write_message(PulseRequested { body: firer });
     app.update();
 
     // The mechanic worked…
@@ -218,7 +219,9 @@ fn the_capability_publishes_its_own_causal_facts() {
     // …and it EXPLAINED itself, naming the authored profile.
     let log = app.world().resource::<CausalRecording>();
     let why = log.explain(7, &SubjectKey::Unstable(firer.to_bits()));
-    let fired = why.first("pulse_fired").expect("the pulse published a fact");
+    let fired = why
+        .first("pulse_fired")
+        .expect("the pulse published a fact");
     assert_eq!(
         fired.get("pushed"),
         Some(&FactValue::Int(1)),
@@ -251,7 +254,8 @@ fn a_refused_pulse_says_why() {
             },
         ))
         .id();
-    app.world_mut().write_message(PulseRequested { body: firer });
+    app.world_mut()
+        .write_message(PulseRequested { body: firer });
     app.update();
 
     let log = app.world().resource::<CausalRecording>();
@@ -280,16 +284,25 @@ fn firing_arms_the_cooldown_and_it_ages() {
         .spawn((PulseBody::default(), PulseCooldown::default()))
         .id();
 
-    app.world_mut().write_message(PulseRequested { body: firer });
+    app.world_mut()
+        .write_message(PulseRequested { body: firer });
     app.update();
     assert_eq!(
-        app.world().entity(firer).get::<PulseCooldown>().unwrap().remaining_ticks,
+        app.world()
+            .entity(firer)
+            .get::<PulseCooldown>()
+            .unwrap()
+            .remaining_ticks,
         3
     );
     app.update();
     app.update();
     assert_eq!(
-        app.world().entity(firer).get::<PulseCooldown>().unwrap().remaining_ticks,
+        app.world()
+            .entity(firer)
+            .get::<PulseCooldown>()
+            .unwrap()
+            .remaining_ticks,
         1
     );
 }
@@ -361,5 +374,140 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
         missing.len(),
         1,
         "the same NAME under another owner is a different registration"
+    );
+}
+
+/// **The capability runs in the HOST'S schedule, not in `Update`.**
+///
+/// ⛔ this was the review's critical finding (GPT 5.6, 2026-08-01) and it landed
+/// on the crate that exists to be the correct example. `PulsePlugin` registered
+/// into bare `Update`, which is:
+///
+/// * **render-rate coupled** under a fixed-tick host — cooldowns aged once per
+///   frame instead of once per tick;
+/// * **not resimulated** under a rollback host — GGRS replays the SIM schedule,
+///   so a rewind restored `PulseCooldown` without re-running the behaviour that
+///   produced the surrounding result. Snapshotting state does not help when the
+///   systems that move it never replay.
+///
+/// The seam is `SimScheduleExt::sim_schedule()`: the HOST names the authoritative
+/// schedule and the capability asks. ⚠ its default IS `Update`, which is why
+/// every other test in this file still passes unchanged and why the bug was
+/// invisible — a bare `App` cannot tell the two apart.
+///
+/// So this test gives the host a schedule of its own. No GGRS, no fixed-time
+/// plumbing, no clock: just "did the systems go where the host said".
+#[test]
+fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
+    use bevy::ecs::schedule::ScheduleLabel;
+
+    #[derive(ScheduleLabel, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+    struct HostSim;
+
+    let mut app = App::new();
+    // The host chooses. This is the line a fixed-tick or rollback host runs.
+    app.set_sim_schedule(HostSim);
+    app.add_plugins(PulsePlugin);
+
+    let firer = app
+        .world_mut()
+        .spawn((PulseBody::default(), PulseCooldown::default()))
+        .id();
+    let near = app
+        .world_mut()
+        .spawn((
+            PulseBody {
+                pos: Vec2::new(20.0, 0.0),
+                ..Default::default()
+            },
+            PulseAffected,
+        ))
+        .id();
+    app.world_mut()
+        .write_message(PulseRequested { body: firer });
+
+    // A render update is NOT a simulation tick.
+    app.update();
+    assert_eq!(
+        app.world().entity(near).get::<PulseBody>().unwrap().vel,
+        Vec2::ZERO,
+        "the pulse fired on a render update — the capability is in `Update`, so \
+         under a fixed-tick host its cooldowns follow the frame rate and under a \
+         rollback host its behaviour is never resimulated"
+    );
+
+    // The host's own schedule is where the simulation happens.
+    app.world_mut().run_schedule(HostSim);
+    assert!(
+        app.world().entity(near).get::<PulseBody>().unwrap().vel.x > 0.0,
+        "the pulse did not fire in the schedule the host declared authoritative"
+    );
+}
+
+/// **The same input over the same number of SIM TICKS gives the same result,
+/// whichever schedule the host picked.**
+///
+/// The equivalence the review asked for, expressed without standing up two real
+/// hosts: one app leaves the sim schedule at its `Update` default, the other
+/// names its own. Step each the same number of simulation ticks and the cooldown
+/// and the pushed body must agree.
+///
+/// ⚠ what this pins is that pulse's result is a function of TICKS, not of
+/// frames. That is the property bare `Update` broke, and it is the one a
+/// rollback host needs in order to replay anything.
+#[test]
+fn the_result_is_a_function_of_sim_ticks_not_of_which_schedule_runs_them() {
+    use bevy::ecs::schedule::ScheduleLabel;
+
+    #[derive(ScheduleLabel, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+    struct HostSim;
+
+    fn run(host_schedule: bool, ticks: usize) -> (u32, f32) {
+        let mut app = App::new();
+        if host_schedule {
+            app.set_sim_schedule(HostSim);
+        }
+        app.add_plugins(PulsePlugin);
+        let firer = app
+            .world_mut()
+            .spawn((PulseBody::default(), PulseCooldown::default()))
+            .id();
+        let near = app
+            .world_mut()
+            .spawn((
+                PulseBody {
+                    pos: Vec2::new(20.0, 0.0),
+                    ..Default::default()
+                },
+                PulseAffected,
+            ))
+            .id();
+        app.world_mut()
+            .write_message(PulseRequested { body: firer });
+        for _ in 0..ticks {
+            if host_schedule {
+                // `update()` still runs so messages advance exactly as they do
+                // under a real host; the SIM work happens in the host schedule.
+                app.update();
+                app.world_mut().run_schedule(HostSim);
+            } else {
+                app.update();
+            }
+        }
+        (
+            app.world()
+                .entity(firer)
+                .get::<PulseCooldown>()
+                .unwrap()
+                .remaining_ticks,
+            app.world().entity(near).get::<PulseBody>().unwrap().vel.x,
+        )
+    }
+
+    assert_eq!(
+        run(false, 5),
+        run(true, 5),
+        "five simulation ticks produced different pulse state depending on WHICH \
+         schedule ran them — the capability's result is not a function of ticks"
     );
 }

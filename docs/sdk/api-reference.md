@@ -78,7 +78,12 @@ restore, and the composition refuses at assembly if nothing registered it.
 ⚠ **do not register rollback state from your own crate.** The registration trait
 lives in `ambition_runtime`, and reaching for it drags the whole simulation into
 a mechanic that uses none of it — `ambition_pulse` linked 133 crates that way and
-links 7 now. Declare it; let whoever composes install it.
+links 8 now. Declare it; let whoever composes install it.
+
+⚠ **8, not 7**: the eighth is `ambition_platformer_primitives`, for
+`SimScheduleExt`. A capability's systems belong in the HOST's simulation
+schedule, and asking which one costs exactly one foundation crate. Registering
+into bare `Update` is cheaper and wrong — see the recipe.
 
 Each `RequiredRollbackState` carries a `why`. It is not decoration: a host that
 hits the refusal needs to know whether it is looking at a desync or an optional

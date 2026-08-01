@@ -36,6 +36,7 @@
 //! wire is not, and pretending otherwise would make this sentinel lie about the
 //! thing it exists to measure.
 
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 mod schema;
@@ -133,7 +134,33 @@ impl Plugin for PulsePlugin {
         app.add_message::<PulseRequested>()
             .add_message::<PulseFired>()
             .init_resource::<PulseProfiles>();
-        app.add_systems(Update, (tick_pulse_cooldowns, fire_pulses).chain());
+        // **THE AUTHORITATIVE SIMULATION SCHEDULE, through the public seam.**
+        //
+        // ⛔ this was bare `Update`, which is the ordinary Bevy habit and is
+        // exactly what this crate's own recipe tells a capability author NOT to
+        // do — the worked example contradicted the documentation it exists to
+        // illustrate (GPT 5.6, 2026-08-01, finding 1). Two concrete failures:
+        //
+        // * **fixed-tick host**: cooldowns aged once per RENDER update, so pulse
+        //   timing followed the frame rate rather than the tick rate.
+        // * **rollback host**: these systems are not part of what GGRS replays,
+        //   so a rewind could restore `PulseCooldown` without re-running the
+        //   behaviour that produced the surrounding result. Snapshotting the
+        //   state does not help if the systems that move it never resimulate.
+        //
+        // `sim_schedule()` asks the HOST which schedule is authoritative and
+        // seals the answer; nothing here names GGRS or fixed-tick.
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            // One explicit, stable phase for the whole chain: cooldown
+            // progression, then action consumption, then force application.
+            // `GameplayEffects` is where a gameplay consequence lands on bodies,
+            // which is what a pulse is.
+            (tick_pulse_cooldowns, fire_pulses)
+                .chain()
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
+        );
     }
 }
 

@@ -305,3 +305,48 @@ either answer.
 ⚠ **`RoomTransition` and `Cutscene` are NOT the same question.** Both are
 genuinely global — a room is loading, or a scripted beat owns the screen — and
 nothing about per-seat input makes them per-seat.
+
+---
+
+## Which of the 33 engine design documents have become history? (2026-08-01)
+
+`check_agent_kb` warns that `docs/planning` is **30,708 lines against a 10,500
+soft budget**. The warning is non-fatal and has been standing for a while; this
+is the measurement that says why it cannot be closed by a rule.
+
+```text
+  docs/planning/*.md   11,508   the queues and live plans
+  docs/planning/engine  15,257   33 design documents   ← the budget
+  docs/planning/triage   2,713
+  docs/planning/demos      899
+  docs/planning/game       231
+```
+
+The rule that has worked twice — *"a section with no `▢` rows is closed, move it
+verbatim to the archive"* — applies to LEDGERS. Applied to the whole backlog
+queue it frees 251 lines; it freed 46 from the 72h queue today. Together that is
+about **1% of the overage**.
+
+`engine/` has no `▢` rows because those files were never ledgers. Archiving one
+means judging that a design is built and stable enough to stop being read, which
+is a judgement about the engine's own record rather than a checkable property —
+and losing design rationale is the kind of loss nobody notices until they need
+it.
+
+**The decision:** which of the 33 are history. A plausible first pass, for
+someone who knows what is still live:
+
+* the largest are `immutable-content-and-transactional-construction.md` (2,406),
+  `competitive-2d-platformer-engine-roadmap.md` (1,567), `room-transition-loading.md`
+  (930), `fighter-brain.md` (873) and `api-1.0-campaign.md` (868);
+* `api-1.0-campaign.md` describes a campaign the ledger records as CLOSED, which
+  makes it the most likely candidate and still not one an agent should decide.
+
+⚠ **do not resolve this by trimming live plans.** That is what the budget's own
+message warns against, and it is what the pressure produces when the only
+reachable lines are the ones still being used.
+
+⊘ **not proposed: raising the budget.** A soft ceiling nobody can meet stops
+being read, but so does one that is raised whenever it is inconvenient. It should
+move because somebody decided what belongs in `docs/planning`, not to silence a
+warning.

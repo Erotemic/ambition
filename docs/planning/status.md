@@ -129,6 +129,7 @@ enough that their SIZE is a finding on its own, independent of placement:
 `crates/ambition_actors/src/features/enemies/mod.rs` (1039). Those are the two
 worth a maintainer's attention first.
 
+<!-- planning-evidence: inline-test path=crates/ambition/src/app.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_actors/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_actors/src/features/ecs/autonomous_reconcile.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_actors/src/features/npcs.rs kind=behavioral-local disposition=maintainer-review-pending -->

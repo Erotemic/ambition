@@ -84,3 +84,23 @@ def test_the_live_tree_names_no_retired_crate():
     assert not found, "\n".join(
         f"  {f}:{n}: `{old}` was renamed to `{new}`" for f, n, old, new in found
     )
+
+
+def test_the_goal_harness_config_is_scanned_even_though_it_is_untracked():
+    """⭐ The blind spot that cost two false "not done" reports.
+
+    `.goal/active.json` holds the goal harness's own check COMMANDS and is not in
+    git, so a `git ls-files` sweep cannot see it. When the platformer2d rename
+    retired `ambition_actors` and `ambition`, two commands kept naming them,
+    `cargo` failed on an unknown package, and the harness reported two FINISHED,
+    green items as unfinished work.
+
+    `done-*.json` are archived goals and stay exempt like any other record.
+    """
+    from check_retired_crate_names import extra_paths
+
+    paths = extra_paths()
+    assert ".goal/active.json" in paths, "the live goal config must be scanned"
+    assert not any(
+        "done-" in p for p in paths
+    ), "archived goals are records, not live configuration"

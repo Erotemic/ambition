@@ -128,11 +128,34 @@ HISTORICAL_MARKERS = (
 )
 
 
+# ⚠ UNTRACKED files the guard must still read.
+#
+# `.goal/active.json` holds the goal harness's own check COMMANDS, and it is not
+# in git. When the platformer2d rename retired `ambition_actors` and `ambition`,
+# two of those commands kept naming them — so `cargo check -p ambition` and
+# `cargo test -p ambition_actors` failed on an unknown package, and the harness
+# reported "S1 slice H is not done" and "S2 match activation is not done" about
+# work that was finished and green. A broken instrument reading as unfinished
+# WORK is the most expensive failure mode this repository has, and `git ls-files`
+# is exactly why nothing caught it.
+#
+# `done-*.json` are archived goals — records, skipped like any other history.
+def extra_paths() -> list[str]:
+    goal = REPO / ".goal"
+    if not goal.is_dir():
+        return []
+    return [
+        f".goal/{p.name}"
+        for p in sorted(goal.glob("*.json"))
+        if not p.name.startswith("done-")
+    ]
+
+
 def tracked_files() -> list[str]:
     raw = subprocess.run(
         ["git", "ls-files", "-z"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout
-    return [f for f in raw.split("\0") if f]
+    return [f for f in raw.split("\0") if f] + extra_paths()
 
 
 def offences(files: list[str]) -> list[tuple[str, int, str, str]]:

@@ -440,3 +440,90 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         "the census above is the useful output; this pins the premise"
     );
 }
+
+
+/// **An ADOPTED seat and a SPAWNED seat must agree on everything the ROSTER
+/// declares.**
+///
+/// ⛔ Seating has had to unify this ONE FIELD AT A TIME, four times, each found by
+/// looking at a picture rather than by a test:
+///
+/// * **health** — a spawned seat took the authored maximum; the adopted player
+///   kept whatever its session established.
+/// * **box** — a mirror match could put two different body shapes on the stage,
+///   and the wrong one was always player one.
+/// * **mass** — the same character weighed different amounts by seat.
+/// * **abilities** (2026-08-01) — player one had fly, blink and
+///   blink-through-walls; player two had jump and attack.
+///
+/// The shape never changes: *an adopted body keeps what the session gave it*. A
+/// fifth field is a matter of time, so this asserts the RULE rather than the
+/// four instances.
+///
+/// ⚠ scoped to what the ROSTER declares, deliberately. Per-CHARACTER differences
+/// are the point of a fighting game — the versus duelists author 60 and 52 health
+/// as a deliberate trade — so "both seats are identical" would be the wrong
+/// assertion. What a match DECLARES applies to every seat in it; what a character
+/// authors does not.
+#[test]
+fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    add_cpu(&mut app);
+    confirm(&mut app);
+    confirm(&mut app);
+    settle(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let rows: Vec<(usize, String, Option<u32>)> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::engine_core::BodyAbilities,
+            Option<&ambition_platformer2d::actor::FighterStocks>,
+        )>();
+        let mut rows: Vec<(usize, String, Option<u32>)> = q
+            .iter(world)
+            .map(|(seat, abilities, stocks)| {
+                (
+                    seat.0,
+                    format!("{:?}", abilities.abilities),
+                    stocks.map(|s| s.started_with),
+                )
+            })
+            .collect();
+        rows.sort_by_key(|(seat, ..)| *seat);
+        rows
+    };
+    assert!(
+        rows.len() >= 2,
+        "this test needs an adopted seat AND a spawned one; got {}",
+        rows.len()
+    );
+
+    let (first_seat, first_abilities, first_stocks) = &rows[0];
+    for (seat, abilities, stocks) in &rows[1..] {
+        assert_eq!(
+            abilities, first_abilities,
+            "seat {seat} and seat {first_seat} do not have the same verbs, and the \
+             match declared one set for everybody. An adopted seat keeps what the \
+             session gave it unless the roster overrides — that is the bug this \
+             pins, found four times in four different fields."
+        );
+        assert_eq!(
+            stocks, first_stocks,
+            "seat {seat} and seat {first_seat} started with different stocks"
+        );
+    }
+}

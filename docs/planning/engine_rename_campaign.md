@@ -218,7 +218,7 @@ and audio without linking a platformer, and the `orphan rule` keeps deciding
 placement rather than taste. Measure it first — the import census above is one
 command and says how much of the 28 is kernel-only.
 
-### 2. ⭐ A guard that no source names a crate the workspace does not have
+### 2. ⭐ A guard that no source names a retired crate — ✔ BUILT 2026-08-01
 
 Two of the four traps above (`\bambition::` in regex literals, and the guard
 scripts' `"ambition"` string literals) are the same defect: **a crate name written
@@ -231,9 +231,22 @@ that names no member. It would have caught both mechanically, in one second, and
 it keeps paying every time a crate moves. Cheap enough to write before the next
 rename, and the next rename is coming (see §1).
 
-⚠ it needs a small allowlist — historical review documents legitimately name
-retired crates — so scope it to live docs, scripts, and source, or allow an
-explicit `docs/archive/` exemption.
+✔ **Built as `scripts/check_retired_crate_names.py`**, and the design changed
+under measurement. "Any `ambition_*` token that is not a workspace member" was
+tried first and is unusable — **128 distinct false positives** on this tree
+(Python packages, shell functions, JSON keys, LDtk layer names, asset
+manifests). What works is an explicit retired-name table, searched by plain
+substring with a TRAILING boundary only, historical prose exempted by the words
+it already contains. Probed against a real injected regression, eight self-tests
+including both escape cases verbatim, and a live-tree ratchet in `scripts/tests`.
+
+⚠ **and it found drift on its first run**: `ambition_engine`, retired long before
+this session, was still named in seventeen live places. Most were legitimate
+history. Three were not — a `verification_command` that cannot run, and two
+content/spec comments pointing into `crates/ambition_engine/`, one of which also
+claimed its spec equivalence was "pinned by" a test that does not exist in this
+tree. A comment asserting a guarantee nothing provides is worse than no comment,
+and nothing but this guard was ever going to find it.
 
 ### 3. Decide whether a crate name may be a wire-format fact (queue S30)
 

@@ -72,3 +72,6 @@ pub use update::*;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod scored_move_tests;

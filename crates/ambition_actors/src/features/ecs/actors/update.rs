@@ -1414,7 +1414,7 @@ pub(crate) fn compute_crowding_by_id(
 /// tables would know. Declaration order, which `MovesetContract.moves` is a
 /// `Vec` — so the kit is stable across ticks and across a replay, and no sort is
 /// needed to make it deterministic.
-fn attack_kit_of(
+pub(super) fn attack_kit_of(
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,

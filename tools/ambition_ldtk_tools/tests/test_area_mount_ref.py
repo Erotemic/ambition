@@ -57,7 +57,7 @@ def test_build_level_resolves_boss_mounted_on_ref_handle():
     }
 
     level = build_level(project, spec)
-    ambition_platformer2d = next(
+    ambition = next(
         layer
         for layer in level["layerInstances"]
         if layer["__identifier"] == "Ambition"

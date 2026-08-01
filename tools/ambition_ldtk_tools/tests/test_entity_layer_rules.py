@@ -84,7 +84,7 @@ def test_change_layer_moves_selected_entity_only() -> None:
     )
     assert len(moved) == 1
     level = project["levels"][0]
-    ambition_platformer2d = find_layer(level, "Ambition")
+    ambition = find_layer(level, "Ambition")
     cameras = find_layer(level, "AmbitionCameras")
     assert [e["__identifier"] for e in ambition["entityInstances"]] == ["LoadingZone"]
     assert [e["iid"] for e in cameras["entityInstances"]] == ["CameraZone-1"]
@@ -111,7 +111,7 @@ def test_apply_editor_layer_rule_uses_ldtk_tags() -> None:
     entities = project["defs"]["entities"]
     cam = next(entity for entity in entities if entity["identifier"] == "CameraZone")
     assert "Camera" in cam["tags"]
-    ambition_platformer2d = next(layer for layer in project["defs"]["layers"] if layer["identifier"] == "Ambition")
+    ambition = next(layer for layer in project["defs"]["layers"] if layer["identifier"] == "Ambition")
     cameras = next(layer for layer in project["defs"]["layers"] if layer["identifier"] == "AmbitionCameras")
     assert "Camera" in ambition["excludedTags"]
     assert "Camera" in cameras["requiredTags"]

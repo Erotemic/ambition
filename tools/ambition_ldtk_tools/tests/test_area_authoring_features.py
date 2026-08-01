@@ -231,7 +231,7 @@ def test_connect_to_inserts_reciprocal_loading_zone(tmp_path: Path) -> None:
     )
     if hub is None:
         fail("central_hub_main not in project")
-    ambition_platformer2d = next(
+    ambition = next(
         (lay for lay in hub["layerInstances"] if lay["__identifier"] == "Ambition"),
         None,
     )

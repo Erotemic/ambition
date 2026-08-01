@@ -1024,7 +1024,7 @@ def summarize_level(level: dict, lowered_count: int = 0, lowered_cells: int = 0)
             biome_bits.append(f"{ident}={v}")
     if biome_bits:
         lines.append("  metadata: " + ", ".join(biome_bits))
-    ambition_platformer2d = find_layer_in_level(level, "Ambition")
+    ambition = find_layer_in_level(level, "Ambition")
     if ambition is None:
         lines.append("  (no Ambition entity layer found)")
     else:
@@ -1107,7 +1107,7 @@ def add_reciprocal_loading_zone(
         raise SystemExit(
             f"connect_to target_room '{target_room}' not found. Known levels: {known}"
         )
-    ambition_platformer2d = find_layer_in_level(target_level, "Ambition")
+    ambition = find_layer_in_level(target_level, "Ambition")
     if ambition is None:
         raise SystemExit(
             f"connect_to target '{target_room}' has no Ambition entity layer; "
@@ -1364,7 +1364,7 @@ def even_space_entities(
         known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
         print(f"error: target_room '{target_room}' not found. Known levels: {known}")
         return 2
-    ambition_platformer2d = find_layer_in_level(target_level, "Ambition")
+    ambition = find_layer_in_level(target_level, "Ambition")
     if ambition is None:
         print(f"error: '{target_room}' has no Ambition entity layer")
         return 2
@@ -1498,7 +1498,7 @@ def list_free_spots(project: dict, target_room: str) -> int:
         known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
         print(f"error: target_room '{target_room}' not found. Known levels: {known}")
         return 2
-    ambition_platformer2d = find_layer_in_level(target_level, "Ambition")
+    ambition = find_layer_in_level(target_level, "Ambition")
     if ambition is None:
         print(f"error: '{target_room}' has no Ambition entity layer")
         return 2

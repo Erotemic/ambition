@@ -962,3 +962,129 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
         "width unchanged"
     );
 }
+
+/// **When the sample's PROFILE and its ANIMATION KEY disagree, the profile
+/// wins** — pinned before the boss-animator fold moves the type.
+///
+/// ⛔ this is the one risk in that fold, and it is stated by the field's own
+/// doc. `BossAnimationFrameSample.profile` is never read as data: it appears
+/// exactly twice, both times as an identity check —
+/// `sample.profile.as_ref() == Some(profile)` — asking "is the row being
+/// rendered the one this profile drives".
+///
+/// The obvious generalisation is to ask that question with `animation_key`
+/// instead, which is what makes the sample character-generic and gets
+/// `BossAttackProfile` out of the gameplay geometry path. But `animation_key`
+/// exists precisely because the two CAN disagree ("prevents future profile↔row
+/// alias drift from silently selecting a fallback box"), so that swap is a
+/// BEHAVIOUR CHANGE on which hitbox a boss swings, not a rename.
+///
+/// This pins today's answer so the change cannot be made silently. It asserts
+/// the FRAME the derivation chose, which is the observable the profile check
+/// controls: with a matching profile the sample's `frame_index` is honoured, and
+/// a mismatched KEY does not stop that.
+///
+/// ⚠ **it guards the HURTBOX path only** — `damageable_volumes` →
+/// `AnimationSelection::live_frame_index` (`mod.rs`). There are THREE identity
+/// checks, not the two a first survey found:
+///
+/// ```text
+///   mod.rs   AnimationSelection::live_frame_index   hurtboxes   ← this test
+///   frame.rs authored_animation_frame_index         hitboxes    ← NOT covered
+///   mod.rs   the same expression's `None` arm       the idle pose
+/// ```
+///
+/// PROBED at the right site: swapping `mod.rs`'s check to a key comparison
+/// fails this with `Got Vec2(0.0, 25.0)`. Swapping `frame.rs`'s does NOT — which
+/// is how the third site was found, and is why this docstring says which path it
+/// covers instead of claiming the fold is guarded.
+#[test]
+fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_match() {
+    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
+    use std::collections::HashMap;
+
+    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    animations.insert(
+        "gnu_head_descent".to_string(),
+        AnimationMetrics {
+            frame_duration_secs: Some(0.1),
+            hurtbox: Some(AnimationBox {
+                parts: Vec::new(),
+                bbox: None,
+                poly: Vec::new(),
+                frames: vec![
+                    // Frame 0 puts the head high, frame 1 puts it low. Which one
+                    // the derivation picks is the whole assertion.
+                    AnimationBoxFrame {
+                        parts: vec![NamedPixelRect {
+                            name: "head".to_string(),
+                            x: 45,
+                            y: 10,
+                            w: 10,
+                            h: 10,
+                        }],
+                        bbox: None,
+                    },
+                    AnimationBoxFrame {
+                        parts: vec![NamedPixelRect {
+                            name: "head".to_string(),
+                            x: 45,
+                            y: 70,
+                            w: 10,
+                            h: 10,
+                        }],
+                        bbox: None,
+                    },
+                ],
+            }),
+            hitbox: None,
+        },
+    );
+    let metrics = ActorSpriteMetrics {
+        frame_width: 100,
+        frame_height: 100,
+        body_pixel_bbox: None,
+        body_pixel_parts: Vec::new(),
+        sprite_render_size: ae::Vec2::new(100.0, 100.0),
+        combat_offset: ae::Vec2::ZERO,
+        animations,
+    };
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
+    let mut attack_state = BossAttackState::default();
+    attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
+    // Elapsed alone would pick frame 1 (0.15s at 0.1s/frame).
+    attack_state.active_elapsed = 0.15;
+
+    // THE ALIAS: the profile matches the active one, and the key names a row
+    // that is not the one being sampled. Today the profile decides.
+    let aliased = BossAnimationFrameSample {
+        profile: Some(BossAttackProfile::Strike("head_descent".to_string())),
+        frame_index: 0,
+        animation_key: Some("a_row_that_is_not_this_one".into()),
+    };
+
+    let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(100.0, 100.0),
+        combat_size: ae::Vec2::new(100.0, 100.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: Some(&metrics),
+        animation_frame: Some(&aliased),
+        facing: 1.0,
+    };
+
+    let volumes = damageable_volumes(&ctx);
+    assert_eq!(volumes.len(), 1);
+    assert!(
+        (volumes[0].center().y - -35.0).abs() < 1e-3,
+        "the sample's PROFILE matched, so its frame_index 0 (head high, y=-35) \
+         must win over elapsed-time sampling — even though its animation_key \
+         names a different row. Got {:?}. If this now reads frame 1 (y=+35), \
+         the identity check has moved from the profile to the key and the fold \
+         changed which hitbox this boss presents",
+        volumes[0].center()
+    );
+}

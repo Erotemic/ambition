@@ -12,6 +12,9 @@ crate-type = ["rlib"]
 [dependencies]
 # The brain MeleeActionSpec the attack specs reference.
 ambition_characters = { path = "../ambition_characters" }
+# Structured causal facts. Optional and default-off (§2e): a game that never
+# opens an inspector must not link one.
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 # Geometry (Vec2 / Aabb / AabbExt / KinematicPath).
 ambition_engine_core = { path = "../ambition_engine_core" }
 # Tier-0 authored-placement schema: DamageKind / DamageTeam / HazardRespawn.
@@ -27,3 +30,7 @@ ambition_vfx = { path = "../ambition_vfx" }
 serde = { workspace = true }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.18.1", default-features = false }
+
+[features]
+# Publish this crate's causal facts (the stock lifecycle, for now).
+causal = ["dep:ambition_causal"]

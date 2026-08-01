@@ -296,6 +296,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // tick's elimination lands would announce the previous frame's
                 // answer on the frame the last fighter goes out.
                 crate::features::stocks_match::decide_stocks_match,
+                // The causal OBSERVER, last in the chain so it reads this tick's
+                // decision rather than the previous one. It holds no authority
+                // over any of the above — it reads their messages — which is why
+                // it can sit inside the ruleset's own chain safely.
+                #[cfg(feature = "causal")]
+                ambition_combat::causal::record_stock_lifecycle,
             )
                 .chain()
                 .in_set(crate::schedule::CombatSet::Settle),

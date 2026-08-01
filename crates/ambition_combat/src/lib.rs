@@ -5,6 +5,8 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
+#[cfg(feature = "causal")]
+pub mod causal;
 pub mod authored_volumes;
 pub mod banner;
 pub mod breakables;

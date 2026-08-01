@@ -25,7 +25,7 @@ crate-type = ["rlib"]
 
 [features]
 # Publish this crate's causal facts (movement intent, for now).
-causal = ["dep:ambition_causal"]
+causal = ["dep:ambition_causal", "ambition_combat/causal"]
 # Default preserves the full desktop sandbox / development posture. Android
 # builds use the `android` composite below with `--no-default-features` so the
 # phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only

@@ -621,6 +621,32 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
     let (_, body_one) = seated[0];
     let (_, body_two) = seated[1];
 
+    // **THE SEAT SET SURVIVES RESIMULATION.** Every frame here is saved, rewound
+    // and resimulated, and activation is inside that window because the roster
+    // insert was rebased — so this is the two-human form of *"rewinding around
+    // the first active frame reconstructs the identical roster"*, checked on
+    // every tick rather than at the end.
+    //
+    // ⚠ the SLOTS, not just the count. A resim that rebuilt two seats numbered
+    // 0 and 0, or swapped which body wore which, would keep the count and lose
+    // the match.
+    for tick in 0..30 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("holding the seats, tick {tick}: {error}"));
+        let world = sim.world_mut();
+        let mut q = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        let mut now: Vec<(usize, bevy::prelude::Entity)> =
+            q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        now.sort_by_key(|(slot, _)| *slot);
+        assert_eq!(
+            now, seated,
+            "tick {tick}: the seat set changed under resimulation — two humans \
+             seated at activation must be the same two bodies in the same slots \
+             after every rewind"
+        );
+    }
+
     let x = |sim: &mut Platformer2dSimHarness, body| {
         sim.world_mut()
             .get::<BodyKinematics>(body)

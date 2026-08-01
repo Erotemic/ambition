@@ -26,6 +26,22 @@ println!("{}", why.render());
 everything published about the WORLD on that tick (a rebase, a rules change) —
 because those explain a body too.
 
+⛔ **It returns ONE execution of that tick, not a merge of several.** A tick
+number is not a moment: frames restart at zero on every session, so generation 1
+tick 20 and generation 2 tick 20 are different things, and under a rollback host
+the same tick runs originally and again as resimulation. `explain` gives you the
+LATEST; `explanations(tick, subject)` gives every one, oldest first, and is what
+to reach for when the question is about the rewind itself.
+
+```rust
+for one in log.explanations(20, &SubjectKey::Seat(1)) {
+    println!("{} {:?}", one.key.generation, one.execution());
+}
+```
+
+⚠ two resimulations *within* one generation still group together, because
+nothing publishes an attempt counter yet.
+
 ## Recording is OFF by default
 
 Installing `CausalPlugin` makes recording *possible*. It never turns it on. An
@@ -106,9 +122,21 @@ pub fn record_my_thing(
 }
 ```
 
-Leave the tick `0` — the host stamps it (`CausalLog::set_tick`). A domain five
-hops below the ECS does not know the world's clock, and a counter guessed there
-would be a second clock nothing could join against.
+Leave the tick `0` and leave the execution alone — the host stamps both
+(`stamp_causal_frame`, at the head of the sim schedule). A domain five hops
+below the ECS does not know the world's clock, and it certainly does not know
+whether the host is replaying this frame; a fact that guessed `Original` would
+make a resimulated tick indistinguishable from its original.
+
+**Order your publisher after the stamp**, in `RecordingSet::Publish`:
+
+```rust
+app.add_systems(sim, my_publisher.in_set(ambition_runtime::causal::RecordingSet::Publish));
+```
+
+A publisher outside that set can run first and carry the *previous* frame's
+identity. That is not hypothetical — it is what the parallel-schedule proof
+found the first time the plugin was written.
 
 **⛔ From pure code deep in a call tree — thread-local, and it has a contract:**
 

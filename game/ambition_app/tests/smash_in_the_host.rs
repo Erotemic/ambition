@@ -528,3 +528,4 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field() {
     }
 }
 
+

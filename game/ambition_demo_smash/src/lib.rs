@@ -802,6 +802,9 @@ fn drive_the_select_screen(
     frames: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatMenuFrames>>,
     devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     contexts: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatInputContexts>>,
+    assignment: Option<
+        bevy::prelude::Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>,
+    >,
 ) {
     let on_select = router
         .active
@@ -812,8 +815,21 @@ fn drive_the_select_screen(
     }
     let Some(frames) = frames else { return };
     // A keyboard-only desktop has no device rows and still has a player, so the
-    // offered seats never fall below one (`seats_offered` clamps).
-    let offered = devices.as_deref().map(select::seats_offered).unwrap_or(1);
+    // offered seats never fall below one (the count clamps).
+    //
+    // ⛔ **the POLICY-AWARE count, the same one the seat DECLARATION uses.** This
+    // read `seats_offered` — the unified, pad-only count — while
+    // `declare_smash_lobby_seats` had already switched to
+    // `seats_offered_under(.., JoinToClaim)`. So with a keyboard and one pad the
+    // lobby declared TWO seats, spawned two participants, gave the pad to seat 1
+    // correctly, and then this loop iterated `0..1` and never read seat 1's menu
+    // frame. Seat 1 stayed `Empty` while its `ActionState` showed the confirm it
+    // had pressed — two counts of the same thing, disagreeing.
+    let policy = assignment.as_deref().copied().unwrap_or_default();
+    let offered = devices
+        .as_deref()
+        .map(|devices| select::seats_offered_under(devices, policy))
+        .unwrap_or(1);
     for seat in 0..offered {
         // **DOES THIS SEAT STILL OWN THE SCREEN?**
         //

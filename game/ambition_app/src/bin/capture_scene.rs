@@ -67,6 +67,22 @@ struct SceneCaptureConfig {
     /// A verification screenshot should show the PRODUCT. The debugging use that
     /// genuinely wants nameplates asks for them.
     dev_overlays: bool,
+    /// Keys to TAP after reaching the route and before the shutter
+    /// (`--press Down,Enter,Enter`).
+    ///
+    /// ⛔ The state anybody actually wants to photograph is often behind a
+    /// lobby. `--route smash_gameplay` photographs a stage with ONE fighter,
+    /// correctly — navigating straight to a route decides no roster — so the
+    /// two-fighter state Jon needs to check couch multiplayer was reachable by
+    /// neither the headless suite (blind to rendering by construction) nor this
+    /// tool. That is an instrument gap, not a gameplay bug.
+    ///
+    /// Deliberately generic key TAPS rather than a `--smash-cpu` flag: the
+    /// select screen's own headless drivers in `smash_in_the_host.rs` are
+    /// exactly `tap(ArrowDown)` then `tap(Enter)` twice, so this is the same
+    /// entry those tests use rather than a second mechanism that can disagree
+    /// with them. Any route with a lobby gets it for free.
+    press: Vec<KeyCode>,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
     ///
     /// The surfaces a stranger sees first — the launcher, the startup cards,
@@ -91,6 +107,18 @@ struct SceneCaptureRuntime {
     /// Route mode only: the shell has been told where to go. One request, not
     /// one per frame — a `GoTo` every update would restart the route forever.
     route_requested: bool,
+    /// How far through `--press` the driver has got, and whether the key it
+    /// tapped is still held. A press and its release are two frames because the
+    /// surfaces being driven read EDGES — the select screen's own headless
+    /// drivers do exactly this, and a held key is not a second press.
+    press_cursor: usize,
+    press_held: Option<KeyCode>,
+    /// The frame the last key was released on. The sequence usually STARTS a
+    /// route change ("Starting…"), so the shutter has to wait for the state the
+    /// presses asked for rather than photograph the moment they were accepted —
+    /// the first run of this caught exactly that and photographed the select
+    /// screen mid-confirmation.
+    press_done_frame: Option<u32>,
     /// How many cameras the route capture has adopted, so the count is
     /// announced when it CHANGES rather than once per frame.
     cameras_adopted: usize,
@@ -264,6 +292,41 @@ fn main() {
     app.run();
 }
 
+/// Parse `--press Down,Enter,Enter` into key taps.
+///
+/// The names are the ones a person says out loud, not `ArrowDown`: this is typed
+/// by hand at a terminal while looking at a screenshot.
+/// Frames to run after the last `--press` before the shutter.
+///
+/// A confirmation usually starts a ROUTE CHANGE, and the route it starts has its
+/// own load and its own cameras. 150 is generous on purpose: this tool is run by
+/// hand to look at something, and a photograph taken one beat early is worse than
+/// one taken two seconds late.
+const POST_PRESS_SETTLE_FRAMES: u32 = 150;
+
+fn parse_press_sequence(text: &str) -> Result<Vec<KeyCode>, String> {
+    text.split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| match name.to_ascii_lowercase().as_str() {
+            "up" | "arrowup" => Ok(KeyCode::ArrowUp),
+            "down" | "arrowdown" => Ok(KeyCode::ArrowDown),
+            "left" | "arrowleft" => Ok(KeyCode::ArrowLeft),
+            "right" | "arrowright" => Ok(KeyCode::ArrowRight),
+            "enter" | "return" => Ok(KeyCode::Enter),
+            "space" => Ok(KeyCode::Space),
+            "escape" | "esc" => Ok(KeyCode::Escape),
+            "z" => Ok(KeyCode::KeyZ),
+            "x" => Ok(KeyCode::KeyX),
+            "c" => Ok(KeyCode::KeyC),
+            other => Err(format!(
+                "--press does not know the key '{other}'. Known: up, down, left, \
+                 right, enter, space, escape, z, x, c"
+            )),
+        })
+        .collect()
+}
+
 impl SceneCaptureConfig {
     fn from_args(args: Vec<String>) -> Result<Self, String> {
         let mut positional = Vec::new();
@@ -273,6 +336,7 @@ impl SceneCaptureConfig {
         let mut show_window = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
+        let mut press: Vec<KeyCode> = Vec::new();
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
@@ -297,6 +361,17 @@ impl SceneCaptureConfig {
                 }
                 arg if arg.starts_with("--character=") => {
                     character = Some(arg.trim_start_matches("--character=").to_string());
+                    i += 1;
+                }
+                "--press" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--press requires a comma-separated key list".to_string());
+                    };
+                    press = parse_press_sequence(value)?;
+                    i += 2;
+                }
+                arg if arg.starts_with("--press=") => {
+                    press = parse_press_sequence(arg.trim_start_matches("--press="))?;
                     i += 1;
                 }
                 "--route" => {
@@ -384,6 +459,7 @@ impl SceneCaptureConfig {
                 character,
                 follow_player: false,
                 dev_overlays,
+                press,
                 route: Some(route),
             });
         }
@@ -424,6 +500,7 @@ impl SceneCaptureConfig {
             dev_overlays,
             follow_player,
             route: None,
+            press,
         })
     }
 }
@@ -876,6 +953,7 @@ fn request_capture(
     >,
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -899,6 +977,36 @@ fn request_capture(
     runtime.frames += 1;
     if runtime.frames < config.warmup_frames.max(1) {
         return;
+    }
+    // **Drive the route's own lobby before the shutter.**
+    //
+    // Runs AFTER warmup, so the surface exists and has settled, and holds the
+    // shutter until the sequence is spent — a capture taken mid-sequence would
+    // photograph a half-made decision and look like a product bug.
+    if runtime.press_cursor < config.press.len() || runtime.press_held.is_some() {
+        if let Some(key) = runtime.press_held.take() {
+            keys.release(key);
+            if runtime.press_cursor >= config.press.len() {
+                runtime.press_done_frame = Some(runtime.frames);
+            }
+        } else {
+            let key = config.press[runtime.press_cursor];
+            keys.press(key);
+            runtime.press_held = Some(key);
+            runtime.press_cursor += 1;
+            eprintln!(
+                "capture_scene: pressed {key:?} ({} of {})",
+                runtime.press_cursor,
+                config.press.len()
+            );
+        }
+        return;
+    }
+    // Let the state the presses asked for actually arrive.
+    if let Some(done) = runtime.press_done_frame {
+        if runtime.frames < done + POST_PRESS_SETTLE_FRAMES {
+            return;
+        }
     }
     // **WHERE THE SUBJECT ACTUALLY IS**, printed once, at the tick the image is
     // taken. A capture tool that reports the room and not the pose can tell you

@@ -383,7 +383,7 @@ pub(crate) fn apply_actor_hit(
             // actor staggers exactly like the player.
             let pos = em.kin.pos;
             let facing = em.kin.facing;
-            crate::features::ecs::damage_apply::apply_body_hit_reaction(
+            let reaction = crate::features::ecs::damage_apply::apply_body_hit_reaction(
                 &mut em.kin.vel,
                 &mut em.flight,
                 combat,
@@ -395,6 +395,15 @@ pub(crate) fn apply_actor_hit(
                 di_input_local,
                 feel,
             );
+            #[cfg(feature = "causal")]
+            if let Some(reactions) = writers.reactions.as_mut() {
+                reactions.write(crate::features::ecs::damage_apply::BodyReactionApplied {
+                    body: actor_entity,
+                    reaction,
+                });
+            }
+            #[cfg(not(feature = "causal"))]
+            let _ = reaction;
         }
         // CM8: THE one victim-side reaction — the striking attack's `strike_sfx`
         // (a sword vs a goblin claw) over this body's own `HurtFeedback` spray.

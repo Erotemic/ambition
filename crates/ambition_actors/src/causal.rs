@@ -27,7 +27,9 @@ use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domai
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
-use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved};
+use crate::features::ecs::damage_apply::{
+    BodyHitResolution, BodyHitResolved, BodyReactionApplied,
+};
 use ambition_characters::brain::{ActorControl, Brain};
 
 /// Publish one movement-intent fact per seated body per tick.
@@ -150,6 +152,65 @@ pub fn record_hit_resolutions(
         .field("source", format!("{:?}", hit.source));
         if let Some(seat) = bodies
             .get(hit.body)
+            .ok()
+            .and_then(|brain| brain.player_slot())
+            .map(|slot| slot.0)
+        {
+            fact = fact.about(SubjectKey::Seat(seat)).by_participant(seat);
+        }
+        log.record(fact);
+    }
+}
+
+/// **Why did knockback have this magnitude and direction?**
+///
+/// The last of the inspector's required damage questions, and the one the
+/// velocity alone cannot answer: a short launch is a weak hit, a well-DI'd one,
+/// or a hit that carried no knockback at all, and those are three different
+/// findings. The fact carries all three inputs beside the result.
+pub fn record_hit_reactions(
+    log: Option<ResMut<CausalRecording>>,
+    mut reactions: MessageReader<BodyReactionApplied>,
+    bodies: Query<&Brain>,
+) {
+    let Some(mut log) = log else {
+        reactions.clear();
+        return;
+    };
+    if !log.is_recording() {
+        reactions.clear();
+        return;
+    }
+    for applied in reactions.read() {
+        let r = applied.reaction;
+        let mut fact = CausalFact::new(
+            domains::DAMAGE,
+            0,
+            FactDetail::new(
+                "knockback_applied",
+                if r.had_knockback {
+                    format!(
+                        "launched at {:.0} px/s for {:.2}s of hitstun",
+                        r.velocity.length(),
+                        r.hitstun
+                    )
+                } else {
+                    "hurt but not launched — the hit carried no knockback".to_string()
+                },
+            ),
+        )
+        .field("speed", r.velocity.length())
+        .field("velocity_x", r.velocity.x)
+        .field("velocity_y", r.velocity.y)
+        .field("hitstun", r.hitstun)
+        .field("had_knockback", r.had_knockback)
+        // DI is the victim's own contribution. ZERO means it did not steer,
+        // which is a different finding from steering and being overruled.
+        .field("di_x", r.di_input_local.x)
+        .field("di_y", r.di_input_local.y)
+        .field("steered", r.di_input_local.length() > 0.0);
+        if let Some(seat) = bodies
+            .get(applied.body)
             .ok()
             .and_then(|brain| brain.player_slot())
             .map(|slot| slot.0)
@@ -363,5 +424,113 @@ mod damage_tests {
             .cloned()
             .expect("recorded");
         assert_eq!(hit.get("died"), Some(&FactValue::Bool(true)));
+    }
+}
+
+#[cfg(test)]
+mod knockback_tests {
+    use super::*;
+    use ambition_causal::{FactValue, RecordingPolicy};
+    use ambition_characters::brain::PlayerSlot;
+    use crate::features::ecs::damage_apply::BodyReaction;
+
+    fn reaction_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<CausalRecording>();
+        app.add_message::<BodyReactionApplied>();
+        app.add_systems(Update, record_hit_reactions);
+        app.world_mut()
+            .resource_mut::<CausalRecording>()
+            .set_policy(RecordingPolicy::All)
+            .set_tick(21);
+        app
+    }
+
+    /// ⛔ **A short launch has three different causes, and the velocity cannot
+    /// tell them apart.** That is the whole reason this fact exists.
+    #[test]
+    fn a_short_launch_distinguishes_a_weak_hit_from_a_well_steered_one() {
+        let mut app = reaction_app();
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+
+        // Steered: the victim held DI and the launch came out short.
+        app.world_mut().write_message(BodyReactionApplied {
+            body,
+            reaction: BodyReaction {
+                velocity: ambition_engine_core::Vec2::new(40.0, 0.0),
+                di_input_local: ambition_engine_core::Vec2::new(-1.0, 0.0),
+                hitstun: 0.2,
+                had_knockback: true,
+            },
+        });
+        app.update();
+        let steered = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(21, &SubjectKey::Seat(1))
+            .first("knockback_applied")
+            .cloned()
+            .expect("recorded");
+        assert_eq!(steered.get("steered"), Some(&FactValue::Bool(true)));
+        assert_eq!(steered.get("had_knockback"), Some(&FactValue::Bool(true)));
+
+        // Not launched at all: hurt, no knockback. Same visible stillness, a
+        // completely different finding.
+        let mut app = reaction_app();
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+        app.world_mut().write_message(BodyReactionApplied {
+            body,
+            reaction: BodyReaction {
+                velocity: ambition_engine_core::Vec2::ZERO,
+                di_input_local: ambition_engine_core::Vec2::ZERO,
+                hitstun: 0.0,
+                had_knockback: false,
+            },
+        });
+        app.update();
+        let unlaunched = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(21, &SubjectKey::Seat(1))
+            .first("knockback_applied")
+            .cloned()
+            .expect("recorded");
+        assert_eq!(unlaunched.get("had_knockback"), Some(&FactValue::Bool(false)));
+        assert_eq!(unlaunched.get("steered"), Some(&FactValue::Bool(false)));
+        assert!(
+            unlaunched.detail.summary.contains("no knockback"),
+            "and it SAYS so, so a reader chasing a launch stops here: {}",
+            unlaunched.detail.summary
+        );
+    }
+
+    /// The speed and hitstun are fields, so "launched far" and "launched long"
+    /// are separately checkable.
+    #[test]
+    fn the_launch_records_its_speed_and_its_hitstun() {
+        let mut app = reaction_app();
+        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(0))).id();
+        app.world_mut().write_message(BodyReactionApplied {
+            body,
+            reaction: BodyReaction {
+                velocity: ambition_engine_core::Vec2::new(300.0, 400.0),
+                di_input_local: ambition_engine_core::Vec2::ZERO,
+                hitstun: 0.45,
+                had_knockback: true,
+            },
+        });
+        app.update();
+        let fact = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(21, &SubjectKey::Seat(0))
+            .first("knockback_applied")
+            .cloned()
+            .expect("recorded");
+        assert_eq!(fact.get("speed"), Some(&FactValue::Float(500.0)));
+        assert_eq!(
+            fact.get("hitstun"),
+            Some(&FactValue::Float(0.45_f32.into()))
+        );
     }
 }

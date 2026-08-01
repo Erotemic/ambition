@@ -55,6 +55,10 @@ pub struct FeatureHitWriters<'w, 's> {
     #[cfg(feature = "causal")]
     pub resolutions:
         Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyHitResolved>>,
+    /// The LAUNCH the reaction produced. Same `Option` rule as above.
+    #[cfg(feature = "causal")]
+    pub reactions:
+        Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyReactionApplied>>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.

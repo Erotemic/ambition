@@ -151,6 +151,20 @@ pub struct BodyHitResolved {
     pub raw_damage: i32,
 }
 
+/// **The launch, announced.** Carries [`BodyReaction`]'s three inputs beside the
+/// velocity they produced, because the velocity alone cannot say whether a short
+/// launch was a weak hit or a well-DI'd one.
+///
+/// Feature-gated and `Option`-written, exactly like [`BodyHitResolved`]: read by
+/// an instrument and nothing else, so a composition that never registers it must
+/// publish nothing rather than panic.
+#[cfg(feature = "causal")]
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq)]
+pub struct BodyReactionApplied {
+    pub body: bevy::prelude::Entity,
+    pub reaction: BodyReaction,
+}
+
 /// Deterministic victim-side fact emitted when a [`BodyWalletShield`] spends a
 /// wallet balance. The generic resolver owns survival; game content owns how
 /// the spent currency is presented (for example, as scattered rings).
@@ -774,6 +788,31 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
 /// source-selected), the fixed recoil throw, and the hitstop beat. hit_flash +
 /// damage_invuln_timer are armed by `resolve_body_hit` before this runs —
 /// this owns only the launch + control-lock timers.
+/// **What the reaction DECIDED**, so a caller can explain it.
+///
+/// The magnitude and direction of a launch are the product of the authored
+/// knockback, the victim's own DI, and the feel tuning — three inputs whose
+/// individual contributions are invisible in the resulting velocity. "Why did
+/// knockback have this magnitude and direction" is the inspector's question,
+/// and it cannot be answered from the velocity alone.
+///
+/// Returned rather than published from in here: this function takes a `&mut
+/// Vec2` and no writer, and threading one in would put an observer's parameter
+/// through the reaction every body shares. The caller has the writer.
+#[cfg(feature = "causal")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyReaction {
+    /// The velocity the launch wrote.
+    pub velocity: ae::Vec2,
+    /// The DI the victim held, in its local frame. `ZERO` means it did not
+    /// steer — which is a different finding from steering and being overruled.
+    pub di_input_local: ae::Vec2,
+    pub hitstun: f32,
+    /// `false` when the hit carried no knockback at all: the body was hurt and
+    /// not launched, and a reader looking for a launch should stop here.
+    pub had_knockback: bool,
+}
+
 pub(crate) fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
     // **The carried-momentum channel.** The launch is momentum the WORLD
@@ -793,7 +832,7 @@ pub(crate) fn apply_body_hit_reaction(
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     feel: SandboxFeelTuning,
-) {
+) -> BodyReactionOutcome {
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
@@ -825,7 +864,26 @@ pub(crate) fn apply_body_hit_reaction(
     let side = ae::AccelerationFrame::new(gravity_dir).side;
     flight.carried_run = vel.dot(side);
     flight.carried_hold = combat.hitstun_timer;
+
+    #[cfg(feature = "causal")]
+    return BodyReaction {
+        velocity: *vel,
+        di_input_local,
+        hitstun: combat.hitstun_timer,
+        had_knockback: knockback.is_some(),
+    };
+    #[cfg(not(feature = "causal"))]
+    {
+        let _ = di_input_local;
+    }
 }
+
+/// What [`apply_body_hit_reaction`] returns. A unit under no instrument, so a
+/// build without `causal` pays nothing for a value nobody reads.
+#[cfg(feature = "causal")]
+pub(crate) type BodyReactionOutcome = BodyReaction;
+#[cfg(not(feature = "causal"))]
+pub(crate) type BodyReactionOutcome = ();
 
 pub(crate) fn apply_player_knockback(
     sfx: &mut SfxWriter,

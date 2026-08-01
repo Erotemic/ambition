@@ -317,6 +317,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // is exactly what an explanation of that outcome is.
                 #[cfg(feature = "causal")]
                 crate::causal::record_hit_resolutions,
+                #[cfg(feature = "causal")]
+                crate::causal::record_hit_reactions,
             )
                 .chain()
                 .in_set(crate::schedule::CombatSet::Settle),

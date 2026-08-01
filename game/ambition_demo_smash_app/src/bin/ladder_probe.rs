@@ -99,7 +99,6 @@
 //! can be read in one line beats a suite nobody has run.
 
 use ambition::actor::{FighterStocks, MatchSeat};
-use ambition::characters::brain::ActorControl;
 use ambition::characters::brain::{Brain, StateMachineCfg};
 use ambition_demo_smash_app::build_demo_app;
 use bevy::app::App;
@@ -119,6 +118,7 @@ const TICKS: usize = 3_600; // one minute at 60Hz
 const DEFAULT_SEEDS: usize = 3;
 
 fn main() {
+    warn_if_seam_trace_is_unavailable();
     let seeds = seed_count();
     println!(
         "[ladder_probe] level  first_self_KO   survived   stocks_lost  peak%   \
@@ -142,8 +142,84 @@ fn main() {
     }
 }
 
+/// Print the joined explanation for every subject that acted this tick, then
+/// clear the log.
+///
+/// ⚠ **cleared every tick on purpose.** A ladder run is thousands of ticks with
+/// several bodies each; a log that accumulated all of it would be a memory
+/// profile of the probe rather than a trace. The question here is always "what
+/// happened on THIS tick", so the tick is the natural scope.
+#[cfg(feature = "causal")]
+fn trace_seam(app: &mut App, tick: usize) {
+    let Some(log) = app
+        .world()
+        .get_resource::<ambition::causal::CausalRecording>()
+    else {
+        return;
+    };
+    let Some(stamped) = log.tick() else { return };
+    for subject in log.subjects_on(stamped) {
+        let explanation = log.explain(stamped, &subject);
+        let received = explanation.first("control_frame_received");
+        let decided = explanation.first("fighter_decision");
+        // A subject with neither is some other domain's; skip rather than print
+        // an empty row for it.
+        if received.is_none() && decided.is_none() {
+            continue;
+        }
+        // ⚠ **every DECISION prints, and the frames between them are sampled.**
+        // The first version sampled both at 1-in-5 and every decision row came
+        // back `asked=- chose=-`, which reads as "the brain decided nothing" and
+        // is instead "you looked on the wrong tick". A decision fires on its own
+        // cadence — that is what `decision_interval_ticks` IS — so sampling it
+        // like a per-tick quantity drops most of them and misreports the rest.
+        if decided.is_none() && tick % 5 != 0 {
+            continue;
+        }
+        let field = |fact: Option<&ambition::causal::CausalFact>, name: &str| {
+            fact.and_then(|f| f.get(name))
+                .map(|value| format!("{value}"))
+                .unwrap_or_else(|| "-".to_string())
+        };
+        eprintln!(
+            "[seam] t={tick} {subject} asked={} holding={} vx={} dash_charges={} chose={}",
+            field(decided, "emit_locomotion_x"),
+            field(received, "locomotion_x"),
+            field(received, "vel_x"),
+            field(received, "dash_charges"),
+            field(decided, "chose"),
+        );
+    }
+    app.world_mut()
+        .resource_mut::<ambition::causal::CausalRecording>()
+        .clear();
+}
+
 /// Whether the brain/seam trace is on. Same switch the brain reads, so the two
 /// halves of the trace are never half-enabled.
+///
+/// ⚠ **the `[seam]` half needs `--features causal`** — it reads the causal log
+/// now instead of hand-querying components, and the log is a default-off
+/// dependency. [`warn_if_seam_trace_is_unavailable`] says so out loud rather
+/// than letting the trace come back missing half its lines.
+/// **Say it, rather than printing nothing.**
+///
+/// `AMBITION_FIGHTER_TRACE=1` on a build without `causal` used to be the worst
+/// kind of answer: the `[fighter]` lines appear, the `[seam]` lines do not, and
+/// nothing explains the difference — so the reader concludes the seam had
+/// nothing to report, which is the opposite of true.
+fn warn_if_seam_trace_is_unavailable() {
+    #[cfg(not(feature = "causal"))]
+    if trace_enabled() {
+        eprintln!(
+            "[ladder_probe] AMBITION_FIGHTER_TRACE is on, but the [seam] half needs \
+             the causal log: re-run with `--features causal`. The [fighter] lines \
+             below are the brain's own trace and are NOT the whole picture."
+        );
+    }
+}
+
+#[cfg_attr(not(feature = "causal"), allow(dead_code))]
 fn trace_enabled() -> bool {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
@@ -279,6 +355,19 @@ struct LadderRun {
 /// fixed — the intervention that makes the A/B an A/B.
 fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let mut app = build_demo_app();
+    // The log the seam trace reads. Installed only when tracing, so an ordinary
+    // ladder run pays nothing for an inspector nobody opened.
+    #[cfg(feature = "causal")]
+    if trace_enabled() {
+        app.add_plugins(ambition::causal::CausalPlugin);
+        ambition::causal::record_domains(
+            &mut app,
+            ambition::causal::RecordingPolicy::only([
+                ambition::causal::domains::MOVEMENT,
+                ambition::causal::domains::BRAIN,
+            ]),
+        );
+    }
     for _ in 0..30 {
         app.update();
     }
@@ -319,40 +408,23 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         // trace could only pose: on 2026-07-31 the brain emitted full LEFT for
         // three decisions while the body accelerated RIGHT, and nothing said
         // whether the intent was lost on the way or ignored on arrival.
-        // ⚠ **this hand-rolled query duplicates `record_body_control_frame`**
-        // (`ambition_actors::causal`), which publishes the same observation as a
-        // typed fact keyed by the body's actor id — the SAME subject the brain's
-        // decision fact carries, so the two join in one `explain(tick, subject)`
-        // instead of being two text streams a human correlates by eye.
+        // **THE SEAM, AS A JOINED EXPLANATION.**
         //
-        // That is the version to keep: Program C's premise is typed facts, not
-        // log parsing. It is not used HERE yet because reading it needs
-        // `ambition/causal` enabled on this binary's crate, and that is a
-        // default-off feature addition (§2e) with a `SKIP_FEATURE_JOB` entry to
-        // settle in the same commit. Recorded in the 72h queue.
+        // This was a hand-rolled query printing its own `[seam]` line, which
+        // made it the SECOND observer of one seam alongside
+        // `record_body_control_frame` — same components, free to drift in
+        // coverage. Now there is one: the engine publishes the typed fact, and
+        // this reads it.
         //
-        // ⛔ do not "improve" this println into carrying more fields. The fields
-        // belong on the fact; a richer trace here widens the gap between two
-        // observers of one seam, which is the drift this note exists to stop.
+        // What that buys is the whole point of the thread. The brain's
+        // `fighter_decision` fact and the body's `control_frame_received` fact
+        // carry the SAME subject, so one `explain` returns both — "asked for
+        // -1.0, holding -1.0, travelling +588" is one line instead of two
+        // streams a human correlates by eye. On 2026-07-31 that correlation was
+        // the open question and nothing could state it.
+        #[cfg(feature = "causal")]
         if trace_enabled() {
-            let world = app.world_mut();
-            let mut seam = world.query::<(
-                &MatchSeat,
-                &ActorControl,
-                &ambition::platformer::body::BodyKinematics,
-            )>();
-            for (seat, control, kinematics) in seam.iter(world) {
-                if seat.0 == 1 && tick % 5 == 0 {
-                    eprintln!(
-                        "[seam] t={tick} x={:.0} vx={:.0} control_x={:.1} dash={} jump={}",
-                        kinematics.pos.x,
-                        kinematics.vel.x,
-                        control.0.locomotion.x,
-                        control.0.dash_pressed,
-                        control.0.jump_pressed,
-                    );
-                }
-            }
+            trace_seam(&mut app, tick);
         }
         let world = app.world_mut();
         let mut q = world.query::<(

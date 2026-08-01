@@ -236,16 +236,6 @@ impl Plugin for PlayerSchedulePlugin {
                     // somebody was using it to find out why.
                     crate::causal::record_player_movement_intent
                         .after(ambition_actors::avatar::tick_player_brains),
-                    // The same observation for the bodies that have no seat —
-                    // every AI fighter. Keyed by actor id, which is the key the
-                    // brain's own decision fact uses, so `explain` returns what
-                    // the brain asked for and what the body was holding side by
-                    // side. It exists because the recovery thread reached "the
-                    // brain emits full left for three decisions and the body
-                    // accelerates right" and had no instrument on the second
-                    // half of that sentence.
-                    crate::causal::record_body_control_frame
-                        .after(ambition_actors::avatar::tick_player_brains),
                 )
                     .in_set(crate::causal::RecordingSet::Publish),
             )

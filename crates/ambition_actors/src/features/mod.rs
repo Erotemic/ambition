@@ -298,6 +298,29 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // differently, and a test fixture IS somebody composing differently.
         #[cfg(feature = "causal")]
         app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
+        // **AN INSTRUMENT REGISTERS WHAT IT READS.**
+        //
+        // ⛔ found by running `ladder_probe --features causal`, which panicked
+        // on the first tick with "Message not initialized". The three causal
+        // observers below read five message types and the composition only ever
+        // registered one; every other registration came from whichever gameplay
+        // plugin happened to WRITE that message, so turning the inspector on in
+        // a composition lacking one of those plugins killed the app. The
+        // inspector could not be enabled for the game it was built to inspect.
+        //
+        // ⚠ this is the READER half of the rule already learned on the writer
+        // side: a knockout is acted on by the SIMULATION and must fail loud, but
+        // an INSTRUMENT must degrade. `add_message` is idempotent, so a
+        // composition that already registers these is unaffected and one that
+        // does not gets an empty stream instead of a panic — the honest reading
+        // of "nothing knocked anybody out this tick".
+        #[cfg(feature = "causal")]
+        {
+            app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
+            app.add_message::<ambition_combat::stocks::FighterStockSpent>();
+            app.add_message::<ambition_combat::stocks::StocksMatchDecided>();
+            app.add_message::<crate::features::ecs::damage_apply::BodyReactionApplied>();
+        }
         app.add_systems(
             sim,
             (
@@ -492,6 +515,22 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 tick_actor_brains,
+                // **IMMEDIATELY after the writer, and that placement is the
+                // whole correctness of the instrument.**
+                //
+                // ⛔ it was first registered in `PlayerInputSet::Brain`, after
+                // `tick_player_brains` — a WHOLE PHASE EARLIER than this one. So
+                // for every actor-brained body it read the PREVIOUS tick's
+                // `ActorControl` and printed it beside THIS tick's decision. On
+                // a level-9 ladder run that produced 378 apparent "the brain
+                // asked left and the body went right" rows, every one of them
+                // the instrument looking at a stale frame. The bug the trace
+                // exists to find has exactly that shape, so the artifact was
+                // indistinguishable from the finding — and this thread has been
+                // fooled by a measurement artifact before. Correctly ordered,
+                // `asked != holding` is 0 of 2279.
+                #[cfg(feature = "causal")]
+                crate::causal::record_body_control_frame,
                 // The SECOND blanking position, and the one that makes
                 // `ScriptedControl` mean the same thing for every body.
                 //

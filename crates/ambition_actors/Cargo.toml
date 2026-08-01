@@ -25,7 +25,13 @@ crate-type = ["rlib"]
 
 [features]
 # Publish this crate's causal facts (movement intent, for now).
-causal = ["dep:ambition_causal", "ambition_combat/causal"]
+# ⚠ **every crate that PUBLISHES must be listed**, not just the ones this crate
+# calls into. `ambition_characters` was missing until 2026-08-01, so the BRAIN
+# domain — the fighter decisions Program C exists to explain — was compiled out
+# of every composition that turned the inspector on. The stderr trace still
+# printed, which is what hid it: the line appeared and the fact did not, and
+# nothing distinguishes "the brain published nothing" from "the brain cannot".
+causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_characters/causal"]
 # Default preserves the full desktop sandbox / development posture. Android
 # builds use the `android` composite below with `--no-default-features` so the
 # phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only

@@ -16,7 +16,7 @@ description = "Ambition gameplay core: content-free simulation systems, runtime 
 # output filenames when it emits a cdylib -- a shared library needs a
 # predictable name -- and that applies to the target's OTHER crate-types too.
 # So every feature variant of this crate collided on one unhashed
-# `libambition_actors.rlib` instead of getting the per-feature artifact every
+# `libambition_platformer2d_actor_monolith.rlib` instead of getting the per-feature artifact every
 # rlib-only crate gets. The 18-job test suite resolves this crate to 9 distinct
 # feature sets, so each crossing overwrote the slot and forced a rebuild of
 # this crate plus the ~15 downstream of it. Adding a cdylib back reintroduces

@@ -893,8 +893,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for profile_name in ["debug", "release", "distribution"]:
         candidate = repo / "target" / profile_name / "ambition_platformer2d_actor_monolith"
         if candidate.exists():
-            run(f"file_{profile_name}_ambition_actors", ["file", str(candidate)])
-            run(f"size_{profile_name}_ambition_actors", ["size", str(candidate)])
+            run(f"file_{profile_name}_ambition_platformer2d_actor_monolith", ["file", str(candidate)])
+            run(f"size_{profile_name}_ambition_platformer2d_actor_monolith", ["size", str(candidate)])
 
     timings = copy_cargo_timings(repo, out)
     binaries = collect_binary_sizes(repo, out)

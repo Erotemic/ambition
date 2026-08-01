@@ -14,7 +14,7 @@ target-dir = "/home/joncrall/ambition-target"
 #
 # Three times on 2026-07-31 a `cargo test -p ambition_app` died with
 # `mold: error: undefined symbol: anon.<hash>.llvm.<hash>` referenced from a
-# stale `libambition_runtime` rlib — a link failure with no source cause, cured
+# stale `libambition_platformer2d_runtime` rlib — a link failure with no source cause, cured
 # only by discarding the incremental cache. It is not cosmetic: every goal-guard
 # check that builds the app's test binary fails at the LINK step, so a green
 # repository reports itself red and the reason is in a linker dump nobody reads.

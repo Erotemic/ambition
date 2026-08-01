@@ -2461,11 +2461,11 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 fn the_limb_and_mount_relations_reach_the_registry_dump() {
     let dump = engine_construction_registry().deterministic_dump();
     assert!(
-        dump.contains("relation\tambition.limb\tambition_actors\tlimb-rig\t"),
+        dump.contains("relation\tambition.limb\tambition_platformer2d_actor_monolith\tlimb-rig\t"),
         "{dump}"
     );
     assert!(
-        dump.contains("relation\tambition.mount\tambition_actors\tmount-link\t"),
+        dump.contains("relation\tambition.mount\tambition_platformer2d_actor_monolith\tmount-link\t"),
         "{dump}"
     );
 }

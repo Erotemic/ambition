@@ -20,6 +20,40 @@ pub mod session_world;
 /// the `ambition::provider::…` path.
 pub use ambition_platformer_provider as provider;
 
+/// **The causal inspector** — "why did this actor change on this tick".
+///
+/// Behind the `causal` feature, default-OFF, for the reason every instrument in
+/// this engine is: a game that never opens one must not link one. Turning it on
+/// gives a consumer the whole vocabulary — facts, domains, subjects, the log,
+/// `explain` — plus the host plugin, WITHOUT importing an internal-shaped
+/// module. That last clause is a stated goal of the program this belongs to: an
+/// agent should be able to inspect why a body moved without reading engine
+/// source or naming an engine-private path.
+///
+/// ```ignore
+/// use ambition::causal::{CausalRecording, RecordingPolicy, SubjectKey, domains};
+///
+/// app.add_plugins(ambition::causal::CausalPlugin);
+/// app.world_mut()
+///     .resource_mut::<CausalRecording>()
+///     .set_policy(RecordingPolicy::only([domains::MOVEMENT]));
+/// // … drive the sim …
+/// println!("{}", log.explain(tick, &SubjectKey::Seat(1)).render());
+/// ```
+#[cfg(feature = "causal")]
+pub mod causal {
+    /// The vocabulary: facts, domains, subjects, the log, `explain`.
+    pub use ambition_causal::*;
+    /// The host half: the plugin, the frame stamp, the publishers' ordering set.
+    ///
+    /// ⚠ a game installs `CausalPlugin` and gets recording it can TURN ON. It
+    /// never turns itself on: an instrument that is on by default is one
+    /// somebody switches off, and then it is not there when it is needed.
+    pub use ambition_runtime::causal::{
+        CausalPlugin, RecordingSet, assert_no_offthread_loss, record_domains,
+    };
+}
+
 pub use ambition_actors as actors;
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
@@ -385,4 +419,85 @@ pub mod presentation {
         SurroundRegion,
     };
     pub use ambition_render::hud::declared::{DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot};
+}
+
+/// **The SDK claim about the inspector, tested.**
+///
+/// The program this belongs to says an agent should be able to *"inspect why the
+/// resulting actor moved, attacked, took damage, or changed lifecycle state …
+/// without importing internal-shaped engine modules or reading engine source"*.
+///
+/// So this module uses ONLY `ambition::causal::…` — no `ambition_causal`, no
+/// `ambition_runtime`, no `ambition_actors`. If a consumer would have to reach
+/// past the facade to do this, that shows up here as a compile error rather
+/// than as a paragraph somebody has to believe.
+#[cfg(all(test, feature = "causal"))]
+mod causal_sdk_tests {
+    use crate::causal::{
+        CausalFact, CausalPlugin, CausalRecording, FactDetail, RecordingPolicy, RecordingSet,
+        SubjectKey, domains, record_domains,
+    };
+    use bevy::prelude::*;
+
+    /// A game's own publisher, written the way a consumer would write one.
+    fn a_game_publishes_something(mut log: ResMut<CausalRecording>) {
+        log.record(
+            CausalFact::new(
+                domains::MOVEMENT,
+                0,
+                FactDetail::new("my_game_fact", "the game said something"),
+            )
+            .about(SubjectKey::Seat(0))
+            .field("value", 7_i64),
+        );
+    }
+
+    #[test]
+    fn a_consumer_inspects_a_tick_through_the_facade_alone() {
+        let mut app = App::new();
+        app.add_plugins(CausalPlugin);
+        app.insert_resource(crate::time::SimTick(11));
+        record_domains(&mut app, RecordingPolicy::All);
+        app.add_systems(Update, a_game_publishes_something.in_set(RecordingSet::Publish));
+        app.update();
+
+        let why = app
+            .world()
+            .resource::<CausalRecording>()
+            .explain(11, &SubjectKey::Seat(0));
+        assert_eq!(
+            why.first("my_game_fact").and_then(|f| f.get("value")),
+            Some(&crate::causal::FactValue::Int(7)),
+            "a game's own fact comes back out of the facade's own explainer"
+        );
+        assert!(
+            why.render().contains("seat:0"),
+            "and renders for a human: {}",
+            why.render()
+        );
+    }
+
+    /// ⚠ **the tick is the HOST's**, even for a consumer's own fact. A game that
+    /// had to stamp its own would be a second clock nothing could join against.
+    #[test]
+    fn a_consumers_fact_carries_the_hosts_tick_without_being_told_it() {
+        let mut app = App::new();
+        app.add_plugins(CausalPlugin);
+        app.insert_resource(crate::time::SimTick(0));
+        record_domains(&mut app, RecordingPolicy::All);
+        app.add_systems(Update, a_game_publishes_something.in_set(RecordingSet::Publish));
+
+        app.world_mut().resource_mut::<crate::time::SimTick>().0 = 40;
+        app.update();
+        app.world_mut().resource_mut::<crate::time::SimTick>().0 = 41;
+        app.update();
+
+        let log = app.world().resource::<CausalRecording>();
+        assert_eq!(log.explain(40, &SubjectKey::Seat(0)).facts().len(), 1);
+        assert_eq!(log.explain(41, &SubjectKey::Seat(0)).facts().len(), 1);
+        assert!(
+            log.explain(42, &SubjectKey::Seat(0)).is_empty(),
+            "and nothing lands on a tick that never ran"
+        );
+    }
 }

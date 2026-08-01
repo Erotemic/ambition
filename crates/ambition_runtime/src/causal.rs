@@ -49,13 +49,26 @@ pub struct CausalPlugin;
 
 impl Plugin for CausalPlugin {
     fn build(&self, app: &mut App) {
-        // ⛔ **The resource only.** The stamp does NOT go in `Last`, which is
-        // where it started and where the parallel-schedule proof caught it: it
-        // ran AFTER every publisher, so a fact published during `Update` carried
-        // the previous frame's tick. The stamp belongs at the HEAD of the
-        // schedule its publishers run in, which is the sim schedule, and only
-        // `player_schedule` knows what that is.
-        app.init_resource::<CausalRecording>();
+        // ⛔ **The stamp does NOT go in `Last`.** That is where it started and
+        // where the parallel-schedule proof caught it: it ran AFTER every
+        // publisher, so a fact published during `Update` carried the PREVIOUS
+        // frame's tick.
+        //
+        // It goes in `First`, and that is the plugin's whole job beyond the
+        // resource: a consumer who adds `CausalPlugin` to a plain `App` and
+        // publishes a fact must get a stamped one. The first version installed
+        // only the resource, on the reasoning that the sim schedule owns the
+        // stamp — and a consumer's app then recorded every fact at tick zero,
+        // silently. An SDK entry point that only works inside this engine's own
+        // schedule is not an entry point.
+        //
+        // ⚠ `player_schedule` ALSO stamps, at the head of the sim phase, and
+        // that is not redundant: `SimulationReplayState` is only meaningful
+        // there, so the sim-phase stamp is the one that can tell an original
+        // tick from a resimulated one. Both are idempotent writes of the same
+        // two values, so the later one simply refines the earlier.
+        app.init_resource::<CausalRecording>()
+            .add_systems(bevy::app::First, stamp_causal_frame);
     }
 }
 

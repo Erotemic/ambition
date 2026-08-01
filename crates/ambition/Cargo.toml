@@ -7,6 +7,9 @@ authors.workspace = true
 description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
 
 [features]
+# The causal inspector, off by default: a game that never opens one must not
+# link one. Forwards to the runtime's host half and the foundation vocabulary.
+causal = ["ambition_runtime/causal", "dep:ambition_causal"]
 # Slice H: the facade's dependency edges are optional CAPABILITIES, and the
 # default is all of them — a consumer with default features gets exactly the
 # pre-slice-H facade. `default-features = false` is how a game says "only what
@@ -129,6 +132,7 @@ ambition_portal = { path = "../ambition_portal", optional = true }
 ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
 ambition_projectiles = { path = "../ambition_projectiles", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
+ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_runtime = { path = "../ambition_runtime" }
 ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
 ambition_sfx = { path = "../ambition_sfx", optional = true }

@@ -149,11 +149,16 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # feature-gated, and the portal feature now forwards ambition_runtime/portal
 # so the composition is complete.
 #
-# `ambition` JOINED it 2026-07-31, and it is the same rule applied to the
-# umbrella: every one of its 17 extra features is a FORWARDER to an
-# `ambition_actors` feature (`visible`, `dev_tools`, `ldtk_runtime`, `profile`,
-# ...), and that crate is skipped here for exactly this reason. The facade's own
-# tests gate on no feature.
+# `ambition` JOINED it 2026-07-31 on the reasoning that its 17 extra features
+# are all FORWARDERS and "the facade's own tests gate on no feature".
+#
+# ⛔ It LEFT again 2026-08-01, because that last clause stopped being true: the
+# facade gained `causal` and a `#[cfg(feature = "causal")]` SDK test module, so
+# the entry had become "silently un-runs 7 tests" — the exact failure this set's
+# own rule names. The cost was MEASURED rather than assumed, because the comment
+# above implied it would be ruinous: **6m59s and 2.1 GB** for the 17-feature
+# variant. Real, and not the "tens of GB" that phrase suggests — that figure
+# belonged to `ambition_actors`' `profile` feature, which is denied above.
 #
 # It appeared at all only because the facade gained its first `#[cfg(test)]`
 # module that day — `crate_has_tests` is what admits a crate to this pass — and
@@ -179,7 +184,7 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 # became "silently un-runs three tests". Removing it is what the rule requires;
 # the cost is a feature-variant build of the runtime graph, paid once per suite.
 SKIP_FEATURE_JOB = {
-    "ambition", "ambition_app",
+    "ambition_app",
     "ambition_menu",
 }
 

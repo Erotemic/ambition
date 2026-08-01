@@ -11,7 +11,7 @@
 //! foundation crates. This file is the consumer, not the capability.
 
 use ambition::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
-use ambition::input::{InstalledActions, SemanticActionId, GAMEPLAY_CONTEXT};
+use ambition::input::{GAMEPLAY_CONTEXT, InstalledActions, SemanticActionId};
 use bevy::prelude::*;
 
 /// A game that wants the pulse. This is the whole integration an author writes.
@@ -29,7 +29,7 @@ impl GameModule for GameWithPulse {
             .gameplay_route("game_with_pulse/play");
         module
             // behaviour
-            .capability(ambition_pulse::PulsePlugin)
+            .capability(ambition_pulse::PulsePlugin::default())
             // + the semantic action it contributes
             .actions(&[ambition_pulse::PULSE_ACTION])
             // + what it needs rewound
@@ -61,7 +61,9 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
         "the capability's action is in the game's vocabulary"
     );
     assert!(
-        actions.for_context(GAMEPLAY_CONTEXT).any(|d| d.id.0 == "jump"),
+        actions
+            .for_context(GAMEPLAY_CONTEXT)
+            .any(|d| d.id.0 == "jump"),
         "and the engine's own is there unasked, so one query answers both"
     );
 

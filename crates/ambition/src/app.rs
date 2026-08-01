@@ -85,9 +85,9 @@ use crate::world::rooms::RoomMetadata;
 /// a discovery problem, not a convenience.
 pub mod prelude {
     pub use super::{
-        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
-        ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
-        MINIMAL_CHARACTER_ROSTER_RON,
+        AssetSource, CompositionError, EMPTY_CHARACTER_ROSTER_RON, GameModule, HostStatus,
+        MINIMAL_CHARACTER_ROSTER_RON, ModuleDraft, ModuleManifest, PlatformerApp, SessionMode,
+        StartAt, host_status,
     };
     pub use bevy::prelude::App;
 
@@ -629,7 +629,7 @@ impl ModuleDraft {
     /// frame.
     ///
     /// ```ignore
-    /// module.capability(ambition_pulse::PulsePlugin)
+    /// module.capability(ambition_pulse::PulsePlugin::default())
     ///       .requires_rollback(ambition_pulse::REQUIRED_ROLLBACK);
     /// ```
     ///
@@ -657,7 +657,7 @@ impl ModuleDraft {
     /// that holds it. This is where a capability's actions reach a composition:
     ///
     /// ```ignore
-    /// module.capability(ambition_pulse::PulsePlugin)
+    /// module.capability(ambition_pulse::PulsePlugin::default())
     ///       .actions(&[ambition_pulse::PULSE_ACTION]);
     /// ```
     ///
@@ -1692,8 +1692,8 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
         // rather than to a manually stepped fixture.
-        use bevy::render::settings::{RenderCreation, WgpuSettings};
         use bevy::render::RenderPlugin;
+        use bevy::render::settings::{RenderCreation, WgpuSettings};
         let plugins = plugins
             .disable::<bevy::log::LogPlugin>()
             .disable::<bevy::core_pipeline::CorePipelinePlugin>()
@@ -1864,8 +1864,8 @@ mod tests {
     #[test]
     fn a_capabilitys_action_lands_in_the_compositions_registry() {
         use ambition_input::{
-            ActionControlKind, InstalledActions, SemanticActionDef, SemanticActionId,
-            GAMEPLAY_CONTEXT,
+            ActionControlKind, GAMEPLAY_CONTEXT, InstalledActions, SemanticActionDef,
+            SemanticActionId,
         };
 
         const GRAPPLE: &[SemanticActionDef] = &[SemanticActionDef {
@@ -1903,7 +1903,9 @@ mod tests {
             .get_resource::<InstalledActions>()
             .expect("the composition builds an action registry");
         assert_eq!(
-            installed.get(SemanticActionId("grapple")).map(|d| d.capability),
+            installed
+                .get(SemanticActionId("grapple"))
+                .map(|d| d.capability),
             Some("traversal"),
             "a capability's action is in the composition's vocabulary"
         );
@@ -1924,7 +1926,9 @@ mod tests {
     /// winner is decided by iteration order.
     #[test]
     fn two_capabilities_claiming_one_action_refuse_the_composition() {
-        use ambition_input::{ActionControlKind, SemanticActionDef, SemanticActionId, GAMEPLAY_CONTEXT};
+        use ambition_input::{
+            ActionControlKind, GAMEPLAY_CONTEXT, SemanticActionDef, SemanticActionId,
+        };
 
         const STOLEN: &[SemanticActionDef] = &[SemanticActionDef {
             id: SemanticActionId("jump"),

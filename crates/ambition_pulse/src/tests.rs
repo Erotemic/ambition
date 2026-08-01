@@ -52,6 +52,35 @@ fn compile_profiles(name: &str, text: &str) -> Result<Vec<PulseProfile>, String>
         .clone())
 }
 
+/// The same compilation, returning the PACK — what a composition actually holds.
+fn compile_pack(
+    name: &str,
+    text: &str,
+) -> Result<ambition_content_pack::PreparedContentPack, String> {
+    let root = std::env::temp_dir().join(format!("ambition_pulse_test/{name}"));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("temp dir");
+    std::fs::write(root.join("pulse.ron"), text).expect("write");
+    let mut registry = SchemaRegistry::new();
+    registry.register(pulse_schema()).expect("fresh registry");
+    let draft = ContentPackDraft::read_manifest(
+        root,
+        ContentPackManifest {
+            id: PackId("pulse_pack".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("demo".into()),
+            requires: Vec::new(),
+            sources: vec![SourceDeclaration {
+                path: "pulse.ron".into(),
+                schema: SchemaId::new(PULSE_SCHEMA),
+                version: ambition_content_pack::SchemaVersion(1),
+            }],
+        },
+    )
+    .map_err(|f| f.render())?;
+    compile(&draft, &registry, &AssetsUnchecked).map_err(|f| f.render())
+}
+
 /// **HALF 1 — an authored schema, registered by the capability that owns it.**
 ///
 /// `ambition_content_pack` has no pulse knowledge. No central content enum was
@@ -119,7 +148,7 @@ fn a_composition_installs_the_rollback_state_the_capability_offers() {
     use ambition_runtime::rollback::AmbitionRollbackApp;
 
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     // The one line a host writes. If a capability's offer needed more than
     // this, "offer rather than register" would be a worse trade than the
     // dependency it avoids.
@@ -151,7 +180,7 @@ fn a_composition_installs_the_rollback_state_the_capability_offers() {
 #[test]
 fn the_plugin_alone_registers_no_rollback_state() {
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     let registered = app
         .world()
         .get_resource::<ambition_runtime::rollback::RollbackRegistry>()
@@ -168,7 +197,7 @@ fn the_plugin_alone_registers_no_rollback_state() {
 #[test]
 fn the_capability_publishes_its_own_causal_facts() {
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     app.init_resource::<CausalRecording>();
     app.world_mut()
         .resource_mut::<CausalRecording>()
@@ -239,7 +268,7 @@ fn the_capability_publishes_its_own_causal_facts() {
 #[test]
 fn a_refused_pulse_says_why() {
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     app.init_resource::<CausalRecording>();
     app.world_mut()
         .resource_mut::<CausalRecording>()
@@ -271,7 +300,7 @@ fn a_refused_pulse_says_why() {
 #[test]
 fn firing_arms_the_cooldown_and_it_ages() {
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     app.world_mut()
         .insert_resource(PulseProfiles::from_prepared(vec![PulseProfile {
             name: "test".into(),
@@ -319,7 +348,7 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
 
     // A host that installed the mechanic and nothing else.
     let mut forgetful = App::new();
-    forgetful.add_plugins(PulsePlugin);
+    forgetful.add_plugins(PulsePlugin::default());
     forgetful.init_resource::<RollbackRegistry>();
     let missing = forgetful
         .world()
@@ -336,7 +365,7 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
 
     // A host that accepted the offer.
     let mut complete = App::new();
-    complete.add_plugins(PulsePlugin);
+    complete.add_plugins(PulsePlugin::default());
     complete.rollback_component_clone_probed::<PulseCooldown>(
         PULSE_CAPABILITY,
         ROLLBACK_STATE,
@@ -360,7 +389,7 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
     use ambition_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
 
     let mut app = App::new();
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
     app.rollback_component_clone_probed::<PulseCooldown>(
         "some_other_capability",
         ROLLBACK_STATE,
@@ -407,7 +436,7 @@ fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
     let mut app = App::new();
     // The host chooses. This is the line a fixed-tick or rollback host runs.
     app.set_sim_schedule(HostSim);
-    app.add_plugins(PulsePlugin);
+    app.add_plugins(PulsePlugin::default());
 
     let firer = app
         .world_mut()
@@ -467,7 +496,7 @@ fn the_result_is_a_function_of_sim_ticks_not_of_which_schedule_runs_them() {
         if host_schedule {
             app.set_sim_schedule(HostSim);
         }
-        app.add_plugins(PulsePlugin);
+        app.add_plugins(PulsePlugin::default());
         let firer = app
             .world_mut()
             .spawn((PulseBody::default(), PulseCooldown::default()))
@@ -509,5 +538,121 @@ fn the_result_is_a_function_of_sim_ticks_not_of_which_schedule_runs_them() {
         run(true, 5),
         "five simulation ticks produced different pulse state depending on WHICH \
          schedule ran them — the capability's result is not a function of ticks"
+    );
+}
+
+/// **AUTHORED NUMBERS REACH A FIRED PULSE.**
+///
+/// ⛔ the review's second finding, and the authority split the content-compiler
+/// program exists to remove: the schema was registered, packs validated and
+/// LOWERED correctly, and `PulsePlugin` then called
+/// `init_resource::<PulseProfiles>()` — the built-in defaults. A game could
+/// author a radius, watch the compiler accept it, mount the capability, and
+/// pulse at the default radius forever. **The compiler was validating content
+/// the runtime ignored**, which is worse than not validating it.
+///
+/// So this test does not inspect the lowered artifact — that passed the whole
+/// time. It authors profiles that differ from the defaults in every field,
+/// compiles them, mounts the capability, FIRES, and measures the body.
+///
+/// PROBED: with `PulsePlugin::default()` in place of `from_prepared`, the pushed
+/// body reports the default force and the assertion names both numbers.
+#[test]
+fn authored_profile_values_reach_a_fired_pulse_not_just_the_lowered_artifact() {
+    use bevy::ecs::schedule::ScheduleLabel;
+
+    #[derive(ScheduleLabel, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+    struct HostSim;
+
+    // Every field differs from `PulseProfile::default()` (96 / 420 / 45), and
+    // the FIRST profile is the active one.
+    const AUTHORED: &str = r#"(
+    profiles: [
+        (name: "authored", radius: 500.0, force: 1234.0, cooldown_ticks: 7),
+    ],
+)"#;
+
+    let pack = compile_pack("acceptance", AUTHORED).expect("the pack compiles");
+    let plugin = PulsePlugin::from_prepared(&pack).expect("the pack prepared profiles");
+
+    let mut app = App::new();
+    app.set_sim_schedule(HostSim);
+    app.add_plugins(plugin);
+
+    let firer = app
+        .world_mut()
+        .spawn((PulseBody::default(), PulseCooldown::default()))
+        .id();
+    // 300px away: inside the AUTHORED 500 radius and far outside the default 96,
+    // so "did the authored radius apply" is answerable from whether it moved.
+    let near = app
+        .world_mut()
+        .spawn((
+            PulseBody {
+                pos: Vec2::new(300.0, 0.0),
+                ..Default::default()
+            },
+            PulseAffected,
+        ))
+        .id();
+
+    app.world_mut()
+        .write_message(PulseRequested { body: firer });
+    app.update();
+    app.world_mut().run_schedule(HostSim);
+
+    let pushed = app.world().entity(near).get::<PulseBody>().unwrap().vel;
+    assert!(
+        pushed.x > 0.0,
+        "a body 300px away was not pushed, so the AUTHORED radius of 500 never \
+         reached the runtime — the capability is still running the built-in 96"
+    );
+    // force 1234 with linear falloff at 300/500 → 1234 * (1 - 0.6) = 493.6
+    assert!(
+        (pushed.x - 493.6).abs() < 0.5,
+        "pushed at {pushed:?}; the authored force of 1234 with linear falloff at \
+         300/500 is 493.6. A different number means a different profile applied"
+    );
+    let cooldown = app
+        .world()
+        .entity(firer)
+        .get::<PulseCooldown>()
+        .unwrap()
+        .remaining_ticks;
+    assert_eq!(
+        cooldown, 7,
+        "the authored cooldown of 7 did not reach the runtime (the default is 45)"
+    );
+}
+
+/// **A pack that prepared no profiles is a REFUSAL, not a silent default.**
+///
+/// The other half of the seam: a composition that asked for authored tuning and
+/// got none must hear about it. Silently running the defaults is exactly the
+/// behaviour the finding above describes.
+#[test]
+fn a_pack_without_pulse_profiles_refuses_rather_than_defaulting() {
+    // A pack whose schema registry has no pulse schema lowers no pulse artifact.
+    let root = std::env::temp_dir().join("ambition_pulse_test/empty_pack");
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("temp dir");
+    let draft = ContentPackDraft::read_manifest(
+        root,
+        ContentPackManifest {
+            id: PackId("pulse_pack".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("demo".into()),
+            requires: Vec::new(),
+            sources: Vec::new(),
+        },
+    )
+    .expect("an empty pack is a valid draft");
+    let pack = compile(&draft, &SchemaRegistry::new(), &AssetsUnchecked).expect("compiles");
+
+    let refusal = PulsePlugin::from_prepared(&pack).expect_err("no profiles is a refusal");
+    let rendered = refusal.to_string();
+    assert!(
+        rendered.contains("demo") && rendered.contains("PulsePlugin::default()"),
+        "the refusal must name the pack and the deliberate alternative, got: {rendered}"
     );
 }

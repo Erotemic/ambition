@@ -127,13 +127,74 @@ pub struct PulseBody {
 /// registry belongs to whoever is composing. Rollback is the same kind of thing.
 /// [`ROLLBACK_STATE`] is the offer; a host with the trait in scope installs it,
 /// which is one line and is shown in this crate's tests.
-pub struct PulsePlugin;
+#[derive(Debug, Default)]
+pub struct PulsePlugin {
+    /// What the composition compiled, or `None` for the built-in defaults.
+    ///
+    /// ⛔ **this field is the fix for an authority split the compiler program
+    /// exists to prevent** (GPT 5.6, 2026-08-01, finding 2). The schema was
+    /// registered, packs VALIDATED and LOWERED correctly, and the plugin then
+    /// called `init_resource::<PulseProfiles>()` — the built-in defaults. So a
+    /// game could author a radius, watch the compiler accept it, mount the
+    /// capability, and pulse at the default radius forever. The compiler was
+    /// validating content the runtime ignored, which is worse than not
+    /// validating it.
+    profiles: Option<PulseProfiles>,
+}
+
+impl PulsePlugin {
+    /// **Mount with the profiles a compiled pack prepared.**
+    ///
+    /// Consumes the artifact `FacetOutcome::lower` produced — the same value the
+    /// compiler validated — rather than re-reading the authored file. A second
+    /// parse would be a second authority over the same bytes, which is the
+    /// defect `P1e` removed from the character catalog.
+    ///
+    /// `Err` when the pack prepared no pulse profiles: a composition that asked
+    /// for authored tuning and got none should hear about it, not silently run
+    /// the defaults. That silence is precisely what this constructor replaces.
+    pub fn from_prepared(
+        pack: &ambition_content_pack::PreparedContentPack,
+    ) -> Result<Self, PulseContentMissing> {
+        let lowered = pack
+            .lowered::<Vec<PulseProfile>>(&ambition_content_pack::SchemaId::new(PULSE_SCHEMA))
+            .ok_or(PulseContentMissing {
+                pack: pack.namespace.0.clone(),
+            })?;
+        Ok(Self {
+            profiles: Some(PulseProfiles::from_prepared(lowered.clone())),
+        })
+    }
+}
+
+/// A pack that prepared no pulse profiles, named so the refusal is actionable.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PulseContentMissing {
+    pub pack: String,
+}
+
+impl std::fmt::Display for PulseContentMissing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "pack '{}' prepared no `{PULSE_SCHEMA}` profiles. Either register              `ambition_pulse::pulse_schema()` and author one, or mount              `PulsePlugin::default()` and say that the defaults are intended",
+            self.pack
+        )
+    }
+}
+
+impl std::error::Error for PulseContentMissing {}
 
 impl Plugin for PulsePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PulseRequested>()
-            .add_message::<PulseFired>()
-            .init_resource::<PulseProfiles>();
+            .add_message::<PulseFired>();
+        // The composition's compiled profiles WIN. `init_resource` would not
+        // overwrite, and that asymmetry is how the defaults used to survive.
+        match self.profiles.clone() {
+            Some(profiles) => app.insert_resource(profiles),
+            None => app.init_resource::<PulseProfiles>(),
+        };
         // **THE AUTHORITATIVE SIMULATION SCHEDULE, through the public seam.**
         //
         // ⛔ this was bare `Update`, which is the ordinary Bevy habit and is

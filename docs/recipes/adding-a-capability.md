@@ -108,6 +108,26 @@ let mut registry = ambition::content::engine_schemas();
 registry.register(my_mechanic::my_schema())?;
 ```
 
+⛔ **and then it must reach the RUNNING capability, which is a separate step and
+the one that gets forgotten.** `ambition_pulse` registered its schema, compiled
+and lowered packs correctly, and its plugin still called
+`init_resource::<PulseProfiles>()` — the built-in defaults. A game could author a
+radius, watch the compiler accept it, mount the capability, and pulse at the
+default radius forever. **A compiler that validates content the runtime ignores
+is worse than no compiler**, because it certifies the wrong thing.
+
+Take the LOWERED artifact at mount time:
+
+```rust
+module.capability(my_mechanic::MyPlugin::from_prepared(&pack)?);
+```
+
+⚠ consume the artifact `FacetOutcome::lower` produced — never re-read the
+authored file. A second parse is a second authority over the same bytes.
+⚠ and make "the pack prepared nothing" a REFUSAL. Falling back to defaults
+silently is the bug above wearing a different hat; a composition that meant the
+defaults can say so by mounting `MyPlugin::default()`.
+
 ## 3. A semantic action
 
 ```rust

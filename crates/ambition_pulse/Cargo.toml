@@ -37,3 +37,7 @@ serde = { workspace = true }
 # registration works still runs.
 [dev-dependencies]
 ambition_runtime = { path = "../ambition_runtime" }
+# The public SDK, for the composition proof in `tests/`. A dev-dependency, so
+# the capability's own closure is unaffected: a mechanic must not depend on the
+# facade that mounts it.
+ambition = { path = "../ambition", features = ["content_pack"] }

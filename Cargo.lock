@@ -750,6 +750,7 @@ dependencies = [
 name = "ambition_pulse"
 version = "0.1.0"
 dependencies = [
+ "ambition",
  "ambition_causal",
  "ambition_content_pack",
  "ambition_engine_core",

@@ -114,6 +114,14 @@ pub fn record_player_movement_intent(
 /// is keyed by SEAT and skips anything without a player slot, which is every AI
 /// fighter — precisely the bodies this thread is about.
 ///
+/// ⚠ **`ladder_probe` still prints its own `[seam]` line from a hand query.**
+/// Same observation, and this is the version to keep — it is a typed fact that
+/// joins with the brain's, where that one is text a human correlates by eye. The
+/// probe cannot read it until `ambition/causal` is enabled on that binary's
+/// crate, which is a default-off feature addition with a `SKIP_FEATURE_JOB`
+/// entry to settle. Until then the two coexist knowingly, and the probe carries
+/// the matching note.
+///
 /// Observer by construction, like its sibling: every component immutable, the
 /// log the only thing held mutably.
 pub fn record_body_control_frame(

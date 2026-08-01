@@ -319,6 +319,21 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         // trace could only pose: on 2026-07-31 the brain emitted full LEFT for
         // three decisions while the body accelerated RIGHT, and nothing said
         // whether the intent was lost on the way or ignored on arrival.
+        // ⚠ **this hand-rolled query duplicates `record_body_control_frame`**
+        // (`ambition_actors::causal`), which publishes the same observation as a
+        // typed fact keyed by the body's actor id — the SAME subject the brain's
+        // decision fact carries, so the two join in one `explain(tick, subject)`
+        // instead of being two text streams a human correlates by eye.
+        //
+        // That is the version to keep: Program C's premise is typed facts, not
+        // log parsing. It is not used HERE yet because reading it needs
+        // `ambition/causal` enabled on this binary's crate, and that is a
+        // default-off feature addition (§2e) with a `SKIP_FEATURE_JOB` entry to
+        // settle in the same commit. Recorded in the 72h queue.
+        //
+        // ⛔ do not "improve" this println into carrying more fields. The fields
+        // belong on the fact; a richer trace here widens the gap between two
+        // observers of one seam, which is the drift this note exists to stop.
         if trace_enabled() {
             let world = app.world_mut();
             let mut seam = world.query::<(

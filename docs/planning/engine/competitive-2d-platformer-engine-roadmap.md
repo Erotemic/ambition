@@ -1078,55 +1078,60 @@ and `apply_player_spawn_projectile_messages` sit after the step DELIBERATELY (*"
 the new body first ticks next frame"*), so a set spanning them would push
 presentation past a spawn it is not waiting for.
 
-⭐ **the running tally for this whole thread: 49 → 23 cross-crate leaf pins, via
-twelve sets** — eleven single-member (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
-`PlayerHitResolutionSet`, `HazardTickSet`, `ProjectileStepSet`,
-`WornControlGateSet`, `MenuFrameCutsceneSkip`, `LocalInputFrameCommit`,
-`PortalLinkResolution`, `PortalPickupArming`, `PlayerBrainTick`) and one with two
-(`MenuFramePopulate`) — plus one phase vocabulary (`ProgressionSet`, six phases).
-Every conversion is EXACTLY equivalent to the pins it replaced — including the
-four that were parked for being "stricter", which they were not; see below.
+⭐ **DONE 2026-08-02: 0 cross-crate leaf pins.** Not one system in this workspace
+is ordered against another crate's function name. Thirty-two sets plus one phase
+vocabulary (`ProgressionSet`, six phases) got there, and
+`scripts/check_cross_crate_leaf_pins.py` now enforces it as a BAN rather than a
+ratchet — a new `.after(other_crate::some_function)` fails immediately.
 
-⛔ **do not maintain the tally here. `scripts/check_cross_crate_leaf_pins.py`
-owns it now**, and the numbers above are frozen prose about what happened, not a
-worklist. This paragraph used to carry the live count and a list of what
-remained, and both went wrong: the list recorded `tick_player_brains` as an
-ordinary row when it is the one that already has a two-member set, and the
-`git grep NAME | head -8` reached for to re-check the list truncated two
-cross-crate pins off the bottom of its own output, which was then published as
-"it is intra-crate". A hand tally drifts silently and the ad-hoc command used to
-audit it has its own silent limit.
+⛔ **do not maintain a tally here.** The guard owns the number; `--list` prints
+any remaining row from the tree in under a second. This paragraph used to carry
+the live count and a worklist, and both went wrong: the list recorded
+`tick_player_brains` as an ordinary row when it is the one that already had a
+two-member set, and the `git grep NAME | head -8` reached for to re-check it
+truncated two cross-crate pins off the bottom of its own output, which was then
+published as "it is intra-crate".
 
-`--list` prints every remaining row grouped by target crate, from the tree, in
-under a second. Start there.
+⚠ **the first version of the guard undercounted by two**, because its pattern
+required `)` immediately after the path and rustfmt wraps long pins onto their
+own line with a trailing comma. So the honest total is **51 → 0**, and the
+original hand tally of 35 was closer to right than the instrument built to
+replace it. Every shape is now a planted test.
 
-⭐ **the "stricter" category was a mistake and is retired.** It said: when the
-pinned system already sits in a multi-member set, pinning that set moves every
-consumer later, so the conversion needs a decision rather than an edit.
-`tick_player_brains` sat under it twice, unconverted, as the single most-pinned
-function left.
+## What the campaign learned
 
-The error is in the word *that*. Reusing the ENCLOSING set would indeed be
-stricter — but a **nested single-member set** is always available, and it is
-exactly equivalent to the leaf pin it replaces, by construction. All four
-`tick_player_brains` pins converted with no ordering change.
+⭐ **"the target is already in a multi-member set" never meant stricter.** That
+retired category said such a conversion needs a decision rather than an edit, and
+it parked `tick_player_brains` — the most-pinned function in the workspace —
+twice. The error is in the word *that*: reusing the ENCLOSING set would move
+consumers, but a **nested single-member set** is always available and is
+equivalent by construction.
 
-⚠ and the nested set reaches a case the parent never could: an intra-set edge
-between two members owned by DIFFERENT crates. `record_player_movement_intent`
-is itself in `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` is a
-cycle; `.after(PlayerBrainTick)` is fine. Those edges look irreducible and are
-not.
+⚠ the nested form also reaches what the parent cannot: an intra-set edge between
+members owned by DIFFERENT crates. `record_player_movement_intent` is itself in
+`PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` is a cycle;
+`.after(PlayerBrainTick)` is not.
 
-▢ **so there are two kinds left**, and the guard's `--list` tells you where:
-* **convert** — nearly everything. Give the target a set beside its definition,
-  nested inside whatever set it already has, and pin that. State at the
-  definition why the set holds the members it holds; every one of the ten so far
-  has had a different reason to stay single-member, and the next reader can only
-  widen one safely if that reason is written down.
-* **intra-phase** — the pin is between two members of one set AND the consumer
-  is in that set too, so the parent is a cycle and the sub-boundary has to be
-  invented rather than named. `PortalLinkResolution` and `PortalPickupArming`
-  are both this shape; it is still an edit, just a design one.
+⭐ **check whether the boundary already EXISTS before inventing one.** An
+`ActorContactDamage` set was drafted before `WorldPrepSet::ContactDamage` turned
+up — already holding exactly that system, already pinned by Mary-O. Sanic's leaf
+pin was not a missing boundary, it was two demos disagreeing about an existing
+one. A second name for one authority is worse than the leaf pin it replaces.
+
+⭐ **write the membership reason AT the definition.** Every set here had a
+DIFFERENT reason to stay single-member — the neighbour has another run condition;
+the neighbours sit after it deliberately; it is mid-chain; it is the TAIL, so
+widening moves the boundary earlier; the crate must never learn what the other
+member is. `SpriteVisualSync` is the counter-example: deliberately four members,
+because there the boundary genuinely *is* "all of them".
+
+⚠ **naming a boundary can surface a dependency the leaf pin hid.**
+`engine.dialog-vocab-dialog-crate` fired when `YarnStateMirrorRefreshed` was
+defined in the monolith — the old pin had slipped that rule on a technicality,
+since the forbidden token is a type name and `refresh_yarn_state_mirror` is a
+lowercase function. The set moved to `ambition_dialog`, where the vocabulary
+belongs.
+
 
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:

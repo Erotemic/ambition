@@ -18,7 +18,7 @@ to say so — and what is wrong is only the *address*. The fix for any row is ne
 "delete the edge", it is "give the target a set and pin that", so a ban would
 have been waived everywhere on day one.
 
-The last one converted on 2026-08-02. The ceiling is 0 and every mechanism below
+The last one converted on 2026-08-02, across thirty-two sets. The ceiling is 0 and every mechanism below
 is unchanged: the guard still fails in both directions, and "below the ceiling"
 is simply unreachable now. What it means in practice is that a NEW
 `.after(other_crate::some_function)` fails immediately, with the three-step fix

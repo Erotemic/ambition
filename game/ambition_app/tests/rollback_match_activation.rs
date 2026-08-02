@@ -62,10 +62,12 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::rl_sim::{
+    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_platformer2d::actors::character_runtime::{
     ActiveMatch, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
 };
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
 /// A sync-test sim: every frame is saved, rewound and resimulated, so the
 /// activation tick is inside a rollback window by construction rather than by a
@@ -108,7 +110,10 @@ fn two_cpu_roster() -> MatchParticipantRoster {
 
 fn seats(sim: &mut Platformer2dSimHarness) -> Vec<(usize, String)> {
     let world = sim.world_mut();
-    let mut query = world.query::<(&MatchSeat, &ambition_platformer2d::combat::targeting::MatchTeam)>();
+    let mut query = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d::combat::targeting::MatchTeam,
+    )>();
     let mut rows: Vec<(usize, String)> = query
         .iter(world)
         .map(|(seat, team)| (seat.0, team.as_str().to_string()))
@@ -342,8 +347,9 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
             app.add_systems(
                 sim,
                 (
-                    the_roster_arrives_on_a_tick
-                        .before(ambition_platformer2d::actors::character_runtime::seat_match_participants),
+                    the_roster_arrives_on_a_tick.before(
+                        ambition_platformer2d::actors::character_runtime::seat_match_participants,
+                    ),
                     trace_the_activation.in_set(Platformer2dSimulationPhaseMonolith::Trace),
                 ),
             );
@@ -681,4 +687,137 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         "seat two's input moved seat ONE's fighter ({moved_one:.2}px against \
          {moved_two:.2}px): the two seats share an input path"
     );
+}
+
+/// The `SimTick` a TWO-HUMAN roster appears on — same reasoning as
+/// [`ROSTER_ARRIVES_AT`], comfortably past `check_distance: 4`.
+const HUMAN_ROSTER_ARRIVES_AT: u64 = 12;
+
+/// `count` HUMAN participants, from the ids a plain sandbox actually prepares.
+fn human_roster(count: usize) -> MatchParticipantRoster {
+    let ids = ["player_robot_v3", "player_robot_v2"];
+    let teams = ["blue", "red"];
+    MatchParticipantRoster {
+        participants: (0..count)
+            .map(|slot| {
+                MatchParticipant::new(ids[slot])
+                    .driven_by(ControllerBinding::Human {
+                        device_slot: slot as u8,
+                    })
+                    .on_team(teams[slot])
+            })
+            .collect(),
+        opens_suspended: false,
+        seat_topology: None,
+        fighter_abilities: None,
+        fighter_stocks: None,
+        published_by: None,
+    }
+}
+
+/// ⛔ **SEATING IS ONE-SHOT, and this fixture exists in the shape it does
+/// because of that.**
+///
+/// The first version of this test grew the roster from one seat to two
+/// mid-session and asserted the rewind reconstructed TWO. It fails, and not
+/// because of a defect: `seat_match_participants` opens with
+/// `if active.is_some() { return; }`, so once a match is live a larger roster is
+/// ignored by design. Growing a match mid-fight is not a thing the engine does,
+/// and asserting it would have pinned a behaviour nobody wants.
+///
+/// So the roster is a pure function of `SimTick` in the SAME shape the
+/// activation fixture uses — absent, then present — and what is new here is that
+/// its participants are HUMAN.
+fn the_human_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
+    if tick.get() >= HUMAN_ROSTER_ARRIVES_AT {
+        commands.insert_resource(human_roster(2));
+    } else {
+        commands.remove_resource::<MatchParticipantRoster>();
+    }
+}
+
+fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10)
+            // The session must CARRY seat two, or the second seat's frames are
+            // authored and never asked for.
+            .with_rollback_players(2),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let sim = app.sim_schedule();
+            app.add_systems(
+                sim,
+                the_human_roster_arrives_on_a_tick.before(
+                    ambition_platformer2d::actors::character_runtime::seat_match_participants,
+                ),
+            );
+            Ok(())
+        },
+    )
+    .expect("Ambition GGRS sync-test harness builds")
+}
+
+/// **A rewind across the activation of a TWO-HUMAN match reconstructs both
+/// seats.** AC24's shape, one seat further.
+///
+/// `rewinds_across_the_activation_frame_and_reconstructs_the_same_match` proves
+/// this for two CPU participants. Human seats are the interesting case and the
+/// one couch multiplayer actually ships: they are the participants that carry a
+/// `device_slot`, that the frozen seat topology sizes the session for, and whose
+/// per-seat input latches the rollback has to hold. A CPU seat exercises none of
+/// that.
+///
+/// Under a sync test every frame is saved, rewound and resimulated, so the
+/// activation frame is inside a rollback window by construction.
+/// `rollback_health` is asserted on every tick, so a divergence is reported on
+/// the tick it happens rather than as a confusing count later.
+#[test]
+fn rewinds_across_a_two_human_activation_and_reconstructs_both_seats() {
+    let mut sim = late_arriving_human_roster_sim();
+
+    let seat_slots = |sim: &mut Platformer2dSimHarness| -> Vec<usize> {
+        let world = sim.world_mut();
+        let mut query = world.query::<&MatchSeat>();
+        let mut slots: Vec<usize> = query.iter(world).map(|seat| seat.0).collect();
+        slots.sort();
+        slots
+    };
+
+    let mut saw_the_unseated_phase = false;
+    for tick in 0..(HUMAN_ROSTER_ARRIVES_AT as usize + 40) {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("tick {tick}: {error}"));
+        if seat_slots(&mut sim).is_empty() {
+            saw_the_unseated_phase = true;
+        }
+    }
+
+    assert!(
+        saw_the_unseated_phase,
+        "the fixture never observed the pre-roster phase, so there was no \
+         activation to rewind across and the assertion below would hold on a \
+         session that was seated from tick zero"
+    );
+
+    // **The SLOTS, not the count.** A resimulation that rebuilt two seats both
+    // numbered 0 keeps the count and loses the match.
+    assert_eq!(
+        seat_slots(&mut sim),
+        vec![0, 1],
+        "a two-human match did not come back from the rewind as seats 0 and 1"
+    );
+
+    for tick in 0..20 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("holding the seats, tick {tick}: {error}"));
+        assert_eq!(
+            seat_slots(&mut sim),
+            vec![0, 1],
+            "tick {tick}: the seat set changed under continued resimulation"
+        );
+    }
 }

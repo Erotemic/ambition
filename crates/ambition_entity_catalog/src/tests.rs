@@ -876,3 +876,74 @@ fn move_hurtbox_keyframes_must_fit_inside_the_move_clock() {
         }]
     );
 }
+
+/// A ZERO-WIDTH window is legal; an INVERTED one is not.
+///
+/// `simple_melee` with `windup_s: 0.0` — which `avatar/bundles.rs` authors —
+/// emits `Startup [0.0, 0.0)` so the timeline stays three-phase whether or not a
+/// move has a windup. The validator used to reject `start_s >= end_s` and so
+/// rejected exactly that, which made "no windup" unauthorable through the
+/// prefab every other move uses.
+///
+/// ⚠ this is only safe because every window predicate is the half-open
+/// `start_s <= t < end_s` (`moveset/mod.rs`), so nothing can fire inside a
+/// zero-width window — it is a label on a boundary, not a span. If a predicate
+/// ever becomes inclusive at the end, this stops being free and the validator
+/// should tighten again.
+#[test]
+fn a_zero_width_window_is_legal_but_an_inverted_one_is_not() {
+    let doc_with = |windows: &str| {
+        format!(
+            r#"
+        (
+            schema_version: 1,
+            entities: [
+                (
+                    id: "fighter",
+                    contracts: (
+                        moveset: Some((
+                            verbs: {{ "attack": "swing" }},
+                            moves: [
+                                (
+                                    id: "swing",
+                                    clip: (clip: "attack_side"),
+                                    duration_s: 0.5,
+                                    windows: [{windows}],
+                                    events: [],
+                                ),
+                            ],
+                        )),
+                    ),
+                ),
+            ],
+        )
+        "#
+        )
+    };
+
+    let out_of_range = |source: String| {
+        EntityCatalogDoc::parse(&source)
+            .unwrap()
+            .validate()
+            .into_iter()
+            .any(|e| matches!(e, CatalogError::WindowOutOfRange { .. }))
+    };
+
+    // No windup: Startup collapses onto the frame Active begins.
+    assert!(
+        !out_of_range(doc_with(
+            r#"(start_s: 0.0, end_s: 0.0, tag: Startup, volumes: []),
+               (start_s: 0.0, end_s: 0.3, tag: Active, volumes: []),
+               (start_s: 0.3, end_s: 0.5, tag: Recovery, volumes: [])"#
+        )),
+        "a zero-width Startup window is what `simple_melee` emits for windup_s: 0.0"
+    );
+
+    // Inverted is still a mistake, and must stay one.
+    assert!(
+        out_of_range(doc_with(
+            r#"(start_s: 0.3, end_s: 0.1, tag: Startup, volumes: [])"#
+        )),
+        "loosening `>=` to `>` must not have made an INVERTED window legal too"
+    );
+}

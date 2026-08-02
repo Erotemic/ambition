@@ -1140,7 +1140,14 @@ pub enum CatalogError {
         entity: String,
         id: String,
     },
-    /// A window lies outside `[0, duration_s]` or is inverted/empty.
+    /// A window lies outside `[0, duration_s]` or is inverted.
+    ///
+    /// A ZERO-WIDTH window (`start_s == end_s`) is legal: a move with no windup
+    /// still authors its Startup phase, and the phase readers (`phase_at`, the
+    /// synthesized read-model swing) want the window to exist so the timeline
+    /// stays three-phase. `simple_melee` with `windup_s: 0.0` emits exactly that.
+    /// Nothing fires inside one — every window predicate is the half-open
+    /// `start_s <= t < end_s`, which is empty here — so it costs nothing.
     WindowOutOfRange {
         entity: String,
         mv: String,
@@ -1369,7 +1376,7 @@ impl EntityCatalogDoc {
                 for (index, w) in mv.windows.iter().enumerate() {
                     if !(0.0..=mv.duration_s).contains(&w.start_s)
                         || !(0.0..=mv.duration_s).contains(&w.end_s)
-                        || w.start_s >= w.end_s
+                        || w.start_s > w.end_s
                     {
                         errors.push(CatalogError::WindowOutOfRange {
                             entity: entity.id.clone(),

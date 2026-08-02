@@ -526,7 +526,6 @@ pub fn sync_player_stats_with_inspector(
         mana.meter.max = max_mana as f32;
         mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
         offense.damage_multiplier = stats.slash_damage.max(1);
-        offense.invincible = stats.invincible;
     }
 }
 

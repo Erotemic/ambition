@@ -34,6 +34,9 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
             base_size: ae::Vec2::new(28.0, 46.0),
         },
         BodyOffense::default(),
+        ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health::new(10),
+        ),
         BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
@@ -160,6 +163,9 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
             base_size: ae::Vec2::new(28.0, 46.0),
         },
         BodyOffense::default(),
+        ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health::new(10),
+        ),
         BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),

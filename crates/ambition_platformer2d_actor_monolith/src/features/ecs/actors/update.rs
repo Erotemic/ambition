@@ -1271,7 +1271,7 @@ pub fn apply_actor_contact_damage(
         // (§A5) + the ONE published hurtbox (§A6).
         Query<(
             &CenteredAabb,
-            &crate::actor::BodyOffense,
+            &ambition_characters::actor::BodyHealth,
             &ambition_platformer2d_core::BodyMotionFacts,
             &crate::actor::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
@@ -1309,11 +1309,17 @@ pub fn apply_actor_contact_damage(
     // Pass 2 — resolve each victim through its published hurtbox.
     let victims = set.p1();
     for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, offense, facts, shield, combat, is_player)) = victims.get(target_entity)
+        let Ok((hurtbox, victim_health, facts, shield, combat, is_player)) =
+            victims.get(target_entity)
         else {
             continue;
         };
-        if !crate::combat::util::body_vulnerable(offense, facts.dodge_rolling, shield, combat) {
+        if !crate::combat::util::body_vulnerable(
+            victim_health.health.invulnerable,
+            facts.dodge_rolling,
+            shield,
+            combat,
+        ) {
             continue;
         }
         if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {

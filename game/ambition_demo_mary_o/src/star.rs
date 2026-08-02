@@ -35,7 +35,6 @@ use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::engine_core::BodyOffense;
 
 /// Row id of the pocket quasar. Unlike the wand and the beacon this row is NOT a
 /// power form: it takes no `exclusive_slot`, because becoming briefly untouchable
@@ -127,20 +126,19 @@ pub fn begin_star_power(
 pub fn run_star_power(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut commands: Commands,
-    mut bodies: Query<(Entity, &mut StarPower, &mut BodyHealth, &mut BodyOffense)>,
+    mut bodies: Query<(Entity, &mut StarPower, &mut BodyHealth)>,
 ) {
     let dt = time.scaled_dt;
     if bodies.is_empty() {
         return;
     }
-    for (entity, mut star, mut health, mut offense) in &mut bodies {
+    for (entity, mut star, mut health) in &mut bodies {
         star.remaining -= dt;
         let burning = star.remaining > 0.0;
         health
             .health
             .invulnerable
             .set(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED, burning);
-        offense.invincible = burning;
         if !burning {
             commands.entity(entity).remove::<StarPower>();
         }
@@ -184,7 +182,6 @@ mod tests {
                 PrimaryPlayer,
                 WornEquipment::default(),
                 BodyHealth::new(ambition_platformer2d::characters::actor::Health::new(1)),
-                BodyOffense::default(),
             ))
             .id();
         app.add_systems(Update, (begin_star_power, run_star_power).chain());
@@ -198,7 +195,13 @@ mod tests {
     fn collecting_the_quasar_makes_her_invincible_and_takes_the_token_back() {
         let (mut app, body) = app_with_body();
         assert!(
-            !app.world().get::<BodyOffense>(body).unwrap().invincible,
+            !app
+                .world()
+                .get::<BodyHealth>(body)
+                .unwrap()
+                .health
+                .invulnerable
+                .any(),
             "nothing is invincible by default"
         );
 
@@ -209,8 +212,14 @@ mod tests {
         app.update();
 
         assert!(
-            app.world().get::<BodyOffense>(body).unwrap().invincible,
-            "the star lights the fact the shader draws from"
+            app.world()
+                .get::<BodyHealth>(body)
+                .unwrap()
+                .health
+                .invulnerable
+                .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED),
+            "the star lights the EMPOWERED reason — the one the overlay draws from,\
+             and not the one a transformation holds"
         );
         assert!(
             app.world()
@@ -245,7 +254,6 @@ mod tests {
             app.world().get::<StarPower>(body).is_none(),
             "a spent star leaves the body"
         );
-        assert!(!app.world().get::<BodyOffense>(body).unwrap().invincible);
         assert!(
             !app.world()
                 .get::<BodyHealth>(body)

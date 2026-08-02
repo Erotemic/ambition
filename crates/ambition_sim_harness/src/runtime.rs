@@ -362,7 +362,6 @@ impl Platformer2dSimHarness {
         let flight = cluster.as_ref().map(|c| &*c.flight);
         let body_mode = cluster.as_ref().map(|c| &*c.body_mode);
         let mana = cluster.as_ref().map(|c| &*c.mana);
-        let offense = cluster.as_ref().map(|c| &*c.offense);
         let lifetime = cluster.as_ref().map(|c| &*c.lifetime);
         AgentObservation {
             tick: self.tick,
@@ -398,7 +397,7 @@ impl Platformer2dSimHarness {
             last_safe_pos: (last_safe_pos.x, last_safe_pos.y),
             recently_damaged,
             in_hitstun,
-            invincible: offense.is_some_and(|o| o.invincible),
+            invincible: health.invulnerable.any(),
             in_water: water.is_some(),
             water_kind: water.map(|c| format!("{:?}", c.kind)),
             water_submersion: water.map(|c| c.submersion).unwrap_or(0.0),

@@ -148,7 +148,8 @@ mod util_tests {
 }
 
 use ambition_characters::actor::BodyCombat;
-use ambition_platformer2d_core::{BodyOffense, BodyShieldState};
+use ambition_characters::actor::Invulnerability;
+use ambition_platformer2d_core::BodyShieldState;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 use bevy::prelude::MessageWriter;
 
@@ -161,13 +162,21 @@ use bevy::prelude::MessageWriter;
 /// consumer applies its own (shield-directional) rule at consume time.
 /// `dodge_rolling` is the semantic fact (`BodyMotionFacts::dodge_rolling`) —
 /// the roll timer itself is policy-private (ADR 0024).
+/// `invulnerable` is the [`Invulnerability`] reason set off the body's
+/// `BodyHealth` — the SAME value `Health::damage` consults, so an emitter's
+/// early-out and the damage authority can never disagree.
+///
+/// It used to read `BodyOffense::invincible`, a second field meaning the same
+/// thing, and the two DID disagree: the dev inspector reconciled `BodyOffense`
+/// every frame, so a body made untouchable by gameplay was still reported
+/// vulnerable here and took the hit. One fact, one reader.
 pub fn body_vulnerable(
-    offense: &BodyOffense,
+    invulnerable: Invulnerability,
     dodge_rolling: bool,
     shield: &BodyShieldState,
     combat: &BodyCombat,
 ) -> bool {
-    !offense.invincible && !dodge_rolling && !shield.parrying() && combat.vulnerable()
+    !invulnerable.any() && !dodge_rolling && !shield.parrying() && combat.vulnerable()
 }
 
 /// THE one "is this body an intangible corpse?" rule (Jon 2026-07-22: "prevent

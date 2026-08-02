@@ -657,14 +657,12 @@ impl Default for BodyMana {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyOffense {
     pub damage_multiplier: i32,
-    pub invincible: bool,
 }
 
 impl Default for BodyOffense {
     fn default() -> Self {
         Self {
             damage_multiplier: 1,
-            invincible: false,
         }
     }
 }
@@ -802,7 +800,6 @@ impl BodyClusterScratch {
             },
             offense: BodyOffense {
                 damage_multiplier: 1,
-                invincible: false,
             },
             action_buffer: BodyActionBuffer::default(),
             lifetime: BodyLifetime::default(),

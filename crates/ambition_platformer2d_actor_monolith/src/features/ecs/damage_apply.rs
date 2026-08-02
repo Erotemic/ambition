@@ -438,12 +438,15 @@ pub(crate) fn handle_player_damage_events(
     let Some(damage) = damage_events.first().cloned() else {
         return false;
     };
-    // Consume-time vulnerability (§A2): invincibility (debug toggle),
+    // Consume-time vulnerability (§A2): any held invulnerability REASON,
     // dodge-roll i-frames, and an active parry drop the event before any state
     // mutates. The post-hit i-frame window is consumed inside the resolver —
     // the SAME rule for every body; emitters no longer decide it.
     if !body_vulnerable(
-        clusters.offense,
+        player_health
+            .as_deref()
+            .map(|health| health.health.invulnerable)
+            .unwrap_or_default(),
         facts.dodge_rolling,
         clusters.shield,
         combat,

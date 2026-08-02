@@ -154,7 +154,6 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
 
 snapshot_pod!(crate::body_clusters::BodyOffense {
     damage_multiplier: i32,
-    invincible: bool,
 });
 
 snapshot_pod!(crate::body_clusters::BodyLifetime {

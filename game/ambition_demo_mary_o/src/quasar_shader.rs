@@ -19,9 +19,14 @@
 //! clobbers `BodyOffense` each frame. The effect read the loser of that race and
 //! stayed dark for the whole ten seconds.
 //!
-//! Reading the fact that DECIDES whether hits land means the overlay is on
-//! exactly when she is untouchable, by construction — and there is no race to
-//! win because there is no second copy.
+//! Reading the fact that DECIDES whether hits land means there is no race to
+//! win, because there is no second copy.
+//!
+//! It reads ONE REASON out of that set, not `any()`: `EMPOWERED`. A body is also
+//! briefly untouchable while a transformation beat plays, and lighting the
+//! quasar every time she grows is wrong — Jon saw exactly that. "Why can't I be
+//! hurt" and "am I wearing a star" are different questions, and a set of reasons
+//! is what lets one field answer both without either answer being a guess.
 
 use bevy::{
     asset::embedded_asset,
@@ -293,7 +298,9 @@ fn sync_quasar_overlays(
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
         let enabled = is_mary_o_form(worn.id())
-            && health.health.invulnerable.any()
+            && health.health.invulnerable.holds(
+                ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
+            )
             && source_visible
             && !settings.disabled
             && settings.strength > 0.0;
@@ -311,7 +318,9 @@ fn sync_quasar_overlays(
                  source_visible = {source_visible}, disabled = {}, strength = {})",
                 worn.id(),
                 is_mary_o_form(worn.id()),
-                health.health.invulnerable.any(),
+                health.health.invulnerable.holds(
+                ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
+            ),
                 settings.disabled,
                 settings.strength,
             );

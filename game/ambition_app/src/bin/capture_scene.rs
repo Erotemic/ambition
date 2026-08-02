@@ -16,20 +16,22 @@
 
 use std::path::PathBuf;
 
+use ambition_app::app::{
+    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
+    PresentationSetupSet, StartRoomOverride,
+};
 use ambition_platformer2d::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStates};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::platformer::schedule::GameMode;
-use ambition_platformer2d::render::rendering::{CameraViewState, camera_follow, sync_parallax_layers};
+use ambition_platformer2d::render::rendering::{
+    camera_follow, sync_parallax_layers, CameraViewState,
+};
 use ambition_platformer2d::sim_view::camera_snapshot::{
-    CameraFocus2d, CameraSnapshotResolveInput, CameraSnapshotResolveMode,
-    resolve_follow_camera_snapshot,
+    resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
+    CameraSnapshotResolveMode,
 };
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
-use ambition_app::app::{
-    PresentationSetupSet, AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
-    StartRoomOverride,
-};
 use bevy::app::AppExit;
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::camera::{ImageRenderTarget, RenderTarget};
@@ -67,6 +69,19 @@ struct SceneCaptureConfig {
     /// A verification screenshot should show the PRODUCT. The debugging use that
     /// genuinely wants nameplates asks for them.
     dev_overlays: bool,
+    /// Put the COMBAT debug view in the shot (`--combat-overlay`).
+    ///
+    /// `--dev-overlays` only stops the tool SILENCING what a build already
+    /// shows; the combat volumes are a preset a player reaches through the
+    /// settings menu, and every field it sets is off by default. So a swing
+    /// could be photographed and its hit polygon could not, which is the one
+    /// question a melee capture is usually asked.
+    ///
+    /// This turns on exactly the `DebugViewMode::Combat` preset — the same
+    /// state the menu produces, not a private capture-only rendering path — so
+    /// what comes back is a configuration a player can reach. Implies
+    /// `--dev-overlays`.
+    combat_overlay: bool,
     /// Keys to TAP after reaching the route and before the shutter
     /// (`--press Down,Enter,Enter`).
     ///
@@ -237,7 +252,10 @@ fn main() {
     // shows a DIFFERENT layout convincingly.
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
-            ambition_platformer2d::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+            ambition_platformer2d::engine_core::Vec2::new(
+                config.size.x as f32,
+                config.size.y as f32,
+            ),
         ),
     );
     app.insert_resource(config);
@@ -283,6 +301,7 @@ fn main() {
             // headless-surface insert; third time in one session, which is why
             // this comment names it rather than just fixing it (2026-07-29).
             silence_dev_overlays,
+            force_combat_overlay,
             apply_capture_snapshot
                 .after(camera_follow)
                 .before(sync_parallax_layers),
@@ -308,6 +327,16 @@ enum PressStep {
     Tap(KeyCode),
     /// Run this many frames without touching anything.
     Wait(u32),
+    /// Press and KEEP HOLDING (`hold:up`), until a matching `release:`.
+    ///
+    /// A tap cannot express a directional attack. `up,x` taps Up, releases it,
+    /// and only then presses attack — by which time the aim axis is back to
+    /// neutral and the swing resolves forward. Every tilt and every aerial in
+    /// the game is "a direction held while attack is pressed", so a tool that
+    /// can only tap can photograph exactly one of the seven.
+    Hold(KeyCode),
+    /// Let go of a key an earlier `hold:` is still holding (`release:up`).
+    Release(KeyCode),
 }
 
 /// Parse `--press Down,Enter,wait,Down,Enter` into taps and pauses.
@@ -323,31 +352,42 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
             if lower == "wait" {
                 return Ok(PressStep::Wait(DEFAULT_WAIT_FRAMES));
             }
+            if let Some(rest) = lower.strip_prefix("hold:") {
+                return parse_key(rest).map(PressStep::Hold);
+            }
+            if let Some(rest) = lower.strip_prefix("release:") {
+                return parse_key(rest).map(PressStep::Release);
+            }
             if let Some(rest) = lower.strip_prefix("wait:") {
                 return rest
                     .parse::<u32>()
                     .map(PressStep::Wait)
                     .map_err(|_| format!("--press wait:N needs a frame count, got '{rest}'"));
             }
-            match lower.as_str() {
-            "up" | "arrowup" => Ok(KeyCode::ArrowUp),
-            "down" | "arrowdown" => Ok(KeyCode::ArrowDown),
-            "left" | "arrowleft" => Ok(KeyCode::ArrowLeft),
-            "right" | "arrowright" => Ok(KeyCode::ArrowRight),
-            "enter" | "return" => Ok(KeyCode::Enter),
-            "space" => Ok(KeyCode::Space),
-            "escape" | "esc" => Ok(KeyCode::Escape),
-            "z" => Ok(KeyCode::KeyZ),
-            "x" => Ok(KeyCode::KeyX),
-            "c" => Ok(KeyCode::KeyC),
-            other => Err(format!(
-                "--press does not know the key '{other}'. Known: up, down, left, \
-                 right, enter, space, escape, z, x, c, wait, wait:N"
-            )),
-        }
-        .map(PressStep::Tap)
+            parse_key(&lower).map(PressStep::Tap)
         })
         .collect()
+}
+
+/// One key name from the `--press` vocabulary.
+fn parse_key(name: &str) -> Result<KeyCode, String> {
+    match name {
+        "up" | "arrowup" => Ok(KeyCode::ArrowUp),
+        "down" | "arrowdown" => Ok(KeyCode::ArrowDown),
+        "left" | "arrowleft" => Ok(KeyCode::ArrowLeft),
+        "right" | "arrowright" => Ok(KeyCode::ArrowRight),
+        "enter" | "return" => Ok(KeyCode::Enter),
+        "space" => Ok(KeyCode::Space),
+        "escape" | "esc" => Ok(KeyCode::Escape),
+        "z" => Ok(KeyCode::KeyZ),
+        "x" => Ok(KeyCode::KeyX),
+        "c" => Ok(KeyCode::KeyC),
+        other => Err(format!(
+            "--press does not know the key '{other}'. Known: up, down, left, \
+                 right, enter, space, escape, z, x, c, wait, wait:N, hold:KEY, \
+                 release:KEY"
+        )),
+    }
 }
 
 /// Frames a bare `wait` runs for — comfortably more than a route change.
@@ -359,6 +399,7 @@ impl SceneCaptureConfig {
         let mut warmup_frames = 12u32;
         let mut include_ui = false;
         let mut dev_overlays = false;
+        let mut combat_overlay = false;
         let mut show_window = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
@@ -366,6 +407,10 @@ impl SceneCaptureConfig {
         let mut i = 0usize;
         while i < args.len() {
             match args[i].as_str() {
+                "--combat-overlay" => {
+                    combat_overlay = true;
+                    dev_overlays = true;
+                }
                 "--dev-overlays" => {
                     dev_overlays = true;
                     i += 1;
@@ -485,6 +530,7 @@ impl SceneCaptureConfig {
                 character,
                 follow_player: false,
                 dev_overlays,
+                combat_overlay,
                 press,
                 route: Some(route),
             });
@@ -524,6 +570,7 @@ impl SceneCaptureConfig {
             show_window,
             character,
             dev_overlays,
+            combat_overlay,
             follow_player,
             route: None,
             press,
@@ -576,6 +623,43 @@ fn silence_dev_overlays(
     }
 }
 
+/// Force the COMBAT debug preset on, every frame, when `--combat-overlay` asked.
+///
+/// Every frame rather than once at startup because the settings load and the
+/// developer-tools default both write this state, and a Startup-only write is a
+/// race against whichever of them runs later. Idempotent, so the cost of being
+/// certain is a comparison per frame.
+fn force_combat_overlay(
+    config: Res<SceneCaptureConfig>,
+    mut dev_state: Option<ResMut<ambition_platformer2d::dev_tools::DeveloperRuntimeState>>,
+    mut developer: Option<ResMut<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
+) {
+    if !config.combat_overlay {
+        return;
+    }
+    // The gizmo pass is gated on the debug flag AND the gizmo toggle AND the
+    // per-view field; all three are off in a plain build, and missing any one of
+    // them produces a photograph of a swing with no volume on it.
+    if let Some(dev_state) = dev_state.as_mut() {
+        if !dev_state.debug {
+            dev_state.debug = true;
+        }
+    }
+    if let Some(developer) = developer.as_mut() {
+        if !developer.gizmos_enabled {
+            developer.gizmos_enabled = true;
+        }
+        if developer.debug_view_mode
+            != ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat
+        {
+            developer.apply_debug_view_mode(
+                ambition_platformer2d::dev_tools::dev_tools::DebugViewMode::Combat,
+                false,
+            );
+        }
+    }
+}
+
 /// **A frame of warmup must mean the same amount of TIME every run.**
 ///
 /// The capture advances the app with `ScheduleRunnerPlugin::run_loop(ZERO)` —
@@ -622,7 +706,10 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     // its own app — which is exactly how the first attempt at this missed.
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
-            ambition_platformer2d::engine_core::Vec2::new(config.size.x as f32, config.size.y as f32),
+            ambition_platformer2d::engine_core::Vec2::new(
+                config.size.x as f32,
+                config.size.y as f32,
+            ),
         ),
     );
 
@@ -847,8 +934,12 @@ fn setup_capture_target(
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::engine_core::RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::actors::rooms::RoomSet>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::engine_core::RoomGeometry,
+    >,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::actors::rooms::RoomSet,
+    >,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
@@ -1047,6 +1138,25 @@ fn request_capture(
                     runtime.press_held = Some(key);
                     eprintln!(
                         "capture_scene: pressed {key:?} ({} of {})",
+                        runtime.press_cursor + 1,
+                        config.press.len()
+                    );
+                }
+                PressStep::Hold(key) => {
+                    // Deliberately NOT recorded in `press_held`: that field is
+                    // "the tap awaiting its release next frame", and a hold is
+                    // the opposite — it outlives the step that started it.
+                    keys.press(key);
+                    eprintln!(
+                        "capture_scene: holding {key:?} ({} of {})",
+                        runtime.press_cursor + 1,
+                        config.press.len()
+                    );
+                }
+                PressStep::Release(key) => {
+                    keys.release(key);
+                    eprintln!(
+                        "capture_scene: released {key:?} ({} of {})",
                         runtime.press_cursor + 1,
                         config.press.len()
                     );

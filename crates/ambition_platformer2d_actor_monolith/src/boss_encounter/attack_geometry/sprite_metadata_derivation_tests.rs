@@ -1343,7 +1343,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 /// cannot see the shipped catalog. The content-side pin is
 /// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
 #[test]
-fn the_row_is_found_ONLY_because_the_sample_names_it() {
+fn the_row_is_found_only_because_the_sample_names_it() {
     use crate::features::{BossAttackProfile, BossBehaviorProfile};
 
     let behavior = BossBehaviorProfile::gnu_ton_rider();

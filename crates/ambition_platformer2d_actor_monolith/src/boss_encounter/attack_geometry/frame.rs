@@ -150,6 +150,12 @@ impl RuntimeAnimationKeys {
     /// only thing naming a row — i.e. this profile's rows are found only because
     /// the sample rescued it, and a key-based rule would miss and fall back to
     /// elapsed-time sampling.
+    /// ⚠ a TEST is its only caller, deliberately — the doc above says the point
+    /// is that the rescue becomes "a test result rather than an argument", so a
+    /// production caller was never the goal. Silenced rather than `#[cfg(test)]`
+    /// because the type's own doc links to it, and a cfg'd item breaks that link
+    /// in a normal build.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn only_the_sample_names_a_key(&self) -> bool {
         self.sample_key.is_some() && self.claimed.iter().all(|key| key.is_empty())
     }

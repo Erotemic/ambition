@@ -989,8 +989,35 @@ STRICTER constraint that removes an ambiguity by choosing a side. Probably
 harmless (portal carves and force zones are semantically unrelated) and that is
 exactly the word that should stop a blind edit in a rollback schedule.
 
-▢ **so the remaining nine sort into three kinds**, and only the first is
-mechanical:
+⭐ **and swept WORKSPACE-WIDE, the clause turns out to be scoped to the wrong
+place.** This status has only ever counted the runtime. Counting every
+`.after`/`.before` against a snake_case target across 945 non-test source files:
+
+```text
+  98  own-crate      a plugin ordering its OWN systems — legitimate, not this
+  49  CROSS-CRATE    a crate reaching for another crate's leaf function
+       ├── ambition_app          10
+       ├── ambition_content      10
+       ├── ambition_demo_sanic   10
+       ├── ambition_platformer2d_runtime   7   ← all this clause has measured
+       ├── ambition_demo_mary_o   4
+       ├── ambition_platformer2d_host  3
+       ├── ambition_touch_input   3
+       └── monolith 1 · demo_smash 1
+```
+
+⚠ **35 of the 49 are in GAMES** (`app`, `content`, `sanic`, `mary_o`, `smash`),
+and a game ordering against an engine leaf is the more serious version of this
+defect, not the milder one: it is a consumer depending on engine internals, which
+is the same thing the facade and SDK work exists to prevent. The runtime — the
+only site this clause has ever named — now holds 7 of 49.
+⚠ `ambition_render/rendering/mod.rs` looked like the worst offender at 16 until
+the own/cross split: **all 16 order its own systems**, which is a plugin doing
+its job. The raw count was measuring the wrong thing, which is why the split is
+recorded rather than the total.
+
+▢ **so the remaining nine in the runtime sort into three kinds**, and only the
+first is mechanical:
 * **equivalent** — the pinned system is the head of a chained set. Convert.
 * **stricter** — the pinned system is inside a set. Needs someone to decide the
   new position is acceptable (`portal_schedule` × 1).

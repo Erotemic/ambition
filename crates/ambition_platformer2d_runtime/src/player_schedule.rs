@@ -182,7 +182,8 @@ impl Plugin for PlayerSchedulePlugin {
                     // fixed-tick latch all rewrite the frame on the way here.
                     crate::input_stream::record_input_stream
                         .run_if(crate::input_stream::input_stream_recording),
-                    ambition_platformer2d_actor_monolith::control::sync_local_player_input_frame,
+                    ambition_platformer2d_actor_monolith::control::sync_local_player_input_frame
+                        .in_set(ambition_platformer2d_actor_monolith::control::LocalInputFrameCommit),
                 )
                     .chain(),
             )

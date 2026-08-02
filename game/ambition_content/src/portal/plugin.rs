@@ -256,7 +256,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::InputWarp)
                 .in_set(ambition_input::InputSet::Route)
                 .after(warp_portal_input)
-                .before(ambition_platformer2d_actor_monolith::control::sync_local_player_input_frame),
+                .before(ambition_platformer2d_actor_monolith::control::LocalInputFrameCommit),
         );
         // The player-input adapter reads `PlayerMovementIntent` as the warp
         // anchor; re-sync from `ControlFrame` immediately before the generic
@@ -389,9 +389,9 @@ mod schedule_tests {
     //! pure round-trip).
     use bevy::prelude::*;
 
+    use ambition_input::ControlFrame;
     use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
-    use ambition_input::ControlFrame;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
     use ambition_portal2d::PlayerMovementIntent;
 
@@ -459,7 +459,10 @@ mod schedule_tests {
                 .after(warp_portal_input)
                 .before(consume_axis),
         );
-        app.add_systems(Update, consume_axis.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput));
+        app.add_systems(
+            Update,
+            consume_axis.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+        );
 
         app.update();
 
@@ -490,11 +493,11 @@ mod schedule_tests {
     /// proves the Populate writer ran before that boundary.
     #[test]
     fn input_set_populate_runs_before_the_real_consumer() {
+        use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, SlotControls};
         use ambition_platformer2d_actor_monolith::actor::PlayerEntity;
         use ambition_platformer2d_actor_monolith::control::{
             populate_slot_controls, sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
         };
-        use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, SlotControls};
 
         let mut app = App::new();
         configure_platformer2d_simulation_phases(&mut app);

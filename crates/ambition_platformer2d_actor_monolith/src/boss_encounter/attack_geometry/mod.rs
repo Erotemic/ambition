@@ -239,7 +239,7 @@ impl CombatGeometry for BossVolumeContext<'_> {
             .active_profile
             .as_ref()
             .or(self.attack_state.telegraph_profile.as_ref());
-        let keys = runtime_animation_keys(self, active_profile, &["rest"]);
+        let keys = runtime_animation_keys(self, active_profile, &["rest"]).in_lookup_order();
         let elapsed_s = if self.attack_state.active_profile.is_some() {
             self.attack_state.active_elapsed
         } else if self.attack_state.telegraph_profile.is_some() {

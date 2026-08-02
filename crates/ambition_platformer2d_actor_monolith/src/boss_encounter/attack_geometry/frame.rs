@@ -98,20 +98,79 @@ pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
     }
 }
 
+/// The animation keys a runtime lookup will try, **with their two provenances
+/// kept apart**.
+///
+/// ⛔ these used to be one flat `Vec<String>`, and that is the circularity that
+/// blocks the boss-animator fold: the live sample's OWN key was pushed into the
+/// same list every other check compares against, so a key-based rule could not
+/// be tested — the list already contained the answer. Removing the push left all
+/// 21 derivation tests green, which is how the gap was found.
+///
+/// ⚠ the push cannot simply be deleted. `apple_rain` is a `Special` absent from
+/// the content crate's `special_animation_keys()`, so its profile claims NOTHING
+/// and the sample key is the only thing that finds its damageable row. Deleting
+/// the push changes a live boss's hurtbox. That is a CONTENT decision and it sits
+/// in `awaiting-maintainer-decision.md`.
+///
+/// ⭐ what is not blocked is telling the two apart. Behaviour is unchanged —
+/// [`Self::in_lookup_order`] rebuilds the exact list, same order, same dedup —
+/// but the rescue is now a property something can assert on
+/// ([`Self::only_the_sample_names_a_key`]) instead of a comment. The day the
+/// content decision lands, that predicate goes false for `apple_rain` and the
+/// fold's precondition is a test result rather than an argument.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) struct RuntimeAnimationKeys {
+    /// The key the LIVE SAMPLE names, present only when the sample's profile is
+    /// the one being resolved. The fallback that rescues a profile claiming no
+    /// rows — and the term that makes a key-based rule untestable while it is
+    /// folded into the list below.
+    pub(super) sample_key: Option<String>,
+    /// The keys the PROFILE itself claims (or `rest_keys` when there is no
+    /// profile). This is what a key-based rule would actually consult.
+    pub(super) claimed: Vec<String>,
+}
+
+impl RuntimeAnimationKeys {
+    /// The flat list the resolver tries, in order. Byte-identical to what the
+    /// single `Vec<String>` produced: sample key first, then claimed keys, empty
+    /// entries dropped and duplicates removed by `push_unique_animation_key`.
+    pub(super) fn in_lookup_order(&self) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::new();
+        if let Some(sample_key) = self.sample_key.as_deref() {
+            push_unique_animation_key(&mut keys, sample_key);
+        }
+        for key in &self.claimed {
+            push_unique_animation_key(&mut keys, key);
+        }
+        keys
+    }
+
+    /// **The circularity, as a predicate.** True when the sample's own key is the
+    /// only thing naming a row — i.e. this profile's rows are found only because
+    /// the sample rescued it, and a key-based rule would miss and fall back to
+    /// elapsed-time sampling.
+    pub(super) fn only_the_sample_names_a_key(&self) -> bool {
+        self.sample_key.is_some() && self.claimed.iter().all(|key| key.is_empty())
+    }
+}
+
 pub(super) fn runtime_animation_keys(
     ctx: &BossVolumeContext,
     active_profile: Option<&BossAttackProfile>,
     rest_keys: &[&'static str],
-) -> Vec<String> {
-    let mut keys: Vec<String> = Vec::new();
+) -> RuntimeAnimationKeys {
+    let mut sample_key = None;
     if let (Some(sample), Some(profile)) = (ctx.animation_frame, active_profile) {
         if sample.profile.as_ref() == Some(profile) {
-            if let Some(animation_key) = sample.animation_key.as_deref() {
-                push_unique_animation_key(&mut keys, animation_key);
-            }
+            sample_key = sample
+                .animation_key
+                .as_deref()
+                .filter(|key| !key.is_empty())
+                .map(str::to_string);
         }
     }
-    let mapped_keys = active_profile
+    let claimed = active_profile
         .map(|profile| {
             crate::boss_encounter::behavior::boss_animation_keys_for_profile(
                 ctx.boss_catalog,
@@ -119,10 +178,10 @@ pub(super) fn runtime_animation_keys(
             )
         })
         .unwrap_or_else(|| rest_keys.iter().map(|key| (*key).to_string()).collect());
-    for key in mapped_keys {
-        push_unique_animation_key(&mut keys, &key);
+    RuntimeAnimationKeys {
+        sample_key,
+        claimed,
     }
-    keys
 }
 
 /// World-space volumes for one authored animation box, at the frame being shown.

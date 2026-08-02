@@ -1324,6 +1324,72 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 ///
 /// PROBED: with the push deleted, this fails — the empty key list finds no
 /// authored row and the hurtbox falls back to the body box.
+/// **The circularity, asserted as a PROPERTY instead of argued about in a
+/// comment.**
+///
+/// The test below proves the rescue works. This one proves it is a rescue: that
+/// for this profile the sample's key is the ONLY thing naming a row, which is
+/// precisely the condition under which a key-based rule would miss and fall back
+/// to elapsed-time sampling — a different hurtbox on a live boss.
+///
+/// ⭐ **why this is worth a second test.** The fold's precondition was written
+/// down in two doc comments and one planning row, and nothing evaluated it. Now
+/// it is a predicate: when the content decision lands and `apple_rain` gets its
+/// rows in `special_animation_keys()`, this assertion flips, and the fold's
+/// precondition is a test result rather than an argument. It should be INVERTED
+/// then, not deleted — the same evidence, pointing the other way.
+///
+/// ⚠ this is the engine-side reproduction (an unregistered `Special`), so it
+/// cannot see the shipped catalog. The content-side pin is
+/// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
+#[test]
+fn the_row_is_found_ONLY_because_the_sample_names_it() {
+    use crate::features::{BossAttackProfile, BossBehaviorProfile};
+
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
+    let mut attack_state = BossAttackState::default();
+    let profile = BossAttackProfile::Special("apple_rain".to_string());
+    attack_state.active_profile = Some(profile.clone());
+
+    let sample = BossAnimationFrameSample {
+        profile: Some(profile.clone()),
+        frame_index: 0,
+        animation_key: Some("head_down".into()),
+    };
+    let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        pos: ae::Vec2::ZERO,
+        size: ae::Vec2::new(100.0, 100.0),
+        combat_size: ae::Vec2::new(100.0, 100.0),
+        behavior: &behavior,
+        attack_state: &attack_state,
+        sprite_metrics: None,
+        animation_frame: Some(&sample),
+        facing: 1.0,
+    };
+
+    let keys = super::frame::runtime_animation_keys(&ctx, Some(&profile), &["rest"]);
+    assert_eq!(
+        keys.sample_key.as_deref(),
+        Some("head_down"),
+        "the sample names its key and its profile matches, so the rescue applies"
+    );
+    assert!(
+        keys.claimed.is_empty(),
+        "an unregistered Special claims NO rows; got {:?}. If this is non-empty          the reproduction has drifted from `apple_rain`'s shipped situation and          proves nothing about the fold",
+        keys.claimed
+    );
+    assert!(
+        keys.only_the_sample_names_a_key(),
+        "this is the fold's blocking condition and it must be observable, not          inferred: sample={:?} claimed={:?}",
+        keys.sample_key,
+        keys.claimed
+    );
+    // And the flat list a consumer sees is still exactly the rescue key — the
+    // split changed provenance, not behaviour.
+    assert_eq!(keys.in_lookup_order(), vec!["head_down".to_string()]);
+}
+
 #[test]
 fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
     use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};

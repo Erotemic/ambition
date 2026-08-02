@@ -36,6 +36,13 @@ pub struct PickupCollectLock;
 #[derive(bevy::prelude::Component, Debug, Clone)]
 pub struct PickupArt(pub String);
 
+/// **The set [`magnetize_pickups`] runs in — loot is pulled here.**
+///
+/// The opening half of the pickup window; see [`PickupCollect`] for what the
+/// pair is for. ONE member: this is the whole of the attract step.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PickupMagnetize;
+
 /// Pull nearby uncollected pickups toward the player. Runs before
 /// [`collect_ecs_pickups`], which still does the actual overlap grant — a pickup
 /// pulled into overlap is collected the same frame.
@@ -68,6 +75,19 @@ pub fn magnetize_pickups(
         }
     }
 }
+
+/// **The set [`collect_ecs_pickups`] runs in — loot is claimed here.**
+///
+/// The closing half of the pickup window. Together with [`PickupMagnetize`] it
+/// names the gap a game inserts custom loot motion into: after the magnet has
+/// pulled, before collection claims. Sanic's scattered-ring burst owns each
+/// ring's position during exactly that gap, so the magnet cannot reclaim it and
+/// collect sees it out at its arc rather than on top of the knocked-back body.
+///
+/// ⚠ ONE member. `apply_player_heal_requests` is chained after and is a
+/// CONSUMER of what collection produced, not part of claiming it.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PickupCollect;
 
 /// Collect ECS-owned pickups after the player simulation has advanced.
 pub fn collect_ecs_pickups(

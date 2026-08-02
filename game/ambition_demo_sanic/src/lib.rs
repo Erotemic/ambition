@@ -1121,7 +1121,7 @@ impl Plugin for SanicRulesPlugin {
         // badnik's health that frame; the contact pass skips a dead attacker).
         let badniks = badnik::defeat_badniks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .before(ambition_platformer2d::actors::features::apply_actor_contact_damage);
+            .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
@@ -1133,8 +1133,8 @@ impl Plugin for SanicRulesPlugin {
         // than on top of the knocked-back body.
         let scatter_arc = arc_scattered_rings
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection)
-            .after(ambition_platformer2d::actors::features::magnetize_pickups)
-            .before(ambition_platformer2d::actors::features::collect_ecs_pickups);
+            .after(ambition_platformer2d::actors::features::PickupMagnetize)
+            .before(ambition_platformer2d::actors::features::PickupCollect);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll, tick the
         // speed-shoes grant. Broken monitors contribute to the overlay's
         // `removed_block_names` AFTER the engine's per-frame rebuild clears it

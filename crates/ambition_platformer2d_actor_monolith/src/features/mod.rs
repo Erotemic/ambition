@@ -157,10 +157,11 @@ pub use ecs::{
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
     HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
     LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable,
-    Mounted, MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollectLock,
-    RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    Mounted, MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollect,
+    PickupCollectLock, PickupMagnetize, RidingOn, RoomContentStagingError,
+    RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
+    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -677,8 +678,8 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
             sim,
             (
                 // Pull nearby loot toward the player, then collect on overlap.
-                magnetize_pickups,
-                collect_ecs_pickups,
+                magnetize_pickups.in_set(PickupMagnetize),
+                collect_ecs_pickups.in_set(PickupCollect),
                 crate::avatar::apply_player_heal_requests,
             )
                 .chain()

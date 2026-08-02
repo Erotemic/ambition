@@ -368,3 +368,101 @@ without art is either invisible or lying. E1 next, which is what lets the
 protagonist's tuned art stop being everyone's. F last — it is the only one that
 changes a message and a spawn lifetime, and it wants E's ownership settled so
 there is one path to fix rather than two.
+
+---
+
+# What is NOT done — status as of 2026-08-02
+
+Written at the end of the campaign's first long session, so the next person does
+not have to reconstruct it from commit archaeology. **Everything under "Open"
+below is genuinely unfinished, not tidying.**
+
+## Landed on `main`
+
+Fronts A, B, C, D, F. Shaped volumes read by every consumer; the cue carries a
+`SwingShape` instead of a scalar; the slash is generated from a shared envelope,
+matches the polygon's curve, is trimmed to the damage window, and travels with
+the body swinging it. Plus `docs/recipes/headless-room-verification.md`'s
+picture-making section, `scripts/mirror_assets_for_worktree.py`, and
+`regen_sprites.sh` taking repeated `--target` (it used to silently render only
+the last one).
+
+## Landed on branch `vfx-ownership`, NOT merged
+
+Front E — a character names its own `attack_vfx` or draws its live hit volume as
+a translucent red mesh — plus `NamedPixelRect::poly` (a shape per part), the
+Gradient Sentinel's shaped silhouette, and the `SwingDescriptor`.
+
+`cargo check --workspace` is clean on the branch. The branch is based behind
+`main` and will conflict.
+
+## ⛔ Open 1 — two containment harnesses disagree, so no percentage is trusted
+
+**Read this before quoting any number from this campaign, including the ones in
+its own commit messages.**
+
+Two instruments measure "what fraction of the drawn effect lands outside its hit
+polygon". The scratchpad one reads the PUBLISHED sheets and manifest; the
+committed `swing_preview` reads the GENERATOR. They disagree by 11–13 points on
+the same commit: checking out `e185a98`, whose message reports 0.00% for every
+attack, and running the preview against it gives 12.97%.
+
+Two candidates, neither eliminated: they place the attacker differently (the
+manifest's `feet_pixel` versus the rig's `center_x`/`ground_y`, about 2px apart),
+and one samples a published frame while the other samples `_draw_frame` output.
+
+Reconciling them is the highest-value next task in the campaign, because every
+other open item is judged by this measurement.
+
+## ⛔ Open 2 — the swing's axis is the attacker's, so a raised swing tilts
+
+`swing_shape` takes its direction from `attacker → volume centroid`. A swing
+authored above the body — a slash across the chest rather than the navel, which
+the drawn character wants, being half again its collision box with its feet at
+the bottom — therefore tilts the drawn quad up to meet it. Measured at 8 degrees
+for a rise of 0.10 body-heights. `SLASH_RISE` is 0 because of this, and Jon has
+reported the swing reading low at that value.
+
+⚠ Inferring the axis from the volume does NOT work, and three ways were tried
+and reverted (see the doc comment on `swing_shape`). Nearest-to-farthest puts
+both ends on corners arbitrarily; slice-averaging recovers the midpoints only if
+the provisional axis is already level, which is what the tilt prevents.
+
+The fix is to stop inferring: `cone()` and `half_disc()` are authored with a
+cardinal direction and the volume drops it. Carry the swing direction on the
+`Hitbox` beside its shape. That is a change to the strike-spawn path.
+
+## ⛔ Open 3 — the art's constants are not derived from the descriptor
+
+`SwingDescriptor` is the polygon's single source. The effect's frame constants
+(`REACH`, `PEAK_HALF`, the end insets) are still hand-tuned numbers in
+`robot_slash.py`. Every derivation attempted measured worse than what it
+replaced — against the instrument in Open 1, which is why this is blocked behind
+it rather than merely unfinished.
+
+Until it lands, "several characters share an effect" still means sharing the
+PIXELS, and a second character naming this sheet wears a silhouette cut for the
+protagonist's polygon.
+
+## ⛔ Open 4 — front E has never been seen
+
+The red-volume path compiles and has no runtime test. Nothing has looked at it,
+and it needs a body with no `attack_vfx` swinging — which today is every
+character except `player_robot_v3`, so any enemy melee should show it.
+
+The Gradient Sentinel's shaped hurtbox is in the same position: authored,
+compiling, never rendered.
+
+## ⛔ Open 5 — smaller, still real
+
+- **`PLAYER_ATTACK_HITBOX_SCALE = 1.3`** (`attack_hitbox.rs`) is still dead. It
+  was Jon's 2026-07-12 pogo-feel fix and has been unreachable since the volume
+  lookup became character-id-keyed. Restore it on the live path or delete it;
+  leaving it as decoration was already flagged once in this document.
+- **`air_neutral` is authored and unbound.** No move names that row, so its ring
+  geometry is unreachable.
+- **The authored hurtbox TIMELINE is still rect-only.** `DamageableVolumes` can
+  carry hulls and the sprite-metadata producer emits them; the entity-catalog
+  hurtbox contracts still author rectangles.
+- **`capture_scene` does not finish on the dev VM** (measured: forty minutes, no
+  frame). Documented in the recipe with what to try; not fixed.

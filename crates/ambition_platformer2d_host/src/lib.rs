@@ -355,6 +355,19 @@ impl Plugin for HostInputBindingsPlugin {
                     dialog_pointer_input,
                 )
                     .chain()
+                    // ⚠ LOAD-BEARING ONLY under the `RenderFrame` host, where the
+                    // sim schedule IS `Update`. `CoreSimulation` is a sim-schedule
+                    // set, and a Bevy set node belongs to one schedule — under
+                    // `Fixed60Hz`/`Ggrs` this creates an empty node here and
+                    // constrains nothing. ⛔ and the frame order does not rescue a
+                    // `.before` the way it rescues an `.after`: the sim has
+                    // already run by the time `Update` starts.
+                    //
+                    // What actually orders the device write against the sim read
+                    // is `ControlFrameLatch` + `publish_latched_control_frame`
+                    // (fixed tick) or the GGRS session on the `ReadInputs` edge
+                    // (rollback). Keep the pin for the `RenderFrame` host; do not
+                    // read it as proof the other two are ordered.
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
     }

@@ -215,6 +215,20 @@ impl ControlFrame {
 /// have no device: they author [`ControlFrame`] — the per-tick frame — directly,
 /// and no latch resource exists, so [`publish_latched_control_frame`] never
 /// runs and never clobbers them.
+///
+/// ⛔ **and it is also the only thing that orders the device write against the
+/// sim read.** The host writes `ControlFrame` in `Update`, pinned
+/// `.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)` — and that pin
+/// is VACUOUS whenever the sim schedule is not `Update`, because a Bevy set node
+/// belongs to one schedule and an unknown set is created empty in the pinning
+/// one. Worse than unenforced: `PreUpdate` → `RunFixedMainLoop` → `Update` means
+/// the fixed-tick sim has ALREADY RUN, so the raw read would take the previous
+/// frame's input every tick.
+///
+/// ⚠ so a reader who trusts that `.before` will conclude the ordering is already
+/// enforced and delete this. It is not; this is the mechanism. (The rollback
+/// host solves the same problem differently — the SESSION publishes the frame
+/// GGRS confirmed, on the `ReadInputs` edge.)
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ControlFrameLatch {
     accumulated: ControlFrame,

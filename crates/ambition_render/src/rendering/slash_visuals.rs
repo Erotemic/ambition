@@ -60,16 +60,25 @@ impl SlashSource {
 /// `up` art points toward world up at rest; `down` / poke art points toward
 /// world down at rest. Pure + frame-agnostic: feeding the four C4 gravity
 /// directions yields the four correctly-rotated effects.
-pub(crate) fn slash_rotation(dir: ae::Vec2, pose: SlashPose) -> f32 {
-    let base = if dir.length_squared() > 1e-6 {
+/// Where to point the art: along the swing, and nothing else.
+///
+/// ⚠ This used to add a per-pose quarter turn, and the sheet's `up` / `down`
+/// rows were drawn pre-rotated to cancel it. That was coherent while the sprite
+/// was a SQUARE — turning a square changes nothing about which side is long.
+///
+/// It stopped being coherent when the quad became the swing's own extent. The
+/// sprite is sized (length along the swing, width across it) on its LOCAL axes,
+/// so a row whose art is a quarter turn out has its long dimension across the
+/// swing: measured at 8.8% of the drawn ink outside the volume for the up
+/// attacks and 9.2% for the down.
+///
+/// `pose` now selects WHICH artwork, never how it is turned. The rows are
+/// authored in swing space to match (`robot_slash.py`).
+pub(crate) fn slash_rotation(dir: ae::Vec2, _pose: SlashPose) -> f32 {
+    if dir.length_squared() > 1e-6 {
         (-dir.y).atan2(dir.x)
     } else {
         0.0
-    };
-    match pose {
-        SlashPose::Side => base,
-        SlashPose::Up => base - std::f32::consts::FRAC_PI_2,
-        SlashPose::Down => base + std::f32::consts::FRAC_PI_2,
     }
 }
 
@@ -283,14 +292,14 @@ mod tests {
     /// the four cardinal directions (what the four gravities produce for a
     /// given local attack) must yield four distinct, correct rotations.
     #[test]
-    fn slash_rotation_follows_the_strike_direction_under_c4() {
+    fn slash_rotation_follows_the_strike_direction_and_only_that() {
         use ae::Vec2;
         use std::f32::consts::{FRAC_PI_2, PI};
         let approx = |a: f32, b: f32| {
             let d = (a - b).rem_euclid(2.0 * PI);
             d < 1e-3 || (2.0 * PI - d) < 1e-3
         };
-        // Side art opens +x at rest.
+        // Art opens along +x at rest and turns with the swing.
         assert!(approx(
             slash_rotation(Vec2::new(1.0, 0.0), SlashPose::Side),
             0.0
@@ -307,18 +316,15 @@ mod tests {
             slash_rotation(Vec2::new(-1.0, 0.0), SlashPose::Side),
             PI
         ));
-        // Up art points world-up at rest; down art points world-down at rest.
-        assert!(approx(
-            slash_rotation(Vec2::new(0.0, -1.0), SlashPose::Up),
-            0.0
-        ));
-        assert!(approx(
-            slash_rotation(Vec2::new(0.0, 1.0), SlashPose::Down),
-            0.0
-        ));
-        assert!(approx(
-            slash_rotation(Vec2::new(1.0, 0.0), SlashPose::Down),
-            FRAC_PI_2
-        ));
+        // **The pose does not turn the art.** It used to add a quarter turn per
+        // pose, which put the sprite's long axis across a vertical swing once
+        // the quad became the swing's own extent. Restore either offset and this
+        // fails.
+        for pose in [SlashPose::Side, SlashPose::Up, SlashPose::Down] {
+            assert!(
+                approx(slash_rotation(Vec2::new(0.0, -1.0), pose), FRAC_PI_2),
+                "an upward strike points up whatever row it draws"
+            );
+        }
     }
 }

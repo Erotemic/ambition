@@ -310,8 +310,8 @@ impl Plugin for TouchControlsPlugin {
                     // the menu consumers read it.
                     fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
-                        .after(ambition_platformer2d_actor_monolith::schedule::populate_menu_control_frame_from_actions)
-                        .before(ambition_platformer2d_actor_monolith::schedule::apply_menu_frame_to_cutscene_request)
+                        .after(ambition_platformer2d_actor_monolith::schedule::MenuFramePopulate)
+                        .before(ambition_platformer2d_actor_monolith::schedule::MenuFrameCutsceneSkip)
                         .before(ambition_platformer2d_actor_monolith::schedule::MenuNavConsume),
                 )
                     .chain(),

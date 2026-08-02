@@ -112,12 +112,12 @@ pub mod causal;
 pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::schedule::{
         apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
-        declare_in_session_input_contexts,
+        declare_in_session_input_contexts, freeze_local_seating_for_the_decided_match,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
         populate_seat_menu_frames, populate_secondary_slot_controls, publish_latched_slot_controls,
-        freeze_local_seating_for_the_decided_match, seat_input_participants_for_roster,
-        spawn_primary_input_participant,
-        toggle_player_trail_emission_from_actions, SeatDashTriggerState, SimulationSetupSet,
+        seat_input_participants_for_roster, spawn_primary_input_participant,
+        toggle_player_trail_emission_from_actions, MenuFrameCutsceneSkip, MenuFramePopulate,
+        SeatDashTriggerState, SimulationSetupSet,
     };
     // The secondary seats' frame→tick latch (queue Y2). Re-exported beside the
     // system that drains it so the host installs both through one path — the
@@ -137,6 +137,7 @@ pub mod host_seams {
 /// `ambition_platformer2d_host` smoke shell can assemble a tiny content plugin without taking
 /// a direct `ambition_platformer2d_actor_monolith` dependency.
 pub mod demo_fixture {
+    pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
     pub use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
     pub use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
     pub use ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry;
@@ -146,9 +147,10 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     pub use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
-    pub use ambition_platformer2d_actor_monolith::session::setup::{simulation_world, SimulationSetup};
+    pub use ambition_platformer2d_actor_monolith::session::setup::{
+        simulation_world, SimulationSetup,
+    };
     pub use ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry;
-    pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
     // The neutral movement-tuning authority a demo's simulation reads. The
     // dev-tools mirror is deliberately NOT re-exported here any more: a demo is
     // a shipping-shaped consumer and must not read the inspector's state.
@@ -249,7 +251,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         }
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(Platformer2dSimulationPhaseMonolith::X)`.
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(app);
+        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
+            app,
+        );
         // The Class-B transit ledger (`collision-and-ccd.md` §3.2). Frame-scoped:
         // cleared at the head of the sim, appended to by portal transit, room
         // transitions, death/respawn, and the teleport abilities. It belongs to
@@ -451,7 +455,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(PlayerSchedulePlugin)
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
-            .add(ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatPlugin)
+            .add(
+                ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatPlugin,
+            )
             .add(RoomTransitionSchedulePlugin)
             // The readiness transaction + authorized commit that sits in the gap
             // `RoomTransitionSchedulePlugin` documents. Engine-side since

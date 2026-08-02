@@ -87,7 +87,7 @@ impl Plugin for HostInputBindingsPlugin {
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
             populate_secondary_slot_controls, publish_latched_slot_controls,
             seat_input_participants_for_roster, spawn_primary_input_participant,
-            toggle_player_trail_emission_from_actions,
+            toggle_player_trail_emission_from_actions, MenuFrameCutsceneSkip, MenuFramePopulate,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -337,18 +337,21 @@ impl Plugin for HostInputBindingsPlugin {
                 Update,
                 (
                     populate_menu_control_frame_from_actions
-                        .in_set(ambition_input::InputSet::Route),
+                        .in_set(ambition_input::InputSet::Route)
+                        .in_set(MenuFramePopulate),
                     // The per-seat companion. Same phase, same inputs, different
                     // question: the global frame answers "did anybody press
                     // this", this one answers "which seat did".
-                    populate_seat_menu_frames.in_set(ambition_input::InputSet::Route),
+                    populate_seat_menu_frames
+                        .in_set(ambition_input::InputSet::Route)
+                        .in_set(MenuFramePopulate),
                     populate_control_frame_from_actions.in_set(ambition_input::InputSet::Route),
                     // Every seat past the first writes its own slot directly.
                     // Same phase as the primary bridge: both are device→control
                     // translation, and neither reads the other's output.
                     populate_secondary_slot_controls.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
-                    apply_menu_frame_to_cutscene_request,
+                    apply_menu_frame_to_cutscene_request.in_set(MenuFrameCutsceneSkip),
                     dialog_pointer_input,
                 )
                     .chain()

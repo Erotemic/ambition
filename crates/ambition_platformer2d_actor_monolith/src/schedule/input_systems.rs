@@ -24,7 +24,8 @@ use ambition_input::{
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    read_gameplay_control_frame_with_settings, read_menu_control_frame, Platformer2dInputActionMonolith,
+    read_gameplay_control_frame_with_settings, read_menu_control_frame,
+    Platformer2dInputActionMonolith,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -52,6 +53,38 @@ fn input_suppressed_by_unfocus(
     // the safe direction for this opt-in.
     !window_focus.into_iter().any(|focused| focused)
 }
+
+/// The device→frame WRITERS of [`MenuControlFrame`] and its per-seat companion.
+///
+/// The counterpart of [`MenuNavConsume`], and it existed only as prose until
+/// now: an adapter that must add to the frame after it is rebuilt had to name
+/// `populate_menu_control_frame_from_actions` directly, from another crate.
+///
+/// ⚠ TWO members, and the second one is the argument. `populate_seat_menu_frames`
+/// is the per-seat companion, chained immediately after the global populate, and
+/// it writes `SeatMenuFrames` and NOTHING else — not `MenuControlFrame`, not
+/// `ActiveInputKind`. A gesture adapter pinning `.after` this set therefore lands
+/// in exactly the same observable position as pinning the global populate alone;
+/// it shares no mutable state with the extra member it now waits for. That was
+/// checked at both signatures rather than assumed from the names.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFramePopulate;
+
+/// The cutscene-skip CONSUMER of [`MenuControlFrame`].
+///
+/// ⚠ ONE member, and it is deliberately NOT folded into [`MenuNavConsume`]
+/// despite both being consumers of the same frame. That set is documented as
+/// the directional-NAV consumers and is pinned `.after` by the menu-backend
+/// switch; adding a cutscene system to it would silently make that switch wait
+/// on something unrelated to nav.
+///
+/// ▢ the fragmentation is real and worth fixing properly: a gesture adapter
+/// today has to pin `.before` BOTH this and `MenuNavConsume` to mean "before
+/// anything reads the frame". One `MenuFrameConsume` that every reader joins
+/// would say it once. That is a rename plus a widening with a behavioural
+/// consequence at the menu-backend switch, so it is a decision, not this edit.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFrameCutsceneSkip;
 
 /// The menu-nav CONSUMERS of [`MenuControlFrame`].
 ///
@@ -262,7 +295,10 @@ pub fn declare_in_session_input_contexts(
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
-    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
+    player_input: Query<(
+        &InputParticipant,
+        &ActionState<Platformer2dInputActionMonolith>,
+    )>,
     enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
@@ -302,7 +338,10 @@ pub fn toggle_player_trail_emission_from_actions(
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
-    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
+    player_input: Query<(
+        &InputParticipant,
+        &ActionState<Platformer2dInputActionMonolith>,
+    )>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
@@ -523,7 +562,10 @@ pub fn publish_latched_slot_controls(
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    player_input: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
+    player_input: Query<(
+        &InputParticipant,
+        &ActionState<Platformer2dInputActionMonolith>,
+    )>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -612,8 +654,8 @@ pub fn decode_menu_frame(
     next.select_held = actions.pressed(&Platformer2dInputActionMonolith::MenuSelect)
         || actions.pressed(&Platformer2dInputActionMonolith::Jump)
         || actions.pressed(&Platformer2dInputActionMonolith::Interact);
-    next.back_held =
-        actions.pressed(&Platformer2dInputActionMonolith::MenuBack) || actions.pressed(&Platformer2dInputActionMonolith::Reset);
+    next.back_held = actions.pressed(&Platformer2dInputActionMonolith::MenuBack)
+        || actions.pressed(&Platformer2dInputActionMonolith::Reset);
     next.inventory = actions.just_pressed(&Platformer2dInputActionMonolith::Inventory);
     next.map = actions.just_pressed(&Platformer2dInputActionMonolith::Map);
     // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
@@ -636,7 +678,10 @@ pub fn decode_menu_frame(
 #[cfg(feature = "input")]
 pub fn populate_seat_menu_frames(
     world_time: Option<Res<ambition_time::WorldTime>>,
-    participants: Query<(&InputParticipant, &ActionState<Platformer2dInputActionMonolith>)>,
+    participants: Query<(
+        &InputParticipant,
+        &ActionState<Platformer2dInputActionMonolith>,
+    )>,
     mut frames: ResMut<ambition_input::SeatMenuFrames>,
     mut states: Local<std::collections::BTreeMap<u8, MenuInputState>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -714,8 +759,8 @@ fn update_cutscene_request_from_menu(
 mod focus_gate_tests {
     use super::{
         declare_gameplay_input_context, declare_in_session_input_contexts,
-        input_suppressed_by_unfocus,
-        spawn_primary_input_participant, update_cutscene_request_from_menu,
+        input_suppressed_by_unfocus, spawn_primary_input_participant,
+        update_cutscene_request_from_menu,
     };
     use ambition_input::{
         resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
@@ -870,7 +915,10 @@ mod focus_gate_tests {
         app.update();
 
         let world = app.world_mut();
-        let mut seats = world.query::<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>();
+        let mut seats = world.query::<(
+            &InputParticipant,
+            &InputMap<Platformer2dInputActionMonolith>,
+        )>();
         let (_, map) = seats
             .iter(world)
             .find(|(seat, _)| seat.id == ParticipantId::SECONDARY)
@@ -1025,7 +1073,10 @@ mod focus_gate_tests {
         );
         app.update();
         assert!(
-            app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
             "baseline: a seat that owns gameplay drives its body"
         );
 
@@ -1041,7 +1092,10 @@ mod focus_gate_tests {
         );
         assert!(!seats.gameplay_owned(1));
         assert!(
-            !app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            !app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
             "and the router honours it without knowing what dialogue is"
         );
 
@@ -1090,7 +1144,10 @@ mod focus_gate_tests {
         );
         assert!(seats.gameplay_owned(1), "seat 1 is not");
         assert!(
-            app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
             "ONE PLAYER READS A DIALOGUE BOX WHILE THE OTHER KEEPS RUNNING — the thing the \
              GameMode gate could not express, and the reason this moved"
         );
@@ -1151,11 +1208,16 @@ mod focus_gate_tests {
         app.update();
 
         assert!(
-            app.world().resource::<SeatInputContexts>().gameplay_owned(1),
+            app.world()
+                .resource::<SeatInputContexts>()
+                .gameplay_owned(1),
             "this seat's CONTEXT is gameplay — no surface claimed it"
         );
         assert!(
-            !app.world().resource::<SlotControls>().get(PlayerSlot(1)).jump_held,
+            !app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
             "and it is suppressed anyway, because `GameMode::Dialogue` still says the world is \
              stopped. That is the remaining half of the split, not a bug in the context seam."
         );
@@ -1191,11 +1253,13 @@ mod focus_gate_tests {
             app.init_resource::<ambition_input::MenuInputState>();
             app.init_resource::<ambition_persistence::settings::UserSettings>();
             app.add_message::<bevy::input::mouse::MouseWheel>();
-            app.world_mut().spawn(seat(0, Platformer2dInputActionMonolith::MenuSelect));
+            app.world_mut()
+                .spawn(seat(0, Platformer2dInputActionMonolith::MenuSelect));
             // Every other seat holds something DIFFERENT, so a fold that mixed
             // them would be visible rather than accidentally agreeing.
             for slot in 1..seats as u8 {
-                app.world_mut().spawn(seat(slot, Platformer2dInputActionMonolith::MenuBack));
+                app.world_mut()
+                    .spawn(seat(slot, Platformer2dInputActionMonolith::MenuBack));
             }
             app.add_systems(Update, super::populate_menu_control_frame_from_actions);
             app.update();

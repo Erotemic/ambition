@@ -23,6 +23,23 @@
         (cue: Some(Death), waveform: Saw, frequency: 140.0, frequency_end: 48.0, duration: 0.220, volume: 0.24, attack: 0.003, release: 0.045, noise: 0.18),
         (cue: Some(Respawn), waveform: Triangle, frequency: 440.0, frequency_end: 660.0, duration: 0.145, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.0),
 
+        // The canonical robot protagonist's DRY SWING — the whiff every attack
+        // fires from its move event, whether or not the blade connects. Authored
+        // by id, like the host cues below, because it is not one of the typed
+        // engine cues.
+        //
+        // ⛔ it was silent from 2026-07-26 to 2026-08-02. `apply_player_robot_slash_sfx`
+        // swaps the generic `player.slash` for this id on every attack move, and
+        // `player.slash` is authored here (typed `Slash`) while this id was not.
+        // A source's authorized set is `registry cue ids ∪ bank ids`, so the swap
+        // moved the swing off a cue authorized unconditionally and onto one that
+        // is authorized only while the packed bank is loaded — and a rejected cue
+        // is counted, not heard.
+        //
+        // Noise-dominated with a fast downward sweep: this is air moving, not a
+        // struck surface. The impact cues stay separate and only fire on contact.
+        (id: Some("player.robot.slash.air"), waveform: Saw, frequency: 900.0, frequency_end: 300.0, duration: 0.090, volume: 0.14, attack: 0.002, release: 0.050, noise: 0.70),
+
         // Host/frontend cues are authored by id so shell experiences use the
         // same provider-relative procedural path as gameplay. A packed bank may
         // override these with higher-fidelity samples when present.

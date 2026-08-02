@@ -1296,7 +1296,9 @@ pub fn apply_player_hit_events(
             .collect();
         let damaged_this_frame = !target_events.is_empty();
         // The victim's held locomotion (local frame) drives DI (CM2).
-        let di_input_local = control.map(|c| c.0.locomotion).unwrap_or(ae::Vec2::ZERO);
+        let di_input_local = control
+            .map(|c| c.0.locomotion.vec())
+            .unwrap_or(ae::Vec2::ZERO);
 
         let mut clusters = cluster_item.as_clusters_mut();
         // The victim's per-tick resolved frame direction (shield side +

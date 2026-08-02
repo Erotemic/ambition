@@ -161,10 +161,11 @@ pub fn tick_commanded_moves(
         } else {
             boss.kin.facing
         };
+        // `dx` is a world-x difference, so the command is world-space.
         control.0.velocity_target = if dx.abs() <= cmd.arrive_tolerance {
-            ae::Vec2::ZERO
+            ae::WorldVec2::ZERO
         } else {
-            ae::Vec2::new(dx.signum() * cmd.speed, 0.0)
+            ae::WorldVec2::new(dx.signum() * cmd.speed, 0.0)
         };
     }
 }

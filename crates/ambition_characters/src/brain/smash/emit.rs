@@ -52,13 +52,14 @@ pub fn emit_inputs(
 
     match action {
         SpecificAction::Idle => {
-            out.locomotion = ae::Vec2::ZERO;
+            out.locomotion = ae::LocalAxes::ZERO;
         }
         SpecificAction::Walk { dir } => {
             let signed_dir = signum_or(dir, 0.0);
             // Walk = a throttle of the brawler's dash-grade top speed; the body's
             // tuning owns the px/s scale. (jitter-free here; intent is the throttle)
-            out.locomotion = ae::Vec2::new(signed_dir * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
+            out.locomotion =
+                ae::LocalAxes::new(signed_dir * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }
@@ -70,7 +71,7 @@ pub fn emit_inputs(
             // is the intent edge the BODY turns into a burst when it has `can_dash`
             // (invariant I3): the brain attempts, the body owns the burst speed +
             // window + cooldown.
-            out.locomotion = ae::Vec2::new(signed_dir, 0.0);
+            out.locomotion = ae::LocalAxes::new(signed_dir, 0.0);
             out.dash_pressed = true;
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
@@ -87,7 +88,7 @@ pub fn emit_inputs(
         }
         SpecificAction::MeleeAttack { dir } => {
             out.melee_pressed = true;
-            out.attack_axis = dir;
+            out.attack_axis = ae::LocalAxes::from_vec(dir);
             // Face along the attack axis (x component).
             let axis_x = dir.x;
             if axis_x.abs() > 0.001 {
@@ -112,7 +113,7 @@ pub fn emit_inputs(
             // aggressive fighter keeps coming (the body, not a brain camp, paces
             // the shots; invariants I3/I4).
             let toward = obs.side_face_toward_target();
-            out.locomotion = ae::Vec2::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
+            out.locomotion = ae::LocalAxes::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
         }
         SpecificAction::Special => {
             out.special_pressed = true;
@@ -121,7 +122,7 @@ pub fn emit_inputs(
             // Reserved — no engine-side input bit yet. Drop to Idle
             // so the actor doesn't visibly freeze in a "trying to
             // shield" pose.
-            out.locomotion = ae::Vec2::ZERO;
+            out.locomotion = ae::LocalAxes::ZERO;
         }
     }
 }

@@ -683,7 +683,7 @@ pub fn ability_aim_local(
     if control.aim.length() > 0.1 {
         control.aim
     } else if control.locomotion.length() > 0.1 {
-        control.locomotion
+        control.locomotion.vec()
     } else {
         Vec2::new(facing, 0.0)
     }

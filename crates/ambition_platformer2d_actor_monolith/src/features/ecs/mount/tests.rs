@@ -486,8 +486,8 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
         .id();
 
     let mut rider_frame = ActorControlFrame::neutral();
-    rider_frame.velocity_target = ae::Vec2::new(120.0, -30.0);
-    rider_frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    rider_frame.velocity_target = ae::WorldVec2::new(120.0, -30.0);
+    rider_frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     rider_frame.facing = -1.0;
     rider_frame.fire = Some(
         ambition_characters::actor::control::ActorFireRequest::world_space(
@@ -508,7 +508,7 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     let mount_frame = app.world().entity(mount).get::<ActorControl>().unwrap().0;
     assert_eq!(
         mount_frame.velocity_target,
-        ae::Vec2::new(120.0, -30.0),
+        ae::WorldVec2::new(120.0, -30.0),
         "Total grant copies the rider's velocity_target onto the mount",
     );
     assert_eq!(mount_frame.facing, -1.0, "and the rider's facing");
@@ -559,8 +559,8 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     // A hand-authored PLAYER locomotion intent (what `Brain::Player` would emit
     // from slot input): drive right at 200 px/s, facing left.
     let mut rider_frame = ActorControlFrame::neutral();
-    rider_frame.locomotion = ae::Vec2::new(1.0, 0.0);
-    rider_frame.velocity_target = ae::Vec2::new(200.0, 0.0);
+    rider_frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
+    rider_frame.velocity_target = ae::WorldVec2::new(200.0, 0.0);
     rider_frame.facing = -1.0;
 
     let rider_start = ae::Vec2::new(999.0, 999.0);
@@ -591,7 +591,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     let mount_frame = app.world().entity(mount).get::<ActorControl>().unwrap().0;
     assert_eq!(
         mount_frame.velocity_target,
-        ae::Vec2::new(200.0, 0.0),
+        ae::WorldVec2::new(200.0, 0.0),
         "the mount obeys the player rider's velocity_target — piloting through the control seam",
     );
     assert_eq!(

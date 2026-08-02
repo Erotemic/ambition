@@ -21,7 +21,7 @@ fn neutral_input_yields_neutral_frame() {
     out.melee_pressed = true; // pre-poisoned
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(!out.melee_pressed);
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
     // Facing falls back to snapshot when stick neutral.
     assert_eq!(out.facing, 1.0);
 }
@@ -61,7 +61,7 @@ fn attack_pressed_routes_to_melee_intent() {
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(out.melee_pressed);
     // Up-tilt: attack_axis carries the input direction.
-    assert_eq!(out.attack_axis, ae::Vec2::new(0.0, -1.0));
+    assert_eq!(out.attack_axis, ae::LocalAxes::new(0.0, -1.0));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn movement_axis_routes_to_locomotion_and_facing() {
     let s = BrainSnapshot::idle();
     let mut out = crate::actor::control::ActorControlFrame::default();
     tick_player_brain_from_control(&input, &s, &mut out);
-    assert_eq!(out.locomotion, ae::Vec2::new(-1.0, 0.3));
+    assert_eq!(out.locomotion, ae::LocalAxes::new(-1.0, 0.3));
     assert_eq!(out.facing, -1.0);
 }
 
@@ -120,9 +120,9 @@ fn screen_directed_sideways_gravity_maps_directional_verbs_to_local_frame() {
     });
     let mut out = crate::actor::control::ActorControlFrame::default();
     tick_player_brain_from_control(&input, &s, &mut out);
-    assert_eq!(out.locomotion, ae::Vec2::new(-1.0, 0.0));
+    assert_eq!(out.locomotion, ae::LocalAxes::new(-1.0, 0.0));
     assert_eq!(out.facing, -1.0);
-    assert_eq!(out.attack_axis, ae::Vec2::new(-1.0, 0.0));
+    assert_eq!(out.attack_axis, ae::LocalAxes::new(-1.0, 0.0));
 
     // Raw screen-right maps to local-down under the same frame/mode, which
     // is the crouch / down-attack / morph-ball direction.
@@ -132,8 +132,8 @@ fn screen_directed_sideways_gravity_maps_directional_verbs_to_local_frame() {
         c.attack_pressed = true;
     });
     tick_player_brain_from_control(&input, &s, &mut out);
-    assert_eq!(out.locomotion, ae::Vec2::new(0.0, 1.0));
-    assert_eq!(out.attack_axis, ae::Vec2::new(0.0, 1.0));
+    assert_eq!(out.locomotion, ae::LocalAxes::new(0.0, 1.0));
+    assert_eq!(out.attack_axis, ae::LocalAxes::new(0.0, 1.0));
 }
 
 #[test]
@@ -366,7 +366,7 @@ fn a_possessed_flyer_steers_where_the_stick_points_under_any_gravity() {
         s.max_run_speed = 100.0;
         let mut out = crate::actor::control::ActorControlFrame::default();
         tick_player_brain_from_control(&input, &s, &mut out);
-        out.velocity_target
+        out.velocity_target.vec()
     };
 
     let upright = commanded(ae::Vec2::new(0.0, 1.0));

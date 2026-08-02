@@ -16,7 +16,7 @@ use ambition_platformer2d_core::snapshot::{
     Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
     put_u8, put_u32, put_u64, put_vec2,
 };
-use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
+use ambition_platformer2d_core::{self as ae, snapshot_pod, snapshot_unit_enum};
 
 snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
     Idle = 0,
@@ -574,8 +574,8 @@ impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
 impl SnapshotState for crate::brain::ActorControl {
     fn encode(&self, out: &mut Vec<u8>) {
         let f = &self.0;
-        put_vec2(out, f.locomotion);
-        put_vec2(out, f.velocity_target);
+        put_vec2(out, f.locomotion.vec());
+        put_vec2(out, f.velocity_target.vec());
         put_bool(out, f.drop_through);
         put_f32(out, f.facing);
         put_bool(out, f.melee_pressed);
@@ -591,7 +591,7 @@ impl SnapshotState for crate::brain::ActorControl {
                 put_f32(out, fire.speed);
             }
         }
-        put_vec2(out, f.attack_axis);
+        put_vec2(out, f.attack_axis.vec());
         for b in [
             f.jump_pressed,
             f.jump_held,
@@ -626,8 +626,8 @@ impl SnapshotState for crate::brain::ActorControl {
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use crate::actor::control::{ActorControlFrame, ActorFireRequest};
         use ambition_platformer2d_core::reference_frame::GameplayFramePolicy;
-        let locomotion = r.vec2()?;
-        let velocity_target = r.vec2()?;
+        let locomotion = ae::LocalAxes::from_vec(r.vec2()?);
+        let velocity_target = ae::WorldVec2(r.vec2()?);
         let drop_through = r.bool()?;
         let facing = r.f32()?;
         let melee_pressed = r.bool()?;
@@ -643,7 +643,7 @@ impl SnapshotState for crate::brain::ActorControl {
         } else {
             None
         };
-        let attack_axis = r.vec2()?;
+        let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
         let mut flags = [false; 19];
         for f in flags.iter_mut() {
             *f = r.bool()?;

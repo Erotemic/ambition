@@ -338,8 +338,17 @@ impl Arena {
             // Free-mover: steer the commanded 2D velocity directly (the aerial
             // brain writes velocity_target; a stray grounded throttle maps to
             // horizontal motion as a fallback).
+            // ⚠ **`locomotion.x` is a body-LOCAL side throttle and `f.vel` is
+            // world** — the same conflation S48 found in two shipped brains. It is
+            // safe HERE and only here: this arena's gravity is a SCALAR magnitude
+            // with "engine `+y` is down" hardcoded (see `GRAVITY`), never a
+            // direction, and grounded motion below writes `f.vel.x` directly. So
+            // it is screen-down by construction and local side IS world `+x`.
+            // Surfaced by typing the seam; left behaviourally identical on
+            // purpose. If this arena ever gains a gravity ORIENTATION rather than
+            // a magnitude, this line is the first thing that breaks.
             let vt = if frame.velocity_target.length_squared() > 1.0 {
-                frame.velocity_target
+                frame.velocity_target.vec()
             } else {
                 ae::Vec2::new(frame.locomotion.x * f.max_run_speed, 0.0)
             };

@@ -225,7 +225,9 @@ fn player_input_frame_is_not_body_mode_authority() {
     app.world_mut()
         .entity_mut(body)
         .insert(crate::control::PlayerInputFrame::default());
-    set_control(&mut app, body, |c| c.locomotion = Vec2::new(0.0, 1.0));
+    set_control(&mut app, body, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
+    });
     app.update();
     assert_eq!(
         app.world().get::<BodyModeState>(body).unwrap().body_mode,
@@ -254,7 +256,7 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
         .entity_mut(body)
         .insert(crate::features::MotionModel::SurfaceMomentum(momentum));
     set_control(&mut app, body, |control| {
-        control.locomotion = Vec2::new(0.0, 1.0)
+        control.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
     });
 
     app.update();
@@ -355,7 +357,9 @@ fn local_up_intent_from_morph_ball_transitions_to_standing() {
         kin.size = Vec2::new(14.0, 14.0);
     }
     // Local-up (toward the head) = negative local-down axis.
-    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, -1.0));
+    set_control(&mut app, player, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, -1.0)
+    });
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(
@@ -399,7 +403,7 @@ fn jump_press_from_climbing_keeps_climbing_mode() {
     }
     set_control(&mut app, player, |c| {
         c.jump_pressed = true;
-        c.locomotion = Vec2::new(0.0, -1.0); // up
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, -1.0); // up
     });
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
@@ -422,7 +426,7 @@ fn down_jump_from_climbing_falls_off_ladder() {
     }
     set_control(&mut app, player, |c| {
         c.jump_pressed = true;
-        c.locomotion = Vec2::new(0.0, 1.0); // down
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0); // down
     });
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
@@ -457,7 +461,9 @@ fn down_release_rearms_ladder_regrab() {
         jump_state.ladder_drop_through_timer = 0.0;
         jump_state.ladder_drop_through_hold_lock = true;
     }
-    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, 1.0)); // down
+    set_control(&mut app, player, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
+    }); // down
     app.update();
     assert_eq!(
         app.world().get::<BodyModeState>(player).unwrap().body_mode,
@@ -465,7 +471,9 @@ fn down_release_rearms_ladder_regrab() {
         "holding down should not re-grab the ladder while the release lock is active",
     );
 
-    set_control(&mut app, player, |c| c.locomotion = Vec2::ZERO); // release
+    set_control(&mut app, player, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::ZERO
+    }); // release
     app.update();
     assert!(
         !app.world()
@@ -475,7 +483,9 @@ fn down_release_rearms_ladder_regrab() {
         "releasing down should clear the ladder drop lock"
     );
 
-    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, 1.0)); // down again
+    set_control(&mut app, player, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
+    }); // down again
     app.update();
     assert_eq!(
         app.world().get::<BodyModeState>(player).unwrap().body_mode,
@@ -490,7 +500,9 @@ fn flying_suppresses_ladder_auto_climb() {
     // A ladder column the player is standing in.
     place_player_on_test_ladder(&mut app, player, None);
     // Hold Up + enable flight.
-    set_control(&mut app, player, |c| c.locomotion = Vec2::new(0.0, -1.0));
+    set_control(&mut app, player, |c| {
+        c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, -1.0)
+    });
     {
         let mut flight = app
             .world_mut()

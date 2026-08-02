@@ -508,7 +508,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
     // verifies the integration step blocks the body against
     // the wall, not just the steering code that picks velocity.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    frame.velocity_target = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
+    frame.velocity_target = ae::WorldVec2::new(enemy.config.tuning.chase_speed, 0.0);
     for _ in 0..120 {
         let mut model = crate::features::MotionModel::default();
         enemy.update_for_test(
@@ -580,7 +580,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
     // integration step blocks the body against the wall.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Full-throttle rightward run intent; the enemy's tuning owns the px/s scale.
-    frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     for _ in 0..120 {
         let mut model = crate::features::MotionModel::default();
         enemy.update_for_test(
@@ -662,7 +662,7 @@ fn patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity() {
     // the enemy travels until a cap stops it, then the detection flips facing.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Full-throttle run intent along the local side axis; tuning owns px/s.
-    frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     // Count facing reversals: with the OLD screen-x detection, `vel.x` is the
     // (zeroed, grounded) gravity axis so the wall-stop NEVER triggers → zero
     // flips and the enemy grinds into the wall forever. With the gravity-

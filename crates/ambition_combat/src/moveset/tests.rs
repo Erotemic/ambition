@@ -23,22 +23,22 @@ fn attack_dir_is_relative_to_facing() {
 
     // Facing RIGHT (+1): screen-right is forward, screen-left is back.
     assert_eq!(
-        attack_dir_from_axis(Vec2::new(1.0, 0.0), 1.0),
+        attack_dir_from_axis(ae::LocalAxes::new(1.0, 0.0), 1.0),
         AttackDir::Forward
     );
     assert_eq!(
-        attack_dir_from_axis(Vec2::new(-1.0, 0.0), 1.0),
+        attack_dir_from_axis(ae::LocalAxes::new(-1.0, 0.0), 1.0),
         AttackDir::Back
     );
 
     // Facing LEFT (-1): the mirror. Pressing screen-LEFT is now FORWARD (the bug
     // case — must be Forward, not Back), pressing screen-right is Back.
     assert_eq!(
-        attack_dir_from_axis(Vec2::new(-1.0, 0.0), -1.0),
+        attack_dir_from_axis(ae::LocalAxes::new(-1.0, 0.0), -1.0),
         AttackDir::Forward
     );
     assert_eq!(
-        attack_dir_from_axis(Vec2::new(1.0, 0.0), -1.0),
+        attack_dir_from_axis(ae::LocalAxes::new(1.0, 0.0), -1.0),
         AttackDir::Back
     );
 
@@ -46,18 +46,24 @@ fn attack_dir_is_relative_to_facing() {
     // `y < 0` under either facing; Down is `y > 0`.
     for facing in [1.0, -1.0] {
         assert_eq!(
-            attack_dir_from_axis(Vec2::new(0.0, -1.0), facing),
+            attack_dir_from_axis(ae::LocalAxes::new(0.0, -1.0), facing),
             AttackDir::Up
         );
         assert_eq!(
-            attack_dir_from_axis(Vec2::new(0.0, 1.0), facing),
+            attack_dir_from_axis(ae::LocalAxes::new(0.0, 1.0), facing),
             AttackDir::Down
         );
     }
 
     // A neutral (no-aim) press is the plain jab regardless of facing.
-    assert_eq!(attack_dir_from_axis(Vec2::ZERO, 1.0), AttackDir::Neutral);
-    assert_eq!(attack_dir_from_axis(Vec2::ZERO, -1.0), AttackDir::Neutral);
+    assert_eq!(
+        attack_dir_from_axis(ae::LocalAxes::ZERO, 1.0),
+        AttackDir::Neutral
+    );
+    assert_eq!(
+        attack_dir_from_axis(ae::LocalAxes::ZERO, -1.0),
+        AttackDir::Neutral
+    );
 }
 
 #[test]
@@ -1348,7 +1354,7 @@ fn a_forward_special_selects_the_directional_move() {
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     frame.special_pressed = true;
-    frame.attack_axis = ae::Vec2::X;
+    frame.attack_axis = ae::LocalAxes::X;
     let body = app
         .world_mut()
         .spawn((
@@ -1405,7 +1411,7 @@ fn trigger_gesture_move(include_smash: bool, strong: bool) -> String {
     frame.melee_pressed = true;
     // Above the directional deadzone but below the flick threshold, so this is
     // a tilt unless the explicit device-independent strong hint is present.
-    frame.attack_axis = ae::Vec2::new(0.6, 0.0);
+    frame.attack_axis = ae::LocalAxes::new(0.6, 0.0);
     frame.melee_strong_hint = strong;
     let body = app
         .world_mut()

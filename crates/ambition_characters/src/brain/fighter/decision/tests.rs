@@ -249,7 +249,7 @@ fn a_brain_that_has_seen_nothing_emits_neutral() {
     let snapshot = BrainSnapshot::idle();
     let mut out = ActorControlFrame::neutral();
     tick_fighter(&cfg, &mut state, &snapshot, None, &mut out);
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
     assert!(!out.melee_pressed);
 }
 

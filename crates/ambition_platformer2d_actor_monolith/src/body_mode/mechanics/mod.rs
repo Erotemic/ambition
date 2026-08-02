@@ -125,7 +125,7 @@ pub fn update_body_mode(
         let descend = local_axis.y;
         let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;
         let up_held = descend < -CROUCH_AXIS_Y_THRESHOLD;
-        let climb_axis = frame.to_world(local_axis).y;
+        let climb_axis = frame.to_world(local_axis.vec()).y;
         let climb_axis_held = climb_axis.abs() > CROUCH_AXIS_Y_THRESHOLD;
         let climb_axis_down = climb_axis > CROUCH_AXIS_Y_THRESHOLD;
         let jump_pressed = control.jump_pressed;

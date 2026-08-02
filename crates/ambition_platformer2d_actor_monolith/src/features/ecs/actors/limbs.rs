@@ -262,7 +262,7 @@ fn strike_frame(
         (LimbMotion::Hold, _) => (ae::Vec2::ZERO, false),
     };
     let mut frame = ActorControlFrame::neutral();
-    frame.velocity_target = velocity_target;
+    frame.velocity_target = ae::WorldVec2(velocity_target);
     frame.facing = facing;
     frame.melee_pressed = striking && onset;
     frame
@@ -282,7 +282,8 @@ fn station_frame(
     let right = ae::Vec2::new(down.y, -down.x);
     let home_world = host_kin.pos + right * limb.home_offset.x + down * limb.home_offset.y;
     let mut frame = ActorControlFrame::neutral();
-    frame.velocity_target = (home_world - limb_kin.pos) * LIMB_STATION_GAIN;
+    // `home_world` is world; the station command it produces is world.
+    frame.velocity_target = ae::WorldVec2((home_world - limb_kin.pos) * LIMB_STATION_GAIN);
     frame
 }
 
@@ -399,11 +400,11 @@ mod tests {
         // sweeps left and strikes; right hand climbs.
         let mut intents = LimbIntents::default();
         let mut left = ActorControlFrame::neutral();
-        left.velocity_target = ae::Vec2::new(-300.0, 0.0);
+        left.velocity_target = ae::WorldVec2::new(-300.0, 0.0);
         left.melee_pressed = true;
         intents.0.insert(LimbSlot::HandLeft, left);
         let mut right = ActorControlFrame::neutral();
-        right.velocity_target = ae::Vec2::new(0.0, -200.0);
+        right.velocity_target = ae::WorldVec2::new(0.0, -200.0);
         intents.0.insert(LimbSlot::HandRight, right);
         app.world_mut().entity_mut(host).insert((
             LimbRig::from_pairs([(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]),
@@ -413,26 +414,30 @@ mod tests {
         app.update();
 
         let l = app.world().get::<ActorControl>(hand_l).unwrap();
-        assert_eq!(l.0.velocity_target, ae::Vec2::new(-300.0, 0.0));
+        assert_eq!(l.0.velocity_target, ae::WorldVec2::new(-300.0, 0.0));
         assert!(l.0.melee_pressed, "left hand got its strike edge");
         let r = app.world().get::<ActorControl>(hand_r).unwrap();
-        assert_eq!(r.0.velocity_target, ae::Vec2::new(0.0, -200.0));
+        assert_eq!(r.0.velocity_target, ae::WorldVec2::new(0.0, -200.0));
         assert!(!r.0.melee_pressed, "intents do not bleed across slots");
 
         // Next tick the pilot only drives the right hand: the left hand is
         // explicitly neutralized, not left running its stale sweep.
         let mut only_right = LimbIntents::default();
         let mut r2 = ActorControlFrame::neutral();
-        r2.velocity_target = ae::Vec2::new(150.0, 0.0);
+        r2.velocity_target = ae::WorldVec2::new(150.0, 0.0);
         only_right.0.insert(LimbSlot::HandRight, r2);
         app.world_mut().entity_mut(host).insert(only_right);
         app.update();
 
         let l = app.world().get::<ActorControl>(hand_l).unwrap();
-        assert_eq!(l.0.velocity_target, ae::Vec2::ZERO, "stale intent cleared");
+        assert_eq!(
+            l.0.velocity_target,
+            ae::WorldVec2::ZERO,
+            "stale intent cleared"
+        );
         assert!(!l.0.melee_pressed);
         let r = app.world().get::<ActorControl>(hand_r).unwrap();
-        assert_eq!(r.0.velocity_target, ae::Vec2::new(150.0, 0.0));
+        assert_eq!(r.0.velocity_target, ae::WorldVec2::new(150.0, 0.0));
     }
 }
 

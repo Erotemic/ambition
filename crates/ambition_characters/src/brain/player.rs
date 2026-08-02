@@ -71,7 +71,12 @@ pub fn tick_player_brain_from_control(
         snapshot.movement_frame_mode,
         ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
     );
-    let local_axis = resolved.local_axes.vec();
+    // ⛔ **this used to end in `.vec()`, and that single call is how the defect
+    // got in.** `resolve_control` hands back a typed `LocalAxes`; stripping it to
+    // a bare `Vec2` right at the seam meant every use below — locomotion, facing,
+    // attack axis, and the WORLD-space `velocity_target` — looked identical to the
+    // compiler. Keeping the type is what forces line ~115 to say `to_world`.
+    let local_axis = resolved.local_axes;
     let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
     let local_aim = if raw_aim.length() > 0.1 {
         frame
@@ -112,7 +117,7 @@ pub fn tick_player_brain_from_control(
     // opposite direction: that one wrote world into a local field, this wrote
     // local into a world one, and both compile because both fields are a bare
     // `Vec2`.
-    out.velocity_target = frame.to_world(local_axis) * snapshot.max_run_speed;
+    out.velocity_target = ae::WorldVec2(frame.to_world(local_axis.vec()) * snapshot.max_run_speed);
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
     // is neutral so the actor doesn't snap to (0).
@@ -197,7 +202,7 @@ pub fn tick_player_brain_from_control(
     // baked into `local_axis`); precision blink follows the aim mode (screen-
     // directed by default), so a precision blink points where the stick points on
     // screen under any gravity.
-    out.blink_quick_dir = frame.to_world(local_axis);
+    out.blink_quick_dir = frame.to_world(local_axis.vec());
     out.blink_aim_step = frame.to_world(
         frame
             .resolve_input(

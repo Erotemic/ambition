@@ -66,6 +66,10 @@ pub struct LocalAxes {
 
 impl LocalAxes {
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+    /// Unit vector along the body's own side/right axis.
+    pub const X: Self = Self { x: 1.0, y: 0.0 };
+    /// Unit vector toward the body's feet.
+    pub const Y: Self = Self { x: 0.0, y: 1.0 };
 
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
@@ -77,6 +81,74 @@ impl LocalAxes {
 
     pub const fn vec(self) -> Vec2 {
         Vec2::new(self.x, self.y)
+    }
+
+    /// Magnitude — a throttle, when this is a locomotion intent.
+    pub fn length(self) -> f32 {
+        self.vec().length()
+    }
+
+    pub fn normalize_or_zero(self) -> Self {
+        Self::from_vec(self.vec().normalize_or_zero())
+    }
+
+    pub fn clamp_length_max(self, max: f32) -> Self {
+        Self::from_vec(self.vec().clamp_length_max(max))
+    }
+}
+
+// ⭐ **the rule these operators encode: scaling, adding and negating a vector
+// cannot change which frame it is in, so they are available on the typed value;
+// anything that DOES change frame has to go through `to_world` / `to_local`.**
+// That is the whole distinction, and it is what makes the type cheap to live
+// with — a caller only reaches for a conversion at the moments a conversion is
+// actually the point.
+//
+// ⛔ deliberately absent: `From<Vec2>` / `Into<Vec2>` in either direction. An
+// infallible conversion is exactly the reinterpretation `LocalAxes::from_vec`
+// already offers, and offering it as a coercion would put it back everywhere
+// implicitly — which is the defect this typing exists to prevent. `from_vec`
+// stays, because a caller that has genuinely resolved the frame itself needs a
+// way in; it is greppable, and that is the point.
+impl std::ops::Mul<f32> for LocalAxes {
+    type Output = Self;
+    fn mul(self, scale: f32) -> Self {
+        Self::new(self.x * scale, self.y * scale)
+    }
+}
+
+impl std::ops::MulAssign<f32> for LocalAxes {
+    fn mul_assign(&mut self, scale: f32) {
+        self.x *= scale;
+        self.y *= scale;
+    }
+}
+
+impl std::ops::Div<f32> for LocalAxes {
+    type Output = Self;
+    fn div(self, scale: f32) -> Self {
+        Self::new(self.x / scale, self.y / scale)
+    }
+}
+
+impl std::ops::Neg for LocalAxes {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y)
+    }
+}
+
+impl std::ops::Add for LocalAxes {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl std::ops::Sub for LocalAxes {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
 
@@ -97,6 +169,44 @@ impl WorldVec2 {
 
     pub const fn vec(self) -> Vec2 {
         self.0
+    }
+}
+
+// The same frame-preserving set as [`LocalAxes`], and for the same reason.
+// `Deref<Target = Vec2>` already gives the read-only geometry (`length`,
+// `normalize_or_zero`, `dot`), so only the operators that must return a
+// `WorldVec2` rather than a bare `Vec2` are written out here.
+impl std::ops::Mul<f32> for WorldVec2 {
+    type Output = Self;
+    fn mul(self, scale: f32) -> Self {
+        Self(self.0 * scale)
+    }
+}
+
+impl std::ops::MulAssign<f32> for WorldVec2 {
+    fn mul_assign(&mut self, scale: f32) {
+        self.0 *= scale;
+    }
+}
+
+impl std::ops::Neg for WorldVec2 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self(-self.0)
+    }
+}
+
+impl std::ops::Add for WorldVec2 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Sub for WorldVec2 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self(self.0 - rhs.0)
     }
 }
 

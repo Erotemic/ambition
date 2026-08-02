@@ -281,7 +281,7 @@ impl<'a> ActorMut<'a> {
             // a full-speed command maps to a full-deflection stick.
             let vt = frame.velocity_target;
             let mut i = frame.to_input_state();
-            let local_target = motion_frame.to_local(vt);
+            let local_target = motion_frame.to_local(vt.vec());
             i.axes = ae::LocalAxes::new(
                 (local_target.x / flight_speed).clamp(-1.0, 1.0),
                 (local_target.y / flight_speed).clamp(-1.0, 1.0),

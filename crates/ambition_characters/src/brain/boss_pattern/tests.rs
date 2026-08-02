@@ -690,7 +690,7 @@ fn macro_state_holds_when_front_wall_is_inside_standoff() {
     ctx.front_wall_clearance = Some(32.0);
     tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
     assert_eq!(state.macro_state, BossMacroState::Engage);
-    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
+    assert_eq!(out.velocity_target, ae::WorldVec2::ZERO);
 }
 
 #[test]

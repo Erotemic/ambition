@@ -38,7 +38,7 @@ fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSig
 fn stand_still_emits_neutral_frame() {
     let mut sm = StateMachineCfg::StandStill;
     let mut out = crate::actor::control::ActorControlFrame::default();
-    out.locomotion = ae::Vec2::new(99.0, 99.0); // pre-poisoned
+    out.locomotion = ae::LocalAxes::new(99.0, 99.0); // pre-poisoned
     out.melee_pressed = true;
     tick_state_machine(&mut sm, &BrainSnapshot::idle(), &mut out);
     assert_eq!(out, crate::actor::control::ActorControlFrame::neutral());
@@ -57,14 +57,14 @@ fn dead_actor_brain_emits_neutral_regardless_of_template() {
     // into a dead-actor tick).
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     out.melee_pressed = true;
-    out.locomotion = ae::Vec2::new(99.0, 99.0);
+    out.locomotion = ae::LocalAxes::new(99.0, 99.0);
     out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
         100.0,
     ));
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(!out.melee_pressed);
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
     assert!(out.fire.is_none());
 }
 
@@ -224,7 +224,7 @@ fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
     let s = snap_at(0.0, 30.0);
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
     assert_eq!(out.facing, 1.0);
     assert!(!out.melee_pressed);
 }
@@ -428,7 +428,7 @@ fn skirmisher_holds_quiet_when_target_dead() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none());
-    assert_eq!(out.velocity_target, ae::Vec2::ZERO);
+    assert_eq!(out.velocity_target, ae::WorldVec2::ZERO);
 }
 
 #[test]
@@ -470,7 +470,7 @@ fn sniper_holds_and_fires_within_aggro() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     // Sniper never moves (no desired_vel).
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
     // Fired (sim_time past cooldown threshold).
     assert!(out.fire.is_some());
     // After firing, cooldown gates re-fire.
@@ -491,7 +491,7 @@ fn sniper_holds_quiet_outside_aggro() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none(), "Sniper out of aggro should not fire");
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
 }
 
 #[test]
@@ -511,7 +511,7 @@ fn sniper_holds_quiet_when_target_dead() {
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.fire.is_none(), "Sniper must not fire at dead target");
-    assert_eq!(out.locomotion, ae::Vec2::ZERO);
+    assert_eq!(out.locomotion, ae::LocalAxes::ZERO);
 }
 
 #[test]
@@ -864,7 +864,7 @@ fn aerial_peaceful_flits_between_perches_near_its_anchor() {
         s.sim_time = i as f32 * dt;
         s.dt = dt;
         tick_state_machine(&mut sm, &s, &mut out);
-        pos += out.velocity_target * dt;
+        pos += out.velocity_target.vec() * dt;
         let speed = out.velocity_target.length();
         flew |= speed > 30.0;
         perched |= speed < 1.0;
@@ -904,7 +904,7 @@ fn aerial_peaceful_drops_beside_the_player_to_be_talked_to() {
         s.sim_time = i as f32 * dt;
         s.dt = dt;
         tick_state_machine(&mut sm, &s, &mut out);
-        pos += out.velocity_target * dt;
+        pos += out.velocity_target.vec() * dt;
         if let StateMachineCfg::Aerial { state, .. } = &sm {
             last_mode = state.mode;
         }
@@ -948,7 +948,7 @@ fn aerial_hostile_stalks_dives_pecks_then_recovers() {
             }
         }
         pecked |= out.melee_pressed;
-        pos += out.velocity_target * dt;
+        pos += out.velocity_target.vec() * dt;
     }
     assert!(saw_dive, "the dive-bomber must commit to a Dive");
     assert!(

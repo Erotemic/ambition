@@ -775,7 +775,7 @@ pub fn advance_move_playback(
 /// `resolve_attack_intent_from_view` and the aim helper (`compute_aim`) apply. The vertical arm is gravity-local (Up = toward
 /// the head under ANY gravity), so `y < 0` is Up with no facing term. Vertical
 /// wins ties so a clear up/down aim beats slight horizontal drift.
-pub fn attack_dir_from_axis(axis: ae::Vec2, facing: f32) -> AttackDir {
+pub fn attack_dir_from_axis(axis: ae::LocalAxes, facing: f32) -> AttackDir {
     ambition_characters::actor::attack_gesture::attack_dir_from_axis(axis, facing, 0.5)
 }
 

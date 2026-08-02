@@ -7,7 +7,7 @@
 //! a device adapter or a character: human, brain, replay, RL, and remote control
 //! all traverse the same interpreter.
 
-use ambition_platformer2d_core::Vec2;
+use ambition_platformer2d_core::{self as ae, Vec2};
 pub use ambition_entity_catalog::AttackDir;
 use bevy::prelude::Component;
 
@@ -112,7 +112,10 @@ impl Default for AttackGestureState {
 
 /// Reduce an attack axis to a facing-relative direction. Vertical wins ties so
 /// a clear up/down aim is not lost to slight horizontal drift.
-pub fn attack_dir_from_axis(axis: Vec2, facing: f32, deadzone: f32) -> AttackDir {
+/// ⚠ takes [`ae::LocalAxes`] rather than a bare `Vec2`: `axis.x * facing` is a
+/// body-LOCAL side product, and reading a world vector here would pick the wrong
+/// tilt under any rotated gravity.
+pub fn attack_dir_from_axis(axis: ae::LocalAxes, facing: f32, deadzone: f32) -> AttackDir {
     let forward = axis.x * facing;
     if axis.y.abs() >= axis.x.abs() && axis.y.abs() > deadzone {
         if axis.y < 0.0 {
@@ -145,7 +148,7 @@ fn posture(grounded: bool) -> AttackPosture {
 pub fn resolve_attack_gesture(
     state: &mut AttackGestureState,
     tuning: AttackGestureTuning,
-    axis: Vec2,
+    axis: ae::LocalAxes,
     facing: f32,
     grounded: bool,
     pressed: bool,
@@ -215,7 +218,7 @@ mod tests {
     fn tick(
         state: &mut AttackGestureState,
         tuning: AttackGestureTuning,
-        axis: Vec2,
+        axis: ae::LocalAxes,
         facing: f32,
         pressed: bool,
         held: bool,
@@ -231,15 +234,15 @@ mod tests {
     fn forward_and_back_are_facing_relative() {
         let tuning = AttackGestureTuning::default();
         assert_eq!(
-            attack_dir_from_axis(Vec2::X, 1.0, tuning.directional_deadzone),
+            attack_dir_from_axis(ae::LocalAxes::X, 1.0, tuning.directional_deadzone),
             AttackDir::Forward
         );
         assert_eq!(
-            attack_dir_from_axis(-Vec2::X, -1.0, tuning.directional_deadzone),
+            attack_dir_from_axis(-ae::LocalAxes::X, -1.0, tuning.directional_deadzone),
             AttackDir::Forward
         );
         assert_eq!(
-            attack_dir_from_axis(Vec2::X, -1.0, tuning.directional_deadzone),
+            attack_dir_from_axis(ae::LocalAxes::X, -1.0, tuning.directional_deadzone),
             AttackDir::Back
         );
     }
@@ -248,8 +251,8 @@ mod tests {
     fn recent_flick_makes_the_press_a_smash() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
-        let out = tick(&mut state, tuning, Vec2::X, 1.0, true, true, false, false);
+        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
+        let out = tick(&mut state, tuning, ae::LocalAxes::X, 1.0, true, true, false, false);
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
     }
 
@@ -260,10 +263,10 @@ mod tests {
             ..Default::default()
         };
         let mut state = AttackGestureState::default();
-        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
-        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
-        tick(&mut state, tuning, Vec2::X, 1.0, false, false, false, false);
-        let out = tick(&mut state, tuning, Vec2::X, 1.0, true, true, false, false);
+        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
+        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
+        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
+        let out = tick(&mut state, tuning, ae::LocalAxes::X, 1.0, true, true, false, false);
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Tilt);
     }
 
@@ -271,7 +274,7 @@ mod tests {
     fn strong_hint_does_not_require_a_flick() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let out = tick(&mut state, tuning, Vec2::ZERO, 1.0, true, true, false, true);
+        let out = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, true, true, false, true);
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
         assert_eq!(out.pressed.unwrap().direction, AttackDir::Neutral);
     }
@@ -280,9 +283,9 @@ mod tests {
     fn press_hold_release_keep_the_initial_semantics() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let press = tick(&mut state, tuning, Vec2::Y, 1.0, true, true, false, true);
-        let hold = tick(&mut state, tuning, -Vec2::X, -1.0, false, true, false, false);
-        let release = tick(&mut state, tuning, Vec2::ZERO, 1.0, false, false, true, false);
+        let press = tick(&mut state, tuning, ae::LocalAxes::Y, 1.0, true, true, false, true);
+        let hold = tick(&mut state, tuning, -ae::LocalAxes::X, -1.0, false, true, false, false);
+        let release = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, false, false, true, false);
         assert_eq!(press.pressed.unwrap().direction, AttackDir::Down);
         assert_eq!(hold.held.unwrap().direction, AttackDir::Down);
         assert_eq!(release.released.unwrap().direction, AttackDir::Down);
@@ -294,7 +297,7 @@ mod tests {
     fn sub_tick_tap_emits_press_and_release_together() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let out = tick(&mut state, tuning, Vec2::ZERO, 1.0, true, false, true, false);
+        let out = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, true, false, true, false);
         assert!(out.pressed.is_some());
         assert!(out.released.is_some());
         assert!(state.active.is_none());

@@ -942,7 +942,7 @@ pub fn resolve(
                 spec,
                 origin,
                 facing: frame.facing,
-                attack_axis: frame.attack_axis,
+                attack_axis: frame.attack_axis.vec(),
             });
         }
     }

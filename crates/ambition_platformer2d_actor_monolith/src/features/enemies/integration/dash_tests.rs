@@ -60,7 +60,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
-    frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     frame.dash_pressed = true;
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
@@ -171,7 +171,7 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
-    frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
     for _ in 0..ticks {
@@ -235,7 +235,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
-    frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     frame.dash_pressed = true;
     em.update(
         &world,
@@ -285,7 +285,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     // Command a pure +x world velocity (the free-mover modality).
-    frame.velocity_target = ae::Vec2::new(300.0, 0.0);
+    frame.velocity_target = ae::WorldVec2::new(300.0, 0.0);
     let dt = 1.0 / 60.0;
     for _ in 0..60 {
         em.update(

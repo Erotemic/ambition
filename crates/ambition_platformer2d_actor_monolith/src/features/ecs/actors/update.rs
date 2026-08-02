@@ -781,7 +781,7 @@ pub(crate) fn integrate_actor_body(
         brain_frame.velocity_target *= move_motion_scale;
     }
     let previous_pos = em.kin.pos;
-    let shark_charge_vec = brain_frame.velocity_target;
+    let shark_charge_vec = brain_frame.velocity_target.vec();
     // Respawn blink: `em.update` revives a dead body in place; apply the revive
     // flash here on the dead→alive transition (the damage-blink lives on
     // `BodyCombat`).

@@ -228,25 +228,27 @@ impl BrainSnapshot {
     /// how a brain that reasons in absolute speeds (patrol/chase, with per-spawn
     /// jitter) expresses intent so the integrator can scale it back by the same
     /// capability — no actor-type branch downstream.
-    pub fn locomotion_for(&self, desired_local_velocity: ae::Vec2) -> ae::Vec2 {
+    pub fn locomotion_for(&self, desired_local_velocity: ae::LocalAxes) -> ae::LocalAxes {
         if self.max_run_speed > 1e-3 {
             desired_local_velocity / self.max_run_speed
         } else {
-            ae::Vec2::ZERO
+            ae::LocalAxes::ZERO
         }
     }
 
     /// Vector from the actor to its current target in actor-local coordinates.
     /// `x` is local side/right; `y` is toward the actor's feet/down.
-    pub fn target_delta_local(&self) -> ae::Vec2 {
-        self.acceleration_frame()
-            .to_local(self.target_pos - self.actor_pos)
+    pub fn target_delta_local(&self) -> ae::LocalAxes {
+        ae::LocalAxes::from_vec(
+            self.acceleration_frame()
+                .to_local(self.target_pos - self.actor_pos),
+        )
     }
 
     /// Actor velocity in actor-local coordinates. Brains that make body-relative
     /// movement decisions should prefer this over reading world `x/y` directly.
-    pub fn actor_vel_local(&self) -> ae::Vec2 {
-        self.acceleration_frame().to_local(self.actor_vel)
+    pub fn actor_vel_local(&self) -> ae::LocalAxes {
+        ae::LocalAxes::from_vec(self.acceleration_frame().to_local(self.actor_vel))
     }
 
     /// Build the engine-side AI snapshot from this brain snapshot
@@ -267,7 +269,7 @@ impl BrainSnapshot {
         // world-like coordinates; the brain seam normalizes live actors here.
         crate::actor::ai::CharacterAiSnapshot {
             actor_pos: ae::Vec2::ZERO,
-            player_pos: self.target_delta_local(),
+            player_pos: self.target_delta_local().vec(),
             aggro_radius,
             attack_range,
             attack_windup_remaining: self.attack_windup_remaining,
@@ -357,8 +359,11 @@ mod tests {
             s.actor_pos = ae::Vec2::new(100.0, 200.0);
             s.target_pos = s.actor_pos + frame.to_world(local_target);
             s.actor_vel = frame.to_world(local_vel);
-            assert_eq!(s.target_delta_local(), local_target);
-            assert_eq!(s.actor_vel_local(), local_vel);
+            assert_eq!(
+                s.target_delta_local(),
+                ae::LocalAxes::from_vec(local_target)
+            );
+            assert_eq!(s.actor_vel_local(), ae::LocalAxes::from_vec(local_vel));
         }
     }
 }

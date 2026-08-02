@@ -406,7 +406,7 @@ pub fn apply_feature_hit_events(
             }
             let interactable = interaction.map(|i| &i.interactable);
             // The victim's held locomotion (local frame) drives DI (CM2).
-            let di_input_local = control.map(|c| c.0.locomotion).unwrap_or_default();
+            let di_input_local = control.map(|c| c.0.locomotion.vec()).unwrap_or_default();
             let mut em = cq.as_actor_mut();
             // Structural tangibility gate (Jon 2026-07-22): a dead body is an
             // intangible corpse — a strike neither lands on it nor barks back.

@@ -15,7 +15,7 @@ fn rider_behavior() -> crate::features::bosses::BossBehaviorProfile {
     )
 }
 
-fn melee_frame(axis: ae::Vec2) -> ActorControlFrame {
+fn melee_frame(axis: ae::LocalAxes) -> ActorControlFrame {
     let mut f = ActorControlFrame::neutral();
     f.melee_pressed = true;
     f.attack_axis = axis;
@@ -31,10 +31,10 @@ fn melee_frame(axis: ae::Vec2) -> ActorControlFrame {
 fn possessed_verbs_resolve_directionally() {
     let behavior = rider_behavior();
     let cases = [
-        (ae::Vec2::ZERO, "hand_sweep"),                     // neutral attack
-        (ae::Vec2::new(1.0, 0.0), "hand_sweep"),            // forward attack
-        (ae::Vec2::new(0.0, 1.0), "hand_slam"),             // down (+y = toward feet)
-        (ae::Vec2::new(0.0, -1.0), "converging_shockwave"), // up
+        (ae::LocalAxes::ZERO, "hand_sweep"),          // neutral attack
+        (ae::LocalAxes::new(1.0, 0.0), "hand_sweep"), // forward attack
+        (ae::LocalAxes::new(0.0, 1.0), "hand_slam"),  // down (+y = toward feet)
+        (ae::LocalAxes::new(0.0, -1.0), "converging_shockwave"), // up
     ];
     for (axis, expected) in cases {
         let got = possessed_attack_choice(&melee_frame(axis), &behavior, None, 1.0)
@@ -47,9 +47,13 @@ fn possessed_verbs_resolve_directionally() {
     }
     // Back-aim: no authored `attack_back`, so the chain falls through to
     // the base `attack` verb — the sweep again, never a silent no-op.
-    let back =
-        possessed_attack_choice(&melee_frame(ae::Vec2::new(-1.0, 0.0)), &behavior, None, 1.0)
-            .expect("back aim falls through the chain to the base attack verb");
+    let back = possessed_attack_choice(
+        &melee_frame(ae::LocalAxes::new(-1.0, 0.0)),
+        &behavior,
+        None,
+        1.0,
+    )
+    .expect("back aim falls through the chain to the base attack verb");
     assert_eq!(back.move_id(), "hand_sweep");
 
     let mut special = ActorControlFrame::neutral();
@@ -79,7 +83,7 @@ fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
 
     // Melee (any aim — no verbs means direction cannot rebind it).
     let got = possessed_attack_choice(
-        &melee_frame(ae::Vec2::new(0.0, 1.0)),
+        &melee_frame(ae::LocalAxes::new(0.0, 1.0)),
         &behavior,
         Some(&cap),
         1.0,

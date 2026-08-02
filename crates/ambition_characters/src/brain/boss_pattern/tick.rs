@@ -631,11 +631,14 @@ fn emit_desired_vel(
     };
     let speed = movement.speed() * macro_scale;
     let max_step = speed * ctx.dt;
-    out.velocity_target = if delta.length() > max_step && max_step > 0.0 {
+    // `delta` is a world-space position difference, so the command built from
+    // it is world-space — which is what `velocity_target` has always documented
+    // and now also states in its type.
+    out.velocity_target = ae::WorldVec2(if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed
     } else if ctx.dt > 0.0 {
         delta / ctx.dt
     } else {
         ae::Vec2::ZERO
-    };
+    });
 }

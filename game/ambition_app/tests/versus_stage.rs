@@ -1142,7 +1142,7 @@ fn a_decided_round_takes_the_controls_away() {
     // fighter who has stopped and one who has not been asked to.
     for _ in 0..3 {
         let mut control = app.world_mut().get_mut::<ActorControl>(cpu).unwrap();
-        control.0.locomotion = Vec2::new(1.0, 0.0);
+        control.0.locomotion = ambition_platformer2d::engine_core::LocalAxes::new(1.0, 0.0);
         control.0.melee_pressed = true;
         app.update();
         let frame = app.world().get::<ActorControl>(cpu).unwrap().0;

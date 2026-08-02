@@ -13,7 +13,9 @@
 //! - brains are pure functions of a snapshot plus their local state;
 //! - integration code reads only the frame, not the brain implementation.
 
-use ambition_platformer2d_core::{AccelerationFrame, GameplayFramePolicy, InputState, Vec2};
+use ambition_platformer2d_core::{
+    AccelerationFrame, GameplayFramePolicy, InputState, LocalAxes, Vec2, WorldVec2,
+};
 
 /// The body→controller half of the intent-in seam.
 ///
@@ -179,7 +181,16 @@ pub struct ActorControlFrame {
     /// per-actor-type branch. AI brains that reason in absolute speeds convert via
     /// [`crate::brain::BrainSnapshot::locomotion_for`]. Human input must resolve
     /// raw device axes before writing this.
-    pub locomotion: Vec2,
+    ///
+    /// ⛔ **the type is the contract, because the prose was not enough.** This
+    /// field was a bare `Vec2` and two shipped brains got its frame wrong in
+    /// opposite directions (S48): the fighter brain wrote raw world `x` into it,
+    /// and `brain/player.rs` wrote this body-local vector into the WORLD-space
+    /// [`Self::velocity_target`] beside it. Both compiled, because a `Vec2` in a
+    /// struct field records no frame — and the doc comment above, which has said
+    /// "controlled body's local frame" the whole time, is not something the
+    /// compiler reads.
+    pub locomotion: LocalAxes,
     /// Exact world-space velocity command in px/s, for the *free-mover /
     /// choreography* modality: boss patterns that snap to a scripted velocity, and
     /// AI flyers that steer a 2D velocity directly. The free-mover integrator
@@ -188,7 +199,13 @@ pub struct ActorControlFrame {
     /// movement mode, so the default `ZERO` simply means "no free-mover command".
     /// Deliberately distinct from locomotion (a different control modality, not a
     /// different actor type), so it does not reintroduce a player/enemy split.
-    pub velocity_target: Vec2,
+    ///
+    /// ⚠ **[`WorldVec2`] because "world-space" was already written here and a
+    /// brain still wrote a body-local vector into it.** A possessed flyer flew
+    /// world-UP when the player pushed right; see the note on
+    /// [`Self::locomotion`]. The wrapper is what makes the two fields refuse to
+    /// be assigned to each other.
+    pub velocity_target: WorldVec2,
     /// Suppress the OneWay vertical block this tick so the body
     /// falls through the platform it is standing on. Mirrors the
     /// player's `drop_through_pressed`.
@@ -216,7 +233,11 @@ pub struct ActorControlFrame {
     /// ActionSet pick between directional variants (up-tilt, down-air,
     /// back-air, …). Brains that don't care about directional melee leave this
     /// zero.
-    pub attack_axis: Vec2,
+    ///
+    /// ⚠ typed with [`Self::locomotion`] rather than left bare: it is the third
+    /// frame-carrying field on this struct, it says "local frame" in prose only,
+    /// and it had exactly the property that let the other two go wrong.
+    pub attack_axis: LocalAxes,
     /// Rising edge: brain wants to jump this tick.
     pub jump_pressed: bool,
     /// Sustain: jump button is currently held. Used by variable-
@@ -375,7 +396,7 @@ impl ActorControlFrame {
                         released: false,
                     },
                 ),
-            axes: ambition_platformer2d_core::LocalAxes::from_vec(self.locomotion),
+            axes: self.locomotion,
             blink_quick_dir: ambition_platformer2d_core::WorldVec2(self.blink_quick_dir),
             blink_aim_step: ambition_platformer2d_core::WorldVec2(self.blink_aim_step),
             attack_pressed: self.melee_pressed,
@@ -472,7 +493,7 @@ mod tests {
         assert!(!neutral.reset_pressed, "an actor never resets the room");
 
         let mut frame = ActorControlFrame::neutral();
-        frame.locomotion = Vec2::new(0.6, -0.2);
+        frame.locomotion = LocalAxes::new(0.6, -0.2);
         frame.jump_pressed = true;
         frame.dash_pressed = true;
         frame.melee_pressed = true;
@@ -488,8 +509,8 @@ mod tests {
     #[test]
     fn default_frame_is_neutral() {
         let frame = ActorControlFrame::default();
-        assert_eq!(frame.locomotion, Vec2::ZERO);
-        assert_eq!(frame.velocity_target, Vec2::ZERO);
+        assert_eq!(frame.locomotion, LocalAxes::ZERO);
+        assert_eq!(frame.velocity_target, WorldVec2::ZERO);
         assert!(!frame.drop_through);
         assert_eq!(frame.facing, 0.0);
         assert!(!frame.melee_pressed);
@@ -497,7 +518,7 @@ mod tests {
         assert!(!frame.melee_released);
         assert!(!frame.melee_strong_hint);
         assert!(frame.fire.is_none());
-        assert_eq!(frame.attack_axis, Vec2::ZERO);
+        assert_eq!(frame.attack_axis, LocalAxes::ZERO);
         assert!(!frame.jump_pressed);
         assert!(!frame.jump_held);
         assert!(!frame.jump_released);
@@ -527,7 +548,7 @@ mod tests {
         // each new field changes equality.
         let baseline = ActorControlFrame::neutral();
         let mut a = baseline;
-        a.attack_axis = Vec2::new(1.0, 0.0);
+        a.attack_axis = LocalAxes::new(1.0, 0.0);
         assert_ne!(baseline, a);
         let mut b = baseline;
         b.jump_pressed = true;

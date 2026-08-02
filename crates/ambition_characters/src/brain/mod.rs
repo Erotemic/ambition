@@ -589,7 +589,7 @@ pub fn emit_player_projectile_tick_messages(
         writer.write(ActorActionMessage {
             actor: entity,
             request: action_set::ActionRequest::PlayerProjectileTick {
-                axis: frame.locomotion,
+                axis: frame.locomotion.vec(),
                 aim: frame.aim,
                 press: frame.projectile_pressed,
                 held: frame.projectile_held,

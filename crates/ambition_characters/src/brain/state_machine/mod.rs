@@ -271,12 +271,15 @@ fn local_target_side(snapshot: &BrainSnapshot) -> f32 {
     snapshot.target_delta_local().x
 }
 
-fn frame_to_world(snapshot: &BrainSnapshot, local: ae::Vec2) -> ae::Vec2 {
-    snapshot.acceleration_frame().to_world(local)
+// ⭐ the two named conversions this module already routed everything through.
+// Typing them is what makes the naming convention enforceable rather than a
+// habit: a caller cannot reach world space except by passing through here.
+fn frame_to_world(snapshot: &BrainSnapshot, local: ae::LocalAxes) -> ae::WorldVec2 {
+    ae::WorldVec2(snapshot.acceleration_frame().to_world(local.vec()))
 }
 
-fn frame_to_local(snapshot: &BrainSnapshot, world: ae::Vec2) -> ae::Vec2 {
-    snapshot.acceleration_frame().to_local(world)
+fn frame_to_local(snapshot: &BrainSnapshot, world: ae::WorldVec2) -> ae::LocalAxes {
+    ae::LocalAxes::from_vec(snapshot.acceleration_frame().to_local(world.vec()))
 }
 
 fn tick_patrol(
@@ -310,7 +313,7 @@ fn tick_patrol(
                 .lane
                 .facing_after_bounds(snapshot.actor_pos, snapshot.actor_facing);
             out.facing = facing;
-            out.locomotion = snapshot.locomotion_for(ae::Vec2::new(facing * cfg.speed, 0.0));
+            out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(facing * cfg.speed, 0.0));
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             // Only triggers when `aggressiveness > 0` — peaceful
@@ -319,7 +322,7 @@ fn tick_patrol(
             // For aggressive patrol we close the distance.
             if cfg.aggressiveness > 0.0 {
                 out.locomotion =
-                    snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.speed, 0.0));
+                    snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.speed, 0.0));
                 out.facing = direction_side.signum_or(snapshot.actor_facing);
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
@@ -376,7 +379,7 @@ fn tick_wanderer(
     // crawler kernel wraps corners, the grounded integrator's patrol
     // wall-stop reverses facing).
     out.facing = snapshot.actor_facing.signum_or(1.0);
-    out.locomotion = snapshot.locomotion_for(ae::Vec2::new(out.facing * cfg.speed, 0.0));
+    out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(out.facing * cfg.speed, 0.0));
 }
 
 // ===== MeleeBrute =====
@@ -432,7 +435,7 @@ fn tick_melee_brute(
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             out.locomotion =
-                snapshot.locomotion_for(ae::Vec2::new(direction_side * cfg.chase_speed, 0.0));
+                snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed, 0.0));
             out.facing = direction_side.signum_or(snapshot.actor_facing);
         }
         crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
@@ -554,8 +557,8 @@ fn tick_skirmisher(
     let away_from_feet_center = -0.45 * cfg.standoff_px;
     let away_from_feet_amp = 0.20 * cfg.standoff_px;
     let down_offset = away_from_feet_center + sin_p * away_from_feet_amp;
-    let orbit_offset = frame_to_world(snapshot, ae::Vec2::new(side_offset, down_offset));
-    let desired_pos = snapshot.target_pos + orbit_offset;
+    let orbit_offset = frame_to_world(snapshot, ae::LocalAxes::new(side_offset, down_offset));
+    let desired_pos = snapshot.target_pos + orbit_offset.vec();
     let to_orbit = desired_pos - snapshot.actor_pos;
     let approach_dist = to_orbit.length();
     let approach_dir = to_orbit.normalize_or_zero();
@@ -569,7 +572,7 @@ fn tick_skirmisher(
     // Scale down speed when within a small radius of the desired
     // position so the actor doesn't oscillate around it.
     let speed_scale = (approach_dist / 24.0).min(1.0);
-    out.velocity_target = approach_dir * cfg.strafe_speed * speed_scale;
+    out.velocity_target = ae::WorldVec2(approach_dir * cfg.strafe_speed * speed_scale);
     out.velocity_target = apply_flying_separation(out.velocity_target, cfg.strafe_speed, snapshot);
     // Fire at the actual target when the cooldown timer is clear.
     // ActionSet supplies the concrete projectile (speed, damage);
@@ -703,19 +706,22 @@ fn tick_charge_crash(
     let (sin_p, cos_p) = state.orbit_phase.sin_cos();
     let orbit_offset = frame_to_world(
         snapshot,
-        ae::Vec2::new(
+        ae::LocalAxes::new(
             cos_p * cfg.standoff_px,
             -0.42 * cfg.standoff_px + sin_p * cfg.vertical_wobble_px,
         ),
     );
-    let desired_orbit_pos = snapshot.target_pos + orbit_offset;
+    let desired_orbit_pos = snapshot.target_pos + orbit_offset.vec();
     let to_orbit = desired_orbit_pos - snapshot.actor_pos;
     let orbit_dir = to_orbit.normalize_or_zero();
 
     if state.charge_remaining > 0.0 {
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
-        out.velocity_target =
-            apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
+        out.velocity_target = apply_flying_separation(
+            ae::WorldVec2(orbit_dir * cfg.charge_speed),
+            cfg.charge_speed,
+            snapshot,
+        );
         return;
     }
 
@@ -729,21 +735,27 @@ fn tick_charge_crash(
         state.mode = crate::actor::ai::CharacterAiMode::Telegraph;
         state.charge_remaining = cfg.charge_duration_s.max(snapshot.dt);
         state.charge_cooldown_remaining = cfg.charge_cooldown_s;
-        out.velocity_target =
-            apply_flying_separation(orbit_dir * cfg.charge_speed, cfg.charge_speed, snapshot);
+        out.velocity_target = apply_flying_separation(
+            ae::WorldVec2(orbit_dir * cfg.charge_speed),
+            cfg.charge_speed,
+            snapshot,
+        );
         return;
     }
 
     state.mode = crate::actor::ai::CharacterAiMode::Chase;
-    out.velocity_target =
-        apply_flying_separation(orbit_dir * cfg.cruise_speed, cfg.cruise_speed, snapshot);
+    out.velocity_target = apply_flying_separation(
+        ae::WorldVec2(orbit_dir * cfg.cruise_speed),
+        cfg.cruise_speed,
+        snapshot,
+    );
 }
 
 fn apply_flying_separation(
-    desired_vel: ae::Vec2,
+    desired_vel: ae::WorldVec2,
     base_speed: f32,
     snapshot: &BrainSnapshot,
-) -> ae::Vec2 {
+) -> ae::WorldVec2 {
     let Some(crowding) = snapshot.crowding else {
         return desired_vel;
     };
@@ -751,12 +763,15 @@ fn apply_flying_separation(
         return desired_vel;
     }
     let pressure = crowding.pressure.clamp(0.0, 1.0);
-    let separation = crowding.away_dir.normalize_or_zero() * base_speed * (1.25 + pressure);
+    // `crowding.away_dir` is a world direction, so the separation it builds is a
+    // world velocity and adds to a world one.
+    let separation =
+        ae::WorldVec2(crowding.away_dir.normalize_or_zero() * base_speed * (1.25 + pressure));
     let blended = desired_vel + separation;
     let max_speed = base_speed * (1.45 + pressure * 0.35);
     let speed = blended.length();
     if speed > max_speed && speed > 0.0 {
-        blended / speed * max_speed
+        blended * (max_speed / speed)
     } else {
         blended
     }
@@ -871,7 +886,7 @@ fn tick_aerial(
 
     // Face the target if engaged, else the direction of travel.
     let face_side = if snapshot.target_alive {
-        frame_to_local(snapshot, snapshot.target_pos - pos).x
+        frame_to_local(snapshot, ae::WorldVec2(snapshot.target_pos - pos)).x
     } else {
         frame_to_local(snapshot, out.velocity_target).x
     };
@@ -895,19 +910,19 @@ fn tick_aerial_lively(
     // grounded patrol NPC, but the bird flies down to do it.
     if snapshot.target_alive {
         let to_target = snapshot.target_pos - pos;
-        let to_target_local = frame_to_local(snapshot, to_target);
+        let to_target_local = frame_to_local(snapshot, ae::WorldVec2(to_target));
         if to_target.length() < cfg.aggro_radius {
             state.mode = CharacterAiMode::Idle;
             state.initialized = false; // re-roll a fresh leg once the player leaves
             let side = if to_target_local.x >= 0.0 { -1.0 } else { 1.0 };
-            let perch =
-                snapshot.target_pos + frame_to_world(snapshot, ae::Vec2::new(side * 30.0, 0.0));
+            let perch = snapshot.target_pos
+                + frame_to_world(snapshot, ae::LocalAxes::new(side * 30.0, 0.0)).vec();
             let delta = perch - pos;
-            out.velocity_target = if delta.length() > 6.0 {
+            out.velocity_target = ae::WorldVec2(if delta.length() > 6.0 {
                 delta.normalize_or_zero() * cfg.cruise_speed
             } else {
                 ae::Vec2::ZERO
-            };
+            });
             return;
         }
     }
@@ -925,7 +940,8 @@ fn tick_aerial_lively(
             let delta = state.waypoint - pos;
             if delta.length() <= 10.0 {
                 // Arrived: dwell. A high waypoint → perch; a ground one → walk.
-                let airborne = frame_to_local(snapshot, state.waypoint - state.anchor).y < -8.0;
+                let airborne =
+                    frame_to_local(snapshot, ae::WorldVec2(state.waypoint - state.anchor)).y < -8.0;
                 state.phase = if airborne {
                     AerialPhase::Perch
                 } else {
@@ -933,16 +949,16 @@ fn tick_aerial_lively(
                 };
                 let dwell = 1.1 + aerial_hash01(now + state.anchor.x) * 1.7;
                 state.phase_until = now + dwell;
-                out.velocity_target = ae::Vec2::ZERO;
+                out.velocity_target = ae::WorldVec2::ZERO;
             } else {
-                out.velocity_target = delta.normalize_or_zero() * cfg.cruise_speed;
+                out.velocity_target = ae::WorldVec2(delta.normalize_or_zero() * cfg.cruise_speed);
             }
         }
         AerialPhase::Walk => {
             state.mode = CharacterAiMode::Patrol;
             // Little ground hops: a slow back-and-forth drift.
             let hop = (now * 2.4).sin() * cfg.cruise_speed * 0.3;
-            out.velocity_target = frame_to_world(snapshot, ae::Vec2::new(hop, 0.0));
+            out.velocity_target = frame_to_world(snapshot, ae::LocalAxes::new(hop, 0.0));
             if now >= state.phase_until {
                 aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
@@ -950,7 +966,7 @@ fn tick_aerial_lively(
         }
         AerialPhase::Perch => {
             state.mode = CharacterAiMode::Patrol;
-            out.velocity_target = ae::Vec2::ZERO;
+            out.velocity_target = ae::WorldVec2::ZERO;
             if now >= state.phase_until {
                 aerial_pick_waypoint(cfg, state, now, snapshot.acceleration_frame());
                 state.phase = AerialPhase::Fly;
@@ -981,11 +997,11 @@ fn tick_aerial_hostile(
         // No prey: loiter near the captured anchor.
         state.mode = CharacterAiMode::Patrol;
         let delta = state.anchor - pos;
-        out.velocity_target = if delta.length() > 12.0 {
+        out.velocity_target = ae::WorldVec2(if delta.length() > 12.0 {
             delta.normalize_or_zero() * cfg.cruise_speed
         } else {
             ae::Vec2::ZERO
-        };
+        });
         return;
     }
 
@@ -998,14 +1014,15 @@ fn tick_aerial_hostile(
         AerialPhase::Stalk => {
             state.mode = CharacterAiMode::Chase;
             // Climb to a point above the target, then commit to a dive.
-            let anchor = target + frame_to_world(snapshot, ae::Vec2::new(0.0, -altitude));
+            let anchor =
+                target + frame_to_world(snapshot, ae::LocalAxes::new(0.0, -altitude)).vec();
             let delta = anchor - pos;
             out.velocity_target = apply_flying_separation(
-                delta.normalize_or_zero() * cfg.cruise_speed,
+                ae::WorldVec2(delta.normalize_or_zero() * cfg.cruise_speed),
                 cfg.cruise_speed,
                 snapshot,
             );
-            let actor_from_target = frame_to_local(snapshot, pos - target);
+            let actor_from_target = frame_to_local(snapshot, ae::WorldVec2(pos - target));
             let lined_up = actor_from_target.y < -altitude * 0.5
                 && actor_from_target.x.abs() < cfg.attack_range * 2.5;
             if lined_up && snapshot.attack_cooldown_remaining <= 0.0 {
@@ -1015,20 +1032,24 @@ fn tick_aerial_hostile(
         }
         AerialPhase::Dive => {
             state.mode = CharacterAiMode::Attack;
-            out.velocity_target = to_t.normalize_or_zero() * cfg.dive_speed;
+            out.velocity_target = ae::WorldVec2(to_t.normalize_or_zero() * cfg.dive_speed);
             if dist <= cfg.attack_range && snapshot.attack_cooldown_remaining <= 0.0 {
                 out.melee_pressed = true;
             }
             // Hit, or dropped below the target → peel off and recover.
-            if dist <= cfg.attack_range || frame_to_local(snapshot, pos - target).y > 8.0 {
+            if dist <= cfg.attack_range
+                || frame_to_local(snapshot, ae::WorldVec2(pos - target)).y > 8.0
+            {
                 state.phase = AerialPhase::Recover;
                 state.phase_until = now + 1.1;
             }
         }
         AerialPhase::Recover => {
             state.mode = CharacterAiMode::Chase;
-            let away_local = ae::Vec2::new(
-                frame_to_local(snapshot, pos - target).x.signum_or(1.0),
+            let away_local = ae::LocalAxes::new(
+                frame_to_local(snapshot, ae::WorldVec2(pos - target))
+                    .x
+                    .signum_or(1.0),
                 -1.0,
             )
             .normalize_or_zero();
@@ -1135,18 +1156,18 @@ fn tick_player_demo(
     match state.phase {
         PlayerDemoPhase::Run => {
             out.facing = 1.0;
-            out.locomotion = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::LocalAxes::new(run, 0.0);
         }
         PlayerDemoPhase::Jump => {
             out.facing = 1.0;
-            out.locomotion = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::LocalAxes::new(run, 0.0);
             // Rising edge on entry; sustain the hold for a variable-height jump.
             out.jump_pressed = just_entered;
             out.jump_held = true;
         }
         PlayerDemoPhase::Dash => {
             out.facing = 1.0;
-            out.locomotion = ae::Vec2::new(run, 0.0);
+            out.locomotion = ae::LocalAxes::new(run, 0.0);
             out.dash_pressed = just_entered;
         }
         PlayerDemoPhase::Fly => {
@@ -1157,7 +1178,7 @@ fn tick_player_demo(
                 state.fly_on = true;
             }
             out.facing = 1.0;
-            out.locomotion = ae::Vec2::new(run * 0.4, -1.0);
+            out.locomotion = ae::LocalAxes::new(run * 0.4, -1.0);
         }
     }
 

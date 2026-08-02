@@ -464,7 +464,7 @@ fn run_tick(
     snap.dt = 1.0 / 60.0;
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     tick_smash(cfg, state, actions, &snap, None, &mut frame);
-    frame.locomotion
+    frame.locomotion.vec()
 }
 
 #[test]
@@ -740,10 +740,10 @@ fn dead_actor_emits_neutral_frame() {
     // the assertion below would catch a leak from the caller's
     // pre-existing frame state.
     frame.melee_pressed = true;
-    frame.locomotion = ae::Vec2::new(999.0, 999.0);
+    frame.locomotion = ae::LocalAxes::new(999.0, 999.0);
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(!frame.melee_pressed, "dead actor must not emit melee");
-    assert_eq!(frame.locomotion, ae::Vec2::ZERO);
+    assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
 }
 
 // --- S2: frame-agnostic motor / perception (invariant I10) ---

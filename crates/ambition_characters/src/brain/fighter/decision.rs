@@ -28,7 +28,7 @@
 //! reason, and a noise stream that did not rewind would make the same fighter
 //! throw a different jab on a replay.
 
-use ambition_platformer2d_core::Vec2;
+use ambition_platformer2d_core::{self as ae, Vec2};
 
 use crate::actor::control::ActorControlFrame;
 use crate::brain::fighter::habit::{Choice, HabitModel};
@@ -454,11 +454,11 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
     use crate::actor::attack_gesture::AttackDir;
 
     frame.attack_axis = match binding.direction {
-        AttackDir::Neutral => Vec2::ZERO,
-        AttackDir::Forward => Vec2::new(1.0, 0.0),
-        AttackDir::Back => Vec2::new(-1.0, 0.0),
-        AttackDir::Up => Vec2::new(0.0, -1.0),
-        AttackDir::Down => Vec2::new(0.0, 1.0),
+        AttackDir::Neutral => ae::LocalAxes::ZERO,
+        AttackDir::Forward => ae::LocalAxes::new(1.0, 0.0),
+        AttackDir::Back => ae::LocalAxes::new(-1.0, 0.0),
+        AttackDir::Up => ae::LocalAxes::new(0.0, -1.0),
+        AttackDir::Down => ae::LocalAxes::new(0.0, 1.0),
     };
     match binding.verb {
         AttackVerb::Basic => {

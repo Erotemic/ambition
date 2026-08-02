@@ -96,7 +96,7 @@ fn input_from_frame(f: &ActorControlFrame) -> InputState {
                     released: false,
                 },
             ),
-        axes: ae::LocalAxes::from_vec(f.locomotion),
+        axes: f.locomotion,
         attack_pressed: f.melee_pressed,
         pogo_pressed: f.pogo_pressed,
         interact_pressed: f.interact_pressed,

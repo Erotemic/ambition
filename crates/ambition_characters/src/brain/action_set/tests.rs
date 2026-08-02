@@ -232,7 +232,7 @@ fn resolve_passes_attack_axis_through_to_melee_request() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
     frame.facing = 1.0;
-    frame.attack_axis = ae::Vec2::new(0.0, -1.0); // up-tilt
+    frame.attack_axis = ae::LocalAxes::new(0.0, -1.0); // up-tilt
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     match reqs[0] {
         ActionRequest::Melee { attack_axis, .. } => {

@@ -119,7 +119,7 @@ fn clear_attack(control: &mut ActorControlFrame) {
     control.melee_released = false;
     control.melee_strong_hint = false;
     control.pogo_pressed = false;
-    control.attack_axis = ambition_platformer2d_core::Vec2::ZERO;
+    control.attack_axis = ambition_platformer2d_core::LocalAxes::ZERO;
 }
 
 /// Clear the ranged/charge device verbs on the Projectile slot.

@@ -96,7 +96,7 @@ pub fn engine_input_from_actor_control(
                     released: false,
                 },
             ),
-        axes: ae::LocalAxes::from_vec(actor.locomotion),
+        axes: actor.locomotion,
         blink_quick_dir: ae::WorldVec2(actor.blink_quick_dir),
         blink_aim_step: ae::WorldVec2(actor.blink_aim_step),
         attack_pressed: actor.melee_pressed,

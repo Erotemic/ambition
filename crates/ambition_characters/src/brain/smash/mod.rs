@@ -649,7 +649,7 @@ pub fn tick_smash(
         // apply — discard them and steer a 2D velocity toward a dive/perch spacing
         // point. The attack verbs emit_inputs wrote (melee / ranged / special) are
         // dimension-agnostic and stay.
-        out.locomotion = ae::Vec2::ZERO;
+        out.locomotion = ae::LocalAxes::ZERO;
         out.jump_pressed = false;
         out.velocity_target = if state.regroup_timer > 0.0 {
             // Regrouping in the air: peel AWAY and UP to a high, far perch — the
@@ -689,8 +689,8 @@ pub fn tick_smash(
                     out.blink_pressed = true;
                     out.blink_released = true;
                     out.blink_quick_dir = away;
-                    out.locomotion = ae::Vec2::ZERO;
-                    out.velocity_target = ae::Vec2::ZERO;
+                    out.locomotion = ae::LocalAxes::ZERO;
+                    out.velocity_target = ae::WorldVec2::ZERO;
                     state.blink_cooldown = cfg.blink_cooldown_s;
                 } else if cfg.can_shield && obs.self_on_ground {
                     state.shield_hold_timer = SHIELD_HOLD_S;
@@ -700,7 +700,7 @@ pub fn tick_smash(
         // Hold the block up across its window: shield + stand ground.
         if state.shield_hold_timer > 0.0 && obs.self_on_ground && !out.blink_pressed {
             out.shield_held = true;
-            out.locomotion = ae::Vec2::ZERO;
+            out.locomotion = ae::LocalAxes::ZERO;
         }
     }
     // Hybrid flight: decide whether to be airborne and emit the fly toggle when
@@ -813,11 +813,11 @@ fn aerial_steer(
     mode: BroadMode,
     cfg: &SmashCfg,
     state: &SmashState,
-) -> ae::Vec2 {
+) -> ae::WorldVec2 {
     // Hold position through a swing so the strike connects rather than drifting
     // back out of range mid-attack.
     if obs.self_attacking {
-        return ae::Vec2::ZERO;
+        return ae::WorldVec2::ZERO;
     }
     let side = obs.side_axis();
     let up = obs.up_axis();
@@ -864,7 +864,7 @@ fn aerial_steer(
     // Ease into the target point so the flyer settles instead of overshooting and
     // oscillating around it.
     let throttle = (to_desired.length() / 22.0).min(1.0);
-    to_desired.normalize_or_zero() * speed * throttle
+    ae::WorldVec2(to_desired.normalize_or_zero() * speed * throttle)
 }
 
 /// Per-actor footsies phase offset (radians) derived from the stable RNG seed,
@@ -984,7 +984,7 @@ fn regroup_ground_action(
 /// Aerial regroup steering: drive AWAY from the target and UP, to a high far perch —
 /// gaining high ground while resetting. Frame-agnostic via the gravity-relative
 /// side / up axes (byte-identical to screen `away`+`up` under screen-down gravity).
-fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::Vec2 {
+fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::WorldVec2 {
     let toward = if obs.to_target_side().abs() < 0.001 {
         obs.self_facing
     } else {
@@ -994,7 +994,7 @@ fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::Vec2 {
         + obs.side_axis() * (-toward * cfg.regroup_distance)
         + obs.up_axis() * (cfg.engage_distance * 1.6);
     let to_desired = desired - obs.self_pos;
-    to_desired.normalize_or_zero() * cfg.chase_speed
+    ae::WorldVec2(to_desired.normalize_or_zero() * cfg.chase_speed)
 }
 
 /// Replace a *closing walk* over a large approach gap with a

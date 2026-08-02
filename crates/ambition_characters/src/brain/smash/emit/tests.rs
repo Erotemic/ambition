@@ -64,7 +64,7 @@ fn melee_attack_sets_melee_pressed_and_attack_axis() {
         &mut frame,
     );
     assert!(frame.melee_pressed);
-    assert_eq!(frame.attack_axis, ae::Vec2::new(1.0, 0.0));
+    assert_eq!(frame.attack_axis, ae::LocalAxes::new(1.0, 0.0));
     assert!(frame.facing > 0.0);
 }
 
@@ -99,6 +99,6 @@ fn idle_zeros_locomotion_but_keeps_facing() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     // Target on the left → expect actor to face left.
     emit_inputs(SpecificAction::Idle, &obs_at(-200.0), &mut frame);
-    assert_eq!(frame.locomotion, ae::Vec2::ZERO);
+    assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
     assert!(frame.facing < 0.0, "facing should point at target");
 }

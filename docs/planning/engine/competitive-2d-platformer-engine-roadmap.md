@@ -1084,8 +1084,8 @@ twelve sets** — eleven single-member (`EffectExecutionSet`, `FeatureWorldOverl
 `WornControlGateSet`, `MenuFrameCutsceneSkip`, `LocalInputFrameCommit`,
 `PortalLinkResolution`, `PortalPickupArming`, `PlayerBrainTick`) and one with two
 (`MenuFramePopulate`) — plus one phase vocabulary (`ProgressionSet`, six phases).
-Every conversion was chosen because it was EXACTLY equivalent; the ones that
-would have been merely stricter are recorded above and left alone.
+Every conversion is EXACTLY equivalent to the pins it replaced — including the
+four that were parked for being "stricter", which they were not; see below.
 
 ⛔ **do not maintain the tally here. `scripts/check_cross_crate_leaf_pins.py`
 owns it now**, and the numbers above are frozen prose about what happened, not a

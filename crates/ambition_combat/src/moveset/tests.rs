@@ -909,7 +909,7 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
         // publish the test gravity on the BODY, as the resolution phase would.
         let mut frame =
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
-        frame.publish(ae::MotionFrame::from_direction(gravity, 900.0));
+        frame.publish_resolved_frame(ae::MotionFrame::from_direction(gravity, 900.0));
         app.world_mut().entity_mut(attacker).insert(frame);
         run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
         let mut state = app.world_mut().query::<&Hitbox>();

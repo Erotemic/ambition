@@ -195,7 +195,8 @@ pub fn oscillate_gravity_zones(
     for (mut zone, mut osc) in &mut zones {
         osc.phase += time.get() * osc.freq;
         let cx = osc.base_center.x + osc.phase.sin() * osc.amplitude_x;
-        zone.aabb = ambition_platformer2d_core::Aabb::new(Vec2::new(cx, osc.base_center.y), osc.half);
+        zone.aabb =
+            ambition_platformer2d_core::Aabb::new(Vec2::new(cx, osc.base_center.y), osc.half);
     }
 }
 
@@ -453,7 +454,7 @@ mod tests {
         app.world_mut()
             .get_mut::<crate::frame_env::ResolvedMotionFrame>(player)
             .unwrap()
-            .publish(ambition_platformer2d_core::MotionFrame::from_direction(
+            .publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
                 Vec2::new(0.0, -1.0),
                 900.0,
             ));

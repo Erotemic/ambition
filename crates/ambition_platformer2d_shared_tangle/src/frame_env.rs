@@ -50,7 +50,10 @@ pub struct ResolvedMotionFrame {
 impl Default for ResolvedMotionFrame {
     fn default() -> Self {
         Self {
-            frame: MotionFrame::from_direction(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, 0.0),
+            frame: MotionFrame::from_direction(
+                ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
+                0.0,
+            ),
         }
     }
 }
@@ -74,8 +77,21 @@ impl ResolvedMotionFrame {
     }
 
     /// Publish this tick's resolved frame. ONLY the frame resolution phase may
-    /// call this (guarded by workspace policy, not just convention).
-    pub fn publish(&mut self, frame: MotionFrame) {
+    /// call this — `engine.only-the-frame-phase-publishes-the-resolved-frame`.
+    ///
+    /// ⛔ **it was called `publish`, and that name is why the claim "guarded by
+    /// workspace policy" was FALSE for as long as it stood.** A
+    /// forbidden-source rule can only match text, and `.publish(` collides with
+    /// `sprites.publish`, `damageable.publish`, `sessions.publish` and
+    /// `registry.publish` — so no rule could name this one without firing on four
+    /// unrelated seams. The invariant held on inspection (two callers, both in
+    /// the resolve phase) and nothing was checking it.
+    ///
+    /// ⚠ the general lesson, and the second instance found on 2026-08-02: **a
+    /// doc comment that claims enforcement is a claim about the code, and goes
+    /// stale like any other.** The first was ADR 0024's pose/velocity contract,
+    /// enforced for `pos` and not `vel`.
+    pub fn publish_resolved_frame(&mut self, frame: MotionFrame) {
         self.frame = frame;
     }
 }
@@ -152,7 +168,11 @@ impl FrameEnv<'_> {
     ///   body's 0 keeps orientation with zero gravity acceleration).
     /// - Force-zone contributions accumulate in world space, unscaled by the
     ///   gravity response and without rotating the basis.
-    pub fn resolve(&self, body: ambition_platformer2d_core::Aabb, gravity_response: f32) -> MotionFrame {
+    pub fn resolve(
+        &self,
+        body: ambition_platformer2d_core::Aabb,
+        gravity_response: f32,
+    ) -> MotionFrame {
         let dir = self.gravity.dir_for(body);
         let gravity_acceleration = dir * gravity_response.max(0.0);
         let external_acceleration = self

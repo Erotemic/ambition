@@ -47,11 +47,11 @@ pub fn resolve_body_motion_frames(
 ) {
     let player_response = tuning.gravity;
     for (kin, mut resolved) in &mut players {
-        resolved.publish(env.resolve(kin.aabb(), player_response));
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), player_response));
     }
     for (kin, config, surface, mut resolved) in &mut actors {
         let response = config.tuning.movement.gravity * surface.gravity_scale;
-        resolved.publish(env.resolve(kin.aabb(), response));
+        resolved.publish_resolved_frame(env.resolve(kin.aabb(), response));
     }
 }
 
@@ -223,7 +223,10 @@ mod tests {
         app.add_plugins(crate::gravity::GravityPlugin);
         app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
         app.init_resource::<ProbeSawZoneFrame>();
-        app.add_systems(Update, player_input_probe.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput));
+        app.add_systems(
+            Update,
+            player_input_probe.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+        );
 
         app.world_mut().spawn(GravityZone {
             aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(60.0, 60.0)),

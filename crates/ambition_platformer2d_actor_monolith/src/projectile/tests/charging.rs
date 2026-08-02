@@ -318,7 +318,7 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
             q.iter(world).next().unwrap().0
         };
         let mut frame = crate::physics::ResolvedMotionFrame::default();
-        frame.publish(ambition_platformer2d_core::MotionFrame::from_direction(
+        frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
             ambition_platformer2d_core::Vec2::new(1.0, 0.0),
             900.0,
         ));
@@ -331,7 +331,8 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         let mut settings = app
             .world_mut()
             .resource_mut::<ambition_persistence::settings::UserSettings>();
-        settings.gameplay.aim_frame_mode = ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
+        settings.gameplay.aim_frame_mode =
+            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
     }
 
     {
@@ -363,8 +364,9 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         shot.vel
     );
 
-    let frame =
-        ambition_platformer2d_core::AccelerationFrame::new(ambition_platformer2d_core::Vec2::new(1.0, 0.0));
+    let frame = ambition_platformer2d_core::AccelerationFrame::new(
+        ambition_platformer2d_core::Vec2::new(1.0, 0.0),
+    );
     let local_offset = frame.to_local(shot.pos - player_pos);
     assert!(
         local_offset.y < -20.0,

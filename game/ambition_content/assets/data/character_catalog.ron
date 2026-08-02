@@ -2349,7 +2349,7 @@
             idle: ["The record is not a time capsule. It is an introduction.", "Listen long enough and the universe stops sounding empty."],
             hall: ["We sent music, greetings, a heartbeat, and the sound of a kiss. Optimism is sometimes an engineering decision.", "A message for strangers begins with the hope that strangers can understand.", "The map points home, but only if you already know how to read a pulsar.", "Wonder without skepticism is fog. Skepticism without wonder is a locked door."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_npc_anne_druid"),
         ),
         "npc_richard_duckling": (
             display_name: "Richard Duckling, the Selfish Meme",
@@ -2376,7 +2376,7 @@
             idle: ["I practically invented memes. Where are the ducks?", "No, that is a goose meme. Entirely different clade.", "The cultural environment remains inexplicably duck-poor."],
             hall: ["I named the thing, you know. One might expect at least one excellent duck template by now.", "A meme is not merely an image with text. Unfortunately, most images with text have not heard this.", "I am applying artificial selection. Natural selection has had decades and produced nothing usable.", "The ducklings are not followers. They are independent replicators with suspiciously similar opinions."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_npc_richard_duckling"),
         ),
         "npc_le_beast": (
             display_name: "Le Beast",
@@ -2393,7 +2393,7 @@
             idle: ["A point? No nourishment at all.", "Bring me something measurable.", "I have an appetite for almost everywhere."],
             hall: ["You keep pointing at individual points. I keep telling you they have no weight by themselves.", "Cut the meal into pieces, rearrange it, plate it upside down. The amount remains the amount.", "Riemann invited only the well-behaved functions. I opened the dining hall.", "The sigma on my clasp is not decoration. It is the menu."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_npc_le_beast"),
         ),
         "npc_hypatia_prime": (
             display_name: "Hypatia Prime",
@@ -2410,7 +2410,7 @@
             idle: ["The record is incomplete. That is not permission to stop reading.", "A copy of a copy can still preserve an angle.", "You expected certainty from fragments?"],
             hall: ["You are speaking to a reconstruction. Whether I am the first, the best, or merely the latest is another question.", "Most people remember the ending because endings travel easily. I am more interested in the work that did not survive.", "A missing book is not an empty book. It leaves citations, students, arguments, and strangely shaped absences.", "Mystery is not magic. Sometimes it is simply what remains after the documents do not."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_npc_hypatia_prime"),
         ),
         "npc_marie_curry": (
             display_name: "Marie Curry",
@@ -2436,6 +2436,7 @@
                 "A good experiment and a good recipe both deserve patience.",
                 "The hazard is usually not the substance. It is the carelessness.",
             ],
+            hall_dialogue_id: Some("hall_npc_marie_curry"),
         ),
         "npc_joseph_furrier": (
             display_name: "Joseph Furrier",
@@ -2458,6 +2459,7 @@
                 "People hear a chord. I hear the sum.",
             ],
             authoring_description: "Joseph Furrier is a transformative parody of French mathematician and physicist Joseph Fourier. The oversized blanket is inspired by the commonly repeated biographical anecdote that Fourier habitually kept himself heavily wrapped for warmth; Ambition exaggerates that private eccentricity into his permanent bundled silhouette. The name's furrier pun is expressed through the blanket's thick trim rather than by turning Fourier into an animal. Stair shapes are deliberately limited to the step_function and spectral_descent gameplay actions: they are a game-facing homage to stepwise/discrete approximation and platforming, not another claim about Fourier's life. The spectral lining, separated color bands, wave attacks, and low-pass defensive posture draw on Fourier analysis, frequency decomposition, and filtering. The overall tone is dark, cold, and eccentric, but affectionate rather than horrific.",
+            hall_dialogue_id: Some("hall_npc_joseph_furrier"),
         ),
         "npc_admiral_grass_hopper": (
             display_name: "Admiral Grass Hopper",
@@ -2483,6 +2485,7 @@
                 "You can waste time arguing with reality, or you can measure it and move.",
                 "The trick is to make complex work look disciplined.",
             ],
+            hall_dialogue_id: Some("hall_npc_admiral_grass_hopper"),
         ),
         "npc_python_goras": (
             display_name: "Python Goras",
@@ -2501,6 +2504,7 @@
                 "The serpent agrees.",
                 "You stand at the wrong vertex.",
             ],
+            hall_dialogue_id: Some("hall_npc_python_goras"),
         ),
         "npc_leib_knives": (
             display_name: "Gottfried Leib-Knives",
@@ -2522,6 +2526,7 @@
                 "A derivative tells you how quickly the present is becoming the future. In a duel, that is practical information.",
                 "An integral gathers countless small changes into one result. Do not stand inside the result.",
             ],
+            hall_dialogue_id: Some("hall_npc_leib_knives"),
         ),
         "npc_georg_canter": (
             display_name: "Georg Canter",
@@ -2543,6 +2548,7 @@
                 "The set of things you have not tried is strictly larger than the set of things you have.",
                 "A diagonal is a very quiet kind of proof.",
             ],
+            hall_dialogue_id: Some("hall_npc_georg_canter"),
         ),
         "npc_paul_diracula": (
             display_name: "Paul Diracula",
@@ -2564,6 +2570,7 @@
                 "Every particle has a reflection waiting to cancel it. I find that romantic.",
                 "I speak rarely. When the algebra is correct there is not much left to add.",
             ],
+            hall_dialogue_id: Some("hall_npc_paul_diracula"),
         ),
         "player_robot_v2": (
             // The SAME tuning the `player` row carried when this art was the
@@ -2597,7 +2604,7 @@
             on_hit: ["I remember this part.", "You learned that from me."],
             provoked: ["Then let us see what you kept."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_player_robot_v2"),
         ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",

@@ -1318,3 +1318,111 @@ Hunny Horror: Oh. A visitor. Have you brought any? No? Then stand a little close
     <<portrait_clip "snarl">>
     Hunny Horror: Because up there they keep the small ones on little stands, and down here they keep the things that ate their own story. Bother.
 ===
+
+title: hall_npc_anne_druid
+---
+Anne Druid: The grove's fine. Don't water anything. People come in here and water things.
+-> Are you a robot?
+    Anne Druid: I'm a druid. The joints are a lifestyle choice.
+-> What do you tend?
+    Anne Druid: Six oaks, a moss I'm not allowed to name, and one fern that has been dying for eleven years and refuses to finish. The fern is winning.
+===
+
+title: hall_npc_richard_duckling
+---
+Duckling: You looked at me. That's the whole mechanism. Everything after this is bookkeeping.
+-> You're a duckling.
+    Duckling: I'm a vehicle. So are you. The difference is I know what I'm carrying and you think it's your personality.
+-> What are you carrying?
+    Duckling: This sentence, mostly. You'll repeat some of it. Not the good part — nobody ever repeats the good part.
+===
+
+title: hall_npc_le_beast
+---
+Le Beast: Stand still. I'm measuring you.
+-> How do I measure?
+    Le Beast: Poorly. A scatter of isolated points that happens to make noise. Total length: nothing. Don't take it personally, most things are nothing.
+-> Can you measure anything?
+    Le Beast: Things nobody else can. Hand me a set so ugly it has no business having a size, and I'll hand you a number. That's the trick. That's the only trick.
+===
+
+title: hall_npc_hypatia_prime
+---
+Hypatia: Before you ask — yes, first. Yes, a woman. Yes, the library. Can we do the other part now.
+-> What's the other part?
+    Hypatia: Conic sections. Forty years of work and I get remembered for how it ended. The astrolabe was good. Ask me about the astrolabe.
+-> Tell me about the astrolabe.
+    Hypatia: Finally. Sit down, this takes a while, and you are going to pretend to follow it.
+===
+
+title: hall_npc_marie_curry
+---
+Marie Curry: Don't touch the notebook.
+-> Why not?
+    Marie Curry: It will still be dangerous in fifteen hundred years. I keep it because the recipes are good and I am stubborn about both halves of that sentence.
+-> What's cooking?
+    Marie Curry: Something with a half-life. It's hot in the way you're worried about, and also the other way.
+===
+
+title: hall_npc_joseph_furrier
+---
+Furrier: Shut the door. It's freezing in here, and it is never freezing in here.
+-> It's warm.
+    Furrier: To you. Come closer to the fire and we'll discuss heat, which is the only subject.
+-> What do you do?
+    Furrier: Take a thing apart into waves. Any thing. A drumhead, a cold bar of iron, your walk. You have a walk, by the way. There's a bad third harmonic in it.
+===
+
+title: hall_npc_admiral_grass_hopper
+---
+Admiral Hopper: Hold out your hand. — That's a nanosecond. Eleven and a half inches. Keep it.
+-> What's it for?
+    Admiral Hopper: So you stop saying the machine is slow like it's a mood. It's slow because you asked it to go somewhere, and light takes that long to get there.
+-> What's in the jar?
+    Admiral Hopper: A moth. It was in the relay. People say "bug" like it's a figure of speech now, which is how you can tell nobody checks.
+===
+
+title: hall_npc_python_goras
+---
+Python Goras: No beans past this point.
+-> Why no beans?
+    Python Goras: Doesn't concern you. It concerns the beans.
+-> What about triangles?
+    Python Goras: Triangles are fine. Triangles are settled. Ask me about the diagonal of a square and we're going to have a different afternoon. The last man who did is at the bottom of a harbour.
+===
+
+title: hall_npc_leib_knives
+---
+Leib-Knives: He didn't invent it first. He invented it badly first, and then he invented a committee.
+-> Who?
+    Leib-Knives: You know who. Everyone knows who. Look at your own notation — that's mine. Every d, every long S, every one of them mine, and they put his name on the century.
+-> Let it go.
+    Leib-Knives: I have. Repeatedly. It keeps coming back.
+===
+
+title: hall_npc_georg_canter
+---
+Canter: Pick an infinity. Any one. — Wrong. There's a bigger one, and I can build it out of the one you picked.
+-> That can't be right.
+    Canter: That's what he said. Louder, and for longer, and to people who could end me. Write your list down. I'll walk the diagonal and hand you the number you left off it.
+-> Are you all right?
+    Canter: No. But the mathematics is fine, and one of us has to be.
+===
+
+title: hall_npc_paul_diracula
+---
+Diracula: ...
+-> Hello?
+    Diracula: Hello.
+-> Nothing at all?
+    Diracula: There is an equation. It's on the wall behind you.
+===
+
+title: hall_player_robot_v2
+---
+Robot v2: I'm not a draft. Somebody ruled on that. It's in writing.
+-> Are you the old model?
+    Robot v2: I'm a different person who happens to be shaped like a decision somebody made twice. The paperwork was very clear. I keep a copy.
+-> What's different about v3?
+    Robot v2: Ask v3. We don't compare notes. It isn't a feud — neither of us wants to hear the answer.
+===

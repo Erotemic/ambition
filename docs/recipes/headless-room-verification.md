@@ -60,3 +60,74 @@ Assert durable outcomes:
 
 Avoid pinning exact frame counts, velocities, coordinates, or visual assets unless
 they are the contract under test.
+
+## Seeing a picture, and which renderer to reach for
+
+Three paths exist and they are not interchangeable. Reaching for the wrong one
+costs a lot: measured 2026-08-02, the geometry render below took **0.43 s** and
+`capture_scene` did not produce a frame in **forty minutes**.
+
+### 1. Geometry — `render_room_geometry` (sub-second, no GPU)
+
+```bash
+cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry -- <ROOM_ID> [OUT.png]
+cargo run -p ambition_platformer2d_actor_monolith --example render_room_geometry           # lists every room
+```
+
+A pure pixel buffer — no wgpu, no windowing, no display. It draws collision and
+volume BOXES in world space, not sprite art, which is exactly the right
+instrument for "where is this thing" questions: room bounds, spawns, hurtbox vs
+body envelope, mid-air doors.
+
+**Reach for this first.** It is the answer to most questions that feel like they
+need a screenshot.
+
+### 2. The real render stack — `capture_scene`
+
+```bash
+cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WxH] \
+    [--warmup N] [--combat-overlay] [--press KEYS] [--character ID] [--route ID]
+```
+
+This runs the actual presentation plugins, so it is the only path that shows
+sprite ART. Two flags matter for combat work:
+
+- `--combat-overlay` puts the `DebugViewMode::Combat` preset in the shot. The
+  volumes are off by default, so without it a swing is photographable and its
+  hit polygon is not.
+- `--press` drives input, and takes `hold:KEY` / `release:KEY` as well as taps.
+  Every tilt and aerial is *a direction held while attack is pressed*, so
+  `--press up,x` taps Up, releases it, and then attacks — resolving forward.
+  `--press hold:up,x,release:up` is an up-tilt; `z,wait:10,hold:down,x,release:down`
+  is a down-air. Presses restart the capture clock, so `--warmup N` after them
+  reads as N sim ticks into the move (the phase colour tells you whether you
+  landed in the active window: red is active).
+
+⛔ **It does not currently finish on the dev VM.** Measured: forty minutes,
+single-threaded, spinning CPU, no log line, no graphics library mapped and no
+asset file opened. That profile points at startup work in a 688 MB debug binary
+(the baked sheet RONs are `include_str!`'d), NOT at the GPU — software Vulkan is
+installed (`/usr/share/vulkan/icd.d/lvp_icd.json`, lavapipe), and there is no
+`DISPLAY`, no `/dev/dri` and no Xvfb. If you need it, try a release build first
+and budget real time.
+
+### 3. Art against its own volume — composite it yourself
+
+When the question is specifically "does the drawn effect match the volume that
+hurts", neither of the above answers it: one draws boxes without art, the other
+draws art without finishing. Reproduce the runtime's mapping in a few lines of
+Python instead — read the sprite sheet and the manifest polygon, project the
+volume the way `CombatVolume::swing_shape` does, stretch the sprite into that
+quad, and draw both into one image.
+
+⚠ **A harness that models the pipeline minus one step is a confident wrong
+answer, not a weaker one.** A containment measurement built this way reported
+0.00% of the slash outside its polygon while a screenshot of the same frame
+plainly showed ink past the outline: it reproduced `swing_shape` and not the
+`SLASH_ART_MARGIN` applied one line later. Check any such harness against a
+picture before believing a number from it.
+
+### Finding this page
+
+`python scripts/agent_query.py "headless screenshot"` reaches it. Going straight
+to the binary that sounds right instead cost most of a session.

@@ -250,7 +250,19 @@ pub enum VfxMessage {
     /// relation to the swing's shape and could not be fitted to it by any
     /// amount of work on the art side. See [`ae::SwingShape`].
     Slash {
+        /// The swing, in the STRIKING BODY'S frame — origin relative to the
+        /// attacker, not to the world.
+        ///
+        /// ⚠ It was world-space, and a melee effect placed in the world stays
+        /// where it was placed. The damage box does not: it is
+        /// `HitboxAnchor::FollowOwner` and re-resolves from the owner every
+        /// tick. So for the 100ms a swing is live, a moving attacker's hitbox
+        /// tracked the body while the drawn blade stayed behind — and attacking
+        /// while running is the common case, not an edge one.
         shape: ae::SwingShape,
+        /// Who is swinging. Presentation re-places the effect on this body every
+        /// frame, which is the same anchoring rule the hitbox already uses.
+        owner: bevy::prelude::Entity,
         kind: SlashKind,
         pose: SlashPose,
     },

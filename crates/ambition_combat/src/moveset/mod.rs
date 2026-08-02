@@ -712,6 +712,7 @@ pub fn advance_move_playback(
                                 &mut vfx,
                                 &hb.world_volume(kin.pos),
                                 kin.pos,
+                                owner,
                                 kind,
                                 pose,
                             );

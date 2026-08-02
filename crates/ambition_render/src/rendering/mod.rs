@@ -251,6 +251,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     slash_visuals::spawn_slash_effects,
+                    // After the spawn, so a swing born this frame is already on
+                    // its body when the frame is drawn.
+                    slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
                 )

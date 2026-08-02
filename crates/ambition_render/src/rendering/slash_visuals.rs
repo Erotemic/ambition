@@ -21,6 +21,7 @@ use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_sim_view::presented_pose::PresentedPose;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
@@ -90,6 +91,14 @@ pub(crate) struct SlashVisual {
     row_start: usize,
     frames: usize,
     frame_duration: f32,
+    /// Who is swinging, and where the swing sits in THEIR frame.
+    ///
+    /// A melee effect is attached to a person. This one used to be placed in the
+    /// world and left there, while the damage box it draws for is
+    /// `HitboxAnchor::FollowOwner` and re-resolves from the body every tick — so
+    /// a running attacker's hitbox tracked and its blade did not.
+    owner: Entity,
+    local: ae::SwingShape,
 }
 
 fn slash_source(
@@ -142,6 +151,7 @@ pub(crate) fn spawn_slash_effects(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     sheet_registry: Option<Res<SheetRegistry>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    owners: Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
     mut cache: Local<Option<SlashSource>>,
 ) {
     let Some(session_scope) =
@@ -152,7 +162,13 @@ pub(crate) fn spawn_slash_effects(
     };
     let mut source: Option<SlashSource> = None;
     for message in messages.read() {
-        let VfxMessage::Slash { shape, kind, pose } = message else {
+        let VfxMessage::Slash {
+            shape,
+            owner,
+            kind,
+            pose,
+        } = message
+        else {
             continue;
         };
         if source.is_none() {
@@ -172,6 +188,8 @@ pub(crate) fn spawn_slash_effects(
             &world.0,
             source,
             *shape,
+            *owner,
+            owner_pos(&owners, *owner),
             *kind,
             *pose,
         );
@@ -193,6 +211,8 @@ fn spawn_one(
     world: &ae::World,
     source: &SlashSource,
     shape: ae::SwingShape,
+    owner: Entity,
+    owner_pos: ae::Vec2,
     kind: SlashKind,
     pose: SlashPose,
 ) {
@@ -209,8 +229,11 @@ fn spawn_one(
     // already world-aligned and its rotation is the pose's alone.
     let half = shape.oriented_bounds();
     sprite.custom_size = Some(BVec2::new((half.x * 2.0).max(1.0), (half.y * 2.0).max(1.0)));
-    let mut transform =
-        Transform::from_translation(world_to_bevy(world, shape.center(), WORLD_Z_FX + 2.0));
+    let mut transform = Transform::from_translation(world_to_bevy(
+        world,
+        owner_pos + shape.center(),
+        WORLD_Z_FX + 2.0,
+    ));
     let axis = match shape {
         ae::SwingShape::Sweep { dir, .. } => dir,
         ae::SwingShape::Radial { .. } => ae::Vec2::ZERO,
@@ -227,9 +250,61 @@ fn spawn_one(
                 row_start: row.start,
                 frames: row.frames,
                 frame_duration: row.frame_duration,
+                owner,
+                local: shape,
             },
         ),
     );
+}
+
+/// Where the owner is being DRAWN this frame.
+///
+/// The presented pose, not the sim pose. They differ by up to a frame of
+/// interpolation, and the body sprite is drawn from the presented one — so a
+/// blade placed on the sim pose shudders against a body that looks perfectly
+/// stable. That is the same trap the debug overlay's own box fell into and
+/// fixed by sampling `draw_pos`.
+fn owner_pos(
+    owners: &Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
+    owner: Entity,
+) -> ae::Vec2 {
+    owners
+        .get(owner)
+        .map(|(kin, presented)| presented.map_or(kin.pos, |p| p.presented()))
+        .unwrap_or(ae::Vec2::ZERO)
+}
+
+/// **Keep every live slash on the body that is swinging it.**
+///
+/// The hitbox is `HitboxAnchor::FollowOwner` and re-resolves from the owner
+/// every tick; this is the presentation half of the same rule. Without it the
+/// damage box tracks a running attacker and the drawn blade does not, for the
+/// whole 100ms the swing is live.
+///
+/// Only the TRANSLATION follows. The swing's direction and extent were committed
+/// in the body's frame when the strike opened — the hitbox stores its own
+/// `facing` and `frame_down` the same way and does not re-mirror mid-swing — so
+/// re-deriving them here would be a second opinion, not an update.
+///
+/// An owner that has despawned mid-swing leaves its effect where it last stood
+/// rather than snapping it to the origin. A body can die inside its own swing,
+/// and the alternative reads as a rendering fault.
+pub(crate) fn follow_slash_owner(
+    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    owners: Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
+    mut slashes: Query<(&SlashVisual, &mut Transform)>,
+) {
+    for (slash, mut transform) in &mut slashes {
+        let Ok((kin, presented)) = owners.get(slash.owner) else {
+            continue;
+        };
+        let pos = presented.map_or(kin.pos, |p| p.presented());
+        let target = world_to_bevy(&world.0, pos + slash.local.center(), WORLD_Z_FX + 2.0);
+        transform.translation.x = target.x;
+        transform.translation.y = target.y;
+    }
 }
 
 /// Advance every live slash effect one frame at a time and despawn it once the

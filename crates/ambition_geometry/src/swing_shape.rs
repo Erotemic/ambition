@@ -92,6 +92,35 @@ impl SwingShape {
         }
     }
 
+    /// Move the whole swing by `delta`.
+    ///
+    /// The cue carries a BODY-LOCAL swing so presentation can re-place it on a
+    /// moving attacker every frame, which is what stops the drawn blade being
+    /// left behind by the damage box that tracks the body. Deriving the shape
+    /// needs the volume in the world (that is how the projection knows which end
+    /// is the handle), so the subtraction happens after.
+    pub fn translated(&self, delta: Vec2) -> Self {
+        match *self {
+            SwingShape::Sweep {
+                origin,
+                dir,
+                length,
+                near_half,
+                far_half,
+            } => SwingShape::Sweep {
+                origin: origin + delta,
+                dir,
+                length,
+                near_half,
+                far_half,
+            },
+            SwingShape::Radial { center, radius } => SwingShape::Radial {
+                center: center + delta,
+                radius,
+            },
+        }
+    }
+
     /// Scale the swing's EXTENT about its origin without moving or turning it.
     ///
     /// This is the presentation margin — art reads better when it overshoots

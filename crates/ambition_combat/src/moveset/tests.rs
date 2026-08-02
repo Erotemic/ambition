@@ -686,15 +686,18 @@ fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
         .filter(|m| matches!(m, VfxMessage::Slash { .. }))
         .collect();
     assert_eq!(slashes.len(), 1, "one slash VFX at the Active edge");
-    if let VfxMessage::Slash { kind, pose, shape } = slashes[0] {
+    if let VfxMessage::Slash {
+        kind, pose, shape, ..
+    } = slashes[0]
+    {
         assert_eq!(*kind, ambition_vfx::vfx::SlashKind::Arc);
         assert_eq!(*pose, ambition_vfx::vfx::SlashPose::Side);
         let ae::SwingShape::Sweep {
+            origin,
             dir,
             length,
             near_half,
             far_half,
-            ..
         } = *shape
         else {
             panic!("a forward blade arc is a sweep, got {shape:?}");
@@ -702,6 +705,14 @@ fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
         assert!(
             dir.x > 0.0,
             "the slash points along the strike (facing +x), got {dir:?}",
+        );
+        // ⚠ BODY-LOCAL. The cue carries the swing in the attacker's frame so
+        // presentation can re-place it on a moving body every frame; a
+        // world-space origin here would mean the effect is nailed to the ground
+        // while the hitbox that drew it follows the owner.
+        assert!(
+            origin.length() < 200.0,
+            "the origin is relative to the attacker, not the world: {origin:?}",
         );
         // The cue carries the SWING's own proportions, not a bounding square.
         // `test_blade_resolver`'s blade spans 2.4x the body half-width forward

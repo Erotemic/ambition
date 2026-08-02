@@ -247,11 +247,21 @@ pub fn emit_melee_slash(
     vfx: &mut MessageWriter<VfxMessage>,
     volume: &ae::CombatVolume,
     from: ae::Vec2,
+    owner: bevy::prelude::Entity,
     kind: SlashKind,
     pose: SlashPose,
 ) {
+    // BODY-LOCAL, because the effect travels with the body. Resolving the swing
+    // here and then subtracting the attacker is not a detour: the volume is
+    // already placed in the world by `FollowOwner`, and the projection needs it
+    // there to know which end is the handle.
+    let shape = volume
+        .swing_shape(from)
+        .scaled(SLASH_ART_MARGIN)
+        .translated(-from);
     vfx.write(VfxMessage::Slash {
-        shape: volume.swing_shape(from).scaled(SLASH_ART_MARGIN),
+        shape,
+        owner,
         kind,
         pose,
     });

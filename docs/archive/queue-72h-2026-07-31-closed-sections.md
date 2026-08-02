@@ -1359,3 +1359,805 @@ authority is one integration test behind a full app build. Guard #5 above exists
 for that gap and is deliberately weaker than the real test — see its docstring
 for what it cannot see.
 
+
+## S34 — ⛔ TWO authorities decide how many people are playing (2026-08-01)
+
+Found while working the couch-multiplayer brief. This is the reason milestones 1
+and 2 cannot be reached by adding a policy, and it is an authority conflict
+rather than a missing feature.
+
+**Rule A — the roster decides.** `seat_input_participants_for_roster`
+(`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:100`)
+states it outright:
+
+> The roster is the authority on who is playing, so it is the authority on how
+> many seats exist. Deriving seats from connected HARDWARE instead would mean a
+> controller left plugged into a machine silently becomes a second player in
+> every game on it.
+
+**Rule B — the hardware decides.** `LocalSeatTopology::players()`
+(`crates/ambition_input/src/local_seats.rs:125`) is `self.seats.len().max(1)`,
+and `seats` is captured from `LocalDeviceOrder` — **the connected gamepads**. So
+the count is derived from hardware, which is the exact thing rule A forbids.
+
+And rule B is the one that reaches the session: `versus.rs:359` builds the roster
+with `versus_roster_from(topology.players(), …)`, and the GGRS session sizes
+itself from the same topology.
+
+⚠ **it is wrong in both directions, which is why neither symptom alone found it:**
+
+* a spare controller on the desk inflates the roster — precisely the failure rule
+  A was written to prevent, live in the code that rule A's own layer feeds;
+* a keyboard player plus one pad player DEFLATES to one player, because the
+  keyboard is not a device row. That is Jon's milestones 1, 2 and 5 blocked, and
+  no assignment policy can fix it from above — the count is already wrong before
+  any policy is consulted.
+
+### The resolution
+
+`LocalSeatTopology` should freeze the **seat → source assignment for the seats
+the roster declared**, not derive a seat count from devices:
+
+* `players()` comes from the DECLARED seat count (rule A), not `seats.len()`;
+* the frozen map is `seat → InputSourceId` (`sources.rs`), so a seat can be held
+  by the keyboard, by a pad, or by nothing;
+* `device_for_handle` keeps returning `Option<Entity>` — `None` for a keyboard
+  seat, which is already the shape callers handle for an empty seat.
+
+⚠ **this must not change solo play.** Under `UnifiedPrimary` the keyboard and
+every pad collapse onto the primary participant, so one declared seat stays one
+player however much hardware is attached — milestone 8. The keyboard becomes a
+distinct source only when a seat CLAIMS it.
+
+⚠ **and it touches GGRS session sizing**, which is why it is its own slice and not
+a rider on the device-assignment fix already landed. `LocalSeatTopology` is
+rollback-adjacent: the session freezes it once and every reconstruction — startup,
+hot reload, proof-pulse restore — reads the frozen value. Changing what it freezes
+changes what those three agree about.
+
+Prerequisite already in place: `crates/ambition_input/src/sources.rs`
+(`InputSourceId`, `InputAssignmentPolicy`, `keyboard_owner_for`), landed with the
+pad-distribution fix and defaulting to today's behaviour.
+
+---
+
+## S36 — why couch multiplayer cannot be checked (2026-08-01, Jon's report)
+
+Jon: *"even when we add a CPU player in smash there is only ever one player that
+shows up in game, that will make it very hard to check that couch multiplayer is
+working right."*
+
+**Measured, not guessed:**
+
+✔ **the seating is fine.** `a_two_participant_roster_actually_seats_two_bodies`
+runs the real select flow, adds a CPU, starts the match and counts `MatchSeat`
+entities: TWO bodies are seated. Every previous test in that file stopped at the
+route and the session, so a roster of two putting one fighter on stage passed the
+whole suite.
+
+⛔ **the two fighters are built by different paths.** The census the test prints:
+both carry 84 components and the SETS DIFFER — seat 0 is player-bodied
+(`PlayerVisual`, `BodyPoseView`, `PresentedPose`, `Transform`, `GlobalTransform`),
+seat 1 is actor-bodied (`ActorIdentity`, `Perception`, `RoomVisual`,
+`RuntimeStagedActor`) with no transform and no pose view. That is the two-port
+body fighter-unification exists to remove, surfacing as a user-visible symptom.
+
+⚠ **and a headless test CANNOT settle whether seat 1 draws.** `BodyPoseView` is
+the player-bodied read model; an actor-bodied fighter draws through the id-keyed
+`ActorAnimIndex`, a resource rebuilt in the RENDER presentation plugin and
+explicitly *"NOT the sim schedule … so a headless / RL build never pays for poses
+it won't draw"*. The first draft of the test asserted seat 1 must carry a
+`BodyPoseView` — a confident measurement of the wrong port, caught before it
+shipped.
+
+### ⛔ The instrument gap, which is the actual blocker
+
+`capture_scene --route smash_gameplay` photographs the stage with **one fighter**
+— correctly, because navigating straight to a route decides no roster. There is
+no way to photograph a DECIDED match: `capture_scene` navigates, it cannot drive
+the select screen to add a CPU and lock in.
+
+So the only state anybody wants to look at — two fighters on a stage — is
+reachable by neither the headless suite (blind to rendering by construction) nor
+the capture tool (cannot reach the state). That is precisely Jon's "very hard to
+check", and it is an instrument problem before it is a gameplay one.
+
+  ✔ [closed: S36 — `capture_scene --press`] **give `capture_scene` a way to reach a decided match**: a `--smash-cpu N`
+  style flag, or more generally a way to drive a route's own lobby before the
+  shutter. The select screen already has headless drivers in
+  `smash_in_the_host.rs` (`add_cpu`, `confirm`); the capture binary needs the
+  same entry, not a new mechanism.
+  ✔ [closed: S36 — photographed; both fighters draw once the roster survives] then photograph it, and the question "does the CPU fighter draw" answers
+  itself in one image.
+
+✔ **S36 instrument gap CLOSED, and the bug is now photographed.**
+`capture_scene --press Down,Enter,Enter` drives a route's own lobby before the
+shutter, reusing the same key taps the smash tests already use rather than adding
+a second mechanism. One command reproduces Jon's report:
+
+```bash
+cargo run -p ambition_app --bin capture_scene -- \
+    --route smash_select --press Down,Enter,Enter out.png 1600x900
+```
+
+The screen decides a real two-fighter match (`P1 — smash_duelist_a READY`,
+`P2 — CPU · smash_duelist_b READY`), the stage loads, and **one** fighter stands
+on the platform.
+
+⚠ the first run photographed the select screen mid-"Starting…" — a confirmation
+STARTS a route change, so the shutter caught the moment the presses were accepted
+rather than the state they asked for. `POST_PRESS_SETTLE_FRAMES` fixed it, and
+the distinction is the same one the route-camera grace draws.
+
+  ✔ [closed: it was the roster clobber, not the draw path] **next, and now cheap**: the CPU fighter is seated and not drawn. It is
+  actor-bodied, so it draws through the id-keyed `ActorAnimIndex` rebuilt in the
+  render presentation plugin. Check whether that index has a row for the seated
+  CPU's id — if it does not, the actor visual was never joined; if it does, the
+  visual exists and is mispositioned (seat 1 carries no `Transform`). One
+  instrumented capture run answers which.
+
+⚠ **and an unrelated observation from the same photograph, worth recording**: the
+select screen renders `·` (U+00B7) and `—` (U+2014) CORRECTLY — "P2 — CPU ·
+smash_duelist_b". The menu-text tofu (Z1, nine dead hypotheses) is therefore NOT
+repo-wide text rendering; this screen reaches glyphs `ambition_menu` cannot. That
+is a live discriminator the tofu row did not have.
+
+### ⚠ CORRECTION (same day): the photograph does NOT reproduce Jon's case
+
+I wrote that `--press Down,Enter,Enter` reproduces "add a CPU and only one player
+shows up". It does not, and a probe caught it before it became received wisdom.
+
+Instrumenting the shutter frame in the capture binary:
+
+```text
+[stage-probe] seated: []
+[stage-probe] feature visuals: 0 -> []
+[stage-probe] roster=None active_match=false frames=245
+```
+
+**No `MatchSeat` entities at all, no roster, no active match** — and yet the
+photograph shows a fighter on the platform. That fighter is the ordinary primary
+player body, not a seated one. So the capture reaches the smash STAGE with no
+match behind it; the image is a true photograph of a state, but not of the state
+Jon described.
+
+⛔ **and the divergence is the finding.** The same key sequence, through
+`shell_host_app()` in `smash_in_the_host.rs`, seats TWO bodies — that is the
+census test, and it passes. Through the `capture_scene` composition the roster is
+gone by the time the stage is up. Two compositions of the same engine reach
+different states from identical input, which is the composition-divergence class
+this repo has been bitten by three times before.
+
+  ✔ [closed: neither — the reconciler transferred ownership of the roster] **chase that first**: does the capture binary lack the plugin that publishes
+  or activates the roster, or does the roster get published and then dropped on
+  the route change? `active_match=false` with `roster=None` says activation never
+  ran; whether that is a missing registration or a cleared resource is one more
+  probe.
+  ✔ [closed: superseded: the two-fighter stage is photographed] ⚠ **and it means the headless test is the ONLY thing currently proving the
+  two-fighter seating**, in one composition. Until the capture path agrees, "two
+  bodies are seated" is a fact about `shell_host_app`, not about the game.
+
+The `--press` mechanism itself is sound and stays — it drove the select screen
+correctly (`P1 READY`, `P2 CPU READY`, `Starting…`) and is what made this
+measurable at all.
+
+⚠ **and one candidate is already eliminated.** I assumed the capture binary
+simply lacked the host composition — the plugin list visible at the top of
+`capture_scene.rs` builds `AmbitionGameSimulationPlugin` and friends directly,
+with no `compose_ambition_shell_host` in sight. **That list is the ROOM-mode
+builder.** Route mode goes through
+`build_visible_app(VisibleRenderMode::OffscreenGpu, /* shell_hosted */ true)`,
+which does call `compose_ambition_shell_host` and `install_ambition_shell_visuals`.
+
+So both compositions ARE shell-hosted, and the divergence is narrower and more
+interesting than "a missing plugin": the same host, driven by the same key taps,
+publishes a roster under `shell_host_app()` and not under the capture app. The
+remaining differences worth probing, in order — the render mode
+(`OffscreenGpu` vs none), `TimeUpdateStrategy::ManualDuration`, and whether 150
+settle frames is simply too few for select → roster → activation when the tick is
+manual.
+
+⚠ that last one is the cheap check and should be first: raise
+`POST_PRESS_SETTLE_FRAMES` and see whether the roster appears. A timing shortfall
+and a composition defect look identical from one photograph, which is the whole
+reason this row exists.
+
+⚠ **the cheap check ran, and it did not answer the question — it found a second
+limit instead.** Raising `POST_PRESS_SETTLE_FRAMES` to 600 makes the capture fail
+outright:
+
+```text
+capture_scene: timed out waiting for texture readback after 691 frames
+               (warmup 90 + grace 600)
+```
+
+The readback deadline is computed from the same budget the settle spends, so the
+settle cannot be raised past it without the tool giving up before the shutter.
+Reverted to 150.
+
+  ✔ [closed: the press settle waits on readiness now] **so the settle has to wait on a CONDITION, not a frame count**: the route
+  the presses asked for having become active, and — for a lobby that starts a
+  match — the match having activated. `capture_scene` already draws exactly this
+  distinction for the other end of the capture, in its own words: *"warmup is a
+  duration, readiness is a fact"*. The press settle is currently a duration and
+  should be a fact, and the readback deadline should extend while it waits rather
+  than counting against it.
+
+That is a small, contained change to the tool, and it is the thing standing
+between Jon and a photograph of a two-fighter stage.
+
+✔ **timing ELIMINATED** (2026-08-01). The press settle now waits on readiness
+rather than a frame count — the presses end one capture and begin another, so the
+route's own warmup and readback deadline apply. The photograph is unchanged: one
+fighter, subject at the primary player's position, resolved after the route's own
+90-tick warmup. The missing match survives a correct settle.
+
+  ✔ [closed: explained: Versus rebuilt Smash's roster as its own] **what is left to explain the divergence**, now that timing is out: the
+  capture app runs `VisibleRenderMode::OffscreenGpu` with
+  `TimeUpdateStrategy::ManualDuration`, and `shell_host_app()` runs
+  `MinimalPlugins` with real time. A match activation that depends on a
+  `FixedUpdate`/tick cadence would behave differently under manual duration, and
+  that is the first thing to check — it is one probe (does the select screen's
+  confirmation reach the activation systems at all under the capture's clock).
+
+### ⚠ the divergence is REAL and reproducible; timing and entry route are both out
+
+Two entry paths (`--route smash_select`, and through the launcher with a `wait`
+between screens), two settle strategies (fixed 150 frames, then readiness-based):
+**every run reaches the stage with one fighter.** The probe at the shutter says
+`roster=None active_match=false`, and no `MatchSeat` entities exist.
+
+Eliminated, each by measurement rather than reasoning:
+
+* ⊘ **settle timing** — readiness-based settle gives the same image, and raising
+  the fixed count instead breaks the readback deadline.
+* ⊘ **entry route** — going through the launcher, the way the passing test does,
+  changes nothing.
+* ⊘ **the clock** — route mode does NOT set `TimeUpdateStrategy::ManualDuration`;
+  that is the room-mode builder. Both compositions run on real time.
+* ⊘ **a missing host composition** — route mode calls
+  `build_visible_app(OffscreenGpu, shell_hosted = true)`, which composes the shell
+  host and its visuals.
+
+  ✔ [closed: explained: the roster clobber, not the composition] **what is left**: `VisibleRenderMode::OffscreenGpu`, and whatever else
+  `build_visible_app` installs or omits that the test's explicit
+  `MinimalPlugins + PlatformerHostPlugins + compose_ambition_shell_host` list does
+  not. The next probe is a diff of those two compositions' registered systems —
+  `schedule-census` already prints a total (623 systems in the capture run), so
+  printing the same census from `shell_host_app()` and diffing the NAMES is the
+  measurement, not another guess.
+
+⚠ **and the test is the weaker instrument here, not the stronger one.** It passes
+in a composition no player runs. Whatever the diff turns up, the fix belongs on
+the side that makes the SHIPPED composition seat two — not on the side that makes
+the test agree with the capture.
+
+## ✔ S36 CLOSED — Versus was rebuilding Smash's roster as its own
+
+Root cause, from a per-frame probe through a real capture:
+
+```text
+route=smash_select    roster=2  ← the screen decides two fighters
+route=smash_gameplay  roster=2
+[roster-remove] on_versus=false mine=true published_by=Some("ambition_versus")
+route=smash_gameplay  roster=-  ← gone, nobody seated
+```
+
+`versus_roster_from` stamps `published_by: ambition_versus`, so
+`reconcile_roster_with_frozen_topology` rebuilding Smash's roster did not resize
+it — it **transferred ownership**. `maintain_versus_stage` then did the right
+thing with a versus-owned roster on a non-versus route and deleted it.
+
+⛔ **the guard already existed one function over** and the reconciler never
+learned it. `maintain_versus_stage`'s own comment states the rule — *"MINE, not
+'a roster exists'… the resource is global and had no owner until it did."* One
+`is_published_by` check in the sibling that was missing it. Photographed before
+and after: one fighter, then two.
+
+⚠ **and this makes S35 urgent rather than tidy.** The bug only bites where a
+topology is FROZEN, and today the only thing that freezes one is the rollback
+observatory behind `dev_tools`. `shell_host_app()` freezes none, so the
+reconciler returned early and the headless test counted two seats and passed —
+**about a composition no player runs**. Fixing S35 (freezing the topology in a
+shipped build, where it belongs) would have SHIPPED this bug. The regression test
+therefore freezes a topology deliberately; one written without it would have been
+green and worthless.
+
+  ✔ [closed: `a-second-writer-of-a-match-global-must-answer-ownership`] **the general form**: `MatchParticipantRoster` is a global
+  resource with an owner field, and ownership is enforced by convention at each
+  site. Two sites had the check, one did not, and nothing names the rule in one
+  place. A `published_by`-aware accessor — or an absence contract that every
+  `remove_resource::<MatchParticipantRoster>()` and every roster REPLACEMENT sits
+  behind an ownership test — turns the third omission into a build failure
+  instead of a photograph.
+
+## S37 — a goal check that could not fail (2026-08-01)
+
+Found while probing the new roster contract. `.goal/active.json` ran
+`python3 scripts/check_absence_contracts.py >/dev/null` — **without `--check`** —
+and the script returns `1 if args.check else 0`. So it printed `RED` for a
+violated contract and exited 0, and *"S1 slice H: the absence contracts and the
+footprint ratchet are green"* has been reported satisfied regardless of whether
+they were.
+
+Probed both ways with a real violation present: exit 0 without the flag, exit 1
+with it. Repaired.
+
+⚠ **the contracts themselves were never unguarded** — `scripts/tests` enforces
+them through pytest, which is what the suite runs. Nothing rotted. What was
+broken is narrower and worth naming exactly: the GOAL was reading an instrument
+wired to always agree, so one of its twelve green rows carried no information.
+
+  ✔ [closed: S37 — all twelve audited, two more repaired] **the class is worth a sweep, and it is cheap**: every `.goal` check is a
+  shell command whose exit code is the whole signal. A command that cannot return
+  non-zero — a script with an optional strictness flag, a `| head`, a `grep` whose
+  failure is swallowed, a `; true` — is a row that is green by construction. The
+  other eleven have not been audited this way. ⚠ note two already-known traps
+  apply directly: `| head` closing a pipe under `pipefail` reports SIGPIPE
+  (`reference_goal_check_sigpipe_footgun`), and a `pkill -f` matches its own
+  shell.
+
+✔ **S37 sweep done — all twelve audited, two more repaired.**
+
+The `|| true` in six checks is CORRECT and not the smell it looks like: the
+output is captured and a trailing `grep -E 'test result: ok\. [1-9][0-9]* passed'`
+is what decides, so a compile error produces no matching line and the check
+fails. The `[1-9]` also rejects `ok. 0 passed`, which is what a filter matching
+nothing prints.
+
+⛔ **but two checks ran TWO cargo commands and grepped the concatenation** (S2
+match activation, S4 damage percent). A single `ok. N passed` from EITHER half
+satisfied the grep, so the other half could fail to compile entirely and the row
+would stay green — partial credit, in a check whose whole job is to say both
+halves hold. Both now also require the absence of `test result: FAILED` and of a
+leading `error[`/`error:`. Probed: an injected `FAILED` line flips the verdict.
+
+Clean afterwards: checks 1 (inverted ledger), 2 (`cargo check`), 3 (`test -z`),
+4 (`git grep -q && cargo check`), 7, 9, 11, 12 all fail properly — each ends in a
+command whose exit code is the signal, with no swallowing.
+
+⚠ **the general rule this leaves**, worth applying to any future goal: a check is
+a shell exit code, so the LAST command must be the one that can say no. Capturing
+output and grepping it is fine — grepping a pile assembled from several commands
+is not, because the pile cannot say which half spoke.
+
+✔ **and the sibling globals are clean — audited, not assumed.** The same clobber
+shape was checked on the three other resources a second experience can write:
+
+* `ActiveMatch` — two production removals, both in `versus.rs`, both inside
+  route-gated arms (`(true, false)` clears it because a new roster is not yet a
+  match; `(false, true)` is the teardown, now ownership-gated).
+* `DeclaredCombatRules` — one removal, in the same ownership-gated teardown.
+* `DeclaredInputSeats` — no production removals at all.
+
+⚠ **but the asymmetry is the finding.** `MatchParticipantRoster` has a
+`published_by` field, so an ownership question can be ASKED. `ActiveMatch` and
+`DeclaredCombatRules` do not — they are safe today only because exactly one
+experience touches them. The moment a second one does, there is no check to
+write, and the failure will look like this one did: a match that quietly belongs
+to nobody.
+
+  ⚠ that is the argument for making the owner part of the resource rather than a
+  convention per resource. Not urgent — one writer each — but it is the same
+  design question the roster answered once and the others have not been asked.
+
+✔ **both sides of the reconciler guard photographed.** Smash now seats two
+(`Duelist B` on the stage beside the player); Versus is unchanged and correct —
+two fighters, `Long Guard 60/60` / `Close Guard 52/52`, `ROUNDS blue 0 - red 0
+(first to 2)`, `FIGHT`. A guard that fixed one game by breaking the other would
+have looked identical in the Smash photograph alone.
+
+## S38 — Ambition's HUD is drawn over a Smash match (2026-08-01)
+
+Seen in the same photographs, and it is not a Smash HUD at all:
+
+    smash_gameplay   →  HP 100/100 · MP 100 · $0        ← Ambition's adventure HUD
+    versus_gameplay  →  Long Guard 60/60 · Close Guard 52/52 · ROUNDS · FIGHT
+
+Smash is a PERCENT-and-STOCKS game — S4's own row says *"the damage meter can
+EXCEED the pool (percent is not health)"* — so a health bar, a mana bar and a
+money counter are three readouts that describe a different game. Versus, which is
+the same fighting stack, has the right ones. The touch bezel differs too: the
+Smash stage offers Blink / Fly Toggle / Ranged / Bubble Shield, which are
+Ambition's protagonist verbs, not a fighter's.
+
+⚠ **this is the app-only-presentation class again** — the HUD a route gets is
+whatever the host installed, and nothing asks whether the ROUTE wanted it. The
+declared-HUD seam exists for exactly this
+([`project_declared_hud_seam_2026_07_21`]) and Smash is not using it, or is being
+overwritten after it does.
+
+  ✔ [closed: S38 — a MISSING declaration, not precedence] check which: does `smash_gameplay` declare a HUD that Ambition's overwrites,
+  or declare none and inherit? One is a precedence bug and the other is a missing
+  declaration, and the photograph cannot tell them apart.
+
+✔ **S38 HUD half CLOSED.** Smash declares its own readouts now — `Duelist A 0% ·
+3/3`, one gauge per fighter, seat-coloured — and Ambition's health/mana/money is
+gone. The answer to the row's open question was **a missing declaration**, not a
+precedence bug: Smash called `.with_hud(..)` nowhere at all.
+
+⚠ **the sharpest part is what was already there.** `damage_percent()` is
+deliberately unclamped with a test called
+`damage_percent_is_unclamped_so_a_hud_can_print_188`, and `FighterStocks` keeps
+`started_with` *"so a HUD can draw '2 of 3'"*. Two APIs were built FOR this HUD
+and nothing ever consumed them — which is exactly why nothing was red. Every
+piece worked; none was wired to a screen.
+
+  ✔ [closed: S38 — it was the ability set, and the bezel was reporting it correctly] **the touch bezel is still Ambition's** — Blink / Fly Toggle / Ranged /
+  Bubble Shield on a platform fighter, where Jab / Jump / Dash / Shield belong.
+  Same class as the HUD (an inherited declaration nobody overrode) and probably
+  the same one-line shape, but it is a different seam and is not assumed to be.
+  ⚠ note the versus photograph shows a SHORTER bezel (Interact / Jab / Jump), so
+  something already differs per route — find what decides it before adding a
+  third mechanism.
+
+### ⚠ CORRECTION: the bezel is a SYMPTOM, not a second declaration
+
+The row above guessed the touch bezel was "an inherited declaration nobody
+overrode, probably the same one-line shape" as the HUD. It is not, and the
+mechanism says something more interesting.
+
+Touch buttons are not declared per route at all. `touch_action_layout()` is ONE
+fixed ten-button array, and visibility is decided per button by
+`touch_action_available(action, &prompt)` where `prompt: Res<ControlPrompt>` —
+the read-model of **what the CONTROLLED SUBJECT can do**. The versus stage shows
+three buttons because its fighter can do three things. The prompt is working
+exactly as designed.
+
+⛔ **so the smash stage offering Blink / Fly Toggle / Ranged / Bubble Shield is
+the prompt correctly reporting that seat 0 can do those things** — because seat 0
+on that stage is Ambition's protagonist body, adopted, carrying Ambition's
+ability set. The seat census in
+`a_two_participant_roster_actually_seats_two_bodies` already showed it and I read
+it as a rendering split: seat 0 carries `PrimaryPlayer`, `LocalPlayer`,
+`PlayerEntity`; seat 1 is a constructed actor. The HUD calls it `Duelist A`
+because the ROSTER says so; the BODY never became one.
+
+  ✔ [closed: the ability levelling commit] **the real row: an adopted seat keeps the adopting body's abilities.** Player
+  one fights as the exploration protagonist — blink, flight, projectiles, bubble
+  shield — while player two is a duelist with a jab. That is not a couch-play
+  balance question, it is two different games on one stage, and it makes "is
+  couch multiplayer working" unanswerable for a second time.
+  ⚠ do NOT fix this by filtering the bezel. The bezel is the only honest thing in
+  the picture — it is reporting the defect.
+
+## ✔ S38 CLOSED — and the bezel correction was itself corrected
+
+Final state, photographed: two fighters, `Duelist A 0% · 3/3` / `Duelist B 0% ·
+3/3`, and a bezel of Attack / Dash / Jump / Interact / Ranged.
+
+⚠ **I was wrong twice about the bezel and the measurements are what settled it.**
+
+1. First guess: "a missing declaration like the HUD." Wrong — buttons are one
+   fixed layout gated by `touch_action_available(action, &ControlPrompt)`.
+2. Correction: "seat 0 is Ambition's protagonist body." Also wrong — measured,
+   `worn=smash_duelist_a`. It wears the right character.
+3. What was actually true: it wears the right character and carried the wrong
+   VERBS. seat 0 had every ability in the game (fly, blink,
+   blink_through_hard_walls, glide, swim); seat 1 had run, jump, double jump and
+   attack. The bezel reported seat 0 honestly the entire time.
+
+Seating already levels this, gated on `roster.fighter_abilities`, with a comment
+describing the identical failure found on the VERSUS stage in July. Versus
+declares a set; Smash declared nothing, so the levelling never ran.
+
+⚠ **and both named ability sets were wrong, each caught by re-measuring after
+declaring it.** `basic()` would have removed double jump and attack. `sane_subset()`
+— which reads like a fighter's kit in its opening lines — also grants fly, blink,
+wall climb and pogo, so declaring it made the two seats agree that they could
+both FLY. The set is spelled out now: run, jump, double jump, fast fall, dash,
+attack.
+
+  ✔ [closed: S38 — they come from the MOVESET, not abilities] `Ranged (V)` and `Interact (F)` survive on the bezel and no ability grants
+  them, so they come from another source (a moveset or technique). Small, and
+  now the only thing on that bezel not explained.
+  ✔ [closed: `an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field`, scoped to what the MATCH declares because health/box/mass are per-character] the four divergences seating has had to unify one at a time — health, box,
+  mass, and now abilities — are all the same shape: *an adopted body keeps what
+  the session gave it*. A fifth is likely. The comment listing them is the best
+  record; a test that asserts an adopted seat and a spawned seat agree on every
+  declared identity field would be better.
+
+✔ **and the last two bezel buttons are EXPLAINED, not defective.** `Ranged (V)`
+and `Interact (F)` do not come from the ability set at all — an action scheme maps
+`ControlSlot::Projectile` to the `"ranged"` MOVESET verb and
+`ControlSlot::Interact` likewise (`action_scheme.rs:238`,
+`combat_from_moveset`). So the bezel is showing what the duelists' moveset
+authors, which is a character-authoring question ("should a duelist have a
+projectile?") and not a leak from Ambition.
+
+⚠ worth stating because the same button would have read as another inherited-verb
+bug: the bezel has exactly TWO inputs — abilities (movement) and moveset verbs
+(combat) — and only the first was wrong.
+
+✔ **the rule the four divergences share is now a test.**
+`an_adopted_seat_and_a_spawned_seat_agree_on_every_declared_field` runs the real
+select flow and asserts that every seat agrees on what the ROSTER declared,
+scoped deliberately to declared fields — per-character differences are the point
+of a fighting game, and "both seats are identical" would have to be waived the
+first time somebody authors an asymmetric pair. Probed by deleting the ability
+declaration: fails naming the seats, passes when restored.
+
+## S39 — couch multiplayer: milestones 1–2 are expressible now (2026-08-01)
+
+Three pieces, landed in order, each with the default preserving solo play:
+
+1. `sources.rs` — `InputSourceId`, `InputAssignmentPolicy`, `keyboard_owner_for`.
+   States who owns the keyboard, which nothing could previously say.
+2. `assign_local_seat_devices` — pads go to seats that NEED one, skipping the seat
+   already holding the keyboard. Fixes "the only pad goes to the person typing".
+3. `seats_offered_under(devices, policy)` — the keyboard COUNTS as a source under
+   `JoinToClaim`, so keyboard + one pad is two players. The smash select screen
+   declares that policy while it is up.
+
+⚠ **`UnifiedPrimary` is the default throughout** and every pre-existing test
+passes untouched. Milestone 8 — a solo player driving one character with keyboard
+or pad — is not something the couch work is allowed to charge for, and each of
+the three pieces was written so that installing it changes nothing until a lobby
+asks.
+
+  ✔ [closed: S41 — the milestone-5 test passes] **milestone 5 is NOT proven**: no test drives a real keyboard press and a real
+  pad press into two different seats in one match. That needs a fixture holding
+  both source kinds, and it is the honest end of this slice — everything above is
+  the lobby being ABLE to seat two people, not evidence that two people's inputs
+  stay apart.
+  ✔ [closed: S42 — milestones 6 and 7] **milestones 6 and 7** (disconnect keeps the seat, reconnect restores the
+  same participant) are untouched. The current pass CLEARS a seat's association
+  when its pad vanishes, which is right for the DEVICE and says nothing yet about
+  the participant keeping its seat and its actor.
+  ✔ [closed: S35 CLOSED] ⚠ and S35 still stands underneath all of it: the frozen topology that would
+  make a MATCH stop re-sampling devices is created only by a `dev_tools` tool.
+
+### ⛔ S39 addendum — the fix reintroduced the bug, and the test agreed with it
+
+Attempting milestone 5 (a keyboard player and a pad player driving different
+fighters) measured something the couch work had supposedly removed:
+
+    slot 1 menu_select_pressed=true     slot 0 menu_select_pressed=true
+
+One South press on one pad, arriving at BOTH seats. `assign_local_seat_devices`
+gave the keyboard-owning seat `None` — and in leafwing an unset gamepad means
+*whichever pad this finds first*, which the top of that same module documents as
+the couch bug. The commit that fixed the couch bug reintroduced it one branch
+over.
+
+⚠ **and the test passed throughout**, because it asserted
+`assigned(seat_one) == None` — written from the code rather than from the
+property. `None` is the spelling that means the OPPOSITE of "this seat owns no
+pad". Now `Some(Entity::PLACEHOLDER)`, which is what leafwing's own fallback
+resolves to when no gamepad exists, with the property on the line.
+
+After: `slot 1 true, slot 0 false`.
+
+  ✔ [closed: S41 — the policy expiring at the route change was the last bug] **and milestone 5 is still not reached, one layer further along.** With the
+  isolation correct, the pad's `MenuSelect` reaches slot 1's `ActionState` and the
+  smash select screen still shows `seats: LockedIn Empty Empty Empty` — seat 1
+  never joins. So the gap is now between a SEAT's action state and the select
+  screen's per-seat menu frame (`populate_seat_menu_frames` /
+  `SeatMenuFrames`), not in device ownership. That is a much smaller search than
+  it was this morning, and the exploratory test that found it was removed rather
+  than committed red.
+  ⚠ the probe worth keeping in mind: print `menu_select_pressed` per slot at the
+  moment of the press. It distinguishes "the input never arrived" from "the
+  screen ignored it" in one line, and those two look identical from a photograph.
+
+## ✔ S40 — couch milestones 1 and 2 are REACHED (2026-08-01)
+
+A keyboard player and a gamepad player now take different seats and start a match
+together. Measured, same scenario each time (keyboard confirm ×2, pad South ×2,
+one pad connected):
+
+    before   seats: LockedIn Empty        0 bodies
+    after    seats: LockedIn LockedIn     2 bodies
+
+Four things had to be built or repaired, and three of them were bugs found by
+measuring the previous fix rather than by reading it:
+
+1. `seats_offered_under(devices, policy)` — the keyboard COUNTS as a source under
+   `JoinToClaim`. It was never a row in `LocalDeviceOrder`, so it could only be
+   assumed, in prose, next to arithmetic that could not see it.
+2. pads go to the seats that NEED one, skipping the seat already holding the
+   keyboard. Before: the only pad went to the person typing.
+3. ⛔ the keyboard seat must be associated with `Entity::PLACEHOLDER`, NOT `None`
+   — an unset gamepad in leafwing means *whichever pad this finds first*, so the
+   fix for (2) reintroduced the couch bug and its test agreed with it, because
+   the test asserted `== None`, written from the code instead of the property.
+4. ⛔ `drive_the_select_screen` iterated the UNIFIED count while the lobby
+   declared the couch one. Two counts of the same thing: seat 1 existed, owned
+   the pad, had the confirm in its `ActionState`, and was never read.
+
+### ▢ milestone 5 is NOT reached, and here is the number
+
+With both fighters seated, the pad's DPadRight moved BOTH — **14.19px** on the
+keyboard player's fighter against **11.44px** on the pad player's.
+
+So MENU input is seat-isolated (`MenuSelect` reaches only slot 1) and GAMEPLAY
+input is not. Two different paths; one fixed. The next attempt starts here rather
+than at the beginning.
+
+  ⚠ the likely shape, stated as a hypothesis and not as a finding: seat 0 is the
+  PRIMARY player, whose movement travels the global `ControlFrame`
+  (`populate_control_frame_from_actions`) rather than the per-seat
+  `SlotControls` path seat 1 uses. If so the isolation has to happen where the
+  frame is populated, not in the input map — and the `InputMap` association fix
+  is necessary but cannot be sufficient.
+  ⚠ the test is written and NOT committed. A red test in the suite is worse than
+  a written-down failure with its numbers.
+
+## ✔ S41 — couch milestone 5 PASSES (2026-08-01)
+
+`a_keyboard_player_and_a_pad_player_drive_different_fighters` runs the real
+select-screen flow, seats a keyboard player and a pad player, moves one and
+measures that the other does not follow. Milestones **1, 2 and 5** are reached.
+
+⛔ **The last bug was mine and it wore a convincing disguise.** The policy was
+`if on_select { JoinToClaim } else { UnifiedPrimary }`, so the assignment the
+lobby made was undone the instant the stage loaded:
+
+    during the match   slot 1 move_right=true   slot 0 move_right=true
+    on the select      MenuSelect reached slot 1 alone
+
+That reads exactly like *"menu input is isolated, gameplay input is not — two
+different paths and only one is fixed"*, and the previous row said so. It was ONE
+path under two policies. The wrong conclusion was specific, mechanical and
+testable, and would have sent the next attempt hunting a second isolation bug in
+`populate_control_frame_from_actions` that does not exist.
+
+Jon's brief had the answer in a sentence: *"Before the match starts, freeze:
+participant, session seat, control channel, input sources."* An assignment that
+expires when the lobby closes is the opposite of frozen.
+
+**Five pieces, four of them bugs found by measuring the previous fix:**
+
+1. the keyboard COUNTS as a source (`seats_offered_under`)
+2. pads go to the seats that need one, skipping the keyboard's
+3. ⛔ the keyboard seat needs `Entity::PLACEHOLDER`, not `None` — unset means
+   *every* pad, and its test agreed with the code because it asserted `== None`
+4. ⛔ the select screen iterated the unified count while its lobby declared the
+   couch one
+5. ⛔ the policy reverted on the route change into the match
+
+⚠ **the instrument that resolved four of the five** is one line per slot at the
+moment of the press — `move_right=` / `menu_select_pressed=` per participant. It
+distinguishes *the input never arrived* from *the surface ignored it* from *both
+seats got it*, and those are indistinguishable from a photograph or a body
+position.
+
+  ✔ [closed: S42] **milestones 6 and 7 are untouched**: a disconnect must not reorder
+  participants or transfer ownership, and a reconnect must restore the same
+  participant. Today `assign_local_seat_devices` CLEARS a seat's association when
+  its pad vanishes — right for the DEVICE, and it says nothing about the
+  participant keeping its seat and its actor. That is the next slice, and it is
+  where `LocalSeatTopology` being frozen (S35) starts to matter for real.
+  ✔ [closed: S43 — both asserted in the milestone-5 test] milestone 3 (stable session seats) and 4 (distinct controlled actors) are
+  implied by the passing test but not asserted separately.
+
+## ✔ S42 — couch milestones 6 and 7 (2026-08-01)
+
+⛔ **Milestone 6 was violated and a test blessed the violation.** Two seats, two
+pads, unplug player ONE's:
+
+    before   seat one → pad A     seat two → pad B
+    after    seat one → pad B     seat two → pad B
+
+`LocalDeviceOrder` forgets a pad that leaves, so every later seat shifts down one
+and positional assignment redistributes the room. Invisible with a single pad,
+which is how milestone 5 was reached without meeting it.
+
+⚠ **`an_unfrozen_session_still_follows_live_discovery` asserted exactly this** —
+*"with no session owning the seating, the live order is the authority"* — while
+the test DIRECTLY ABOVE IT forbids the same promotion in the frozen case and
+names the consequence: *"silently hand seat one's confirmed GGRS inputs to seat
+two's physical controller."* Two tests, one hazard, opposite verdicts, differing
+only in whether a topology happened to be frozen — and the unfrozen branch is the
+one every player runs (S35).
+
+`SeatDeviceOwnership` makes the assignment a fact that is REMEMBERED rather than
+a position that is RECOMPUTED: a seat keeps its pad while that pad exists, a pad
+that leaves frees exactly its own seat, and a free pad is only taken by a seat
+that has none.
+
+✔ **milestone 7 falls out of the same record.** A reconnecting pad is a new
+entity — Bevy moves the generation, so remembering "seat one had 3v0" would never
+match again — and what restores the participant is that the seat which lost a pad
+is the one still holding none.
+
+**Couch status: milestones 1, 2, 5, 6, 7 pass; 8 (solo unchanged) is pinned by
+every pre-existing test plus an explicit one. 3 and 4 are implied by the passing
+milestone-5 test and not asserted separately.**
+
+  ⚠ ⚠ **three of the last four bugs were in code written the same day to fix the
+  previous one**, and each was found by a measurement rather than by rereading:
+  `None` meaning every pad, the select screen counting seats differently from its
+  own lobby, the policy expiring at the route change, and now positional
+  reassignment on disconnect. The pattern is worth naming — a couch input fix
+  that is not measured under TWO sources is not known to work, because every one
+  of these was invisible with one.
+  ✔ [closed: S35 CLOSED] S35 still stands: the topology freeze that would make a MATCH stop
+  re-sampling devices is created only by a `dev_tools` tool. Everything above
+  makes the unfrozen path correct, which lowers the urgency and does not remove
+  the hole.
+
+## ✔ S43 — every couch milestone is now asserted by a test (2026-08-01)
+
+| # | milestone | where |
+|---|---|---|
+| 1 | keyboard joins one participant | `a_keyboard_player_and_a_pad_player_drive_different_fighters` |
+| 2 | a gamepad joins a second | same |
+| 3 | both receive stable session seats | same (seats 0 and 1) |
+| 4 | both select distinct controlled actors | same (two bodies) |
+| 5 | both produce independent control frames | same (move one, the other does not follow) |
+| 6 | disconnecting does not transfer ownership | `unplugging_one_pad_does_not_hand_its_seat_the_other_players_pad` |
+| 7 | reconnecting restores the same participant | `a_reconnecting_pad_comes_back_to_the_seat_that_lost_one` |
+| 8 | single-participant Ambition unchanged | `without_a_declared_policy_the_pad_still_goes_to_seat_one` + every pre-existing seat test |
+
+⚠ **milestone 4 is NOT "distinct characters", and the first draft asserted that
+and failed.** Both players joined with the cursor at slot 0 and picked
+`smash_duelist_a`. That is a mirror match, which every platform fighter allows —
+a test banning it would have been a rule nobody asked for, enforced by a test,
+discovered by a player. The note stayed in the test because the wrong reading is
+the tempting one.
+
+  ⚠ what the milestone list does NOT cover, stated so it is not mistaken for
+  done: online play, a rebinding UI, every device backend, cross-build protocol
+  compatibility (Jon's brief excludes all four), and — from this side —
+  **anything about a rollback session**. Every one of these tests runs on the
+  shell host with real time. A GGRS match with two local seats re-samples nothing
+  today because `LocalSeatTopology` is never frozen outside `dev_tools` (S35),
+  and the couch work has made the unfrozen path correct rather than removed the
+  need to freeze.
+
+✔ **the MODULES.md check is wired** (S31's open ▢). `modules_md.py` has had a
+check mode the whole time and appeared in no runner. It is a `scripts/tests` case
+now — that suite already runs first and cheaply in the backbone, and its own
+comment gives the reason this was needed: *"a guard nobody executes is not a
+guard."* Probed with a real new module.
+
+⚠ **that is the third instrument this run that existed and was never called**:
+`modules_md.py --check`, `check_absence_contracts.py --check` (the goal ran it
+without the flag, so it could not fail), and the `.agent` index's prune (which
+did not exist, but its absence had the same effect — a generated artifact nobody
+verified). The pattern is worth a sweep of its own: **a repository that writes
+its own tooling accumulates checks faster than it accumulates callers.**
+
+  ✔ [closed: S44 — the sweep ran; four guards had no caller] sweep for the rest: every `scripts/*.py` with a `--check`/`--verify` mode or
+  a non-zero exit path, cross-referenced against `run_tests.py`, `scripts/tests/`
+  and `.github/workflows/test.yml`. Anything in the first list and none of the
+  other three is a guard that has never run.
+
+## ✔ S44 — the uncalled-guard sweep (2026-08-01)
+
+Cross-referenced every `scripts/*.py` with a non-zero exit path against
+`run_tests.py`, `scripts/tests/` and `.github/workflows/test.yml`.
+
+**Four checks existed and nothing called them:**
+
+| guard | state |
+|---|---|
+| `modules_md.py` (check mode) | ✔ wired — found 19 stale maps + 3 missing |
+| `check_absence_contracts.py` | ✔ the GOAL called it without `--check`, so it could not fail |
+| `check_doc_links.py` | ✔ wired — I had been running it by hand all run |
+| `check_roadmap_evidence.py` | ✔ wired |
+
+⚠ **`check_doc_links.py` is the instructive one.** It was green the entire time
+*because a person was running it manually after every doc edit*. That is exactly
+how a check with no caller stays green until the person stops — and the greenness
+is evidence about the person, not about the repository.
+
+Deliberately NOT wired, because they are generators or one-shots rather than
+guards: `audit_git_media_history.py`, `ecs_inventory.py`, `non_ecs_inventory.py`,
+`regen_music_registry.py`, `render_line_profiles.py`. Named so the next sweep
+does not re-derive the distinction.
+
+  ✔ [closed: S44 — `test_every_guard_has_a_caller`] **the pattern deserves its own guard.** Everything above was found by a
+  five-line shell loop; a repository that writes its own tooling accumulates
+  checks faster than callers, and this will recur. A `scripts/tests` case that
+  fails when a `check_*.py` exists with no caller would close it permanently —
+  ⚠ and needs the generator/guard distinction above encoded, or it fires on
+  `ecs_inventory.py` forever and gets waived.
+
+✔ **and the class is closed.** `test_every_guard_has_a_caller` fails when a
+`scripts/check_*.py` is named by no runner. The `check_` prefix is the rule
+deliberately — the first draft used "any non-zero exit path" and instantly needed
+carve-outs for the generators, an allowlist that would need maintaining and would
+be waived the first time it got in the way. Probed with a fresh orphan guard.
+

@@ -315,8 +315,7 @@ impl Plugin for AmbitionBossContentPlugin {
                 .push(yarn::install_cut_rope_yarn_bindings);
             app.add_systems(
                 Update,
-                yarn::mirror_cut_rope_heavy_object
-                    .after(ambition_platformer2d_actor_monolith::dialog::yarn_bindings::refresh_yarn_state_mirror),
+                yarn::mirror_cut_rope_heavy_object.after(ambition_dialog::YarnStateMirrorRefreshed),
             );
         }
     }

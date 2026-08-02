@@ -67,7 +67,8 @@ impl bevy::prelude::Plugin for DialogSimStatePlugin {
 #[cfg(feature = "ui")]
 pub use bindings::{
     clear_yarn_presentation_cue, YarnBindingInstaller, YarnBindingsPlugin, YarnContentBindings,
-    YarnPresentationCue, YarnStateMirror, YarnStateMirrorData,
+    YarnPresentationCue, YarnPresentationCueCleared, YarnStateMirror, YarnStateMirrorData,
+    YarnStateMirrorRefreshed,
 };
 #[cfg(feature = "ui")]
 #[allow(

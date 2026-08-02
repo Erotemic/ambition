@@ -87,7 +87,8 @@ pub use actors::{
     actor_sprite_path_owns, animate_bosses, animate_characters, animate_feature_sprites,
     animate_player, apply_hide_sprites_override, apply_placeholder_sprites_override,
     refresh_player_sprites_on_game_assets_change, refresh_prop_sprites_on_game_assets_change,
-    sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, PlayerSpriteCharacter,
+    sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, BossAnimation,
+    PlayerSpriteCharacter,
 };
 // `BoundFeatureKind` lives with the foundation feature taxonomy; re-exported
 // here so existing render call sites resolve unchanged.
@@ -396,7 +397,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_feature_sprites,
-                actors::animate_bosses,
+                actors::animate_bosses.in_set(actors::BossAnimation),
                 // HazardColumn vertical-column visual — yellow during
                 // telegraph, red during strike. Runs after
                 // `animate_bosses` so it can read the move-derived

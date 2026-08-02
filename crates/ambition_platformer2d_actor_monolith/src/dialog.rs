@@ -38,7 +38,8 @@ impl Plugin for YarnBindingsPlugin {
         app.add_systems(
             Update,
             yarn_bindings::refresh_yarn_state_mirror
-                .after(ambition_dialog::clear_yarn_presentation_cue),
+                .in_set(ambition_dialog::YarnStateMirrorRefreshed)
+                .after(ambition_dialog::YarnPresentationCueCleared),
         );
         app.world_mut()
             .resource_mut::<ambition_dialog::YarnContentBindings>()

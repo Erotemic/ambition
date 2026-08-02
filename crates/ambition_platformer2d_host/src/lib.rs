@@ -488,7 +488,7 @@ impl Plugin for HostCameraPlugin {
                 camera_follow,
             )
                 .chain()
-                .after(ambition_render::rendering::animate_bosses)
+                .after(ambition_render::rendering::BossAnimation)
                 // Read THIS frame's resolved snapshot, not last frame's. Keyed
                 // on the observation SET: the resolve lives in `Update` for
                 // every host, so this edge is real under fixed-tick and GGRS

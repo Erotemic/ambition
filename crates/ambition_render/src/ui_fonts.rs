@@ -63,6 +63,21 @@ pub enum UiFontWeight {
     Monospace,
 }
 
+/// **The set [`load_ui_fonts`] runs in — UI font handles exist.**
+///
+/// Anything spawning text at Startup has to follow it, and both the touch
+/// overlay (another crate) and the app's own UI said so by name.
+///
+/// ⛔ **this crate defines the set but does not REGISTER the system** — the app
+/// does, at Startup. That is the app-only presentation shape: a composition that
+/// installs the render plugin without the app gets an EMPTY set, and `.after` an
+/// empty set is vacuously satisfied, so touch text would spawn with no fonts
+/// loaded and fail silently rather than loudly. The leaf pin had the identical
+/// hole — an unregistered system orders nothing either — so the set neither
+/// creates nor fixes the hazard. Naming it here is what makes it visible.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UiFontsLoaded;
+
 /// Bevy startup system: walk each font's canonical + legacy catalog
 /// ids, pick the first one whose asset is present under the active
 /// [`ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`] profile, and store

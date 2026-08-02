@@ -109,6 +109,18 @@ pub fn upgrade_boss_sprites(
     }
 }
 
+/// **The set [`animate_bosses`] runs in.**
+///
+/// Camera shake and follow read the pose it resolves, so they run after it —
+/// "this frame's resolved snapshot, not last frame's", per the host's own note.
+///
+/// ⚠ ONE member, and the neighbour is the reason: `manage_gradient_lane_visual`
+/// is chained immediately after specifically so it can READ the move-derived
+/// `BossAttackState` this system produces. Including it would make the camera
+/// wait on a hazard visual it has nothing to do with.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BossAnimation;
+
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph tint

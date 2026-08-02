@@ -82,6 +82,41 @@ pub struct YarnPresentationCue {
     pub whisper: bool,
 }
 
+/// **The set the yarn STATE MIRROR runs in — the mirror is current.**
+///
+/// The middle link of the yarn pipeline, and the vocabulary lives HERE rather
+/// than beside the system that joins it. The engine's
+/// `refresh_yarn_state_mirror` is the member; a game's content systems wait on
+/// this set to read the refreshed mirror.
+///
+/// ⛔ that placement is not stylistic — `engine.dialog-vocab-dialog-crate`
+/// enforces it, and it fired the moment this set was first defined in
+/// `ambition_platformer2d_actor_monolith`. Reusable dialog vocabulary belongs in
+/// this crate; a game reaching for a dialog NAME must not have to name the
+/// monolith to get it. The old leaf pin slipped the rule on a technicality —
+/// the forbidden token is a type name and `refresh_yarn_state_mirror` is a
+/// lowercase function — so naming the boundary is what surfaced the dependency
+/// the policy was written to prevent.
+///
+/// ⚠ ONE member. A game adding its own mirror joins the CONSUMER side, after
+/// this set; it does not belong inside the refresh.
+///
+/// ⚠ named `...Refreshed`, not `...Mirrored`, because [`YarnStateMirror`] is
+/// already a type in this crate and the two would read as the same thing.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct YarnStateMirrorRefreshed;
+
+/// **The set [`clear_yarn_presentation_cue`] runs in — the cue is reset.**
+///
+/// The first link in a three-layer yarn pipeline that, until now, each layer
+/// addressed by naming the layer below it: this crate clears the cue, the
+/// engine's `YarnStateMirrorRefreshed` refreshes the mirror from it, and a game's
+/// content systems read the mirror. Three crates, two leaf pins.
+///
+/// ⚠ ONE member — clearing the cue IS the whole step.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct YarnPresentationCueCleared;
+
 /// Reset the markup cue once per frame. Runs before the bridge
 /// observer fires (which writes the cue for THIS frame's line).
 pub fn clear_yarn_presentation_cue(mut cue: ResMut<YarnPresentationCue>) {
@@ -118,6 +153,9 @@ impl Plugin for YarnBindingsPlugin {
         app.init_resource::<YarnStateMirror>();
         app.init_resource::<YarnPresentationCue>();
         app.init_resource::<YarnContentBindings>();
-        app.add_systems(Update, clear_yarn_presentation_cue);
+        app.add_systems(
+            Update,
+            clear_yarn_presentation_cue.in_set(YarnPresentationCueCleared),
+        );
     }
 }

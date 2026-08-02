@@ -433,7 +433,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "frame_pacing")]
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
-    app.add_systems(Startup, ui_fonts::load_ui_fonts);
+    app.add_systems(
+        Startup,
+        ui_fonts::load_ui_fonts.in_set(ui_fonts::UiFontsLoaded),
+    );
     // ⚠ `sync_resolved_visual_quality` left this file on 2026-07-31:
     // `VisualQualityPlugin` owns the resource AND the system that keeps it
     // true, and `SessionRoomVisualsPlugin` installs it. They were apart, and
@@ -511,7 +514,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             )
                 .chain()
                 .after(setup_simulation_system)
-                .after(ui_fonts::load_ui_fonts),
+                .after(ui_fonts::UiFontsLoaded),
         )
         .add_systems(
             Update,

@@ -280,7 +280,7 @@ impl Plugin for TouchControlsPlugin {
                     spawn_touch_joysticks,
                     spawn_frame_axis_glyphs,
                 )
-                    .after(ambition_render::ui_fonts::load_ui_fonts),
+                    .after(ambition_render::ui_fonts::UiFontsLoaded),
             )
             // Collect the virtual-device state BEFORE leafwing unifies input
             // kinds this frame: button interactions (bevy_ui focus ran just

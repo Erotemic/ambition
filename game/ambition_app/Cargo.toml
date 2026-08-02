@@ -93,6 +93,22 @@ web_audio = ["audio", "ambition_platformer2d/web_audio"]
 # forward `ambition_platformer2d/rl_sim` → `ambition_platformer2d_actor_monolith/rl_sim`; both gated nothing once
 # the RL surface moved to `ambition_sim_harness`, so the chain was deleted.)
 rl_sim = ["dep:ambition_sim_harness"]
+# ⛔ **The causal instrument had no way in.** The feature chain is complete from
+# the facade down (`ambition_platformer2d/causal` → runtime → monolith + combat →
+# characters), and NOTHING enabled it: measured 2026-08-01, `causal` resolves
+# false for every crate in the default workspace build, and this crate had no
+# such feature at all. So the domain recorders — the brain's decision fact, the
+# body's control frame, damage and lifecycle — are compiled OUT of every build
+# the app produces, and an `explain(tick, subject)` against the real composition
+# was not something anyone could run.
+#
+# The per-crate feature jobs kept the unit tests honest, which is why this looked
+# fine: `ambition_causal --features bevy` and the monolith's `causal` job both
+# pass. They exercise the substrate, never the app.
+#
+# ⚠ opt-in, not default. Recording costs work per tick and the shipped game has
+# no use for it; what it needed was a DOOR, not a default.
+causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]
 headless = ["ambition_platformer2d/headless"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
@@ -138,6 +154,9 @@ ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
 ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
+# The causal log, for the  feature above. Optional for the same reason
+# the feature is opt-in: a shipped build records nothing and should not link it.
+ambition_causal = { path = "../../crates/ambition_causal", optional = true }
 # Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
 # + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }

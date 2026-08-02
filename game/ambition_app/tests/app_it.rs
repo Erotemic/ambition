@@ -26,6 +26,7 @@ mod boss_lifecycle;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;
+mod causal_explains_the_real_app;
 mod character_containment;
 mod collision_invariant_oracle;
 mod composes_through_the_sdk;

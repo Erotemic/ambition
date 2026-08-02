@@ -400,6 +400,31 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                             [CARGO, "test", "-p", name,
                              "--features", ",".join(extra), *libtest()]))
 
+    # ⛔ **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
+    # SKIP_FEATURE_JOB, and that set's own rule says adding a
+    # `#[cfg(feature = ...)]` test to a skipped crate must remove the skip in the
+    # same commit. This is the narrower form of that: one targeted job instead of
+    # a full all-non-default-features variant of the biggest crate in the repo.
+    #
+    # It exists because `causal` was enabled NOWHERE (measured 2026-08-01: false
+    # for every crate in the default workspace resolve, and `ambition_app` had no
+    # such feature at all), so every domain recorder was compiled out of every
+    # build the app produces while the substrate's own per-crate tests stayed
+    # green. A feature with no consumer is a feature that has quietly stopped
+    # working.
+    #
+    # ⚠ this is a second feature variant of the app graph, so it is deliberately
+    # non-fast. If it ever costs more than it catches, the honest alternative is
+    # folding `causal` into `desktop_dev` — recording is policy-gated `Off` by
+    # default, so the cost would be code size and a per-tick policy check, not
+    # published facts.
+    if not only and not fast:
+        jobs.append(Job(
+            "ambition_app [causal] — the instrument against the real composition",
+            [CARGO, "test", "-p", "ambition_app", "--features", "rl_sim causal",
+             "--test", "app_it", *libtest(["causal_explains_the_real_app"])],
+        ))
+
     # The external-consumer fixture (Phase 6): its own [workspace], lockfile,
     # and target dir, driven through --manifest-path so its INDEPENDENT
     # dependency resolution is exactly what a third party gets from the

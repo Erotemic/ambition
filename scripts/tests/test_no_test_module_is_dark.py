@@ -115,14 +115,46 @@ def _default_features(pkg: dict) -> set[str]:
     return out
 
 
+# `#![cfg(feature = "x")]` at the top of an INTEGRATION test file — a whole test
+# binary gated on one feature.
+#
+# ⛔ scanning only `src/` missed this shape entirely, and it was found the same
+# day by writing one: `tests/causal_explains_the_real_app.rs` is
+# `#![cfg(all(feature = "rl_sim", feature = "causal"))]` in a crate that is in
+# SKIP_FEATURE_JOB. The guard was green over a test nothing would ever run,
+# which is the exact thing it exists to forbid.
+# ⚠ matches the whole inner attribute, then EVERY feature inside it. Capturing
+# only the first is a bug this file already made: with
+# `#![cfg(all(feature = "rl_sim", feature = "causal"))]` it saw `rl_sim` alone,
+# which IS a default feature, subtracted it, and reported nothing — green over
+# the very file that motivated the extension.
+GATED_TEST_ATTR = re.compile(r"#!\[cfg\((?P<body>.*?)\)\]", re.S)
+FEATURE_NAME = re.compile(r'feature\s*=\s*"([^"]+)"')
+
+
 def _gated_test_counts(pkg: dict) -> list[tuple[str, str, int]]:
     """`(feature, where, test_count)` for every non-default feature gating tests."""
     root = Path(pkg["manifest_path"]).parent
     src = root / "src"
-    if not src.is_dir():
-        return []
     default = _default_features(pkg)
     found: list[tuple[str, str, int]] = []
+
+    # Integration tests first: a whole binary behind an inner attribute.
+    tests_dir = root / "tests"
+    if tests_dir.is_dir():
+        for rust in sorted(tests_dir.rglob("*.rs")):
+            source = rust.read_text(encoding="utf-8", errors="ignore")
+            tests = source.count("#[test]")
+            if not tests:
+                continue
+            gated: set[str] = set()
+            for attr in GATED_TEST_ATTR.finditer(source):
+                gated.update(FEATURE_NAME.findall(attr["body"]))
+            for feature in gated - default:
+                found.append((feature, str(rust.relative_to(REPO)), tests))
+
+    if not src.is_dir():
+        return found
 
     for rust in sorted(src.rglob("*.rs")):
         source = rust.read_text(encoding="utf-8", errors="ignore")
@@ -161,12 +193,41 @@ def _is_denied(feature: str, deny_exact: set[str], deny_prefix: tuple[str, ...])
     return feature in deny_exact or feature.startswith(tuple(deny_prefix))
 
 
+def _dedicated_jobs() -> list[str]:
+    """Every explicit `cargo test` command spelled out in `run_tests.py`.
+
+    The exemptions are not the only way a feature-gated test gets run: the
+    runner also carries hand-written jobs (the external-consumer builds, and the
+    causal one). A crate/feature pair named by one of those IS covered, and this
+    guard's own failure message tells you to add exactly that — so it has to
+    honour it, or the advice it gives leaves it red forever.
+    """
+    text = RUNNER.read_text(encoding="utf-8")
+    return [line for line in text.splitlines() if "CARGO" in line or "--features" in line]
+
+
+def _covered_by_a_dedicated_job(crate: str, feature: str, jobs: list[str]) -> bool:
+    """A job command naming this crate and this feature.
+
+    ⚠ deliberately coarse — it asks whether both strings appear in the runner's
+    job commands, not whether they appear in the SAME job. A tighter parse would
+    have to model how `Job(...)` lines wrap, and being slightly generous here
+    only ever makes this guard quieter about a crate somebody has already
+    thought about; being wrong the other way makes it cry wolf, which is how a
+    guard gets waived.
+    """
+    return any(f'"{crate}"' in line for line in jobs) and any(
+        feature in line and "--features" in line for line in jobs
+    )
+
+
 def _unrun() -> list[str]:
     skipped = set(_runner_constant("SKIP_FEATURE_JOB"))
     deny_exact = set(_runner_constant("DENY_EXACT"))
     deny_prefix = tuple(_runner_constant("DENY_PREFIX"))
     assert skipped and deny_exact and deny_prefix, "an exemption list came back empty"
 
+    jobs = _dedicated_jobs()
     findings: list[str] = []
     for pkg in _workspace_packages():
         name = pkg["name"]
@@ -178,6 +239,8 @@ def _unrun() -> list[str]:
             key = (where, feature)
             worst[key] = max(worst.get(key, 0), tests)
         for (where, feature), tests in sorted(worst.items()):
+            if _covered_by_a_dedicated_job(name, feature, jobs):
+                continue
             if name in skipped:
                 findings.append(
                     f"{where}: {tests} test(s) behind `{name}/{feature}`, and "

@@ -388,6 +388,48 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::Progression`], as
+/// an orderable vocabulary.**
+///
+/// Same shape and same reason as [`PlayerInputSet`], one phase later. Progression
+/// was a single `.chain()` of seventeen systems, and every slot that had to sit
+/// at a particular point in it pinned itself with `.after(<leaf system>)` /
+/// `.before(<leaf system>)` — eight such orderings, the largest concentration in
+/// the runtime after `PlayerInputSet` fixed the input phase.
+///
+/// ⚠ **the boundaries are not arbitrary: they are where the pins already were.**
+/// Two slots (`ContentEncounterScriptSet`, `ambition_encounter::EncounterLifecycleSet`)
+/// anchored INSIDE the boss group, both against `update_encounter_progress` —
+/// which is why the boss work is two phases rather than one. A vocabulary that
+/// could not express an existing anchor would have forced the anchor to stay a
+/// leaf, and the leaf is the thing being removed.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProgressionSet {
+    /// Boss encounters advance: mount-death notification, encounter + entity
+    /// sync, and the participant-liveness refresh that ends with
+    /// `update_encounter_progress`. Everything that DECIDES what the encounter
+    /// is this frame.
+    BossAdvance,
+    /// What the advanced encounter then DOES: falling hazards, encounter
+    /// scripts, death payloads, and the phase-transition feedback that closes
+    /// the boss group.
+    BossHazards,
+    /// Save → ECS mirrors for actors and bosses, once the encounter state they
+    /// mirror is settled.
+    SaveMirror,
+    /// Quest events pushed and then applied. `apply_quest_advance_events` is the
+    /// one system in this phase that lives in `ambition_persistence` rather than
+    /// the monolith, which is why a slot ordering against it had to name a leaf
+    /// from a third crate.
+    Quest,
+    /// Room metadata, music request and portal phase timers — the world catching
+    /// up with the progression that just happened.
+    WorldSync,
+    /// Map-menu visit tracking and the map's own save mirror. Last, because the
+    /// dev inspector mirror anchors after it.
+    Map,
+}
+
 /// **The phases inside [`Platformer2dSimulationPhaseMonolith::RoomTransition`].**
 ///
 /// Same shape, and same reason, as [`PlayerSimulationSet`]: this set carried an

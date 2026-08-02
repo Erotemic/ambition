@@ -927,13 +927,28 @@ undiscoverable and produced the `GgrsSchedule` cycle.
                            19
 ```
 
-▢ so the concrete next row is no longer `player_schedule.rs`; it is
-`progression_schedule.rs`, which carries 8 of the 19 — six of them ordering
-against `boss_encounter::` and `features::` leaves that have no phase vocabulary
-of their own. Giving progression the same treatment `PlayerInputSet` gave input is
-the row.
-⚠ status re-measured against the code rather than re-copied; the previous verdict
-was written 2026-07-27 and the work it asked for landed after it.
+✔ **and that row is DONE, same day.** `ProgressionSet` now exists beside
+`PlayerInputSet` in `ambition_platformer2d_shared_tangle::schedule`, with six
+phases: `BossAdvance · BossHazards · SaveMirror · Quest · WorldSync · Map`.
+`progression_schedule.rs` went from **8 leaf orderings to 0**, and the runtime
+total from 19 to **11**.
+
+⭐ **the phase boundaries were DERIVED from the pins, not invented.** Two slots
+(`ContentEncounterScriptSet` and `ambition_encounter::EncounterLifecycleSet`)
+anchored INSIDE the boss group, both against `update_encounter_progress` — which
+is exactly why the boss work is two phases rather than one. A vocabulary that
+could not express an anchor that already existed would have forced that anchor to
+stay a leaf, and the leaf is the thing being removed.
+
+⚠ **order preserved byte-for-byte, checked rather than asserted**: the 17 systems
+diff identically before and after, and the original block carried no `run_if` to
+drop. That mattered more than usual — this chain runs under rollback, where a
+reordering is a desync rather than a bug report.
+
+▢ what is left, and where: `portal_schedule.rs` 3 · `combat_schedule.rs` 2 ·
+`player_schedule.rs` 2 · `sandbox_reset.rs` 2 · `mode_scope.rs` 1 ·
+`rollback/session.rs` 1. No single file now dominates, which is the honest signal
+that this clause has stopped being one file's problem.
 
 ---
 

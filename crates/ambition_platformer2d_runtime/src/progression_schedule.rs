@@ -11,6 +11,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::ProgressionSet;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Progression` system chain plus the
@@ -35,59 +36,98 @@ impl Plugin for ProgressionSchedulePlugin {
         // labeled slot anchored below, so this plugin names NO content (anti-god
         // rule 3) — the E-track de-weave that lets the engine progression group
         // move to the runtime face later.
-        app.add_systems(
+        // ⭐ **the engine Progression chain, now placed by PHASE.** The systems
+        // and their order are unchanged; what changed is that each group states
+        // which phase it belongs to, so a slot elsewhere can order against the
+        // phase instead of against a leaf system's name. `ProgressionSet` carries
+        // the argument — this file held EIGHT leaf orderings, the largest
+        // concentration left in the runtime after `PlayerInputSet` did the same
+        // job for the input phase.
+        app.configure_sets(
             sim,
             (
-                // Boss-encounter chain (grouped into a nested `.chain()` to keep
-                // the outer tuple under Bevy's 20-element limit; internal order
-                // preserved). Drives phase + encounter + script + payload.
-                (
-                    // Mount-death → `mount_died` external phase trigger, ahead
-                    // of the phase driver so the swap is same-frame (Q19).
-                    ambition_platformer2d_actor_monolith::boss_encounter::notify_bosses_on_mount_death,
-                    ambition_platformer2d_actor_monolith::boss_encounter::update_boss_encounters,
-                    ambition_platformer2d_actor_monolith::boss_encounter::sync_boss_encounter_entities,
-                    ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress,
-                    // ContentEncounterScriptSet slot (setup_cut_rope_encounter)
-                    // anchors between here and tick_falling_hazards.
-                    ambition_platformer2d_actor_monolith::boss_encounter::tick_falling_hazards,
-                    ambition_platformer2d_actor_monolith::boss_encounter::tick_encounter_scripts,
-                    ambition_platformer2d_actor_monolith::boss_encounter::release_payloads_on_death,
-                    ambition_platformer2d_actor_monolith::boss_encounter::boss_phase_transition_feedback,
-                )
-                    .chain(),
-                // ContentEncounterVictorySet slot (spawn_cut_rope_victory_npc)
-                // anchors between the boss chain and the save mirrors below.
-                // One save-sync over the unified actor cluster (enemies +
-                // persisted-hostile NPCs flip in place).
-                ambition_platformer2d_actor_monolith::features::sync_ecs_actors_with_save,
-                ambition_platformer2d_actor_monolith::features::sync_ecs_bosses_with_save,
-                ambition_platformer2d_actor_monolith::quest::push_room_entered_quest_events,
-                ambition_persistence::quest::apply_quest_advance_events,
-                // ContentQuestRewardSet slot (grant_quest_completion_rewards)
-                // anchors between the quest pump and the metadata sync below.
-                ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata,
-                ambition_platformer2d_actor_monolith::rooms::sync_room_music_request,
-                // Portal lifecycle: advance every registered portal's
-                // phase from its switch state + per-phase timers.
-                // Pure state update; the visibility + ring-spin
-                // systems below consume the phase. Lives in the
-                // Progression set so the portal state is current
-                // before `detect_room_transition_system` runs (which
-                // is in CoreSimulation, ordered after Progression).
-                ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system,
-                ambition_platformer2d_actor_monolith::menu::map::track_room_visits,
-                ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save,
+                ProgressionSet::BossAdvance,
+                ProgressionSet::BossHazards,
+                ProgressionSet::SaveMirror,
+                ProgressionSet::Quest,
+                ProgressionSet::WorldSync,
+                ProgressionSet::Map,
             )
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
+        app.add_systems(
+            sim,
+            (
+                // Mount-death → `mount_died` external phase trigger, ahead of the
+                // phase driver so the swap is same-frame (Q19).
+                ambition_platformer2d_actor_monolith::boss_encounter::notify_bosses_on_mount_death,
+                ambition_platformer2d_actor_monolith::boss_encounter::update_boss_encounters,
+                ambition_platformer2d_actor_monolith::boss_encounter::sync_boss_encounter_entities,
+                ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress,
+            )
+                .chain()
+                .in_set(ProgressionSet::BossAdvance),
+        );
+        app.add_systems(
+            sim,
+            (
+                ambition_platformer2d_actor_monolith::boss_encounter::tick_falling_hazards,
+                ambition_platformer2d_actor_monolith::boss_encounter::tick_encounter_scripts,
+                ambition_platformer2d_actor_monolith::boss_encounter::release_payloads_on_death,
+                ambition_platformer2d_actor_monolith::boss_encounter::boss_phase_transition_feedback,
+            )
+                .chain()
+                .in_set(ProgressionSet::BossHazards),
+        );
+        app.add_systems(
+            sim,
+            (
+                // One save-sync over the unified actor cluster (enemies +
+                // persisted-hostile NPCs flip in place).
+                ambition_platformer2d_actor_monolith::features::sync_ecs_actors_with_save,
+                ambition_platformer2d_actor_monolith::features::sync_ecs_bosses_with_save,
+            )
+                .chain()
+                .in_set(ProgressionSet::SaveMirror),
+        );
+        app.add_systems(
+            sim,
+            (
+                ambition_platformer2d_actor_monolith::quest::push_room_entered_quest_events,
+                ambition_persistence::quest::apply_quest_advance_events,
+            )
+                .chain()
+                .in_set(ProgressionSet::Quest),
+        );
+        app.add_systems(
+            sim,
+            (
+                ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata,
+                ambition_platformer2d_actor_monolith::rooms::sync_room_music_request,
+                // Portal lifecycle: advance every registered portal's phase from
+                // its switch state + per-phase timers.
+                ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system,
+            )
+                .chain()
+                .in_set(ProgressionSet::WorldSync),
+        );
+        app.add_systems(
+            sim,
+            (
+                ambition_platformer2d_actor_monolith::menu::map::track_room_visits,
+                ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save,
+            )
+                .chain()
+                .in_set(ProgressionSet::Map),
+        );
+
         // The dev-tools inspector mirror (a DOMAIN set — its system lives in
         // `DevToolsSimPlugin`) keeps its former chain-tail slot.
         app.configure_sets(
             sim,
             ambition_dev_tools::DevInspectorMirrorSet
-                .after(ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save)
+                .after(ProgressionSet::Map)
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
         // The generic encounter lifecycle reducer (E8 — a DOMAIN set, its
@@ -98,8 +138,8 @@ impl Plugin for ProgressionSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_encounter::EncounterLifecycleSet
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
-                .after(ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress),
+                .after(ProgressionSet::BossAdvance)
+                .before(ProgressionSet::BossHazards),
         );
 
         // Anchor the content slots into the engine chain at their exact former
@@ -112,23 +152,20 @@ impl Plugin for ProgressionSchedulePlugin {
         app.configure_sets(
             sim,
             ContentEncounterScriptSet
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
-                .after(ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress)
-                .before(ambition_platformer2d_actor_monolith::boss_encounter::tick_falling_hazards),
+                .after(ProgressionSet::BossAdvance)
+                .before(ProgressionSet::BossHazards),
         );
         app.configure_sets(
             sim,
             ContentEncounterVictorySet
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
-                .after(ambition_platformer2d_actor_monolith::boss_encounter::boss_phase_transition_feedback)
-                .before(ambition_platformer2d_actor_monolith::features::sync_ecs_actors_with_save),
+                .after(ProgressionSet::BossHazards)
+                .before(ProgressionSet::SaveMirror),
         );
         app.configure_sets(
             sim,
             ContentQuestRewardSet
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
-                .after(ambition_persistence::quest::apply_quest_advance_events)
-                .before(ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata),
+                .after(ProgressionSet::Quest)
+                .before(ProgressionSet::WorldSync),
         );
 
         // Populate the encounter / boss registries from the LDtk project + save.

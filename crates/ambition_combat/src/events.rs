@@ -260,6 +260,22 @@ pub enum HitSource {
     BossBody,
     /// Hit by a boss melee swing.
     BossAttack,
+    /// **A body whose own footprint harms what it touches** — a star-powered
+    /// runner flattening what it passes through.
+    ///
+    /// Distinct from [`Self::EnemyBody`] and [`Self::BossBody`] rather than
+    /// folded into them, because those name WHO touched you and this names WHAT
+    /// KIND of thing happened: the striker is whoever holds the trait, which may
+    /// be the player, an NPC, or a possessed anything.
+    ///
+    /// ⚠ deliberately NOT [`Self::is_attacker_side`], for the same reason
+    /// `EnemyBody` is not: contact harm runs in BOTH directions, and the answer
+    /// has to be the one that lets a targeted event reach either consumer. An
+    /// `Actor`-targeted hit passes the feature drain on its target stamp alone;
+    /// a `Player`-targeted one has to reach the player FIFO, which takes only
+    /// the complement. Calling this attacker-side made an empowered NPC unable
+    /// to hurt the player at all — the exact hole `EnemyBody`'s answer avoids.
+    ContactHarm,
 }
 
 impl HitSource {

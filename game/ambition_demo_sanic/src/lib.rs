@@ -179,6 +179,17 @@ fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
 pub const SANIC_CHARACTER_ID: &str = "sanic";
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
+/// **What the super form IS**, composed from engine traits rather than named as
+/// a mode: he cannot be hurt, and what he touches is destroyed.
+///
+/// The same two traits Mary-O's cosmic quasar composes, which is the point —
+/// neither demo's super state is a special case in the engine, and a third
+/// character wanting only one of them says only that.
+pub const SUPER_SANIC_SUPER_STATE:
+    ambition_platformer2d::actors::features::empowerment::Empowerment =
+    ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE
+        .with(ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT);
+
 /// The animated ring sprite sheet (generated `sanic_ring_prop` target: an
 /// idle-spin row + a collect row). Registered as a `GameAssets` prop in the app
 /// and named on each ring pickup so the pickup renderer binds the spinning sheet
@@ -1105,6 +1116,14 @@ impl Plugin for SanicRulesPlugin {
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,
+            // ...and the engine RUNS what that granted. Without this the form
+            // would carry an `Empowered` nothing consulted, so wearing it would
+            // grant no invulnerability at all — the exact silent half-wiring an
+            // opt-in component invites. `apply_contact_harm` is deliberately NOT
+            // here: `defeat_badniks` already owns the destroy-on-touch reaction,
+            // including its pop and its bounce, and two authorities killing the
+            // same badnik is what this change exists to stop.
+            ambition_platformer2d::actors::features::empowerment::run_empowerments,
             // Braking scrape on the skid onset (reads the published skid fact).
             emit_sanic_skid_sfx,
             // The goal, then the cycle: a clear captured this frame must be
@@ -1345,16 +1364,36 @@ fn sync_super_form_traits(
         Ok((body, worn, mut health, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
             // Super Sanic and Mary-O's pocket quasar are the SAME fact wearing
-            // two names: a body that cannot be hurt because a star-grade power
-            // is on. Both take `EMPOWERED`, so a body holding it for one reason is
-            // never stripped by the other releasing it — and neither has to know
-            // the other exists. (Jon: "in super sanic mode, sanic should be
-            // invincible, even to spikes" — this is the half that says he IS
-            // invincible; whether spikes consult the gate is theirs to answer.)
-            health.health.invulnerable.set(
-                ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
-                is_super,
-            );
+            // two names: a body that cannot be hurt, and that destroys what it
+            // runs through, because a star-grade power is on. So this states the
+            // TRAITS and lets the engine's empowerment run them — it used to
+            // write `Invulnerability::EMPOWERED` here by hand and leave the
+            // destroy-on-touch half to `defeat_badniks` matching on a character
+            // id, which is two authorities for one form and neither of them
+            // reusable.
+            //
+            // HELD, not timed: the form is true for exactly as long as he wears
+            // the identity, and the identity is the authority — a monitor, the
+            // D-toggle, or a future ring drain all wear it off, and none of them
+            // has to know a timer exists.
+            if is_super {
+                commands.entity(body).try_insert(
+                    ambition_platformer2d::actors::features::empowerment::Empowered::held(
+                        SUPER_SANIC_SUPER_STATE,
+                    ),
+                );
+            } else {
+                commands
+                    .entity(body)
+                    .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
+                // The reason goes back with the form. `run_empowerments` releases
+                // it on expiry, but a HELD empowerment never expires — its granter
+                // retracts it, so its granter releases the reason.
+                health.health.invulnerable.set(
+                    ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
+                    false,
+                );
+            }
             (
                 Some(is_super),
                 kinematics.pos,

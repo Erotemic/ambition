@@ -16,9 +16,9 @@ fn sanic_demo_content_plugin_installs() {
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     add_demo_content(&mut app);
 
-    let placement_lowering = app
-        .world()
-        .resource::<ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry>();
+    let placement_lowering =
+        app.world()
+            .resource::<ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry>();
     assert!(
         placement_lowering
             .schema_descriptors()
@@ -58,7 +58,8 @@ fn sanic_demo_content_plugin_installs() {
     );
     let catalog = app
         .world()
-        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>(
+    );
     assert!(catalog.get(SANIC_CHARACTER_ID).is_some());
     assert!(catalog.get(SUPER_SANIC_CHARACTER_ID).is_some());
 }
@@ -582,7 +583,10 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     assert!(
         messages
             .iter_current_update_messages()
-            .any(|message| matches!(message.request, ambition_platformer2d::sfx::SfxMessage::Dash { .. })),
+            .any(|message| matches!(
+                message.request,
+                ambition_platformer2d::sfx::SfxMessage::Dash { .. }
+            )),
         "the first visual marker emits the first standard diagnostic cue"
     );
     let mut q = app.world_mut().query::<&SanicActState>();
@@ -601,9 +605,9 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
             ae::BodyKinematics::default(),
         ))
         .id();
-    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
-        entity,
-    )));
+    app.insert_resource(
+        ambition_platformer2d::platformer::markers::ControlledSubject(Some(entity)),
+    );
     app.add_systems(bevy::app::Update, toggle_sanic_form);
 
     app.world_mut()
@@ -661,29 +665,32 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     // A session whose speakers belong to somebody else.
     let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
-    context.set(ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    context.set(
+        ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1),
+        "some_host",
+    );
     app.insert_resource(context);
 
     let entity = app
         .world_mut()
         .spawn((
             ambition_platformer2d::actors::actor::PrimaryPlayer,
-            ambition_platformer2d::characters::actor::BodyHealth::new(ambition_platformer2d::characters::actor::Health::new(
-                3,
-            )),
+            ambition_platformer2d::characters::actor::BodyHealth::new(
+                ambition_platformer2d::characters::actor::Health::new(3),
+            ),
             ambition_platformer2d::characters::brain::ActorControl::default(),
             ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             // What `publish_body_presentation_sources` derives in production; the
             // derivation itself is tested in `character_runtime::presentation`.
-            ambition_platformer2d::sfx::BodyPresentationSource(ambition_platformer2d::sfx::PresentationSourceId::new(
-                "sanic_demo",
-            )),
+            ambition_platformer2d::sfx::BodyPresentationSource(
+                ambition_platformer2d::sfx::PresentationSourceId::new("sanic_demo"),
+            ),
         ))
         .id();
-    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
-        entity,
-    )));
+    app.insert_resource(
+        ambition_platformer2d::platformer::markers::ControlledSubject(Some(entity)),
+    );
     app.add_systems(bevy::app::Update, sync_super_form_traits);
     app.update();
 
@@ -720,7 +727,10 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     let mut context = ambition_platformer2d::sfx::SfxEmissionContext::default();
-    context.set(ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1), "some_host");
+    context.set(
+        ambition_platformer2d::sfx::AudioContextOwner::Gameplay(1),
+        "some_host",
+    );
     app.insert_resource(context);
 
     // Parked just past the first marker, so one milestone fires this update.
@@ -1065,7 +1075,21 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     // `sync_super_form_traits` now emits the transform cue on the worn-identity
     // edge, so the SFX channel must exist for the SfxWriter system param.
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_systems(bevy::prelude::Update, sync_super_form_traits);
+    // BOTH halves, chained as the app chains them. `sync_super_form_traits`
+    // states the super form's TRAITS and the engine's empowerment runs them —
+    // running only the first would assert that a grant was made, which is
+    // exactly the half-wiring that makes an opt-in component do nothing.
+    {
+        use bevy::ecs::schedule::IntoScheduleConfigs as _;
+        app.add_systems(
+            bevy::prelude::Update,
+            (
+                sync_super_form_traits,
+                ambition_platformer2d::actors::features::empowerment::run_empowerments,
+            )
+                .chain(),
+        );
+    }
     let player = app
         .world_mut()
         .spawn((
@@ -1081,7 +1105,8 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
             .get::<BodyHealth>(player)
             .unwrap()
             .health
-            .invulnerable.any(),
+            .invulnerable
+            .any(),
         "wearing the super form derives invincibility"
     );
 
@@ -1095,7 +1120,8 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
             .get::<BodyHealth>(player)
             .unwrap()
             .health
-            .invulnerable.any(),
+            .invulnerable
+            .any(),
         "wearing the form off revokes invincibility"
     );
 }
@@ -1113,9 +1139,10 @@ fn the_super_row_authors_a_real_movement_boost() {
             SANIC_CATALOG_RON,
         )
         .expect("demo catalog parses");
-    let catalog = ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
-        fragment.catalog().clone(),
-    );
+    let catalog =
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
+            fragment.catalog().clone(),
+        );
     let base = catalog
         .momentum_params(SANIC_CHARACTER_ID)
         .expect("base row authors momentum");
@@ -1659,7 +1686,8 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let locked = |app: &mut App| {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), With<ambition_platformer2d::actors::features::PickupCollectLock>>();
+            .query_filtered::<(), With<ambition_platformer2d::actors::features::PickupCollectLock>>(
+            );
         q.iter(app.world()).count()
     };
 

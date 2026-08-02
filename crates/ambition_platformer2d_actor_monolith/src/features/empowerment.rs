@@ -1,5 +1,5 @@
-//! **A timed empowerment** — a body holding a SET of super-state traits for a
-//! while.
+//! **An empowerment** — a body holding a SET of super-state traits, for a while
+//! or for as long as whoever granted them keeps them.
 //!
 //! Jon: *"There should be an elegant way to represent the idea of I'm invincible
 //! and I hurt everything I touch and compose those together for the
@@ -16,34 +16,55 @@
 //!
 //! A super mode expressed as an enum grows a variant per character, and every
 //! system that reads it grows a match arm — that is the monolith Jon is warning
-//! about. Traits compose instead: Sanic's super form asks for `UNTOUCHABLE`
-//! alone and needs no new engine code, and a future "heavy" that harms on
-//! contact without being safe asks for `HARMS_ON_CONTACT` alone.
+//! about. Traits compose instead: Sanic's super form asks for the same two and
+//! needs no new engine code, a future invincibility ring asks for `UNTOUCHABLE`
+//! alone, and a "heavy" that flattens things without being safe itself asks for
+//! `HARMS_ON_CONTACT` alone. None of them is a case in here.
 //!
 //! ## Each trait delegates to a seam that already exists
 //!
-//! Nothing here implements invulnerability or damage. `UNTOUCHABLE` takes the
-//! `EMPOWERED` reason in the body's [`Invulnerability`] set — the same set a
-//! transformation beat takes `TRANSFORMING` in — so the two overlap without
-//! either cancelling the other. `HARMS_ON_CONTACT` publishes an ordinary
-//! [`Hitbox`] that follows the body, so contact damage resolves through the
-//! exact path a sword swing does: hit-once memory, knockback, strike sound,
-//! rollback registration, all of it, none of it re-implemented.
+//! Nothing here implements invulnerability or damage resolution. `UNTOUCHABLE`
+//! takes the `EMPOWERED` reason in the body's [`Invulnerability`] set — the same
+//! set a transformation beat takes `TRANSFORMING` in — so the two overlap
+//! without either cancelling the other. `HARMS_ON_CONTACT` writes an ordinary
+//! [`HitEvent`], so the struck body's own victim consumer applies it: i-frames,
+//! knockback, hurt feedback, death, all of it, none of it re-implemented.
 //!
-//! ## The hitbox is found, not remembered
+//! ## ⚠ why this is NOT a `Hitbox`
 //!
-//! The body does NOT store the hitbox's `Entity`. A back-reference to an entity
-//! that can die independently has to be invalidated when it does, and forgetting
-//! that is what left Mary-O's quasar overlay permanently dark earlier today. The
-//! hitbox carries a [`ContactHitbox`] marker naming its owner instead, so "does
-//! this body already have one" is a QUERY. There is no cache, so there is
-//! nothing to invalidate.
+//! It was, and the volume never fired once. A `Hitbox` carrying
+//! `HitSide::Player` with a `FollowOwner` anchor is resolved by
+//! `apply_hitbox_damage` as a MELEE SWING, and that branch opens with
+//! *"no swing armed ⇒ no strike"* — it reads the owner's `BodyMelee.swing` for
+//! per-swing dedup and skips the volume when there is none. An empowered body is
+//! not swinging, so its volume was dropped every tick, silently, for as long as
+//! the empowerment lasted. (Jon: *"I ran into enemies with quasar mode on and
+//! they did not get hurt."*)
+//!
+//! That guard is not a bug — cross-window dedup genuinely belongs to the swing.
+//! It is that a hitbox is the wrong PRIMITIVE here. "My body harms what it
+//! touches" is body-vs-body contact, which the engine already models for the
+//! other direction (`apply_actor_contact_damage`, an enemy's body hurting what
+//! it walks into). This is that rule, pointed outward, and it is the same rule
+//! Sanic's badniks were resolving by hand against a character id.
+//!
+//! ## Hitting once is the VICTIM's rule, not ours
+//!
+//! There is no hit-memory here and deliberately none: a body struck this tick
+//! takes i-frames from its own consumer, and running through it keeps producing
+//! events that its i-frames eat. Keeping a per-empowerment `hit` set would be a
+//! second dedup authority that rollback would have to carry, disagreeing with
+//! the first the moment one of them rewound.
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::{BodyHealth, Invulnerability};
+use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability};
+use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::events::{
+    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+};
 use ambition_platformer2d_core as ae;
-use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, HitSide};
+use ambition_platformer2d_core::AabbExt;
 
 /// The traits an empowerment can grant, as a set.
 ///
@@ -77,22 +98,42 @@ impl Empowerment {
     }
 }
 
-/// **A body currently empowered**, and for how much longer.
+/// **A body currently empowered**, and for how much longer — if that is even a
+/// question.
 ///
 /// Snapshot state by the strictest reading: it gates whether hits land AND
 /// whether this body deals them, so a rollback that dropped it would disagree
 /// with itself about damage. Games register it with their own rollback rows.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Empowered {
-    pub remaining: f32,
+    /// Seconds left, or `None` for an empowerment HELD by whatever granted it.
+    ///
+    /// The two are genuinely different states, not one with a sentinel. A
+    /// pickup starts a clock and then has nothing more to do with it (Jon: *"an
+    /// item should just be triggering the start of the invincible state. It
+    /// shouldn't be bound to the lifetime of that item"*). A form — Sanic's
+    /// super identity — is true for exactly as long as the body wears it, and
+    /// expressing that as a very large number would be a lie that eventually
+    /// comes due.
+    pub remaining: Option<f32>,
     pub traits: Empowerment,
 }
 
 impl Empowered {
-    /// Grant `traits` for `seconds`.
-    pub fn new(traits: Empowerment, seconds: f32) -> Self {
+    /// Grant `traits` for `seconds`, after which this leaves the body.
+    pub fn for_seconds(traits: Empowerment, seconds: f32) -> Self {
         Self {
-            remaining: seconds,
+            remaining: Some(seconds),
+            traits,
+        }
+    }
+
+    /// Grant `traits` until whoever granted them takes them back. Nothing here
+    /// expires it — the granting authority owns that, and usually already owns
+    /// the state it derives from.
+    pub fn held(traits: Empowerment) -> Self {
+        Self {
+            remaining: None,
             traits,
         }
     }
@@ -106,32 +147,19 @@ impl Empowered {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ContactHarm {
     pub damage: i32,
-    pub knockback: HitboxKnockback,
+    /// Feel scale for the separating launch, in the same units every other
+    /// knockback in the game is expressed in.
+    pub knockback: f32,
 }
 
 impl Default for ContactHarm {
     fn default() -> Self {
         Self {
             damage: 100,
-            knockback: HitboxKnockback::LaunchSpeed {
-                base: 420.0,
-                growth: 0.0,
-            },
+            knockback: 1.0,
         }
     }
 }
-
-/// Marks the strike volume an empowered body publishes, naming its owner so the
-/// pair is discoverable by QUERY rather than by a stored `Entity`.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct ContactHitbox {
-    pub owner: Entity,
-}
-
-/// Seconds of lifetime the contact hitbox is kept topped up with. Longer than a
-/// tick so a dropped frame does not blink it out, short enough that it vanishes
-/// promptly if this system ever stops running.
-const CONTACT_HITBOX_LEASE_S: f32 = 0.2;
 
 /// **Run every empowerment**: hold its traits while it lasts, release them when
 /// it ends.
@@ -144,80 +172,29 @@ const CONTACT_HITBOX_LEASE_S: f32 = 0.2;
 pub fn run_empowerments(
     time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
-    mut bodies: Query<(
-        Entity,
-        &mut Empowered,
-        &mut BodyHealth,
-        &ae::BodyKinematics,
-        Option<&ContactHarm>,
-    )>,
-    hitboxes: Query<(Entity, &ContactHitbox)>,
+    mut bodies: Query<(Entity, &mut Empowered, &mut BodyHealth)>,
 ) {
     let dt = time.scaled_dt;
-    for (body, mut empowered, mut health, kin, harm) in &mut bodies {
-        empowered.remaining -= dt;
-        let live = empowered.remaining > 0.0;
+    for (body, mut empowered, mut health) in &mut bodies {
+        // A HELD empowerment has no clock to run: it is live until its granter
+        // removes it, and counting down toward an expiry that must never arrive
+        // is how "indefinite" quietly becomes "about five minutes".
+        let live = match empowered.remaining {
+            Some(remaining) => {
+                let next = remaining - dt;
+                empowered.remaining = Some(next);
+                next > 0.0
+            }
+            None => true,
+        };
 
         // ── Untouchable ───────────────────────────────────────────────────
         // Our reason only. A transformation beat overlapping this keeps its own,
         // and neither can strip the other by ending first.
-        health
-            .health
-            .invulnerable
-            .set(Invulnerability::EMPOWERED, live && empowered.traits.holds(Empowerment::UNTOUCHABLE));
-
-        // ── Harms on contact ──────────────────────────────────────────────
-        let wants_hitbox = live && empowered.traits.holds(Empowerment::HARMS_ON_CONTACT);
-        let existing = hitboxes
-            .iter()
-            .find(|(_, marker)| marker.owner == body)
-            .map(|(entity, _)| entity);
-        match (wants_hitbox, existing) {
-            (true, Some(hitbox)) => {
-                // Top up the lease. The volume follows the owner on its own, so
-                // there is nothing else to keep in step.
-                commands.entity(hitbox).try_insert(HitboxLifetime {
-                    remaining_s: CONTACT_HITBOX_LEASE_S,
-                });
-            }
-            (true, None) => {
-                let harm = harm.copied().unwrap_or_default();
-                commands.spawn((
-                    Hitbox {
-                        owner: body,
-                        // The body's own side: an empowered PLAYER must hurt
-                        // enemies, not other players. Read off the body rather
-                        // than assumed, so an empowered NPC works too.
-                        source: HitSide::Player,
-                        // Her whole footprint, centred on her — "everything I
-                        // touch" is literally her collision box.
-                        anchor: HitboxAnchor::FollowOwner {
-                            local_offset: ae::Vec2::ZERO,
-                        },
-                        half_extent: kin.size * 0.5,
-                        shape: None,
-                        facing: 1.0,
-                        damage: harm.damage,
-                        knockback: harm.knockback,
-                        launch_dir: None,
-                        frame_down: ae::DEFAULT_GRAVITY_DIR,
-                        strike_sfx: None,
-                    },
-                    HitboxLifetime {
-                        remaining_s: CONTACT_HITBOX_LEASE_S,
-                    },
-                    // Hit-once memory, so running THROUGH something hits it once
-                    // rather than every tick it overlaps.
-                    HitboxHits::default(),
-                    ContactHitbox { owner: body },
-                    Name::new("Empowered contact volume"),
-                ));
-            }
-            (false, Some(hitbox)) => {
-                commands.entity(hitbox).despawn();
-            }
-            (false, None) => {}
-        }
+        health.health.invulnerable.set(
+            Invulnerability::EMPOWERED,
+            live && empowered.traits.holds(Empowerment::UNTOUCHABLE),
+        );
 
         if !live {
             commands.entity(body).remove::<Empowered>();
@@ -225,19 +202,123 @@ pub fn run_empowerments(
     }
 }
 
-/// Sweep a contact volume whose owner is gone.
+/// **Everything an empowered body touches takes the hit.**
 ///
-/// The mirror of the pairing above, and the half that is always forgotten: the
-/// hitbox outlives its owner otherwise, following a despawned entity and hurting
-/// whatever happens to be standing where the body used to be.
-pub fn despawn_orphaned_contact_hitboxes(
-    mut commands: Commands,
-    owners: Query<(), With<Empowered>>,
-    hitboxes: Query<(Entity, &ContactHitbox)>,
+/// The `HARMS_ON_CONTACT` half, and the mirror of `apply_actor_contact_damage`:
+/// that one is an actor's body hurting what it walks into, this is a body
+/// hurting what it runs THROUGH. Same primitive, opposite direction, and both
+/// end in a [`HitEvent`] the victim's own consumer resolves.
+///
+/// Who may be hit is decided relationally, by the shared
+/// [`damage_lands_between`](ambition_combat::targeting::damage_lands_between) —
+/// the same predicate every swing in the game asks. That is what makes this
+/// actor-generic rather than a player rule: an empowered NPC flattens what an
+/// NPC may flatten, without this system knowing what a player is.
+///
+/// ⚠ a corpse is skipped, and so is a body its own vulnerability rule protects
+/// (i-frames, a dodge roll, a parry). Both checks are the SHARED ones — a second
+/// opinion about who is hittable is the bug this file was rewritten to remove.
+pub fn apply_contact_harm(
+    mut hit_events: MessageWriter<HitEvent>,
+    empowered: Query<(
+        Entity,
+        &Empowered,
+        &ae::BodyKinematics,
+        &ActorFaction,
+        Option<&ContactHarm>,
+        Option<&ambition_combat::targeting::MatchTeam>,
+    )>,
+    victims: Query<(
+        Entity,
+        &CenteredAabb,
+        &ActorFaction,
+        &BodyHealth,
+        &ae::BodyMotionFacts,
+        &crate::actor::BodyShieldState,
+        &BodyCombat,
+        bevy::prelude::Has<crate::actor::PlayerEntity>,
+        Option<&ambition_combat::targeting::MatchTeam>,
+    )>,
+    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
-    for (hitbox, marker) in &hitboxes {
-        if owners.get(marker.owner).is_err() {
-            commands.entity(hitbox).despawn();
+    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
+    for (striker, empowerment, kin, striker_faction, harm, striker_team) in &empowered {
+        if !empowerment.traits.holds(Empowerment::HARMS_ON_CONTACT) {
+            continue;
+        }
+        let harm = harm.copied().unwrap_or_default();
+        // "Everything I touch" is literally this body's collision box.
+        let volume = kin.aabb();
+        for (
+            victim,
+            victim_aabb,
+            victim_faction,
+            victim_health,
+            facts,
+            shield,
+            combat,
+            victim_is_player,
+            victim_team,
+        ) in &victims
+        {
+            if victim == striker {
+                continue;
+            }
+            if crate::combat::util::body_is_corpse(Some(victim_health)) {
+                continue;
+            }
+            if !ambition_combat::targeting::damage_lands_between(
+                *striker_faction,
+                *victim_faction,
+                striker_team,
+                victim_team,
+                friendly_fire,
+                None,
+                victim,
+            ) {
+                continue;
+            }
+            if !crate::combat::util::body_vulnerable(
+                victim_health.health.invulnerable,
+                facts.dodge_rolling,
+                shield,
+                combat,
+            ) {
+                continue;
+            }
+            let victim_body = victim_aabb.aabb();
+            if !volume.strict_intersects(victim_body) {
+                continue;
+            }
+            // Thrown away from the striker along the world side axis. A contact
+            // that produced no separation would leave the victim inside the
+            // volume, taking the hit again the moment its i-frames lapse.
+            let dir = if victim_body.center().x >= kin.pos.x {
+                1.0
+            } else {
+                -1.0
+            };
+            hit_events.write(HitEvent {
+                strike_sfx: None,
+                volume: volume.into(),
+                damage: harm.damage,
+                source: HitSource::ContactHarm,
+                attacker: Some(striker),
+                target: if victim_is_player {
+                    HitTarget::Player(victim)
+                } else {
+                    HitTarget::Actor(victim)
+                },
+                mode: HitMode::Knockback,
+                knockback: Some(HitKnockback {
+                    dir,
+                    magnitude: HitKnockbackMagnitude::FeelScale(harm.knockback),
+                    source_pos: kin.pos,
+                    impact_pos: victim_body.center(),
+                    launch_dir: None,
+                }),
+                ignored_targets: Vec::new(),
+            });
         }
     }
 }

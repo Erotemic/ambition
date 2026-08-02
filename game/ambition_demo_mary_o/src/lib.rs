@@ -1601,7 +1601,10 @@ impl Plugin for MaryORulesPlugin {
             // on the same flag this tick (see `star`'s module docs).
             star::begin_star_power,
             ambition_platformer2d::actors::features::empowerment::run_empowerments,
-            ambition_platformer2d::actors::features::empowerment::despawn_orphaned_contact_hitboxes,
+            // Contact harm AFTER the tick that may have ended the empowerment,
+            // so the frame it expires on is not also a frame it flattens
+            // something.
+            ambition_platformer2d::actors::features::empowerment::apply_contact_harm,
             star::play_star_music,
             powerups::tag_mary_o_sparks,
         )

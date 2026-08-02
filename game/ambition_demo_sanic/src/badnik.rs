@@ -95,9 +95,9 @@ pub fn defeat_badniks(
         (
             &mut ae::BodyKinematics,
             Option<&crate::ball_dash::Rolling>,
-            // Optional so the thin test harnesses need not dress the body; a
-            // real player always wears an identity.
-            Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            // What is TRUE of this body, not who it is. Optional so the thin
+            // test harnesses need not dress the body.
+            Option<&ambition_platformer2d::actors::features::empowerment::Empowered>,
         ),
         With<PrimaryPlayer>,
     >,
@@ -106,16 +106,27 @@ pub fn defeat_badniks(
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
     >,
 ) {
-    let Ok((mut player, rolling, worn)) = players.single_mut() else {
+    let Ok((mut player, rolling, empowered)) = players.single_mut() else {
         return;
     };
-    // The SUPER form squashes on touch — derived from the worn identity, the
-    // same read `sync_super_form_traits` keys invincibility on. It joins
-    // rolling for the kill condition but not for the bounce: a super stomp
-    // still bounces like any stomp.
-    let is_super = worn.is_some_and(|w| w.id() == crate::SUPER_SANIC_CHARACTER_ID);
+    // **Squashing on touch is a TRAIT the body holds, not a name it wears.**
+    //
+    // This used to read `worn.id() == SUPER_SANIC_CHARACTER_ID` — a rule about
+    // WHO you are standing in for a rule about what is TRUE of you. Every other
+    // way of becoming untouchable-and-lethal (a future invincibility ring, a
+    // possessed body, a second super form) would have needed another `||` here,
+    // and the engine already has the word for it: `HARMS_ON_CONTACT`, which
+    // Mary-O's cosmic quasar composes from the same two traits.
+    //
+    // Rolling joins it for the kill condition but not for the bounce: a super
+    // stomp still bounces like any stomp.
+    let harms_on_contact = empowered.is_some_and(|e| {
+        e.traits.holds(
+            ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
+        )
+    });
     let rolling = rolling.is_some();
-    let lethal_touch = rolling || is_super;
+    let lethal_touch = rolling || harms_on_contact;
     // Screen gravity is +y: "descending" is vel.y > 0, feet are the max-y edge.
     let falling = player.vel.y > 0.0;
     if !lethal_touch && !falling {
@@ -244,21 +255,53 @@ mod tests {
         );
     }
 
+    /// **A body that HARMS ON CONTACT squashes on any touch** — un-rolled, not
+    /// falling, a plain walk-into.
+    ///
+    /// The body is dressed with the TRAIT, not with Sanic's super identity, and
+    /// that is the assertion: this rule used to read `worn.id() ==
+    /// SUPER_SANIC_CHARACTER_ID`, so it was a fact about who you were. Anything
+    /// that grants the trait now gets the same touch, and nothing has to teach
+    /// this file about it.
     #[test]
-    fn a_super_player_squashes_a_badnik_on_any_touch() {
-        // Un-rolled, not falling — a plain walk-into. The worn SUPER identity
-        // alone makes the touch lethal to the badnik instead of the player.
+    fn a_body_that_harms_on_contact_squashes_a_badnik_on_any_touch() {
         let mut app = defeat_app();
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
         app.world_mut().spawn((
             PrimaryPlayer,
-            ambition_platformer2d::characters::actor::WornCharacter::new(crate::SUPER_SANIC_CHARACTER_ID),
+            ambition_platformer2d::actors::features::empowerment::Empowered::held(
+                crate::SUPER_SANIC_SUPER_STATE,
+            ),
             kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
         ));
         app.update();
         assert!(
             app.world().get_entity(badnik).is_err(),
-            "a super player destroys a badnik on contact"
+            "a body whose contact harms destroys a badnik it walks into"
+        );
+    }
+
+    /// And the SUPER IDENTITY alone does not — it is the empowerment the form
+    /// grants that does the work, so a body wearing the name without the trait
+    /// is an ordinary body.
+    ///
+    /// This is the half that would have made the old rule pass either way: it
+    /// pins that the id is no longer consulted.
+    #[test]
+    fn the_super_identity_alone_is_not_what_squashes() {
+        let mut app = defeat_app();
+        let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ambition_platformer2d::characters::actor::WornCharacter::new(
+                crate::SUPER_SANIC_CHARACTER_ID,
+            ),
+            kin(ae::Vec2::ZERO, ae::Vec2::new(120.0, 0.0)),
+        ));
+        app.update();
+        assert!(
+            app.world().get_entity(badnik).is_ok(),
+            "the worn name is not the authority; the trait the form grants is"
         );
     }
 

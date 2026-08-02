@@ -100,9 +100,10 @@ pub fn begin_star_power(
 ) {
     for (body, mut worn) in &mut players {
         if worn.unequip(POCKET_QUASAR_ID).is_some() {
-            commands
-                .entity(body)
-                .try_insert(Empowered::new(COSMIC_QUASAR_SUPER_STATE, STAR_SECONDS));
+            commands.entity(body).try_insert(Empowered::for_seconds(
+                COSMIC_QUASAR_SUPER_STATE,
+                STAR_SECONDS,
+            ));
         }
     }
 }
@@ -173,8 +174,7 @@ mod tests {
     fn collecting_the_quasar_makes_her_invincible_and_takes_the_token_back() {
         let (mut app, body) = app_with_body();
         assert!(
-            !app
-                .world()
+            !app.world()
                 .get::<BodyHealth>(body)
                 .unwrap()
                 .health
@@ -204,11 +204,15 @@ mod tests {
                 .get::<BodyHealth>(body)
                 .unwrap()
                 .health
-                .invulnerable.any(),
+                .invulnerable
+                .any(),
             "and the fact the damage gate reads"
         );
         assert!(
-            !app.world().get::<WornEquipment>(body).unwrap().wears(POCKET_QUASAR_ID),
+            !app.world()
+                .get::<WornEquipment>(body)
+                .unwrap()
+                .wears(POCKET_QUASAR_ID),
             "the token is spent, not worn — a worn quasar would never expire"
         );
     }
@@ -237,7 +241,8 @@ mod tests {
                 .get::<BodyHealth>(body)
                 .unwrap()
                 .health
-                .invulnerable.any(),
+                .invulnerable
+                .any(),
             "and she is ordinary again"
         );
     }

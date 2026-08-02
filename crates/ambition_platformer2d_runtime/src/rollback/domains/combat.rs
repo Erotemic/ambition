@@ -17,7 +17,7 @@ use bevy::prelude::App;
 use super::super::AmbitionRollbackApp;
 // The byte-writer vocabulary these projections are built from.
 use ambition_platformer2d_core::snapshot::{
-    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u8, put_u64, put_vec2,
+    checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2,
 };
 // The bespoke checksum projections these registrations name. They live beside
 // the central function because several domains once shared them; a projection
@@ -316,6 +316,7 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
             HitSource::BossBody => (8, 0.0),
             HitSource::BossAttack => (9, 0.0),
             HitSource::LeftTheWorld => (10, 0.0),
+            HitSource::ContactHarm => (11, 0.0),
         };
         put_u8(&mut bytes, source_tag);
         put_f32(&mut bytes, source_payload);

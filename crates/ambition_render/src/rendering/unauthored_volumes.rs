@@ -61,8 +61,14 @@ pub(crate) struct UnauthoredVolumeVisual {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_unauthored_attack_volumes(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    // ⚠ OPTIONAL. Mesh and material stores belong to the render plugins, and
+    // this system is registered in a presentation set that also runs under
+    // headless and test compositions where those plugins are absent. Taking
+    // them unconditionally makes Bevy's error handler panic before the system
+    // body runs — 20 app integration tests, all with the same handler frame and
+    // nothing in common but this.
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<ColorMaterial>>>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
@@ -88,6 +94,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
+        return;
+    };
+    // Retiring above still runs without a renderer; spawning cannot.
+    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
         return;
     };
 

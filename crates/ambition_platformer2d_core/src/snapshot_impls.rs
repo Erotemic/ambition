@@ -212,6 +212,11 @@ snapshot_unit_enum!(crate::movement::MovementOp {
     Slash = 21,
     Reset = 22,
     ShieldUp = 23,
+    // ⚠ APPENDED, never renumbered. The codes here are the WIRE FORMAT — the
+    // enum's declaration order is not, which is why these two sit next to their
+    // sibling crawl ops in `ops.rs` and at the end of the list here.
+    CrawlAttach = 24,
+    CrawlDetach = 25,
 });
 
 // The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver

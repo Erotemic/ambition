@@ -460,6 +460,96 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
     assert_eq!(crawler.state, CrawlerState::DETACHED);
 }
 
+/// **The adhesive crawler now SAYS when it attaches and detaches.**
+///
+/// ⛔ this whole locomotion policy published nothing to the operations channel
+/// until 2026-08-02: nine velocity writes and an entire attachment lifecycle,
+/// invisible to the causal instrument — while the open contact bug in this mode
+/// is about attachment. `crate::movement::MovementOp::Slash` is what answered the multi-day ladder
+/// question this session; the crawler had no equivalent to answer with.
+///
+/// ⚠ the edge is derived in `step_adhesive_crawler` from the attachment either
+/// side of the step, NOT pushed at the eight sites inside `step_crawler` that
+/// detach or re-attach. `step_crawler` has several early returns, so an
+/// emit-at-the-end rule inside it would silently skip the paths that exit early
+/// — and a missing edge in a causal log reads as "it did not happen".
+#[test]
+fn the_crawler_announces_its_attach_and_detach_edges() {
+    let floor = Block::solid("floor", Vec2::new(400.0, 600.0), Vec2::new(400.0, 40.0));
+    let world = World::new(
+        "crawler_edges",
+        Vec2::splat(10_000.0),
+        Vec2::splat(500.0),
+        vec![floor],
+    );
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 500.0), AbilitySet::default());
+    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
+    let down = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+
+    // Fall until it seats. Exactly ONE tick may claim the attach.
+    let mut attach_ticks = Vec::new();
+    for tick in 0..240 {
+        let result = step(
+            &mut model,
+            &world,
+            &mut scratch,
+            down,
+            InputState::default(),
+        );
+        if result
+            .events
+            .operations
+            .contains(&crate::movement::MovementOp::CrawlAttach)
+        {
+            attach_ticks.push(tick);
+        }
+        assert!(
+            !result
+                .events
+                .operations
+                .contains(&crate::movement::MovementOp::CrawlDetach),
+            "tick {tick}: nothing detached — the body only ever fell and landed"
+        );
+    }
+    assert_eq!(
+        attach_ticks.len(),
+        1,
+        "the attach is an EDGE: exactly one tick may claim it, not every tick the \
+         crawler is attached. Ticks that claimed it: {attach_ticks:?}"
+    );
+    let MotionModel::AdhesiveCrawler(crawler) = &model else {
+        unreachable!();
+    };
+    assert!(crawler.state.is_attached(), "and it is attached afterwards");
+
+    // Now take the surface away. The detach must announce itself on the tick it
+    // happens, from the same derivation.
+    let empty = World::new(
+        "crawler_edges_empty",
+        Vec2::splat(10_000.0),
+        Vec2::splat(500.0),
+        Vec::new(),
+    );
+    let result = step(
+        &mut model,
+        &empty,
+        &mut scratch,
+        down,
+        InputState::default(),
+    );
+    assert!(
+        result
+            .events
+            .operations
+            .contains(&crate::movement::MovementOp::CrawlDetach),
+        "the surface vanished, so the crawler detached — and a detach nobody \
+         publishes is the state this test exists to end. ops={:?}",
+        result.events.operations
+    );
+}
+
 #[test]
 fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
     // A lone solid block: the crawler lands on top, crawls right, wraps the

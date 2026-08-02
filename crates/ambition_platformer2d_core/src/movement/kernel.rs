@@ -260,6 +260,18 @@ fn step_adhesive_crawler(
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
     let mut events = FrameEvents::default();
+    // ⛔ **this policy published NOTHING to the operations channel before
+    // 2026-08-02.** Nine velocity writes and a whole attachment lifecycle, and
+    // the causal instrument that answered the ladder question could not see any
+    // of it — while the open contact bug in this very mode is about attachment.
+    //
+    // ⭐ the edge is derived HERE, from the attachment either side of the step,
+    // rather than pushed at the eight places inside `step_crawler` that detach or
+    // re-attach. Those eight are the "second step every call site has to
+    // remember" shape this engine keeps paying for, and `step_crawler` has
+    // several early returns, so an emit-at-the-end rule inside it would silently
+    // skip exactly the paths that exit early. One derivation, no path to miss.
+    let was_attached = motion.state.is_attached();
     adhesive_crawler::step_crawler(
         motion,
         ctx.world,
@@ -269,6 +281,11 @@ fn step_adhesive_crawler(
         ctx.dt,
         &mut events.contacts,
     );
+    match (was_attached, motion.state.is_attached()) {
+        (false, true) => events.operations.push(super::MovementOp::CrawlAttach),
+        (true, false) => events.operations.push(super::MovementOp::CrawlDetach),
+        _ => {}
+    }
     write_sweep_sample(clusters, sweep_entry);
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, &mut events);
 

@@ -246,6 +246,13 @@ pub fn emit_movement_fx(
             | ae::MovementOp::LedgeDrop
             | ae::MovementOp::WallCling
             | ae::MovementOp::WallClimb
+            // ⚠ the crawl edges are published for the CAUSAL LOG, not for
+            // presentation. What a body seating on a ceiling should sound like is
+            // a game-feel choice, and inventing one here to satisfy the match
+            // would ship an effect nobody asked for. Silent on purpose; this arm
+            // already exists for exactly that.
+            | ae::MovementOp::CrawlAttach
+            | ae::MovementOp::CrawlDetach
             | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
                 sfx.write_for_body(source, SfxMessage::Reset { pos });

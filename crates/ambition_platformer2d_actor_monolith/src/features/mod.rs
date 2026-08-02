@@ -64,6 +64,7 @@ pub use crate::combat::components;
 pub mod ledge_grab;
 pub mod movement_fx;
 pub mod swim;
+pub mod empowerment;
 pub mod transform_beat;
 pub use movement_fx::{
     advance_body_anim_overlays, arm_ground_contact_anim_overlay, arm_movement_anim_overlays,

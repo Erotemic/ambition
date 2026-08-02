@@ -1240,9 +1240,9 @@ pub fn install_mary_o_content(app: &mut App) {
             // that vanishes across a restore leaves the fact it was writing
             // un-refreshed, and the invincibility silently stops without the
             // pickup ever having been spent.
-            .rollback_component_clone::<star::StarPower>(
+            .rollback_component_clone::<ambition_platformer2d::actors::features::empowerment::Empowered>(
                 "ambition_demo_mary_o",
-                "content.mary_o_star_power",
+                "content.mary_o_empowered",
             )
             // A transit in flight is authoritative sim state — it OWNS the body's
             // position for half a second, so a rewind that dropped it would put a
@@ -1571,7 +1571,8 @@ impl Plugin for MaryORulesPlugin {
             // the untouchable fact AFTER the transformation beat has had its say
             // on the same flag this tick (see `star`'s module docs).
             star::begin_star_power,
-            star::run_star_power,
+            ambition_platformer2d::actors::features::empowerment::run_empowerments,
+            ambition_platformer2d::actors::features::empowerment::despawn_orphaned_contact_hitboxes,
             star::play_star_music,
             powerups::tag_mary_o_sparks,
         )

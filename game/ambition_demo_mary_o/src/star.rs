@@ -32,7 +32,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
-use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
 use ambition_platformer2d::characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
 
@@ -74,73 +74,35 @@ pub fn pocket_quasar() -> EquipmentRow {
     }
 }
 
-/// A star currently burning on this body.
+/// **The cosmic quasar super state**, composed rather than named: untouchable,
+/// and harming what she touches. The engine knows both traits and neither knows
+/// about Mary-O.
 ///
-/// **Registered snapshot state**, because it gates whether hits land — and
-/// anything that can cause a hit to be IGNORED is simulation state regardless of
-/// which struct it lives on. Registered in `lib.rs` beside the demo's other sim
-/// rows; it rides the player body, which the engine already anchors.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct StarPower {
-    pub remaining: f32,
-}
+/// Jon: "There should be an elegant way to represent the idea of I'm invincible
+/// and I hurt everything I touch and compose those together." This line is that
+/// — adding a third trait later is a `.with()`, not a new mode.
+pub const COSMIC_QUASAR_SUPER_STATE: Empowerment =
+    Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
 
-impl StarPower {
-    fn fresh() -> Self {
-        Self {
-            remaining: STAR_SECONDS,
-        }
-    }
-}
-
-/// **Collecting the quasar lights the star.**
+/// **Collecting the quasar lights the super state.**
 ///
 /// Reads the worn set rather than a collect message, for the same reason
 /// `sync_grown_form` does: the worn set is the one place "what does she have"
-/// has an answer, so there is no second flag to drift. The token is removed in
-/// the same breath — a quasar that stayed worn would re-light the star every
-/// tick and never expire.
+/// has an answer. The token is spent in the same breath — the STATE's lifetime
+/// is its own timer, never the item's, so nothing holds a reference to a pickup
+/// that has already been collected.
 ///
-/// Re-collecting during a star REFRESHES it rather than stacking: two stars in
-/// ten seconds is one longer star as far as the player can tell.
+/// Re-collecting during a star REFRESHES it: two quasars in ten seconds is one
+/// longer star as far as the player can tell.
 pub fn begin_star_power(
     mut commands: Commands,
     mut players: Query<(Entity, &mut WornEquipment), With<PrimaryPlayer>>,
 ) {
     for (body, mut worn) in &mut players {
         if worn.unequip(POCKET_QUASAR_ID).is_some() {
-            // The entity id matters: the overlay binds to whichever body carries
-            // `BodyOffense`, and if the star lands somewhere else the fact it
-            // writes is invisible to the effect. Printing both sides is the only
-            // way to tell "did not run" from "ran on the wrong body".
-            info!(target: "mary_o::quasar", "star begins on {body}");
-            commands.entity(body).try_insert(StarPower::fresh());
-        }
-    }
-}
-
-/// Hold the star: untouchable, and visibly a quasar, until it burns out.
-///
-/// It writes its own reason each tick and nothing else's, so a transformation
-/// running through the middle of a star is simply not this system's problem.
-pub fn run_star_power(
-    time: Res<ambition_platformer2d::time::WorldTime>,
-    mut commands: Commands,
-    mut bodies: Query<(Entity, &mut StarPower, &mut BodyHealth)>,
-) {
-    let dt = time.scaled_dt;
-    if bodies.is_empty() {
-        return;
-    }
-    for (entity, mut star, mut health) in &mut bodies {
-        star.remaining -= dt;
-        let burning = star.remaining > 0.0;
-        health
-            .health
-            .invulnerable
-            .set(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED, burning);
-        if !burning {
-            commands.entity(entity).remove::<StarPower>();
+            commands
+                .entity(body)
+                .try_insert(Empowered::new(COSMIC_QUASAR_SUPER_STATE, STAR_SECONDS));
         }
     }
 }
@@ -149,7 +111,7 @@ pub fn run_star_power(
 /// beats use — claimed while it burns, released when it ends, so the level theme
 /// returns on its own with no restore bookkeeping here.
 pub fn play_star_music(
-    stars: Query<&StarPower>,
+    stars: Query<&Empowered>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::actors::encounter::EncounterMusicRequest,
@@ -169,6 +131,7 @@ pub fn play_star_music(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::characters::actor::BodyHealth;
 
     fn app_with_body() -> (App, Entity) {
         let mut app = App::new();
@@ -181,10 +144,25 @@ mod tests {
             .spawn((
                 PrimaryPlayer,
                 WornEquipment::default(),
-                BodyHealth::new(ambition_platformer2d::characters::actor::Health::new(1)),
+                ambition_platformer2d::characters::actor::BodyHealth::new(
+                    ambition_platformer2d::characters::actor::Health::new(1),
+                ),
+                ambition_platformer2d::engine_core::BodyKinematics {
+                    pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    vel: ambition_platformer2d::engine_core::Vec2::ZERO,
+                    size: ambition_platformer2d::engine_core::Vec2::new(30.0, 48.0),
+                    facing: 1.0,
+                },
             ))
             .id();
-        app.add_systems(Update, (begin_star_power, run_star_power).chain());
+        app.add_systems(
+            Update,
+            (
+                begin_star_power,
+                ambition_platformer2d::actors::features::empowerment::run_empowerments,
+            )
+                .chain(),
+        );
         (app, body)
     }
 
@@ -251,7 +229,7 @@ mod tests {
         }
 
         assert!(
-            app.world().get::<StarPower>(body).is_none(),
+            app.world().get::<Empowered>(body).is_none(),
             "a spent star leaves the body"
         );
         assert!(

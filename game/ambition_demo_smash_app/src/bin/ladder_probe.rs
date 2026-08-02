@@ -165,6 +165,16 @@ fn main() {
 thread_local! {
     static PREV_VEL_X: std::cell::RefCell<std::collections::HashMap<String, f32>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
+    /// The last tick this detector saw, so a MATCH BOUNDARY can be recognised.
+    ///
+    /// ⛔ **without this the detector manufactures its own findings.** The probe
+    /// runs many matches in one process under one subject id; carrying a velocity
+    /// across the boundary compares the last tick of match N with the first of
+    /// match N+1 and reports the difference as an unclaimed step. On the first run
+    /// that produced 6 spurious `760.00 -> 0.00` rows at t≤5, character-identical
+    /// to the 106 REAL mid-match ones — an artifact shaped exactly like the thing
+    /// it hunts, which is this repository's most expensive recurring bug.
+    static LAST_TICK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// The largest per-tick `vel_x` change the integrator can make WITHOUT announcing
@@ -203,6 +213,14 @@ fn trace_seam(app: &mut App, tick: usize) {
         return;
     };
     let Some(stamped) = log.tick() else { return };
+    // A tick that did not advance is a new match: drop the carried velocities so
+    // the boundary cannot be read as a step (see `LAST_TICK`).
+    LAST_TICK.with(|last| {
+        if tick <= last.get() {
+            PREV_VEL_X.with(|cell| cell.borrow_mut().clear());
+        }
+        last.set(tick);
+    });
     for subject in log.subjects_on(stamped) {
         let explanation = log.explain(stamped, &subject);
         let received = explanation.first("control_frame_received");
@@ -241,8 +259,21 @@ fn trace_seam(app: &mut App, tick: usize) {
                 if step.abs() > UNCLAIMED_STEP_THRESHOLD && operations.is_empty() {
                     let kinds: Vec<&str> =
                         explanation.facts().iter().map(|fact| fact.kind()).collect();
+                    // ⭐ **POSITION discriminates the candidates, and it was in
+                    // the fact all along.** A respawn TELEPORTS the body to its
+                    // spawn (a large `pos_x` jump on the same tick); a wall stop
+                    // or a dash ending does not move it at all. Printing the pose
+                    // beside the velocity separates three hypotheses without
+                    // building another instrument.
+                    let show = |name: &str| {
+                        received
+                            .and_then(|fact| fact.get(name))
+                            .map(|value| format!("{value}"))
+                            .unwrap_or_else(|| "-".to_string())
+                    };
+                    let (pos_x, ground) = (show("pos_x"), show("on_ground"));
                     eprintln!(
-                        "[unclaimed] t={tick} {subject} dvx={step:+.4}                          ({prev:.2} -> {vx:.2}) ops=[] kinds={kinds:?}"
+                        "[unclaimed] t={tick} {subject} dvx={step:+.4} ({prev:.2} -> {vx:.2}) pos_x={pos_x} ground={ground} ops=[] kinds={kinds:?}"
                     );
                 }
             }

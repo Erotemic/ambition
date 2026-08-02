@@ -3,7 +3,7 @@
 //! The actual physics live in the reusable `AxisSwept` momentum-horizontal and
 //! phased-gravity jump laws authored on Mary-O's catalog row. This module owns
 //! only her two-gear input grammar — walk by default, run while the modifier is
-//! held — plus gait facts and the modifier press-edge used by the spark blossom.
+//! held — plus gait facts and the modifier press-edge used by the cinder beacon.
 //!
 //! The throttle remains body-local. Acceleration, coasting, skidding, airborne
 //! momentum, speed-banded launch, held/released gravity, collision, and rotated
@@ -17,7 +17,7 @@ use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
 
-use crate::powerups::SPARK_BLOSSOM_ID;
+use crate::powerups::CINDER_BEACON_ID;
 
 /// Walking is 60% of Mary-O's run speed: 180 px/s versus 300 px/s in the
 /// initial classic profile. Her catalog row owns the absolute cap; this system
@@ -167,7 +167,7 @@ pub fn tick_spark_cooldown(
 /// there is no charge and no release edge to wait for.
 ///
 /// It does not spawn anything. It raises the body's ordinary `fire` intent, which
-/// the shared moveset picks up as the `"ranged"` verb; the projectile the blossom
+/// the shared moveset picks up as the `"ranged"` verb; the projectile the beacon
 /// granted is what actually launches, through the one shared projectile path.
 pub fn fire_spark_on_run_press(
     mut bodies: Query<
@@ -182,7 +182,7 @@ pub fn fire_spark_on_run_press(
     live_sparks: Query<&crate::powerups::MaryOSpark>,
 ) {
     for (mut control, mut spark, kin, worn) in &mut bodies {
-        if !worn.wears(SPARK_BLOSSOM_ID) {
+        if !worn.wears(CINDER_BEACON_ID) {
             continue;
         }
         let frame = &mut control.0;
@@ -207,7 +207,7 @@ pub fn fire_spark_on_run_press(
 /// **The slot's label follows what it currently does.**
 ///
 /// One button, two roles, and the prompt says so: `Run` on its own, `Run / Spark`
-/// once the blossom is worn. Declaring it as a technique on the modifier slot is
+/// once the beacon is worn. Declaring it as a technique on the modifier slot is
 /// what puts it in the action scheme at all, so the physical binding stays
 /// configurable and the existing control-prompt machinery renders it with no
 /// demo-side UI code — and no raw key check anywhere in the demo.
@@ -226,7 +226,7 @@ pub fn sync_run_action_scheme(
     >,
 ) {
     for (entity, techniques, worn) in &mut bodies {
-        let armed = worn.is_some_and(|w| w.wears(SPARK_BLOSSOM_ID));
+        let armed = worn.is_some_and(|w| w.wears(CINDER_BEACON_ID));
         let label = if armed { "Run / Spark" } else { "Run" };
         match techniques {
             Some(mut techniques) => {

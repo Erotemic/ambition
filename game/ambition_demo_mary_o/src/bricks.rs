@@ -4,7 +4,7 @@
 //! `ContactSource::Block { id: GeoId }`: a head-bonk answers "*which* authored block
 //! did I strike" by the block's durable [`GeoId`](ae::GeoId), with no point-matching.
 //! A brick reuses that exact seam for the OPPOSITE effect — where the ?-block ADDS a
-//! milk pickup, a bonked brick SUBTRACTS itself from the world. Two consumers, one
+//! wand pickup, a bonked brick SUBTRACTS itself from the world. Two consumers, one
 //! primitive, add vs subtract: the engine-for-other-games oracle wants a second user
 //! to prove the primitive generalizes past the powerup, and this is it, with **zero
 //! engine edits** beyond the render reconcile the subtraction always wanted.

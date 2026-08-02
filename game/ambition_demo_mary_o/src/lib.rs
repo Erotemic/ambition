@@ -71,17 +71,17 @@ pub(crate) const T: f32 = 32.0;
 /// Ground thickness, in tiles.
 const GROUND_TILES: f32 = 2.0;
 
-/// Tile columns of the ?-blocks (bonk from below for the milk powerup), and how
+/// Tile columns of the ?-blocks (bonk from below for the wand powerup), and how
 /// many tiles above the ground they float. Shared by [`level_1_1`] (which builds
 /// the solid blocks) and [`power_block_id`]/[`power_block_min`] (which derive
 /// their durable [`GeoId`](ae::GeoId) and position) so the level and the powerup
 /// runtime can never disagree on which block is a ?-block or where it is.
 /// Three of them, and the third is the one that matters: the ladder is
-/// state-driven (milk while small, blossom once grown), so with only two blocks a
+/// state-driven (wand while small, beacon once grown), so with only two blocks a
 /// player who took a hit between them could never reach the spark form at all —
 /// the first block re-grows her and the second is already spent. The third sits
 /// after the brick run, past the point where a snake is likely to have cost her
-/// the cap, so the fire form is reachable on a normal messy playthrough rather
+/// the wand, so the fire form is reachable on a normal messy playthrough rather
 /// than only on a clean one.
 const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 60.0];
 const POWER_BLOCK_ROW: f32 = 4.0;
@@ -98,7 +98,7 @@ const POWER_BLOCK_BASE_INDEX: u16 = 10;
 /// SECOND consumer of the reactive-block primitive (`ContactSource::Block` carrying
 /// a durable [`GeoId`](ae::GeoId)). A head-bonk BREAKS a brick (removes it from the
 /// world) — same durable-id match as the ?-block powerup, opposite effect: the
-/// ?-block ADDS a milk pickup, the brick SUBTRACTS itself. A short run over the
+/// ?-block ADDS a wand pickup, the brick SUBTRACTS itself. A short run over the
 /// ground after pit B, clear of the ?-blocks so the two motifs never blur. See
 /// [`bricks`].
 const BRICK_COLUMNS: [f32; 3] = [48.0, 49.0, 50.0];
@@ -412,7 +412,7 @@ pub fn level_1_1() -> RoomSpec {
     ));
 
     // The ?-blocks: SOLID one-tile blocks floating at bonk height. Jump into one
-    // from below and the milk powerup pops out (see `powerups`). They are plain
+    // from below and the wand powerup pops out (see `powerups`). They are plain
     // level geometry here; the powerup runtime recognizes a bonked ?-block by the
     // durable `GeoId` `solid_tiled` stamps — `power_block_id(i)` re-derives the
     // SAME id, so the level and the runtime never drift.
@@ -717,7 +717,7 @@ pub fn surface_return_from_1_2() -> ambition_platformer2d::world::rooms::Loading
 }
 
 /// The min corner of ?-block `i`, from the SAME constants [`level_1_1`] builds the
-/// `power_block_*` blocks out of — so the powerup runtime pops the milk out at the
+/// `power_block_*` blocks out of — so the powerup runtime pops the wand out at the
 /// exact block it was authored at.
 pub fn power_block_min(i: usize) -> ae::Vec2 {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
@@ -903,7 +903,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // All directions are interpreted through the resolved gravity frame.
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
             // The classic contract: whatever you are wearing absorbs the hit
-            // (spark -> cap -> nothing), and once there is no armor left the
+            // (beacon -> wand -> nothing), and once there is no armor left the
             // next one is fatal. One pool, authored on every form, so growing
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
@@ -915,7 +915,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_mary_o"),
         ),
-        // TALL Mary-O: the grown form. A milk-powerup swaps the worn identity to
+        // TALL Mary-O: the grown form. A wand-powerup swaps the worn identity to
         // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
         // the small sheet, per Jon), and the powerup runtime bumps her body size so
         // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
@@ -935,7 +935,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             abilities: Some([RunJump]),
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
             // The classic contract: whatever you are wearing absorbs the hit
-            // (spark -> cap -> nothing), and once there is no armor left the
+            // (beacon -> wand -> nothing), and once there is no armor left the
             // next one is fatal. One pool, authored on every form, so growing
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
@@ -947,13 +947,13 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_mary_o_tall"),
         ),
-        // FIRE Mary-O: the spark-blossom (fire-flower) form. A second power-up
-        // ABOVE the cap swaps the worn identity to this row — a DISTINCT fire sheet
+        // FIRE Mary-O: the cinder beacon (fire-flower) form. A second power-up
+        // ABOVE the wand swaps the worn identity to this row — a DISTINCT fire sheet
         // (`super_mary_o_fire`, the white-and-red fire palette with its own
         // fireball pose), the SAME height as the grown form so `sync_grown_form`
         // changes only her LOOK + spark loadout, never her size, on the
         // grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the
-        // fireball is granted by WEARING the spark blossom (see `MaryOSpark`), not
+        // fireball is granted by WEARING the cinder beacon (see `MaryOSpark`), not
         // by this row, so becoming fire never alters her base moveset. Before this
         // she wore the plain tall sheet while spark-powered, so there was no
         // visible fire form at all (Jon bug #10).
@@ -969,7 +969,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             abilities: Some([RunJump]),
             axis_tuning: Some($CLASSIC_AXIS_TUNING),
             // The classic contract: whatever you are wearing absorbs the hit
-            // (spark -> cap -> nothing), and once there is no armor left the
+            // (beacon -> wand -> nothing), and once there is no armor left the
             // next one is fatal. One pool, authored on every form, so growing
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
@@ -977,7 +977,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             playable_kit: Authored,
             tags: ["player"],
             barks: (
-                hall: ["One blossom, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
+                hall: ["One beacon, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
             ),
         ),
         // Solid Snake's IDENTITY row (the Koopa-equivalent): its sprite resolves
@@ -1504,8 +1504,8 @@ impl Plugin for MaryORulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The powerup rules on the two engine primitives: re-arm the ?-blocks on
-        // (re)load, pop milk on a head-bonk, and keep the tall form in sync with
-        // wearing the cap. The engine's `collect_world_items` (touch → equip) sits
+        // (re)load, pop wand on a head-bonk, and keep the tall form in sync with
+        // wearing the wand. The engine's `collect_world_items` (touch → equip) sits
         // between the bonk and the grow — no demo wiring for it.
         let powerups = (
             powerups::refill_power_blocks_on_room_loaded,
@@ -1953,7 +1953,7 @@ mod tests {
             .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
         assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
         // Her three power forms are all catalog characters — the small starting
-        // sheet, the grown (milk/cap) sheet, and the fire (spark-blossom) sheet.
+        // sheet, the grown (star wand) sheet, and the fire (cinder beacon) sheet.
         // Before the fire row existed she wore the grown sheet while spark-powered,
         // so there was no distinct fire look (Jon bug #10).
         assert!(

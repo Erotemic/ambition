@@ -129,6 +129,19 @@ debug = false
 debug-assertions = false
 overflow-checks = false
 
+# Codegen-heavy workspace crates that are NOT hot loops under test. Measured:
+# workspace members get `profile.dev`'s opt-level=1 (the `package."*"` glob above
+# applies to dependencies only), and `ambition_platformer2d_runtime` spent 91 of
+# its 120 build seconds in codegen. Neither crate carries a per-tick numeric
+# kernel — the runtime is schedule/rollback plumbing and render never runs
+# headless — so dropping their codegen cost buys edit-compile time without
+# slowing what the tests actually spend their time doing.
+[profile.dev.package.ambition_platformer2d_runtime]
+opt-level = 0
+
+[profile.dev.package.ambition_render]
+opt-level = 0
+
 [profile.dev.build-override]
 # Build scripts / proc macros are separate from normal deps.
 # Usually keep these cheap to compile.

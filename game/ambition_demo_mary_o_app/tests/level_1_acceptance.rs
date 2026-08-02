@@ -10,7 +10,7 @@
 //! This is that proof. One state-aware controller (read the body, choose this
 //! frame's input) drives the whole thing with no positional set-up anywhere:
 //!
-//! spawn -> bonk ?-block 0 -> mount it and take the milk -> cross pit A ->
+//! spawn -> bonk ?-block 0 -> mount it and take the wand -> cross pit A ->
 //! climb the secret pipe -> vault -> bank all 8 coins -> climb the return pipe
 //! -> surface -> re-power at ?-block 1 -> cross pits B and C -> up the stair
 //! pyramid -> the pole -> tally -> a real replay back to spawn.
@@ -36,7 +36,7 @@
 //!
 //! - **A body reset redefined the body.** `reset_body_clusters` hardcoded the
 //!   default player size into `base_size`, so a grown Mary-O who fell in a pit
-//!   came back with a small collider while still wearing the cap and still
+//!   came back with a small collider while still wearing the wand and still
 //!   presenting the tall sprite. Fixed in `ambition_platformer2d_core`.
 //!
 //! - **Pit B was not a pit.** It used to open directly into the secret vault:
@@ -441,7 +441,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let hp_at_spawn = health(&mut app).expect("she has a health pool");
     eprintln!("spawn {spawn:?} size {:?} pits {pits:?}", start.size);
 
-    // ── 1. The ?-block: bonk it, then land on it to take the milk ──────────
+    // ── 1. The ?-block: bonk it, then land on it to take the wand ──────────
     //
     // The reward pops out RESTING ON the block's top face, so collecting it is
     // a second, separate platforming act — she has to get up there.
@@ -461,7 +461,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let took_off = drive(&mut app, 400, |b| {
         let toward = (bonk_x - b.pos.x).clamp(-1.0, 1.0);
         let under_it = (b.pos.x - bonk_x).abs() < 8.0;
-        // The snake comes FIRST. She is a one-hit body here — no cap yet — so a
+        // The snake comes FIRST. She is a one-hit body here — no wand yet — so a
         // live walker in the same stretch is the run, and the block will still be
         // there once it is a shell. Jump for it with room to spare: the arc has
         // to land on its head, and a stomp attempted at touching distance is a
@@ -505,14 +505,14 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
 
     assert!(
         got_cap,
-        "she must take the milk off the ?-block through the real pickup path; \
-         worn form is {:?}, wears grow_cap = {}",
+        "she must take the wand off the ?-block through the real pickup path; \
+         worn form is {:?}, wears star_wand = {}",
         worn_form(&mut app),
-        wears(&mut app, "grow_cap")
+        wears(&mut app, "star_wand")
     );
     assert!(
-        wears(&mut app, "grow_cap"),
-        "the milk equips through the shared equipment path"
+        wears(&mut app, "star_wand"),
+        "the wand equips through the shared equipment path"
     );
     assert_eq!(
         worn_form(&mut app).as_deref(),
@@ -629,9 +629,9 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     );
     eprintln!("SURFACED {:?}", body(&mut app));
 
-    // ── The milk's actual EFFECT ──────────────────────────────────────────
+    // ── The wand's actual EFFECT ──────────────────────────────────────────
     //
-    // `grow_cap` grants no verb; its whole effect is `OnHit::ConsumeAsArmor`.
+    // `star_wand` grants no verb; its whole effect is `OnHit::ConsumeAsArmor`.
     // So the way to exercise it is to take a hit and survive one that would
     // otherwise have cost a life. CONDITIONAL: it fires only if something
     // actually hit her on this run, which is why the assertions sit behind the
@@ -639,7 +639,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let small_now = !body(&mut app).expect("she is in the world").is_tall();
     if tall_entering_vault && small_now {
         assert!(
-            !wears(&mut app, "grow_cap"),
+            !wears(&mut app, "star_wand"),
             "the armor is consumed off the worn set, not merely visually"
         );
         assert_eq!(
@@ -650,7 +650,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         assert_eq!(
             health(&mut app),
             Some(hp_entering_vault),
-            "the cap ABSORBED the hit — armor that still costs health is not armor"
+            "the wand ABSORBED the hit — armor that still costs health is not armor"
         );
         eprintln!("ARMOR ABSORBED a hit in the vault, hp still {hp_entering_vault}");
     }
@@ -658,7 +658,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // ── 4. Re-power at the second ?-block ─────────────────────────────────
     //
     // The ladder again, from the other end: a SMALL Mary-O bonking a fresh
-    // ?-block gets the milk, which is what makes the power state a function of
+    // ?-block gets the wand, which is what makes the power state a function of
     // her equipment rather than a one-shot flag.
     let block1 = block("power_block_1");
     drive(&mut app, 400, |b| {
@@ -688,13 +688,13 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     });
     assert!(
         repowered,
-        "a SMALL Mary-O bonking a fresh ?-block gets the milk again — the power \
+        "a SMALL Mary-O bonking a fresh ?-block gets the wand again — the power \
          state is a function of her equipment, not a one-shot flag. She is {:?}",
         body(&mut app)
     );
     assert!(
-        wears(&mut app, "grow_cap"),
-        "and the second milk equips through the same shared path as the first"
+        wears(&mut app, "star_wand"),
+        "and the second wand equips through the same shared path as the first"
     );
     eprintln!("REPOWERED at {:?}", body(&mut app));
 

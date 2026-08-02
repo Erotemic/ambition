@@ -4,7 +4,7 @@ use super::*;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core::ControlFrame;
 
-use crate::powerups::{grow_cap, spark_blossom};
+use crate::powerups::{star_wand, cinder_beacon};
 
 fn body(app: &mut App) -> Entity {
     app.world_mut()
@@ -298,7 +298,7 @@ fn fired(app: &App, body: Entity) -> bool {
 /// is requested on the very tick the button goes down.
 #[test]
 fn firing_uses_the_press_edge_and_needs_no_charge() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![spark_blossom()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
     press_run(&mut app, body);
     app.update();
 
@@ -308,10 +308,10 @@ fn firing_uses_the_press_edge_and_needs_no_charge() {
     );
 }
 
-/// Without the blossom the same button is run-only: pressing it fires nothing.
+/// Without the beacon the same button is run-only: pressing it fires nothing.
 #[test]
-fn without_the_blossom_the_run_button_does_not_fire() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![grow_cap()]));
+fn without_the_beacon_the_run_button_does_not_fire() {
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![star_wand()]));
     press_run(&mut app, body);
     app.update();
     assert!(
@@ -323,7 +323,7 @@ fn without_the_blossom_the_run_button_does_not_fire() {
 /// The authored cooldown gates the cadence; a second press inside it is refused.
 #[test]
 fn the_authored_cooldown_gates_the_next_spark() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![spark_blossom()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
     press_run(&mut app, body);
     app.update();
     assert!(fired(&app, body));
@@ -346,7 +346,7 @@ fn the_authored_cooldown_gates_the_next_spark() {
 /// run, only the EDGE means fire.
 #[test]
 fn holding_run_does_not_repeat_fire() {
-    let (mut app, body) = app_with_fire(WornEquipment::new(vec![spark_blossom()]));
+    let (mut app, body) = app_with_fire(WornEquipment::new(vec![cinder_beacon()]));
     let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
     control.0.modifier_held = true;
     control.0.modifier_pressed = false;
@@ -369,7 +369,7 @@ fn the_slot_label_follows_the_power_state() {
     let body = body(&mut app);
     app.world_mut()
         .entity_mut(body)
-        .insert(WornEquipment::new(vec![grow_cap()]));
+        .insert(WornEquipment::new(vec![star_wand()]));
     app.add_systems(Update, sync_run_action_scheme);
     app.update();
 
@@ -387,11 +387,11 @@ fn the_slot_label_follows_the_power_state() {
     app.world_mut()
         .get_mut::<WornEquipment>(body)
         .unwrap()
-        .equip(spark_blossom());
+        .equip(cinder_beacon());
     app.update();
     assert_eq!(
         label(&app).as_deref(),
         Some("Run / Spark"),
-        "with the blossom the same slot advertises both roles"
+        "with the beacon the same slot advertises both roles"
     );
 }

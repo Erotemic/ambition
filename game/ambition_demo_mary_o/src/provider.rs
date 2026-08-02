@@ -89,9 +89,9 @@ impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_mary_o_content(app);
         crate::quasar_shader::install(app);
-        // Declare the milk-carton pickup art (pure id → path + size DATA; no render
+        // Declare the star wand pickup art (pure id → path + size DATA; no render
         // dependency here). The render layer resolves it into a real sprite through
-        // the shared `WorldItem` art seam, so the ?-block's milk draws as a carton
+        // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand
         // instead of the cream placeholder quad in BOTH the standalone app and the
         // multi-game host — this provider is the one seam both share. The flat prop
         // image is published by regen_sprites.sh; until then the render falls back
@@ -100,17 +100,21 @@ impl Plugin for MaryOExperiencePlugin {
             use ambition_platformer2d::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
             app.register_world_item_art([
                 WorldItemArtEntry::new(
-                    crate::powerups::MILK_SPRITE,
-                    format!("sprites/props/{}.png", crate::powerups::MILK_SPRITE),
-                    ae::Vec2::new(24.0, 28.0),
+                    crate::powerups::STAR_WAND_SPRITE,
+                    format!("sprites/props/{}.png", crate::powerups::STAR_WAND_SPRITE),
+                    // Sized from the generated canonical's opaque bbox (53x69px)
+                    // so the wand is not squashed to the carton's old aspect.
+                    ae::Vec2::new(24.0, 31.0),
                 ),
                 // The second rung of the chain. Same seam, same fallback: until
                 // the prop image is published the render draws the row-tinted
                 // quad, so the pickup is always visible.
                 WorldItemArtEntry::new(
-                    crate::powerups::BLOSSOM_SPRITE,
-                    format!("sprites/props/{}.png", crate::powerups::BLOSSOM_SPRITE),
-                    ae::Vec2::new(24.0, 24.0),
+                    crate::powerups::CINDER_BEACON_SPRITE,
+                    format!("sprites/props/{}.png", crate::powerups::CINDER_BEACON_SPRITE),
+                    // Likewise from the beacon's bbox (39x59px) — a lantern is
+                    // taller than it is wide.
+                    ae::Vec2::new(24.0, 36.0),
                 ),
             ]);
         }

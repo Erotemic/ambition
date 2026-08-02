@@ -9,7 +9,7 @@
 //! ## The fragility is DATA
 //!
 //! Her catalog rows author `max_health: 1`. The classic ladder is already the
-//! engine's armor precedence — spark blossom, then grow cap, then the body —
+//! engine's armor precedence — cinder beacon, then star wand, then the body —
 //! so authoring one point of health is the whole rule: whatever she is wearing
 //! absorbs the hit, and when there is nothing left the next one is fatal. No
 //! demo system reads "is she small"; being small IS having spent the armor.

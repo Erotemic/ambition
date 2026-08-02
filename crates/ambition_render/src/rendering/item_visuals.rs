@@ -93,7 +93,7 @@ pub fn lasersword_projectile_sprite(
 ///
 /// It does NOT check that the images arrive. `AssetServer::load` returns a
 /// handle for a path that does not exist, so an id can bind perfectly to art
-/// that will never draw; that is the spark-blossom failure, and it belongs to
+/// that will never draw; that is the cinder beacon failure, and it belongs to
 /// [`report_unloadable_item_art`].
 pub struct ArtBindings<N: Namespace> {
     ids: Resolver<N>,
@@ -249,9 +249,9 @@ fn poll_art_watch(
 
 /// Say so when a bound art id's IMAGE never arrives — and stop drawing it.
 ///
-/// This is the other half of the spark blossom, and the half a resolver cannot
+/// This is the other half of the cinder beacon, and the half a resolver cannot
 /// see. That pickup drew nothing for weeks with its id correctly registered: the
-/// manifest named `sprites/props/super_mary_o_spark_blossom.png`, no generator
+/// manifest named `sprites/props/super_mary_o_cinder_beacon.png`, no generator
 /// produced the file, `AssetServer::load` handed back a handle regardless — a
 /// handle is a promise, not a picture — and the binding resolved perfectly into
 /// art that would never exist. An id namespace can only ever prove that content
@@ -406,7 +406,7 @@ pub struct WorldItemVisual;
 /// id a [`WorldItem`](ambition_platformer2d_actor_monolith::items::world_item::WorldItem) carries →
 /// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
 /// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
-/// own pickups' images (e.g. Mary-O's milk carton), keeping asset knowledge out of
+/// own pickups' images (e.g. Mary-O's star wand), keeping asset knowledge out of
 /// the reusable renderer. Absent / unmatched ⇒ the row-tinted placeholder quad.
 #[derive(Resource, Default)]
 pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
@@ -441,7 +441,7 @@ pub fn build_world_item_art(
 
 /// A sprite per walk-into world item: the real image when the item carries a
 /// `sprite` id bound in [`WorldItemArt`], else a colored quad tinted by the row it
-/// grants (grow-cap = cream, spark-blossom = ember, unknown = magenta) — the
+/// grants (star wand = gold, cinder beacon = ember, unknown = magenta) — the
 /// draw-blind fallback. Clear-and-rebuild each frame — few items — mirroring
 /// [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
@@ -490,8 +490,8 @@ pub fn sync_world_item_visuals(
             },
             None => {
                 let color = match item.row_id.as_str() {
-                    "grow_cap" => Color::srgb(0.95, 0.93, 0.82),
-                    "spark_blossom" => Color::srgb(0.95, 0.55, 0.20),
+                    "star_wand" => Color::srgb(0.99, 0.84, 0.42),
+                    "cinder_beacon" => Color::srgb(0.95, 0.55, 0.20),
                     _ => Color::srgb(0.90, 0.20, 0.80),
                 };
                 Sprite::from_color(color, item.half_extent * 2.0)
@@ -708,10 +708,10 @@ mod tests {
         let image = app
             .world()
             .resource::<AssetServer>()
-            .load::<Image>("__ambition_test_missing__/spark_blossom.png");
+            .load::<Image>("__ambition_test_missing__/cinder_beacon.png");
         app.world_mut()
             .insert_resource(WorldItemArt(ArtBindings::new(
-                Resolver::<WorldItemSprite>::new(["spark_blossom"]),
+                Resolver::<WorldItemSprite>::new(["cinder_beacon"]),
                 [(image, Vec2::splat(16.0))],
             )));
 
@@ -721,7 +721,7 @@ mod tests {
                 .world()
                 .resource::<FailedItemArt>()
                 .world
-                .contains("spark_blossom")
+                .contains("cinder_beacon")
         {
             app.update();
             std::thread::sleep(Duration::from_millis(1));
@@ -731,7 +731,7 @@ mod tests {
             app.world()
                 .resource::<FailedItemArt>()
                 .world
-                .contains("spark_blossom"),
+                .contains("cinder_beacon"),
             "the AssetServer's terminal failure must reach the render fallback state"
         );
     }
@@ -739,18 +739,18 @@ mod tests {
     #[test]
     fn failed_bound_art_uses_the_placeholder_path() {
         let art = ArtBindings::new(
-            Resolver::<WorldItemSprite>::new(["spark_blossom"]),
+            Resolver::<WorldItemSprite>::new(["cinder_beacon"]),
             [(Handle::<Image>::default(), Vec2::splat(16.0))],
         );
-        let failed = BTreeSet::from(["spark_blossom".to_owned()]);
+        let failed = BTreeSet::from(["cinder_beacon".to_owned()]);
         let mut reported = ReportedOnce::default();
 
         assert!(
             resolve_art(
                 Some(&art),
                 Some(&failed),
-                "spark_blossom",
-                || "world item `spark_blossom`".to_owned(),
+                "cinder_beacon",
+                || "world item `cinder_beacon`".to_owned(),
                 &mut reported,
                 "world item visual",
             )
@@ -761,8 +761,8 @@ mod tests {
             resolve_art(
                 Some(&art),
                 None,
-                "spark_blossom",
-                || "world item `spark_blossom`".to_owned(),
+                "cinder_beacon",
+                || "world item `cinder_beacon`".to_owned(),
                 &mut reported,
                 "world item visual",
             )

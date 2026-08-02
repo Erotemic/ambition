@@ -8,8 +8,8 @@
 //! numeric modifiers, behavioral grants, on-hit armor — and this file just names
 //! two rows that use them.
 //!
-//! Parody-original, like the rest of the demo (Q28): a "grow cap" and a "spark
-//! blossom", homage in role, not a copy.
+//! Parody-original, like the rest of the demo (Q28): a "star wand" and a "spark
+//! beacon", homage in role, not a copy.
 
 use bevy::prelude::*;
 
@@ -37,8 +37,8 @@ const TALL_CHARACTER_ID: &str = "mary_o_tall";
 /// The worn-character id of the FIRE form (the fire-flower analog). A distinct
 /// SHEET (`super_mary_o_fire`) with its own fireball pose, tinted the classic
 /// white-and-red fire palette — the SAME height as the grown form, so the spark
-/// blossom changes her LOOK + spark loadout without a size flicker. Wearing the
-/// [`SPARK_BLOSSOM_ID`] row selects this; losing the spark reverts to
+/// beacon changes her LOOK + spark loadout without a size flicker. Wearing the
+/// [`CINDER_BEACON_ID`] row selects this; losing the spark reverts to
 /// [`TALL_CHARACTER_ID`] (grown), then a second hit to [`MARY_O_CHARACTER_ID`]
 /// (small). Before this she wore the plain tall sheet while spark-powered, so
 /// there was no visible difference between grown and fire (Jon bug #10).
@@ -53,46 +53,46 @@ pub const SFX_BIG_TO_SMALL: &str = "mary_o.revert.big_to_small";
 pub const SFX_FIRE_TO_BIG: &str = "mary_o.revert.fire_to_big";
 pub const SFX_FIRE_TO_SMALL: &str = "mary_o.revert.fire_to_small";
 
-/// The milk carton's half-extent — a small collectible box that pops out of a
+/// The star wand's half-extent — a small collectible box that pops out of a
 /// bonked ?-block and grows Mary-O when she touches it.
-const MILK_HALF: ae::Vec2 = ae::Vec2::new(12.0, 14.0);
+const STAR_WAND_HALF: ae::Vec2 = ae::Vec2::new(12.0, 15.5);
 
-/// The blossom's half-extent — the second collectible in the chain.
-const BLOSSOM_HALF: ae::Vec2 = ae::Vec2::new(12.0, 12.0);
+/// The beacon's half-extent — the second collectible in the chain.
+const CINDER_BEACON_HALF: ae::Vec2 = ae::Vec2::new(12.0, 18.0);
 
-/// The presentation art id the milk `WorldItem` carries. The app binds it to the
-/// generated `super_mary_o_milk_carton` sprite in `WorldItemArt`; the render draws
+/// The presentation art id the wand `WorldItem` carries. The app binds it to the
+/// generated `super_mary_o_star_wand` sprite in `WorldItemArt`; the render draws
 /// that image, or the cream quad until it is regenerated. Shared here so the spawn
 /// and the art binding name the exact same key.
-pub const MILK_SPRITE: &str = "super_mary_o_milk_carton";
+pub const STAR_WAND_SPRITE: &str = "super_mary_o_star_wand";
 
 /// The exclusive slot BOTH power rows occupy. Mary-O has exactly one power state
-/// at a time, so collecting the blossom REPLACES the cap rather than stacking on
-/// top of it. Stacking would silently invert the loss order — the older cap would
+/// at a time, so collecting the beacon REPLACES the wand rather than stacking on
+/// top of it. Stacking would silently invert the loss order — the older wand would
 /// be found first by the armor spend, so a hit would shrink her while leaving the
 /// spark, which is backwards. With one slot, the worn row IS her power state and
 /// its `downgrade_to` is the authority on what losing it means.
 pub const FORM_SLOT: &str = "mary_o_form";
 
-/// Row id of the grow-cap (mushroom-analog).
-pub const GROW_CAP_ID: &str = "grow_cap";
-/// Row id of the spark-blossom (flower-analog).
-pub const SPARK_BLOSSOM_ID: &str = "spark_blossom";
+/// Row id of the star wand (mushroom-analog).
+pub const STAR_WAND_ID: &str = "star_wand";
+/// Row id of the cinder beacon (flower-analog).
+pub const CINDER_BEACON_ID: &str = "cinder_beacon";
 
-/// The grow-cap: **one-hit armor**, the classic first powerup's take-a-hit half.
+/// The star wand: **one-hit armor**, the classic first powerup's take-a-hit half.
 ///
 /// It is pure A3 [`OnHit::ConsumeAsArmor`] with `downgrade_to: None`: worn, it
-/// absorbs one hit and is spent (removed); the very next read finds no cap and the
+/// absorbs one hit and is spent (removed); the very next read finds no wand and the
 /// hit would reach HP — "big → small on hit", as data, no write-back.
 ///
 /// The GROWN look and size are NOT a modifier here: "small and tall have different
 /// sprites" (Jon), so growing swaps the worn identity to a distinct tall SHEET
 /// ([`TALL_CHARACTER_ID`]) and bumps the body's collider — see [`sync_grown_form`],
-/// which makes the tall form a pure view of *wearing this cap*. So the cap's whole
+/// which makes the tall form a pure view of *wearing this wand*. So the wand's whole
 /// data effect is the armor; the size is a reactive consequence of possessing it.
-pub fn grow_cap() -> EquipmentRow {
+pub fn star_wand() -> EquipmentRow {
     EquipmentRow {
-        id: GROW_CAP_ID.to_string(),
+        id: STAR_WAND_ID.to_string(),
         modifiers: Vec::new(),
         grants: Vec::new(),
         on_hit: Some(OnHit::ConsumeAsArmor { downgrade_to: None }),
@@ -100,31 +100,31 @@ pub fn grow_cap() -> EquipmentRow {
     }
 }
 
-/// The spark-blossom: **a ranged verb AND the outer layer of armor**.
+/// The cinder beacon: **a ranged verb AND the outer layer of armor**.
 ///
 /// It grants a bouncing spark ([`EquipmentGrant::Ranged`]) and scales that shot's
 /// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
 /// modifier, folded in [`ambition_platformer2d::characters::equipment::resolved_ranged`] at
 /// trigger-resolve).
 ///
-/// Crucially it is ALSO armor, and its `downgrade_to` is the [`grow_cap`]. That
+/// Crucially it is ALSO armor, and its `downgrade_to` is the [`star_wand`]. That
 /// single field is the whole power-state progression: worn over nothing it is the
-/// spark-powered grown form; a hit spends it and splices the cap into its place,
-/// so she loses the spark and stays tall; the next hit spends the cap and she
+/// spark-powered grown form; a hit spends it and splices the wand into its place,
+/// so she loses the spark and stays tall; the next hit spends the wand and she
 /// shrinks. Two hits, two distinct losses, expressed as data.
 ///
 /// This used to be impossible. A grant-bearing armor row would leave a dangling
 /// verb, because equip applied grants one-shot and the victim-side resolver could
-/// not re-run them — so the blossom had to carry NO armor and be layered beside
-/// the cap instead. Now that granted actions are RECONCILED from the worn set,
+/// not re-run them — so the beacon had to carry NO armor and be layered beside
+/// the wand instead. Now that granted actions are RECONCILED from the worn set,
 /// spending this row revokes its verb on the same path that granted it, and the
 /// honest representation is available.
 ///
 /// [`ranged_param::DAMAGE`]: ambition_platformer2d::characters::equipment::ranged_param::DAMAGE
-pub fn spark_blossom() -> EquipmentRow {
+pub fn cinder_beacon() -> EquipmentRow {
     use ambition_platformer2d::characters::equipment::ranged_param;
     EquipmentRow {
-        id: SPARK_BLOSSOM_ID.to_string(),
+        id: CINDER_BEACON_ID.to_string(),
         modifiers: vec![ParamModifier {
             param: ranged_param::DAMAGE.to_string(),
             op: ModifierOp::Mul(1.5),
@@ -132,7 +132,7 @@ pub fn spark_blossom() -> EquipmentRow {
         }],
         grants: vec![EquipmentGrant::Ranged(spark_shot())],
         on_hit: Some(OnHit::ConsumeAsArmor {
-            downgrade_to: Some(Box::new(grow_cap())),
+            downgrade_to: Some(Box::new(star_wand())),
         }),
         exclusive_slot: Some(FORM_SLOT.to_string()),
     }
@@ -157,7 +157,7 @@ fn spark_shot() -> RangedActionSpec {
 
 /// Launch speed of a spark (px/s).
 const SPARK_SPEED: f32 = 300.0;
-/// Base damage before the blossom's x1.5 fold — enough to end a snake.
+/// Base damage before the beacon's x1.5 fold — enough to end a snake.
 const SPARK_DAMAGE: i32 = 4;
 /// Downward pull, which is what turns a flat shot into a skipping arc.
 const SPARK_GRAVITY: f32 = 900.0;
@@ -168,9 +168,9 @@ const SPARK_LIFETIME_S: f32 = 1.5;
 /// The projectile-visual id Mary-O registers her spark look under.
 pub const SPARK_VISUAL: &str = "mary_o_spark";
 
-/// The presentation art id the blossom `WorldItem` carries, bound to a real
+/// The presentation art id the beacon `WorldItem` carries, bound to a real
 /// sprite by the provider through the shared `WorldItemArt` seam.
-pub const BLOSSOM_SPRITE: &str = "super_mary_o_spark_blossom";
+pub const CINDER_BEACON_SPRITE: &str = "super_mary_o_cinder_beacon";
 
 /// Marker on a live Mary-O spark, so her two-at-a-time limit counts HER shots and
 /// constrains nobody else's projectiles.
@@ -205,14 +205,14 @@ pub fn tag_mary_o_sparks(
 //
 // Three tiny content systems on two engine primitives (reactive blocks +
 // `WorldItem`), zero engine edits beyond those primitives:
-//   1. `bonk_power_blocks`  — a head-bonk on a ?-block pops a milk `WorldItem`.
-//   2. (engine) `collect_world_items` equips `grow_cap` when she touches it.
+//   1. `bonk_power_blocks`  — a head-bonk on a ?-block pops a wand `WorldItem`.
+//   2. (engine) `collect_world_items` equips `star_wand` when she touches it.
 //   3. `sync_grown_form`    — the tall sheet + collider is a pure VIEW of
-//                             wearing the cap; a hit spends the cap → she shrinks.
+//                             wearing the wand; a hit spends the wand → she shrinks.
 // ---------------------------------------------------------------------------
 
 /// The ?-blocks already popped this level. `GeoId` keys, so a specific block pops
-/// its milk exactly once; [`refill_power_blocks_on_room_loaded`] clears it on every
+/// its wand exactly once; [`refill_power_blocks_on_room_loaded`] clears it on every
 /// (re)load so a cyclic replay re-arms the blocks. Only `insert`/`contains`/`clear`
 /// touch it — never iteration — so the banned std-hash-iteration order never bites.
 #[derive(Resource, Default)]
@@ -234,8 +234,8 @@ pub(crate) fn tall_body_size() -> ae::Vec2 {
 /// of that block, once per block per level.
 ///
 /// WHICH item is a function of her current power state, read from the one
-/// authority that state lives in (her worn equipment): small gets the milk that
-/// grows her, grown gets the blossom, and a Mary-O who already has the blossom
+/// authority that state lives in (her worn equipment): small gets the wand that
+/// grows her, grown gets the beacon, and a Mary-O who already has the beacon
 /// gets nothing rather than a duplicate form row. There is no separate progress
 /// flag to keep in sync — the equipment IS the progress.
 pub fn bonk_power_blocks(
@@ -282,33 +282,33 @@ struct PowerReward {
     sprite: &'static str,
 }
 
-/// `small -> milk`, `grown -> blossom`, `spark-powered -> nothing`.
+/// `small -> wand`, `grown -> beacon`, `spark-powered -> nothing`.
 ///
 /// Reading the worn set rather than a demo flag is what makes duplicates
 /// unrepresentable: there is no state to drift out of sync with, because the
 /// question "what does she have" has exactly one answer.
 fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
     let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
-    if wears(SPARK_BLOSSOM_ID) {
+    if wears(CINDER_BEACON_ID) {
         None
-    } else if wears(GROW_CAP_ID) {
+    } else if wears(STAR_WAND_ID) {
         Some(PowerReward {
-            row: spark_blossom(),
-            half: BLOSSOM_HALF,
-            sprite: BLOSSOM_SPRITE,
+            row: cinder_beacon(),
+            half: CINDER_BEACON_HALF,
+            sprite: CINDER_BEACON_SPRITE,
         })
     } else {
         Some(PowerReward {
-            row: grow_cap(),
-            half: MILK_HALF,
-            sprite: MILK_SPRITE,
+            row: star_wand(),
+            half: STAR_WAND_HALF,
+            sprite: STAR_WAND_SPRITE,
         })
     }
 }
 
-/// **Grown = wearing the cap.** The tall sheet and the taller collider are a pure
-/// VIEW of possessing [`grow_cap`]: collecting the milk equips the cap (the engine's
-/// `collect_world_items`) and she grows; a hit spends the cap (the engine's shared
+/// **Grown = wearing the wand.** The tall sheet and the taller collider are a pure
+/// VIEW of possessing [`star_wand`]: collecting the wand equips the wand (the engine's
+/// `collect_world_items`) and she grows; a hit spends the wand (the engine's shared
 /// armor pass) and she shrinks — no manual "revert" wiring, the equipment state
 /// drives both directions.
 ///
@@ -333,14 +333,14 @@ pub fn sync_grown_form(
     let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
         return;
     };
-    // THREE forms, chosen from what she wears. The fire (spark) and grown (cap)
-    // forms are the SAME height — the blossom downgrades INTO the cap on a hit, so
+    // THREE forms, chosen from what she wears. The fire (beacon) and grown (wand)
+    // forms are the SAME height — the beacon downgrades INTO the wand on a hit, so
     // across that transition she stays continuously tall and only her look + spark
     // loadout change; the size flickers on neither the grow nor the spark→grown
     // downgrade, only on the final grown→small hit.
-    let (target_id, target_size) = if worn.is_some_and(|w| w.wears(SPARK_BLOSSOM_ID)) {
+    let (target_id, target_size) = if worn.is_some_and(|w| w.wears(CINDER_BEACON_ID)) {
         (SPARK_CHARACTER_ID, tall_body_size())
-    } else if worn.is_some_and(|w| w.wears(GROW_CAP_ID)) {
+    } else if worn.is_some_and(|w| w.wears(STAR_WAND_ID)) {
         (TALL_CHARACTER_ID, tall_body_size())
     } else {
         (MARY_O_CHARACTER_ID, small_body_size())
@@ -506,7 +506,7 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
 }
 
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
-/// milk. Mirrors the snake restage; the milk items themselves are room-scoped and
+/// wand. Mirrors the snake restage; the wand items themselves are room-scoped and
 /// despawn with the room.
 pub fn refill_power_blocks_on_room_loaded(
     mut rooms: MessageReader<RoomLoaded>,
@@ -524,9 +524,9 @@ mod tests {
     use super::*;
     use ambition_platformer2d::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
 
-    /// The grow-cap absorbs one hit and is then spent — the A3 armor half of
+    /// The star wand absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure
-    /// view of *wearing* the cap; the cap's data is just this one-hit armor.)
+    /// view of *wearing* the wand; the wand's data is just this one-hit armor.)
     /// Proven through the umbrella's A3 API: if `ambition_platformer2d` didn't re-export
     /// `characters::equipment`, this demo would not compile (the E9 oracle).
     #[test]
@@ -555,25 +555,25 @@ mod tests {
     }
 
     #[test]
-    fn grow_cap_absorbs_one_hit_then_is_spent() {
-        let mut worn = WornEquipment::new(vec![grow_cap()]);
-        assert!(worn.wears(GROW_CAP_ID), "worn, so she reads as grown");
+    fn the_star_wand_absorbs_one_hit_then_is_spent() {
+        let mut worn = WornEquipment::new(vec![star_wand()]);
+        assert!(worn.wears(STAR_WAND_ID), "worn, so she reads as grown");
 
-        // A hit spends the cap...
-        assert_eq!(worn.consume_armor().as_deref(), Some(GROW_CAP_ID));
-        // ...and the cap is gone on the next read (no write-back), so she'll shrink.
-        assert!(!worn.wears(GROW_CAP_ID), "losing the cap reverts to small");
+        // A hit spends the wand...
+        assert_eq!(worn.consume_armor().as_deref(), Some(STAR_WAND_ID));
+        // ...and the wand is gone on the next read (no write-back), so she'll shrink.
+        assert!(!worn.wears(STAR_WAND_ID), "losing the wand reverts to small");
         // The next hit finds no armor — it would reach HP.
         assert_eq!(worn.consume_armor(), None);
     }
 
-    /// The spark-blossom grants a ranged verb and scales its shot's damage at fire.
+    /// The cinder beacon grants a ranged verb and scales its shot's damage at fire.
     #[test]
-    fn spark_blossom_grants_a_scaled_bouncing_spark() {
+    fn the_cinder_beacon_grants_a_scaled_bouncing_spark() {
         use ambition_platformer2d::characters::brain::action_set::ActionSet;
         use ambition_platformer2d::combat::moveset::{build_actor_moveset, RANGED_VERB};
 
-        let worn = WornEquipment::new(vec![spark_blossom()]);
+        let worn = WornEquipment::new(vec![cinder_beacon()]);
 
         // The grant confers a ranged verb the moveset can fire.
         let mut actions = ActionSet::peaceful();
@@ -585,16 +585,16 @@ mod tests {
             actions.ranged.as_ref(),
             actions.special.as_ref(),
         )
-        .expect("the blossom's ranged verb yields a moveset");
+        .expect("the beacon's ranged verb yields a moveset");
         assert!(
             moveset.move_for_verb(RANGED_VERB).is_some(),
-            "the spark-blossom grants a fireable ranged move"
+            "the cinder beacon grants a fireable ranged move"
         );
 
         // The spark leaves the barrel with folded (x1.5) damage.
-        let base = actions.ranged.clone().expect("blossom set a ranged spec");
+        let base = actions.ranged.clone().expect("beacon set a ranged spec");
         let shot = resolved_ranged(base, &worn, "ranged", RANGED_VERB);
-        assert_eq!(shot.damage(), 6, "x1.5 on the blossom's 4-damage spark");
+        assert_eq!(shot.damage(), 6, "x1.5 on the beacon's 4-damage spark");
         assert_eq!(shot.speed(), SPARK_SPEED, "speed is unmodified");
         // The equipment fold must not drop the authored flight/visual — that was a
         // real bug in the variant-by-variant rebuild this replaced.
@@ -618,33 +618,33 @@ mod tests {
         );
     }
 
-    /// **The progression, as equipment.** small -> milk -> grown -> blossom ->
+    /// **The progression, as equipment.** small -> wand -> grown -> beacon ->
     /// spark-powered, with no rung repeatable and no parallel flag.
     #[test]
     fn the_power_block_reward_climbs_the_ladder_and_never_duplicates() {
-        // Small: the milk.
+        // Small: the wand.
         let bare = WornEquipment::default();
         assert_eq!(
             next_power_reward(None).map(|r| r.row.id),
-            Some(GROW_CAP_ID.to_string()),
-            "small Mary-O is offered the milk"
+            Some(STAR_WAND_ID.to_string()),
+            "small Mary-O is offered the wand"
         );
         assert_eq!(
             next_power_reward(Some(&bare)).map(|r| r.row.id),
-            Some(GROW_CAP_ID.to_string()),
+            Some(STAR_WAND_ID.to_string()),
             "an empty worn set reads as small too"
         );
 
-        // Grown: the blossom.
-        let grown = WornEquipment::new(vec![grow_cap()]);
+        // Grown: the beacon.
+        let grown = WornEquipment::new(vec![star_wand()]);
         assert_eq!(
             next_power_reward(Some(&grown)).map(|r| r.row.id),
-            Some(SPARK_BLOSSOM_ID.to_string()),
-            "grown Mary-O is offered the blossom"
+            Some(CINDER_BEACON_ID.to_string()),
+            "grown Mary-O is offered the beacon"
         );
 
         // Spark-powered: nothing — no duplicate form rows.
-        let sparked = WornEquipment::new(vec![spark_blossom()]);
+        let sparked = WornEquipment::new(vec![cinder_beacon()]);
         assert!(
             next_power_reward(Some(&sparked)).is_none(),
             "an already spark-powered Mary-O accumulates no duplicate row"
@@ -656,31 +656,31 @@ mod tests {
     /// -> small.
     #[test]
     fn damage_downgrades_spark_to_grown_then_grown_to_small() {
-        let mut worn = WornEquipment::new(vec![spark_blossom()]);
+        let mut worn = WornEquipment::new(vec![cinder_beacon()]);
 
-        // Hit one: the blossom is spent and leaves the cap in its place.
-        assert_eq!(worn.consume_armor().as_deref(), Some(SPARK_BLOSSOM_ID));
-        assert!(!worn.wears(SPARK_BLOSSOM_ID), "the spark is gone");
-        assert!(worn.wears(GROW_CAP_ID), "but she is still grown");
+        // Hit one: the beacon is spent and leaves the wand in its place.
+        assert_eq!(worn.consume_armor().as_deref(), Some(CINDER_BEACON_ID));
+        assert!(!worn.wears(CINDER_BEACON_ID), "the spark is gone");
+        assert!(worn.wears(STAR_WAND_ID), "but she is still grown");
 
-        // Hit two: the cap is spent and she is small.
-        assert_eq!(worn.consume_armor().as_deref(), Some(GROW_CAP_ID));
-        assert!(!worn.wears(GROW_CAP_ID), "now she is small");
+        // Hit two: the wand is spent and she is small.
+        assert_eq!(worn.consume_armor().as_deref(), Some(STAR_WAND_ID));
+        assert!(!worn.wears(STAR_WAND_ID), "now she is small");
 
         // Hit three: no armor left — the hit reaches HP, ordinary damage policy.
         assert_eq!(worn.consume_armor(), None);
     }
 
-    /// Distinct ids so a body can wear both (the cap as armor, the blossom as
+    /// Distinct ids so a body can wear both (the wand as armor, the beacon as
     /// capability) without one shadowing the other.
     #[test]
     fn the_two_powerups_are_distinct_rows() {
-        assert_ne!(grow_cap().id, spark_blossom().id);
+        assert_ne!(star_wand().id, cinder_beacon().id);
     }
 
-    /// The reactive grow: wearing the cap swaps to the tall sheet + a taller
+    /// The reactive grow: wearing the wand swaps to the tall sheet + a taller
     /// collider, feet planted; losing it (a hit) reverts to small, feet planted.
-    /// The tall form is a pure VIEW of possessing the cap — no manual revert.
+    /// The tall form is a pure VIEW of possessing the wand — no manual revert.
     #[test]
     fn wearing_the_cap_grows_and_losing_it_shrinks_feet_planted() {
         let mut app = App::new();
@@ -709,15 +709,15 @@ mod tests {
         };
         let feet0 = feet(&app);
 
-        // Equip the cap -> she grows on the next tick.
+        // Equip the wand -> she grows on the next tick.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![grow_cap()]));
+            .insert(WornEquipment::new(vec![star_wand()]));
         app.update();
         assert_eq!(
             app.world().get::<WornCharacter>(body).unwrap().0,
             TALL_CHARACTER_ID,
-            "wearing the cap grows her to the tall SHEET"
+            "wearing the wand grows her to the tall SHEET"
         );
         assert!(
             app.world().get::<ae::BodyKinematics>(body).unwrap().size.y > small.y,
@@ -728,7 +728,7 @@ mod tests {
             "feet stay planted on grow"
         );
 
-        // Spend the cap (a hit) -> she shrinks on the next tick.
+        // Spend the wand (a hit) -> she shrinks on the next tick.
         app.world_mut()
             .get_mut::<WornEquipment>(body)
             .unwrap()
@@ -737,7 +737,7 @@ mod tests {
         assert_eq!(
             app.world().get::<WornCharacter>(body).unwrap().0,
             MARY_O_CHARACTER_ID,
-            "losing the cap shrinks her back to small"
+            "losing the wand shrinks her back to small"
         );
         assert_eq!(
             app.world().get::<ae::BodyKinematics>(body).unwrap().size,
@@ -769,7 +769,7 @@ mod tests {
                     size: small,
                     facing: 1.0,
                 },
-                WornEquipment::new(vec![spark_blossom()]),
+                WornEquipment::new(vec![cinder_beacon()]),
             ))
             .id();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
@@ -787,11 +787,11 @@ mod tests {
 
         app.update();
         let feet_tall = feet(&app);
-        assert!(is_tall(&app), "wearing the blossom alone reads as tall");
+        assert!(is_tall(&app), "wearing the beacon alone reads as tall");
         assert_eq!(
             form(&app),
             SPARK_CHARACTER_ID,
-            "the blossom shows the DISTINCT fire sheet, not the plain grown one"
+            "the beacon shows the DISTINCT fire sheet, not the plain grown one"
         );
 
         // Hit one: spark -> grown. Same height, but the sheet reverts to grown.
@@ -832,11 +832,17 @@ mod tests {
         );
     }
 
-    /// The transform chime (Jon bug #14) voices a step UP the power ladder —
-    /// small→grown, grown→fire — and stays silent on a downgrade, where the hit
-    /// already speaks its own sound.
+    /// **Every form change voices its OWN cue** (Jon bug #14). Not one generic
+    /// chime with a direction test: five authored edges, because gaining fire and
+    /// losing it are different events with different sound design, and the pair
+    /// that share a direction (`small→big` and `big→fire`) are not the same
+    /// sound either.
+    ///
+    /// A reversion is deliberately NOT silent. It used to be, on the reasoning
+    /// that the hit already speaks — but the hit says "you were hit" and this
+    /// says WHICH power state you just lost, which the hit cannot.
     #[test]
-    fn stepping_up_a_power_tier_voices_the_transform_chime() {
+    fn each_form_transition_voices_its_own_cue() {
         use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
 
         let mut app = App::new();
@@ -858,47 +864,73 @@ mod tests {
         app.add_message::<OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
-        let chimes = |app: &mut App| -> usize {
+        // Every cue this frame voiced, in order.
+        let voiced = |app: &mut App| -> Vec<SfxId> {
             app.world_mut()
                 .resource_mut::<bevy::ecs::message::Messages<OwnedSfxMessage>>()
                 .drain()
-                .filter(|m| {
-                    matches!(
-                        &m.request,
-                        SfxMessage::Play { id, .. } if *id == SfxId::new("mary_o.transform")
-                    )
+                .filter_map(|m| match m.request {
+                    SfxMessage::Play { id, .. } => Some(id),
+                    _ => None,
                 })
-                .count()
+                .collect()
         };
 
-        // small -> grown: one chime.
+        // small -> grown.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![grow_cap()]));
+            .insert(WornEquipment::new(vec![star_wand()]));
         app.update();
-        assert_eq!(chimes(&mut app), 1, "growing a tier voices the chime once");
+        assert_eq!(
+            voiced(&mut app),
+            vec![SfxId::new(SFX_SMALL_TO_BIG)],
+            "growing voices the small->big cue, exactly once"
+        );
 
-        // grown -> fire: another chime (a second step up).
+        // grown -> fire: a DIFFERENT cue, not a repeat of the growth.
         app.world_mut()
             .entity_mut(body)
-            .insert(WornEquipment::new(vec![spark_blossom()]));
+            .insert(WornEquipment::new(vec![cinder_beacon()]));
         app.update();
-        assert_eq!(chimes(&mut app), 1, "gaining fire voices it again");
+        assert_eq!(
+            voiced(&mut app),
+            vec![SfxId::new(SFX_BIG_TO_FIRE)],
+            "gaining fire is its own sound, not the growth chime again"
+        );
 
-        // fire -> grown (a hit spends the blossom): NO chime — a downgrade is a
-        // hit, which speaks elsewhere; the power-up voice must not fire on loss.
+        // fire -> grown (a hit spends the beacon): the loss names what was lost.
         app.world_mut()
             .get_mut::<WornEquipment>(body)
             .unwrap()
             .consume_armor();
         app.update();
-        assert_eq!(chimes(&mut app), 0, "a downgrade is silent here");
+        assert_eq!(
+            voiced(&mut app),
+            vec![SfxId::new(SFX_FIRE_TO_BIG)],
+            "losing the beacon voices the fire->big reversion"
+        );
+
+        // grown -> small: the last rung down.
+        app.world_mut()
+            .get_mut::<WornEquipment>(body)
+            .unwrap()
+            .consume_armor();
+        app.update();
+        assert_eq!(
+            voiced(&mut app),
+            vec![SfxId::new(SFX_BIG_TO_SMALL)],
+            "and losing the wand voices the big->small reversion"
+        );
+
+        // Standing still is silent — the cue is the CHANGE, not the state.
+        app.update();
+        assert!(voiced(&mut app).is_empty(), "no change, no voice");
     }
 
-    /// A head-bonk on a ?-block pops exactly one milk, matched by the block's
+    /// A head-bonk on a ?-block pops exactly one wand, matched by the block's
     /// durable `GeoId` on the contact — and a spent block never pops again.
     #[test]
-    fn a_head_bonk_on_a_power_block_pops_one_milk_once() {
+    fn a_head_bonk_on_a_power_block_pops_one_wand_once() {
         let mut app = App::new();
         app.init_resource::<SpentPowerBlocks>();
         let mut frame = PlayerBodyFrameOutput::default();
@@ -920,16 +952,16 @@ mod tests {
         app.add_systems(Update, bonk_power_blocks);
 
         app.update();
-        let milk = |app: &mut App| {
+        let wand = |app: &mut App| {
             app.world_mut()
                 .query::<&WorldItem>()
                 .iter(app.world())
                 .count()
         };
-        assert_eq!(milk(&mut app), 1, "one bonk pops exactly one milk");
+        assert_eq!(wand(&mut app), 1, "one bonk pops exactly one wand");
         // The same contact next frame must not re-pop: the block is spent.
         app.update();
-        assert_eq!(milk(&mut app), 1, "a spent ?-block yields no more milk");
+        assert_eq!(wand(&mut app), 1, "a spent ?-block yields no more wand");
     }
 
     /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId

@@ -4,8 +4,8 @@
 //! with no step simulated by hand:
 //!
 //! ```text
-//! bonk a block -> milk pops -> touch it -> GROWN
-//!   -> bonk again -> blossom pops -> touch it -> SPARK-POWERED (ranged verb live)
+//! bonk a block -> wand pops -> touch it -> GROWN
+//!   -> bonk again -> beacon pops -> touch it -> SPARK-POWERED (ranged verb live)
 //!     -> hold run -> run throttle reaches the body
 //!       -> press the same button -> fire intent raised
 //!         -> the shot arcs, bounces, and expires by its authored policy
@@ -44,7 +44,7 @@ use ambition_demo_mary_o::movement::{
     walk_by_default_run_while_held,
 };
 use ambition_demo_mary_o::powerups::{
-    GROW_CAP_ID, SPARK_BLOSSOM_ID, SpentPowerBlocks, bonk_power_blocks, spark_blossom,
+    STAR_WAND_ID, CINDER_BEACON_ID, SpentPowerBlocks, bonk_power_blocks, cinder_beacon,
     sync_grown_form,
 };
 use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
@@ -82,7 +82,7 @@ impl Loop {
                     facing: 1.0,
                 },
                 // A peaceful identity: any ranged verb she ends up with can ONLY
-                // have come from the blossom, reconciled onto this baseline.
+                // have come from the beacon, reconciled onto this baseline.
                 IdentityKit::default(),
                 ActionSet::peaceful(),
                 ActorMoveset(Default::default()),
@@ -202,7 +202,7 @@ impl Loop {
             .is_some_and(|w| w.wears(id))
     }
     fn is_tall(&self) -> bool {
-        // Both power forms (grown cap = `mary_o_tall`, fire blossom = `mary_o_fire`)
+        // Both power forms (grown wand = `mary_o_tall`, fire beacon = `mary_o_fire`)
         // share the tall SIZE and differ only from the small starting form, so
         // "tall" is "wearing any power sheet" rather than one specific sheet.
         self.app.world().get::<WornCharacter>(self.body).unwrap().0 != MARY_O_CHARACTER_ID
@@ -411,40 +411,40 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     assert!(!game.is_tall(), "she starts small");
     assert!(!game.has_ranged_move(), "and unarmed");
 
-    // --- collect milk -> grown ----------------------------------------------
+    // --- collect wand -> grown ----------------------------------------------
     game.bonk();
     game.collect_pending_item();
     assert!(
-        game.wears(GROW_CAP_ID),
-        "the block gave a small Mary-O milk"
+        game.wears(STAR_WAND_ID),
+        "the block gave a small Mary-O wand"
     );
     assert!(game.is_tall(), "collecting it grew her");
     assert_eq!(
         game.worn_character(),
         TALL_ID,
-        "the milk shows the plain grown sheet"
+        "the wand shows the plain grown sheet"
     );
     assert!(
         !game.has_ranged_move(),
-        "the milk is armor only — it grants no verb"
+        "the wand is armor only — it grants no verb"
     );
 
-    // --- collect blossom -> spark-powered ------------------------------------
+    // --- collect beacon -> spark-powered ------------------------------------
     game.bonk();
     game.collect_pending_item();
     assert!(
-        game.wears(SPARK_BLOSSOM_ID),
-        "the block gave a GROWN Mary-O the blossom, not another milk"
+        game.wears(CINDER_BEACON_ID),
+        "the block gave a GROWN Mary-O the beacon, not another wand"
     );
     assert!(game.is_tall(), "she is still tall");
     assert_eq!(
         game.worn_character(),
         FIRE_ID,
-        "the blossom swaps her to the DISTINCT fire sheet, not the plain grown one (Jon bug #10)"
+        "the beacon swaps her to the DISTINCT fire sheet, not the plain grown one (Jon bug #10)"
     );
     assert!(
         game.has_ranged_move(),
-        "and the reconcile turned the blossom's grant into a fireable move"
+        "and the reconcile turned the beacon's grant into a fireable move"
     );
 
     // --- hold run -> run speed ----------------------------------------------
@@ -468,8 +468,8 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
 
     // --- one hit -> lose the spark, stay tall --------------------------------
     game.hit();
-    assert!(!game.wears(SPARK_BLOSSOM_ID), "the hit spent the blossom");
-    assert!(game.wears(GROW_CAP_ID), "downgrading to the cap");
+    assert!(!game.wears(CINDER_BEACON_ID), "the hit spent the beacon");
+    assert!(game.wears(STAR_WAND_ID), "downgrading to the wand");
     assert!(game.is_tall(), "so she is still GROWN, not small");
     assert_eq!(
         game.worn_character(),
@@ -483,7 +483,7 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
 
     // --- another hit -> small ------------------------------------------------
     game.hit();
-    assert!(!game.wears(GROW_CAP_ID), "the second hit spent the cap");
+    assert!(!game.wears(STAR_WAND_ID), "the second hit spent the wand");
     assert!(!game.is_tall(), "and returned her to small");
 }
 
@@ -496,10 +496,10 @@ fn the_authored_spark_arcs_bounces_and_expires() {
     use ambition_platformer2d::characters::equipment::apply_equipment_grants;
     use ambition_platformer2d::platformer::projectile::{ProjectileBody, ProjectileSpec, WorldHitPolicy};
 
-    // Take the shot exactly as the blossom grants it.
+    // Take the shot exactly as the beacon grants it.
     let mut actions = ActionSet::peaceful();
-    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![spark_blossom()]));
-    let shot = actions.ranged.expect("the blossom grants a shot");
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon()]));
+    let shot = actions.ranged.expect("the beacon grants a shot");
     let flight = shot.flight.expect("and authors its flight");
 
     let spec = ProjectileSpec {
@@ -557,10 +557,10 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// **The spark kills a snake through the canonical hit path.**
 ///
 /// The composition is the claim worth testing: the engine already proves its
-/// stepper damages actors, and the loop above already proves the blossom grants an
+/// stepper damages actors, and the loop above already proves the beacon grants an
 /// ordinary ranged verb. What is left to show is that HER shot — authored flight,
 /// authored visual, content-marked — is not special to any of it. So this builds
-/// the projectile from the blossom's own grant, hands it to the shared stepper as
+/// the projectile from the beacon's own grant, hands it to the shared stepper as
 /// a player-faction shot, and watches a snake lose HP through
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
@@ -660,10 +660,10 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     }
     app.update();
 
-    // Her shot, straight from the blossom's grant.
+    // Her shot, straight from the beacon's grant.
     let mut actions = ActionSet::peaceful();
-    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![spark_blossom()]));
-    let shot = actions.ranged.expect("the blossom grants a shot");
+    apply_equipment_grants(&mut actions, &WornEquipment::new(vec![cinder_beacon()]));
+    let shot = actions.ranged.expect("the beacon grants a shot");
     let flight = shot.flight.expect("and authors its flight");
 
     let mut body = ProjectileBody::from_spec(ProjectileSpec {

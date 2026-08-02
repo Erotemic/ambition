@@ -16,7 +16,7 @@ use ambition_platformer2d::platformer::binding::BindingLedger;
 use ambition_platformer2d::platformer::world_item_art::{WorldItemArtManifest, WorldItemSpriteRef};
 
 use crate::ai_slop::AI_SLOP_BRAIN_KEY;
-use crate::powerups::{BLOSSOM_SPRITE, MILK_SPRITE};
+use crate::powerups::{CINDER_BEACON_SPRITE, STAR_WAND_SPRITE};
 use crate::snake::SNAKE_BRAIN_KEY;
 
 /// The roster Mary-O actually registers, from the SAME rows the app installs.
@@ -65,7 +65,7 @@ fn mary_o_world_item_art() -> WorldItemArtManifest {
 /// `mary_o_snake` would have shipped correctly-named enemies with the wrong
 /// body, speed, and health.
 ///
-/// This does NOT cover the spark blossom's actual bug, and an earlier version of
+/// This does NOT cover the cinder beacon's actual bug, and an earlier version of
 /// this comment claimed it did. That id was registered correctly all along; the
 /// PNG it named did not exist. Nothing here opens a file, so nothing here could
 /// have caught it — `render::item_visuals::report_unloadable_item_art` is what
@@ -93,8 +93,8 @@ fn mary_o_binds_every_ref_it_declares() {
     let sprites = art.sprite_ids();
     let mut ledger = BindingLedger::new();
     for (sprite, reward) in [
-        (MILK_SPRITE, "grow cap reward"),
-        (BLOSSOM_SPRITE, "spark blossom reward"),
+        (STAR_WAND_SPRITE, "star wand reward"),
+        (CINDER_BEACON_SPRITE, "cinder beacon reward"),
     ] {
         ledger.resolve(&sprites, &WorldItemSpriteRef::new(sprite), reward);
     }

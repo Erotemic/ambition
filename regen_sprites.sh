@@ -230,6 +230,38 @@ list_sprite_targets() {
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer list)
 }
 
+validate_sprite_targets() {
+    # Validate the complete focused batch before publishing anything. This
+    # prevents `--target valid --target typo` from installing the first target
+    # and only then failing on the misspelled second target.
+    (
+        cd "$renderer_dir"
+        "$python_bin" - "${target_names[@]}" <<'PY'
+import difflib
+import sys
+
+from ambition_sprite2d_renderer.registry import discover_all_targets
+
+requested = sys.argv[1:]
+available = sorted(discover_all_targets().targets)
+available_set = set(available)
+unknown = [name for name in requested if name not in available_set]
+if not unknown:
+    raise SystemExit(0)
+
+for name in unknown:
+    print(f"unknown sprite target: {name}", file=sys.stderr)
+    matches = difflib.get_close_matches(name, available, n=1, cutoff=0.60)
+    if matches:
+        print(f"Did you mean '{matches[0]}'?", file=sys.stderr)
+    else:
+        print("Run ./regen_sprites.sh --list to see registered targets.", file=sys.stderr)
+
+raise SystemExit(2)
+PY
+    )
+}
+
 regen_one_target() {
     local target="$1"
     local dest_root="$sprites_dir"
@@ -258,6 +290,7 @@ if [ "$list_targets" -eq 1 ]; then
 fi
 
 if [ "${#target_names[@]}" -gt 0 ]; then
+    validate_sprite_targets
     for one in "${target_names[@]}"; do
         regen_one_target "$one"
     done
@@ -383,8 +416,8 @@ expected_files=(
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
     super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
-    props/super_mary_o_milk_carton.png
-    props/super_mary_o_spark_blossom.png
+    props/super_mary_o_star_wand.png
+    props/super_mary_o_cinder_beacon.png
     # Composable Mary-O construction pieces. Runtime level code can stack the
     # body segments without stretching and attach the separately animated flag.
     props/mary_o_pipe_body.png
@@ -836,11 +869,12 @@ tackon_targets=(
     # WorldItemArt at sprites/props/<name>.png. Publish the source targets
     # here, then copy their canonical poses into props/.
     #
-    # The spark blossom was referenced by the runtime from the day the spark
-    # form landed but never had a render target, so the fire-flower pickup was
-    # collectible and invisible in-game. Publishing it is the fix.
-    super_mary_o_milk_carton
-    super_mary_o_spark_blossom
+    # Her two power pickups. Jon replaced the milk carton with the magical
+    # girl's star wand and the spark blossom with the lantern (cinder beacon);
+    # the retired carton/blossom targets still render on request but nothing
+    # publishes or references them.
+    super_mary_o_star_wand
+    super_mary_o_cinder_beacon
     # Fixed-canvas construction pieces. The pipe and pole body targets repeat
     # vertically; their top/finial and flag stay separate so level code can
     # build arbitrary heights without stretching any sprite.
@@ -931,8 +965,8 @@ held_prop_map=(
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"
-    "super_mary_o_milk_carton:super_mary_o_milk_carton"
-    "super_mary_o_spark_blossom:super_mary_o_spark_blossom"
+    "super_mary_o_star_wand:super_mary_o_star_wand"
+    "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"

@@ -22,7 +22,7 @@
 //! room, hp, total resets, dash count, jump count, max distance from
 //! spawn).
 
-use ambition_app::{AgentObservation, AmbitionSim, RandomWalkPolicy, Platformer2dSimHarness};
+use ambition_app::{AgentObservation, AmbitionSim, Platformer2dSimHarness, RandomWalkPolicy};
 
 #[derive(Default, Clone, Copy)]
 struct RunStats {
@@ -44,6 +44,23 @@ fn run_random_walk(steps: u32, seed: u64) {
             eprintln!("rl_random_walker: failed to construct Platformer2dSimHarness: {error}");
             std::process::exit(1);
         }
+    };
+    // ⭐ **the unclaimed-velocity detector, in the composition the S51 ramp was
+    // actually observed in.** That trace was taken on `Seat(0)` — the SANDBOX's
+    // own player — and the first detector was wired into the smash ladder, which
+    // has two seated duelists and no sandbox player. It could never have seen the
+    // ramp at any threshold. This binary is the right host: a long random walk is
+    // already the repo's fuzz harness for "movement / collision bugs that do not
+    // show up in scripted tests", which is exactly the population here.
+    #[cfg(feature = "causal")]
+    let mut unclaimed = {
+        sim.app_mut()
+            .add_plugins(ambition_platformer2d::causal::CausalPlugin);
+        ambition_platformer2d::causal::record_domains(
+            sim.app_mut(),
+            ambition_platformer2d::causal::RecordingPolicy::All,
+        );
+        ambition_platformer2d::causal::UnclaimedStepDetector::new()
     };
     let mut policy = RandomWalkPolicy::demo(seed);
     let mut stats = RunStats::default();
@@ -77,6 +94,8 @@ fn run_random_walk(steps: u32, seed: u64) {
             stats.resets += 1;
         }
         let obs = sim.step(action);
+        #[cfg(feature = "causal")]
+        report_unclaimed_steps(&mut sim, &mut unclaimed);
         let dx = obs.player_pos.0 - initial.world_spawn.0;
         let dy = obs.player_pos.1 - initial.world_spawn.1;
         let dist = (dx * dx + dy * dy).sqrt();
@@ -101,6 +120,8 @@ fn run_random_walk(steps: u32, seed: u64) {
     }
 
     let final_obs = sim.observation();
+    #[cfg(feature = "causal")]
+    report_vacuity();
     println!("--- run complete ---");
     println!("final tick      : {}", final_obs.tick);
     println!("final room      : {}", final_obs.active_room);
@@ -147,4 +168,133 @@ fn main() {
     let steps: u32 = parse_arg(&args, 1).unwrap_or(600);
     let seed: u64 = parse_arg(&args, 2).unwrap_or(1);
     run_random_walk(steps, seed);
+}
+
+/// ⛔ **what a ZERO from this detector must be able to mean.**
+///
+/// A run that reports no unclaimed steps is indistinguishable from a run where
+/// the recorder published nothing at all — and this session has already produced
+/// three false absences from exactly that confusion. So the binary counts what it
+/// SAW, and says so at the end: ticks observed, facts read, subjects carrying a
+/// control frame. A zero beside `facts_seen: 0` is an instrument that was never
+/// live; a zero beside a large count is a finding.
+#[cfg(feature = "causal")]
+#[derive(Default)]
+struct Vacuity {
+    ticks_seen: u64,
+    facts_seen: usize,
+    frames_seen: u64,
+    no_tick: u64,
+}
+
+#[cfg(feature = "causal")]
+thread_local! {
+    static VACUITY: std::cell::RefCell<Vacuity> = std::cell::RefCell::new(Vacuity::default());
+}
+
+#[cfg(feature = "causal")]
+fn report_vacuity() {
+    VACUITY.with(|v| {
+        let v = v.borrow();
+        eprintln!(
+            "[unclaimed] instrument: ticks_seen={} facts_seen={} control_frames={} ticks_without_a_stamp={}",
+            v.ticks_seen, v.facts_seen, v.frames_seen, v.no_tick
+        );
+        if v.facts_seen == 0 {
+            eprintln!(
+                "[unclaimed] ⛔ NOTHING WAS RECORDED — a zero above is the instrument \
+                 being absent, not the sandbox being clean."
+            );
+        }
+    });
+}
+
+/// Feed this tick's velocities to the detector and print anything no operation
+/// claimed.
+///
+/// ⚠ **the bound is derived from the kernel's own constants**, never written
+/// down as a number: a hardcoded threshold was wrong twice — once 5.8× too low
+/// from a grep that missed `pub const RUN_ACCEL`, once too HIGH from a safety
+/// margin for per-character tuning that does not exist in the tree, which put the
+/// bar above the very ramp this is here to find.
+#[cfg(feature = "causal")]
+fn report_unclaimed_steps(
+    sim: &mut Platformer2dSimHarness,
+    detector: &mut ambition_platformer2d::causal::UnclaimedStepDetector,
+) {
+    use ambition_platformer2d::engine_core::{AIR_ACCEL, RUN_ACCEL};
+
+    let max_step = if RUN_ACCEL > AIR_ACCEL {
+        RUN_ACCEL
+    } else {
+        AIR_ACCEL
+    } / 60.0
+        * 1.01;
+    let Some(log) = sim
+        .world_mut()
+        .get_resource::<ambition_platformer2d::causal::CausalRecording>()
+    else {
+        return;
+    };
+    let Some(tick) = log.tick() else {
+        VACUITY.with(|v| v.borrow_mut().no_tick += 1);
+        return;
+    };
+    let mut findings = Vec::new();
+    VACUITY.with(|v| {
+        let mut v = v.borrow_mut();
+        v.ticks_seen += 1;
+        v.facts_seen += log.len();
+    });
+    for subject in log.subjects_on(tick) {
+        let explanation = log.explain(tick, &subject);
+        let Some(frame) = explanation.first("control_frame_received") else {
+            continue;
+        };
+        VACUITY.with(|v| v.borrow_mut().frames_seen += 1);
+        let Some(vel_x) = frame
+            .get("vel_x")
+            .and_then(|value| format!("{value}").parse::<f32>().ok())
+        else {
+            continue;
+        };
+        let had_operation = explanation
+            .facts()
+            .iter()
+            .any(|fact| fact.kind() == "movement_operation");
+        if let Some(step) =
+            detector.observe(tick, &format!("{subject}"), vel_x, had_operation, max_step)
+        {
+            let show = |name: &str| {
+                frame
+                    .get(name)
+                    .map(|value| format!("{value}"))
+                    .unwrap_or_else(|| "-".to_string())
+            };
+            findings.push(format!(
+                "[unclaimed] t={} {} dvx={:+.4} ({:.2} -> {:.2}) pos=({},{}) ground={}",
+                step.tick,
+                step.subject,
+                step.delta(),
+                step.before,
+                step.after,
+                show("pos_x"),
+                show("pos_y"),
+                show("on_ground"),
+            ));
+        }
+    }
+    for line in findings {
+        eprintln!("{line}");
+    }
+    // ⛔ **CLEAR IT, every tick.** The first version did not, and the vacuity
+    // counter caught it: 5,850,752 facts summed across 2,000 ticks, because the
+    // log grows without bound and every tick re-counts the whole of it. A fuzz
+    // harness is meant to run for a hundred thousand steps; an instrument that
+    // accumulates every fact of every one of them is a memory profile of the
+    // probe rather than a trace. `ladder_probe` clears for the same reason and
+    // says so — the question is always "what happened on THIS tick".
+    sim.world_mut()
+        .get_resource_mut::<ambition_platformer2d::causal::CausalRecording>()
+        .map(|mut log| log.clear());
 }

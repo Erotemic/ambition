@@ -27,6 +27,7 @@ pub mod movement;
 pub mod pipe;
 pub mod powerups;
 pub mod quasar_shader;
+pub mod star;
 pub mod provider;
 pub mod scenery;
 pub mod snake;
@@ -1511,6 +1512,13 @@ impl Plugin for MaryORulesPlugin {
             powerups::refill_power_blocks_on_room_loaded,
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,
+            // The star, after the form sync: collecting the quasar converts a
+            // worn token into a timed body state, and `run_star_power` asserts
+            // the untouchable fact AFTER the transformation beat has had its say
+            // on the same flag this tick (see `star`'s module docs).
+            star::begin_star_power,
+            star::run_star_power,
+            star::play_star_music,
             powerups::tag_mary_o_sparks,
         )
             .chain()

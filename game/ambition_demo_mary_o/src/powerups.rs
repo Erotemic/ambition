@@ -260,8 +260,9 @@ pub fn bonk_power_blocks(
             continue;
         }
         let Some(reward) = next_power_reward(worn) else {
-            // Fully powered: the block has nothing to offer, and is NOT spent, so
-            // it still has its reward waiting after she takes a hit.
+            // No rung left to give. Unreachable while the ladder ends in the
+            // star, and kept because `next_power_reward` is allowed to say no —
+            // an un-spent block still has its reward waiting afterwards.
             continue;
         };
         spent.0.insert(id.clone());
@@ -290,7 +291,15 @@ struct PowerReward {
 fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
     let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
     if wears(CINDER_BEACON_ID) {
-        None
+        // The top of the ladder is not "nothing" any more: a fully powered
+        // Mary-O gets the star (Jon: "Super maryo needs a super-star
+        // equivalent"). The quasar is not a form, so it does not displace the
+        // beacon she is standing there wearing — it burns and is gone.
+        Some(PowerReward {
+            row: crate::star::pocket_quasar(),
+            half: crate::star::QUASAR_HALF,
+            sprite: crate::star::QUASAR_SPRITE,
+        })
     } else if wears(STAR_WAND_ID) {
         Some(PowerReward {
             row: cinder_beacon(),
@@ -643,11 +652,22 @@ mod tests {
             "grown Mary-O is offered the beacon"
         );
 
-        // Spark-powered: nothing — no duplicate form rows.
+        // Spark-powered: the STAR. The ladder's top rung used to be "nothing",
+        // which is the honest answer only while no reward exists above the
+        // forms; the quasar is that reward.
         let sparked = WornEquipment::new(vec![cinder_beacon()]);
+        let top = next_power_reward(Some(&sparked)).map(|r| r.row);
+        assert_eq!(
+            top.as_ref().map(|row| row.id.clone()),
+            Some(crate::star::POCKET_QUASAR_ID.to_string()),
+            "a fully powered Mary-O is offered the star"
+        );
+        // And it is still not a duplicate FORM row, which is what the old
+        // assertion was really protecting: the quasar takes no exclusive slot,
+        // so collecting it cannot displace the beacon she is wearing.
         assert!(
-            next_power_reward(Some(&sparked)).is_none(),
-            "an already spark-powered Mary-O accumulates no duplicate row"
+            top.and_then(|row| row.exclusive_slot).is_none(),
+            "the star occupies no form slot, so it never costs her a power tier"
         );
     }
 

@@ -35,6 +35,14 @@ pub const MARY_O_DEATH_MUSIC_TRACK: &str = "mary_o_you_died";
 /// about 3.1 seconds, which is what [`crate::flag`] sizes its beats against.
 pub const MARY_O_VICTORY_MUSIC_TRACK: &str = "mary_o_flag_victory";
 
+/// The star's theme, played while the pocket quasar burns.
+///
+/// Jon: "We already have a 'super star' invincibility music track ready to go" —
+/// this is it, the authored `invincible_maryo` score, resolved by the ordinary
+/// `audio/music/generated/<id>/full.ogg` convention like the other two stings.
+/// Declaring it here is what AUTHORIZES the session to select it.
+pub const MARY_O_STAR_MUSIC_TRACK: &str = "invincible_maryo";
+
 #[derive(Clone)]
 pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
@@ -116,6 +124,14 @@ impl Plugin for MaryOExperiencePlugin {
                     // taller than it is wide.
                     ae::Vec2::new(24.0, 36.0),
                 ),
+                // The star. Round, and drawn a touch larger than the other two
+                // because it is the rarest thing in the level and should read as
+                // an event from across a screen.
+                WorldItemArtEntry::new(
+                    crate::star::QUASAR_SPRITE,
+                    format!("sprites/props/{}.png", crate::star::QUASAR_SPRITE),
+                    ae::Vec2::new(28.0, 28.0),
+                ),
             ]);
         }
         {
@@ -179,6 +195,15 @@ impl Plugin for MaryOExperiencePlugin {
                                 display_name: "Mary O Flag Victory".to_string(),
                                 asset_path: None,
                                 one_shot: true,
+                            },
+                            // The star. LOOPS (not one-shot): it plays for as
+                            // long as the quasar burns and the level theme
+                            // returns when the priority claim is released.
+                            ambition_platformer2d::audio::spec::MusicTrack {
+                                id: MARY_O_STAR_MUSIC_TRACK.to_string(),
+                                display_name: "Invincible Mary-O".to_string(),
+                                asset_path: None,
+                                one_shot: false,
                             },
                         ],
                     }),

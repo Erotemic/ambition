@@ -418,6 +418,7 @@ expected_files=(
     super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
     props/super_mary_o_star_wand.png
     props/super_mary_o_cinder_beacon.png
+    props/super_mary_o_cosmic_quasar.png
     # Composable Mary-O construction pieces. Runtime level code can stack the
     # body segments without stretching and attach the separately animated flag.
     props/mary_o_pipe_body.png
@@ -875,6 +876,9 @@ tackon_targets=(
     # publishes or references them.
     super_mary_o_star_wand
     super_mary_o_cinder_beacon
+    # The star. Its shader has existed since it landed with nothing to switch
+    # it on; the pickup that does is `star.rs`.
+    super_mary_o_cosmic_quasar
     # Fixed-canvas construction pieces. The pipe and pole body targets repeat
     # vertically; their top/finial and flag stay separate so level code can
     # build arbitrary heights without stretching any sprite.
@@ -967,6 +971,7 @@ held_prop_map=(
     "portal_gun_orange:portal_gun_orange"
     "super_mary_o_star_wand:super_mary_o_star_wand"
     "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
+    "super_mary_o_cosmic_quasar:super_mary_o_cosmic_quasar"
 )
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"

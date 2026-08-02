@@ -98,9 +98,9 @@
 //! ratios are the real thing, and this exists because a first measurement that
 //! can be read in one line beats a suite nobody has run.
 
+use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-use ambition_demo_smash_app::build_demo_app;
 use bevy::app::App;
 
 const TICKS: usize = 3_600; // one minute at 60Hz
@@ -162,6 +162,15 @@ fn trace_seam(app: &mut App, tick: usize) {
         let explanation = log.explain(stamped, &subject);
         let received = explanation.first("control_frame_received");
         let decided = explanation.first("fighter_decision");
+        // Every kernel movement operation this tick — `Slash`, `Dash`,
+        // `WallJump`, `LedgeClimbStart`, … — not just the first. A tick can
+        // carry several and the interesting one is rarely the earliest.
+        let operations: Vec<String> = explanation
+            .facts()
+            .iter()
+            .filter(|fact| fact.kind() == "movement_operation")
+            .filter_map(|fact| fact.get("operation").map(|value| format!("{value}")))
+            .collect();
         // A subject with neither is some other domain's; skip rather than print
         // an empty row for it.
         if received.is_none() && decided.is_none() {
@@ -183,7 +192,7 @@ fn trace_seam(app: &mut App, tick: usize) {
         };
         eprintln!(
             "[seam] t={tick} {subject} asked={} holding={} facing={} vx={} ground={} \
-             dash_charges={} chose={}",
+             dash_charges={} chose={} ops=[{}]",
             field(decided, "emit_locomotion_x"),
             field(received, "locomotion_x"),
             // ⚠ FACING is not decoration. `locomotion.x` is in the body's LOCAL
@@ -195,6 +204,14 @@ fn trace_seam(app: &mut App, tick: usize) {
             field(received, "on_ground"),
             field(received, "dash_charges"),
             field(decided, "chose"),
+            // ⛔ **THE KERNEL'S OWN OPERATION, and the field that finally
+            // answered this thread** (S51, 2026-08-02). The seam line reported
+            // what the brain asked and what the body held and was silent about
+            // what the ENGINE did — so three ticks of `Slash` were invisible,
+            // and `Slash` subtracts `side * facing * slash_recoil` from velocity
+            // on every press. The body was recoiling from its own attacks and
+            // the trace built to explain it could not say so.
+            operations.join(","),
         );
     }
     app.world_mut()
@@ -388,7 +405,9 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         ));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
         ));
 
     let mut lost = 0u32;

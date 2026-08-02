@@ -387,3 +387,61 @@ works *because of* the check the fold wants to remove.
 ⊘ **not proposed: adding the row and calling it a no-op.** The fallback path is
 where headless tests live, and "it only changes the case with no sprites" is the
 same sentence as "it only changes what every test sees".
+
+## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
+
+**Newly blocking.** This sat as a queue row for days without costing anything.
+It now blocks a specific next step, which is why it is here.
+
+### The fact
+
+`descriptor()` stores `std::any::type_name::<T>()`, `schema_dump()` writes it,
+and `schema_fingerprint()` hashes the dump. So **moving a type between crates
+changes `SnapshotSchemaFingerprint`**, and two peers with byte-identical wire
+formats refuse to agree. Measured during the rename: **94 of the 352 lines** in
+`rollback_schema_baseline.txt` name a crate.
+
+⚠ this is the same defect v5 fixed one level down. `registry.rs:33` says it in
+its own words — hashing the registration OWNER "made 'which module registered
+this' a wire-format fact", so v5 stopped hashing it. The crate path inside
+`type_name` is the same category of organisational label, and it is still hashed.
+
+### What it blocks now
+
+The `ambition_geometry` carve (done today) took shapes, boxes, reference frames
+and swing/combat volumes out of the platformer core, and `ambition_vfx` stopped
+declaring a platformer dependency it never had. The census says the **snapshot
+codec** — `snapshot::{Reader, SnapshotState, SnapshotCursor, put_*}`, 347 lines,
+wanted by `ambition_time` and `ambition_sprite_sheet` — is the next equally
+general thing stuck in there.
+
+⛔ **but moving it rewrites the fingerprint**, which is why the geometry carve
+went first and this one has not started. Deciding this unblocks it.
+
+### The fork
+
+**(a) Accept it.** Regenerate the baseline and bump
+`GGRS_ROLLBACK_SCHEMA_VERSION` whenever a type moves. Honest, one commit, and
+concedes that reorganising crates is forever a compatibility break.
+
+**(b) Hash below the crate.** Fingerprint the type's final segment plus its
+module path *below* the crate, so the fingerprint stops caring where a type is
+packaged — what v5 already decided for owners, applied consistently.
+⚠ two same-named types in different crates then collide, so `RollbackRegistry`'s
+duplicate-name check has to stay the thing that catches it. It already rejects
+duplicate `name`s, so this is a dependency on existing behaviour, not new work.
+
+The baseline regenerates either way. **Only (b) makes the next move free.**
+
+### Recommendation
+
+**(b)**, for one reason beyond consistency: the engine is at the start of a
+carve campaign, not the end. The census still shows 24 crates on the platformer
+core and names three more general things inside it. Under (a) every one of those
+is a wire-format break, which prices the reorganisation in exactly the currency
+that stops it happening.
+
+⚠ against (b): it is a real behaviour change to a determinism-critical hash, and
+it wants its own probe — two types with the same final segment in different
+crates must be REJECTED loudly, not silently merged. That check is the work item
+attached to choosing (b), and it should land in the same commit.

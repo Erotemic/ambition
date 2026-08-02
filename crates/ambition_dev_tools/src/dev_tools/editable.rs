@@ -317,8 +317,30 @@ pub fn sync_developer_body_profile(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    mut last_applied: Local<Option<PlayerBodyProfile>>,
 ) {
+    // ONLY when the developer PICKS a profile — not every frame it differs.
+    //
+    // This used to compare the live baseline against the profile each tick and
+    // force it back, which made a dev-tools menu permanently authoritative over
+    // the player's body size. Mary-O growing to her tall collider satisfied that
+    // "differs" test, so gameplay set 72 and this put 48 straight back, every
+    // frame: `worn character 'mary_o_tall' collision=30x48`, and a render size
+    // visibly flicking 70x84 -> 70x125 -> 70x84. A powerup could not change her
+    // size at all while dev tools were installed.
+    //
+    // Reacting to the SELECTION means the tool still does what it is for — you
+    // pick a body profile and the player becomes it — and stops overruling the
+    // game in between. (The old comment claimed the every-frame pass existed to
+    // reapply after resets and room loads rebuild the player. That is a real
+    // want, and it is not worth owning the body forever to get it: re-pick the
+    // profile.)
     let desired = developer.player_body_profile.size();
+    let selection_changed = *last_applied != Some(developer.player_body_profile);
+    if !selection_changed {
+        return;
+    }
+    *last_applied = Some(developer.player_body_profile);
     if let Ok((mut kinematics, mut base_size)) = player_q.single_mut() {
         if (base_size.base_size - desired).length_squared() > 0.01 {
             // Inline the body-profile resize directly on the cluster

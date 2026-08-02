@@ -100,6 +100,19 @@ pub fn input_timer_system(
 /// body's `combat.hitstun_timer` and sets `double_tap_up_pending` from
 /// `register_up_tap`) and before `detect_room_transition_system` (which consumes
 /// the buffered signal post-player-tick).
+/// **The set [`interaction_input_system`] runs in — the interact buffer is armed.**
+///
+/// The portal input-warp window opens after this: a warp must not rewrite the
+/// frame before the interact press has been buffered for the slot, or the press
+/// is attributed to the post-warp state. `portal_schedule` said that by naming
+/// this function from another crate.
+///
+/// ⚠ ONE member. The neighbours in `PlayerInputSet::Device` are the timer
+/// decrement before it and the frame commit after it — the two things this sits
+/// BETWEEN — so a wider set would erase exactly the window the consumer wants.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InteractionInputBuffered;
+
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,

@@ -161,7 +161,9 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::control::input_timer_system
                     .run_if(gameplay_allowed)
                     .in_set(ambition_input::InputSet::Route),
-                ambition_platformer2d_actor_monolith::control::interaction_input_system.run_if(gameplay_allowed),
+                ambition_platformer2d_actor_monolith::control::interaction_input_system
+                    .in_set(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
+                    .run_if(gameplay_allowed),
                 // Portal-warped held movement input is registered by
                 // `ambition_portal2d::PortalPlugin` so the portal
                 // subsystem owns its input seam.

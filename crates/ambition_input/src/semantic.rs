@@ -25,15 +25,43 @@
 //!
 //! A capability-owned action can be DECLARED and looked up, and it can ride an
 //! existing device action. It cannot yet have a device binding of its own,
-//! because that needs `InputMap<SemanticAction>` in place of
-//! `InputMap<Platformer2dInputActionMonolith>` — a migration with hundreds of call sites, whose
-//! ordering is written down in the program doc. Declaring the vocabulary first
-//! is what makes that migration mechanical instead of a redesign.
+//! because that needs `InputMap<SemanticActionId>` in place of
+//! `InputMap<Platformer2dInputActionMonolith>`.
+//!
+//! ⛔ **and the blocker is NOT the call-site count, which is what this paragraph
+//! used to say.** Measured 2026-08-02: 348 lines across 35 files name the device
+//! enum, but only **21 `InputMap<…>` + 25 `ActionState<…>`** are structural — the
+//! other ~225 are variant references that follow mechanically once the target
+//! type exists. ~46 hard sites, not "hundreds".
+//!
+//! ⭐ **the real blocker is one line of leafwing's trait.** `Actionlike` requires
+//! `Debug + Eq + Hash + Send + Sync + Clone + Reflect + Typed + TypePath +
+//! FromReflect + 'static`, and [`SemanticActionId`] satisfies every one of them —
+//! `bevy_reflect` implements `Reflect`/`Typed`/`FromReflect` for `&'static str`,
+//! so a `#[derive(Reflect)]` newtype is enough. What it cannot satisfy is the
+//! trait's single METHOD:
+//!
+//! ```ignore
+//! fn input_control_kind(&self) -> InputControlKind;
+//! ```
+//!
+//! It takes `&self` and nothing else, so an action must be **self-describing**
+//! about whether it is a button, an axis or a dual axis. This design deliberately
+//! puts that in the REGISTRY instead — [`SemanticActionDef::kind`] — where a
+//! composition can own it. An id alone cannot answer, and a global lookup inside
+//! the impl would reintroduce exactly the central mutable table the open
+//! vocabulary exists to avoid.
+//!
+//! ▢ **so the open question is a TYPE DESIGN one, not a migration one**: should
+//! the id carry its kind (`SemanticActionId { id, kind }`), making two ids with
+//! the same string but different kinds distinct? That is a small change and it
+//! unblocks everything downstream. Answer it before touching 46 call sites —
+//! declaring the vocabulary first is what keeps that rename mechanical.
 
 use std::collections::BTreeMap;
 
-use crate::InputContextId;
 use crate::participant::{GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT, SELECT_CONTEXT};
+use crate::InputContextId;
 
 /// An action's stable identity. Open: a capability mints its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -211,39 +239,184 @@ const fn engine(
 /// a variant is added without one, so this cannot quietly fall behind the enum —
 /// which is the difference between a registry and a description of a registry.
 pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
-    engine("move", ActionControlKind::DualAxis, GAMEPLAY, "Walk / run / aim the body"),
-    engine("move_left", ActionControlKind::Button, GAMEPLAY, "Walk left (edge-detectable)"),
-    engine("move_right", ActionControlKind::Button, GAMEPLAY, "Walk right (edge-detectable)"),
-    engine("move_up", ActionControlKind::Button, GAMEPLAY, "Up (doors, ladders, aim)"),
-    engine("move_down", ActionControlKind::Button, GAMEPLAY, "Down (crouch, fast fall)"),
+    engine(
+        "move",
+        ActionControlKind::DualAxis,
+        GAMEPLAY,
+        "Walk / run / aim the body",
+    ),
+    engine(
+        "move_left",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Walk left (edge-detectable)",
+    ),
+    engine(
+        "move_right",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Walk right (edge-detectable)",
+    ),
+    engine(
+        "move_up",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Up (doors, ladders, aim)",
+    ),
+    engine(
+        "move_down",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Down (crouch, fast fall)",
+    ),
     engine("jump", ActionControlKind::Button, GAMEPLAY, "Jump"),
-    engine("attack", ActionControlKind::Button, GAMEPLAY, "Primary melee"),
-    engine("strong_attack", ActionControlKind::Button, GAMEPLAY, "Strong-attack hint; the sim classifies tilt vs smash"),
+    engine(
+        "attack",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Primary melee",
+    ),
+    engine(
+        "strong_attack",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Strong-attack hint; the sim classifies tilt vs smash",
+    ),
     engine("dash", ActionControlKind::Button, GAMEPLAY, "Dash"),
-    engine("blink", ActionControlKind::Button, GAMEPLAY, "Blink / teleport"),
-    engine("special", ActionControlKind::Button, GAMEPLAY, "Signature special"),
-    engine("quick_action", ActionControlKind::Button, GAMEPLAY, "Shield / guard"),
-    engine("interact", ActionControlKind::Button, GAMEPLAY, "Talk, open, use"),
-    engine("modifier", ActionControlKind::Button, GAMEPLAY, "Sustained modifier; content decides what holding it means"),
-    engine("utility", ActionControlKind::Button, GAMEPLAY, "Fly / form toggle"),
+    engine(
+        "blink",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Blink / teleport",
+    ),
+    engine(
+        "special",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Signature special",
+    ),
+    engine(
+        "quick_action",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Shield / guard",
+    ),
+    engine(
+        "interact",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Talk, open, use",
+    ),
+    engine(
+        "modifier",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Sustained modifier; content decides what holding it means",
+    ),
+    engine(
+        "utility",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Fly / form toggle",
+    ),
     engine("map", ActionControlKind::Button, GAMEPLAY, "Open the map"),
-    engine("inventory", ActionControlKind::Button, GAMEPLAY, "Open the inventory"),
-    engine("pogo", ActionControlKind::Button, GAMEPLAY, "Pogo (down + attack on presets without a dedicated key)"),
-    engine("reset", ActionControlKind::Button, GAMEPLAY, "Restart / soft reset"),
-    engine("start", ActionControlKind::Button, GAMEPLAY, "Pause — the shell verb"),
-    engine("projectile", ActionControlKind::Button, GAMEPLAY, "Fire a projectile"),
-    engine("trail_toggle", ActionControlKind::Button, GAMEPLAY, "Toggle the trail drawing mode"),
-    engine("menu_navigate_up", ActionControlKind::Button, MENUS, "Menu: up"),
-    engine("menu_navigate_down", ActionControlKind::Button, MENUS, "Menu: down"),
-    engine("menu_navigate_left", ActionControlKind::Button, MENUS, "Menu: left"),
-    engine("menu_navigate_right", ActionControlKind::Button, MENUS, "Menu: right"),
-    engine("menu_select", ActionControlKind::Button, MENUS, "Menu: confirm"),
+    engine(
+        "inventory",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Open the inventory",
+    ),
+    engine(
+        "pogo",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Pogo (down + attack on presets without a dedicated key)",
+    ),
+    engine(
+        "reset",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Restart / soft reset",
+    ),
+    engine(
+        "start",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Pause — the shell verb",
+    ),
+    engine(
+        "projectile",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Fire a projectile",
+    ),
+    engine(
+        "trail_toggle",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Toggle the trail drawing mode",
+    ),
+    engine(
+        "menu_navigate_up",
+        ActionControlKind::Button,
+        MENUS,
+        "Menu: up",
+    ),
+    engine(
+        "menu_navigate_down",
+        ActionControlKind::Button,
+        MENUS,
+        "Menu: down",
+    ),
+    engine(
+        "menu_navigate_left",
+        ActionControlKind::Button,
+        MENUS,
+        "Menu: left",
+    ),
+    engine(
+        "menu_navigate_right",
+        ActionControlKind::Button,
+        MENUS,
+        "Menu: right",
+    ),
+    engine(
+        "menu_select",
+        ActionControlKind::Button,
+        MENUS,
+        "Menu: confirm",
+    ),
     engine("menu_back", ActionControlKind::Button, MENUS, "Menu: back"),
-    engine("menu_page_left", ActionControlKind::Button, MENUS, "Paged menu: previous page"),
-    engine("menu_page_right", ActionControlKind::Button, MENUS, "Paged menu: next page"),
-    engine("menu_stick", ActionControlKind::DualAxis, MENUS, "Menu navigation stick"),
-    engine("dash_analog", ActionControlKind::Axis, GAMEPLAY, "Analog dash trigger"),
-    engine("aim_stick", ActionControlKind::DualAxis, GAMEPLAY, "Aim / blink steer"),
+    engine(
+        "menu_page_left",
+        ActionControlKind::Button,
+        MENUS,
+        "Paged menu: previous page",
+    ),
+    engine(
+        "menu_page_right",
+        ActionControlKind::Button,
+        MENUS,
+        "Paged menu: next page",
+    ),
+    engine(
+        "menu_stick",
+        ActionControlKind::DualAxis,
+        MENUS,
+        "Menu navigation stick",
+    ),
+    engine(
+        "dash_analog",
+        ActionControlKind::Axis,
+        GAMEPLAY,
+        "Analog dash trigger",
+    ),
+    engine(
+        "aim_stick",
+        ActionControlKind::DualAxis,
+        GAMEPLAY,
+        "Aim / blink steer",
+    ),
 ];
 
 #[cfg(test)]
@@ -290,7 +463,9 @@ mod tests {
         registry.register(GRAPPLE).expect("a fresh id");
 
         assert_eq!(
-            registry.get(SemanticActionId("grapple")).map(|d| d.capability),
+            registry
+                .get(SemanticActionId("grapple"))
+                .map(|d| d.capability),
             Some("traversal")
         );
         assert!(
@@ -321,7 +496,9 @@ mod tests {
             .expect_err("`jump` is the engine's");
         assert_eq!(conflict.first_owner, ENGINE_CAPABILITY);
         assert_eq!(conflict.second_owner, "traversal");
-        assert!(conflict.to_string().contains("engine") && conflict.to_string().contains("traversal"));
+        assert!(
+            conflict.to_string().contains("engine") && conflict.to_string().contains("traversal")
+        );
     }
 
     /// ⛔ **The registry must not fall behind the enum.**

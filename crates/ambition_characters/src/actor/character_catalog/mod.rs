@@ -33,9 +33,9 @@ pub use binding::{
 )]
 #[cfg(feature = "content_pack")]
 pub use content_schema::{
-    ActionSetPresetRef, BrainPresetRef, Character, character_catalog_schema, lowered_catalog,
-    ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY,
-    CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
+    character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRef, Character,
+    ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY, CHARACTER_CATALOG_SCHEMA,
+    CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
 };
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
@@ -270,6 +270,16 @@ impl CharacterCatalog {
         self.get(character_id)?.bark(situation, rotation)
     }
 
+    /// The sheet this character's melee draws from, if it authored one.
+    ///
+    /// `None` covers both "no such character" and "authored no attack VFX", and
+    /// the caller treats them the same: draw the hit volume rather than
+    /// borrowing somebody else's blade.
+    pub fn attack_vfx(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)
+            .and_then(|entry| entry.attack_vfx.as_deref())
+    }
+
     pub fn playable_kit_source(&self, character_id: &str) -> Option<PlayableKitSource> {
         self.get(character_id).map(|entry| entry.playable_kit)
     }
@@ -290,7 +300,10 @@ impl CharacterCatalog {
     /// the shared editable tuning. The axis analogue of [`momentum_params`].
     ///
     /// [`momentum_params`]: Self::momentum_params
-    pub fn axis_tuning(&self, character_id: &str) -> Option<ambition_platformer2d_core::MovementTuning> {
+    pub fn axis_tuning(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_platformer2d_core::MovementTuning> {
         self.get(character_id)?
             .axis_tuning
             .as_ref()
@@ -300,7 +313,10 @@ impl CharacterCatalog {
     /// The authored capability set for `character_id`'s playable body: the
     /// `union` of the grants the row lists. `None` means the row declared no
     /// grants, so "use the session's shared `EditableAbilitySet`".
-    pub fn ability_set(&self, character_id: &str) -> Option<ambition_platformer2d_core::AbilitySet> {
+    pub fn ability_set(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_platformer2d_core::AbilitySet> {
         let grants = self.get(character_id)?.abilities.as_deref()?;
         Some(ambition_platformer2d_core::AbilitySet::compose(grants))
     }

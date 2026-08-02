@@ -80,6 +80,7 @@ pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
 pub(crate) mod slash_visuals;
+mod unauthored_volumes;
 mod wielded_item_visuals;
 mod world;
 
@@ -250,6 +251,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
+                    unauthored_volumes::draw_unauthored_attack_volumes,
                     slash_visuals::spawn_slash_effects,
                     // After the spawn, so a swing born this frame is already on
                     // its body when the frame is drawn.
@@ -328,6 +330,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(ambition_sim_view::PresentedPoseSet),
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
+        app.init_resource::<slash_visuals::SlashSources>();
         // Open, content-owned projectile art registry (empty until a game's
         // content crate registers looks). The renderer resolves each in-flight
         // projectile's `ProjectileVisualId` through it.

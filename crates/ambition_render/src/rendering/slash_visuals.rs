@@ -14,6 +14,7 @@
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::image::{TextureAtlas, TextureAtlasLayout};
 use bevy::math::Vec2 as BVec2;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
@@ -27,8 +28,17 @@ use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 
-/// The `robot_slash` sheet name in the baked [`SheetRegistry`].
-const SLASH_SHEET: &str = "robot_slash";
+/// Sheets already resolved this session, keyed by the id a character named.
+///
+/// ⚠ THIS WAS A `const`. One sheet, four rows, every body in the game — so the
+/// protagonist's blade was the engine's blade, and a boss swung the robot's
+/// crescent. It got worse once the art was shaped to a specific character's hit
+/// polygon: anyone else drawing it wears a silhouette cut for someone else's
+/// volume. A character names its own sheet now (`CharacterCatalogEntry::attack_vfx`),
+/// several may name the same one, and naming none is a real answer with its own
+/// treatment rather than a default inheritance.
+#[derive(Resource, Default)]
+pub(crate) struct SlashSources(HashMap<String, Option<SlashSource>>);
 
 /// Loaded-once handles + per-pose indexing for the slash sheet. `side` is the
 /// forward crescent, `up` the overhead anti-air row, and `down` the downward
@@ -101,16 +111,39 @@ pub(crate) struct SlashVisual {
     local: ae::SwingShape,
 }
 
+/// Resolve (and remember) the sheet a character named.
+///
+/// A miss is cached as a miss: an id that the baked registry does not carry is
+/// reported once by the ledger rather than re-looked-up every swing, and the
+/// caller falls through to drawing the volume itself.
 fn slash_source(
+    sheet: &str,
     asset_server: &AssetServer,
     registry: Option<&SheetRegistry>,
     atlas_layouts: &mut Assets<TextureAtlasLayout>,
-    cache: &mut Option<SlashSource>,
+    cache: &mut SlashSources,
 ) -> Option<SlashSource> {
-    if let Some(source) = cache.as_ref() {
-        return Some(source.clone());
+    if let Some(hit) = cache.0.get(sheet) {
+        return hit.clone();
     }
-    let record = registry?.get(SLASH_SHEET)?;
+    let built = build_slash_source(sheet, asset_server, registry, atlas_layouts);
+    if built.is_none() {
+        bevy::log::warn!(
+            "attack vfx sheet `{sheet}` is named by a character and not in the \
+             baked registry; that body will draw its hit volume instead"
+        );
+    }
+    cache.0.insert(sheet.to_string(), built.clone());
+    built
+}
+
+fn build_slash_source(
+    sheet: &str,
+    asset_server: &AssetServer,
+    registry: Option<&SheetRegistry>,
+    atlas_layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<SlashSource> {
+    let record = registry?.get(sheet)?;
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
     // All three rows through one ledger, so a regenerated sheet that renamed any
     // of them is reported together rather than one silent `unwrap_or(0)` each.
@@ -125,14 +158,13 @@ fn slash_source(
         })
     };
     let source = SlashSource {
-        image: asset_server.load(format!("sprites/{SLASH_SHEET}_spritesheet.png")),
+        image: asset_server.load(format!("sprites/{sheet}_spritesheet.png")),
         layout,
         side_arc: row("side"),
         up_arc: row("up"),
         down_slash: row("down"),
     };
     ledger.finish().log("slash visual");
-    *cache = Some(source.clone());
     Some(source)
 }
 
@@ -152,7 +184,12 @@ pub(crate) fn spawn_slash_effects(
     sheet_registry: Option<Res<SheetRegistry>>,
     active_session: Option<Res<ActiveSessionScope>>,
     owners: Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
-    mut cache: Local<Option<SlashSource>>,
+    // Who each swinging body IS, so its own sheet can be found. A body with no
+    // worn character (a bare test fixture, a prop that swings) authored nothing
+    // by definition and draws its volume.
+    worn: Query<&ambition_characters::actor::WornCharacter>,
+    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    mut cache: ResMut<SlashSources>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -160,7 +197,6 @@ pub(crate) fn spawn_slash_effects(
         messages.clear();
         return;
     };
-    let mut source: Option<SlashSource> = None;
     for message in messages.read() {
         let VfxMessage::Slash {
             shape,
@@ -171,22 +207,31 @@ pub(crate) fn spawn_slash_effects(
         else {
             continue;
         };
-        if source.is_none() {
-            source = slash_source(
-                &asset_server,
-                sheet_registry.as_deref(),
-                &mut atlas_layouts,
-                &mut cache,
-            );
-        }
-        let Some(source) = source.as_ref() else {
+        // **A character either names its sheet or gets no sprite at all.**
+        // Falling back to somebody else's art is what this whole change exists
+        // to stop; the unauthored-volume pass makes the silence visible.
+        let Some(sheet) = catalog.as_deref().and_then(|catalog| {
+            worn.get(*owner)
+                .ok()
+                .and_then(|worn| catalog.attack_vfx(worn.id()))
+        }) else {
+            continue;
+        };
+        let sheet = sheet.to_string();
+        let Some(source) = slash_source(
+            &sheet,
+            &asset_server,
+            sheet_registry.as_deref(),
+            &mut atlas_layouts,
+            &mut cache,
+        ) else {
             continue;
         };
         spawn_one(
             &mut commands,
             session_scope,
             &world.0,
-            source,
+            &source,
             *shape,
             *owner,
             owner_pos(&owners, *owner),
@@ -340,9 +385,12 @@ mod tests {
         // Proves the effect is actually hooked up: the sheet is in the baked
         // registry and exposes the arc (side) + poke (down) rows the attack
         // maps onto.
+        // The id is the one the protagonist NAMES in the character catalog, not
+        // an engine constant any more: a body with no `attack_vfx` draws its hit
+        // volume rather than borrowing this sheet.
         let registry = ambition_sprite_sheet::baked_sheet_registry();
         let record = registry
-            .get(SLASH_SHEET)
+            .get("robot_slash")
             .expect("robot_slash sheet must be baked into the registry");
         // 5 frames/row: side=0..4, up=5..9, down=10..14.
         let mut ledger = BindingLedger::new();

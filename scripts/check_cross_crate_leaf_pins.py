@@ -165,10 +165,19 @@ def main() -> int:
             f"FAIL: {count} cross-crate leaf pins, ceiling is "
             f"{MAX_CROSS_CRATE_LEAF_PINS}.\n\n"
             "A new `.after(other_crate::some_function)` reaches past that "
-            "crate's surface to hold an internal leaf still. Give the target a "
-            "SystemSet beside its definition and pin that instead — see the six "
-            "converted in this campaign for the pattern, including why each one "
-            "stayed single-member. Run with --list to see every row.",
+            "crate's surface to hold an internal leaf still.\n\n"
+            "1. FIRST check whether the target already has a set. One pin in "
+            "this campaign looked like a missing boundary and was two demos "
+            "disagreeing about an existing one — a second name for a single "
+            "authority is worse than the leaf pin it replaces.\n"
+            "2. Otherwise give the target a SystemSet beside its definition. If "
+            "it already sits in a multi-member set, NEST a single-member one "
+            "inside — that is exactly equivalent, and it is the only form that "
+            "works when the consumer shares the parent set.\n"
+            "3. Write at the definition WHY the set holds the members it holds. "
+            "Every set here has had a different reason; the next reader can only "
+            "widen one safely if the reason is written down.\n\n"
+            "Run with --list to see every row.",
             file=sys.stderr,
         )
         return 1

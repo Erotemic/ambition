@@ -155,6 +155,45 @@ fn main() {
 /// several bodies each; a log that accumulated all of it would be a memory
 /// profile of the probe rather than a trace. The question here is always "what
 /// happened on THIS tick", so the tick is the natural scope.
+/// Per-subject `vel_x` as of the previous tick, so an UNCLAIMED velocity step can
+/// be detected instead of eyeballed.
+///
+/// ⛔ **the seam line samples 1-in-5 between decisions, so a three-tick ramp is
+/// invisible to it** — which is how S51's `-99`/tick ramp survived six reading
+/// cycles. The data was there every tick; only the printing was sampled.
+#[cfg(feature = "causal")]
+thread_local! {
+    static PREV_VEL_X: std::cell::RefCell<std::collections::HashMap<String, f32>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// The largest per-tick `vel_x` change the integrator can make WITHOUT announcing
+/// an operation — **derived from the kernel's own constants, never from a grep.**
+///
+/// ⛔ **the first version of this hardcoded `25.0`, from a grep that found a
+/// maximum of 900 px/s² and concluded `900/60 = 15`/tick.** That grep matched
+/// `field: <number>` struct initialisers and never saw
+/// `pub const RUN_ACCEL: f32 = 5200.0` — the actual ceiling, 5.8× higher. The
+/// wrong number was used to "eliminate" the integrator from S51's `-99`/tick
+/// ramp by arithmetic, and 99.17/tick is comfortably INSIDE `5200/60 = 86.67`
+/// plus a per-character override. Modelling the constant set instead of asking
+/// for it produced a confident false elimination; importing the constants makes
+/// that particular mistake unrepresentable.
+///
+/// The margin covers per-character tuning that raises `run_accel` above the
+/// engine default (the catalog allows it) without swamping the signal.
+#[cfg(feature = "causal")]
+const UNCLAIMED_STEP_THRESHOLD: f32 = {
+    let per_tick = if ambition_platformer2d::engine_core::RUN_ACCEL
+        > ambition_platformer2d::engine_core::AIR_ACCEL
+    {
+        ambition_platformer2d::engine_core::RUN_ACCEL
+    } else {
+        ambition_platformer2d::engine_core::AIR_ACCEL
+    } / 60.0;
+    per_tick * 1.5
+};
+
 #[cfg(feature = "causal")]
 fn trace_seam(app: &mut App, tick: usize) {
     let Some(log) = app
@@ -181,6 +220,33 @@ fn trace_seam(app: &mut App, tick: usize) {
         // an empty row for it.
         if received.is_none() && decided.is_none() {
             continue;
+        }
+        // ⭐ **UNCLAIMED VELOCITY STEPS — checked on EVERY tick, before the
+        // sampling filter below.** This is the detector S51 needed and did not
+        // have: a step larger than the integrator can produce, with no kernel
+        // operation naming a writer.
+        //
+        // ⚠ it prints every fact KIND on the tick rather than only the operations,
+        // because the lesson that thread paid for twice is that a filter is a
+        // hypothesis — `knockback_applied` sat in the log through six cycles
+        // because the query asked for `contains("hit")`.
+        if let Some(vx) = received
+            .and_then(|fact| fact.get("vel_x"))
+            .and_then(|value| format!("{value}").parse::<f32>().ok())
+        {
+            let key = format!("{subject}");
+            let previous = PREV_VEL_X.with(|cell| cell.borrow().get(&key).copied());
+            if let Some(prev) = previous {
+                let step = vx - prev;
+                if step.abs() > UNCLAIMED_STEP_THRESHOLD && operations.is_empty() {
+                    let kinds: Vec<&str> =
+                        explanation.facts().iter().map(|fact| fact.kind()).collect();
+                    eprintln!(
+                        "[unclaimed] t={tick} {subject} dvx={step:+.4}                          ({prev:.2} -> {vx:.2}) ops=[] kinds={kinds:?}"
+                    );
+                }
+            }
+            PREV_VEL_X.with(|cell| cell.borrow_mut().insert(key, vx));
         }
         // ⚠ **every DECISION prints, and the frames between them are sampled.**
         // The first version sampled both at 1-in-5 and every decision row came

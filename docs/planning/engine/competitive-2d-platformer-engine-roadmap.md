@@ -1078,12 +1078,35 @@ and `apply_player_spawn_projectile_messages` sit after the step DELIBERATELY (*"
 the new body first ticks next frame"*), so a set spanning them would push
 presentation past a spawn it is not waiting for.
 
-⭐ **the running tally for this whole thread: 49 → 35 cross-crate leaf pins, via
-five one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
-`PlayerHitResolutionSet`, `HazardTickSet`, `ProjectileStepSet`) plus one phase
-vocabulary (`ProgressionSet`, six phases). Every conversion was chosen because it was
-EXACTLY equivalent; the ones that would have been merely stricter are recorded
-above and left alone.
+⭐ **the running tally for this whole thread: 49 → 33 cross-crate leaf pins, via
+six one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
+`PlayerHitResolutionSet`, `HazardTickSet`, `ProjectileStepSet`,
+`WornControlGateSet`) plus one phase vocabulary (`ProgressionSet`, six phases).
+Every conversion was chosen because it was EXACTLY equivalent; the ones that
+would have been merely stricter are recorded above and left alone.
+
+⛔ **do not maintain the tally here. `scripts/check_cross_crate_leaf_pins.py`
+owns it now**, and the numbers above are frozen prose about what happened, not a
+worklist. This paragraph used to carry the live count and a list of what
+remained, and both went wrong: the list recorded `tick_player_brains` as an
+ordinary row when it is the one that already has a two-member set, and the
+`git grep NAME | head -8` reached for to re-check the list truncated two
+cross-crate pins off the bottom of its own output, which was then published as
+"it is intra-crate". A hand tally drifts silently and the ad-hoc command used to
+audit it has its own silent limit.
+
+`--list` prints every remaining row grouped by target crate, from the tree, in
+under a second. Start there.
+
+▢ **the three kinds still classify the remaining work** — the guard tells you
+WHERE, this tells you which are mechanical:
+* **equivalent** — the pinned system is the head of a chained set, or can take a
+  single-member set with no neighbour it must not overtake. Convert.
+* **stricter** — the pinned system is already inside a multi-member set, so
+  pinning the set MOVES it. Needs a decision, not an edit. `tick_player_brains`
+  is the standing example, and it is pinned from four places.
+* **intra-phase** — the pin is between two members of one set. Needs a new
+  boundary invented before anything can be converted.
 
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:

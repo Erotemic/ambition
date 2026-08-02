@@ -1037,7 +1037,7 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::tick_player_brains)
+            .after(ambition_platformer2d::actors::avatar::PlayerBrainTick)
             .before(ambition_platformer2d::actors::avatar::WornControlGateSet);
         // AFTER the gate: read Sanic's spin-dash rev from the sanctioned technique
         // edge the gate resolved — the fragile before-gate `melee_pressed`

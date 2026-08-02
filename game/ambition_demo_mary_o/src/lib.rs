@@ -1462,7 +1462,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_observer(movement::clear_spark_cooldown_on_restart);
         let pipe_input = pipe::ensure_pipe_entry_latch
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::tick_player_brains)
+            .after(ambition_platformer2d::actors::avatar::PlayerBrainTick)
             .before(warp_through_secret_pipe);
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
@@ -1529,7 +1529,7 @@ impl Plugin for MaryORulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::tick_player_brains);
+            .after(ambition_platformer2d::actors::avatar::PlayerBrainTick);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
         // collision overlay's `removed_block_names` so they stop colliding (and, via

@@ -62,6 +62,29 @@ pub fn sync_player_actor_poses(
 /// skipped — it stays inert with a neutral `ActorControl`. Iterates every home
 /// body carrying a player brain; multi-player ready even though only one slot
 /// exists today.
+/// **The set [`tick_player_brains`] runs in — the universal-brain seam itself.**
+///
+/// FOUR consumers pinned this function by name: both Mary-O rows, one Sanic row,
+/// and the causal movement-intent observer. It was recorded for a while as the
+/// one conversion that would be STRICTER rather than equivalent, on the grounds
+/// that `PlayerInputSet::Brain` already holds two things.
+///
+/// ⭐ that reasoning was wrong, and the correction generalises: "the target is
+/// already in a multi-member set" only forces a stricter pin if you insist on
+/// reusing THAT set. A NESTED single-member set is always available and is
+/// exactly equivalent to the leaf pin it replaces.
+///
+/// It also unblocks a pin that could never have used the parent. The causal
+/// observer `record_player_movement_intent` is itself a member of
+/// `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` would be a cycle;
+/// `.after(PlayerBrainTick)` is not, because it is not in this set.
+///
+/// ⚠ ONE member, permanently. The parent phase is the place to add brain-adjacent
+/// work; this set means "the brains have written their frames" and nothing else,
+/// which is precisely what all four consumers were reaching for.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PlayerBrainTick;
+
 pub fn tick_player_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,

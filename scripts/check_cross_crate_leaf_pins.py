@@ -68,7 +68,7 @@ SOURCE_ROOTS = ["crates", "game"]
 # The ceiling. It may only ever be LOWERED, and lowering it is the commit that
 # converts a pin. If this file's number and the tree's disagree, the tree wins
 # and the number is stale — that is the whole point of measuring it here.
-MAX_CROSS_CRATE_LEAF_PINS = 27
+MAX_CROSS_CRATE_LEAF_PINS = 23
 
 # `.after(a::b::c)` / `.before(a::b::c)` — one qualified path, no nesting.
 PIN = re.compile(r"\.(?:before|after)\(\s*([A-Za-z_][A-Za-z_0-9]*(?:::[A-Za-z_][A-Za-z_0-9]*)+)\s*\)")

@@ -1354,7 +1354,20 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["crate::presentation"]
-skip_paths = ["presentation/", "dialog/ui.rs", "runtime/setup.rs", "runtime/reset/"]
+# ⛔ THREE of the four exemptions here named files that NO LONGER EXIST —
+# `dialog/ui.rs`, `runtime/setup.rs`, `runtime/reset/` — killed by the crate
+# reorganisation and never removed. They exempted nothing, and they lied about
+# the rule's real shape: they implied three gameplay files legitimately import
+# presentation, when none does. Removed 2026-08-02 after checking the rule still
+# passes without them.
+#
+# ⚠ `presentation/` is KEPT even though it also matches no offending file today.
+# It is the module this rule is about, and presentation code referring to
+# `crate::presentation` is the one case that would be legitimate — a
+# forward-looking exemption, not a fossil. That is the distinction worth drawing:
+# a path naming a DELETED file is stale by definition; a live path holding no
+# forbidden token may simply be waiting.
+skip_paths = ["presentation/"]
 
 
 # was: architecture_boundaries_game_mode_lives_with_schedule_vocabulary

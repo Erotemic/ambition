@@ -5,21 +5,22 @@
     "than from whenever somebody notices it needs a number.",
     "",
     "SUBJECT: the transitive `ambition_*` closure a consumer links by depending on",
-    "the facade alone. §2e of api-growth-method.md exists because a clean facade",
-    "can hide this — 'a perfectly semantic API could still force a movement-only",
+    "the facade alone. \u00a72e of api-growth-method.md exists because a clean facade",
+    "can hide this \u2014 'a perfectly semantic API could still force a movement-only",
     "game to compile and link menus, persistence, audio, LDtk, bosses and every",
     "unrelated gameplay domain'. No consumer names a forbidden path; the footprint",
     "is still wrong.",
     "",
-    "⚠ ONE invariant here, not two. The set may not GROW. It deliberately does NOT",
+    "\u26a0 ONE invariant here, not two. The set may not GROW. It deliberately does NOT",
     "require pruning as it shrinks, because unlike the module allowlist there is no",
-    "'slot' to reoccupy — a crate leaving the closure cannot be silently replaced",
+    "'slot' to reoccupy \u2014 a crate leaving the closure cannot be silently replaced",
     "by a different one without the count moving. Stating the difference because",
     "the other two ratchets DO need both halves and copying them blindly here",
     "would add a rule with no failure behind it.",
     "",
     "ZERO unwanted means a game links only what it asked for. That is the",
-    "condition §4's carve exists to reach."
+    "condition \u00a74's carve exists to reach.",
+    "2026-08-01: `ambition_geometry` added, and it is NOT a widening. The crate was CARVED OUT of `ambition_platformer2d_core`, which was already in this closure \u2014 the same shapes/boxes/reference-frames code, now behind its own name. The ratchet was right to stop on a new name; the architecture changed on purpose, so the baseline moves in the SAME COMMIT rather than the contract being waived. The number that would mean something is the consumer linking code it did not already link, and this is not that."
   ],
   "measured_on": "2026-07-30",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
@@ -35,6 +36,7 @@
     "ambition_entity_catalog",
     "ambition_game_shell",
     "ambition_gameplay_trace",
+    "ambition_geometry",
     "ambition_input",
     "ambition_interaction",
     "ambition_items",
@@ -63,7 +65,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "closure_size": 38,
+  "closure_size": 39,
   "never_asked_for": [
     "ambition_audio",
     "ambition_cutscene",
@@ -105,12 +107,12 @@
     "ambition_render",
     "ambition_touch_input"
   ],
-  "why_the_split_matters": "The second list can be closed by making facade edges optional — a manifest change. The first cannot: a game that needs actors needs `ambition_platformer2d_actor_monolith`, which brings them. That is what makes the footprint irreducible without moving code, which is §4's carve condition.",
+  "why_the_split_matters": "The second list can be closed by making facade edges optional \u2014 a manifest change. The first cannot: a game that needs actors needs `ambition_platformer2d_actor_monolith`, which brings them. That is what makes the footprint irreducible without moving code, which is \u00a74's carve condition.",
   "facade_only_four_are_not_a_quick_win": {
     "measured_on": "2026-07-30",
-    "finding": "The four crates reachable ONLY through the facade's own edges — inventory_ui, touch_input, portal_presentation, render — are named through `ambition::` by in-repo code 49, 12, 19 and 90 times respectively. 170 call sites.",
+    "finding": "The four crates reachable ONLY through the facade's own edges \u2014 inventory_ui, touch_input, portal_presentation, render \u2014 are named through `ambition::` by in-repo code 49, 12, 19 and 90 times respectively. 170 call sites.",
     "why_it_matters": "The split recorded above says 15 of 19 unwanted crates need the carve and 4 are 'fixable by making them optional'. True, and it undersells the four: making an edge optional means cfg-gating its re-export, which means every one of those 170 in-repo call sites must either sit behind the same feature or gain it. `render` alone is 90, and `presentation` and `game_assets` are built on it, so gating it is really gating the visible face.",
-    "so_the_honest_scope_is": "A facade-optionality slice, not a manifest tweak. It is still worth doing and still measurable by this ratchet — 19 -> 15 is a real number — but it is a migration with consumers, and calling it cheap was wrong.",
+    "so_the_honest_scope_is": "A facade-optionality slice, not a manifest tweak. It is still worth doing and still measurable by this ratchet \u2014 19 -> 15 is a real number \u2014 but it is a migration with consumers, and calling it cheap was wrong.",
     "how_this_was_caught": "By counting the call sites before starting, rather than after. The earlier 'fixable by making them optional' was inferred from the dependency graph alone, which shows what depends on what and not how much of the tree says its name."
   },
   "slice_h_remeasurement": {
@@ -123,8 +125,8 @@
       "ambition_portal2d_presentation",
       "ambition_touch_input"
     ],
-    "⚠_render_did_not_leave_and_that_is_the_honest_outcome": "The edge IS optional now, but `minimal_game`'s own slice-B exit criterion composes the windowed face (`the_minimal_game_boots_windowed`), and the windowed face draws. Per the slice-H spec's failure-mode clause, a feature the sentinel needs to keep passing its tests is not optional FOR IT: the manifest names `ambition_render` and the closure keeps it. A game with no windowed face drops it — the edge is measured as cuttable, just not by this sentinel.",
-    "⚠_audio_resisted_for_a_different_reason": "Declaring SILENCE is an audio-catalog registration (`ModuleDraft::no_audio` registers an `AudioCatalogFragment`), so the composition path needs `ambition_audio` even for a soundless game — and it arrives via `ambition_platformer2d_actor_monolith` regardless, so gating the facade edge would have cut nothing. Left unconditional.",
-    "the_remaining_15_wait_on_the_carve": "Every crate still in `never_asked_for` is in `reachable_via_ambition_platformer2d_actor_monolith_alone`; no facade manifest change can remove them, which is exactly the §4 carve condition this file has recorded since it was first measured."
+    "\u26a0_render_did_not_leave_and_that_is_the_honest_outcome": "The edge IS optional now, but `minimal_game`'s own slice-B exit criterion composes the windowed face (`the_minimal_game_boots_windowed`), and the windowed face draws. Per the slice-H spec's failure-mode clause, a feature the sentinel needs to keep passing its tests is not optional FOR IT: the manifest names `ambition_render` and the closure keeps it. A game with no windowed face drops it \u2014 the edge is measured as cuttable, just not by this sentinel.",
+    "\u26a0_audio_resisted_for_a_different_reason": "Declaring SILENCE is an audio-catalog registration (`ModuleDraft::no_audio` registers an `AudioCatalogFragment`), so the composition path needs `ambition_audio` even for a soundless game \u2014 and it arrives via `ambition_platformer2d_actor_monolith` regardless, so gating the facade edge would have cut nothing. Left unconditional.",
+    "the_remaining_15_wait_on_the_carve": "Every crate still in `never_asked_for` is in `reachable_via_ambition_platformer2d_actor_monolith_alone`; no facade manifest change can remove them, which is exactly the \u00a74 carve condition this file has recorded since it was first measured."
   }
 }

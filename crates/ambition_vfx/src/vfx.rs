@@ -13,7 +13,12 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core as ae;
+// The kernel, not the platformer. This crate takes `Vec2`, `Aabb`,
+// `CombatVolume` and `VolumeShape` — shapes and boxes, nothing with a
+// genre in it — and used to reach them through
+// `ambition_platformer2d_core`, which made a presentation-neutral VFX
+// vocabulary declare a platformer dependency it did not have.
+use ambition_geometry as ae;
 
 /// Particle flavour for a [`VfxMessage::Burst`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -132,9 +132,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_geometry"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bevy_math",
+ "parry2d",
+ "serde",
+]
+
+[[package]]
 name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
+ "ambition_geometry",
  "bevy_ecs",
  "bevy_math",
  "parry2d",

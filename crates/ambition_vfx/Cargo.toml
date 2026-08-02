@@ -15,7 +15,7 @@ crate-type = ["rlib"]
 bevy = { version = "0.18.1", default-features = false }
 
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
-ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_geometry = { path = "../ambition_geometry" }
 
 # The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
 # carried by Effect::Projectiles.

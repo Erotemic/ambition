@@ -1,0 +1,20 @@
+# `ambition_geometry` — module map
+
+<!-- BEGIN generated module map (scripts/modules_md.py) -->
+
+**ambition_geometry** — **Shapes, boxes and reference frames — the part of the engine that is not about platformers.**
+
+| Module | Its ONE concern (from the module's own `//!` header) |
+|---|---|
+| [`combat_volume`](src/combat_volume.rs) | `CombatVolume` — a hit/hurt shape that can be an axis-aligned box, a rotated box (OBB), or a general convex polygon. |
+| [`geometry`](src/geometry.rs) | Bevy-native geometry helpers. |
+| [`reference_frame`](src/reference_frame.rs) | The gravity-relative reference frame and the transforms between Ambition's three frames. |
+| [`volume_shape`](src/volume_shape.rs) | `VolumeShape` — an authored hit/hurt shape in LOCAL space. |
+
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+
+<!-- END generated module map -->
+
+## Notes
+
+_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._

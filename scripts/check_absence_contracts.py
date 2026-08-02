@@ -530,15 +530,38 @@ SELF_REFERENTIAL = {"scripts/check_absence_contracts.py"}
 # an extra hop. A layering inversion almost never arrives as a direct edge.
 DEPENDENCY_CONTRACTS: list[dict] = [
     {
+        # The REAL floor since 2026-08-01: shapes, boxes and reference frames,
+        # with no genre in them. Carved out of the platformer core because
+        # general-named crates were taking a genre-named dependency to reach
+        # `Vec2`, `Aabb`, `CombatVolume` and `VolumeShape`.
+        "id": "geometry-is-the-floor",
+        "crate": "ambition_geometry",
+        "forbidden": "*",
+        "reason": (
+            "Shapes, boxes and reference frames — the vocabulary every other "
+            "crate is written in terms of, and the one layer with no workspace "
+            "dependency at all. This is what `ambition_platformer2d_core`'s "
+            "contract used to say; the floor MOVED DOWN when the kernel was "
+            "carved out, and the guarantee has to move with it or it is not a "
+            "floor, it is a habit."
+        ),
+    },
+    {
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",
+        # ⛔ the ONE edge, named. Core sits on the geometry kernel and on
+        # nothing else; `ambition_geometry` carries `forbidden: "*"` above, so
+        # the chain still bottoms out with no outward edge. Widening this list
+        # is how "the floor" becomes "roughly the floor".
+        "allowed": ["ambition_geometry"],
         "reason": (
-            "The geometry, movement and body vocabulary every other crate is "
-            "written in terms of. It depends on NO workspace crate, and that is "
-            "what makes it the layer everything else can agree on rather than "
-            "one more participant in a cycle. A single edge out of here makes "
-            "the whole graph a suggestion."
+            "The movement and body vocabulary every other crate is written in "
+            "terms of. It depends on NO workspace crate except the geometry "
+            "kernel it was carved from, and that is what makes it the layer "
+            "everything else can agree on rather than one more participant in "
+            "a cycle. A second edge out of here makes the whole graph a "
+            "suggestion."
         ),
     },
     {
@@ -1322,8 +1345,16 @@ def dependency_violations(contract: dict, graph: dict[str, set[str]]) -> list[st
     reached = reachable(graph, crate)
     forbidden = contract["forbidden"]
     targets = sorted(reached) if forbidden == "*" else forbidden
+    # ⚠ an `allowed` entry is a NAMED edge, never a category. A floor crate that
+    # sits on a smaller floor is still a floor; a floor with an open-ended
+    # exception list is not. Each name here has to be a crate that itself
+    # carries a `forbidden: "*"` contract, or the invariant has just moved
+    # somewhere nobody is checking.
+    allowed = set(contract.get("allowed", ()))
     return [
-        " -> ".join(reached[target]) for target in targets if target in reached
+        " -> ".join(reached[target])
+        for target in targets
+        if target in reached and target not in allowed
     ]
 
 

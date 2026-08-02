@@ -30,14 +30,12 @@ pub mod abilities;
 pub mod body_clusters;
 pub mod cast;
 pub mod collision_semantics;
-pub mod combat_volume;
 pub mod config;
 pub mod confirmed_frame;
 pub mod content_epoch;
 pub mod control_frame;
 pub mod frame;
 pub mod geo_id;
-pub mod geometry;
 pub mod hit_response;
 pub mod input_stream;
 pub mod kinematic_path;
@@ -46,12 +44,10 @@ pub mod motion_codec;
 pub mod motion_quality;
 pub mod movement;
 pub mod player_state;
-pub mod reference_frame;
 pub mod snapshot;
 mod snapshot_impls;
 #[cfg(test)]
 pub(crate) mod test_support;
-pub mod volume_shape;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -66,7 +62,17 @@ pub use body_clusters::{
     BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime, BodyMana,
     BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState, SweepSample,
 };
-pub use combat_volume::CombatVolume;
+// **The geometry + frames kernel lives in `ambition_geometry` now** (carved
+// 2026-08-01). Re-exported here, module paths included, so every existing
+// `ambition_platformer2d_core::{geometry, reference_frame, ...}` path resolves
+// unchanged — this is a FACADE over a crate this one depends on, not a
+// compatibility shim for a rename.
+//
+// ⚠ a consumer that wants only shapes or frames should depend on
+// `ambition_geometry` directly. Reaching them through here is what made 19
+// unqualified crates declare a platformer dependency they did not have.
+pub use ambition_geometry::{combat_volume, geometry, reference_frame, volume_shape};
+pub use ambition_geometry::combat_volume::CombatVolume;
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
@@ -78,7 +84,7 @@ pub use control_frame::{
     accumulate_control_frame_latch, publish_latched_control_frame, ControlFrameLatch,
 };
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
-pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
+pub use ambition_geometry::geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 /// The per-tick input artifact (netcode N0.2): replay, RL, forensics, wire.
 pub use input_stream::{InputStream, InputStreamError, InputStreamFrame, INPUT_STREAM_VERSION};
 pub use kinematic_path::{KinematicPath, KinematicPathMode};
@@ -112,11 +118,11 @@ pub use player_state::{
     classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
-pub use reference_frame::{
+pub use ambition_geometry::reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
     MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
 };
-pub use volume_shape::{VolumeShape, DUMMY_HALF};
+pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,

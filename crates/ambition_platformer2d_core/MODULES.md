@@ -10,14 +10,12 @@
 | [`body_clusters`](src/body_clusters.rs) | Authoritative **body** cluster types — the movement aggregate every actor carries, the player included (NOT player-specific). |
 | [`cast`](src/cast.rs) | `cast` — the swept-primitive library (collision-and-ccd.md §2, CC1). |
 | [`collision_semantics`](src/collision_semantics.rs) | Shared collision-semantics kernel: the gravity-relative support/surface truths every actor body agrees on. |
-| [`combat_volume`](src/combat_volume.rs) | `CombatVolume` — a hit/hurt shape that can be an axis-aligned box, a rotated box (OBB), or a general convex polygon. |
 | [`config`](src/config.rs) | Coordinate transforms and layer/grid constants. |
 | [`confirmed_frame`](src/confirmed_frame.rs) | Which simulation frames are settled, and which are still a guess. |
 | [`content_epoch`](src/content_epoch.rs) | **`ContentEpoch` — the app-local activation generation stamp.** |
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (collision-and-ccd.md §7, CC5). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (collision-and-ccd.md §3.6). |
-| [`geometry`](src/geometry.rs) | Bevy-native geometry helpers. |
 | [`hit_response`](src/hit_response.rs) | **The hit-response kernel** — the pure math of what a landed hit does to a body: launch velocity, directional influence, and hitstun duration. |
 | [`input_stream`](src/input_stream.rs) | **The input stream** (netcode N0.2) — the per-tick input artifact. |
 | [`kinematic_path`](src/kinematic_path.rs) | Declarative movement paths for moving platforms, spike balls, patrol dummies, and scripted hazards. |
@@ -26,13 +24,11 @@
 | [`motion_quality`](src/motion_quality.rs) | **Motion quality** — how a trajectory READS, as numbers. |
 | [`movement`](src/movement/mod.rs) | One trusted, frame-aware movement kernel with swappable physics policies. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
-| [`reference_frame`](src/reference_frame.rs) | The gravity-relative reference frame and the transforms between Ambition's three frames. |
 | [`snapshot`](src/snapshot.rs) | **The deterministic snapshot vocabulary.** |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
-| [`volume_shape`](src/volume_shape.rs) | `VolumeShape` — an authored hit/hurt shape in LOCAL space. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -16,6 +16,7 @@ crate-type = ["rlib"]
 # and `QueryData` derive (no Bundle / Commands / systems), so depend on
 # `bevy_ecs` directly rather than the full `bevy` umbrella to keep this crate's
 # compile time small — everything rebuilds against it.
+ambition_geometry = { path = "../ambition_geometry" }
 bevy_ecs = { version = "0.18.1", default-features = false }
 bevy_math = { version = "0.18.1", features = ["serialize"] }
 parry2d = "0.26"

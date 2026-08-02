@@ -236,6 +236,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_geometry"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bevy_math",
+ "parry2d 0.26.1",
+ "serde",
+]
+
+[[package]]
 name = "ambition_input"
 version = "0.1.0"
 dependencies = [
@@ -388,6 +398,7 @@ dependencies = [
 name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
+ "ambition_geometry",
  "bevy_ecs",
  "bevy_math",
  "parry2d 0.26.1",
@@ -636,7 +647,7 @@ dependencies = [
 name = "ambition_vfx"
 version = "0.1.0"
 dependencies = [
- "ambition_platformer2d_core",
+ "ambition_geometry",
  "ambition_platformer2d_shared_tangle",
  "ambition_sfx",
  "bevy",

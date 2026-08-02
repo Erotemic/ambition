@@ -27,12 +27,12 @@ use bevy::prelude::{
     Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With,
 };
 
-use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::AabbExt;
 use ambition_entity_catalog::{
     AttackDir, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
 };
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
 use ambition_time::ProperTimeScale;
 
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
@@ -668,6 +668,11 @@ pub fn advance_move_playback(
                         // §7.2: the slash VFX rides the SAME resolved volume the
                         // damage does (one box drives both) — emitted once at the
                         // Active edge.
+                        //
+                        // The volume goes across WHOLE. Until 2026-08-01 this
+                        // site took `.bounds()` first and handed presentation a
+                        // box, which is the step that made the drawn art
+                        // unfittable to the hull that hurts.
                         if let Some(tag) = &volume.vfx {
                             let kind = if tag == SLASH_POKE_VFX {
                                 ambition_vfx::vfx::SlashKind::Poke
@@ -679,14 +684,12 @@ pub fn advance_move_playback(
                                 "attack_down" => ambition_vfx::vfx::SlashPose::Down,
                                 _ => ambition_vfx::vfx::SlashPose::Side,
                             };
-                            let b = hb.world_volume(kin.pos).bounds();
                             crate::util::emit_melee_slash(
                                 &mut vfx,
-                                b.center(),
-                                b.half_size(),
+                                &hb.world_volume(kin.pos),
+                                kin.pos,
                                 kind,
                                 pose,
-                                b.center() - kin.pos,
                             );
                         }
                         // NO HitboxLifetime on purpose: the window's exit

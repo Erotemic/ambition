@@ -217,7 +217,7 @@ fn convex_shape(points: &[Vec2], bounds: Aabb) -> (ParryShape, Pose) {
     }
 }
 
-fn obb_corners(center: Vec2, half: Vec2, rotation: f32) -> Vec<Vec2> {
+pub(crate) fn obb_corners(center: Vec2, half: Vec2, rotation: f32) -> Vec<Vec2> {
     let (sin, cos) = rotation.sin_cos();
     // Local corner offsets rotated into world space.
     [

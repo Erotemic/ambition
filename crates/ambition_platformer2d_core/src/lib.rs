@@ -49,6 +49,7 @@ pub mod player_state;
 pub mod reference_frame;
 pub mod snapshot;
 mod snapshot_impls;
+pub mod swing_shape;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod volume_shape;
@@ -116,6 +117,7 @@ pub use reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
     MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
 };
+pub use swing_shape::SwingShape;
 pub use volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,

@@ -595,16 +595,16 @@ fn move_events_capture_character_provider_presentation_sources() {
         ae::Vec2::new(16.0, 24.0),
         one_tick_sfx_move("mary_o.jump"),
     );
-    app.world_mut().entity_mut(actor).insert(crate::components::CombatTuning {
-        sprite_character_id: Some("mary_o".to_string()),
-        ..Default::default()
-    });
+    app.world_mut()
+        .entity_mut(actor)
+        .insert(crate::components::CombatTuning {
+            sprite_character_id: Some("mary_o".to_string()),
+            ..Default::default()
+        });
 
     app.update();
 
-    let messages = app
-        .world()
-        .resource::<Messages<MoveEventMessage>>();
+    let messages = app.world().resource::<Messages<MoveEventMessage>>();
     let mut cursor = messages.get_cursor();
     let sources: std::collections::BTreeSet<String> = cursor
         .read(messages)
@@ -651,15 +651,40 @@ fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
         .filter(|m| matches!(m, VfxMessage::Slash { .. }))
         .collect();
     assert_eq!(slashes.len(), 1, "one slash VFX at the Active edge");
-    if let VfxMessage::Slash {
-        kind, pose, dir, ..
-    } = slashes[0]
-    {
+    if let VfxMessage::Slash { kind, pose, shape } = slashes[0] {
         assert_eq!(*kind, ambition_vfx::vfx::SlashKind::Arc);
         assert_eq!(*pose, ambition_vfx::vfx::SlashPose::Side);
+        let ae::SwingShape::Sweep {
+            dir,
+            length,
+            near_half,
+            far_half,
+            ..
+        } = *shape
+        else {
+            panic!("a forward blade arc is a sweep, got {shape:?}");
+        };
         assert!(
             dir.x > 0.0,
             "the slash points along the strike (facing +x), got {dir:?}",
+        );
+        // The cue carries the SWING's own proportions, not a bounding square.
+        // `test_blade_resolver`'s blade spans 2.4x the body half-width forward
+        // and 2x the body's 0.4-height across — a 1.5:1 shape — and the cue
+        // should say 1.5:1. The scalar this replaced could only ever say 1:1.
+        // This is the assertion that fails if anyone reduces the volume to
+        // `.bounds()` on the way out again.
+        let aspect = length / (far_half * 2.0);
+        assert!(
+            (aspect - 1.5).abs() < 0.05,
+            "the quad takes the blade's proportions (expected ~1.5:1): \
+             length {length}, width {}",
+            far_half * 2.0,
+        );
+        assert_eq!(
+            near_half, far_half,
+            "this fixture blade is a nosed rectangle, not a flaring arc — it \
+             does not widen, and the cue should not invent a flare",
         );
     }
 }
@@ -840,7 +865,8 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
         );
         // The owner's per-tick resolved frame is the rotation authority now —
         // publish the test gravity on the BODY, as the resolution phase would.
-        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        let mut frame =
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
         frame.publish(ae::MotionFrame::from_direction(gravity, 900.0));
         app.world_mut().entity_mut(attacker).insert(frame);
         run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
@@ -1259,7 +1285,10 @@ fn a_forward_special_selects_the_directional_move() {
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
-    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
 
     let make_move = |id: &str| MoveSpec {
         id: id.to_string(),
@@ -1277,10 +1306,7 @@ fn a_forward_special_selects_the_directional_move() {
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([
             (SPECIAL_VERB.to_string(), "neutral_special".to_string()),
-            (
-                "special_forward".to_string(),
-                "forward_special".to_string(),
-            ),
+            ("special_forward".to_string(), "forward_special".to_string()),
         ]),
         moves: vec![make_move("neutral_special"), make_move("forward_special")],
     };
@@ -1391,7 +1417,10 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
-    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
     let mv = MoveSpec {
         id: ATTACK_VERB.into(),
         clip: ClipBinding {
@@ -1637,7 +1666,10 @@ fn a_fire_intent_triggers_the_ranged_move() {
     );
 
     let mut app = App::new();
-    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
     let mut control = ActorControl::default();
     control.0.fire = Some(ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
@@ -1733,7 +1765,10 @@ use ambition_entity_catalog::{CancelCondition, MoveWindow};
 /// verb on its control frame while a move plays.
 fn trigger_app() -> App {
     let mut app = App::new();
-    app.add_systems(Update, (resolve_attack_gestures, trigger_moveset_moves).chain());
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
     app
 }
 

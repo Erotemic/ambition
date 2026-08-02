@@ -230,19 +230,24 @@ pub enum VfxMessage {
         to: ae::Vec2,
         precision: bool,
     },
-    /// A melee slash effect (the `robot_slash` sheet) at `center`, drawn
-    /// `size` square, playing `kind` once. `pose` chooses which authored row to
-    /// use (`side` / `up` / `down`) so the presentation can match the move's
-    /// real strike silhouette instead of rotating one generic arc for every
-    /// attack. `dir` is the WORLD direction from the attacker to the strike
-    /// (player→hitbox) — already gravity-relative — so the renderer orients the
-    /// chosen row toward the resolved hitbox under any gravity.
+    /// A melee slash effect, drawn for the swing `shape` — where the swing
+    /// starts, which way it goes, how far, and how wide it is at each end. The
+    /// renderer places, orients and sizes the art from that alone.
+    ///
+    /// `pose` chooses which authored row to use (`side` / `up` / `down`) so the
+    /// presentation matches the move's real strike silhouette instead of
+    /// rotating one generic arc for every attack.
+    ///
+    /// ⚠ This carried `center` + a single `size: f32` until 2026-08-01, and the
+    /// renderer splatted that scalar into a SQUARE. The emit site had the
+    /// strike's convex hull in hand and reduced it to its bounding box, then to
+    /// that box's longer side, then doubled it — so the drawn quad had no
+    /// relation to the swing's shape and could not be fitted to it by any
+    /// amount of work on the art side. See [`ae::SwingShape`].
     Slash {
-        center: ae::Vec2,
-        size: f32,
+        shape: ae::SwingShape,
         kind: SlashKind,
         pose: SlashPose,
-        dir: ae::Vec2,
     },
     ResetEffects {
         from: ae::Vec2,

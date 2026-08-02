@@ -203,8 +203,20 @@ thread_local! {
 /// for it produced a confident false elimination; importing the constants makes
 /// that particular mistake unrepresentable.
 ///
-/// The margin covers per-character tuning that raises `run_accel` above the
-/// engine default (the catalog allows it) without swamping the signal.
+/// ⛔ **the 1.5× margin this used to carry was unjustified AND it hid the
+/// signal.** It was there for "per-character tuning that raises `run_accel`
+/// above the engine default, which the catalog allows". Measured 2026-08-02:
+/// every authored `run_accel` in the tree is either the 5200 default
+/// (`platformer_defaults.ron`, `character_archetypes.ron`) or LOWER (393.75, for
+/// Mary-O's classic feel). **Nothing exceeds it.**
+///
+/// The margin put the bar at 130/tick — above the `-99.1666`/tick ramp that
+/// S51 has been chasing since 2026-08-01, so this detector would have reported
+/// the run clean while stepping over the exact phenomenon it was built for. A
+/// safety margin for a case that does not occur is not caution; it is a blind
+/// spot with a rationale attached.
+///
+/// 1.01 is float slop and nothing else.
 #[cfg(feature = "causal")]
 const UNCLAIMED_STEP_THRESHOLD: f32 = {
     let per_tick = if ambition_platformer2d::engine_core::RUN_ACCEL
@@ -214,7 +226,7 @@ const UNCLAIMED_STEP_THRESHOLD: f32 = {
     } else {
         ambition_platformer2d::engine_core::AIR_ACCEL
     } / 60.0;
-    per_tick * 1.5
+    per_tick * 1.01
 };
 
 #[cfg(feature = "causal")]

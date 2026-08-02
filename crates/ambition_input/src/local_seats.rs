@@ -216,7 +216,6 @@ pub fn track_local_device_order(
     }
 }
 
-
 /// **Which pad each seat is HOLDING**, remembered across disconnects.
 ///
 /// ⛔ Positional assignment (seat `n` → the `n`-th connected pad) transfers
@@ -292,9 +291,7 @@ impl SeatDeviceOwnership {
         }
         self.remembered
             .iter()
-            .find(|(slot, remembered)| {
-                *remembered == identity && !self.held.contains_key(slot)
-            })
+            .find(|(slot, remembered)| *remembered == identity && !self.held.contains_key(slot))
             .map(|(slot, _)| *slot)
     }
 
@@ -331,7 +328,10 @@ pub fn assign_local_seat_devices(
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
     mut ownership: ResMut<SeatDeviceOwnership>,
     pads: Query<(Option<&Gamepad>, Option<&Name>)>,
-    mut seats: Query<(&InputParticipant, &mut InputMap<Platformer2dInputActionMonolith>)>,
+    mut seats: Query<(
+        &InputParticipant,
+        &mut InputMap<Platformer2dInputActionMonolith>,
+    )>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
     // **HOW MANY PEOPLE ARE PLAYING comes from the session, not from how many
@@ -426,10 +426,46 @@ pub fn assign_local_seat_devices(
         if keyboard_owner.map(|owner| owner.slot()) == Some(slot) {
             continue;
         }
-        if frozen.is_some() {
+        if ownership
+            .pad_for(slot)
+            .is_some_and(|pad| live.contains(&pad))
+        {
             continue;
         }
-        if ownership.pad_for(slot).is_some_and(|pad| live.contains(&pad)) {
+        if let Some(topology) = frozen.as_ref() {
+            // ⛔ **A FROZEN SESSION DECIDES WHICH PAD; OWNERSHIP STILL HAS TO
+            // LEARN WHICH ONE.** This was a bare `continue`, so in a frozen
+            // session no seat ever claimed anything and `remembered` stayed
+            // EMPTY — which silently disabled the identity pass above for
+            // exactly the sessions that have one. Measured 2026-08-01 in
+            // `rollback_seat_devices.rs`: unplug seat one's pad and plug it back
+            // in, and its map still points at the DEAD entity. Not a swap — that
+            // player is simply deaf for the rest of the match, because a dead id
+            // matches no live gamepad and nothing was left to repair it with.
+            //
+            // ⚠ every real match freezes, and ownership is empty when it does:
+            // before a roster exists there is one participant, `players < 2`
+            // returns early, and no claim is ever made. So the frozen path was
+            // not an edge case — it was the shipping path.
+            //
+            // This does not let the freeze be REORDERED: the pad comes from the
+            // topology's own recorded handle, not from whatever is free. It only
+            // records the identity of the controller the session already chose,
+            // so that a later reconnect has something to match.
+            let pad_index = match keyboard_owner {
+                Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
+                _ => slot,
+            };
+            if let Some(pad) = topology
+                .device_for_handle(pad_index as usize)
+                .filter(|pad| live.contains(pad) && !ownership.is_held(*pad))
+            {
+                let identity = pads
+                    .get(pad)
+                    .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
+                    .unwrap_or_default();
+                ownership.claim(slot, pad, identity);
+            }
             continue;
         }
         if let Some(free) = live.iter().copied().find(|pad| !ownership.is_held(*pad)) {
@@ -510,6 +546,20 @@ pub fn assign_local_seat_devices(
     }
 }
 
+/// ⚠ **`cargo test -p ambition_input` does not run any of this.** The module is
+/// `#[cfg(feature = "input")]`, so a bare per-crate invocation reports 55 tests
+/// passing while every device-ownership test here — the couch-multiplayer ones —
+/// is compiled out. Ask for them explicitly:
+///
+/// ```bash
+/// cargo test -p ambition_input --features input     # 84, not 55
+/// ```
+///
+/// The suite itself is fine: `cargo test --workspace` unifies the feature on
+/// through `ambition_platformer2d_actor_monolith`'s
+/// `default → desktop_dev → visible → input`. This note exists because the
+/// per-crate number is the one a person reads while iterating, and it is
+/// silently partial.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -543,7 +593,6 @@ mod tests {
             .gamepad()
     }
 
-
     /// PROBE (2026-08-01): the couch case Jon's milestone 2 names — one keyboard
     /// player and one pad player. Expected: the pad drives seat TWO.
     #[test]
@@ -566,7 +615,6 @@ mod tests {
         );
     }
 
-
     /// **The default policy leaves solo behaviour exactly where it was.**
     ///
     /// Same world as the couch test above and no policy resource at all. Seat
@@ -584,7 +632,6 @@ mod tests {
         assert_eq!(assigned(&app, one), Some(pad));
         assert_eq!(assigned(&app, two), None);
     }
-
 
     /// PROBE (2026-08-01): milestone 6 — *"Disconnecting the gamepad does not
     /// transfer ownership."* Two seats, two pads, unplug player ONE's.
@@ -614,7 +661,6 @@ mod tests {
             "player two kept playing on the pad in their hands"
         );
     }
-
 
     /// **Jon's couch milestone 7**: *"Reconnecting restores the same
     /// participant."*
@@ -655,7 +701,6 @@ mod tests {
         );
     }
 
-
     /// **Two pads reconnecting in the OTHER order must not swap the players.**
     /// (GPT 5.6, 2026-08-01)
     ///
@@ -670,8 +715,14 @@ mod tests {
         let mut app = seat_app();
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
-        let pad_a = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
-        let pad_b = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        let pad_a = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-a")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-b")))
+            .id();
         app.update();
         assert_eq!(assigned(&app, one), Some(pad_a));
         assert_eq!(assigned(&app, two), Some(pad_b));
@@ -684,22 +735,31 @@ mod tests {
         assert_eq!(assigned(&app, two), None);
 
         // Player TWO plugs back in first.
-        let pad_b_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        let pad_b_again = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-b")))
+            .id();
         app.update();
         assert_eq!(
             assigned(&app, two),
             Some(pad_b_again),
             "player two's controller came back and landed in player ONE's seat"
         );
-        assert_eq!(assigned(&app, one), None, "seat one is still waiting for its pad");
+        assert_eq!(
+            assigned(&app, one),
+            None,
+            "seat one is still waiting for its pad"
+        );
 
         // ...and then player one.
-        let pad_a_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        let pad_a_again = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-a")))
+            .id();
         app.update();
         assert_eq!(assigned(&app, one), Some(pad_a_again));
         assert_eq!(assigned(&app, two), Some(pad_b_again));
     }
-
 
     /// **A frozen session must still survive a reconnection.** (GPT 5.6, 2026-08-01)
     ///
@@ -715,8 +775,14 @@ mod tests {
         let mut app = seat_app();
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
-        let pad_a = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
-        let pad_b = app.world_mut().spawn((Gamepad::default(), Name::new("pad-b"))).id();
+        let pad_a = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-a")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-b")))
+            .id();
         app.update();
         let frozen = {
             let mut topology = LocalSeatTopology::default();
@@ -739,8 +805,15 @@ mod tests {
             Some(pad_b),
             "seat one was handed player two's controller"
         );
-        assert_ne!(assigned(&app, one), None, "an unset gamepad answers every pad");
-        let pad_a_again = app.world_mut().spawn((Gamepad::default(), Name::new("pad-a"))).id();
+        assert_ne!(
+            assigned(&app, one),
+            None,
+            "an unset gamepad answers every pad"
+        );
+        let pad_a_again = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad-a")))
+            .id();
         app.update();
         assert_eq!(
             assigned(&app, one),
@@ -836,7 +909,11 @@ mod tests {
         // A second pad arrives and finds the seat that has none.
         let pad_b = app.world_mut().spawn(Gamepad::default()).id();
         app.update();
-        assert_eq!(assigned(&app, one), Some(pad_a), "seat one did not change hands");
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "seat one did not change hands"
+        );
         assert_eq!(assigned(&app, two), Some(pad_b));
 
         // Player one unplugs. Their seat empties; player two keeps playing.
@@ -889,6 +966,85 @@ mod tests {
              the second participant appeared"
         );
         let _ = pad_b;
+    }
+
+    /// ⛔ **A frozen session's seats must still REMEMBER which controller they
+    /// hold**, or reconnecting one is unrepairable.
+    ///
+    /// The freeze decides the mapping, so the claim pass used to skip frozen
+    /// sessions entirely — which left `remembered` empty, which silently
+    /// disabled the identity pass that exists to hand a returning controller
+    /// back to its own seat. Measured end-to-end in
+    /// `game/ambition_app/tests/rollback_seat_devices.rs`: unplug seat two's pad
+    /// and plug it back in, and its map still pointed at the DEAD entity — that
+    /// player deaf for the rest of the match.
+    ///
+    /// ⚠ **this was the shipping path, not an edge case.** Before a roster
+    /// exists there is one participant, `players < 2` returns early, and no
+    /// claim is ever made; then the match freezes. So ownership is empty at
+    /// every real freeze.
+    #[test]
+    fn a_frozen_seat_remembers_its_pad_so_a_reconnect_can_come_home() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad a")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad b")))
+            .id();
+
+        // ⚠ **FREEZE BEFORE ANY ASSIGNMENT PASS RUNS.** This is the whole
+        // fixture. Letting the app update once first lets the UNFROZEN claim
+        // loop populate `remembered`, after which the reconnect works whether
+        // or not the frozen path records anything — so the first version of
+        // this test passed against the bug it was written to pin.
+        //
+        // The shipping path never gets that free pass: before a roster exists
+        // there is one participant, `players < 2` returns early, and the freeze
+        // arrives with ownership still empty. The order below is that order.
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad_a, pad_b]), 2);
+            topology
+        };
+        assert!(frozen.is_frozen(), "the fixture must actually freeze");
+        app.insert_resource(frozen);
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        // Seat two's controller dies.
+        app.world_mut().entity_mut(pad_b).despawn();
+        app.update();
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "seat one lost nothing and must not move"
+        );
+
+        // The SAME controller comes back as a new entity — which is what a
+        // reconnect is; the old `Entity` cannot return.
+        let pad_b_again = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad b")))
+            .id();
+        app.update();
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_b_again),
+            "the reconnected pad did not come home: a frozen seat that never \
+             recorded WHICH controller it held has no identity to match, so it \
+             keeps pointing at a dead entity forever"
+        );
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "the reconnect moved the seat that never lost its pad"
+        );
     }
 
     #[test]
@@ -1045,7 +1201,11 @@ mod local_seat_topology_tests {
         topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 4);
         assert_eq!(topology.players(), 4);
         topology.capture(&LocalDeviceOrder::from_devices(vec![pad]));
-        assert_eq!(topology.declared_seats(), None, "a stale roster must not size a new session");
+        assert_eq!(
+            topology.declared_seats(),
+            None,
+            "a stale roster must not size a new session"
+        );
         assert_eq!(topology.players(), 1);
     }
 

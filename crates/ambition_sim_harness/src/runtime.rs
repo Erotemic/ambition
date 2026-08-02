@@ -10,7 +10,7 @@ use ambition_platformer2d::input::ControlFrame;
 
 use crate::action::AgentAction;
 use crate::observation::{AgentObservation, EnemyObs, PickupObs};
-use crate::options::{RollbackMode, Platformer2dSimHarnessOptions, TimestepMode};
+use crate::options::{Platformer2dSimHarnessOptions, RollbackMode, TimestepMode};
 
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
 ///
@@ -300,10 +300,10 @@ impl Platformer2dSimHarness {
             &ambition_platformer2d::actors::actor::BodyKinematics,
             &ambition_platformer2d::characters::actor::BodyHealth,
         )>();
-        let mut pickup_query = self
-            .app
-            .world_mut()
-            .query::<&ambition_platformer2d::actors::items::pickup::GroundItem>();
+        let mut pickup_query =
+            self.app
+                .world_mut()
+                .query::<&ambition_platformer2d::actors::items::pickup::GroundItem>();
 
         let world = self.app.world();
         let gravity_dir = world
@@ -332,9 +332,10 @@ impl Platformer2dSimHarness {
             .single(world)
             .map(|h| h.health)
             .unwrap_or_else(|_| ambition_platformer2d::characters::actor::Health::new(20));
-        let room = ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
-            .expect("active session RoomSet")
-            .active_spec();
+        let room =
+            ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
+                .expect("active session RoomSet")
+                .active_spec();
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.is_some_and(|c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.is_some_and(|c| c.hitstun_timer > 0.0);
@@ -419,7 +420,9 @@ impl Platformer2dSimHarness {
         self.step(AgentAction::default())
     }
 
-    fn sync_test_settings(&self) -> Option<ambition_platformer2d::runtime::rollback::SyncTestSettings> {
+    fn sync_test_settings(
+        &self,
+    ) -> Option<ambition_platformer2d::runtime::rollback::SyncTestSettings> {
         match self.rollback {
             RollbackMode::Disabled => None,
             RollbackMode::SyncTest {
@@ -446,8 +449,11 @@ impl Platformer2dSimHarness {
             return Ok(());
         };
         ambition_platformer2d::runtime::rollback::stop_session(self.app.world_mut());
-        ambition_platformer2d::runtime::rollback::start_sync_test_session(self.app.world_mut(), settings)
-            .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
+        ambition_platformer2d::runtime::rollback::start_sync_test_session(
+            self.app.world_mut(),
+            settings,
+        )
+        .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
     }
 
     /// Execute one setup-only simulation frame without retaining rollback
@@ -498,7 +504,9 @@ impl Platformer2dSimHarness {
             .copied()
     }
 
-    pub fn rollback_status(&self) -> Option<&ambition_platformer2d::runtime::rollback::RollbackSessionStatus> {
+    pub fn rollback_status(
+        &self,
+    ) -> Option<&ambition_platformer2d::runtime::rollback::RollbackSessionStatus> {
         self.app
             .world()
             .get_resource::<ambition_platformer2d::runtime::rollback::RollbackSessionStatus>()
@@ -534,6 +542,29 @@ impl Platformer2dSimHarness {
         self.app.world_mut()
     }
 
+    /// Mutable access to the whole App, so a fixture can INSTALL SYSTEMS on top
+    /// of a harness rather than only poke its world.
+    ///
+    /// ⛔ this exists because the two halves of the couch-multiplayer question
+    /// could not be asked in one place. The harness carries a rollback session;
+    /// the host carries the device→seat layer (`LocalDeviceOrder`,
+    /// `assign_local_seat_devices`, `SeatDeviceOwnership`). With only
+    /// [`Self::world_mut`], a test could author seat FRAMES but there were no
+    /// `InputParticipant` entities to own a pad — so a disconnect-under-rollback
+    /// probe ran green over an empty query and proved nothing at all (`[seat-probe] []`).
+    ///
+    /// The composition stays in the TEST, not here: this crate must not learn
+    /// which host systems a fixture wants, or every consumer inherits that
+    /// opinion. `world_mut()` for state, this for wiring.
+    ///
+    /// ⚠ add systems BEFORE the first [`Self::step`]. `step` runs a full
+    /// `app.update()`, and a system added mid-episode starts running against a
+    /// world whose rollback baseline was taken without it — which desyncs on the
+    /// next rewind rather than failing where you added it.
+    pub fn app_mut(&mut self) -> &mut App {
+        &mut self.app
+    }
+
     /// Set the room's ambient gravity direction (unit vector). `(0, 1)`
     /// is default down; `(0, -1)` inverts to up. Writes [`BaseGravity`],
     /// which `resolve_active_gravity` copies into the live `GravityField`
@@ -558,10 +589,10 @@ impl Platformer2dSimHarness {
     /// side/down directly. Other tests can select the user-facing modes and
     /// convert local intent through `AccelerationFrame::raw_axis_for_resolved_input`.
     pub fn set_movement_frame_mode(&mut self, mode: ae::InputFrameMode) {
-        let mut settings = self
-            .app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
+        let mut settings =
+            self.app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
         drop(settings);
         self.rebase_after_direct_setup_mutation();
@@ -574,7 +605,8 @@ impl Platformer2dSimHarness {
         let mut q = self.app.world_mut().query_filtered::<(
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d::actors::features::MotionModel,
-        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+        );
         if let Ok((mut cluster_item, mut motion_model)) = q.single_mut(self.app.world_mut()) {
             let mut clusters = cluster_item.as_clusters_mut();
             ae::movement::transit_body(
@@ -608,7 +640,8 @@ impl Platformer2dSimHarness {
         let mut q = self.app.world_mut().query_filtered::<(
             &mut ambition_platformer2d::actors::actor::BodyAbilities,
             &mut ambition_platformer2d::actors::actor::BodyFlightState,
-        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+        );
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;
@@ -658,9 +691,8 @@ impl Platformer2dSimHarness {
         brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
         overrides: ambition_platformer2d::actors::features::BossOverrides,
     ) {
-        self.app
-            .world_mut()
-            .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
+        self.app.world_mut().write_message(
+            ambition_platformer2d::actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
@@ -668,8 +700,12 @@ impl Platformer2dSimHarness {
                 // Ignored for the Boss kind (always faction Boss); set for completeness.
                 faction: ambition_platformer2d::actors::features::ActorFaction::Boss,
                 grudge_against: None,
-                kind: ambition_platformer2d::actors::features::SpawnActorKind::Boss { brain, overrides },
-            });
+                kind: ambition_platformer2d::actors::features::SpawnActorKind::Boss {
+                    brain,
+                    overrides,
+                },
+            },
+        );
         self.run_rollback_setup_frame()
             .expect("boss setup frame establishes a fresh GGRS rollback baseline");
     }
@@ -690,9 +726,8 @@ impl Platformer2dSimHarness {
         half_size: (f32, f32),
         brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
     ) {
-        self.app
-            .world_mut()
-            .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
+        self.app.world_mut().write_message(
+            ambition_platformer2d::actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
@@ -700,7 +735,8 @@ impl Platformer2dSimHarness {
                 faction: ambition_platformer2d::actors::features::ActorFaction::Enemy,
                 grudge_against: None,
                 kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy { brain },
-            });
+            },
+        );
         self.run_rollback_setup_frame()
             .expect("enemy setup frame establishes a fresh GGRS rollback baseline");
     }
@@ -725,11 +761,13 @@ impl Platformer2dSimHarness {
     /// (`rl_smoke` binary) or RL training loops that pick a fresh
     /// room per episode.
     pub fn room_ids(&self) -> Vec<String> {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(self.app.world())
-            .expect("active session RoomSet")
-            .rooms
-            .iter()
-            .map(|r| r.id.clone())
-            .collect()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(
+            self.app.world(),
+        )
+        .expect("active session RoomSet")
+        .rooms
+        .iter()
+        .map(|r| r.id.clone())
+        .collect()
     }
 }

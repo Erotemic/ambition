@@ -1098,6 +1098,38 @@ own line with a trailing comma. So the honest total is **51 → 0**, and the
 original hand tally of 35 was closer to right than the instrument built to
 replace it. Every shape is now a planted test.
 
+## The hazard the campaign multiplied — **LANDED 2026-08-02**
+
+⛔ **an ordering edge against a set with NO MEMBERS is vacuously satisfied.** Bevy
+does not warn, nothing fails, and it reads exactly like an edge that works. Naming
+32 boundaries is a strict improvement over 51 foreign function names — a set can be
+widened behind its name, a function cannot — but it multiplies the places this can
+hide, because a leaf pin at least names something that exists.
+
+`scripts/check_set_pins_are_not_vacuous.py` asks, for every `.before`/`.after` in an
+ENGINE crate naming a set DEFINED here: is every member registered by a GAME? If so
+the edge is real only in that game. Same shape as
+`check_engine_systems_are_engine_installed.py`, one level up — there the SYSTEM is
+app-only, here the set's MEMBERSHIP is.
+
+One real defect: `load_ui_fonts` is `ambition_render` code that only `ambition_app`
+registered, so a composition with the touch overlay and no app ordered its text spawn
+against nothing AND never got `UiFonts` at all. `UiFontsPlugin` owns the load now, and
+`UiFontsPlugin::ensure_installed` lets a consumer guarantee its own precondition.
+
+⭐ **the pattern worth reusing: the crate that PINS a set installs the plugin that
+FILLS it.** Both call sites go through `ensure_installed` because Bevy panics on a
+duplicate plugin and neither crate can know which built the `App` first.
+
+▢ **open, and Jon's call: should an extension-point set be allowed to be empty?**
+Three are waived on the argument that empty is correct — `ContentRoomResetSet` and
+`PresentationSetupSet` exist so a layer can join, and `MenuNavConsume`'s members are
+the two app-local inventory backends, so "no backend installed, nothing to land
+before" is right. That argument is sound for all three today. The alternative is that
+an extension point always carries a no-op member so the edge is never silently
+absent, which trades a real ordering guarantee for a system that does nothing. Not
+worth doing on speculation; worth deciding before a fourth one appears.
+
 ## What the campaign learned
 
 ⭐ **"the target is already in a multi-member set" never meant stricter.** That

@@ -556,6 +556,37 @@ fn run_seconds(app: &mut App, seconds: f32) {
     }
 }
 
+/// ⛔ A move event authored AT the start of the move must still fire.
+///
+/// The player's swipe is `windup_s: 0.0` on purpose — "the arc and the swing cue
+/// all land on the frame of the press" — which puts its SFX event at
+/// `at_s == 0.0`. `MovePlayback::new_at` pre-marks events as already fired so
+/// that SEEKING past them does not retro-fire them, and it used `at_s <= t0`,
+/// so at `t0 == 0.0` the swing event was fired-before-it-began. The player's
+/// swing was silent from 2026-07-26 until 2026-08-02 and no test saw it.
+///
+/// ⚠ nothing caught it because every fixture in this file authors a NON-ZERO
+/// event time — `one_tick_sfx_move` below uses `0.01`. The boundary was the one
+/// value the production config actually uses.
+#[test]
+fn an_event_authored_at_the_first_instant_is_not_pre_fired() {
+    let mut spec = simple_melee(&SimpleMeleeParams {
+        windup_s: 0.0,
+        ..SimpleMeleeParams::default()
+    });
+    spec.events = vec![MoveEvent {
+        at_s: 0.0,
+        kind: MoveEventKind::Sfx {
+            cue: "player.robot.slash.air".to_string(),
+        },
+    }];
+    let playback = MovePlayback::new(spec, 1.0);
+    assert!(
+        !playback.fired[0],
+        "an event at t=0 was pre-marked fired, so it can never sound"
+    );
+}
+
 fn one_tick_sfx_move(cue: &str) -> MoveSpec {
     let mut spec = simple_melee(&SimpleMeleeParams::default());
     spec.events = vec![MoveEvent {

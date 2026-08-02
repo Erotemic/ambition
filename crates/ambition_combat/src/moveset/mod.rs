@@ -283,7 +283,18 @@ impl MovePlayback {
 
     pub fn new_at(spec: MoveSpec, facing: f32, t0: f32) -> Self {
         let t0 = t0.clamp(0.0, spec.duration_s);
-        let fired: Vec<bool> = spec.events.iter().map(|ev| ev.at_s <= t0).collect();
+        // ⛔ STRICTLY before `t0`, not `<=`. An event authored AT the start is the
+        // common case, not an edge one: the player's swipe is `windup_s: 0.0`
+        // precisely so "the arc and the swing cue all land on the frame of the
+        // press", which puts its SFX event at `at_s == 0.0`. With `<=` that event
+        // was pre-marked fired before the move began and could never sound — the
+        // player's swing was silent from 2026-07-26 until this was found.
+        //
+        // The pre-marking exists so SEEKING past events does not retro-fire them,
+        // and `<` still does that: seek to 0.5 and everything before 0.5 stays
+        // quiet. An event exactly AT the seek target is one you seeked TO, so it
+        // should still fire.
+        let fired: Vec<bool> = spec.events.iter().map(|ev| ev.at_s < t0).collect();
         Self {
             spec,
             facing,
@@ -485,7 +496,11 @@ pub fn advance_move_playback(
         // side by side.
         let pb = &mut *playback;
         for (idx, ev) in pb.spec.events.iter().enumerate() {
-            if !pb.fired[idx] && ev.at_s > t_prev && ev.at_s <= t {
+            // ⚠ no lower bound: `fired[idx]` already guarantees once-only, and a
+            // `ev.at_s > t_prev` bound is unsatisfiable for an event at 0.0 on the
+            // first advance, where `t_prev` is also 0.0. It added nothing except
+            // that hole.
+            if !pb.fired[idx] && ev.at_s <= t {
                 pb.fired[idx] = true;
                 events.write(MoveEventMessage {
                     owner,

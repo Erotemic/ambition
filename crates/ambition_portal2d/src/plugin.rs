@@ -157,7 +157,7 @@ impl Plugin for PortalSimulationPlugin {
                 // pair's opening to the MIN (centered, no scaling). First, so
                 // transit/carve/eviction see resolved channels + equalized
                 // apertures this frame.
-                crate::resolve_portal_links,
+                crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
                 crate::equalize_pair_apertures,
                 // JON'S RULE: AVOID PUSHOUT — the ONE exception: a portal that
                 // moved/closed under a straddler shoves it clear (vs ripping it

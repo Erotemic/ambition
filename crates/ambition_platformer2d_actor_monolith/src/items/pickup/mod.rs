@@ -109,6 +109,7 @@ impl Plugin for ItemPickupSimulationPlugin {
         app.add_systems(
             sim,
             ambition_portal2d::arm_portal_pickups
+                .in_set(ambition_portal2d::PortalPickupArming)
                 // Parent `PlayerSimulation` already implied via
                 // `ItemPickupSet::CoreHeldItems` (configured above).
                 .in_set(ItemPickupSet::CoreHeldItems),

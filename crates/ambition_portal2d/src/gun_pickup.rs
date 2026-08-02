@@ -25,6 +25,19 @@ pub struct PortalGunPickup {
 // standalone portal crate should expose generic portal-openers and leave pickup
 // / inventory policy entirely host-side.
 
+/// **The set [`arm_portal_pickups`] runs in.**
+///
+/// The arming pass and the Ambition inventory GRANT live in different crates by
+/// design — this one is generic portal code, the grant knows about Ambition
+/// items — but they must run in that order inside `ItemPickupSet::CoreHeldItems`.
+/// The grant used to state that by naming this function across two crate
+/// boundaries; now it names the boundary.
+///
+/// ⚠ ONE member, and the split is the point: this crate must not learn what
+/// `pickup_portal_gun_system` is, so the set can only ever hold the generic half.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PortalPickupArming;
+
 /// Tick down each pickup's [`PortalGunPickup::arm_timer`] so a just-dropped gun
 /// becomes grabbable after the short delay. Always runs (cheap; at most a
 /// couple of pickups).

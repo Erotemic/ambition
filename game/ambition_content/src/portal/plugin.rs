@@ -94,7 +94,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             )
                 .chain()
                 .in_set(PortalSet::Transit)
-                .before(ambition_portal2d::resolve_portal_links),
+                .before(ambition_portal2d::PortalLinkResolution),
         );
         // **The attribution latch is rollback state.** (GPT 5.6 review 5)
         //
@@ -192,7 +192,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             pickup_portal_gun_system
                 .run_if(gameplay_allowed)
                 .in_set(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems)
-                .after(ambition_portal2d::arm_portal_pickups),
+                .after(ambition_portal2d::PortalPickupArming),
         );
 
         // The drop consumer touches Ambition item state (StashedActionSet), so

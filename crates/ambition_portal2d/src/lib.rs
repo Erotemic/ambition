@@ -51,13 +51,15 @@ pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
 pub use gun::{portal_toggle_system, PortalGun};
 pub use gun_lifecycle::despawn_orphaned_portals;
-pub use gun_pickup::{arm_portal_pickups, PortalGunPickup};
+pub use gun_pickup::{arm_portal_pickups, PortalGunPickup, PortalPickupArming};
 pub use gun_projectile::{
     is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
     PortalShotWorld,
 };
 pub use lifecycle::clear_portals_on_reset;
-pub use link::{equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink};
+pub use link::{
+    equalize_pair_apertures, link_hash, resolve_portal_links, PortalLink, PortalLinkResolution,
+};
 pub use messages::{
     ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
     PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,

@@ -54,6 +54,22 @@ const MAX_LINK_GROUPS: usize = 62;
 /// assigned, so a dead portal never carves and never transits.
 const DEAD_LINK_CHANNEL: u8 = 255;
 
+/// **The set [`resolve_portal_links`] runs in.**
+///
+/// Link resolution is the FIRST thing in `PortalSet::Transit`: it turns authored
+/// link ids into channel pairs, and everything downstream in that set —
+/// aperture equalisation, straddler eviction, transit itself — reads the result.
+/// A host adapter that must publish portal frames before resolution therefore
+/// needs a boundary INSIDE the set, which `PortalSet::Transit` cannot give it
+/// (it is already in that set; pinning the parent would be a cycle).
+///
+/// ⚠ ONE member. `equalize_pair_apertures` is chained immediately after and is
+/// the obvious candidate to include, but the adapter's rule is specifically
+/// "before links are resolved" — widening the set would silently also demand
+/// "before apertures are equalised", a stronger claim nobody has made.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PortalLinkResolution;
+
 /// Resolve [`PortalLink`] groups into channel pairs. Valid (exactly-two) groups
 /// get partner-able `Indexed` channels distinguished by position; every other
 /// group is closed (slot-0 channel with no partner).

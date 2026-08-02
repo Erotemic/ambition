@@ -210,16 +210,23 @@ pub fn shield_blocks_hit(
     local_side_delta.signum() == facing.signum()
 }
 
-/// How far the drawn effect overshoots the damage volume, so the swing reads
-/// beyond the exact box that hurts.
+/// ⛔ THE DRAWN EFFECT DOES NOT OVERSHOOT THE VOLUME. Ever.
 ///
-/// This is a PRESENTATION MARGIN and nothing else — it scales an already-correct
-/// shape. It replaces `SLASH_EFFECT_SCALE = 2.0`, which was applied to the
-/// longer side of a bounding box before that side became a square, and so was
-/// indistinguishable from the shape derivation it was folded into. Doubling was
-/// never a considered margin; it was what made a 205-unit square out of a
-/// 98-unit swing.
-const SLASH_ART_MARGIN: f32 = 1.15;
+/// This was 1.15 — a "presentation margin" that scaled the swing shape up by
+/// 15% in every direction after deriving it from the volume, so the quad the
+/// art is stretched into was always larger than the polygon that hurts. Jon's
+/// rule runs the other way: the hitbox may slightly overreach the effect, but
+/// 100% of what is drawn must hit, because "the player should never feel like
+/// they should have hit when they didn't".
+///
+/// ⚠ It also fooled an instrument. A harness that reproduced `swing_shape` but
+/// not this line measured the art against the UNSCALED quad and reported 0.00%
+/// of the slash outside its polygon, in the same frame where a picture of the
+/// same swing plainly showed white ink past the outline. Two agreeing numbers
+/// and one disagreeing image: the image was right. If a margin is ever wanted
+/// again it belongs on the POLYGON, in the generator, where the art can be
+/// authored against it.
+const SLASH_ART_MARGIN: f32 = 1.0;
 
 /// THE single melee-slash effect emit. EVERY body's melee — the player AND any
 /// brain-driven actor — draws its swing through this one function, so the slash

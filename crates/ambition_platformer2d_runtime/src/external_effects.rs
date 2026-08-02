@@ -277,7 +277,19 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
         let sim = app.sim_schedule();
         let speculating = resource_exists::<ConfirmedFrameBoundary>;
 
-        app.init_resource::<ExternalEffectJournal<M>>()
+        // ⛔ **REGISTER THE CHANNEL THIS PLUGIN QUARANTINES.** It used to install
+        // systems taking `ResMut<Messages<M>>` and leave the registration to
+        // whoever else happened to want the message — which in a shipped app is
+        // the render/audio plugins, so it always worked there and nowhere else.
+        // A host that composes rollback WITHOUT presentation (a headless
+        // capability host, `examples/capability_demo`'s GGRS round-trip) failed
+        // parameter validation on frame one, naming a message type it had never
+        // heard of.
+        //
+        // `add_message` is guarded by `contains_resource`, so this is idempotent
+        // and changes nothing for a composition that already registered it.
+        app.add_message::<M>()
+            .init_resource::<ExternalEffectJournal<M>>()
             .add_systems(
                 sim,
                 open_sim_effect_outbox::<M>

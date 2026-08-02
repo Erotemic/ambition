@@ -596,6 +596,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_sim_harness"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
@@ -2221,6 +2229,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
+ "ambition_sim_harness",
  "bevy",
  "ron 0.11.0",
  "serde",
